@@ -61,6 +61,28 @@ try
         && File.ReadAllText(path).Contains("PRIME_ID=" + firstId),
         "source exporter retains brush GUID and external identity sidecar");
 
+    string legacy = Path.Combine(root, "legacy-prime-v1.map");
+    string legacyText = File.ReadAllText(path)
+        .Replace("// Project Prime Quake3 .map brush authoring source v2", "// Project Prime original Quake3 .map brush authoring source", StringComparison.Ordinal)
+        .Replace("// PRIME_PLANE_WINDING=quake3" + Environment.NewLine, "", StringComparison.Ordinal);
+    // Recreate the historical export format explicitly: the old Prime header
+    // selected Cross(d1,d2), opposite to the actual Quake 3 plane convention.
+    legacyText = Regex.Replace(legacyText,
+        @"(?m)^(?<a>\( [^\r\n)]+ \)) (?<b>\( [^\r\n)]+ \)) (?<c>\( [^\r\n)]+ \))",
+        "${a} ${c} ${b}");
+    File.WriteAllText(legacy, legacyText);
+    var legacyMap = QuakeMapInterchange.Import(legacy, sidecar);
+    Check(legacyMap.Definition.Geometry.Count == map.Geometry.Count
+        && ((MapBox)legacyMap.Definition.Geometry[0]).Transform.Scale.SequenceEqual(((MapBox)map.Geometry[0]).Transform.Scale),
+        "explicit historical Prime v1 header preserves legacy source geometry");
+    string unmarkedLegacy = Path.Combine(root, "unmarked-legacy.map");
+    File.WriteAllText(unmarkedLegacy, legacyText.Replace(
+        "// Project Prime original Quake3 .map brush authoring source", "// No format marker", StringComparison.Ordinal));
+    bool unmarkedRefused = false;
+    try { QuakeMapInterchange.Import(unmarkedLegacy); }
+    catch (QuakeMapInterchangeException) { unmarkedRefused = true; }
+    Check(unmarkedRefused, "unmarked inverted Quake planes are refused without heuristic winding repair");
+
     var identityless1 = QuakeMapInterchange.Import(path);
     var identityless2 = QuakeMapInterchange.Import(path);
     Check(identityless1.Definition.MapId != Guid.Empty

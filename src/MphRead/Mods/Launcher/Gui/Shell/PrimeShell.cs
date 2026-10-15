@@ -19,10 +19,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly LayoutTransformControl _canvas;
         private readonly PrimeUiPulse _pulse;
         private double _scale = 1;
-        public PrimeShell(Func<PrimeRoute, Control> create, Action update)
+        public PrimeShell(Func<PrimeRoute, Control> create, Action update, Action? openStudio = null)
         {
             Background = PrimeTheme.BackgroundBrush;
             Workspaces = new PrimeWorkspaceHost(create) { HasOverlay = () => Overlays.IsOpen };
+            if (openStudio != null) Router.RegisterRouteAction(PrimeRoute.Studio, openStudio);
             Header = new PrimeHeader(r => Router.Navigate(r));
             Footer = new PrimeFooter(update);
             var main = new Grid { RowDefinitions = new("Auto,*,Auto") };
@@ -40,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
             _pulse = new PrimeUiPulse(TimeSpan.FromSeconds(1), Refresh);
             AttachedToVisualTree += (_, _) => { _pulse.Start(); Refresh(); };
             DetachedFromVisualTree += (_, _) => _pulse.Stop();
-            Header.SetRoute(PrimeRoute.News);
+            Header.SetRoute(Router.Current);
         }
         public void Dispose() { Content = null; _pulse.Dispose(); Workspaces.Dispose(); }
         public void Start() => Workspaces.Show(Router.Current);

@@ -9,15 +9,18 @@ using System.Threading.Tasks;
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// Optional external GPL editor bridge. Neither NetRadiant nor q3map2 is
-/// redistributed, linked or installed by Project Prime. A caller opts into
-/// configured, separately obtained executables and retained editable sources.
+/// External-process map editor bridge. Packaged and explicitly configured
+/// tools retain editable sources; no editor code is linked into the game.
 /// </summary>
 public static class NetRadiantBridge
 {
     private const int MaximumOutputChars = 256 * 1024;
 
     public static Process LaunchEditor(string executable, string mapSource)
+        => Process.Start(CreateEditorStartInfo(executable, mapSource))
+            ?? throw new IOException("NetRadiant did not start.");
+
+    public static ProcessStartInfo CreateEditorStartInfo(string executable, string mapSource)
     {
         if (OperatingSystem.IsAndroid())
             throw new PlatformNotSupportedException(
@@ -30,9 +33,37 @@ public static class NetRadiantBridge
             WorkingDirectory = Path.GetDirectoryName(source)!
         };
         // Never use a shell, string concatenation or editor-provided commands.
+        // Fixed installation resources select the original gamepack. Map sources
+        // cannot nominate a gamepack, resource root or arbitrary arguments.
+        string installation = NetRadiantToolDiscovery.ResourceDirectoryForExecutable(binary);
+        string packs = Path.Combine(installation, "gamepacks");
+        string pack = Path.Combine(packs, "projectprime.game");
+        string game = Path.Combine(packs, "games", "projectprime.game");
+        bool canonical = NetRadiantToolDiscovery.RegularFile(game)
+            && NetRadiantToolDiscovery.RegularDirectory(Path.GetDirectoryName(game)!);
+        if (!canonical) game = Path.Combine(installation, "games", "projectprime.game");
+        if (NetRadiantToolDiscovery.RegularDirectory(installation)
+            && NetRadiantToolDiscovery.RegularFile(game)
+            && NetRadiantToolDiscovery.RegularDirectory(Path.GetDirectoryName(game)!)
+            && NetRadiantToolDiscovery.RegularDirectory(pack)
+            && NetRadiantToolDiscovery.RegularDirectory(packs))
+        {
+            args.ArgumentList.Add("-global-gamefile");
+            args.ArgumentList.Add("projectprime.game");
+            if (canonical)
+            {
+                args.ArgumentList.Add("-projectprime.game-EnginePath");
+                args.ArgumentList.Add(pack + Path.DirectorySeparatorChar);
+                string preview = Path.Combine(Path.GetDirectoryName(source)!, "radiant-preview-assets");
+                if (NetRadiantToolDiscovery.RegularDirectory(preview))
+                {
+                    args.ArgumentList.Add("-projectprime.game-ExtraResourcePath0");
+                    args.ArgumentList.Add(preview + Path.DirectorySeparatorChar);
+                }
+            }
+        }
         args.ArgumentList.Add(source);
-        return Process.Start(args)
-            ?? throw new IOException("NetRadiant did not start.");
+        return args;
     }
 
     public sealed record CompileResult(
@@ -54,6 +85,10 @@ public static class NetRadiantBridge
         string tool = ValidateTool(q3map2Executable);
         string source = ValidateSource(mapSource);
         MapValidator.RequireRuntimeName(roomName);
+        if (File.ReadLines(source).Any(line => line.Trim()
+            == "// Project Prime original Quake3 .map brush authoring source"))
+            throw new InvalidDataException("Historical Prime .map source uses legacy plane winding. "
+                + "Import it in native Studio and export a new editable .map before compiling with Q3Map2.");
 
         string digest = MapBuildFingerprint.HashFile(source);
         string parent = Path.GetDirectoryName(Path.GetFullPath(destination))
@@ -159,8 +194,8 @@ public static class NetRadiantBridge
         if (Path.GetExtension(path).ToLowerInvariant() != ".map"
             || !File.Exists(path)
             || File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)
-            || new FileInfo(path).Length is <= 0 or > 32L * 1024 * 1024)
-            throw new InvalidDataException("Expected a regular Quake .map source within 32 MiB.");
+            || new FileInfo(path).Length is <= 0 or > 64L * 1024 * 1024)
+            throw new InvalidDataException("Expected a regular Quake .map source within 64 MiB.");
         return path;
     }
 }

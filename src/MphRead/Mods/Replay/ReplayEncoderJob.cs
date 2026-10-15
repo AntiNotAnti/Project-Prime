@@ -29,7 +29,11 @@ internal sealed class ReplayEncoderJob : IDisposable
             using var process = new Process { StartInfo = new ProcessStartInfo(executable, arguments)
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true,
                 RedirectStandardOutput = true, WorkingDirectory = directory } };
+#if MPHREAD_STUDIO
+            using var childOwner = MphRead.Mods.StudioReplay.StudioReplayWorkerLifetime.StartChild(process);
+#else
             if (!process.Start()) return new(false, null, "Encoder did not start.", "");
+#endif
             // Cancellation only signals from the render thread. Kill/wait occur here.
             using var readCancellation = new CancellationTokenSource();
             Task stdout = ReadProgress(process.StandardOutput, readCancellation.Token);

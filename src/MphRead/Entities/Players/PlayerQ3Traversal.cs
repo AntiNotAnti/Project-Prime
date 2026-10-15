@@ -164,12 +164,16 @@ public partial class PlayerEntity
         float gravity = reader.ReadSingle(); int frames = reader.ReadInt32(); uint reportedFrame = reader.ReadUInt32(); int count = reader.ReadInt32();
         if (!float.IsFinite(gravity) || gravity > 0 || gravity < -10000f / 900 || frames is < 0 or > 600
             || count != _q3Cooldowns.Length || count > 4096) throw new InvalidDataException("Invalid Q3 traversal checkpoint.");
-        _q3LaunchGravity = gravity; _q3LaunchFrames = frames; _q3ReportedFrame = reportedFrame;
+        // Check the complete appendix before publishing any state. A damaged
+        // late cooldown must not leave a half-restored player flight behind.
+        var cooldowns = new int[count];
         for (int i = 0; i < count; i++)
         {
             int cooldown = reader.ReadInt32();
             if (cooldown is < 0 or > 600) throw new InvalidDataException("Invalid Q3 cooldown checkpoint.");
-            _q3Cooldowns[i] = cooldown;
+            cooldowns[i] = cooldown;
         }
+        _q3LaunchGravity = gravity; _q3LaunchFrames = frames; _q3ReportedFrame = reportedFrame;
+        _q3Cooldowns = cooldowns;
     }
 }

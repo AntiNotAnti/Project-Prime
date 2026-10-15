@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/Garux/netradiant-custom.git",
+  "commit": "8216133984031afaa9a857b56ea66dd9c3d54b26",
+  "product": "Project Prime Radiant",
+  "sourceLicense": "Per-file GPL/LGPL/BSD; retain upstream LICENSE, GPL, LGPL and all source headers",
+  "patches": [
+    "patches/0001-compiler-portability.patch"
+  ],
+  "downloadGamepacks": false,
+  "platformQualification": {
+    "win-x64": "pending",
+    "linux-x64": "pending",
+    "osx-arm64": "native Cocoa build/package and bounded real GUI edit/save/review/package checks passed 2026-10-15; broader parity/release qualification pending",
+    "osx-x64": "native editor pending; native JSON Studio fallback"
+  }
+}

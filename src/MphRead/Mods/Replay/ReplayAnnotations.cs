@@ -67,13 +67,13 @@ namespace MphRead.Mods.Replay
             Save(path, document);
         }
 
-        public static ReplayBookmark AddBookmark(string replay, uint frame, string? name)
+        public static ReplayBookmark AddBookmark(string replay, uint frame, string? name, uint? durationFrames = null)
         {
             string path = RequireReplay(replay);
             ReplayAnnotationDocument document = Load(path);
             string title = CleanName(name, $"Bookmark {ReplayHud.Time(frame)}");
             var bookmark = new ReplayBookmark(Guid.NewGuid(),
-                Math.Min(frame, ReplayController.DurationFrames), title, DateTime.UtcNow);
+                Math.Min(frame, durationFrames ?? ReplayController.DurationFrames), title, DateTime.UtcNow);
             document.Bookmarks.Add(bookmark);
             Save(path, document);
             return bookmark;
@@ -154,7 +154,22 @@ namespace MphRead.Mods.Replay
         {
             string sidecar = Sidecar(replay);
             Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
-            File.WriteAllText(sidecar, JsonSerializer.Serialize(document, JsonOptions));
+            WriteAtomic(sidecar, JsonSerializer.Serialize(document, JsonOptions));
+        }
+
+        internal static void WriteAtomic(string path, string text)
+        {
+            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    using var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(false), leaveOpen: true);
+                    writer.Write(text); writer.Flush(); stream.Flush(true);
+                }
+                File.Move(temporary, path, overwrite: true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
 
         private static string RequireReplay(string replay)

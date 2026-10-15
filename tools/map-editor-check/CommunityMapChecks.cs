@@ -545,12 +545,27 @@ internal static class CommunityMapChecks
             check(restoredMap?.DeletedAt == null && restoredMap.ArchivedAt == null,
                 "owner can restore a deleted map before permanent purge");
 
-            await client.DeleteMapAsync(lifecycleMapId, default);
-            await client.PurgeMapAsync(lifecycleMapId, default);
-            using (var purgedPackage = await http.GetAsync(
-                "packages/" + lifecycleOne.Package.Hash))
-                check(purgedPackage.StatusCode == HttpStatusCode.NotFound,
-                    "moderator permanent purge removes immutable package bytes");
+            // Keep the production download handle alive across purge, rather
+            // than racing HTTP completion against server-side disposal. This
+            // deterministically covers Windows delete sharing as well as Unix.
+            await using (var inFlightDownload = MapCommunityServer.OpenPackageRead(
+                Path.Combine(storage, lifecycleOne.Package.Hash + ".ppmap")))
+            {
+                await client.DeleteMapAsync(lifecycleMapId, default);
+                await client.PurgeMapAsync(lifecycleMapId, default);
+                using (var purgedPackage = await http.GetAsync(
+                    "packages/" + lifecycleOne.Package.Hash))
+                    check(purgedPackage.StatusCode == HttpStatusCode.NotFound,
+                        "moderator permanent purge removes immutable package bytes");
+                check(!File.Exists(Path.Combine(storage,
+                    lifecycleOne.Package.Hash + ".ppmap")),
+                    "permanent purge removes the archive while an existing download handle remains open");
+                using var completedDownload = new MemoryStream();
+                await inFlightDownload.CopyToAsync(completedDownload);
+                check(completedDownload.ToArray().SequenceEqual(
+                    File.ReadAllBytes(lifecycleOnePath)),
+                    "existing immutable download finishes with exact bytes after permanent purge");
+            }
             check(await client.GetProjectAsync(lifecycleMapId, default) == null,
                 "permanent purge removes the map-level lifecycle tombstone");
 

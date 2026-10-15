@@ -34,6 +34,15 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            if(HasFlag(args,"studioversion"))
+            {
+                string version=typeof(ModEntry).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute),false)
+                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion??"local";
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{gameVersion=version,studioIpcVersion=ProjectPrime.Studio.Protocol.StudioProtocol.StudioIpcVersion}));
+                return true;
+            }
+#endif
             // The update worker must reach its copy routine without loading game
             // settings, renderer or launcher state from the temporary stage.
             // Older builds pass only the target and PID; newer builds also pass
@@ -625,19 +634,25 @@ namespace MphRead.Mods
                 }
             }
 
-            if (HasFlag(args, "mapstudio"))
+            if (HasFlag(args, "studio") || HasFlag(args, "mapstudio") || HasFlag(args, "replaystudio"))
             {
 #if MPHREAD_SHELL
+                string? document = ValueAfter(args, "studioproject") ?? ValueAfter(args, "studioreplay");
+                if (!HasFlag(args, "embeddedstudio"))
+                {
+                    bool opened = StudioIntegration.StudioApplicationLauncher.TryOpen(document, false, out string? error,
+                        HasFlag(args, "replaystudio") ? "replays" : HasFlag(args, "mapstudio") ? "maps" : null);
+                    if (!opened) { Console.WriteLine("[studio] " + error); Environment.ExitCode = 1; }
+                    return true;
+                }
                 MapGen.CustomRooms.DeferInitialRegistration = true;
                 Launcher.Gui.Shell.OpenStudioOnStart = true;
                 Launcher.Gui.Shell.StudioWindow = true;
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
-                Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
-                if (Launcher.ClientInstanceGuard.TryAcquireForProcess(
-                    TimeSpan.FromSeconds(5)))
-                    Launcher.Gui.Shell.Run();
+                Launcher.Gui.Shell.StudioProjectPath = document;
+                if (Launcher.ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5))) Launcher.Gui.Shell.Run();
 #else
-                Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
+                Console.WriteLine("[studio] Project Prime Studio requires a desktop build.");
                 Environment.ExitCode = 1;
 #endif
                 return true;

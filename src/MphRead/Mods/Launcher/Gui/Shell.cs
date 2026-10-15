@@ -172,6 +172,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PublishNativeHandle(window);
                 _window = window;
                 Active = true;
+                StudioIntegration.GameStudioIntegration.Start();
                 OfflineRematch.StartNext = PlayAnother;
                 ShowFrontScreen();
                 LifecycleTiming.Startup("front screen ready");
@@ -203,6 +204,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _startupWork = null;
                 _deferredCustomRoomsPending = null;
                 _deferredCustomRoomsToken = default;
+                StudioIntegration.GameStudioIntegration.Stop();
                 Active = false;
                 OfflineRematch.StartNext = null;
                 _window = null;
@@ -252,6 +254,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
+            StudioIntegration.GameStudioIntegration.PumpOwnerThread(window);
             if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
                 && UiSurface.Ensure() is { } trainingSurface)
             {

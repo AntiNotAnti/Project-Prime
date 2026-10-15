@@ -9,6 +9,14 @@ namespace MphRead.Mods.Launcher.Gui;
 internal sealed partial class MapStudioScreen
 {
     private readonly List<MapViewport> _views = new();
+    private Control HostViewport(MapViewport view)
+    {
+#if MPHREAD_STUDIO
+        return MphRead.Mods.StudioRendering.StudioMapViewport.Wrap(view,ShowStatus);
+#else
+        return view;
+#endif
+    }
     private void ReleaseViews()
     {
         foreach (var view in _views) view.DetachDocument();
@@ -34,8 +42,8 @@ internal sealed partial class MapStudioScreen
             foreach (var view in _views) if (view != _viewport) view.DetachDocument();
             _views.Clear(); _views.Add(_viewport);
             // Remove the active viewport from its pane before reparenting it.
-            if (_viewport.Parent is DockPanel pane) pane.Children.Remove(_viewport);
-            _viewportHost.Children.Clear(); _viewportHost.Children.Add(_viewport);
+            if (_viewport.Parent is Panel pane) pane.Children.Remove(_viewport);
+            _viewportHost.Children.Clear(); _viewportHost.Children.Add(HostViewport(_viewport));
             return;
         }
         var primary = _viewport;
@@ -56,7 +64,7 @@ internal sealed partial class MapStudioScreen
             view.GotFocus += ActivateViewport;
             var pane=new DockPanel();
             var label=Text(names[i].ToUpperInvariant());label.Margin=new Thickness(6,3);
-            DockPanel.SetDock(label,Dock.Top);pane.Children.Add(label);pane.Children.Add(view);
+            DockPanel.SetDock(label,Dock.Top);pane.Children.Add(label);pane.Children.Add(HostViewport(view));
             Grid.SetColumn(pane,(i%2)*2);Grid.SetRow(pane,(i/2)*2);grid.Children.Add(pane);
         }
         var vertical=new GridSplitter { Width=5,HorizontalAlignment=HorizontalAlignment.Stretch,Background=PrimeTheme.BorderBrush };

@@ -106,6 +106,20 @@
     <NoWarn Condition="'$(MphReadAvalonia)' == 'true'">$(NoWarn);AVA3001</NoWarn>
   </PropertyGroup>
 
+  <!-- Studio uses canonical editor/compiler/replay kernels without entering Main. -->
+  <PropertyGroup Condition="'$(MphReadStudioEngine)' == 'true'">
+    <OutputType>Library</OutputType>
+    <AssemblyName>ProjectPrime.StudioEngine</AssemblyName>
+    <PublishSingleFile>false</PublishSingleFile>
+    <DefineConstants>$(DefineConstants);MPHREAD_STUDIO</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="bin/**;obj/**" />
+    <InternalsVisibleTo Include="ProjectPrimeStudio" />
+    <InternalsVisibleTo Include="studio-engine-check" />
+    <InternalsVisibleTo Include="studio-replay-check" />
+  </ItemGroup>
+
   <!-- Mods\Launcher\Gui\ is the front screen and every window behind it, in
        Avalonia. Mods\Launcher\Portable\ is the half of the launcher that is
        just logic: preferences, game-file setup, what a launch consists of, and
@@ -357,5 +371,8 @@
           Condition="'$(MphReadServer)' != 'true'"
           Link="fidelity-baselines/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <ProjectReference Include="..\ProjectPrime.Studio.Protocol\ProjectPrime.Studio.Protocol.csproj" />
   </ItemGroup>
 </Project>

@@ -30,6 +30,8 @@ namespace MphRead.Mods.Network
         public static bool GameplayReady => !_loadPending
             && (_loadedMatch == 0 || _loadedMatch == NetSession.CurrentMatchId);
         private static uint _requestedFrame;
+        private static (ushort Match, ulong Epoch, string Room)? _failedLoad;
+        internal static void RetryFailedLoad() => _failedLoad = null;
         /// <summary>
         /// The server's match number this client has loaded a room for.
         ///
@@ -64,6 +66,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            RetryFailedLoad();
             _loadPending = false;
             _requested = "";
             _requestedFrame = 0;
@@ -94,6 +97,8 @@ namespace MphRead.Mods.Network
             // Never load a room against the preceding match's package identity.
             if (NetSession.ServerSession is not { } session || session.MatchId != match
                 || !session.Match.RoomKey.Equals(wanted, StringComparison.OrdinalIgnoreCase)) return;
+            var loadKey = (match, session.AuthorityEpoch, wanted);
+            if (_failedLoad == loadKey) return;
             if (_loadPending)
             {
                 if (_requestedMatch == match) LoadAtBarrier(scene);
@@ -119,7 +124,12 @@ namespace MphRead.Mods.Network
                 return;
             }
             try { NetSession.RequireExactMapForLoad(); }
-            catch (Exception ex) { NetSession.ReportMatchLoadFailed(ex.Message); return; }
+            catch (Exception ex)
+            {
+                _failedLoad = loadKey;
+                NetSession.ReportMatchLoadFailed(ex.Message);
+                return;
+            }
             (RoomMetadata? meta, _) = Metadata.GetRoomByName(wanted);
             if (meta == null)
             {

@@ -38,6 +38,32 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _toolSelectionState = PrimeChrome.Text(
             "OBJECT MODE", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
         private readonly TextBlock _inspectorTitle = PrimeChrome.Title("INSPECTOR");
+        private readonly PrimeButton _studioRadiant;
+        private readonly PrimeButton _studioRadiantReview;
+        private readonly TextBlock _geometryWorkflow = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+        private Expander? _nativeGeometryTools;
+        private readonly bool _nativeStandaloneHost;
+        private bool _nativeGeometryRecovery;
+        private bool _overviewActive;
+        private bool _workspaceModeApplied;
+        private readonly Grid _workspaceBody = new() { ColumnDefinitions = new("260,6,*,6,340") };
+        private readonly List<Control> _nativeAuthoringPanels = new();
+        private readonly List<Control> _nativeSplitters = new();
+        private readonly List<Control> _overviewDocumentActions = new();
+        private PrimeButton? _overviewReviewRadiant;
+        private Control? _nativeCommandPanel;
+        private Control? _nativeToolsPanel;
+        private Control? _projectSettingsPanel;
+        private Control? _projectOverview;
+        private string? _listedProjectPath;
+        private PrimeButton? _returnProjectOverview;
+        private readonly TextBlock _workspaceEyebrow = PrimeChrome.Eyebrow("MAP STUDIO // AUTHORING WORKSPACE");
+        private readonly TextBlock _inspectorEyebrow = PrimeChrome.Eyebrow("PROPERTIES // CONTEXT");
+        private readonly TextBlock _overviewCounts = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush, data: true);
+        private readonly TextBlock _overviewProjectPath = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+        private readonly TextBlock _overviewRadiantState = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+        private readonly TextBlock _overviewLibraryState = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+        private readonly ListBox _persistedProjects = new() { Name="StudioPersistedProjects", MinHeight=100, MaxHeight=220 };
         private readonly PrimeButton _studioSave;
         private readonly PrimeButton _studioValidate;
         private readonly PrimeButton _studioBuild;
@@ -62,6 +88,7 @@ namespace MphRead.Mods.Launcher.Gui
         private MapDocument? _document;
         private MapViewport? _viewport;
         private CancellationTokenSource? _work;
+        private TaskCompletionSource? _jobFinished;
         private bool _refreshing;
         private string _hierarchySignature = "";
         private string _inspectorPage = "Inspector";
@@ -106,15 +133,30 @@ namespace MphRead.Mods.Launcher.Gui
             return 0;
         }
 
-        public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false)
+        public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false, bool nativeStandaloneHost = false)
         {
             _overlays = overlays;
+            _nativeStandaloneHost = nativeStandaloneHost;
+            if (ProjectOverviewMode) _inspectorPage = "Environment";
+            _inspectorTitle.Name = "StudioProjectPanelTitle";
+            _status.Name = "StudioProjectStatus";
             Background = PrimeTheme.BackgroundDeepBrush;
             Focusable = true;
             _hierarchy.Background = _problems.Background = PrimeTheme.PanelBrush;
             _hierarchy.Foreground = _problems.Foreground = PrimeTheme.TextBrush;
             _hierarchy.BorderBrush = _problems.BorderBrush = PrimeTheme.BorderBrush;
-            _studioSave = new PrimeButton("SAVE", Save, primary: true, compact: true);
+            _studioRadiant = new PrimeButton("EDIT MAP IN RADIANT", EditCurrentInNetRadiant, primary: true, compact: true) { Name="StudioEditGeometryInRadiant" };
+            _studioRadiantReview = new PrimeButton("REVIEW / APPLY CHANGES", ReviewRadiantGeometryChanges, compact: true) { Name="StudioReviewRadiantGeometry" };
+            ControllerNav.Identify(_studioRadiant, "studio.radiant");
+            ControllerNav.Identify(_studioRadiantReview, "studio.radiantReview");
+            var nativeGeometry = new PrimeButton("NATIVE GEOMETRY FALLBACK", ShowNativeGeometryTools, compact: true)
+            { Name="StudioOpenNativeGeometryFallback" };
+            _returnProjectOverview = new PrimeButton("RETURN TO PROJECT OVERVIEW", ShowProjectOverview, compact: true)
+            { Name="StudioReturnToProjectOverview", IsVisible=false };
+            var geometryActions = new WrapPanel();
+            foreach (var action in new[] { _studioRadiant, _studioRadiantReview, nativeGeometry, _returnProjectOverview })
+            { action.Margin = new Thickness(0, 0, 5, 3); geometryActions.Children.Add(action); }
+            _studioSave = new PrimeButton("SAVE", Save, compact: true);
             _studioValidate = new PrimeButton("VALIDATE", () => _ = Validate(), compact: true);
             _studioBuild = new PrimeButton("BUILD .PPMAP", () => _ = Build(true), compact: true);
             _studioPlaytest = new PrimeButton("PLAYTEST", PlaytestInspector, compact: true);
@@ -123,22 +165,42 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(_studioBuild, "studio.build");
             ControllerNav.Identify(_studioPlaytest, "studio.playtest");
 
-            var headerCopy = PrimeChrome.Stack(
-                PrimeChrome.Eyebrow("MAP STUDIO // AUTHORING WORKSPACE"),
-                _projectTitle,
-                PrimeChrome.Text(
-                    "Build geometry, gameplay, materials and packages in one retained editor workspace.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
-                _projectState);
+            var headerCopy = new StackPanel { Spacing = 4 };
+            headerCopy.Children.Add(_workspaceEyebrow);
+            headerCopy.Children.Add(_projectTitle);
             var backStudio = new PrimeButton("BACK", Close, compact: true);
             ControllerNav.Identify(backStudio, "studio.back");
             var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto,Auto",
                 backStudio, _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
-            var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
+            headerActions.VerticalAlignment = VerticalAlignment.Top;
+            var header = new Grid
+            {
+                Name = "StudioProjectHeader",
+                ColumnDefinitions = new("*,Auto"),
+                RowDefinitions = new("Auto,Auto,Auto"),
+                ColumnSpacing = 12,
+                RowSpacing = 6
+            };
+            header.Children.Add(headerCopy);
+            Grid.SetColumn(headerActions, 1);
+            header.Children.Add(headerActions);
+            Grid.SetRow(_geometryWorkflow, 1);
+            Grid.SetColumnSpan(_geometryWorkflow, 2);
+            header.Children.Add(_geometryWorkflow);
+            var geometryRow = new DockPanel { LastChildFill = true };
+            _projectState.VerticalAlignment = VerticalAlignment.Center;
+            _projectState.HorizontalAlignment = HorizontalAlignment.Right;
+            _projectState.Margin = new Thickness(12, 0, 0, 3);
+            DockPanel.SetDock(_projectState, Dock.Right);
+            geometryRow.Children.Add(_projectState);
+            geometryRow.Children.Add(geometryActions);
+            Grid.SetRow(geometryRow, 2);
+            Grid.SetColumnSpan(geometryRow, 2);
+            header.Children.Add(geometryRow);
             _root.Children.Add(header);
             _editingControls.AddRange(new Control[]
             {
-                _studioSave, _studioValidate, _studioBuild, _studioPlaytest
+                _studioRadiant, _studioRadiantReview, _studioSave, _studioValidate, _studioBuild, _studioPlaytest
             });
 
             var toolbar = new StackPanel
@@ -158,7 +220,8 @@ namespace MphRead.Mods.Launcher.Gui
             MenuGroup("File",("Source changes…",ShowSourceChanges),("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
                 ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),
                 ("Edit current in NetRadiant…",EditCurrentInNetRadiant),
-                ("Open in NetRadiant…",LaunchNetRadiant),("Compile NetRadiant Source…",CompileNetRadiantSource),
+                ("Open in NetRadiant…",LaunchNetRadiant),("Review Radiant map changes…",ReviewRadiantGeometryChanges),
+                ("Compile source to BSP reference…",CompileNetRadiantSource),
                 ("Import editable .map…",ImportEditableQuakeMap),("Export editable .map…",ExportEditableQuakeMap),
                 ("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
                 ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
@@ -175,8 +238,6 @@ namespace MphRead.Mods.Launcher.Gui
                 ("Export .ppmap",()=>_=Build(true)),("Playtest",PlaytestInspector),("Run map audit",()=>_=Audit()));
             MenuGroup("Online",("Community maps…",ShowCommunity),("Host current map…",()=>_=PrepareOnline()));
             AddButton(toolbar, "LIBRARY", ShowLibrary);
-            if (CommunityCutoverPolicy.NetRadiantDefault)
-                AddButton(toolbar, "EDIT IN NETRADIANT", EditCurrentInNetRadiant);
             AddButton(toolbar, "IMPORT MODEL", ImportModel);
             AddButton(toolbar, "ASSETS", () => ShowInspectorPage("Assets & music"));
             AddButton(toolbar, "POP OUT", () => _ = PopOut());
@@ -185,31 +246,40 @@ namespace MphRead.Mods.Launcher.Gui
             _cancelJob.IsVisible = false;
             _editingControls.AddRange(toolbar.Children);
 
-            _path.MinWidth = 320;
+            _path.MinWidth = 100;
             var commandBar = new Grid
             {
-                ColumnDefinitions = new("Auto,*,Auto"),
-                ColumnSpacing = 10
+                ColumnDefinitions = new("Auto,*"),
+                RowDefinitions = new("Auto,Auto"),
+                ColumnSpacing = 10,
+                RowSpacing = 6
             };
-            commandBar.Children.Add(toolbar);
+            var commandScroll = new ScrollViewer
+            {
+                Content = toolbar,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            };
+            Grid.SetColumnSpan(commandScroll, 2);
+            commandBar.Children.Add(commandScroll);
+            Grid.SetRow(_path, 1);
             Grid.SetColumn(_path, 1);
             commandBar.Children.Add(_path);
             var projectOps = PrimeChrome.Text(
-                "PROJECT FILE  //  menus retain full import / export / online operations",
+                "PROJECT FILE",
                 PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
             projectOps.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(projectOps, 2);
+            Grid.SetRow(projectOps, 1);
             commandBar.Children.Add(projectOps);
             var commandPanel = new PrimePanel(commandBar, raised: true)
             {
+                Name = "StudioNativeCommandBar",
                 Padding = new Thickness(10, 7)
             };
+            _nativeCommandPanel = commandPanel;
             Grid.SetRow(commandPanel, 1);
             _root.Children.Add(commandPanel);
-            var body = new Grid
-            {
-                ColumnDefinitions = new("260,6,*,6,340")
-            };
+            var body = _workspaceBody;
             _search.MinHeight = 34;
             _hierarchyFilter.MinHeight = 34;
             var tree = new DockPanel();
@@ -236,8 +306,10 @@ namespace MphRead.Mods.Launcher.Gui
             hierarchyShell.Children.Add(tree);
             var treePanel = new PrimePanel(hierarchyShell, raised: true)
             {
+                Name = "StudioSceneHierarchy",
                 Padding = new Thickness(10)
             };
+            _nativeAuthoringPanels.Add(treePanel);
             body.Children.Add(treePanel);
             _hierarchy.ItemTemplate=new FuncDataTemplate<HierarchyRow>((row,_)=>
             {
@@ -265,8 +337,10 @@ namespace MphRead.Mods.Launcher.Gui
             center.Children.Add(_viewportHost);
             var viewportPanel = new PrimePanel(center, raised: true)
             {
+                Name = "StudioNativeViewport",
                 Padding = new Thickness(8)
             };
+            _nativeAuthoringPanels.Add(viewportPanel);
             Grid.SetColumn(viewportPanel, 2);
             body.Children.Add(viewportPanel);
 
@@ -332,14 +406,31 @@ namespace MphRead.Mods.Launcher.Gui
                 () => ShowInspectorPage("Assets & music"), compact: true);
             var healthQuick = new PrimeButton("HEALTH",
                 () => ShowInspectorPage("Map health"), compact: true);
+            var environmentQuick = new PrimeButton("ENVIRONMENT",
+                () => ShowInspectorPage("Environment"), compact: true) { Name="StudioProjectEnvironment" };
+            var partitioningQuick = new PrimeButton("PARTITIONING",
+                () => ShowInspectorPage("Partitioning"), compact: true) { Name="StudioProjectPartitioning" };
+            var repairsQuick = new PrimeButton("COLLISION REPAIRS",
+                () => ShowInspectorPage("Collision repairs"), compact: true) { Name="StudioProjectCollisionRepairs" };
+            inspectQuick.Name = "StudioProjectInspector";
+            materialsQuick.Name = "StudioProjectMaterials";
+            assetsQuick.Name = "StudioProjectAssets";
+            healthQuick.Name = "StudioProjectHealth";
             ControllerNav.Identify(inspectQuick, "studio.inspector");
             ControllerNav.Identify(materialsQuick, "studio.materials");
             ControllerNav.Identify(assetsQuick, "studio.assets");
             ControllerNav.Identify(healthQuick, "studio.health");
-            var inspectorQuick = PrimeChrome.Columns("*,*,*,*",
-                inspectQuick, materialsQuick, assetsQuick, healthQuick);
+            ControllerNav.Identify(environmentQuick, "studio.environment");
+            ControllerNav.Identify(partitioningQuick, "studio.partitioning");
+            ControllerNav.Identify(repairsQuick, "studio.collisionRepairs");
+            var inspectorQuick = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (var quick in new[] { inspectQuick, environmentQuick, materialsQuick, assetsQuick, partitioningQuick, repairsQuick, healthQuick })
+            {
+                quick.Margin = new Thickness(0, 0, 4, 4);
+                inspectorQuick.Children.Add(quick);
+            }
             var inspectorHeader = PrimeChrome.Stack(
-                PrimeChrome.Eyebrow("PROPERTIES // CONTEXT"),
+                _inspectorEyebrow,
                 _inspectorTitle,
                 inspectorQuick);
             var inspectorShell = new Grid
@@ -352,8 +443,10 @@ namespace MphRead.Mods.Launcher.Gui
             inspectorShell.Children.Add(inspectorScroll);
             var inspectorPanel = new PrimePanel(inspectorShell, raised: true)
             {
+                Name = "StudioProjectSettings",
                 Padding = new Thickness(8)
             };
+            _projectSettingsPanel = inspectorPanel;
             Grid.SetColumn(inspectorPanel, 4);
             body.Children.Add(inspectorPanel);
 
@@ -367,6 +460,7 @@ namespace MphRead.Mods.Launcher.Gui
                 };
                 Grid.SetColumn(splitter,column);
                 body.Children.Add(splitter);
+                _nativeSplitters.Add(splitter);
             }
 
             AddButton(tools,"Maximize view",()=>{
@@ -391,16 +485,30 @@ namespace MphRead.Mods.Launcher.Gui
                 RowSpacing = 4
             };
             toolsShell.Children.Add(PrimeChrome.Columns("*,Auto",
-                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _toolSelectionState));
+                PrimeChrome.Eyebrow("NATIVE GEOMETRY & GAMEPLAY TOOLS"), _toolSelectionState));
             Grid.SetRow(toolsScroll, 1);
             toolsShell.Children.Add(toolsScroll);
-            var toolsPanel = new PrimePanel(toolsShell)
+            _nativeGeometryTools = new Expander
             {
+                Name = "StudioNativeGeometryFallback",
+                Header = "Native geometry tools (fallback) and gameplay placement",
+                IsExpanded = !CommunityCutoverPolicy.NetRadiantDefault,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = toolsShell
+            };
+            var toolsPanel = new PrimePanel(_nativeGeometryTools)
+            {
+                Name = "StudioNativeAuthoringToolbar",
                 Padding = new Thickness(8, 6)
             };
+            _nativeToolsPanel = toolsPanel;
             Grid.SetRow(toolsPanel,2);
             _root.Children.Add(toolsPanel);
             _editingControls.Add(tools);
+
+            _projectOverview = CreateProjectOverview();
+            Grid.SetColumnSpan(_projectOverview, 3);
+            body.Children.Add(_projectOverview);
 
             Grid.SetRow(body,3);
             _root.Children.Add(body);
@@ -474,7 +582,11 @@ namespace MphRead.Mods.Launcher.Gui
                 if(_document==null||!_document.IsDirty||_document.LastEditUtc<=_autosaved||DateTime.UtcNow-_document.LastEditUtc<TimeSpan.FromSeconds(3))return;
                 if (_autosave.Queue(_document.CaptureAutosave(CustomRooms.UserMapDirectory))) _autosaved = _document.LastEditUtc;
             };
-            AttachedToVisualTree+=(_,_)=>{_detached=false;_autosave=new();LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);_idle.Start();
+            AttachedToVisualTree+=(_,_)=>{_detached=false;
+#if !MPHREAD_STUDIO
+                _autosave=new();
+#endif
+                LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);_idle.Start();
 #if MPHREAD_SHELL
                 Shell.FilesDropped+=OnFilesDropped;
 #endif
@@ -483,10 +595,163 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_SHELL
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
-                _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
+                _idle.Stop();
+#if !MPHREAD_STUDIO
+                _detached=true;_editorGeneration++;_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();
+#endif
+            };
             RefreshStudioChrome();
-            if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
+            if (preview) Load(MapTemplates.Create("Studio example", true));
+            else if (ProjectOverviewMode) RefreshProjectLibrary();
+            else ShowLibrary();
         }
+
+        private bool ProjectOverviewMode => _nativeStandaloneHost
+            && CommunityCutoverPolicy.NetRadiantDefault && !_nativeGeometryRecovery;
+
+        private Control CreateProjectOverview()
+        {
+            var content = new StackPanel { Spacing=12 };
+            content.Children.Add(new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("PROJECT OVERVIEW"),
+                PrimeChrome.Title("REVIEW. BUILD. LAUNCH."),
+                PrimeChrome.Text("Edit geometry and gameplay objects in Radiant. Manage project settings, materials, assets and runtime packages here.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _overviewCounts, _overviewProjectPath)) { Padding=new Thickness(14), IsVisible=true });
+
+            Control Stage(string title, string detail, params (string Title, string Name, Action Run)[] actions)
+            {
+                var stack = PrimeChrome.Stack(PrimeChrome.Eyebrow(title),
+                    PrimeChrome.Text(detail, PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                foreach (var action in actions)
+                {
+                    var button = new PrimeButton(action.Title, action.Run, compact:true) { Name=action.Name };
+                    stack.Children.Add(button);
+                    _overviewDocumentActions.Add(button);
+                    if (action.Name == "StudioOverviewReviewRadiant") _overviewReviewRadiant = button;
+                }
+                return new PrimePanel(stack, raised:true) { Padding=new Thickness(12) };
+            }
+            var stages = PrimeChrome.Columns("*,*,*",
+                Stage("REVIEW", "Save your map in Radiant, then review and apply its changes.",
+                    ("EDIT IN RADIANT", "StudioOverviewEditRadiant", EditCurrentInNetRadiant),
+                    ("REVIEW / APPLY", "StudioOverviewReviewRadiant", ReviewRadiantGeometryChanges)),
+                Stage("BUILD", "Validate the project and create its runtime package.",
+                    ("VALIDATE", "StudioOverviewValidate", () => _ = Validate()),
+                    ("BUILD .PPMAP", "StudioOverviewBuild", () => _ = Build(true))),
+                Stage("LAUNCH", "Test the current project in Project Prime.",
+                    ("PLAYTEST", "StudioOverviewPlaytest", PlaytestInspector),
+                    ("HOST MAP", "StudioOverviewHost", () => _ = PrepareOnline())));
+            content.Children.Add(stages);
+            content.Children.Add(_overviewRadiantState);
+
+            _persistedProjects.ItemTemplate = new FuncDataTemplate<LibraryRow>((row, _) =>
+                PrimeChrome.Text(row?.ToString() ?? "", PrimeTypography.BodySmall));
+            var projectActions = new WrapPanel();
+            AddButton(projectActions, "Open selected", () =>
+            { if (_persistedProjects.SelectedItem is LibraryRow row) Open(row.Entry.Path); });
+            AddButton(projectActions, "Edit selected in Radiant", () =>
+            { if (_persistedProjects.SelectedItem is LibraryRow row) OpenGeometryInRadiant(row.Entry.Path); });
+            AddButton(projectActions, "Browse…", () => Browse("Open project", false, Open, ".json", ".ppmap"));
+            AddButton(projectActions, "New project", NewMap);
+            AddButton(projectActions, "Refresh", RefreshProjectLibrary);
+            var library = PrimeChrome.Stack(PrimeChrome.Eyebrow("SAVED PROJECTS"),
+                _overviewLibraryState, _persistedProjects, projectActions);
+            content.Children.Add(new PrimePanel(library, raised:true) { Padding=new Thickness(12) });
+
+            var sourceActions = new WrapPanel();
+            AddButton(sourceActions, "Save as…", () => Browse("Save project", true, SaveTo, ".json"));
+            AddButton(sourceActions, "Import Q3…", Import);
+            AddButton(sourceActions, "Import model…", ImportModel);
+            AddButton(sourceActions, "Model sources", ManageModelSources);
+            AddButton(sourceActions, "Source changes", ShowSourceChanges);
+            AddButton(sourceActions, "Library & recovery", ShowLibrary);
+            content.Children.Add(sourceActions);
+            return new ScrollViewer
+            {
+                Name="StudioProjectOverview", Content=content,
+                HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+            };
+        }
+
+        private void RefreshProjectLibrary()
+        {
+            string? selected = (_persistedProjects.SelectedItem as LibraryRow)?.Entry.Path;
+            try
+            {
+                // This application-owned tree contains Radiant manifests and
+                // interchange sidecars, not saved Studio projects. Keep invalid
+                // user projects elsewhere visible so they can still be repaired.
+                string radiantRoot = Path.GetFullPath(Path.Combine(CustomRooms.UserMapDirectory, "netradiant-sources"))
+                    + Path.DirectorySeparatorChar;
+                var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                var projects = _catalog.Refresh(false)
+                    .Where(entry => !Path.GetFullPath(entry.Path).StartsWith(radiantRoot, comparison))
+                    .Select(entry => new LibraryRow(entry)).ToArray();
+                _persistedProjects.ItemsSource = projects;
+                _persistedProjects.SelectedItem = projects.FirstOrDefault(row => row.Entry.Path == selected)
+                    ?? projects.FirstOrDefault(row => row.Entry.Path == _document?.FilePath);
+                _overviewLibraryState.Text = projects.Length == 0
+                    ? "No saved projects yet. Save this project or open an existing .json / .ppmap."
+                    : $"{projects.Length} saved project{(projects.Length == 1 ? "" : "s")} · Select a project to open or edit it in Radiant.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            { _overviewLibraryState.Text = "Project library unavailable: " + ex.Message; }
+            _listedProjectPath = _document?.FilePath;
+        }
+
+        private void RefreshWorkspaceMode()
+        {
+            bool overview = ProjectOverviewMode;
+            if (_returnProjectOverview != null)
+                _returnProjectOverview.IsVisible = _nativeStandaloneHost
+                    && CommunityCutoverPolicy.NetRadiantDefault && !overview;
+            _workspaceEyebrow.Text = overview ? "MAP STUDIO // PROJECT MANAGEMENT" : "MAP STUDIO // AUTHORING WORKSPACE";
+            _inspectorEyebrow.Text = overview ? "PROJECT SETTINGS" : "PROPERTIES // CONTEXT";
+            if (_workspaceModeApplied && overview == _overviewActive) return;
+            _workspaceModeApplied = true;
+            _overviewActive = overview;
+            if (_projectOverview != null) _projectOverview.IsVisible = overview;
+            if (_nativeCommandPanel != null) _nativeCommandPanel.IsVisible = !overview;
+            if (_nativeToolsPanel != null) _nativeToolsPanel.IsVisible = !overview;
+            foreach (var panel in _nativeAuthoringPanels) panel.IsVisible = !overview;
+            foreach (var splitter in _nativeSplitters) splitter.IsVisible = !overview;
+            if (_projectSettingsPanel != null) _projectSettingsPanel.IsVisible = true;
+            Grid.SetRow(_workspaceBody, overview ? 1 : 3);
+            Grid.SetRowSpan(_workspaceBody, overview ? 3 : 1);
+            if (!overview && _nativeGeometryTools != null
+                && (!CommunityCutoverPolicy.NetRadiantDefault || _nativeGeometryRecovery))
+                _nativeGeometryTools.IsExpanded = true;
+            _workspaceBody.ColumnDefinitions = new(overview ? "*,0,0,12,380" : "260,6,*,6,340");
+            if (overview)
+            {
+                _document?.Selection.Clear();
+                if (_document != null)
+                {
+                    _document.ActiveObjectId = Guid.Empty;
+                    _document.SelectionChanged();
+                }
+                _pickedMaterialHit = null;
+                _viewport?.ClearSubSelection();
+                ShowInspectorPage("Environment");
+                RefreshHierarchy();
+            }
+        }
+
+        private void ShowProjectOverview()
+        {
+            if (!_nativeStandaloneHost || !CommunityCutoverPolicy.NetRadiantDefault) return;
+            Dismiss();
+            _nativeGeometryRecovery = false;
+            RefreshStudioChrome();
+            RefreshProjectLibrary();
+            _status.Text = ProjectWorkflowStatus();
+        }
+
+        private string ProjectWorkflowStatus() => (_document?.IsDirty == true ? "Unsaved changes · " : "")
+            + "RADIANT WORKFLOW · Edit the map in Radiant, save there, then Review / Apply changes here. Validate, build .ppmap and playtest from this project overview.";
+
         public void Dispose()
         {
             _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _autosave.Dispose(); _sourceWatch?.Dispose(); _sourceWatch=null;
@@ -570,12 +835,19 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void Close()
         {
+#if MPHREAD_STUDIO
+            Closed?.Invoke(this,EventArgs.Empty);return;
+#else
             if (_poppedOut) { Closed?.Invoke(this, EventArgs.Empty); return; }
             if (_overlays != null) Closed?.Invoke(this, EventArgs.Empty);
             else WithUnsaved(() => Closed?.Invoke(this, EventArgs.Empty));
+#endif
         }
         internal void Load(MapProject project,string? path=null)
         {
+#if !ANDROID
+            if(path!=null&&NativeCanOpenSource?.Invoke(path)==false)return;
+#endif
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
             _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
@@ -587,6 +859,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : Array.Empty<MapDiagnostic>();
             _problems.ItemsSource=null;UpdateProblemsVisibility();
             _studioState=MapStudioStateStore.Load(project.Definition);MapStudioStateStore.Prune(project.Definition,_studioState);
+            if (ProjectOverviewMode) _inspectorPage = "Environment";
             ReleaseViews();
             _viewport=new(_document);
             _viewport.ModelingError += message => _status.Text=message;
@@ -600,7 +873,7 @@ namespace MphRead.Mods.Launcher.Gui
                     :$"Picked authored material {hit.Material}.";
                 MaterialInspector();
             };
-            _viewportHost.Children.Clear();_viewportHost.Children.Add(_viewport);_path.Text=path!=null&&!MapBundle.Is(path)?path:Path.Combine(CustomRooms.UserMapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
+            _viewportHost.Children.Clear();_viewportHost.Children.Add(HostViewport(_viewport));_path.Text=path!=null&&!MapBundle.Is(path)?path:Path.Combine(CustomRooms.UserMapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
             Dismiss();Changed();_viewport.FrameAll();
             if(_document.HasRecovery(CustomRooms.UserMapDirectory))Recovery();
             if(project.Definition.Import!=null||project.Definition.NativeRoom!=null)
@@ -628,6 +901,9 @@ namespace MphRead.Mods.Launcher.Gui
             if(_document==null)return;
             try
             {
+#if !ANDROID
+                NativeRequireSaveTarget?.Invoke(path);
+#endif
                 // No old autosave may recreate recovery after a successful manual save.
                 _autosave.Dispose();_autosave.Completion.GetAwaiter().GetResult();
                 _document.Save(path);_document.DiscardRecovery(CustomRooms.UserMapDirectory);
@@ -644,11 +920,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Changed()
         {
+#if !ANDROID
+            DocumentChanged?.Invoke();
+#endif
             try { RefreshSourceWatch(); } catch (IOException ex) { _status.Text="Source watch: "+ex.Message; }
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
             RefreshStudioChrome();
-            _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
+            _status.Text=ProjectOverviewMode ? ProjectWorkflowStatus()
+                : (_document?.IsDirty==true?"Unsaved changes · ":"")
                 +"RMB orbit · MMB pan · WASD/QE fly · 1–4 modes · G/R/S transforms · E/I/B model · M merge · F fill (object mode: F focus, M measure) · Ctrl+Shift+P commands";
         }
         private void RefreshHierarchy(bool force=false)
@@ -784,7 +1064,7 @@ namespace MphRead.Mods.Launcher.Gui
                 new("Validate map","check validation diagnostics",()=>_=Validate()),
                 new("Build runtime map","compile build",()=>_=Build(false)),
                 new("Build .ppmap package","package bundle",()=>_=Build(true)),
-                new("Playtest from camera","play launch ctrl enter",()=>_=Play()),
+                new(ProjectOverviewMode?"Playtest from map spawns":"Playtest from camera","play launch ctrl enter",()=>_=Play()),
                 new("Run map audit","audit test",()=>_=Audit()),
                 new("Undo","history ctrl z",()=>_document?.History.Undo()),
                 new("Redo","history ctrl y",()=>_document?.History.Redo()),
@@ -828,6 +1108,10 @@ namespace MphRead.Mods.Launcher.Gui
                 new("Overlay: Collision Normals","view collision normals face direction",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=true;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
                 new("Overlay: Collision Heat","view collision heat budget",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=true;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
                 new("Overlay: Collision Repairs","view collision repairs heal topology movement",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();}}),
+                new("Edit map in Radiant","geometry netradiant primary",EditCurrentInNetRadiant),
+                new("Review / apply Radiant map changes","radiant source import review",ReviewRadiantGeometryChanges),
+                new("Native geometry fallback","geometry native modeling",ShowNativeGeometryTools),
+                new("New map in Radiant / template gallery","new template radiant",()=>NewMap(true)),
                 new("New map / template gallery","new template",NewMap),
                 new("Import Q3 BSP / PK3","import bsp pk3",Import),
                 new("Clone built-in map","native remix clone",CloneBuiltIn)
@@ -852,7 +1136,8 @@ namespace MphRead.Mods.Launcher.Gui
             Refresh();Modal(panel);search.Focus();
         }
 
-        private void NewMap()
+        private void NewMap() => NewMap(CommunityCutoverPolicy.NetRadiantDefault);
+        private void NewMap(bool editInRadiant)
         {
             var view=new Grid{RowDefinitions=new("Auto,Auto,*,Auto"),MinWidth=760,Height=610};
             view.Children.Add(Text("NEW MAP · TEMPLATE GALLERY"));
@@ -884,7 +1169,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Grid.SetColumn(copy,1);card.Children.Add(copy);return card;
             });
             var buttons=new WrapPanel();Grid.SetRow(buttons,3);view.Children.Add(buttons);
-            AddButton(buttons,"Create / Continue",()=>WithUnsaved(()=>
+            void Create(bool radiant) => WithUnsaved(()=>
             {
                 if(list.SelectedItem is not MapTemplateInfo info)return;
                 try
@@ -893,7 +1178,9 @@ namespace MphRead.Mods.Launcher.Gui
                     switch(info.Action)
                     {
                         case MapTemplateAction.Create:
-                            Load(MapTemplates.Create(name.Text??"",info.Id));break;
+                            Load(MapTemplates.Create(name.Text??"",info.Id));
+                            if (radiant) EditCurrentInNetRadiant();
+                            break;
                         case MapTemplateAction.ImportQ3:
                             _inspectorPage="Collision repairs";Import();break;
                         case MapTemplateAction.CloneNative:
@@ -901,7 +1188,9 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }
                 catch(Exception ex){Failure(ex);}
-            }));
+            });
+            if (editInRadiant) AddButton(buttons,"Create in Radiant",()=>Create(true));
+            AddButton(buttons,editInRadiant?"Create in native Studio (fallback)":"Create / Continue",()=>Create(false));
             AddButton(buttons,"Cancel",Dismiss);
             Modal(view);
         }
@@ -938,7 +1227,9 @@ namespace MphRead.Mods.Launcher.Gui
             });
             try{list.ItemsSource=_catalog.Refresh(false).Select(e=>new LibraryRow(e)).ToArray();}catch(Exception ex){Failure(ex);}
             var buttons=new WrapPanel();Grid.SetRow(buttons,2);view.Children.Add(buttons);
-            AddButton(buttons,"Open",()=>{if(list.SelectedItem is LibraryRow row)Open(row.Entry.Path);});
+            if (CommunityCutoverPolicy.NetRadiantDefault)
+                AddButton(buttons,"Edit map in Radiant",()=>{if(list.SelectedItem is LibraryRow row)OpenGeometryInRadiant(row.Entry.Path);});
+            AddButton(buttons,"Open in Studio",()=>{if(list.SelectedItem is LibraryRow row)Open(row.Entry.Path);});
             AddButton(buttons,"Duplicate",()=>{if(list.SelectedItem is LibraryRow {Entry.Definition:not null} row){var p=MapProjectMigrator.Upgrade(new(row.Entry.Definition));p.Definition.MapId=Guid.NewGuid();p.Definition.Name=NextCopyName(p.Definition.Name);WithUnsaved(()=>Load(p));}});
             AddButton(buttons,"Delete",()=>{if(list.SelectedItem is LibraryRow row)Confirm("Delete "+Path.GetFileName(row.Entry.Path)+"?",()=>{try{File.Delete(row.Entry.Path);ShowLibrary();}catch(Exception ex){Failure(ex);}});});
             AddButton(buttons,"Reveal folder",()=>{try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CustomRooms.MapDirectory){UseShellExecute=true});}catch(Exception ex){Failure(ex);}});
@@ -1099,11 +1390,23 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshStudioChrome()
         {
+            RefreshWorkspaceMode();
             bool loaded = _document != null;
+            bool radiant = CommunityCutoverPolicy.NetRadiantDefault;
+            _studioRadiant.IsVisible = radiant;
+            _studioRadiantReview.IsVisible = radiant || HasRadiantSource;
+            _studioRadiant.IsEnabled = loaded;
+            _studioRadiantReview.IsEnabled = loaded && HasRadiantSource;
+            _geometryWorkflow.Text = radiant
+                ? "Edit geometry and gameplay in Radiant, then review changes here. Studio manages project settings, assets, validation and packages."
+                : CommunityCutoverPolicy.NetRadiantTools.EditorError
+                    ?? "Native geometry fallback · Install or enable Project Prime Radiant to use the primary geometry editor.";
             _studioSave.IsEnabled = loaded;
             _studioValidate.IsEnabled = loaded;
             _studioBuild.IsEnabled = loaded;
             _studioPlaytest.IsEnabled = loaded;
+            foreach (var action in _overviewDocumentActions) action.IsEnabled = loaded;
+            if (_overviewReviewRadiant != null) _overviewReviewRadiant.IsEnabled = loaded && HasRadiantSource;
 
             if (!loaded)
             {
@@ -1112,6 +1415,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _projectState.Foreground = PrimeTheme.TextSecondaryBrush;
                 _selectionState.Text = "0 SELECTED";
                 _toolSelectionState.Text = "OBJECT MODE";
+                _overviewCounts.Text = "Create or open a project to review its contents and build it.";
+                _overviewProjectPath.Text = "";
+                _overviewRadiantState.Text = "";
                 return;
             }
 
@@ -1131,6 +1437,18 @@ namespace MphRead.Mods.Launcher.Gui
                 : $"{selected} SELECTED  //  {objects} OBJECTS";
             _toolSelectionState.Text = (_viewport?.ElementMode ?? "Object").ToUpperInvariant()
                 + " MODE  //  " + (_viewport?.Tool ?? "Move").ToUpperInvariant();
+            _overviewCounts.Text = $"{definition.Geometry.Count + definition.Brushes.Count} GEOMETRY  ·  "
+                + $"{definition.Spawns.Count} SPAWNS  ·  {definition.Items.Count} PICKUPS  ·  "
+                + $"{definition.JumpPads.Count} JUMP PADS  ·  {definition.NavigationLinks.Count} NAV LINKS\n"
+                + $"{definition.Materials.Count} MATERIALS  ·  {definition.Assets.Count} ASSETS  ·  "
+                + $"{definition.Q3Triggers?.Count ?? 0} TRAVERSAL VOLUMES";
+            _overviewProjectPath.Text = _document.FilePath is { } projectPath
+                ? "PROJECT FILE · " + projectPath
+                : "NEW PROJECT · Save to " + _path.Text;
+            _overviewRadiantState.Text = RadiantSource is { } source && File.Exists(source)
+                ? "RADIANT SOURCE · " + RadiantSourceWorkspace.State(definition, source) + "\n" + source
+                : "RADIANT SOURCE · Choose Edit in Radiant to prepare this project's protected map source.";
+            if (ProjectOverviewMode && _listedProjectPath != _document.FilePath) RefreshProjectLibrary();
         }
 
         private sealed record RepairReviewRow(string Key,MapViewportRepair Repair,bool Reviewed)
@@ -2431,7 +2749,15 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using var bitmap=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)_viewport.Bounds.Width,(int)_viewport.Bounds.Height),new Avalonia.Vector(96,96));
-                bitmap.Render(_viewport);using var stream=new MemoryStream();bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+#if MPHREAD_STUDIO
+                // Explicit thumbnails use the canonical CPU view while the native
+                // surface retains its own current-context rendering ownership.
+                bool native=_viewport.NativeGpuActive;_viewport.NativeGpuActive=false;
+                try{bitmap.Render(_viewport);}finally{_viewport.NativeGpuActive=native;}
+#else
+                bitmap.Render(_viewport);
+#endif
+                using var stream=new MemoryStream();bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 byte[] preview = stream.ToArray();
 #if MPHREAD_SHELL
                 preview = _viewport.CaptureGpuPreview(preview);
@@ -2456,9 +2782,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_work!=null||_detached||_poppedOut)return;var work=new CancellationTokenSource();_work=work;
             _jobDocument=_document;_jobState=_document?.CurrentStateId;_jobGeneration=_editorGeneration;long generation=_editorGeneration;
+            var finished=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);_jobFinished=finished;
             _status.Text=label+"…";
             SetBusy(true);
-            try{await action(work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);}finally{work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}}
+            try{await action(work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);}finally{work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}finished.TrySetResult();}
         }
         private void SetBusy(bool busy)
         {
@@ -2542,8 +2869,8 @@ namespace MphRead.Mods.Launcher.Gui
         private void PlaytestInspector()
         {
             _inspector.Children.Clear(); _inspector.Children.Add(Text("PLAYTEST START"));
-            AddButton(_inspector,"From camera",()=>_=Play());
-            AddButton(_inspector,"From selected spawn",()=>
+            AddButton(_inspector,ProjectOverviewMode?"From map spawns":"From camera",()=>_=Play());
+            if(!ProjectOverviewMode) AddButton(_inspector,"From selected spawn",()=>
             {
                 var spawn=_document?.Project.Definition.Spawns.FirstOrDefault(s=>_document.Selection.Contains(s.Id));
                 if(spawn==null){_status.Text="Select a spawn first.";return;} _=Play(spawn);
@@ -2554,23 +2881,43 @@ namespace MphRead.Mods.Launcher.Gui
                 if(spawn==null){_status.Text="No spawn exists for this team.";return;} _=Play(spawn);
             });
         }
-        private Task Play(MapSpawn? start=null)=>Work("Preparing playtest",async(p,token)=>
+        private Task Play(MapSpawn? start=null)
         {
+            // Capture the requested start before Work yields. Project overview has
+            // no authoring camera or selection; its default uses every map spawn.
+            var camera=!ProjectOverviewMode?_viewport?.CameraPosition:null;
+            var playStart=start!=null
+                ?new MapSpawn {Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team}
+                :camera is {} pos?new MapSpawn {Position=new[]{pos.X,pos.Y,pos.Z}}:null;
+            return Work("Preparing playtest",async(p,token)=>
+        {
+            // Work owns a detached snapshot, so starts never edit document/history.
+            if(playStart!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(playStart);}
+#if !ANDROID
+            if(NativePlaytest!=null)
+            {
+                await NativePlaytest(p,token);GuardJob(token);_status.Text="Playtest accepted by Project Prime.";return;
+            }
+#endif
             if(!GameFiles.Ready)throw new IOException("Set up game files in Settings before playtesting.");GameFiles.ApplyPaths();
             p.Definition.Name=_previewName;p.Definition.SourcePath=null;
             p.Definition.Capabilities=null;
             if(p.Definition.Import!=null)p.Definition.Import.KeepSpawns=false;
-            if(start!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team});}
-            else if(_viewport!=null){var pos=_viewport.CameraPosition;p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=new[]{pos.X,pos.Y,pos.Z}});}
             var result=await MapBuildScheduler.Shared.BuildAsync(MapBuildSnapshot.Capture(p),token);
             GuardJob(token);Problems(result.Validation());if(!result.Succeeded)return;
             await Task.Run(()=>{token.ThrowIfCancellationRequested();MapBuildScheduler.Install(result,p.Definition,CustomRooms.ArchiveDirectory(p.Definition),CustomRooms.EntityDirectory(),CustomRooms.NodeDirectory());},token);
             GuardJob(token); PlayRequested?.Invoke(this,p.Definition);
         });
+        }
         private Task Audit()=>Work("Running map audit",async(p,token)=>
         {
             if(!GameFiles.Ready)throw new IOException("Set up game files before running a map audit.");
-            var result=await MapAuditRunner.Run(p,token);GuardJob(token);_status.Text=result.Passed?"Map audit passed.":"Map audit failed.";
+#if !ANDROID
+            var result=NativeAudit!=null?await NativeAudit(p,token):await MapAuditRunner.Run(p,token);
+#else
+            var result=await MapAuditRunner.Run(p,token);
+#endif
+            GuardJob(token);_status.Text=result.Passed?"Map audit passed.":"Map audit failed.";
             _problems.ItemsSource=result.Lines;
         });
         private void OnFilesDropped(IReadOnlyList<string> files)

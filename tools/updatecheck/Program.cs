@@ -2,6 +2,8 @@ using System;
 using System.Text.Json;
 using MphRead.Mods.Update;
 
+if (ClientGuardChecks.RunChild(args) is int guardResult) return guardResult;
+
 if (InstallationChecks.RunChild(args) is int workerResult) return workerResult;
 
 int failures = 0;
@@ -93,6 +95,7 @@ else
     Check(BuildVersion.Current == Version.Parse(args[0]), "assembly release stamp survives commit metadata");
 if (args.Length == 0)
 {
+    ClientGuardChecks.Run(Check);
     ArchiveChecks.Run(Check);
     InstallationChecks.Run(Check);
 }

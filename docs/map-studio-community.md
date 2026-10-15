@@ -1,5 +1,8 @@
 # Map Studio windows and community maps
 
+See [standalone Studio migration and recovery](studio-migration.md) for the new
+desktop process, native-source fallback and release qualification boundaries.
+
 ## Where Community lives (Community Hub 3.0 rollout)
 
 - **Game:** Select the top-level **Community** tab for Discover, Installed,
@@ -32,16 +35,16 @@
   **Both processes must use the coordinated release**; do not enable
   the preview next to an older process that writes the same queue without
   the cross-process lease protocol.
-- **Rollback / troubleshooting:** Unset the preview variable (or set it to
-  any value other than `1`) and restart Studio to restore the existing
+- **Rollback / troubleshooting:** Set `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=0` and restart Studio to restore the existing
   creator dashboard. No reinstall, package re-encoding, protocol change or
   Community service migration is required. If the service is offline, installed
   local maps and saved source projects remain usable.
 - **NetRadiant:** The optional separately installed editor and compiler use
-  `PROJECT_PRIME_NETRADIANT_EXE` and `PROJECT_PRIME_Q3MAP2_EXE`. NetRadiant
-  is **not the default editor** in the current release/cutover candidate.
-  A real NetRadiant/q3map2/gameplay validation and license review are still
-  required before that can change.
+  `PROJECT_PRIME_NETRADIANT_EXE` and `PROJECT_PRIME_Q3MAP2_EXE`. A valid configured NetRadiant executable is offered as the preferred external
+  geometry editor; set `PROJECT_PRIME_NETRADIANT_DEFAULT=0` to disable this
+  preference. Unsupported projects retain native editing. This source default
+  does not certify a bundled Radiant fork: real editor, gameplay and platform
+  acceptance remain pending.
 
 Creator Hub is enabled in new builds but does not bypass validation of
 live gameplay maps. CDN and external NetRadiant require locally configured

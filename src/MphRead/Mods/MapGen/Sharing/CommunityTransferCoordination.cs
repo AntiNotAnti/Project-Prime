@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 
 namespace MphRead.Mods.MapGen;
@@ -64,4 +66,53 @@ internal sealed class CommunityTransferCoordination
         using var lease = TryLeaseJob(id);
         return lease == null;
     }
+
+    /// <summary>Fence concurrent queue writers by exact application version.
+    /// Receipt schema and queue identity are unchanged. Crashed owners release
+    /// their OS lock; stale metadata is retired under the existing index lock.</summary>
+    internal IDisposable AcquireWriterVersion(string? version = null)
+    {
+        version ??= typeof(CommunityTransferCoordination).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "local";
+        if (string.IsNullOrWhiteSpace(version) || version.Length > 256
+            || version.IndexOfAny(['\r', '\n', '\0']) >= 0)
+            throw new InvalidDataException("Invalid Community writer version.");
+        using var index = LockIndex();
+        string directory = Path.Combine(_jobLeases, "writers-v1");
+        Directory.CreateDirectory(directory);
+        foreach (string recordPath in Directory.EnumerateFiles(directory, "*.json"))
+        {
+            if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(recordPath), "N", out _))
+                throw new InvalidDataException("Invalid Community writer record.");
+            FileStream? stale = null;
+            try { stale = new FileStream(Path.ChangeExtension(recordPath, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException) { }
+            if (stale != null)
+            {
+                using (stale) File.Delete(recordPath);
+                continue;
+            }
+            if (new FileInfo(recordPath).Length is <= 0 or > 2048)
+                throw new InvalidDataException("Invalid active Community writer metadata.");
+            WriterVersion? active;
+            try { active = JsonSerializer.Deserialize<WriterVersion>(File.ReadAllBytes(recordPath)); }
+            catch (JsonException ex) { throw new InvalidDataException("Invalid active Community writer metadata.", ex); }
+            if (active == null || active.Schema != 1 || active.Version != version)
+                throw new IOException("Another Game or Studio version owns Community transfers. Close it and use a matching Game/Studio pair.");
+        }
+        string own = Path.Combine(directory, Guid.NewGuid().ToString("N"));
+        FileStream lease = new(own + ".lock", FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            using (FileStream metadata = new(own + ".json", FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                JsonSerializer.Serialize(metadata, new WriterVersion(1, version));
+                metadata.Flush(flushToDisk: true);
+            }
+            return lease;
+        }
+        catch { lease.Dispose(); throw; }
+    }
+
+    private sealed record WriterVersion(int Schema, string Version);
 }

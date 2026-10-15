@@ -202,20 +202,40 @@ internal static class MapViewportCheck
             var studio = new MapStudioScreen(); studio.Load(MapTemplates.Create("Renderer check", false));
             surface.Show(studio); surface.Resize(window.FramebufferSize.X, window.FramebufferSize.Y); surface.PrepareMapRenderer();
             for (int i = 0; i < 5; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
+            var saveButton = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "SAVE");
+            var saveOrigin = saveButton.TranslatePoint(new Point(0, 0), surface.Root)!.Value;
+            var saveFar = saveButton.TranslatePoint(new Point(saveButton.Bounds.Width, saveButton.Bounds.Height), surface.Root)!.Value;
+            int saveLeft = (int)Math.Ceiling(saveOrigin.X / surface.WindowWidth * window.FramebufferSize.X);
+            int saveTop = (int)Math.Ceiling(saveOrigin.Y / surface.WindowHeight * window.FramebufferSize.Y);
+            int saveRight = (int)Math.Floor(saveFar.X / surface.WindowWidth * window.FramebufferSize.X);
+            int saveBottom = (int)Math.Floor(saveFar.Y / surface.WindowHeight * window.FramebufferSize.Y);
+            Check(saveButton.IsEffectivelyVisible && saveLeft >= 0 && saveTop >= 0
+                && saveRight <= window.FramebufferSize.X && saveBottom <= window.FramebufferSize.Y
+                && saveRight > saveLeft && saveBottom > saveTop, "editor toolbar button lies inside framebuffer");
+            byte[] ReadSaveButton()
+            {
+                byte[] pixels = new byte[(saveRight - saveLeft) * (saveBottom - saveTop) * 4];
+                GL.ReadPixels(saveLeft, window.FramebufferSize.Y - saveBottom,
+                    saveRight - saveLeft, saveBottom - saveTop,
+                    OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                return pixels;
+            }
+            // Use the actual UI pixels as the reference: the control's theme,
+            // enabled state and label alignment can all change its center pixel.
+            // Compare the complete arranged button so an erased label or frame
+            // still fails even if one surviving pixel happens to be blue.
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            UiOverlay.Draw(window.FramebufferSize.X, window.FramebufferSize.Y);
+            byte[] toolbarReference = ReadSaveButton();
+            var referenceColors = toolbarReference.Where((_, index) => index % 4 != 3).ToArray();
+            Check(referenceColors.Max() > 80 && referenceColors.Max() - referenceColors.Min() > 40,
+                "editor toolbar UI reference contains visible label and frame");
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             surface.DrawMapViewport(window.FramebufferSize.X, window.FramebufferSize.Y);
             UiOverlay.Draw(window.FramebufferSize.X, window.FramebufferSize.Y);
             Check(ScreenCapture.SaveWindow(window.FramebufferSize.X, window.FramebufferSize.Y,
                 Path.Combine(directory, "map-studio-renderer.png")), "full editor composite capture");
-            var back = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "SAVE");
-            var backCenter = back.TranslatePoint(new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), surface.Root)!.Value;
-            GL.ReadPixels((int)(backCenter.X / surface.WindowWidth * window.FramebufferSize.X),
-                window.FramebufferSize.Y - (int)(backCenter.Y / surface.WindowHeight * window.FramebufferSize.Y),
-                1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, marker);
-            // The authored SAVE button is deep blue (#103c76), not light grey.
-            // It is visibly present and layered over the world in the captured
-            // screenshot, but its red channel is intentionally below 20.
-            Check(marker[1] > 35 && marker[2] > 70 && marker[2] > marker[0],
+            Check(toolbarReference.SequenceEqual(ReadSaveButton()),
                 "editor toolbar survives GPU composite");
             Check(ReferenceEquals(foregroundPlayers, MphRead.Entities.PlayerEntity.LegacyRegistry)
                 && ReferenceEquals(foregroundState, GameState.Current) && ReferenceEquals(foregroundRandom, Rng.Current),

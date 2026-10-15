@@ -39,7 +39,11 @@ namespace MphRead.Mods.Launcher.Gui
         public StartScreen(MenuSettings settings, IReadOnlyList<string> rooms)
         {
             _settings = settings; _rooms = new List<string>(rooms); Focusable = true;
-            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager);
+            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager
+#if MPHREAD_SHELL
+                , () => OpenStandaloneStudio(null)
+#endif
+            );
             _prime.IsVisible = false; _prime.IsEnabled = false;
             _layers.Children.Add(_prime);
             _startup = new PrimeStartupScreen();
@@ -47,15 +51,18 @@ namespace MphRead.Mods.Launcher.Gui
             _layers.Children.Add(_startup);
             Content = _layers;
             _prime.Router.CanNavigate = CanNavigate;
+#if MPHREAD_SHELL
+            _prime.Router.RegisterRouteAction(PrimeRoute.Forge, () => OpenStandaloneStudio("maps"));
+#endif
             _prime.Router.Changed += _ => { UpdateReplayBackground(); TryShowUpdatePrompt(); };
             _prime.BackRequested = () =>
             {
                 if (_prime.Router.Current == PrimeRoute.Lobby)
                 {
-                    _prime.Router.Navigate(PrimeRoute.News);
+                    _prime.Router.NavigateWorkspace(PrimeRoute.Play);
                     return true;
                 }
-                if (_prime.Router.Current == PrimeRoute.News)
+                if (_prime.Router.Current == PrimeRoute.Play)
                 {
                     AskToQuit();
                     return true;
@@ -117,12 +124,19 @@ namespace MphRead.Mods.Launcher.Gui
             if (_bypassGuard) return true;
             if (_prime.Overlays.IsOpen) return false;
             if (route == PrimeRoute.Lobby && _lobby == null) return false;
-            if (route == PrimeRoute.Play && _lobby != null && NetSession.Active)
+            if (route == PrimeRoute.Play && !_prime.Router.IsWorkspaceNavigation
+                && _lobby != null && NetSession.Active)
             { _prime.Router.Navigate(PrimeRoute.Lobby); return false; }
             if (_prime.Router.Current == PrimeRoute.Settings
                 && _prime.Workspaces.Get(PrimeRoute.Settings) is SettingsView settings && settings.IsDirty)
             {
-                ShowUnsaved(settings, () => { _bypassGuard = true; _prime.Router.Navigate(route); _bypassGuard = false; });
+                bool workspace = _prime.Router.IsWorkspaceNavigation;
+                ShowUnsaved(settings, () =>
+                {
+                    _bypassGuard = true;
+                    try { if (workspace) _prime.Router.NavigateWorkspace(route); else _prime.Router.Navigate(route); }
+                    finally { _bypassGuard = false; }
+                });
                 return false;
             }
             return true;
@@ -143,6 +157,9 @@ namespace MphRead.Mods.Launcher.Gui
                     return play;
                 case PrimeRoute.Community:
                     return new CommunityWorkspace(_prime.Overlays);
+                case PrimeRoute.Studio:
+                    return new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO"),
+                        PrimeChrome.Text("Studio requires the paired desktop release.")));
                 case PrimeRoute.Settings:
                     var settings = new SettingsView(_settings, shell: true);
                     settings.Closed += (_, _) => _prime.Back();
@@ -325,8 +342,28 @@ namespace MphRead.Mods.Launcher.Gui
             // An explicit editor launch bypasses the ordinary startup gate.
             if (_startup != null) { _layers.Children.Remove(_startup); _startup.Dispose(); _startup = null; }
             _prime.IsVisible = true; _prime.IsEnabled = true;
-            _prime.Router.Navigate(PrimeRoute.Forge);
+            _prime.Router.NavigateWorkspace(PrimeRoute.Forge);
         }
+#if MPHREAD_SHELL
+        private void OpenEmbeddedMapEditor()
+        {
+            _prime.Overlays.Clear();
+            OpenMapStudio();
+        }
+        private void OpenStandaloneStudio(string? workspace)
+        {
+            if (StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error, workspace))
+                return;
+            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO UNAVAILABLE"),
+                PrimeChrome.Text(error ?? "Install the complete paired desktop release."),
+                new PrimeButton("EMBEDDED MAP EDITOR", OpenEmbeddedMapEditor),
+                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
+        }
+#endif
+        internal bool ExternalStudioUiBusy => _startup != null || _prime.Overlays.IsOpen
+            || (_prime.Router.Current == PrimeRoute.Settings
+                && _prime.Workspaces.TryGet(PrimeRoute.Settings) is SettingsView { IsDirty: true });
+        internal void OpenStudioHosting(string room) => OpenCreateServer(room);
         private void OpenCreateServer(string? firstMap = null)
         {
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }
@@ -345,7 +382,7 @@ namespace MphRead.Mods.Launcher.Gui
                 SpectatorMode.SetSessionPreference(plan.Spectate);
                 _spectateNextMatch = plan.Spectate;
                 _lobby = new LobbyScreen(_rooms, plan.Lobby) { Overlays = _prime.Overlays };
-                _lobby.HubRequested += (_, _) => _prime.Router.Navigate(PrimeRoute.News);
+                _lobby.HubRequested += (_, _) => _prime.Router.NavigateWorkspace(PrimeRoute.Play);
                 _lobby.MatchRequested += (_, match) =>
                 {
                     // The server's start barrier is not optional navigation. Preserve
@@ -415,7 +452,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Pop(); if (!yes) return;
 #if MPHREAD_SHELL
-                if (forge != null && !forge.SaveRecovery()) { _prime.Router.Navigate(PrimeRoute.Forge); return; }
+                if (forge != null && !forge.SaveRecovery()) { _prime.Router.NavigateWorkspace(PrimeRoute.Forge); return; }
 #endif
                 Finish(default);
             };
@@ -698,7 +735,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void TryShowUpdatePrompt()
         {
             if (_pendingUpdatePrompt is not UpdateInfo update
-                || _startup != null || _prime.Overlays.IsOpen || _prime.Router.Current != PrimeRoute.News
+                || _startup != null || _prime.Overlays.IsOpen || _prime.Router.Current != PrimeRoute.Play
                 || !_prime.Header.IsVisible || TopLevel.GetTopLevel(this) == null
                 || NetSession.Active || _updating || _loadingVersions
                 || !GameFiles.Ready)

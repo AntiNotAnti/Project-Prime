@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ProjectPrime.Studio.Protocol/ProjectPrime.Studio.Protocol.csproj" />
+    <Compile Include="../../src/ProjectPrime.Studio/StudioLaunchRequest.cs" Link="StudioLaunchRequest.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/IPC/StudioInstanceGuard.cs" Link="StudioInstanceGuard.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/IPC/StudioIpcServer.cs" Link="StudioIpcServer.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/IPC/StudioIpcClient.cs" Link="StudioIpcClient.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/IPC/StudioEndpointStore.cs" Link="StudioEndpointStore.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/Jobs/StudioJobManager.cs" Link="StudioJobManager.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Gui/Shell/PrimeRouter.cs" Link="PrimeRouter.cs" />
+  </ItemGroup>
+</Project>

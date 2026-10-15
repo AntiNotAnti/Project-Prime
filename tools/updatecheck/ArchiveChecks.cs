@@ -82,6 +82,20 @@ internal static class ArchiveChecks
                 if (Directory.Exists(staged)) Directory.Delete(staged, recursive: true);
 
                 string studio = OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
+                string HashText(string value) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+                var paired = new Dictionary<string, string>(valid)
+                {
+                    [studio] = "incoming studio",
+                    [ReleaseInstallation.PairName] = System.Text.Json.JsonSerializer.Serialize(new ReleaseInstallation.DesktopPair(
+                        2, "1.2.3", "1.2.3", 1, UpdateCheck.BinaryName(), studio,
+                        HashText("incoming executable"), HashText("incoming studio")))
+                };
+                archive = Fixture("paired-valid", paired);
+                DesktopUpdate.PrepareArchive(archive, zip, staged, installation);
+                var pair = ReleaseInstallation.ValidatePair(staged, ReleaseInstallation.ReadManifest(staged)!);
+                check(pair.GameVersion == "1.2.3" && File.Exists(Path.Combine(staged, studio)),
+                    kind + " stages exact Game and Studio binary identities with hidden paired metadata");
+                Directory.Delete(staged, recursive: true);
                 archive = Fixture("invalid-paired", new Dictionary<string, string>(valid) { [studio] = "incoming studio" });
                 rejected = false;
                 try { DesktopUpdate.PrepareArchive(archive, zip, staged, installation); }

@@ -13,7 +13,7 @@ namespace MphRead.Mods.MapEditor
 
     public static class MapAuditRunner
     {
-        public static async Task<MapAuditResult> Run(MapProject project,CancellationToken cancellation)
+        public static async Task<MapAuditResult> Run(MapProject project,CancellationToken cancellation,string? gameExecutable=null,string? workingDirectory=null)
         {
             string directory=Path.Combine(Path.GetTempPath(),"project-prime-map-audit-"+Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
@@ -21,9 +21,16 @@ namespace MphRead.Mods.MapEditor
             {
                 var definition=project.ToDefinition();definition.Name="AUDIT "+Guid.NewGuid().ToString("N");
                 MapProjectExport.Save(definition,Path.Combine(directory,"audit.json"));
-                var start=new ProcessStartInfo(Environment.ProcessPath??throw new IOException("Executable path is unavailable."))
-                {UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=AppContext.BaseDirectory};
-                if(Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet",StringComparison.OrdinalIgnoreCase))start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ProjectPrime.dll"));
+                string executable=gameExecutable??Environment.ProcessPath??throw new IOException("Executable path is unavailable.");
+                var start=new ProcessStartInfo(executable)
+                {UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=workingDirectory??AppContext.BaseDirectory};
+                if(Path.GetExtension(executable).Equals(".dll",StringComparison.OrdinalIgnoreCase))
+                {
+                    string runtime=Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(),"..","..",".."));
+                    start.FileName=Path.Combine(runtime,OperatingSystem.IsWindows()?"dotnet.exe":"dotnet");
+                    start.ArgumentList.Add(executable);
+                }
+                else if(Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet",StringComparison.OrdinalIgnoreCase))start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory,"ProjectPrime.dll"));
                 string mode=definition.Capabilities?.SupportedModes.FirstOrDefault()??"Battle";
                 int players=definition.Capabilities?.MaxPlayers??8;
                 foreach(string arg in new[]{"-mapdir",directory,"-maptest",definition.Name,"-players",players.ToString(),"-mode",mode,"-seconds","22","-bots","-noupdate"})start.ArgumentList.Add(arg);

@@ -146,7 +146,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
 
             root.Children.Add(HubChrome.Header(
-                "HOME  /  REPLAY STUDIO",
+                "STUDIO  /  REPLAY STUDIO",
                 "REPLAY STUDIO",
                 "Search the archive, inspect timeline stills and highlights, then open the cinematic editor.",
                 "LOCAL LIBRARY"));

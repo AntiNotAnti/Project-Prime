@@ -19,20 +19,17 @@ namespace MphRead.Mods.Launcher.Gui
             BorderBrush = PrimeTheme.BorderBrush;
             BorderThickness = new Thickness(0, 0, 0, 1);
             Padding = new Thickness(24, 12);
-            var identity = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
-            identity.Spacing = 4;
-            var nav = new Grid { ColumnDefinitions = new("0.75*,0.7*,1.0*,1.0*,1.0*,1.05*,0.85*,0.85*"), ColumnSpacing = 3 };
+            var identityCopy = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
+            identityCopy.Spacing = 4;
+            var nav = new Grid { ColumnDefinitions = new("*,1.2*,*,*,*"), ColumnSpacing = 3 };
             int index = 0;
             foreach (var route in PrimeRouter.Tabs)
             {
                 string label = route switch
                 {
-                    PrimeRoute.News => "HOME",
                     PrimeRoute.Play => "PLAY",
                     PrimeRoute.Community => "COMMUNITY",
-                    PrimeRoute.HunterLicense => "HUNTER LICENSE",
-                    PrimeRoute.Theatre => "REPLAY STUDIO",
-                    PrimeRoute.Forge => "MAP STUDIO",
+                    PrimeRoute.Studio => "STUDIO",
                     PrimeRoute.Offline => "OFFLINE",
                     PrimeRoute.Settings => "SETTINGS",
                     _ => route.ToString().ToUpperInvariant()
@@ -41,10 +38,14 @@ namespace MphRead.Mods.Launcher.Gui
                 ControllerNav.Identify(button, "prime.nav." + route);
                 Grid.SetColumn(button, index++); nav.Children.Add(button); _tabs.Add(route, button);
             }
-            _profile = new PrimeButton("PLAYER", () => navigate(PrimeRoute.HunterLicense));
-            _lobby = new PrimeButton("LOBBY ACTIVE", () => navigate(PrimeRoute.Lobby)) { IsVisible = false };
-            var session = new Grid(); session.Children.Add(_profile); session.Children.Add(_lobby);
-            Child = PrimeChrome.Columns("230,*,185", identity, nav, session);
+            _profile = new PrimeButton("PLAYER", () => navigate(PrimeRoute.HunterLicense), compact: true);
+            ControllerNav.Identify(_profile, "prime.profile");
+            _lobby = new PrimeButton("LOBBY ACTIVE", () => navigate(PrimeRoute.Lobby), compact: true)
+                { IsVisible = false, MinHeight = 22, Height = 22 };
+            ControllerNav.Identify(_lobby, "prime.lobby");
+            var session = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+            session.Children.Add(_profile); session.Children.Add(_lobby);
+            Child = PrimeChrome.Columns("230,*,185", identityCopy, nav, session);
         }
         public void SetRoute(PrimeRoute route)
         {
@@ -54,7 +55,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _status.Text = state.GameFilesReady ? "● LOCAL SYSTEM READY" : "● GAME FILES REQUIRED";
             _profile.Label = state.PlayerName.ToUpperInvariant() + " // " + state.Hunter.ToUpperInvariant();
-            _profile.IsVisible = !state.LobbyActive;
+            _profile.MinHeight = state.LobbyActive ? 32 : PrimeMetrics.TabHeight;
+            _profile.Height = _profile.MinHeight;
             _lobby.IsVisible = state.LobbyActive;
             _lobby.Label = $"● LOBBY ACTIVE // {state.LobbyPlayerCount}";
         }

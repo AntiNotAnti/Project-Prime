@@ -245,6 +245,21 @@ jobs:
         run: dotnet run --project tools/updatecheck -c Release
       - name: release manifest portability regression
         run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
+      - name: paired desktop identity and layout regressions
+        run: python3 -m unittest discover -s tools -p 'test_studio_pair.py' -v
+      - name: standalone Studio source contracts on the release revision
+        run: |
+          dotnet build src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release
+          dotnet src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio.dll --self-test
+          dotnet run --project tools/studio-process-check -c Release
+          dotnet run --project tools/studio-game-broker-check -c Release
+          dotnet run --project tools/radiant-source-check -c Release
+          dotnet run --project tools/radiant-object-check -c Release
+          dotnet run --project tools/radiant-layer-check -c Release
+          python tools/radiant-mesh-worker-check/check.py src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio.dll
+          dotnet run --project tools/map-ready-acceptance -c Release
+          dotnet run --project tools/studio-replay-check -c Release
+          dotnet run --project tools/community-writer-check -c Release
       - name: delivered server archive regressions
         run: python3 -m unittest discover -s tools -p 'test_server_archive.py'
       - name: hosted lobby allocation protocol
@@ -319,9 +334,16 @@ jobs:
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             "${args[@]}" -o "publish/$TARGET"
+          if [ "$SERVER" != "true" ]; then
+            dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+              -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
+              --self-contained true -p:PublishSingleFile=true -o "studio-publish/$TARGET"
+            python3 tools/studio-pair.py merge "publish/$TARGET" "studio-publish/$TARGET" "$VERSION"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: build-linux-${{ matrix.target }}
+          include-hidden-files: true
           path: publish/${{ matrix.target }}
           if-no-files-found: error
 
@@ -465,7 +487,7 @@ jobs:
           # Unix-mode transport. Restore executable bits after assembly so the
           # x64 smoke tests run the actual apphosts and the ARM64 tarball is
           # usable immediately after extraction on the target machine.
-          chmod +x publish/linux-x64/ProjectPrime
+          chmod +x publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio
           chmod +x publish/linux-x64-server/ProjectPrime
           chmod +x publish/linux-arm64/ProjectPrime
       - name: nothing from the game is in the output
@@ -510,7 +532,7 @@ jobs:
           # Real smoke can create the updater's coordination lock in the
           # publish folder. Never distribute/own that internal runtime file.
           for target in win-x64 linux-x64 linux-arm64 win-x64-server linux-x64-server; do
-            rm -f "publish/$target/.project-prime-update.lock"
+            rm -f "publish/$target/.project-prime-update.lock" "publish/$target/.project-prime-in-use.lock"
             test ! -e "publish/$target/.project-prime-update-transaction" || {
               echo "::error::$target contains a stale updater transaction"
               exit 1
@@ -537,6 +559,7 @@ jobs:
           your extracted game files and a valid paths.txt beside the binary.
           NOTE
           python3 tools/write-release-manifest.py publish/win-x64
+          python3 tools/paired-install-check.py publish/win-x64 --version "${TAG#v}" --rid win-x64
           ( cd publish/win-x64 && zip -qr "../../dist/ProjectPrime-$TAG-win-x64.zip" . )
 
           cp LICENSE publish/linux-x64/ 2>/dev/null || true
@@ -574,6 +597,9 @@ jobs:
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
           NOTE
           python3 tools/write-release-manifest.py publish/linux-x64
+          python3 tools/paired-install-check.py publish/linux-x64 --version "${TAG#v}" --rid linux-x64
+          python3 tools/studio-pair.py smoke publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio "${TAG#v}"
+          rm -f publish/linux-x64/.project-prime-in-use.lock publish/linux-x64/.project-prime-update.lock
           ( cd publish/linux-x64 && tar czf "../../dist/ProjectPrime-$TAG-linux-x64.tar.gz" . )
 
           cat > publish/linux-arm64/SERVER.txt <<'NOTE'
@@ -738,7 +764,11 @@ jobs:
           python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"
           tools/check-no-game-assets.sh "publish/$RID"
           tools/check-maps-shipped.sh "publish/$RID"
-          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
+            --self-contained true -p:PublishSingleFile=true -o "studio-publish/$RID"
+          python3 tools/studio-pair.py smoke "publish/$RID/ProjectPrime" "studio-publish/$RID/ProjectPrimeStudio" "$VERSION"
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION" "studio-publish/$RID"
       - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.rid }}

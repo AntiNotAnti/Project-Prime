@@ -80,7 +80,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// New hub-facing prose should use <see cref="Interface"/>.
         /// </summary>
         public static readonly FontFamily Prose =
-            new("avares://ProjectPrime/Assets/Fonts/Roboto-Bold.ttf#Roboto");
+            new($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Roboto-Bold.ttf#Roboto");
 
         /// <summary>
         /// Legacy Pixelify grid helper. New Inter text must not use it.
@@ -100,7 +100,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         /// <summary>Legacy title asset retained for compatibility; not used by the FPS hub.</summary>
         public static readonly FontFamily Title =
-            new("avares://ProjectPrime/Assets/Fonts/heyNovember.ttf#Hey November");
+            new($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/heyNovember.ttf#Hey November");
 
         /// <summary>
         /// The face every self-drawn launcher control uses for player-facing
@@ -174,7 +174,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using Stream stream = AssetLoader.Open(
-                    new Uri("avares://ProjectPrime/Assets/project-prime-mark.png"));
+                    new Uri($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/project-prime-mark.png"));
                 return new WindowIcon(stream);
             }
             catch (Exception)

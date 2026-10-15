@@ -31,6 +31,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --axis-sensitivity                Test independent mouse axes and controls persistence.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
@@ -69,6 +70,7 @@ namespace MphRead.NetTest
                     + "  --pickup-protocol                 Test pickup packet codecs, registry and budgets.\n"
                     + "  --pickup-claims                   Test authoritative pickup claim decisions.\n"
                     + "  --pickup-claim-scene <assets> [room] Test native pickup claim settlement and timer phases.\n"
+                    + "  --map-pickup-scene <assets> [room] Test every supported authored pickup and exact respawn intervals.\n"
                     + "  --pickup-network                  Test bounded pickup retries and impaired reliable delivery.\n"
                     + "  --pickup-readiness                Test hosted pickup discovery after scene loading.\n"
                     + "  --pickup-replay                   Test pickup replay facts and checkpoint state.\n"
@@ -95,6 +97,7 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--scene-setup-ownership")
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
+            if (args.Length > 0 && args[0] == "--axis-sensitivity") return AxisSensitivityTests.Run();
             if (args.Length > 0 && args[0] == "--instagib-ion-fracture") return InstagibIonFractureTests.Run();
             if (args.Length > 0 && args[0] == "--outline-colors") return OutlineColorTests.Run();
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
@@ -151,6 +154,13 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return PickupClaimSceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--map-pickup-scene")
+            {
+                MphRead.Mods.MapGen.CustomRooms.RuntimeNamespace = "map-scene-" + Guid.NewGuid().ToString("N");
+                Paths.MphKey = "AMHE1";
+                Paths.SetPath(Paths.MphKey, System.IO.Path.GetFullPath(args[1]));
+                return MapPickupSceneTests.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--pickup-network") return PickupNetworkTests.Run();
             if (args.Length > 0 && args[0] == "--pickup-readiness") return PickupReadinessTests.Run();
@@ -351,8 +361,9 @@ namespace MphRead.NetTest
             }
             if (args.Length > 1 && args[0] == "--q3-traversal-scene")
             {
-                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
-                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                MphRead.Mods.MapGen.CustomRooms.RuntimeNamespace = "map-scene-" + Guid.NewGuid().ToString("N");
+                Paths.MphKey = "AMHE1";
+                Paths.SetPath(Paths.MphKey, System.IO.Path.GetFullPath(args[1]));
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
             if (args.Length > 1 && args[0] == "--movement-tour")

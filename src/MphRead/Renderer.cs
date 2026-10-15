@@ -2684,7 +2684,7 @@ namespace MphRead
         /// </summary>
         public void OnDrawFrame()
         {
-            if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
+            if (!StudioOutputFramebuffer.HasValue && Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
             if (Mods.KillCam.Presentation(this) is { } historical)
             {
@@ -2770,9 +2770,10 @@ namespace MphRead
             // positions they had then, until the 200-entry table filled up and
             // started dropping the new ones.
             _singleParticleCount = 0;
-            if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
+            if ((!Services.IsReplica || StudioOutputFramebuffer.HasValue || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
             {
-                ModReplayCamera();
+                if (StudioOutputFramebuffer.HasValue) StudioReplayApplyCamera();
+                else ModReplayCamera();
                 // Controller hardware is polled by the simulation input step only.
                 // TransformCamera may fractionally project that accepted stick sample,
                 // but the draw pass must not publish a second, unsynchronised pad state.
@@ -2950,9 +2951,9 @@ namespace MphRead
             {
                 return null;
             }
-            if (!ExportingReplay) return Mods.Render.FinalCompositeCapture.Read(width, height);
+            if (!ExportingReplay && !StudioOutputFramebuffer.HasValue) return Mods.Render.FinalCompositeCapture.Read(width, height);
             byte[] buffer = new byte[width * height * 3];
-            int source = ExportingReplay ? ReplayOutputFramebuffer() : 0;
+            int source = StudioOutputFramebuffer ?? (ExportingReplay ? ReplayOutputFramebuffer() : 0);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, source);
             GL.ReadBuffer(source == 0 ? ReadBufferMode.Back : ReadBufferMode.ColorAttachment0);
             GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
@@ -3434,7 +3435,7 @@ namespace MphRead
 
         public bool OnRenderFrame()
         {
-            if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
+            if (!StudioOutputFramebuffer.HasValue && Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
                 return theatre.OnRenderFrame();
             if (Mods.KillCam.Presentation(this) is { } historical)
             {
@@ -3464,7 +3465,7 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
-            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+            bool drawGameHud = StudioReplayGameHud ?? !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
             if (!ExecuteCoreFrameRenderGraph(drawGameHud))
                 return false;
 
@@ -3525,6 +3526,7 @@ namespace MphRead
                 Mods.Replay.ReplayHud.Draw(this);
                 if (drawGameHud) Mods.Input.AimAssist.AimAssistDebug.Draw(this);
             }
+            StudioReplayOverlay?.Invoke(this);
             if (_movieFrameIndex != -1)
             {
                 DrawMovieFrame();

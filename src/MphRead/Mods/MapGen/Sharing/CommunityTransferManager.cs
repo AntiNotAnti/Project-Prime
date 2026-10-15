@@ -56,6 +56,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     private readonly string _root;
     private readonly string _indexPath;
     private readonly CommunityTransferCoordination _coordination;
+    private readonly IDisposable _writerVersion;
     private readonly Task _watcher;
     private readonly CommunityArchiveCache _archiveCache;
     private readonly ICommunityCredentialSource? _credentials;
@@ -83,6 +84,10 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         Directory.CreateDirectory(Path.Combine(_root, "uploads"));
         Directory.CreateDirectory(Path.Combine(_root, "partials"));
         Directory.CreateDirectory(Path.Combine(_root, "archives"));
+
+        _writerVersion = _coordination.AcquireWriterVersion();
+        try
+        {
 
         // Before any process can inspect and restart a job, acquire the
         // short-lived index transaction lock. A different live process must
@@ -113,6 +118,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         // A read-only process can observe and control another owner's jobs
         // without keeping its own stale copy of jobs-v1.json.
         _watcher = Task.Run(WatchOtherProcessesAsync);
+        }
+        catch { _writerVersion.Dispose(); _workers.Dispose(); _lifetime.Dispose(); throw; }
     }
 
     public IReadOnlyList<CommunityTransferJob> ListJobs()
@@ -911,9 +918,12 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         _lifetime.Cancel();
         Task[] running;
         lock (_gate) running = _running.Values.Select(v => v.Running).ToArray();
-        if (running.Length > 0) await Task.WhenAll(running).ConfigureAwait(false);
-        await _watcher.ConfigureAwait(false);
-        _lifetime.Dispose();
-        _workers.Dispose();
+        try { await Task.WhenAll(running.Append(_watcher)).ConfigureAwait(false); }
+        finally
+        {
+            _lifetime.Dispose();
+            _workers.Dispose();
+            _writerVersion.Dispose();
+        }
     }
 }

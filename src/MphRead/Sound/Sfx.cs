@@ -351,7 +351,9 @@ namespace MphRead.Sound
             Instance.QueueStream((int)id, delay, expiration);
         }
 
-        public static void Load(Scene scene)
+        public static void Load(Scene scene) => Load(scene, SfxOpenAlBackend.Instance, false);
+
+        internal static void Load(Scene scene, ISfxNativeBackend backend, bool requireAudio)
         {
             ShutDown();
             Mods.Replay.ReplayAudioOwner.Reset();
@@ -374,7 +376,7 @@ namespace MphRead.Sound
                 LongSfxMute = 0;
                 return;
             }
-            Instance = new SfxInstance();
+            Instance = new SfxInstance(backend);
             try
             {
                 Instance.Load(scene);
@@ -391,6 +393,7 @@ namespace MphRead.Sound
                 Console.WriteLine($"[sound] SFX device unavailable ({ex.Message}); continuing without SFX");
                 ShutdownCompletion = Instance.ShutdownCompletion;
                 Instance = new SfxInstanceBase();
+                if (requireAudio) throw new InvalidOperationException("Replay audio backend unavailable.", ex);
             }
             SfxMute = false;
             ForceFieldSfxMute = 0;
@@ -431,6 +434,9 @@ namespace MphRead.Sound
     public class SfxInstance : SfxInstanceBase
     {
         private const int _maxPerInst = 12;
+        private readonly ISfxNativeBackend _nativeBackend;
+        public SfxInstance() : this(SfxOpenAlBackend.Instance) { }
+        internal SfxInstance(ISfxNativeBackend backend) => _nativeBackend = backend;
 
         public class SoundInstance
         {
@@ -1627,8 +1633,8 @@ namespace MphRead.Sound
 #else
             const bool closeOnWorker = true;
 #endif
-            _resources = new SfxResourceOwner(SfxOpenAlBackend.Instance,
-                _buffers.Length + 1, _channels.Length + 1, closeOnWorker);
+            _resources = new SfxResourceOwner(_nativeBackend,
+                _buffers.Length + 1, _channels.Length + 1, closeOnWorker && ReferenceEquals(_nativeBackend, SfxOpenAlBackend.Instance));
             try
             {
                 _resources.Initialize();

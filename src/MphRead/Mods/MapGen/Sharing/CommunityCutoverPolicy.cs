@@ -53,11 +53,14 @@ public static class CommunityCutoverPolicy
     public static bool ObjectMirrorEnabled =>
         EnabledByDefault(Environment.GetEnvironmentVariable(ObjectMirrorVariable));
 
-    public static string? NetRadiantExecutable =>
-        ConfiguredExternalTool(NetRadiantExecutableVariable);
+    public static NetRadiantTools NetRadiantTools => NetRadiantToolDiscovery.Resolve(
+        AppContext.BaseDirectory, NetRadiantToolDiscovery.CurrentPlatform,
+        Environment.GetEnvironmentVariable(NetRadiantExecutableVariable),
+        Environment.GetEnvironmentVariable(Q3Map2ExecutableVariable));
 
-    public static string? Q3Map2Executable =>
-        ConfiguredExternalTool(Q3Map2ExecutableVariable);
+    public static string? NetRadiantExecutable => NetRadiantTools.EditorExecutable;
+
+    public static string? Q3Map2Executable => NetRadiantTools.CompilerExecutable;
 
     /// <summary>
     /// Hosts trusted by the local operator, not by a remote service's URL.
@@ -94,40 +97,19 @@ public static class CommunityCutoverPolicy
         }
     }
 
-    // Prefer NetRadiant only when a separately installed, regular desktop
-    // executable is explicitly configured. Native JSON Studio remains the
-    // automatic fallback on Android or a missing/invalid external binary.
+    // Prefer the shipped geometry editor or an explicit operator override.
+    // Android and invalid overrides retain the native workspace.
     public static bool NetRadiantDefault =>
         EnabledByDefault(Environment.GetEnvironmentVariable(NetRadiantDefaultVariable))
         && NetRadiantExecutable != null;
-
-    private static string? ConfiguredExternalTool(string variable)
-    {
-        if (OperatingSystem.IsAndroid()) return null;
-        string? configured = Environment.GetEnvironmentVariable(variable);
-        if (string.IsNullOrWhiteSpace(configured)
-            || !Path.IsPathFullyQualified(configured)) return null;
-        try
-        {
-            string path = Path.GetFullPath(configured);
-            return File.Exists(path)
-                && !File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)
-                ? path : null;
-        }
-        catch (Exception ex) when (ex is ArgumentException or IOException
-            or UnauthorizedAccessException or NotSupportedException)
-        {
-            return null;
-        }
-    }
 
     public static string Summary =>
         (StudioCreatorPreview
             ? "Community creator workspace enabled; Advanced Revisions remains available."
             : "Legacy creator dashboard enabled.")
         + (NetRadiantDefault
-            ? " External NetRadiant is the preferred configured editor."
-            : " Native Map Studio remains the editor; external NetRadiant needs an installed executable.")
+            ? " Radiant is the primary geometry editor; Studio owns gameplay and packages."
+            : " Native geometry fallback is available; install Project Prime Radiant to use the primary geometry editor.")
         + (ObjectMirrorEnabled
             ? " Verified public-map object mirroring enabled."
             : " Object mirroring disabled by operator.");

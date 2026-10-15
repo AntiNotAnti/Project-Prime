@@ -16,6 +16,105 @@ internal static class ReleaseInstallation
     internal const string ManifestName = ".project-prime-files.json";
     private const string TransactionName = ".project-prime-update-transaction";
     private const string LockName = ".project-prime-update.lock";
+    private const string UseLockName = ".project-prime-in-use.lock";
+    internal const string PairName = ".project-prime-desktop.json";
+    internal sealed record DesktopPair(int Version, string GameVersion, string StudioVersion,
+        int IpcVersion, string GameBinary, string StudioBinary, string GameSha256, string StudioSha256);
+
+    // Shared across Game and Studio for their complete lifetimes. The updater
+    // acquires this same file exclusively after its initiating process exits.
+    internal static IDisposable HoldUseLease(string root)
+        => new FileStream(OwnedPath(root, UseLockName, internalPath: true), FileMode.OpenOrCreate,
+            FileAccess.Read, FileShare.Read);
+
+    internal static DesktopPair ValidatePair(string root, Manifest manifest)
+    {
+        if (!manifest.Files.Contains(PairName, Names))
+            throw new InvalidDataException("The paired desktop release is missing compatibility metadata.");
+        string metadata = OwnedPath(root, PairName);
+        if (new FileInfo(metadata).Length > 16384)
+            throw new InvalidDataException("Paired desktop metadata exceeds its budget.");
+        DesktopPair pair;
+        try { pair = JsonSerializer.Deserialize<DesktopPair>(File.ReadAllBytes(metadata))
+            ?? throw new InvalidDataException("Missing paired desktop metadata."); }
+        catch (JsonException ex) { throw new InvalidDataException("Invalid paired desktop metadata.", ex); }
+        if (pair.Version != 2 || BuildVersion.Parse(pair.GameVersion) == null
+            || pair.GameVersion != pair.StudioVersion || pair.IpcVersion <= 0)
+            throw new InvalidDataException("Game and Studio release versions or metadata schema do not match.");
+        bool flat = pair.GameBinary is "ProjectPrime" or "ProjectPrime.exe"
+            && pair.StudioBinary == (pair.GameBinary.EndsWith(".exe", StringComparison.Ordinal) ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio");
+        bool bundles = pair.GameBinary == "Project Prime.app/Contents/MacOS/ProjectPrime"
+            && pair.StudioBinary == "Project Prime Studio.app/Contents/MacOS/ProjectPrimeStudio";
+        if (!flat && !bundles) throw new InvalidDataException("Game and Studio must be sibling binaries or sibling macOS applications.");
+        foreach (var binary in new[] { (pair.GameBinary, pair.GameSha256, "ProjectPrime"),
+            (pair.StudioBinary, pair.StudioSha256, "ProjectPrimeStudio") })
+        {
+            string path = OwnedPath(root, binary.Item1);
+            if (Path.GetFileName(path) != binary.Item3 && Path.GetFileName(path) != binary.Item3 + ".exe"
+                || !manifest.Files.Contains(binary.Item1, Names) || manifest.Hashes == null
+                || String.IsNullOrEmpty(binary.Item2) || binary.Item2.Length != 64
+                || !manifest.Hashes.TryGetValue(binary.Item1, out string? ownedHash)
+                || !binary.Item2.Equals(ownedHash, StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(path) || !Hash(path).Equals(binary.Item2, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Paired desktop binary identity mismatch: " + binary.Item1);
+        }
+        if (!manifest.Hashes!.TryGetValue(PairName, out string? metadataHash)
+            || !Hash(metadata).Equals(metadataHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Paired desktop metadata digest mismatch.");
+        return pair;
+    }
+
+    private static FileStream AcquireUnused(string target)
+    {
+        // Also guard legacy processes that predate shared leases. Never terminate
+        // another editor or game: the player closes it and retries the update.
+        string physicalTarget = ResolveAliases(target);
+        var ownedApphosts = new HashSet<string>(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (string relative in new[] { "ProjectPrime", "ProjectPrime.exe", "ProjectPrimeStudio", "ProjectPrimeStudio.exe",
+            "Project Prime.app/Contents/MacOS/ProjectPrime",
+            "Project Prime Studio.app/Contents/MacOS/ProjectPrimeStudio" })
+            ownedApphosts.Add(OwnedPath(physicalTarget,relative));
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                if (process.Id == Environment.ProcessId) continue;
+                try
+                {
+                    string? binary = process.MainModule?.FileName;
+                    if (binary != null && ownedApphosts.Contains(ResolveAliases(binary)))
+                        throw new IOException("Close Game and Studio before updating this installation.");
+                }
+                catch (System.ComponentModel.Win32Exception) { }
+                catch (InvalidOperationException) { }
+                catch (NotSupportedException) { }
+            }
+        }
+        try { return new FileStream(OwnedPath(target, UseLockName, internalPath: true), FileMode.OpenOrCreate,
+            FileAccess.ReadWrite, FileShare.None); }
+        catch (IOException ex) { throw new IOException("Close Game and Studio before updating this installation.", ex); }
+    }
+
+    // System aliases such as macOS /var -> /private/var must not make a live
+    // installation look unrelated to its physical process executable. Resolve
+    // each ancestor, then compare only the six exact owned apphost paths above.
+    private static string ResolveAliases(string path,int depth=0)
+    {
+        if(depth>32)throw new IOException("The installation path contains too many aliases.");
+        path=Path.GetFullPath(path);
+        string root=Path.GetPathRoot(path)!;
+        string current=root;
+        foreach(string component in path[root.Length..].Split(Path.DirectorySeparatorChar,StringSplitOptions.RemoveEmptyEntries))
+        {
+            current=Path.Combine(current,component);
+            FileSystemInfo entry=Directory.Exists(current)?new DirectoryInfo(current):new FileInfo(current);
+            if(entry.LinkTarget!=null)
+                current=ResolveAliases(entry.ResolveLinkTarget(true)?.FullName
+                    ??throw new IOException("The installation alias cannot be resolved."),depth+1);
+        }
+        return Path.TrimEndingDirectorySeparator(current);
+    }
     private const int MaximumManifestBytes = 8 * 1024 * 1024;
     private const int MaximumFiles = 100000;
     internal sealed record Manifest(int Version, string[] Files, Dictionary<string, string>? Hashes = null);
@@ -35,7 +134,8 @@ internal static class ReleaseInstallation
         if (components.Any(c => c.Length == 0 || c is "." or ".." || c.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
             || c.EndsWith(' ') || c.EndsWith('.'))
             || !internalPath && (components[0].Equals(TransactionName, StringComparison.OrdinalIgnoreCase)
-                || components[0].Equals(LockName, StringComparison.OrdinalIgnoreCase)))
+                || components[0].Equals(LockName, StringComparison.OrdinalIgnoreCase)
+                || components[0].Equals(UseLockName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("Invalid release path.");
         string path = Path.GetFullPath(root);
         foreach (string component in components)
@@ -133,22 +233,14 @@ internal static class ReleaseInstallation
             ?? throw new InvalidDataException("The incoming release manifest is missing.");
         bool studio = next.Files.Any(p => Path.GetFileName(p) is
             "ProjectPrimeStudio" or "ProjectPrimeStudio.exe");
-        if (studio)
-        {
-            string metadata = Path.Combine(source, ".project-prime-desktop.json");
-            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(metadata))
-                throw new InvalidDataException(
-                    "Published release is missing required Game + Studio metadata. The update was not installed; use a corrected release.");
-            using var document = JsonDocument.Parse(File.ReadAllText(metadata));
-            JsonElement root = document.RootElement;
-            if (!root.TryGetProperty("GameVersion", out JsonElement game)
-                || !root.TryGetProperty("StudioVersion", out JsonElement editor)
-                || !String.Equals(game.GetString(), editor.GetString(), StringComparison.Ordinal)
-                || String.IsNullOrWhiteSpace(game.GetString()))
-                throw new InvalidDataException("Published Game and Studio versions do not match.");
-        }
-        if (!studio && (File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
-                     || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"))))
+        if (studio || next.Files.Contains(PairName, Names)) ValidatePair(source, next);
+        Manifest? installed = ReadManifest(target);
+        bool installedStudio = installed?.Files.Any(p => p == PairName || Path.GetFileName(p) is
+                "ProjectPrimeStudio" or "ProjectPrimeStudio.exe") == true
+            || File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
+            || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"))
+            || File.Exists(Path.Combine(target, "Project Prime Studio.app/Contents/MacOS/ProjectPrimeStudio"));
+        if (!studio && installedStudio)
             throw new InvalidDataException(
                 "An older standalone release cannot overwrite paired Project Prime Studio. Install it in a separate folder.");
     }
@@ -158,35 +250,14 @@ internal static class ReleaseInstallation
         source = Path.GetFullPath(source); target = Path.GetFullPath(target);
         Directory.CreateDirectory(target);
         using var held = Acquire(target);
+        // Recovery also moves installed apphosts. Acquire the lifetime gate
+        // before it can restore files from an interrupted paired update.
+        using var unused = AcquireUnused(target);
         RecoverCore(target);
         EnsureManifest(source);
         var next = ReadManifest(source)!;
         var previous = ReadManifest(target);
-        // Do not permit a backport of the old standalone game to silently
-        // remove Project Prime Studio from a later paired installation.
-        // A v0.1.52 -> v0.1.47 switch is therefore rejected before changes.
-        bool incomingStudio = next.Files.Any(p => Path.GetFileName(p) is
-            "ProjectPrimeStudio" or "ProjectPrimeStudio.exe");
-        bool installedStudio = previous?.Files.Any(p => Path.GetFileName(p) is
-                "ProjectPrimeStudio" or "ProjectPrimeStudio.exe") == true
-            || File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
-            || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"));
-        if (installedStudio && !incomingStudio)
-            throw new InvalidDataException("The selected release does not include the paired Project Prime Studio. Extract the older release into a separate folder.");
-        if (incomingStudio)
-        {
-            string paired = Path.Combine(source, ".project-prime-desktop.json");
-            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(paired))
-                throw new InvalidDataException("The paired desktop release is missing compatibility metadata.");
-            using var pairDocument = JsonDocument.Parse(File.ReadAllText(paired));
-            JsonElement pairRoot = pairDocument.RootElement;
-            if (pairRoot.ValueKind != JsonValueKind.Object
-                || !pairRoot.TryGetProperty("GameVersion", out JsonElement gameVersion)
-                || !pairRoot.TryGetProperty("StudioVersion", out JsonElement studioVersion)
-                || !String.Equals(gameVersion.GetString(), studioVersion.GetString(), StringComparison.Ordinal)
-                || String.IsNullOrWhiteSpace(gameVersion.GetString()))
-                throw new InvalidDataException("Game and Project Prime Studio release versions do not match.");
-        }
+        ValidateIncoming(source, target);
         var keep = next.Files.ToHashSet(Names);
         var obsolete = previous?.Files.Where(p => !keep.Contains(p))
             ?? Directory.EnumerateFiles(target).Select(Path.GetFileName).Where(p => p != null && Legacy(p) && !keep.Contains(p)).Select(p => p!);
@@ -290,6 +361,9 @@ internal static class ReleaseInstallation
     {
         if (!Directory.Exists(target)) return;
         using var held = Acquire(target);
+        // Recovery can restore apphosts, so it observes the same live-owner gate.
+        if (!Directory.Exists(Path.Combine(target, TransactionName))) return;
+        using var unused = AcquireUnused(Path.GetFullPath(target));
         RecoverCore(Path.GetFullPath(target));
     }
 

@@ -13,6 +13,26 @@ namespace MphRead.Mods.Replay
     /// </summary>
     internal static class ReplayDirector
     {
+        private static readonly ReplayDirectorState State = new();
+        public static int CurrentSlot => State.CurrentSlot;
+        public static float CurrentScore => State.CurrentScore;
+        public static string Reason => State.Reason;
+        public static void Reset() => State.Reset();
+        internal static (float Actor, float Target, string Reason, bool Major) SemanticInterest(MatchSemanticEventType type) => ReplayDirectorState.SemanticInterest(type);
+        public static void Tick(Scene scene)
+        {
+            if (!ReplayCamera.Director || !DemoPlayback.IsActive) return;
+            State.Tick(scene, DemoPlayback.Session, (slot, mode) =>
+            {
+                SpectatorMode.Watch(slot);
+                if (!ReplayCamera.PlayTrack) ReplayCamera.SetDirectorMode(mode);
+            });
+        }
+    }
+
+    /// <summary>Canonical automatic camera scoring with per-presentation state.</summary>
+    internal sealed class ReplayDirectorState
+    {
         private const uint MinimumHoldFrames = 3 * 60;
         private const uint MajorEventHoldFrames = 60;
         private const uint EventLookbackFrames = 4 * 60;
@@ -22,24 +42,24 @@ namespace MphRead.Mods.Replay
         private readonly record struct ReplayDirectorCandidate(int Slot, float Score,
             string Reason, bool MajorEvent);
 
-        private static uint _lastSwitchFrame;
-        private static uint _lastFrame;
-        private static long _seekGeneration = -1;
-        private static int _eventStart;
-        private static int _eventEnd;
-        private static int _currentSlot = -1;
-        private static float _currentScore;
-        private static int _previousSlot = -1;
-        private static uint _previousSwitchFrame;
-        private static readonly float[] EventScores = new float[RosterPacket.MaxSlots];
-        private static readonly string?[] EventReasons = new string?[RosterPacket.MaxSlots];
-        private static readonly bool[] EventMajor = new bool[RosterPacket.MaxSlots];
+        private uint _lastSwitchFrame;
+        private uint _lastFrame;
+        private long _seekGeneration = -1;
+        private int _eventStart;
+        private int _eventEnd;
+        private int _currentSlot = -1;
+        private float _currentScore;
+        private int _previousSlot = -1;
+        private uint _previousSwitchFrame;
+        private readonly float[] EventScores = new float[RosterPacket.MaxSlots];
+        private readonly string?[] EventReasons = new string?[RosterPacket.MaxSlots];
+        private readonly bool[] EventMajor = new bool[RosterPacket.MaxSlots];
 
-        public static int CurrentSlot => _currentSlot;
-        public static float CurrentScore => _currentScore;
-        public static string Reason { get; private set; } = "idle";
+        public int CurrentSlot => _currentSlot;
+        public float CurrentScore => _currentScore;
+        public string Reason { get; private set; } = "idle";
 
-        public static void Reset()
+        public void Reset()
         {
             _lastSwitchFrame = 0;
             _lastFrame = 0;
@@ -67,7 +87,7 @@ namespace MphRead.Mods.Replay
                 MatchSemanticEventType.PlayerAssisted => (24, 0, "recent assist", false),
                 _ => (0, 0, "quiet", false)
             };
-        private static void AddCanonicalInterest(ReplayReplicaState state)
+        private void AddCanonicalInterest(ReplayReplicaState state)
         {
             foreach (var fact in state.SemanticEvents.Events)
             {
@@ -86,16 +106,14 @@ namespace MphRead.Mods.Replay
             }
         }
 
-        public static void Tick(Scene scene)
+        public ReplayCameraMode CurrentMode { get; private set; } = ReplayCameraMode.FirstPerson;
+        public void Tick(Scene scene, ReplayPlaybackSession session, Action<int, ReplayCameraMode>? selected = null)
         {
-            if (!ReplayCamera.Director || !DemoPlayback.IsActive)
-                return;
-
-            uint frame = ReplayController.CurrentFrame;
-            long seekGeneration = DemoPlayback.Session.Transport.SeekGeneration;
+            uint frame = session.CurrentFrame;
+            long seekGeneration = session.Transport.SeekGeneration;
             if (_seekGeneration != seekGeneration || frame < _lastFrame) Reset();
             _seekGeneration = seekGeneration;
-            IReadOnlyList<ReplayEvent> events = DemoPlayback.Events;
+            IReadOnlyList<ReplayEvent> events = session.Events;
             if (frame < _lastFrame || _eventEnd > events.Count)
             {
                 _eventStart = 0;
@@ -201,7 +219,7 @@ namespace MphRead.Mods.Replay
                         reason = eventReason;
                 }
 
-                if (DemoPlayback.LastFrame > frame && DemoPlayback.LastFrame - frame <= 60 * 60)
+                if (session.LastFrame > frame && session.LastFrame - frame <= 60 * 60)
                     score *= 1.12f;
 
                 float selectionScore = score;
@@ -242,18 +260,10 @@ namespace MphRead.Mods.Replay
                 _currentScore = candidates[bestSlot].Score;
                 _lastSwitchFrame = frame;
                 Reason = bestReason;
-                SpectatorMode.Watch(bestSlot);
-
-                // Pick a readable shot while leaving authored tracks alone.
-                if (!ReplayCamera.PlayTrack)
-                {
-                    if (bestReason.Contains("objective", StringComparison.Ordinal))
-                        ReplayCamera.SetDirectorMode(ReplayCameraMode.Orbit);
-                    else if (bestReason is "duel" or "multi-player fight" or "damage exchange")
-                        ReplayCamera.SetDirectorMode(ReplayCameraMode.Chase);
-                    else
-                        ReplayCamera.SetDirectorMode(ReplayCameraMode.FirstPerson);
-                }
+                CurrentMode = bestReason.Contains("objective", StringComparison.Ordinal) ? ReplayCameraMode.Orbit
+                    : bestReason is "duel" or "multi-player fight" or "damage exchange" ? ReplayCameraMode.Chase
+                    : ReplayCameraMode.FirstPerson;
+                selected?.Invoke(bestSlot, CurrentMode);
             }
             else if (bestSlot == _currentSlot)
             {

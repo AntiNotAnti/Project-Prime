@@ -26,7 +26,12 @@ public static partial class NetSession
         ? $"{map.RoomKey}: {(map.State == MapAvailabilityState.Failed ? map.Error : map.State == MapAvailabilityState.Downloading && map.Progress > 0 ? $"Downloading {map.Progress:P0}" : map.State.ToString())}" : "";
     public static void RetryMapPreparation()
     {
-        if (MapPreparation?.State == MapAvailabilityState.Failed) ResetMapPreparation();
+        if (MapPreparation?.State == MapAvailabilityState.Failed)
+        {
+            CustomRooms.RetryGeneration(MapPreparation.RoomKey);
+            NetRoomChange.RetryFailedLoad();
+            ResetMapPreparation();
+        }
     }
     public static bool RequiredMapReady => ServerSession is not { } session || !session.Match.MapIdentity.IsCustom || _playback
         || MapPreparation is { State: MapAvailabilityState.Ready } map && map.RequiredMap == session.Match.MapIdentity
@@ -39,8 +44,16 @@ public static partial class NetSession
             if (!Metadata.IsBuiltInRoom(session.Match.RoomKey)) throw new InvalidDataException("The server omitted custom map identity.");
             return;
         }
-        if (!RequiredMapReady || !CustomRooms.Installed.HasExact(session.Match.MapIdentity.Content(session.Match.RoomKey)))
+        if (!RequiredMapReady)
             throw new InvalidDataException("The exact map package has not finished preparation or changed on disk.");
+        string? reason = !CustomRooms.Installed.HasExact(session.Match.MapIdentity.Content(session.Match.RoomKey))
+            ? "The exact map package changed on disk. Reinstall the map before loading."
+            : CustomRooms.WhyUnplayable(session.Match.RoomKey);
+        if (reason != null)
+        {
+            if (MapPreparation is { } map) { map.Error = reason; map.State = MapAvailabilityState.Failed; }
+            throw new InvalidDataException(reason);
+        }
     }
     private static double _lastMapReport;
     private static uint _mapReportSequence;
@@ -109,8 +122,11 @@ public static partial class NetSession
         }
         if (map.Prewarm is { IsCompleted: true } warmed && map.State == MapAvailabilityState.Prewarming)
         {
-            if (warmed.Status == TaskStatus.RanToCompletion && warmed.Result) { map.State = MapAvailabilityState.Ready; _lastMapReport = 0; }
-            else { map.State = MapAvailabilityState.Failed; map.Error = "The installed map could not be prewarmed."; }
+            string? reason = CustomRooms.WhyUnplayable(map.RoomKey);
+            if (warmed.Status == TaskStatus.RanToCompletion && warmed.Result && reason == null
+                && CustomRooms.Installed.HasExact(map.RequiredMap.Content(map.RoomKey)))
+            { map.State = MapAvailabilityState.Ready; _lastMapReport = 0; }
+            else { map.State = MapAvailabilityState.Failed; map.Error = reason ?? "The exact installed map could not be prewarmed or its package changed."; }
         }
         if (now - _lastMapReport >= .5)
         {

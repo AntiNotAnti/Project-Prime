@@ -31,13 +31,14 @@ class ManifestPublishingTests(unittest.TestCase):
             self.assertEqual(len(manifest["Hashes"]), len(manifest["Files"]))
 
     def test_runtime_lock_is_never_published(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            (root / "ProjectPrime").write_text("binary")
-            (root / ".project-prime-update.lock").write_text("")
-            result = write(root)
-            self.assertNotEqual(0, result.returncode)
-            self.assertIn("unsafe file", result.stderr + result.stdout)
+        for name in ('.project-prime-update.lock', '.project-prime-in-use.lock', '.PROJECT-PRIME-IN-USE.LOCK'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / "ProjectPrime").write_text("binary")
+                (root / name).write_text("")
+                result = write(root)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("unsafe file", result.stderr + result.stdout)
 
     def test_symlink_cannot_escape_manifest_root(self):
         with tempfile.TemporaryDirectory() as temp:

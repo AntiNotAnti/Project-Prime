@@ -636,7 +636,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using Stream stream = AssetLoader.Open(
-                    new Uri($"avares://ProjectPrime/Assets/{asset}"));
+                    new Uri($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/{asset}"));
                 return new Bitmap(stream);
             }
             catch (Exception)
