@@ -256,7 +256,7 @@ This is the primary UI change requested after the original editor screenshot.
 New evidence is recorded under `artifacts/radiant-native-mesh/`. The worker's
 actual child-process suite passes 114 checks, and gameplay entity contracts pass
 74. Source regression checks pass 163, layer checks 75 and the latest standalone
-host suite 112. Studio and the dedicated server build with zero warnings/errors.
+host suite 136. Studio and the dedicated server build with zero warnings/errors.
 The native fork builds on macOS ARM64. Real native parser/scene/selection API,
 transform/undo and fixed-sibling process diagnostics run against CLOSE QUARTERS
 and MP3 PROVING GROUND reference sources; real `Map_SaveFile` writes private
@@ -303,6 +303,14 @@ worker Fit UV checks. The final native CLOSE QUARTERS diagnostic passes 56 scene
 checks plus 12 worker/texture checks; its real save remains byte-for-byte equal
 to the independently reviewed copy. Exact-head hosted checks after these fixes
 must be observed separately from earlier revision results.
+
+The extracted-suite launch check found a remaining overview playtest dependency
+on the hidden recovery camera and selection. Overview now offers From Map Spawns
+and retains the complete authored spawn list, including neutral starts and yaw.
+The facade and Ctrl/Cmd+Enter follow the same mode-captured route. Twenty-four
+callback-driven checks verify detached launch coordinates, unchanged document
+and undo/redo/save state, explicit team starts and retained recovery/legacy camera
+behavior; the actual Release Studio host passes all 136 checks.
 
 This establishes a bounded native mesh editing/review/package workflow on Mac.
 Broader component/UV/content coverage, Windows/Linux GUI, end-to-end gameplay and

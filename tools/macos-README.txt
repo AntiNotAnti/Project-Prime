@@ -7,6 +7,7 @@ meshes, brushes, patches and gameplay objects. Save in Radiant, then return to
 REVIEW / APPLY CHANGES in Studio. Studio manages project settings, materials,
 assets, validation, runtime packages and playtest. The previous geometry editor
 is available through NATIVE GEOMETRY FALLBACK for recovery.
+Use PLAYTEST, then FROM MAP SPAWNS, to launch from your authored starts.
 
 Keep all included apps and the hidden paired metadata together in one folder. You can
 move that complete folder to Applications. Use osx-arm64 for Apple Silicon, osx-x64 for Intel.

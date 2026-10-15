@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using MphRead.AvaloniaShared;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.MapGen;
 using ProjectPrime.Studio.Map;
 using ProjectPrime.Studio.Protocol;
@@ -140,6 +142,7 @@ internal static class StudioRadiantWorkflowChecks
                 && createdDocument.Selection.Count==0 && ReferenceEquals(created.Host.Document,createdDocument)
                 && !createdDocument.History.CanUndo,
                 "returning to project overview clears selection and preserves canonical document and history");
+            checks += PlaytestChecks(paths,source,complete);
             Environment.SetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantDefaultVariable,"0");
             Check(!window.Commands[StudioCommand.EditGeometryInRadiant].CanExecute(null)
                 && window.Commands[StudioCommand.NativeGeometryFallback].CanExecute(null),
@@ -160,6 +163,102 @@ internal static class StudioRadiantWorkflowChecks
             }
             Environment.SetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantExecutableVariable,oldEditor);
             Environment.SetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantDefaultVariable,oldDefault);
+        }
+        return checks;
+    }
+
+    private static int PlaytestChecks(StudioPaths paths,string source,Action<Task> complete)
+    {
+        int checks=0;
+        void Check(bool condition,string label) { if(!condition)throw new InvalidOperationException(label);checks++; }
+        var fixture=MapProjectSerializer.Load(source).ToDefinition();
+        fixture.Spawns.Clear();
+        fixture.Spawns.Add(new(){Position=new[]{1f,2,3},Yaw=37,Team=-1});
+        fixture.Spawns.Add(new(){Position=new[]{-4f,5,6},Yaw=123,Team=0});
+        fixture.Spawns.Add(new(){Position=new[]{7f,8,-9},Yaw=271,Team=1});
+        string path=Path.Combine(paths.UserDataDirectory,"playtest-spawns.json");
+        MapProjectExport.Save(fixture,path);
+        var launches=new List<MapProject>();
+        var host=new AvaloniaMapStudioHost((project,_)=>{launches.Add(project);return Task.CompletedTask;});
+        var window=new Window {Content=host,Width=1280,Height=800};
+        string? oldDefault=Environment.GetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantDefaultVariable);
+        try
+        {
+            complete(host.OpenAsync(path));window.Show();Dispatcher.UIThread.RunJobs();
+            var document=host.Document!;
+            document.Edit("Playtest history fixture",d=>d.Description="history remains available");
+            document.History.Undo();
+            string json=document.Project.Definition.Serialize();
+            var state=document.CurrentStateId;
+            int history=document.History.CommandCount;
+            string Spawns(MapDefinition definition)=>System.Text.Json.JsonSerializer.Serialize(definition.Spawns);
+            string authored=Spawns(document.Project.Definition);
+            Control Find(string name)=>host.GetLogicalDescendants().OfType<Control>().Single(c=>c.Name==name);
+            Control Button(string label)=>host.GetLogicalDescendants().OfType<Control>()
+                .Single(c=>c.GetType().Name=="PrimeButton" && (string?)c.GetType().GetProperty("Label")!.GetValue(c)==label);
+            bool HasButton(string label)=>host.GetLogicalDescendants().OfType<Control>()
+                .Any(c=>c.GetType().Name=="PrimeButton" && (string?)c.GetType().GetProperty("Label")!.GetValue(c)==label);
+            void Activate(Control control)
+            {
+                control.RaiseEvent(new KeyEventArgs {RoutedEvent=InputElement.KeyDownEvent,Key=Key.Enter,Source=control});
+                control.RaiseEvent(new KeyEventArgs {RoutedEvent=InputElement.KeyUpEvent,Key=Key.Enter,Source=control});
+            }
+            void Launch(Action action)
+            {
+                int previous=launches.Count;action();
+                var wait=Stopwatch.StartNew();
+                while(launches.Count==previous && wait.Elapsed<TimeSpan.FromSeconds(10)) {Dispatcher.UIThread.RunJobs();Thread.Sleep(1);}
+                Dispatcher.UIThread.RunJobs();
+                Check(launches.Count==previous+1,"playtest action delivers one detached launch snapshot");
+            }
+            void Authored()=>Check(Spawns(launches[^1].Definition)==authored,
+                "overview playtest retains every authored spawn identity, position, team and yaw");
+            void Unchanged()=>Check(ReferenceEquals(host.Document,document) && document.Project.Definition.Serialize()==json
+                && document.CurrentStateId==state && document.History.CommandCount==history
+                && document.History.CanRedo && !document.IsDirty,
+                "playtest preserves canonical document, save state and undo/redo history");
+            Activate(Find("StudioOverviewPlaytest"));
+            Check(HasButton("FROM MAP SPAWNS") && !HasButton("FROM CAMERA") && !HasButton("FROM SELECTED SPAWN"),
+                "overview exposes map starts without hidden camera or selection actions");
+            Launch(()=>Activate(Button("FROM MAP SPAWNS")));Authored();Unchanged();
+            Check(!ReferenceEquals(launches[^1].Definition.Spawns[0].Position,document.Project.Definition.Spawns[0].Position),
+                "overview launch spawn coordinates are detached from the authoring document");
+            complete(host.PlaytestAsync());Authored();Unchanged();
+            foreach(var modifier in new[]{KeyModifiers.Control,KeyModifiers.Meta})
+            {
+                Launch(()=>((Control)host.Content!).RaiseEvent(new KeyEventArgs
+                    {RoutedEvent=InputElement.KeyDownEvent,Key=Key.Enter,KeyModifiers=modifier,Source=host.Content}));
+                Authored();Unchanged();
+            }
+            // Team starts remain explicit even when selection and viewport are hidden.
+            Launch(()=>Activate(Button("FROM TEAM B SPAWN")));
+            var selected=launches[^1].Definition.Spawns.Single();
+            Check(selected.Team==1 && selected.Yaw==271 && selected.Position.SequenceEqual(new[]{7f,8,-9}),
+                "overview explicit team start retains authored position and facing");Unchanged();
+            host.ShowNativeGeometryTools();
+            var viewport=Find("StudioNativeViewport").GetLogicalDescendants().OfType<Control>().Single(c=>c.GetType().Name=="MapViewport");
+            var camera=(System.Numerics.Vector3)viewport.GetType().GetProperty("CameraPosition")!.GetValue(viewport)!;
+            Activate(host.GetLogicalDescendants().OfType<Control>().Single(c=>c.GetValue(ControllerNav.NavIdProperty)=="studio.playtest"));
+            Check(HasButton("FROM CAMERA") && HasButton("FROM SELECTED SPAWN") && !HasButton("FROM MAP SPAWNS"),
+                "explicit geometry recovery retains camera and selected-spawn controls");
+            complete(host.PlaytestAsync());
+            selected=launches[^1].Definition.Spawns.Single();
+            Check(selected.Position.SequenceEqual(new[]{camera.X,camera.Y,camera.Z}) && selected.Team==-1 && selected.Yaw==0,
+                "explicit geometry recovery retains default camera playtesting");Unchanged();
+            document.Selection.Add(document.Project.Definition.Spawns[1].Id);
+            Launch(()=>Activate(Button("FROM SELECTED SPAWN")));
+            selected=launches[^1].Definition.Spawns.Single();
+            Check(selected.Team==0 && selected.Yaw==123 && selected.Position.SequenceEqual(new[]{-4f,5,6}),
+                "explicit geometry recovery retains selected spawn playtesting");Unchanged();
+            Environment.SetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantDefaultVariable,"0");
+            host.ShowPanel("Environment");complete(host.PlaytestAsync());
+            Check(launches[^1].Definition.Spawns.Single().Position.SequenceEqual(new[]{camera.X,camera.Y,camera.Z}),
+                "disabled Radiant default retains legacy camera playtesting");Unchanged();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(CommunityCutoverPolicy.NetRadiantDefaultVariable,oldDefault);
+            complete(host.DisposeAsync(false).AsTask());window.Close();
         }
         return checks;
     }

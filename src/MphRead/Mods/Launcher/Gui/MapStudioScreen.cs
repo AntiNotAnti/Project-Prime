@@ -1042,7 +1042,7 @@ namespace MphRead.Mods.Launcher.Gui
                 new("Validate map","check validation diagnostics",()=>_=Validate()),
                 new("Build runtime map","compile build",()=>_=Build(false)),
                 new("Build .ppmap package","package bundle",()=>_=Build(true)),
-                new("Playtest from camera","play launch ctrl enter",()=>_=Play()),
+                new(ProjectOverviewMode?"Playtest from map spawns":"Playtest from camera","play launch ctrl enter",()=>_=Play()),
                 new("Run map audit","audit test",()=>_=Audit()),
                 new("Undo","history ctrl z",()=>_document?.History.Undo()),
                 new("Redo","history ctrl y",()=>_document?.History.Redo()),
@@ -2847,8 +2847,8 @@ namespace MphRead.Mods.Launcher.Gui
         private void PlaytestInspector()
         {
             _inspector.Children.Clear(); _inspector.Children.Add(Text("PLAYTEST START"));
-            AddButton(_inspector,"From camera",()=>_=Play());
-            AddButton(_inspector,"From selected spawn",()=>
+            AddButton(_inspector,ProjectOverviewMode?"From map spawns":"From camera",()=>_=Play());
+            if(!ProjectOverviewMode) AddButton(_inspector,"From selected spawn",()=>
             {
                 var spawn=_document?.Project.Definition.Spawns.FirstOrDefault(s=>_document.Selection.Contains(s.Id));
                 if(spawn==null){_status.Text="Select a spawn first.";return;} _=Play(spawn);
@@ -2859,15 +2859,21 @@ namespace MphRead.Mods.Launcher.Gui
                 if(spawn==null){_status.Text="No spawn exists for this team.";return;} _=Play(spawn);
             });
         }
-        private Task Play(MapSpawn? start=null)=>Work("Preparing playtest",async(p,token)=>
+        private Task Play(MapSpawn? start=null)
         {
+            // Capture the requested start before Work yields. Project overview has
+            // no authoring camera or selection; its default uses every map spawn.
+            var camera=!ProjectOverviewMode?_viewport?.CameraPosition:null;
+            var playStart=start!=null
+                ?new MapSpawn {Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team}
+                :camera is {} pos?new MapSpawn {Position=new[]{pos.X,pos.Y,pos.Z}}:null;
+            return Work("Preparing playtest",async(p,token)=>
+        {
+            // Work owns a detached snapshot, so starts never edit document/history.
+            if(playStart!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(playStart);}
 #if !ANDROID
             if(NativePlaytest!=null)
             {
-                // Apply the requested start to the detached playtest snapshot;
-                // preserve the authored document and its runtime map identity.
-                if(start!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team});}
-                else if(_viewport!=null){var pos=_viewport.CameraPosition;p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=new[]{pos.X,pos.Y,pos.Z}});}
                 await NativePlaytest(p,token);GuardJob(token);return;
             }
 #endif
@@ -2875,13 +2881,12 @@ namespace MphRead.Mods.Launcher.Gui
             p.Definition.Name=_previewName;p.Definition.SourcePath=null;
             p.Definition.Capabilities=null;
             if(p.Definition.Import!=null)p.Definition.Import.KeepSpawns=false;
-            if(start!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team});}
-            else if(_viewport!=null){var pos=_viewport.CameraPosition;p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=new[]{pos.X,pos.Y,pos.Z}});}
             var result=await MapBuildScheduler.Shared.BuildAsync(MapBuildSnapshot.Capture(p),token);
             GuardJob(token);Problems(result.Validation());if(!result.Succeeded)return;
             await Task.Run(()=>{token.ThrowIfCancellationRequested();MapBuildScheduler.Install(result,p.Definition,CustomRooms.ArchiveDirectory(p.Definition),CustomRooms.EntityDirectory(),CustomRooms.NodeDirectory());},token);
             GuardJob(token); PlayRequested?.Invoke(this,p.Definition);
         });
+        }
         private Task Audit()=>Work("Running map audit",async(p,token)=>
         {
             if(!GameFiles.Ready)throw new IOException("Set up game files before running a map audit.");
