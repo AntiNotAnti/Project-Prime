@@ -207,6 +207,17 @@ physical multiplayer/device, UV/content corpus, performance or public-release
 qualification. Existing native material bindings remain authoritative; new
 Radiant shaders need an explicit native texture binding before publishing.
 
+The broader `55cefa46` CI run subsequently exposed three independent failures:
+Windows immutable-download handles blocked permanent purge, both macOS package
+fixtures passed the input after `lipo -verify_arch`, and the Linux GPU toolbar
+oracle expected an obsolete SAVE-button color. Follow-up fixes permit deletion
+while an existing immutable reader finishes, use input-first lipo syntax, and
+compare the complete arranged toolbar region against its UI-only reference.
+The community suite passes 74 checks including an intentionally held reader;
+the native packaging fixture passes locally; Release builds with zero warnings
+or errors and three headless layouts confirm the new toolbar reference. Hosted
+Windows deletion and Linux GPU execution require the follow-up CI revision.
+
 ## Required evidence still pending
 
 These rows cannot become passed from a build, a source scan, or an empty/skipped test:

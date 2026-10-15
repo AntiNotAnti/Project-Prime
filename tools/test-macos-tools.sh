@@ -125,10 +125,11 @@ codesign --verify --deep --strict "$app"
 # The optional third app has native identity, closed dependencies, signed
 # resources and source provenance; this fixture makes no GUI/Qt usability claim.
 radiant_fixture="$temp/Native Radiant fixture.app"
-python3 - "$repo" "$radiant_fixture" "$root" <<'PYFIXTURE'
+python3 - "$repo" "$radiant_fixture" "$root" "$rid" <<'PYFIXTURE'
 import hashlib, importlib.util, json, plistlib, shutil, sys, tarfile
 from pathlib import Path
-repo, app, native = map(Path, sys.argv[1:])
+repo, app, native = map(Path, sys.argv[1:4])
+rid = sys.argv[4]
 spec = importlib.util.spec_from_file_location('native_package', repo / 'tools/project-prime-radiant/package_macos.py')
 package = importlib.util.module_from_spec(spec); spec.loader.exec_module(package)
 macos = app / 'Contents/MacOS'; macos.mkdir(parents=True)
@@ -164,6 +165,19 @@ receipt = {'schema': 1, 'bundleIdentifier': 'com.projectprime.radiant',
                         for p in images}, 'guiAcceptance': 'pending'}
 (resources / 'macos-package-receipt.json').write_text(json.dumps(receipt))
 package.sign(app)
+# Xcode 26.6 treats every operand after -verify_arch as an architecture.
+# Enforce that CLI grammar even when the local older lipo accepts input-last,
+# then pass the invocation to real lipo and run the complete native validator.
+real_run = package.run
+def current_lipo_grammar(args):
+    command = [str(item) for item in args]
+    if command[0] == '/usr/bin/lipo' and '-verify_arch' in command:
+        operation = command.index('-verify_arch')
+        if operation < 2 or any(arg not in ('arm64', 'x86_64') for arg in command[operation + 1:]):
+            raise ValueError('lipo -verify_arch operands must be architecture names; input goes before the operation')
+    return real_run(args)
+package.run = current_lipo_grammar
+package.validate_prebuilt(app, rid)
 PYFIXTURE
 python3 "$repo/tools/project-prime-radiant/package_macos.py" --validate-app "$radiant_fixture" --rid "$rid"
 "$repo/tools/package-macos.sh" "$fixture" "$temp/dist-native" "$rid" 1.2.4 "$studio_fixture" "$radiant_fixture"

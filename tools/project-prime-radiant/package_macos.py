@@ -373,7 +373,7 @@ def validate_prebuilt(app, rid):
     if set(graph) != {str(p.relative_to(app)) for p in images}:
         raise ValueError('Native dependency receipt does not match its binary file set.')
     for image in images:
-        run(['/usr/bin/lipo', '-verify_arch', arch, image])
+        run(['/usr/bin/lipo', image, '-verify_arch', arch])
         run(['/usr/bin/codesign', '--verify', '--strict', image])
         deps, rpaths, _ = commands(image)
         if rpaths or deps != graph[str(image.relative_to(app))].get('dependencies'):

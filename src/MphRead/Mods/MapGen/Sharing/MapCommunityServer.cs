@@ -33,6 +33,14 @@ public static class MapCommunityServer
     private static readonly TimeSpan PartialUploadRetention = TimeSpan.FromHours(24);
     internal static readonly TimeSpan CommunityDeleteRetention = TimeSpan.FromDays(30);
 
+    // Immutable archive downloads may finish from their open handle after a
+    // moderator removes the package. In particular, receiving the final HTTP
+    // bytes can precede server-side stream disposal on Windows.
+    internal static FileStream OpenPackageRead(string path)
+        => new(path, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, 65536,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
     public static void Run(string prefix, string storage)
     {
         string secret = Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_UPLOAD_TOKEN") ?? "";
@@ -1534,7 +1542,7 @@ public static class MapCommunityServer
                     }
                     context.Response.ContentType = "application/octet-stream";
                     context.Response.ContentLength64 = total - start;
-                    await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
+                    await using var file = OpenPackageRead(Path.Combine(storage, hash + ".ppmap"));
                     if (start > 0) file.Position = start;
                     await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
                     Interlocked.Add(ref completedDownloadBytes, total - start);
