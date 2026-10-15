@@ -773,10 +773,9 @@ namespace MphRead.Entities
         {
             if (Input.ClickX >= 0 && Input.ClickY >= 0)
             {
-                float clickX = Input.ClickX / _scene.Size.X;
-                float clickY = Input.ClickY / _scene.Size.Y;
                 ButtonInfo info = _buttonInfo[(int)type];
-                if (clickX >= info.Left && clickX < info.Right && clickY >= info.Top && clickY < info.Bottom)
+                if (CampaignDialogInput.PointerHits(_scene.Size.X, _scene.Size.Y,
+                    Input.ClickX, Input.ClickY, info.Left, info.Right, info.Top, info.Bottom))
                 {
                     return true;
                 }
