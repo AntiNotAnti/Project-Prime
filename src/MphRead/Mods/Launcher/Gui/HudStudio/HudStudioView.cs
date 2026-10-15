@@ -404,8 +404,19 @@ internal sealed class HudStudioView : UserControl
     {
         // Stable property keys are captured, never the currently selected HUD
         // element. A change queued from a picker cannot edit a later element.
-        var theme = current.Theme;
+        // Do not create eight rich color pickers on every selection change
+        // while the theme section is collapsed.
         var fields = new StackPanel { Spacing = 6 };
+        var expander = new Expander
+        {
+            Header = "Preset themes / stacked colors",
+            IsExpanded = _themeExpanded,
+            Content = fields
+        };
+        void Populate()
+        {
+        if (fields.Children.Count != 0) return;
+        var theme = current.Theme;
         fields.Children.Add(new TextBlock
         {
             Text = "Local colors for the two-screen chrome. Gameplay health, "
@@ -451,17 +462,16 @@ internal sealed class HudStudioView : UserControl
         Opacity("Detail opacity", theme.DecorationOpacity, (t,v) => t.DecorationOpacity = v);
         Opacity("Health track alpha", theme.HealthTrackOpacity,
             (t,v) => t.HealthTrackOpacity = v);
-        var expander = new Expander
-        {
-            Header = "Preset themes / stacked colors",
-            IsExpanded = _themeExpanded,
-            Content = fields
-        };
+        }
         expander.PropertyChanged += (_, args) =>
         {
             if (args.Property == Expander.IsExpandedProperty)
+            {
                 _themeExpanded = expander.IsExpanded;
+                if (_themeExpanded) Populate();
+            }
         };
+        if (_themeExpanded) Populate();
         _inspector.Children.Add(expander);
     }
 
