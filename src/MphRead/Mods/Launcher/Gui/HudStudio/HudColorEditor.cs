@@ -123,7 +123,12 @@ internal sealed class HudColorEditor : StackPanel
         }
 
         var swatches = new WrapPanel { MaxWidth = 260 };
-        foreach (string hex in Swatches) swatches.Children.Add(Swatch(hex));
+        foreach (string hex in Swatches)
+        {
+            var button = Swatch(hex);
+            button.Click += (_, _) => Apply(hex);
+            swatches.Children.Add(button);
+        }
         Children.Add(new Expander
         {
             Header = "Color swatches", Content = swatches, IsExpanded = false
@@ -218,17 +223,22 @@ internal sealed class HudColorEditor : StackPanel
         return number;
     }
 
-    private static Avalonia.Controls.Button Swatch(string hex) => new()
+    private static Avalonia.Controls.Button Swatch(string hex)
     {
-        Width = 32, Height = 32, MinWidth = 0, MinHeight = 0,
-        Padding = new Thickness(2), Margin = new Thickness(1),
-        Content = new Border
+        var button = new Avalonia.Controls.Button
         {
-            Background = Brush.Parse(hex), Width = 24, Height = 24,
-            BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1)
-        },
-        ToolTip = hex
-    };
+            Width = 32, Height = 32, MinWidth = 0, MinHeight = 0,
+            Padding = new Thickness(2), Margin = new Thickness(1),
+            Content = new Border
+            {
+                Background = Brush.Parse(hex), Width = 24, Height = 24,
+                BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1)
+            }
+        };
+        Avalonia.Automation.AutomationProperties.SetName(button, "Choose " + hex);
+        ToolTip.SetTip(button, hex);
+        return button;
+    }
 
     private void RefreshCollections()
     {
