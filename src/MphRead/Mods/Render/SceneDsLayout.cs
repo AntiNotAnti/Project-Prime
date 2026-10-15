@@ -16,7 +16,7 @@ public partial class Scene
     internal bool UseDsLayout =>
         DsLayout.Active && _dsPhysicalOutput.X == 0
         && !Services.IsReplica && !Mods.Network.DemoPlayback.IsActive
-        && !Mods.KillCam.IsActive && !ExportingReplay
+        && !Mods.KillCam.Active && !ExportingReplay
         && !Mods.ThumbnailMode.Active
         && Players.Items.Count > 0 && CameraMode == CameraMode.Player
         && !GameState.MenuPause && !Mods.PauseMenu.Open;
