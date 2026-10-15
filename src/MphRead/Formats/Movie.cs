@@ -517,7 +517,7 @@ namespace MphRead.Formats
         public int[] QuantizerTable { get; } = new int[3];
         private readonly VideoFrame?[] _prevVideoFrames = new VideoFrame?[3];
         private int _framesQueued = 0;
-        public int FramesQueued => _framesQueued;
+        public int FramesQueued => Volatile.Read(ref _framesQueued);
         private int _audioFrameTotal = 0;
         private List<VxFrame> _vxFrames = null!;
 
@@ -752,9 +752,9 @@ namespace MphRead.Formats
                     _nextSampleBufferIndex += audioFrameCount;
                     _nextSampleBufferIndex %= SampleBufferCount;
                 }
-                _audioFrameTotal += audioFrameCount;
+                Volatile.Write(ref _audioFrameTotal, _audioFrameTotal + audioFrameCount);
                 _vxFrames.Add(vxFrame);
-                _framesQueued++;
+                Interlocked.Increment(ref _framesQueued);
                 _prevVideoFrames[2] = _prevVideoFrames[1];
                 _prevVideoFrames[1] = _prevVideoFrames[0];
                 _prevVideoFrames[0] = vxFrame.VideoFrame;
@@ -824,7 +824,7 @@ namespace MphRead.Formats
         // color buffer for frame being displayed
         public bool GetImage(int frameIndex, byte[] texture)
         {
-            if (_vxFrames == null || frameIndex >= _vxFrames.Count)
+            if (frameIndex < 0 || _vxFrames == null || frameIndex >= _vxFrames.Count)
             {
                 return false;
             }
@@ -842,11 +842,11 @@ namespace MphRead.Formats
                     texture[y * 256 * 3 + x * 3 + 2] = rgb.Blue;
                 }
             }
-            _framesQueued--;
+            Interlocked.Decrement(ref _framesQueued);
             return true;
         }
 
-        public int AudioFrameTotal => _audioFrameTotal;
+        public int AudioFrameTotal => Volatile.Read(ref _audioFrameTotal);
 
         public ReadOnlySpan<short> GetAudioBuffer(int index)
         {
@@ -875,7 +875,9 @@ namespace MphRead.Formats
         // - use one buffer for the file data of the frame currently being decoded. this buffer could be removed if the bit reader operated on a stream.
         // - use three plane buffers for YUV of the frame being decoded and the three previous frames. the plane buffer collection is used circularly.
         // when disabled, the data buffer will be allocated once for each video file, and the plane buffers will be newly allocated within each video frame.
-        public static bool UseStaticBuffers { get; set; } = true;
+        // Export and real-time movie decoders must not change each other's
+        // buffer lifetime policy in a concurrent Studio/campaign session.
+        public bool UseStaticBuffers { get; set; } = true;
 
         private const int _mphMaxDataSize = 7602;
         private readonly byte[] _dataBuffer = new byte[_mphMaxDataSize];
