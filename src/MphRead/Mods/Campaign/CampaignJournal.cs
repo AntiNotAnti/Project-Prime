@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Numerics;
 using MphRead.Formats;
 
@@ -42,6 +43,23 @@ namespace MphRead.Mods.Campaign
         public int ScanTableCount { get; }
         public bool HasLogbookTable => ScanTableCount != 0;
 
+        /// <summary>
+        /// ScanLog contains sparse cartridge record IDs (for example, L029
+        /// followed by L032); its array index is not the bit index in
+        /// StorySave.Logbook. Only an L-prefixed, bounded decimal record may
+        /// be read as the actual discovered scan ID.
+        /// </summary>
+        internal static int ReadScanId(StringTableEntry entry)
+        {
+            ReadOnlySpan<char> label = entry.Id.AsSpan();
+            if (label.Length != 4 || label[0] != 'L'
+                || !int.TryParse(label[1..], NumberStyles.None,
+                    CultureInfo.InvariantCulture, out int id)
+                || (uint)id >= 68 * 8)
+                return -1;
+            return id;
+        }
+
         public static CampaignJournal Capture(StorySave save,
             IReadOnlyList<StringTableEntry>? logbook = null)
         {
@@ -70,13 +88,14 @@ namespace MphRead.Mods.Campaign
             var scans = new List<CampaignJournalScan>();
             if (logbook != null)
             {
-                int count = Math.Min(logbook.Count, save.Logbook.Length * 8);
-                for (int id = 0; id < count; id++)
+                foreach (StringTableEntry entry in logbook)
                 {
-                    if ((save.Logbook[id >> 3] & (1 << (id & 7))) == 0) continue;
-                    StringTableEntry entry = logbook[id];
-                    // Only what the user actually scanned. No placeholder
-                    // containing the hidden text of unscanned records.
+                    int id = ReadScanId(entry);
+                    if (id < 0 || (save.Logbook[id >> 3] & (1 << (id & 7))) == 0)
+                        continue;
+                    // Never use the ScanLog entry's ordinal here. Gaps in
+                    // its numeric identifiers are real and must not reveal
+                    // unscanned text or hide legitimately scanned records.
                     scans.Add(new CampaignJournalScan(id, entry.Category,
                         String.IsNullOrWhiteSpace(entry.String1) ? $"ENTRY {id:000}" : entry.String1,
                         entry.String2));
