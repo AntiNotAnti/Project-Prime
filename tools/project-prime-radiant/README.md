@@ -12,8 +12,11 @@ python3 tools/project-prime-radiant/build.py bundle --source /absolute/new/radia
 ```
 
 The explicit checkout refuses existing destinations. Build refuses another HEAD
-or altered patch input. The one fork patch restores `mesh_t` copy assignment,
-needed by `entity_t` copy assignment with current C++ standard libraries. Build
+or altered patch input. The recorded portability patch restores `mesh_t` copy
+assignment, needed by `entity_t` with current C++ standard libraries, and directly
+constructs zero vectors in the draw-vertex initializer for GCC 13's explicit-
+constructor rules. The first remote Linux candidate exposed the latter issue;
+it is recorded as a failed run rather than a platform pass. Build
 receipts pin source, patch bytes, dependency versions and output hashes. Archive
 reproduction also requires retaining the exact compiler and dependency packages;
 the workflow saves their version inventory but **does not claim identical future

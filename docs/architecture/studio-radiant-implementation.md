@@ -12,7 +12,8 @@ automated evidence, native executable evidence and release approval.
   shell/protocol/presentation patterns were adapted; the backup was not merged.
 - Fruity master observed: `78af64877c95370c3a14f752ca0e1db8a50c39c4`.
 - NetRadiant source pinned: `8216133984031afaa9a857b56ea66dd9c3d54b26`, with
-  the separately recorded C++ mesh-copy patch and source bundle recipe.
+  the separately recorded C++ vector-initializer/mesh-copy portability patch and
+  source bundle recipe.
 - SDK `10.0.401`, local platform `osx-arm64`. The initial remote baseline checks
   were green: [baseline build](https://github.com/AntiNotAnti/Project-Prime/actions/runs/38656704060).
   Those are baseline checks, not CI for this implementation. An attempted
@@ -122,6 +123,12 @@ intermediate passing counts do not certify a later candidate automatically.
 - Fork recipe tests: 5 checks reject extra/staged/untracked source and altered
   patch bytes. Source/patch/dependency/output receipts and corresponding upstream
   source are included in the local compiler candidate.
+- The first remote Linux fork build exposed a GCC 13 explicit-vector initializer
+  error. The recorded portability patch now covers that initializer as well as
+  mesh assignment. Native Q3Map2 rebuild, original graybox compile and all 71
+  source/compiler checks pass again; the refreshed candidate includes the exact
+  combined patch and source receipt. Current remote results are recorded in
+  [PR #561 checks](https://github.com/AntiNotAnti/Project-Prime/pull/561/checks).
 - Paired updater rollback/archive checks passed, including actual child-process
   denial of Game startup during an exclusive update and recovery afterward.
   Python pair checks 9/9, release
