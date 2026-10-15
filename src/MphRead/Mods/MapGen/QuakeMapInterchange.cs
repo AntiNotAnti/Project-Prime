@@ -14,7 +14,13 @@ namespace MphRead.Mods.MapGen;
 
 public sealed record QuakeMapDiagnostic(string Code, int Line, string Message, bool Error);
 public sealed record QuakeMapImportResult(
-    MapDefinition Definition, QuakeMapDiagnostic[] Diagnostics);
+    MapDefinition Definition, QuakeMapDiagnostic[] Diagnostics)
+{
+    public IReadOnlySet<Guid> PrimeMeshIds { get; init; } = new HashSet<Guid>();
+    public IReadOnlySet<Guid> ExplicitLayerIds { get; init; } = new HashSet<Guid>();
+    public RadiantObjectSnapshot PrimeObjects { get; init; } = new();
+    public IReadOnlySet<string> PrimeMaterialNames { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+}
 public sealed record QuakeMapSidecar(
     int SchemaVersion, Guid MapId, string RoomName, float UnitsPerPrimeUnit,
     string SourceSha256);
@@ -28,11 +34,10 @@ public sealed class QuakeMapInterchangeException(
 }
 
 /// <summary>
-/// Direct, editable Quake3 .map subset. Exactly six axial brush planes with
-/// default projection become native MapBox geometry. Spawns are normalized
-/// through the existing Q3->Prime coordinate convention (x,z,-y) and stable
-/// prime_id properties/comments. Unsupported patches, rotation, brushes,
-/// entities and UVs fail loudly; they never silently change gameplay.
+/// Editable Quake3 brushes and patches plus Prime Radiant's lossless native
+/// polygon and gameplay primitives. Generic Quake export retains its classic
+/// subset and coordinate conventions; Prime workspaces use durable containers
+/// and canonical mesh payloads for native authoring channels.
 /// </summary>
 public static class QuakeMapInterchange
 {
@@ -53,7 +58,7 @@ public static class QuakeMapInterchange
 
     public static QuakeMapImportResult Import(string source, string? sidecarPath = null,
         string? roomName = null, float unitsPerPrimeUnit = DefaultUnits,
-        bool requireDurableGeometryContainers = false)
+        bool requireDurableGeometryContainers = false, IReadOnlyDictionary<Guid, string>? expectedReferences = null)
     {
         if (!float.IsFinite(unitsPerPrimeUnit)
             || unitsPerPrimeUnit is < 1f or > 1024f)
@@ -61,7 +66,7 @@ public static class QuakeMapInterchange
         string full = Path.GetFullPath(source);
         if (sidecarPath != null) RadiantSourceTransaction.Recover(full, sidecarPath);
         if (!File.Exists(full) || Path.GetExtension(full).ToLowerInvariant() != ".map"
-            || new FileInfo(full).Length is <= 0 or > 32L * 1024 * 1024)
+            || new FileInfo(full).Length is <= 0 or > 64L * 1024 * 1024)
             throw new InvalidDataException("Input must be a bounded editable Quake .map file.");
 
         var diagnostics = new List<QuakeMapDiagnostic>();
@@ -115,17 +120,30 @@ public static class QuakeMapInterchange
         int entityPrimitiveCount = 0;
         int lineNo = 0, brushIndex = 0, patchIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
         var seenObjectIds = new HashSet<Guid>();
+        var primeMeshIds = new HashSet<Guid>();
+        var referenceIds = new HashSet<Guid>();
+        var primeObjects = new RadiantObjectSnapshot();
+        var primeMaterialNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var layers = new RadiantLayerInterchange();
+        var nativeLayers = new List<(MapGeometry Geometry, int Index)>();
+        var explicitLayerIds = new HashSet<Guid>();
+        int primitiveLayerIndex = 0;
         bool legacyPrimeWinding = false;
         bool inPatch = false, patchBodyClosed = false;
         bool? patchSolid = null;
         int? patchTessellation = null;
         var patchBody = new List<string>();
+        bool inPrimeMesh = false, primeMeshBodyClosed = false;
+        var primeMeshBody = new List<string>();
+
+        bool ReferenceContainer() => entity.GetValueOrDefault("prime_reference", "") == "1";
 
         bool GeometryContainer() => entity.GetValueOrDefault("classname", "")
             .Equals("func_group", StringComparison.OrdinalIgnoreCase);
 
         void OpenPrimitive()
         {
+            primitiveLayerIndex = layers.CurrentIndex;
             entityPrimitiveCount++;
             if (entity.GetValueOrDefault("classname", "").Equals("worldspawn", StringComparison.OrdinalIgnoreCase))
             {
@@ -143,11 +161,13 @@ public static class QuakeMapInterchange
             }
             foreach (string key in entity.Keys)
                 if (key is not ("classname" or "prime_geometry" or "prime_id"
-                    or "prime_patch_solid" or "prime_patch_tessellation"))
+                    or "prime_patch_solid" or "prime_patch_tessellation" or "prime_reference"))
                     Error("FP-RADIANT-CONTAINER", lineNo, "Unsupported geometry container key: " + key);
             if (entity.GetValueOrDefault("prime_geometry") != "1" || entityPrimitiveCount != 1)
                 Error("FP-RADIANT-CONTAINER", lineNo,
                     "A marked Prime geometry container must contain exactly one primitive.");
+            if (entity.TryGetValue("prime_reference", out var referenceMarker) && referenceMarker != "1")
+                Error("FP-RADIANT-REFERENCE", lineNo, "Invalid retained architecture reference marker.");
             if (!Guid.TryParse(entity.GetValueOrDefault("prime_id"), out brushId) || brushId == Guid.Empty)
                 Error("FP-RADIANT-ID", lineNo, "Geometry container prime_id must be a nonempty GUID.");
             if (entity.TryGetValue("prime_patch_solid", out string? solidText))
@@ -167,13 +187,18 @@ public static class QuakeMapInterchange
 
         int Material(string shaderName)
         {
+            if (RadiantReferenceScene.IsReferenceShader(shaderName))
+                throw new InvalidDataException("Reserved source reference shaders cannot become authored material bindings.");
             if (!materials.TryGetValue(shaderName, out int slot))
             {
                 slot = definition.Materials.Count;
                 materials.Add(shaderName, slot);
+                Guid materialId = GuidFrom("prime-material:" + shaderName.ToLowerInvariant());
+                if (!seenObjectIds.Add(materialId))
+                    Error("FP-RADIANT-ID", lineNo, "Material identity conflicts with a source object.");
                 definition.Materials.Add(new MapMaterial
                 {
-                    Id = GuidFrom("prime-material:" + shaderName.ToLowerInvariant()),
+                    Id = materialId,
                     Name = shaderName, SourceMaterial = 2, TexScale = 16f
                 });
             }
@@ -182,6 +207,7 @@ public static class QuakeMapInterchange
 
         void ClosePatch()
         {
+            if (ReferenceContainer()) { Error("FP-RADIANT-REFERENCE", lineNo, "References must remain native mesh primitives."); return; }
             if (patchIndex >= 32)
             {
                 Error("FP-RADIANT-PATCH", lineNo, "Map exceeds 32 editable Bezier patches.");
@@ -227,6 +253,7 @@ public static class QuakeMapInterchange
                 return;
             }
             definition.Geometry.Add(patch);
+            nativeLayers.Add((patch, primitiveLayerIndex));
             patchIndex++;
             patchBody.Clear();
             patchBodyClosed = inPatch = false;
@@ -235,8 +262,72 @@ public static class QuakeMapInterchange
             brushId = Guid.Empty;
         }
 
+        void ClosePrimeMesh()
+        {
+            if (!inPrimeMesh || !primeMeshBodyClosed || !GeometryContainer())
+            {
+                Error("FP-RADIANT-MESH", lineNo, "primeMeshDef requires a complete marked geometry container.");
+                return;
+            }
+            try
+            {
+                var parsed = PrimeMeshInterchange.Parse(primeMeshBody, unitsPerPrimeUnit, brushId);
+                if (ReferenceContainer() || parsed.Reference || expectedReferences?.ContainsKey(brushId) == true)
+                {
+                    if (!ReferenceContainer() || !parsed.Reference || expectedReferences == null
+                        || !expectedReferences.TryGetValue(brushId, out string? expected)
+                        || !string.Equals(expected, RadiantReferenceScene.PayloadHash(parsed, unitsPerPrimeUnit), StringComparison.OrdinalIgnoreCase)
+                        || !referenceIds.Add(brushId) || !seenObjectIds.Add(brushId))
+                        throw new InvalidDataException("Retained architecture reference was changed, duplicated or lacks its owned identity.");
+                    return;
+                }
+                var mapping = new int[parsed.Materials.Length];
+                for (int i = 0; i < mapping.Length; i++)
+                {
+                    var value = parsed.Materials[i];
+                    bool existing = materials.ContainsKey(value.Name);
+                    int slot = Material(value.Name);
+                    if (existing && primeMaterialNames.Contains(value.Name) && definition.Materials[slot].TexScale != value.TexScale)
+                        throw new InvalidDataException("Conflicting Prime mesh texel scale for material " + value.Name + ".");
+                    definition.Materials[slot].TexScale = value.TexScale;
+                    primeMaterialNames.Add(value.Name);
+                    mapping[i] = slot;
+                }
+                var geometry = parsed.Geometry;
+                geometry.Material = mapping[geometry.Material];
+                if (geometry is MapMesh mesh)
+                    for (int i = 0; i < mesh.FaceMaterials.Count; i++) mesh.FaceMaterials[i] = mapping[mesh.FaceMaterials[i]];
+                if (geometry.QuakeFaces != null)
+                    foreach (var face in geometry.QuakeFaces) face.Material = mapping[face.Material];
+                if (!seenObjectIds.Add(geometry.Id))
+                    throw new InvalidDataException("Duplicate Prime mesh/container identity.");
+                if (parsed.LegacyBrush is { } legacy)
+                {
+                    legacy.Material = mapping[legacy.Material];
+                    definition.Brushes.Add(legacy);
+                }
+                else
+                {
+                    definition.Geometry.Add(geometry);
+                    nativeLayers.Add((geometry, primitiveLayerIndex));
+                }
+                primeMeshIds.Add(geometry.Id);
+                if (parsed.ConvertedToMesh)
+                    diagnostics.Add(new("FP-RADIANT-MESH-CONVERSION", lineNo,
+                        "Edited parameterized geometry or legacy brush is now an explicit MapMesh; review this source kind change before applying.", false));
+            }
+            catch (InvalidDataException ex) { Error("FP-RADIANT-MESH", lineNo, ex.Message); }
+            finally
+            {
+                primeMeshBody.Clear();
+                primeMeshBodyClosed = inPrimeMesh = false;
+                brushId = Guid.Empty;
+            }
+        }
+
         void CloseBrush()
         {
+            if (ReferenceContainer()) { Error("FP-RADIANT-REFERENCE", lineNo, "References must remain native mesh primitives."); return; }
             if (faces.Count is < 4 or > 32)
             {
                 Error("FP-RADIANT-BRUSH", lineNo,
@@ -338,6 +429,7 @@ public static class QuakeMapInterchange
                 return;
             }
             definition.Geometry.Add(geometry);
+            nativeLayers.Add((geometry, primitiveLayerIndex));
             brushIndex++;
             brushId = Guid.Empty;
             faces.Clear();
@@ -363,6 +455,18 @@ public static class QuakeMapInterchange
                     if (!key.Equals("classname", StringComparison.OrdinalIgnoreCase))
                         Error("FP-RADIANT-WORLDSPAWN", lineNo,
                             "Unrepresented worldspawn key " + key + " requires explicit preservation.");
+            }
+            else if (RadiantObjectInterchange.IsPrimeClass(type))
+            {
+                if (entityPrimitiveCount != 0)
+                    Error("FP-RADIANT-OBJECT", lineNo, "Prime gameplay point entities cannot contain geometry primitives.");
+                else if (!RadiantObjectInterchange.TryParseEntity(entity, unitsPerPrimeUnit, out var record, out string? error) || record == null)
+                    Error("FP-RADIANT-OBJECT", lineNo, error ?? "Malformed Prime gameplay entity.");
+                else
+                {
+                    try { primeObjects.Add(record, seenObjectIds); }
+                    catch (InvalidDataException ex) { Error("FP-RADIANT-OBJECT", lineNo, ex.Message); }
+                }
             }
             else if (type.Equals("info_player_deathmatch", StringComparison.OrdinalIgnoreCase))
             {
@@ -468,11 +572,19 @@ public static class QuakeMapInterchange
         foreach (string raw in File.ReadLines(full))
         {
             lineNo++;
-            if (lineNo > 200000)
+            if (lineNo > 2000000)
                 throw new InvalidDataException("Quake map contains too many lines.");
             if (raw.Length > 4096)
                 throw new InvalidDataException("Quake map has an oversized source line.");
             string line = raw.Trim();
+            // Native layer directives are encoded as special comments, so
+            // consume them before ordinary source comments are skipped.
+            try { if (layers.Read(line, depth)) continue; }
+            catch (InvalidDataException ex)
+            {
+                Error("FP-RADIANT-LAYER", lineNo, ex.Message);
+                break;
+            }
             // The exact v1 exporter header is a format marker, not permission
             // to guess at malformed third-party planes. Real Quake sources
             // and every newly exported source use Quake's PlaneFromPoints.
@@ -531,11 +643,19 @@ public static class QuakeMapInterchange
             }
             if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal))
                 continue;
+            if (depth == 2 && line == "primeMeshDef")
+            {
+                if (!GeometryContainer() || inPrimeMesh || inPatch || faces.Count > 0 || primeMeshBodyClosed
+                    || patchSolid != null || patchTessellation != null)
+                    Error("FP-RADIANT-MESH", lineNo, "primeMeshDef requires one marked container without brush or patch metadata.");
+                else inPrimeMesh = true;
+                continue;
+            }
             if (depth == 2 && line == "patchDef2")
             {
                 if (GeometryContainer() && (patchSolid == null || patchTessellation == null))
                     Error("FP-RADIANT-PATCH", lineNo, "Marked patches require explicit collision and tessellation properties.");
-                if (inPatch || faces.Count > 0 || patchBodyClosed)
+                if (inPatch || inPrimeMesh || faces.Count > 0 || patchBodyClosed)
                     Error("FP-RADIANT-PATCH", lineNo,
                         "Cannot mix a quadratic patch and brush planes in one source object.");
                 else inPatch = true;
@@ -549,8 +669,17 @@ public static class QuakeMapInterchange
             }
             if (line == "{")
             {
+                if (depth == 0)
+                {
+                    try { layers.Seal(); }
+                    catch (InvalidDataException ex)
+                    {
+                        Error("FP-RADIANT-LAYER", lineNo, ex.Message);
+                        break;
+                    }
+                }
                 depth++;
-                if (depth > 3 || (depth == 3 && !inPatch))
+                if (depth > 3 || (depth == 3 && !inPatch && !inPrimeMesh))
                 {
                     Error("FP-RADIANT-PATCH", lineNo,
                         "Unsupported nested patch, brushDef or source object.");
@@ -561,17 +690,27 @@ public static class QuakeMapInterchange
             }
             if (line == "}")
             {
-                if (depth == 3 && inPatch)
+                if (depth == 3 && inPrimeMesh)
+                    primeMeshBodyClosed = true;
+                else if (depth == 3 && inPatch)
                     patchBodyClosed = true;
                 else if (depth == 2)
                 {
-                    if (inPatch) ClosePatch();
+                    if (inPrimeMesh) ClosePrimeMesh();
+                    else if (inPatch) ClosePatch();
                     else CloseBrush();
                     if (!inPatch) patchSolid = null;
                 }
                 else if (depth == 1) CloseEntity();
                 else Error("FP-RADIANT-BRACE", lineNo, "Unexpected closing brace.");
                 depth--;
+                continue;
+            }
+            if (inPrimeMesh)
+            {
+                if (depth != 3 || primeMeshBodyClosed)
+                    Error("FP-RADIANT-MESH", lineNo, "primeMeshDef data must be inside its nested source block.");
+                else primeMeshBody.Add(line);
                 continue;
             }
             if (inPatch)
@@ -679,13 +818,37 @@ public static class QuakeMapInterchange
         }
         if (depth != 0)
             Error("FP-RADIANT-BRACE", lineNo, "Unclosed Quake map entity or brush.");
+        try
+        {
+            layers.Seal();
+            if (layers.HasCanonicalAssignments)
+                foreach (var assigned in nativeLayers)
+                {
+                    // Verify Prime recovery/reference payloads before native
+                    // assignments override stale canonical authoring metadata.
+                    assigned.Geometry.Layer = layers.Path(assigned.Index);
+                    explicitLayerIds.Add(assigned.Geometry.Id);
+                }
+        }
+        catch (InvalidDataException ex) { Error("FP-RADIANT-LAYER", lineNo, ex.Message); }
         if (worldspawnCount != 1)
             Error("FP-RADIANT-WORLDSPAWN", lineNo, "Expected exactly one worldspawn.");
         if (MapBuildFingerprint.HashFile(full) != sourceHash)
             Error("FP-RADIANT-SOURCE-RACE", lineNo,
                 "The .map source changed while being read; retry from a frozen source.");
-        if (!definition.Geometry.Any())
-            Error("FP-RADIANT-GEOMETRY", lineNo, "No supported editable world brushes found.");
+        if (!definition.Geometry.Any() && !definition.Brushes.Any() && referenceIds.Count == 0
+            && !requireDurableGeometryContainers)
+            Error("FP-RADIANT-GEOMETRY", lineNo, "No supported editable geometry found.");
+
+        definition.Spawns.AddRange(primeObjects.Spawns);
+        definition.Items.AddRange(primeObjects.Items);
+        definition.JumpPads.AddRange(primeObjects.JumpPads);
+        definition.NavigationLinks.AddRange(primeObjects.NavigationLinks);
+        if (primeObjects.Triggers.Count > 0)
+        {
+            definition.Q3Triggers = primeObjects.Triggers.ToList();
+            definition.FormatVersion = Math.Max(3, definition.FormatVersion);
+        }
 
         // Quake maps can exceed the +/-128 Prime-unit geometry range at the
         // default ScaleFactor 4. Choose the smallest supported fixed-point
@@ -703,16 +866,35 @@ public static class QuakeMapInterchange
         }
         foreach (MapGeometry geometry in definition.Geometry)
         {
-            if (geometry is MapBox box)
+            if (primeMeshIds.Contains(geometry.Id) && geometry is not MapMesh)
+            {
+                foreach (var face in GeometryCompiler.Compile(geometry, definition.Materials[geometry.Material].TexScale))
+                    foreach (var point in face.Points) Measure(new[] { point.X, point.Y, point.Z });
+            }
+            else if (geometry is MapBox box)
                 Measure(Enumerable.Range(0, 3).Select(i =>
                     Math.Abs(box.Transform.Position[i]) + box.Transform.Scale[i] / 2));
             else if (geometry is MapConvexBrush convex)
                 foreach (float[] vertex in convex.Vertices) Measure(vertex);
             else if (geometry is MapBezierPatch patch)
                 foreach (float[] control in patch.ControlPoints) Measure(control.Take(3));
+            else if (geometry is MapMesh mesh)
+                for (int i = 0; i < mesh.Vertices.Count; i++)
+                {
+                    Vector3 point = MphRead.Mods.MapEditor.MapMeshEditing.VertexWorld(mesh, i);
+                    Measure(new[] { point.X, point.Y, point.Z });
+                }
+            else if (geometry is MapWedge or MapPrism)
+                foreach (var face in GeometryCompiler.Compile(geometry, definition.Materials[geometry.Material].TexScale))
+                    foreach (var point in face.Points) Measure(new[] { point.X, point.Y, point.Z });
         }
+        foreach (var brush in definition.Brushes) { Measure(brush.Min); Measure(brush.Max); }
         foreach (MapSpawn spawn in definition.Spawns) Measure(spawn.Position);
         foreach (MapItem item in definition.Items) Measure(item.Position);
+        foreach (MapJumpPad pad in definition.JumpPads) { Measure(pad.Position); if (pad.Target != null) Measure(pad.Target); }
+        foreach (MapNavigationLink link in definition.NavigationLinks) { Measure(link.From); Measure(link.To); }
+        foreach (MapQ3Trigger trigger in definition.Q3Triggers ?? Enumerable.Empty<MapQ3Trigger>())
+        { Measure(trigger.Min); Measure(trigger.Max); Measure(trigger.Destination); }
         while (definition.ScaleFactor < 16
             && furthest >= 8 * MathF.Pow(2, definition.ScaleFactor))
             definition.ScaleFactor++;
@@ -721,9 +903,15 @@ public static class QuakeMapInterchange
             Error("FP-RADIANT-RANGE", lineNo,
                 "Imported coordinates exceed the supported native fixed-point map range.");
 
+        if (expectedReferences != null && !referenceIds.SetEquals(expectedReferences.Keys))
+            Error("FP-RADIANT-REFERENCE", 0, "Retained architecture references are missing or have unrecognized identities.");
         if (diagnostics.Any(d => d.Error))
             throw new QuakeMapInterchangeException(diagnostics.ToArray());
-        return new QuakeMapImportResult(definition, diagnostics.ToArray());
+        return new QuakeMapImportResult(definition, diagnostics.ToArray())
+        {
+            PrimeMeshIds = primeMeshIds, ExplicitLayerIds = explicitLayerIds,
+            PrimeObjects = primeObjects, PrimeMaterialNames = primeMaterialNames
+        };
     }
 
     public static void Export(MapDefinition map, string output, string? sidecarPath = null,
@@ -732,12 +920,14 @@ public static class QuakeMapInterchange
 
     internal static void ExportUnderLease(MapDefinition map, string output, string sidecarPath,
         Func<string, byte[]>? nativeAdjunct = null, Action<RadiantSourceCommitPoint>? fault = null,
-        bool editorContainers = false)
-        => ExportCore(map, output, sidecarPath, DefaultUnits, true, nativeAdjunct, fault, editorContainers);
+        bool editorContainers = false, IReadOnlyList<Guid>? triggerIds = null,
+        string referenceSource = "", IReadOnlyDictionary<Guid, MapBrush>? legacyBrushes = null)
+        => ExportCore(map, output, sidecarPath, DefaultUnits, true, nativeAdjunct, fault, editorContainers, triggerIds, referenceSource, legacyBrushes);
 
     private static void ExportCore(MapDefinition map, string output, string? sidecarPath,
         float unitsPerPrimeUnit, bool leaseHeld, Func<string, byte[]>? nativeAdjunct = null,
-        Action<RadiantSourceCommitPoint>? fault = null, bool editorContainers = false)
+        Action<RadiantSourceCommitPoint>? fault = null, bool editorContainers = false, IReadOnlyList<Guid>? triggerIds = null,
+        string referenceSource = "", IReadOnlyDictionary<Guid, MapBrush>? legacyBrushes = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit <= 0)
@@ -747,8 +937,8 @@ public static class QuakeMapInterchange
             throw new InvalidDataException("Cannot export an identity-less map; assign a MapId first.");
         var errors = new List<QuakeMapDiagnostic>();
         if (map.Import != null || map.NativeRoom != null || map.Collision != null
-            || map.Brushes.Count > 0 || map.JumpPads.Count > 0
-            || map.Q3Triggers?.Count > 0 || map.NavigationLinks.Count > 0)
+            || map.Brushes.Count > 0 || (!editorContainers && (map.JumpPads.Count > 0
+            || map.Q3Triggers?.Count > 0 || map.NavigationLinks.Count > 0)))
             errors.Add(new("FP-RADIANT-EXPORT", 0,
                 "Native imported, custom collision and advanced gameplay entities need a lossless exporter.",
                 true));
@@ -756,7 +946,8 @@ public static class QuakeMapInterchange
         int index = 0;
         foreach (var geometry in map.Geometry)
         {
-            if (geometry is not (MapBox or MapConvexBrush or MapBezierPatch)
+            bool nativeMesh = editorContainers && PrimeMeshInterchange.Required(geometry);
+            if (!nativeMesh && (geometry is not (MapBox or MapConvexBrush or MapBezierPatch)
                 || geometry.Hidden
                 || (geometry is not MapBezierPatch && !geometry.Solid)
                 || geometry.Damaging
@@ -768,14 +959,14 @@ public static class QuakeMapInterchange
                 || geometry.Transform.Rotation.Where((v, i) => v != (i == 3 ? 1 : 0)).Any()
                 || (geometry is MapConvexBrush
                     && (geometry.Transform.Position.Any(v => v != 0)
-                        || geometry.Transform.Scale.Any(v => v != 1))))
+                        || geometry.Transform.Scale.Any(v => v != 1)))))
                 errors.Add(new("FP-RADIANT-EXPORT-GEOMETRY", index,
                     "Only supported boxes, convex brushes and quadratic patches can round-trip.",
                     true));
             if (geometry.Material < 0 || geometry.Material >= map.Materials.Count)
                 errors.Add(new("FP-RADIANT-EXPORT-MATERIAL", index,
                     "Missing material binding.", true));
-            if (geometry.QuakeFaces is { } projected
+            if (!nativeMesh && geometry.QuakeFaces is { } projected
                 && (projected.Count != (geometry is MapBox ? 6
                     : geometry is MapConvexBrush convex ? convex.Faces.Count : -1)
                     || projected.Any(face => face == null || !face.Valid
@@ -785,7 +976,7 @@ public static class QuakeMapInterchange
                     "Incomplete Quake face mapping, invalid material, or source unit scale mismatch.",
                     true));
             else if (geometry.Material >= 0 && geometry.Material < map.Materials.Count
-                && geometry is (MapConvexBrush or MapBezierPatch))
+                && !nativeMesh && geometry is (MapConvexBrush or MapBezierPatch))
             {
                 try { GeometryCompiler.Compile(geometry, map.Materials[geometry.Material].TexScale); }
                 catch (MapAuthoringException ex)
@@ -795,11 +986,11 @@ public static class QuakeMapInterchange
             }
             index++;
         }
-        if (map.Spawns.Any(s => s.Team != -1
+        if (!editorContainers && map.Spawns.Any(s => s.Team != -1
             || s.Position.Length != 3 || !float.IsFinite(s.Yaw)))
             errors.Add(new("FP-RADIANT-EXPORT-SPAWN", 0,
                 "Only neutral fixed-location spawn entities can round-trip.", true));
-        if (map.Items.Any(item => item.Position.Length != 3
+        if (!editorContainers && map.Items.Any(item => item.Position.Length != 3
             || item.Position.Any(v => !float.IsFinite(v))
             || item.Id == Guid.Empty
             || Q3Gameplay.CanonicalQuakePickup(item.Type) == null))
@@ -812,16 +1003,21 @@ public static class QuakeMapInterchange
                 "Brush, spawn and pickup identities must be nonempty and unique.", true));
         if (errors.Count != 0) throw new QuakeMapInterchangeException(errors.ToArray());
 
+        PrimeMeshInterchange.Material[]? primeMaterials = editorContainers && map.Geometry.Any(PrimeMeshInterchange.Required)
+            ? PrimeMeshInterchange.DescribeMaterials(map) : null;
         var sb = new StringBuilder();
         sb.AppendLine("// Project Prime Quake3 .map brush authoring source v2");
         sb.AppendLine("// PRIME_PLANE_WINDING=quake3");
+        IReadOnlyDictionary<string, int>? layerIndices = editorContainers
+            ? RadiantLayerInterchange.WriteDefinitions(map.Geometry, sb) : null;
         sb.AppendLine("{");
         sb.AppendLine("\"classname\" \"worldspawn\"");
         if (editorContainers) sb.AppendLine("}");
         foreach (MapGeometry geometry in map.Geometry)
         {
             string shader = map.Materials[geometry.Material].Name;
-            if (!SafeShader(shader))
+            bool nativeMesh = editorContainers && PrimeMeshInterchange.Required(geometry);
+            if (!nativeMesh && !SafeShader(shader))
                 throw new InvalidDataException("Shader name is not portable to Quake .map.");
             if (editorContainers)
             {
@@ -829,15 +1025,24 @@ public static class QuakeMapInterchange
                 sb.AppendLine("\"classname\" \"func_group\"");
                 sb.AppendLine("\"prime_geometry\" \"1\"");
                 sb.AppendLine("\"prime_id\" \"" + geometry.Id + "\"");
-                if (geometry is MapBezierPatch patch)
+                if (!nativeMesh && geometry is MapBezierPatch patch)
                 {
                     sb.AppendLine("\"prime_patch_solid\" \"" + patch.Solid.ToString().ToLowerInvariant() + "\"");
                     sb.AppendLine("\"prime_patch_tessellation\" \""
                         + patch.Tessellation.ToString(CultureInfo.InvariantCulture) + "\"");
                 }
             }
+            if (editorContainers) RadiantLayerInterchange.WriteAssignment(layerIndices![geometry.Layer], sb);
             sb.AppendLine("{");
             if (!editorContainers) sb.AppendLine("// PRIME_ID=" + geometry.Id);
+            if (nativeMesh)
+            {
+                PrimeMeshInterchange.Write(geometry, map, unitsPerPrimeUnit, sb, primeMaterials,
+                    originalLegacyBrush: legacyBrushes?.GetValueOrDefault(geometry.Id));
+                sb.AppendLine("}");
+                sb.AppendLine("}");
+                continue;
+            }
             if (geometry is MapBezierPatch authored)
             {
                 if (!editorContainers)
@@ -922,40 +1127,54 @@ public static class QuakeMapInterchange
             if (editorContainers) sb.AppendLine("}");
         }
         if (!editorContainers) sb.AppendLine("}");
-
-        foreach (MapSpawn spawn in map.Spawns)
+        else
         {
-            float x = spawn.Position[0] * unitsPerPrimeUnit;
-            float y = -spawn.Position[2] * unitsPerPrimeUnit;
-            float z = spawn.Position[1] * unitsPerPrimeUnit + 24f;
-            float angle = (spawn.Yaw - 90f + 360f) % 360f;
-            string Flo(float n) => n.ToString("G9", CultureInfo.InvariantCulture);
-            sb.AppendLine("{");
-            sb.AppendLine("\"classname\" \"info_player_deathmatch\"");
-            sb.AppendLine("\"origin\" \"" + Flo(x) + " " + Flo(y)
-                + " " + Flo(z) + "\"");
-            sb.AppendLine("\"angle\" \"" + Flo(angle) + "\"");
-            sb.AppendLine("\"prime_id\" \"" + spawn.Id + "\"");
-            sb.AppendLine("}");
+            // Reference primitives have their own protected payloads and no
+            // authored layer assignment. Never let the previous geometry's
+            // current layer leak into their native scene nodes.
+            RadiantLayerInterchange.WriteAssignment(0, sb);
+            sb.Append(referenceSource);
         }
-        // Store Prime-specific pickup timing and base behavior explicitly in
-        // source entity keys. Without these, exporting a modified project
-        // would silently substitute Quake's unrelated pickup defaults.
-        foreach (MapItem item in map.Items)
+
+        if (editorContainers)
+            RadiantObjectInterchange.ExportAppender(map, sb, unitsPerPrimeUnit, triggerIds);
+        else
         {
-            string type = Q3Gameplay.CanonicalQuakePickup(item.Type)!;
-            float x = item.Position[0] * unitsPerPrimeUnit;
-            float y = -item.Position[2] * unitsPerPrimeUnit;
-            float z = item.Position[1] * unitsPerPrimeUnit;
-            string Flo(float n) => n.ToString("G9", CultureInfo.InvariantCulture);
-            sb.AppendLine("{");
-            sb.AppendLine("\"classname\" \"" + type + "\"");
-            sb.AppendLine("\"origin\" \"" + Flo(x) + " " + Flo(y) + " " + Flo(z) + "\"");
-            sb.AppendLine("\"prime_id\" \"" + item.Id + "\"");
-            sb.AppendLine("\"prime_spawn_interval\" \""
-                + item.SpawnInterval.ToString(CultureInfo.InvariantCulture) + "\"");
-            sb.AppendLine("\"prime_has_base\" \"" + item.HasBase.ToString() + "\"");
-            sb.AppendLine("}");
+            foreach (MapSpawn spawn in map.Spawns)
+            {
+                float x = spawn.Position[0] * unitsPerPrimeUnit;
+                float y = -spawn.Position[2] * unitsPerPrimeUnit;
+                float z = spawn.Position[1] * unitsPerPrimeUnit + 24f;
+                float angle = (spawn.Yaw - 90f + 360f) % 360f;
+                string Flo(float n) => n.ToString("G9", CultureInfo.InvariantCulture);
+                sb.AppendLine("{");
+                sb.AppendLine("\"classname\" \"info_player_deathmatch\"");
+                sb.AppendLine("\"origin\" \"" + Flo(x) + " " + Flo(y)
+                    + " " + Flo(z) + "\"");
+                sb.AppendLine("\"angle\" \"" + Flo(angle) + "\"");
+                sb.AppendLine("\"prime_id\" \"" + spawn.Id + "\"");
+                sb.AppendLine("}");
+            }
+            // Store Prime-specific pickup timing and base behavior explicitly in
+            // source entity keys. Without these, exporting a modified project
+            // would silently substitute Quake's unrelated pickup defaults.
+            foreach (MapItem item in map.Items)
+            {
+                string type = Q3Gameplay.CanonicalQuakePickup(item.Type)!;
+                float x = item.Position[0] * unitsPerPrimeUnit;
+                float y = -item.Position[2] * unitsPerPrimeUnit;
+                float z = item.Position[1] * unitsPerPrimeUnit;
+                string Flo(float n) => n.ToString("G9", CultureInfo.InvariantCulture);
+                sb.AppendLine("{");
+                sb.AppendLine("\"classname\" \"" + type + "\"");
+                sb.AppendLine("\"origin\" \"" + Flo(x) + " " + Flo(y) + " " + Flo(z) + "\"");
+                sb.AppendLine("\"prime_id\" \"" + item.Id + "\"");
+                sb.AppendLine("\"prime_spawn_interval\" \""
+                    + item.SpawnInterval.ToString(CultureInfo.InvariantCulture) + "\"");
+                sb.AppendLine("\"prime_has_base\" \"" + item.HasBase.ToString() + "\"");
+                sb.AppendLine("}");
+            }
+
         }
 
         string full = Path.GetFullPath(output);

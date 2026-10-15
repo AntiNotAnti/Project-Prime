@@ -36,19 +36,21 @@ internal sealed partial class MapStudioScreen
             var definition = _document.Project.Definition;
             string source = RadiantSourceWorkspace.Prepare(definition,
                 Path.Combine(CustomRooms.UserMapDirectory, "netradiant-sources"));
+            RadiantTexturePreview.Prepare(definition, source, out var unavailableMaterials);
             LaunchRadiant(executable, source);
             RefreshSourceWatch();
             RefreshStudioChrome();
             _status.Text = "RADIANT · " + RadiantSourceWorkspace.State(definition, source)
-                + " · Geometry source: " + source
-                + ". Native gameplay, materials, assets and environment remain in this project. "
-                + "Save there, then choose Review / Apply changes above.";
+                + " · Map source: " + source
+                + ". Edit meshes, brushes and gameplay objects in Radiant. "
+                + "Save there, then choose Review / Apply changes above."
+                + (unavailableMaterials.Count == 0 ? "" : $" Checker previews shown for {unavailableMaterials.Count} unavailable textures.");
         }
         catch (QuakeMapInterchangeException ex)
         {
             _status.Text = "NetRadiant export refused: "
                 + string.Join("; ", ex.Diagnostics.Take(3).Select(x => x.Message))
-                + ". Keep editing unsupported geometry in native Studio.";
+                + ". The project and existing Radiant source were preserved.";
         }
         catch (Exception ex) when (ex is IOException or ArgumentException
             or InvalidDataException or MapAuthoringException or PlatformNotSupportedException
@@ -65,8 +67,13 @@ internal sealed partial class MapStudioScreen
 
     internal void ShowNativeGeometryTools()
     {
+        Dismiss();
+        _nativeGeometryRecovery = true;
+        RefreshStudioChrome();
         if (_nativeGeometryTools != null) _nativeGeometryTools.IsExpanded = true;
-        _status.Text = "Native geometry fallback and gameplay placement tools are open. Radiant sources remain unchanged until explicitly reviewed and applied.";
+        _status.Text = _nativeStandaloneHost && CommunityCutoverPolicy.NetRadiantDefault
+            ? "Native geometry recovery workspace is open. Return to Project Overview to resume the Radiant workflow. Radiant sources remain unchanged until explicitly reviewed and applied."
+            : "Native geometry fallback and gameplay placement tools are open. Radiant sources remain unchanged until explicitly reviewed and applied.";
     }
 
     internal void OpenGeometryInRadiant(string path)
@@ -156,8 +163,15 @@ internal sealed partial class MapStudioScreen
             panel.Children.Add(Text("RADIANT · NEEDS REVIEW"));
             panel.Children.Add(Text(source));
             panel.Children.Add(Text("Geometry: " + review.BeforeCount + " → " + review.AfterCount
-                + ". Native gameplay, identity, audio, environment and asset references are retained. "
+                + ". Project identity, audio, environment and asset references are retained. "
                 + "Applying creates one undoable edit. Source SHA-256: " + review.SourceHash));
+            var current = document.Project.Definition;
+            panel.Children.Add(Text($"Legacy brushes: {current.Brushes.Count} → {review.Proposed.Brushes.Count}; "
+                + $"spawns: {current.Spawns.Count} → {review.Proposed.Spawns.Count}; "
+                + $"pickups: {current.Items.Count} → {review.Proposed.Items.Count}; "
+                + $"jump pads: {current.JumpPads.Count} → {review.Proposed.JumpPads.Count}; "
+                + $"navigation links: {current.NavigationLinks.Count} → {review.Proposed.NavigationLinks.Count}; "
+                + $"traversal volumes: {current.Q3Triggers?.Count ?? 0} → {review.Proposed.Q3Triggers?.Count ?? 0}."));
             var before = document.Project.Definition.Geometry.ToDictionary(g => g.Id);
             var after = review.Proposed.Geometry.ToDictionary(g => g.Id);
             var added = after.Keys.Except(before.Keys).ToArray();
@@ -166,28 +180,31 @@ internal sealed partial class MapStudioScreen
                 System.Text.Json.JsonSerializer.Serialize<MphRead.Mods.MapGen.MapGeometry>(before[id])
                 != System.Text.Json.JsonSerializer.Serialize<MphRead.Mods.MapGen.MapGeometry>(after[id])).ToArray();
             panel.Children.Add(Text($"Added {added.Length}; removed {removed.Length}; changed {changed.Length}."));
+            foreach (var diagnostic in review.Diagnostics.Take(12))
+                panel.Children.Add(Text((diagnostic.Error ? "Error: " : "Info: ") + diagnostic.Message));
             foreach (string detail in added.Select(id => "Added: " + after[id].Label)
                 .Concat(removed.Select(id => "Removed: " + before[id].Label))
                 .Concat(changed.Select(id => "Changed: " + after[id].Label)).Take(12))
                 panel.Children.Add(Text(detail));
             foreach (var material in review.Proposed.Materials.Skip(document.Project.Definition.Materials.Count).Take(8))
                 panel.Children.Add(Text("New shader binding: " + material.Name + ". Configure its native texture before publishing."));
-            AddButton(panel, "Apply geometry changes", () =>
+            AddButton(panel, "Apply map changes", () =>
             {
                 try
                 {
                     if (_document != document) throw new IOException("The open document changed. Review again.");
                     RadiantSourceWorkspace.RequireFresh(document.Project.Definition, review);
-                    document.Edit("Apply Radiant geometry", definition =>
+                    document.Edit("Apply Radiant map changes", definition =>
                     {
-                        // Only replace the reviewed domains; concurrent native metadata edits survive.
-                        definition.Geometry = review.Proposed.Geometry;
-                        definition.Materials = review.Proposed.Materials;
-                    }, MphRead.Mods.MapEditor.MapChangeDomain.Geometry | MphRead.Mods.MapEditor.MapChangeDomain.Material);
+                        // Apply the source's versioned ownership contract in one undo step.
+                        RadiantSourceWorkspace.ApplyReviewed(definition, review);
+                    }, MphRead.Mods.MapEditor.MapChangeDomain.Geometry | MphRead.Mods.MapEditor.MapChangeDomain.Material
+                        | MphRead.Mods.MapEditor.MapChangeDomain.Entity | MphRead.Mods.MapEditor.MapChangeDomain.Navigation);
                     RadiantSourceWorkspace.Accept(document.Project.Definition, review);
                     _changedSources.Remove(source);
                     Dismiss();
-                    _status.Text = "RADIANT · READY FOR BUILD · Geometry applied. Validate before building; Undo restores the prior geometry.";
+                    RefreshStudioChrome();
+                    _status.Text = "RADIANT · READY FOR BUILD · Map changes applied. Validate before building; Undo restores the prior map.";
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or MapAuthoringException
                     or UnauthorizedAccessException or ArgumentException or System.Text.Json.JsonException)

@@ -50,12 +50,11 @@ the transaction kernel's process/recovery tests do not enable that UI feature.
 When the archive includes `Project Prime Radiant.app`, keep that third sibling
 with the pair as well.
 
-## Editing supported geometry in Radiant
+## Editing maps in Radiant
 
-Studio's primary geometry action is **Edit Geometry in Radiant**. **New map in
+Studio's primary authoring action is **Edit Map in Radiant**. **New map in
 Radiant** creates and launches a new owned workspace; opening or restoring a
-project alone never launches the editor. Use **Native geometry fallback** for
-native tools or unsupported geometry.
+project alone never launches the editor. Use **Native geometry fallback** only for explicit recovery editing.
 
 Studio discovers fixed installed siblings: `Project Prime Radiant.app` beside
 the Game/Studio apps on macOS, or a `Project Prime Radiant` directory on
@@ -85,34 +84,54 @@ netradiant-sources/<MapId without hyphens>/
   world.map.prime-source.json
 ```
 
-The native adjunct preserves Prime-only metadata and the geometry baseline.
+The native adjunct preserves project metadata and the complete reviewed authoring baseline.
 Source, identity and initial adjunct use one recoverable commit. Keep any
 `.prime-transaction` recovery file if there is a conflict; it contains the bytes
 needed for reconciliation. Never delete it to force an unreviewed overwrite.
 
-Save geometry in Radiant, return to Studio, choose **Review / Apply** (Tools:
-**Review / apply Radiant geometry changes**), inspect the object diff, and apply
+Save the map in Radiant, return to Studio, choose **Review / Apply** (Tools:
+**Review / apply Radiant map changes**), inspect the object diff, and apply
 one undoable edit. Source changes
-made during review require a new preview. Studio geometry/material changes since
+made during review require a new preview. Studio geometry, brush, gameplay or material changes since
 export require explicit conflict reconciliation. Reopening never exports over an
 external author's saved `.map`.
 
-Version 2 workspaces store each primitive in a marked `func_group` with a durable
-`prime_id`; patch collision and tessellation are persistent entity keys. The
-patched editor normalizes new worldspawn brushes/patches and plain single-
-primitive groups on Save, preserving their surfaces and assigning identities.
-Multi-primitive groups or unsupported group properties require reconciliation;
-they are not silently split. Version 1 workspaces upgrade only when the source,
-identity and native geometry baseline still match the original export. If any
-changed, keep both files and reconcile explicitly before exporting a fresh
-workspace; opening never overwrites those external edits.
+Version 4 workspaces own authored geometry, legacy brushes, spawns, pickups,
+jump pads, navigation links and traversal volumes. Native meshes retain shared
+vertices, original polygon rings, per-face materials, corner UVs, transforms and
+collision flags in `primeMeshDef` primitives. They are editable polygon objects,
+with object, face, edge and vertex selection; rendering triangulation does not
+replace the authored polygons. The Prime Mesh menu provides modeling, UV,
+material and collision tools. Modeling runs through the fixed sibling Studio
+worker and commits as one native undo transaction.
 
-The hybrid workflow edits supported boxes, convex brushes and patches. Native
-imports/remixes, specialized collision, team spawns, traversal, audio, materials
-and gameplay policies stay in native JSON. Unsupported authored geometry receives
-an actionable error and stays available in native editing. New unsupported source
-entities are rejected rather than silently removed. **Compile source to BSP
-reference** is a distinct fallback, not a claim of editable lossless conversion.
+Each primitive has one marked `func_group` and durable `prime_id`; custom Prime
+point entities also have durable IDs. Save normalizes new primitives and points;
+Duplicate receives fresh identities, while Save As retains existing identities.
+Unchanged parameterized primitives and legacy brushes retain their original
+native kind. A topology edit can convert them to an explicit mesh, which the
+review reports before applying. Native Radiant layers round-trip to authored
+layer paths; hierarchy and colors remain in the external source.
+
+Imported and native-room architecture is shown as protected reference meshes.
+Its source dependencies, reference identities and payloads are pinned; modified,
+missing, duplicated or unlocked references refuse review. Reference materials
+never enter the authored material table. Source preparation generates private
+PNG previews beside the workspace and never copies cartridge assets into an app
+bundle. Missing borrowed textures use labeled checker previews; publishing still
+requires normal asset validation.
+
+Projects, rich materials and asset management, environment, audio, validation,
+package builds and playtest remain Studio responsibilities. After reviewing the
+Radiant source, build `.ppmap` through Studio's canonical compiler. **Compile
+source to BSP reference** remains a separate path for ordinary Quake sources;
+Q3Map2 does not compile the custom `primeMeshDef` authoring format.
+
+Older workspaces upgrade only when their source, identity and owned native
+baseline still match the original export. Changed sources remain untouched for
+explicit reconciliation. Unknown source fields are rejected, and source changes
+during review require a fresh preview. Keep source, sidecar, native adjunct and
+any recovery journal together.
 
 New exports use standard Quake plane winding. Earlier Prime exports with the exact
 legacy header can still be read explicitly; reexport them before a real compiler

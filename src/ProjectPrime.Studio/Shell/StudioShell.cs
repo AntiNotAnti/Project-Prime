@@ -68,7 +68,7 @@ public sealed class StudioShell : UserControl
         body.Children.Add(new TextBlock { Text = "PROJECT PRIME", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#79C9EF")), FontWeight = FontWeight.Bold });
         body.Children.Add(new TextBlock { Name = "StudioHomeHeading", Text = "Studio", FontSize = 40, FontWeight = FontWeight.SemiBold });
         body.Children.Add(new TextBlock { Text = "A dedicated desktop home for maps and replays.", FontSize = 18, TextWrapping = TextWrapping.Wrap });
-        body.Children.Add(new TextBlock { Text = "Edit map geometry in Radiant, then review changes in Studio. Keep gameplay, assets and package builds here. Native geometry tools remain available as a fallback.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray, LineHeight = 22 });
+        body.Children.Add(new TextBlock { Text = "Edit meshes, brushes and gameplay objects in Radiant, then review changes in Studio. Manage assets, environment, validation and package builds here.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.LightGray, LineHeight = 22 });
         StackPanel actions = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
         if (MphRead.Mods.MapGen.CommunityCutoverPolicy.NetRadiantDefault)
             actions.Children.Add(Action("New map in Radiant", StudioCommand.NewMapInRadiant));

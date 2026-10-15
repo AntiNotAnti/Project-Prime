@@ -14,21 +14,21 @@ relative to the editor directory. The Studio launcher selects this gamepack and
 its engine path only when the trusted install paths exist. The historical
 `games/projectprime.game` location remains a compatibility fallback.
 
-Neutral spawns and canonical pickups have editable import equivalents. Team
-spawns, native gameplay policies and other specialized fields remain in the
-Prime JSON project during geometry-only edits. Trigger descriptors are marked
-**BSP reference import only**: they are not a promise of direct editable import.
-Unsupported geometry stays in native Studio. Review, validate, build and playtest
-through Studio; the gamepack does not run the Game or hold Community credentials.
+Custom `prime_spawn`, `prime_pickup`, `prime_jumppad`,
+`prime_navigation_link` and `prime_trigger` classes expose the complete authored
+Prime fields in the native Entity Inspector. Standard Quake descriptors remain
+for ordinary source/BSP import. Prime source identities survive normal Save,
+Duplicate and Save As. Keep one brush, patch or editable polygon mesh per marked
+geometry container.
 
-Studio's primary geometry action is **Edit Geometry in Radiant**, followed by
-**Review / Apply**; **Native geometry fallback** is explicit. Version 2 source
-workspaces store each brush/patch in a marked `func_group` with a persistent
-`prime_id` and patch collision/tessellation keys. The patched editor's Save
-normalizes new worldspawn primitives into those containers without rebuilding
-their surfaces. Keep one primitive per group; reconcile unsupported group
-properties in Studio. These keys survive normal editor saves, unlike comments.
+Studio's primary action is **Edit Map in Radiant**, followed by **Review / Apply**.
+Version 4 workspaces preserve native polygon topology and explicit UVs in
+`primeMeshDef`, and reconcile all authored gameplay lists in one undoable apply.
+Protected native/BSP reference meshes retain their dependency ownership. Rich
+assets, environment, validation, `.ppmap` builds and playtest remain in Studio;
+the gamepack runs no shell commands and holds no Community credentials.
 
-The native macOS editor uses Cocoa Qt5. Its real GUI acceptance is **in progress**;
-GUI open/save, DPI/focus, UV/patch editing, Windows/Linux GUI acceptance and
-release dependency/license/signing qualification remain separate pending checks.
+The native macOS editor uses Cocoa Qt5. Automated native parser, component-edit,
+undo, source-writer and process-boundary checks are distinct from interactive GUI
+acceptance. Wider DPI/focus, Windows/Linux GUI and release dependency/license/
+signing qualification remain separate pending checks.

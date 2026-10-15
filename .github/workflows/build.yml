@@ -137,6 +137,12 @@ jobs:
         run: dotnet run --project tools/studio-game-broker-check -c Release
       - name: Radiant source leases and crash recovery
         run: dotnet run --project tools/radiant-source-check -c Release
+      - name: Radiant gameplay entity contracts
+        run: dotnet run --project tools/radiant-object-check -c Release
+      - name: Radiant layer identity and source preservation
+        run: dotnet run --project tools/radiant-layer-check -c Release
+      - name: Native editor modeling worker process boundary
+        run: python tools/radiant-mesh-worker-check/check.py src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio.dll
       - name: map load readiness and tamper rejection
         run: dotnet run --project tools/map-ready-acceptance -c Release
       - name: independent replay documents and retained presentation

@@ -458,7 +458,12 @@ public sealed class StudioWindow : Window
         Commands.Register(StudioCommand.OpenMap, _ => OpenDialogAsync(StudioDocumentKind.Map));
         Commands.Register(StudioCommand.OpenReplay, _ => OpenDialogAsync(StudioDocumentKind.Replay));
         Commands.Register(StudioCommand.OpenClip, _ => OpenDialogAsync(StudioDocumentKind.ReplayClip));
-        Commands.Register(StudioCommand.NewMapWorkspace, _ => { NewMapProject(); return Task.CompletedTask; });
+        Commands.Register(StudioCommand.NewMapWorkspace, _ =>
+        {
+            NewMapProject();
+            if (Documents.ActiveDocument is MapStudioDocument map) map.Host.ShowNativeGeometryTools();
+            return Task.CompletedTask;
+        });
         Commands.Register(StudioCommand.NewMapInRadiant, _ =>
         {
             NewMapProject();
@@ -492,8 +497,10 @@ public sealed class StudioWindow : Window
         MenuItem home = new() { Header = "Studio Home" };
         home.Click += (_, _) => Documents.Select(null);
         file.Items.Add(home);
-        AddMenu(file, "New _map", StudioCommand.NewMapWorkspace);
-        AddMenu(file, "New map in Radiant", StudioCommand.NewMapInRadiant);
+        AddMenu(file, "New _map", MphRead.Mods.MapGen.CommunityCutoverPolicy.NetRadiantDefault
+            ? StudioCommand.NewMapInRadiant : StudioCommand.NewMapWorkspace);
+        if (MphRead.Mods.MapGen.CommunityCutoverPolicy.NetRadiantDefault)
+            AddMenu(file, "New map in native Studio (recovery)", StudioCommand.NewMapWorkspace);
         AddMenu(file, "New _replay workspace", StudioCommand.NewReplayWorkspace);
         MenuItem assets=new() { Header="Choose game asset paths…" };
         assets.Click += async (_,_) => await ChooseAssetPathsAsync();
@@ -528,8 +535,8 @@ public sealed class StudioWindow : Window
         MenuItem jobs = new() { Header = "Background jobs…" };
         jobs.Click += (_,_) => OpenJobsWindow();view.Items.Add(jobs);
         MenuItem tools = new() { Header = "_Tools" };
-        AddMenu(tools,"Edit geometry in Radiant",StudioCommand.EditGeometryInRadiant);
-        AddMenu(tools,"Review / apply Radiant geometry changes",StudioCommand.ReviewRadiantGeometryChanges);
+        AddMenu(tools,"Edit map in Radiant",StudioCommand.EditGeometryInRadiant);
+        AddMenu(tools,"Review / apply Radiant map changes",StudioCommand.ReviewRadiantGeometryChanges);
         AddMenu(tools,"Native geometry fallback",StudioCommand.NativeGeometryFallback);
         AddMenu(tools,"Validate map",StudioCommand.MapValidate);
         AddMenu(tools,"Build map package",StudioCommand.MapBuild);

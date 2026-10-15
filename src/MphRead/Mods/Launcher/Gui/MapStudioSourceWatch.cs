@@ -46,7 +46,7 @@ internal sealed partial class MapStudioScreen
             if (Path.GetExtension(path).Equals(".map", StringComparison.OrdinalIgnoreCase)
                 && File.Exists(path + ".prime-source.json"))
             {
-                AddButton(panel, "Review Radiant geometry changes", () => { Dismiss(); ReviewRadiantGeometryChanges(path); });
+                AddButton(panel, "Review Radiant map changes", () => { Dismiss(); ReviewRadiantGeometryChanges(path); });
                 continue;
             }
             var model=_document.Project.Definition.ModelSources.FirstOrDefault(s=>s.Source==path||s.Dependencies.Any(d=>d.Path==path));

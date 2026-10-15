@@ -11,7 +11,8 @@ public enum RadiantSourceCommitPoint { JournalStaged, SourceCommitted, SidecarCo
 /// replaces bytes proven to belong to this transaction; external edits win.</summary>
 public static class RadiantSourceTransaction
 {
-    private const long MaxJournal = 72L * 1024 * 1024;
+    // JSON journals base64-encode both bounded source and native metadata.
+    private const long MaxJournal = 184L * 1024 * 1024;
     private sealed record Journal(int Version, string Source, string Sidecar,
         string? PreviousSourceHash, string? PreviousSidecarHash,
         byte[] SourceBytes, byte[] SidecarBytes, string? Adjunct = null,
@@ -48,7 +49,7 @@ public static class RadiantSourceTransaction
         if (journal.Version is not (1 or 2) || journal.Source != Path.GetFileName(source)
             || journal.Sidecar != Path.GetFileName(sidecar)
             || journal.SourceBytes == null || journal.SidecarBytes == null
-            || journal.SourceBytes.Length > 32 * 1024 * 1024
+            || journal.SourceBytes.Length > 64 * 1024 * 1024
             || journal.SidecarBytes.Length > 65536
             || !ValidHash(journal.PreviousSourceHash) || !ValidHash(journal.PreviousSidecarHash)
             || !ValidHash(journal.PreviousAdjunctHash))
@@ -67,7 +68,7 @@ public static class RadiantSourceTransaction
         string? adjunctPath = null, byte[]? adjunctBytes = null, string? previousAdjunctHash = null)
     {
         (source, sidecar) = ValidatePaths(source, sidecar);
-        if (sourceBytes.Length > 32 * 1024 * 1024 || sidecarBytes.Length > 65536)
+        if (sourceBytes.Length > 64 * 1024 * 1024 || sidecarBytes.Length > 65536)
             throw new InvalidDataException("Radiant source pair exceeds its bounds.");
         if (File.Exists(sidecar + ".prime-transaction"))
             throw new IOException("Recover the pending Radiant source transaction before exporting.");
@@ -102,7 +103,7 @@ public static class RadiantSourceTransaction
         else if (journal.Version == 2)
         {
             if (journal.Adjunct != journal.Source + ".prime-source.json" || journal.AdjunctBytes == null
-                || journal.AdjunctBytes.Length is <= 0 or > 16 * 1024 * 1024
+                || journal.AdjunctBytes.Length is <= 0 or > 64 * 1024 * 1024
                 || journal.Adjunct == journal.Sidecar)
                 throw new InvalidDataException("Invalid native workspace recovery metadata.");
             RadiantSourceWorkspace.ValidateManifestBytes(journal.AdjunctBytes, identity.MapId, identity.SourceSha256);

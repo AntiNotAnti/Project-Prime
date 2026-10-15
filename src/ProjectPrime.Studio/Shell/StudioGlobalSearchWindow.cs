@@ -45,7 +45,12 @@ public sealed class StudioGlobalSearchWindow : Window
         };
         list.DoubleTapped+=(_,_)=>Activate();Opened+=(_,_)=>query.Focus();Filter();
     }
-    public static string CommandLabel(StudioCommand command)=>Regex.Replace(command.ToString(),"(?<=[a-z])([A-Z])"," $1");
+    public static string CommandLabel(StudioCommand command) => command switch
+    {
+        StudioCommand.EditGeometryInRadiant => "Edit Map In Radiant",
+        StudioCommand.ReviewRadiantGeometryChanges => "Review Radiant Map Changes",
+        _ => Regex.Replace(command.ToString(), "(?<=[a-z])([A-Z])", " $1")
+    };
     public static IEnumerable<StudioSearchResult> Search(StudioDocumentHost documents,StudioCommandRouter commands,
         StudioSettings settings,string query)
     {

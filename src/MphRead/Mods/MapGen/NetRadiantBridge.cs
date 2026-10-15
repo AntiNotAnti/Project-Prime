@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// External-process geometry editor bridge. Packaged and explicitly configured
+/// External-process map editor bridge. Packaged and explicitly configured
 /// tools retain editable sources; no editor code is linked into the game.
 /// </summary>
 public static class NetRadiantBridge
@@ -54,6 +54,12 @@ public static class NetRadiantBridge
             {
                 args.ArgumentList.Add("-projectprime.game-EnginePath");
                 args.ArgumentList.Add(pack + Path.DirectorySeparatorChar);
+                string preview = Path.Combine(Path.GetDirectoryName(source)!, "radiant-preview-assets");
+                if (NetRadiantToolDiscovery.RegularDirectory(preview))
+                {
+                    args.ArgumentList.Add("-projectprime.game-ExtraResourcePath0");
+                    args.ArgumentList.Add(preview + Path.DirectorySeparatorChar);
+                }
             }
         }
         args.ArgumentList.Add(source);
@@ -188,8 +194,8 @@ public static class NetRadiantBridge
         if (Path.GetExtension(path).ToLowerInvariant() != ".map"
             || !File.Exists(path)
             || File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)
-            || new FileInfo(path).Length is <= 0 or > 32L * 1024 * 1024)
-            throw new InvalidDataException("Expected a regular Quake .map source within 32 MiB.");
+            || new FileInfo(path).Length is <= 0 or > 64L * 1024 * 1024)
+            throw new InvalidDataException("Expected a regular Quake .map source within 64 MiB.");
         return path;
     }
 }

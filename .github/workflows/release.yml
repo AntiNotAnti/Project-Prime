@@ -254,6 +254,9 @@ jobs:
           dotnet run --project tools/studio-process-check -c Release
           dotnet run --project tools/studio-game-broker-check -c Release
           dotnet run --project tools/radiant-source-check -c Release
+          dotnet run --project tools/radiant-object-check -c Release
+          dotnet run --project tools/radiant-layer-check -c Release
+          python tools/radiant-mesh-worker-check/check.py src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio.dll
           dotnet run --project tools/map-ready-acceptance -c Release
           dotnet run --project tools/studio-replay-check -c Release
           dotnet run --project tools/community-writer-check -c Release

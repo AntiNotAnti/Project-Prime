@@ -24,7 +24,7 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
         Action<System.Diagnostics.ProcessStartInfo>? radiantLauncher = null)
     {
         StudioGameAssets.InitializeAuthoringProcess();
-        _screen = new MapStudioScreen();
+        _screen = new MapStudioScreen(nativeStandaloneHost: true);
         _screen.RadiantLauncher = radiantLauncher;
         _screen.NativePlaytest = playtest;
         _screen.DocumentChanged += OnChanged;

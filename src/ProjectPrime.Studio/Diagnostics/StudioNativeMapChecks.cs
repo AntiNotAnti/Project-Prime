@@ -74,6 +74,7 @@ internal static class StudioNativeMapChecks
             try
             {
                 await map.OpenAsync(_source);
+                map.Host.ShowNativeGeometryTools();
                 window.Content=map.Host;
                 await WaitForAsync(()=>StudioGraphicsHost.NativeSurfaceCount==1,"one native surface");
                 Check(StudioGraphicsHost.HasDevice,"native renderer initialized");

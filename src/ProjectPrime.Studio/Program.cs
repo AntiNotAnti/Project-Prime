@@ -15,6 +15,7 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args is ["--radiant-mesh-worker"]) return Map.RadiantMeshWorker.Run();
         if (args is ["--replay-export-worker", var ticket]) return Replay.ReplayExportWorker.Run(ticket);
         if(args is ["--self-test"])return StudioAcceptanceChecks.Run();
         if(args is ["--native-map-check",var mapSource])return StudioNativeMapChecks.Run(mapSource);

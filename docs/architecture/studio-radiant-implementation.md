@@ -36,9 +36,9 @@ automated evidence, native executable evidence and release approval.
 | ST-05 | Private replay documents/player, non-destructive authoring, bounded detached export worker, loopback audio | Two native Mac video/audio exports pass; historical/cosmetic fidelity and other platforms remain separate acceptance |
 | ST-06 | Canonical map editor/compiler/package and existing Community operations hosted in Studio; Game owns runtime install/playtest | Offline host cycles and broker tests; staging creator service acceptance pending |
 | RD-01 | Pinned independent fork source/build/bundle recipe, original gamepack and graybox, native Cocoa Qt5 ARM64 packaging and candidate CI | Windows/Linux editor/compiler builds and real BSP checks pass; bounded Mac GUI/source/package proof below; wider platform, dependency/source licensing and release signing remain separate |
-| RD-02/03 | Strict supported geometry reconciliation with Prime metadata preserved, revision review, source watch and cancellation | Unsupported geometry stays native; no promise that all native maps convert |
+| RD-02/03 | Native polygon meshes, lossless parameterized/legacy recovery, complete authored gameplay ownership, layers, protected retained architecture, revision review and source watch | Strict source/worker/native executable checks below; interactive replacement acceptance remains separate |
 | MAP-01 | Vote/load/rotation exact readiness gates, bounded failed-generation retries, traversal and authored pickup probes | Automated/native kernel evidence below; live 1v1/8-player and Android pending |
-| ST-07/08 | Normal Game FORGE opens paired Studio; Studio exposes primary Radiant geometry, review/apply and explicit native fallback | Embedded/legacy entry remains explicit; full source removal is held for functional/platform parity |
+| ST-07/08 | Normal Game FORGE opens paired Studio; standalone map documents default to project management with primary Radiant editing and review/apply | Original hierarchy/viewport/toolbars require explicit recovery; compatibility source remains until platform acceptance |
 | RD-04 | Primary Radiant workflow and trusted installed-tool discovery; reversible preference and native fallback | Native Mac candidate passes bounded real editor/source/package loop; wider platform/gameplay/release signoff remains pending |
 | REL-01 | Paired binary/hash/architecture metadata, coordinated update lease/recovery/rollback, sibling macOS apps, desktop CI | Synthetic pairing/updater tests; actual previous-release upgrade and remote candidate CI pending |
 | REL-02 | Reproducible commands, migration/fallback guide and release evidence contract | **Gate held**: no public release, deployment, owner signoff or device certification recorded |
@@ -217,6 +217,82 @@ The community suite passes 74 checks including an intentionally held reader;
 the native packaging fixture passes locally; Release builds with zero warnings
 or errors and three headless layouts confirm the new toolbar reference. Hosted
 Windows deletion and Linux GPU execution require the follow-up CI revision.
+
+## Full native map-editor replacement follow-up
+
+The replacement target includes meshes and gameplay authoring. The earlier
+brush/patch candidate and its GUI evidence above did not establish that target.
+The new fork implements indexed polygon nodes with original rings, shared
+vertices, corner UVs, face materials, transforms and collision metadata. Native
+object/face/edge/vertex selection, transforms, snapping, surface tools, modeling,
+validation issue navigation, cloning and undo use those nodes. Rendering uses
+temporary triangles without replacing the authored polygons. A fixed sibling
+Studio worker supplies the canonical modeling algorithms through bounded JSON;
+the native client stages results before one undo transaction and reaps canceled
+children. New independent meshes discard original-object recovery provenance.
+
+Version 4 source workspaces own geometry, legacy brushes, all authored gameplay
+lists and their materials. Prime point entities preserve every canonical field;
+native overlays show navigation endpoints, jump targets and traversal volumes.
+Layer paths round-trip through actual native layer directives. A stock default
+layer table with no assignments preserves legacy membership; an ambiguous save
+that deletes all layers back to stock `0` cannot express reassignment by itself.
+Parameterized objects carrying custom labels, shade or terrain use the complete
+mesh payload so Duplicate retains those fields under a fresh identity.
+
+Imported/native-room architecture is visible as protected references. Dependency
+content, identities, immutable markers and payloads are verified before review;
+references cannot become owned geometry or authored materials. Private PNG
+previews use the original texture dimensions and palette/alpha. Missing borrowed
+textures produce explicit checker-preview warnings. Cartridge assets remain
+outside app bundles.
+
+Standalone Studio now opens a project overview with asset, material, environment,
+health, build and editor-launch actions. The original hierarchy, viewport, menus,
+splitters and modeling toolbar are hidden until explicit recovery is selected;
+returning to the overview clears selection without changing project/history.
+This is the primary UI change requested after the original editor screenshot.
+
+New evidence is recorded under `artifacts/radiant-native-mesh/`. The worker's
+actual child-process suite passes 114 checks, and gameplay entity contracts pass
+74. Source regression checks pass 163, layer checks 75 and the latest standalone
+host suite 112. Studio and the dedicated server build with zero warnings/errors.
+The native fork builds on macOS ARM64. Real native parser/scene/selection API,
+transform/undo and fixed-sibling process diagnostics run against CLOSE QUARTERS
+and MP3 PROVING GROUND reference sources; real `Map_SaveFile` writes private
+copies with the original inputs unchanged. These diagnostics do not exercise
+mouse/keyboard GUI interaction.
+
+The final native diagnostics pass 56 checks on CLOSE QUARTERS and 74 on the
+23 reference meshes, plus eight actual sibling-worker checks in each run.
+Both native save copies match their independently reviewed bytes exactly.
+An optional environment-only external profile keeps private test preferences and
+logs outside sealed app resources; four invalid-path cases refuse startup.
+
+CLOSE QUARTERS contains 5 meshes, 41,852 vertices and 20,462 faces. Its original
+five meshes are all non-solid and it has no other collision, so its unchanged
+source correctly fails package validation with `FP-MAP-013`. This is preserved
+authoring data, not evidence of a playable package. Separate solid fixtures cover
+canonical package construction. Real native-room preview checks verify all 23
+retained material groups and all 3,834 original cartridge files unchanged.
+
+After the Mac was unlocked, the actual project overview was visually inspected
+and its primary action opened the native source. Native scene-tree selection,
+orthographic face picking, Extrude Region, Save, Undo/Redo, Studio Review/Apply,
+Save and Build all ran through the real UI. A cube changed from 8 vertices/6 faces
+to 12 vertices/10 faces while the floor remained exact. Strict readback passes
+36 checks; five additional supplied-artifact checks prove the actual GUI package
+matches an independent build byte-for-byte. Original project/cartridge inputs
+remain unchanged. A GUI-discovered floor interception bug was corrected to use
+authored edges for orthographic object picking; a final physical selection and
+the native Properties label confirm the cube can be picked above the floor.
+The overview now refreshes source state after accepting changes and excludes its
+own Radiant sidecars from Saved Projects while retaining broken user projects.
+
+This establishes a bounded native mesh editing/review/package workflow on Mac.
+Broader component/UV/content coverage, Windows/Linux GUI, end-to-end gameplay and
+release qualification remain separate. Earlier brush-only GUI results and
+exact-head CI from earlier commits do not certify these new source changes.
 
 ## Required evidence still pending
 

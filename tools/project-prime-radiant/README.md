@@ -57,8 +57,8 @@ package-manager resolutions or byte-reproducible binaries**.
 Linux requires Qt5, glib, libxml2, JPEG, PNG, Assimp, OpenGL and build tools.
 Windows uses the upstream MSYS2/MINGW64 toolchain. The candidate workflow builds
 these platforms and runs the actual compiler; that evidence is separate from
-GUI acceptance. Studio presents **Edit Geometry in Radiant** as the primary
-geometry action with **Review / Apply** on return, and an explicit **Native
+GUI acceptance. Studio presents **Edit Map in Radiant** as the primary
+authoring action with **Review / Apply** on return, and an explicit **Native
 geometry fallback**.
 
 October 15 source revision `b3339620` passed full editor/compiler builds and real
@@ -85,3 +85,34 @@ and corresponding-source review, signing and platform GUI checks remain required
 before redistribution. The `QUALIFICATION-PENDING.txt` is intentional. Root MIT
 licensing does not relicense the external fork. No commercial game content or
 cartridge files may enter this bundle.
+
+## Native polygon and gameplay authoring
+
+The fork adds real indexed polygon mesh nodes with object/component selection,
+shared-vertex transforms, snapping, UV/material tools, cloning and undo. Source
+uses bounded `primeMeshDef` payloads, preserving authored rings and corner UVs.
+The fixed sibling Studio process supplies the canonical modeling algorithms via
+`--radiant-mesh-worker`; it starts without assets or UI and accepts one bounded
+JSON request. The native client stages results, supports cancellation, reaps the
+worker and applies one undo transaction. No executable path comes from map data.
+
+Prime point definitions cover all authored gameplay fields. Native overlays show
+navigation endpoints, jump directions/targets and traversal volumes. References
+carry an independent immutable marker; Unlock All cannot detach them.
+
+Explicit developer diagnostics are available after ordinary initialization:
+
+```sh
+radiant --prime-mesh-self-test /absolute/report.json --prime-mesh-worker-check /absolute/private-fixture.map
+```
+
+Add `--prime-mesh-save-copy /absolute/new-copy.map` to exercise the real source
+writer. The destination must not exist. Diagnostics mutate temporary in-memory
+fixtures, verify preloaded geometry stays unchanged and exit; they do not certify
+mouse/keyboard GUI interaction. Keep diagnostic copies/profiles out of shipped
+bundles. The modeling boundary and gameplay/layer/source suites run in CI.
+
+For isolated desktop checks, set `PROJECT_PRIME_RADIANT_USER_DATA` to an absolute
+writable profile directory outside the app bundle. This environment-only override
+creates the directory and rejects relative paths, files and a symlink at the final
+directory. Unset it for normal profile discovery. Maps cannot select a profile.
