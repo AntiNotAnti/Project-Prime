@@ -26,6 +26,7 @@ CASES = (
     "campaign-navigation",
     "campaign-ship-flow",
     "campaign-movies",
+    "campaign-movie-lifetime",
     "campaign-endings",
     "campaign-presentation",
     "campaign-audio",
