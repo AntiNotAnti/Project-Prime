@@ -257,6 +257,8 @@ namespace MphRead.Mods.Launcher.Gui
         private int _audioPageIndex;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
+        private DecimalSliderRow _horizontalSensitivity = null!;
+        private DecimalSliderRow _verticalSensitivity = null!;
         private SliderRow _imperialistZoomSensitivity = null!;
         private SliderRow _imperialistZoomAmount = null!;
         private SliderRow _altSwipeSensitivity = null!;
@@ -926,6 +928,9 @@ namespace MphRead.Mods.Launcher.Gui
                         case SliderRow row:
                             row.ValueChanged += (_, _) => UpdateDraftStatus();
                             break;
+                        case DecimalSliderRow row:
+                            row.ValueChanged += (_, _) => UpdateDraftStatus();
+                            break;
                         case ToggleRow row:
                             row.Changed += (_, _) => UpdateDraftStatus();
                             break;
@@ -1021,6 +1026,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             ChoiceRow row => row.Label,
             SliderRow row => row.Label,
+            DecimalSliderRow row => row.Label,
             ToggleRow row => row.Label,
             FieldRow row => row.Label,
             KeyRow row => row.BindingName,
@@ -1963,6 +1969,11 @@ namespace MphRead.Mods.Launcher.Gui
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
                 min: 1, max: 300, keyStep: 1));
+            _horizontalSensitivity = Add(page, new DecimalSliderRow(
+                "Horizontal sensitivity", InputSettings.HorizontalSensitivity, .01f, 3f, .01f, "x base"));
+            _verticalSensitivity = Add(page, new DecimalSliderRow(
+                "Vertical sensitivity", InputSettings.VerticalSensitivity, .01f, 3f, .01f, "x base"));
+            Explain(page, "Both axis multipliers affect camera aiming equally in local gameplay and network late-aim presentation.");
             _imperialistZoomSensitivity = Add(page, new SliderRow("Imperialist zoom sensitivity",
                 SensitivityToSlider(InputSettings.ImperialistZoomSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
@@ -2163,6 +2174,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.Reset();
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
+                _horizontalSensitivity.Value = InputSettings.HorizontalSensitivity;
+                _verticalSensitivity.Value = InputSettings.VerticalSensitivity;
                 _imperialistZoomSensitivity.Value = SensitivityToSlider(InputSettings.ImperialistZoomSensitivity);
                 _imperialistZoomAmount.Value = (int)MathF.Round(InputSettings.ImperialistZoomAmount * 100);
                 _altSwipeSensitivity.Value = (int)MathF.Round(InputSettings.AltSwipeSensitivity * 100);
@@ -2910,6 +2923,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // Controls
             InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
+            InputSettings.HorizontalSensitivity = _horizontalSensitivity.Value;
+            InputSettings.VerticalSensitivity = _verticalSensitivity.Value;
             InputSettings.ImperialistZoomSensitivity = SliderToSensitivity(_imperialistZoomSensitivity.Value);
             InputSettings.ImperialistZoomAmount = _imperialistZoomAmount.Value / 100f;
             InputSettings.AltSwipeSensitivity = _altSwipeSensitivity.Value / 100f;
