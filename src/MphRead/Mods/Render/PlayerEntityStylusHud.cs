@@ -288,6 +288,16 @@ namespace MphRead.Entities
 
             float x = pointerX * 256f;
             float y = pointerY * 192f;
+            if (_scene.DsBottomPass)
+            {
+                // Stylus input is measured against the physical stacked window.
+                // Remap into the active lower LCD viewport, never the top one.
+                var bottom = DsLayout.Bottom;
+                if (bottom.Z <= 0 || bottom.W <= 0) return;
+                x = (pointerX - bottom.X) / bottom.Z * 256f;
+                y = (pointerY - bottom.Y) / bottom.W * 192f;
+                if (x < 0 || x >= 256 || y < 0 || y >= 192) return;
+            }
             const float pixel = 0.42f;
             // One offset black copy gives the white pixel arrow enough edge
             // contrast to stay readable on both bright and dark rooms.
@@ -342,7 +352,14 @@ namespace MphRead.Entities
                 Vector2 home = _weaponSelectHome[i];
                 float x = home.X;
                 float y = home.Y;
-                if (GamepadInput.WheelHeld)
+                if (_scene.DsBottomPass)
+                {
+                    // The native wheel now belongs to the real lower LCD:
+                    // no window-fraction offset into the screen above.
+                    x = home.X;
+                    y = home.Y;
+                }
+                else if (GamepadInput.WheelHeld)
                 {
                     float angle = (i + .5f) * MathF.PI / 3;
                     x = .5f + MathF.Sin(angle) * .23f * _scene.Size.Y / Math.Max(1, _scene.Size.X);
@@ -358,7 +375,8 @@ namespace MphRead.Entities
                 _selectBoxInsts[i].PositionX = x;
                 _selectBoxInsts[i].PositionY = y;
             }
-            return StylusZone.Enabled && !GamepadInput.WheelHeld ? StylusZone.Height : 1;
+            return _scene.DsBottomPass ? 1
+                : StylusZone.Enabled && !GamepadInput.WheelHeld ? StylusZone.Height : 1;
         }
 
         /// <summary>
