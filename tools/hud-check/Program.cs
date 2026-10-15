@@ -101,6 +101,41 @@ for (int i=0;i<CrosshairPresets.Names.Length;i++)
 }
 Reject(()=>CrosshairPresets.Import("PPCH9:abc"),"unknown share version");
 var profile = HudProfileStore.Parse("""{"unknown":"ignored","elements":{"core.radar":{"opacity":0.4}},"crosshair":{"dot":true}}""");
+
+Check(HudProfile.CurrentSchema == 2, "active HUD profile schema bumped to 2");
+var legacyV1 = HudProfileStore.Parse("""
+{"schemaVersion":1,"name":"v1 custom","mode":"Custom","globalScale":1.25,
+ "elements":{"core.health":{"offsetX":44,"scale":1.8},"core.ammoGauge":{"opacity":0.62}},
+ "crosshair":{"dot":true,"dotSize":5},"independentGauges":true}
+""");
+Check(legacyV1.SchemaVersion == 2 && legacyV1.Name == "v1 custom"
+    && legacyV1.IndependentGauges, "v1 profile pure migration to v2");
+Near(legacyV1.Elements["core.health"].OffsetX,44,"v1 anchor value not rescaled");
+Near(legacyV1.Elements["core.health"].Scale,1.8f,"v1 element scale retained");
+Near(legacyV1.Elements["core.ammoGauge"].Opacity,.62f,"v1 gauge opacity retained");
+Near(legacyV1.Crosshair.DotSize,5f,"v1 crosshair detail retained");
+Near(legacyV1.GlobalScale,1.25f,"v1 global scale retained");
+Check(HudProfileStore.Parse("""{"name":"unversioned"}""").SchemaVersion==2,
+    "schema-less v1 import migrates safely");
+var v19Forward = HudProfileStore.Parse("""
+{"schemaVersion":2,"name":"Halo import","basePreset":"Halo",
+ "decorations":{"screenBorders":{"color":"#12ABCD"}},
+ "typography":{"health":{"font":"Rajdhani Bold"}},
+ "haloLowHealthSound":true}
+""");
+Check(v19Forward.BasePreset=="Halo" && v19Forward.Name=="Halo import",
+    "v19 theme identity retained before its PR-04 renderer");
+Check(v19Forward.FutureFields != null
+    && v19Forward.FutureFields.ContainsKey("decorations")
+    && v19Forward.FutureFields.ContainsKey("typography")
+    && v19Forward.FutureFields.ContainsKey("haloLowHealthSound"),
+    "v19 optional profile payloads retained but inert");
+string v19Json = HudProfileStore.Serialize(v19Forward);
+Check(v19Json.Contains("Rajdhani Bold",StringComparison.Ordinal)
+    && v19Json.Contains("screenBorders",StringComparison.Ordinal)
+    && HudProfileStore.Serialize(HudProfileStore.Parse(v19Json))==v19Json,
+    "v19 import/export preserves future extension data");
+
 Near(HudProfileStore.Parse("{\"basePreset\":\"Accessibility\"}").GlobalScale,1.5f,"base preset inheritance");
 Check(profile.Elements["core.radar"].Anchor==HudAnchor.TopRight,"missing anchor inherits per-element default");
 Near(profile.Elements["core.radar"].Opacity,.4f,"explicit property wins");
