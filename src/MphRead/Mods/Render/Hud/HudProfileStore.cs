@@ -22,6 +22,10 @@ public sealed class HudProfileStore
         if (System.Text.Encoding.UTF8.GetByteCount(json) > MaximumBytes) throw new FormatException("HUD profile exceeds 128 KiB.");
         var input = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { MaxDepth = 24 }) as JsonObject
             ?? throw new FormatException("Expected a HUD profile object.");
+        // Old exported profiles sometimes omitted a schema key. Treat them as
+        // v1 input rather than assuming they were created by the new client.
+        // The profile's pure Validate() conversion upgrades them to v2.
+        if (input["schemaVersion"] == null) input["schemaVersion"] = 1;
         // Merge recursively so partially specified elements inherit anchor/position as well as scale.
         string presetName = "Project Prime";
         if (input["basePreset"] is JsonValue value && value.TryGetValue<string>(out string? preset)
