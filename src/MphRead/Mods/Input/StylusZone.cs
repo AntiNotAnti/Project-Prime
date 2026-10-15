@@ -131,6 +131,26 @@ namespace MphRead.Mods.Input
             new Button(StylusRegion.AltForm, 228, 166, 44, 44, "ALT", round: true)
         };
 
+        // User-configurable upper-right WPN-selector footprint. The control
+        // never moves from its native center; dimensions are clamped so the
+        // visible boundary and clickable ellipse agree at the screen edge.
+        private static float _selectSize = 1f;
+        private static float SelectLimit => 48f / 44f * DsLayout.HorizontalStretch;
+        public static float SelectSize
+        {
+            get => Math.Clamp(_selectSize, .5f, SelectLimit);
+            set => _selectSize = float.IsFinite(value)
+                ? Math.Clamp(value, .5f, SelectLimit) : 1f;
+        }
+
+        public static Button EffectiveButton(Button button)
+        {
+            if (button.Region != StylusRegion.WeaponSelect) return button;
+            return new Button(button.Region, button.X, button.Y,
+                button.Width * SelectSize, button.Height * SelectSize,
+                button.Label, button.Round);
+        }
+
         /// <summary>
         /// Whether the zone is being used at all.
         ///
@@ -271,6 +291,7 @@ namespace MphRead.Mods.Input
             ButtonOpacity = DefaultButtonOpacity;
             CursorOpacity = DefaultCursorOpacity;
             GuideColor = DefaultGuideColor;
+            SelectSize = 1f;
         }
 
         public static void SetRect(float left, float top, float width)
@@ -610,7 +631,7 @@ namespace MphRead.Mods.Input
             float dsY = (y - Top) / height * DsHeight;
             for (int i = 0; i < Buttons.Length; i++)
             {
-                Button button = Buttons[i];
+                Button button = EffectiveButton(Buttons[i]);
                 // At 5:3 the art expands horizontally. Preserve the shape
                 // and hit target of round buttons by compensating the width.
                 float targetWidth = button.Width / DsLayout.HorizontalStretch;
