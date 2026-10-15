@@ -632,6 +632,7 @@ namespace MphRead.Mods.Launcher
                     $"bright_skins={RenderOptions.BrightSkins.ToString().ToLowerInvariant()}",
                     $"bright_skin_style={RenderOptions.BrightSkinStyle.ToString().ToLowerInvariant()}",
                     $"player_outline={RenderOptions.PlayerOutline.ToString().ToLowerInvariant()}",
+                    $"player_outline_colors={Mods.Render.OutlineColorPalette.Json}",
                     $"player_outline_width={RenderOptions.PlayerOutlineWidth.ToString(CultureInfo.InvariantCulture)}",
                     $"reduce_motion={ReduceMotion.ToString().ToLowerInvariant()}",
                     $"combat_feedback_volume={CombatFeedbackVolume.ToString(CultureInfo.InvariantCulture)}",
