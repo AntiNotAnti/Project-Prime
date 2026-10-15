@@ -45,7 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeRoute.Lobby => LobbyFixture(rooms, shell!.Overlays),
                 _ => throw new ArgumentOutOfRangeException(nameof(route))
             };
-            shell = new PrimeShell(Create, () => { }); shell.Start(); return shell;
+            shell = new PrimeShell(Create, () => { }, openStudio: () => { }); shell.Start(); return shell;
         }
         private static MphRead.Mods.MapGen.CommunityMapProject[] CommunitySample()
         {
@@ -556,9 +556,30 @@ namespace MphRead.Mods.Launcher.Gui
                     var header = shell.Header; var footer = shell.Footer;
                     var shellTabs = header.GetVisualDescendants().OfType<PrimeTabButton>()
                         .Select(button => button.Label).ToArray();
-                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("REPLAY STUDIO")
-                        && shellTabs.Contains("MAP STUDIO"),
-                        "shell uses player-facing Home and studio destination labels");
+                    Check(shellTabs.SequenceEqual(new[] { "PLAY", "COMMUNITY", "STUDIO", "OFFLINE", "SETTINGS" }),
+                        "primary navigation exposes one Studio destination and keeps Home and Hunter License out of tabs");
+                    Check(shell.Router.Current == PrimeRoute.Play && shell.Workspaces.Content is PlayWorkspace,
+                        "shell starts with a populated Play workspace");
+                    int studioLaunches = 0;
+                    shell.Router.RegisterRouteAction(PrimeRoute.Studio, () => studioLaunches++);
+                    var studioTab = ControllerNav.Find(header, "prime.nav.Studio")!;
+                    var playBeforeStudio = shell.Workspaces.Content;
+                    studioTab.Focus(); FocusNavigator.Key(studioTab, Key.Enter); Drain(window);
+                    Check(studioLaunches == 1 && shell.Router.Current == PrimeRoute.Play
+                        && ReferenceEquals(playBeforeStudio, shell.Workspaces.Content),
+                        "Studio launches externally while retaining the current game workspace");
+                    shell.Router.CanNavigate = _ => false;
+                    shell.Router.Navigate(PrimeRoute.Studio);
+                    Check(studioLaunches == 1, "Studio launch honors navigation guards");
+                    shell.Router.CanNavigate = null;
+                    var profile = ControllerNav.Find(header, "prime.profile")!;
+                    header.Refresh(new PrimeGlobalState("Fixture", "Samus", "LOCAL", true, 4, true, false));
+                    Drain(window);
+                    Check(profile.IsVisible && ControllerNav.Find(header, "prime.lobby")!.IsVisible,
+                        "player name remains accessible alongside the active lobby shortcut");
+                    profile.Focus(); FocusNavigator.Key(profile, Key.Enter); Drain(window);
+                    Check(shell.Router.Current == PrimeRoute.HunterLicense && shell.Workspaces.Content is LicenseWorkspace,
+                        "far-right player name opens Hunter License");
                     shell.Router.Navigate(PrimeRoute.News); Drain(window);
                     Check(shell.Workspaces.Get(PrimeRoute.News)
                         .GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
@@ -566,6 +587,7 @@ namespace MphRead.Mods.Launcher.Gui
                     var retained = new Dictionary<PrimeRoute, Control>();
                     foreach (var route in PrimeRouter.Tabs)
                     {
+                        if (route == PrimeRoute.Studio) continue;
                         shell.Router.Navigate(route); Drain(window);
                         Check(ReferenceEquals(header, shell.Header) && ReferenceEquals(footer, shell.Footer), "persistent chrome: " + route);
                         Check(FocusNavigator.Ensure(shell.Workspaces) != null, "reachable workspace control: " + route);
@@ -573,9 +595,19 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     foreach (var (route, view) in retained)
                     { shell.Router.Navigate(route); Drain(window); Check(ReferenceEquals(view, shell.Workspaces.Content), "retained workspace " + route); }
-                    shell.Router.Navigate(PrimeRoute.News); shell.Router.PreviousRoute();
+                    shell.Router.Navigate(PrimeRoute.Play); shell.Router.PreviousRoute();
                     Check(shell.Router.Current == PrimeRoute.Settings, "previous tab wraps");
-                    shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.News, "next tab wraps");
+                    shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.Play, "next tab wraps");
+                    shell.Router.Navigate(PrimeRoute.HunterLicense); shell.Router.PreviousRoute();
+                    Check(shell.Router.Current == PrimeRoute.Settings, "profile backward navigation rejoins primary tabs");
+                    shell.Router.Navigate(PrimeRoute.HunterLicense); shell.Router.NextRoute();
+                    Check(shell.Router.Current == PrimeRoute.Community, "profile forward navigation rejoins primary tabs");
+                    shell.Router.NextRoute();
+                    Check(shell.Router.Current == PrimeRoute.Offline && studioLaunches == 1,
+                        "tab shortcuts cross Studio without repeatedly launching an external app");
+                    shell.Router.PreviousRoute();
+                    Check(shell.Router.Current == PrimeRoute.Community && studioLaunches == 1,
+                        "reverse tab shortcuts cross Studio without launching an external app");
 
                     shell.Router.Navigate(PrimeRoute.Community); Drain(window);
                     var community = shell.Workspaces.Get(PrimeRoute.Community);
@@ -791,6 +823,7 @@ namespace MphRead.Mods.Launcher.Gui
                         foreach (var size in Sizes)
                         foreach (var route in Enum.GetValues<PrimeRoute>())
                         {
+                            if (route == PrimeRoute.Studio) continue;
                             shell.Router.Navigate(route);
                             string path = Path.Combine(directory, $"prime-{route.ToString().ToLowerInvariant()}-{size.Width:0}x{size.Height:0}.png");
                             Check(UiCapture.Capture(shell, path, size), "capture " + path);
@@ -921,7 +954,8 @@ namespace MphRead.Mods.Launcher.Gui
                     Check(startup.IsFocused && !shell.IsVisible && !shell.Overlays.IsOpen,
                         "startup owns focus and defers setup prompts");
                     shell.Router.Navigate(PrimeRoute.Settings);
-                    Check(shell.Router.Current == PrimeRoute.News, "startup blocks shell routes");
+                    shell.Router.Navigate(PrimeRoute.Studio);
+                    Check(shell.Router.Current == PrimeRoute.Play, "startup blocks shell routes and external Studio launch");
                     FocusNavigator.Key(startup, Key.Escape); FocusNavigator.Key(startup, Key.E);
                     Check(startup.IsVisible && !startup.Leaving, "startup consumes back and tab navigation");
                     FocusNavigator.Key(startup, Key.Enter); Drain(window);
@@ -929,14 +963,14 @@ namespace MphRead.Mods.Launcher.Gui
                         && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any(),
                         "Enter reveals the same mounted shell and removes startup");
                     shell.Overlays.Clear();
-                    shell.Router.Navigate(PrimeRoute.News);
+                    shell.Router.Navigate(PrimeRoute.Play);
                     FocusNavigator.Key(FocusNavigator.Ensure(shell)!, Key.Escape);
                     Drain(window);
                     Check(shell.Overlays.GetVisualDescendants().OfType<ConfirmScreen>().Any(),
                         "Escape on the main screen opens quit confirmation");
                     FocusNavigator.Key(FocusNavigator.Ensure(shell.Overlays)!, Key.Escape);
                     Drain(window);
-                    Check(!shell.Overlays.IsOpen && shell.Router.Current == PrimeRoute.News,
+                    Check(!shell.Overlays.IsOpen && shell.Router.Current == PrimeRoute.Play,
                         "cancelling quit stays on the main screen");
                     var oldOffline = shell.Workspaces.Get(PrimeRoute.Offline);
                     var refreshedSettings = new MenuSettings { PointGoal = "25", TimeLimit = "10:00" };

@@ -72,7 +72,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RowSpacing = 14
             };
             root.Children.Add(HubChrome.Header(
-                "HOME  /  HUNTER LICENSE",
+                "PLAYER  /  HUNTER LICENSE",
                 "HUNTER'S LICENSE",
                 "YOUR PROFILE. YOUR LEGACY.",
                 "CAREER",

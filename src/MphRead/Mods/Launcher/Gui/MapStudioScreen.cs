@@ -165,18 +165,38 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(_studioBuild, "studio.build");
             ControllerNav.Identify(_studioPlaytest, "studio.playtest");
 
-            var headerCopy = PrimeChrome.Stack(
-                _workspaceEyebrow,
-                _projectTitle,
-                _geometryWorkflow,
-                geometryActions,
-                _projectState);
+            var headerCopy = new StackPanel { Spacing = 4 };
+            headerCopy.Children.Add(_workspaceEyebrow);
+            headerCopy.Children.Add(_projectTitle);
             var backStudio = new PrimeButton("BACK", Close, compact: true);
             ControllerNav.Identify(backStudio, "studio.back");
             var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto,Auto",
                 backStudio, _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
-            headerActions.VerticalAlignment = VerticalAlignment.Center;
-            var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
+            headerActions.VerticalAlignment = VerticalAlignment.Top;
+            var header = new Grid
+            {
+                Name = "StudioProjectHeader",
+                ColumnDefinitions = new("*,Auto"),
+                RowDefinitions = new("Auto,Auto,Auto"),
+                ColumnSpacing = 12,
+                RowSpacing = 6
+            };
+            header.Children.Add(headerCopy);
+            Grid.SetColumn(headerActions, 1);
+            header.Children.Add(headerActions);
+            Grid.SetRow(_geometryWorkflow, 1);
+            Grid.SetColumnSpan(_geometryWorkflow, 2);
+            header.Children.Add(_geometryWorkflow);
+            var geometryRow = new DockPanel { LastChildFill = true };
+            _projectState.VerticalAlignment = VerticalAlignment.Center;
+            _projectState.HorizontalAlignment = HorizontalAlignment.Right;
+            _projectState.Margin = new Thickness(12, 0, 0, 3);
+            DockPanel.SetDock(_projectState, Dock.Right);
+            geometryRow.Children.Add(_projectState);
+            geometryRow.Children.Add(geometryActions);
+            Grid.SetRow(geometryRow, 2);
+            Grid.SetColumnSpan(geometryRow, 2);
+            header.Children.Add(geometryRow);
             _root.Children.Add(header);
             _editingControls.AddRange(new Control[]
             {
@@ -698,6 +718,8 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (var panel in _nativeAuthoringPanels) panel.IsVisible = !overview;
             foreach (var splitter in _nativeSplitters) splitter.IsVisible = !overview;
             if (_projectSettingsPanel != null) _projectSettingsPanel.IsVisible = true;
+            Grid.SetRow(_workspaceBody, overview ? 1 : 3);
+            Grid.SetRowSpan(_workspaceBody, overview ? 3 : 1);
             if (!overview && _nativeGeometryTools != null
                 && (!CommunityCutoverPolicy.NetRadiantDefault || _nativeGeometryRecovery))
                 _nativeGeometryTools.IsExpanded = true;

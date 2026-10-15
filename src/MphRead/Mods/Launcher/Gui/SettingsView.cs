@@ -324,7 +324,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RowSpacing = 14
             };
             contentRoot.Children.Add(HubChrome.Header(
-                inGame ? "MATCH  /  SETTINGS" : "HOME  /  SETTINGS",
+                inGame ? "MATCH  /  SETTINGS" : "PLAY  /  SETTINGS",
                 "SETTINGS",
                 "Tune Project Prime without leaving the command hub.",
                 inGame ? "LIVE MATCH" : "CONFIGURATION",
@@ -2072,7 +2072,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             Heading(page, "Replay library");
             Explain(page, "Full recordings, instant clips and recovered sessions appear in "
-                + "REPLAY STUDIO on the main screen. Files are stored in:\n"
+                + "Studio’s replay workspace. Open STUDIO from the navigation bar. Files are stored in:\n"
                 + Mods.Network.DemoLibrary.Directory);
 
             int storageIndex = Array.FindIndex(_replayStorageStops,

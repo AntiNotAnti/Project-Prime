@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings = settings; _rooms = new List<string>(rooms); Focusable = true;
             _prime = new PrimeShell(CreateWorkspace, OpenVersionManager
 #if MPHREAD_SHELL
-                , OpenStudioChooser
+                , () => OpenStandaloneStudio(null)
 #endif
             );
             _prime.IsVisible = false; _prime.IsEnabled = false;
@@ -59,10 +59,10 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (_prime.Router.Current == PrimeRoute.Lobby)
                 {
-                    _prime.Router.Navigate(PrimeRoute.News);
+                    _prime.Router.NavigateWorkspace(PrimeRoute.Play);
                     return true;
                 }
-                if (_prime.Router.Current == PrimeRoute.News)
+                if (_prime.Router.Current == PrimeRoute.Play)
                 {
                     AskToQuit();
                     return true;
@@ -124,7 +124,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (_bypassGuard) return true;
             if (_prime.Overlays.IsOpen) return false;
             if (route == PrimeRoute.Lobby && _lobby == null) return false;
-            if (route == PrimeRoute.Play && _lobby != null && NetSession.Active)
+            if (route == PrimeRoute.Play && !_prime.Router.IsWorkspaceNavigation
+                && _lobby != null && NetSession.Active)
             { _prime.Router.Navigate(PrimeRoute.Lobby); return false; }
             if (_prime.Router.Current == PrimeRoute.Settings
                 && _prime.Workspaces.Get(PrimeRoute.Settings) is SettingsView settings && settings.IsDirty)
@@ -156,6 +157,9 @@ namespace MphRead.Mods.Launcher.Gui
                     return play;
                 case PrimeRoute.Community:
                     return new CommunityWorkspace(_prime.Overlays);
+                case PrimeRoute.Studio:
+                    return new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO"),
+                        PrimeChrome.Text("Studio requires the paired desktop release.")));
                 case PrimeRoute.Settings:
                     var settings = new SettingsView(_settings, shell: true);
                     settings.Closed += (_, _) => _prime.Back();
@@ -346,25 +350,14 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.Overlays.Clear();
             OpenMapStudio();
         }
-        private void OpenStandaloneStudio(string? workspace, bool closeChooser = false)
+        private void OpenStandaloneStudio(string? workspace)
         {
             if (StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error, workspace))
-            { if (closeChooser) Pop(); return; }
+                return;
             _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO UNAVAILABLE"),
                 PrimeChrome.Text(error ?? "Install the complete paired desktop release."),
                 new PrimeButton("EMBEDDED MAP EDITOR", OpenEmbeddedMapEditor),
                 new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
-        }
-        private void OpenStudioChooser()
-        {
-            void Open(string? workspace) => OpenStandaloneStudio(workspace, closeChooser: true);
-            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME STUDIO"),
-                PrimeChrome.Text("Open maps and replays in the separate Studio window, or continue with the embedded map editor."),
-                new PrimeButton("STUDIO", () => Open(null)),
-                new PrimeButton("MAP EDITOR", () => Open("maps")),
-                new PrimeButton("REPLAY EDITOR", () => Open("replays")),
-                new PrimeButton("EMBEDDED MAP EDITOR", OpenEmbeddedMapEditor),
-                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Medium);
         }
 #endif
         internal bool ExternalStudioUiBusy => _startup != null || _prime.Overlays.IsOpen
@@ -389,7 +382,7 @@ namespace MphRead.Mods.Launcher.Gui
                 SpectatorMode.SetSessionPreference(plan.Spectate);
                 _spectateNextMatch = plan.Spectate;
                 _lobby = new LobbyScreen(_rooms, plan.Lobby) { Overlays = _prime.Overlays };
-                _lobby.HubRequested += (_, _) => _prime.Router.Navigate(PrimeRoute.News);
+                _lobby.HubRequested += (_, _) => _prime.Router.NavigateWorkspace(PrimeRoute.Play);
                 _lobby.MatchRequested += (_, match) =>
                 {
                     // The server's start barrier is not optional navigation. Preserve
@@ -742,7 +735,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void TryShowUpdatePrompt()
         {
             if (_pendingUpdatePrompt is not UpdateInfo update
-                || _startup != null || _prime.Overlays.IsOpen || _prime.Router.Current != PrimeRoute.News
+                || _startup != null || _prime.Overlays.IsOpen || _prime.Router.Current != PrimeRoute.Play
                 || !_prime.Header.IsVisible || TopLevel.GetTopLevel(this) == null
                 || NetSession.Active || _updating || _loadingVersions
                 || !GameFiles.Ready)

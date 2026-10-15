@@ -2,17 +2,16 @@ using System;
 using System.Collections.Generic;
 namespace MphRead.Mods.Launcher.Gui
 {
-    internal enum PrimeRoute { News, Play, HunterLicense, Theatre, Forge, Offline, Settings, Lobby, Community }
+    internal enum PrimeRoute { News, Play, HunterLicense, Theatre, Forge, Offline, Settings, Lobby, Community, Studio }
 
     // Navigation policy contains no rendering or session ownership.
     internal sealed class PrimeRouter
     {
-        public static readonly PrimeRoute[] Tabs = { PrimeRoute.News, PrimeRoute.Play,
-            PrimeRoute.Community, PrimeRoute.HunterLicense, PrimeRoute.Theatre,
-            PrimeRoute.Forge, PrimeRoute.Offline, PrimeRoute.Settings };
+        public static readonly PrimeRoute[] Tabs = { PrimeRoute.Play, PrimeRoute.Community,
+            PrimeRoute.Studio, PrimeRoute.Offline, PrimeRoute.Settings };
         private readonly List<PrimeRoute> _history = new();
         private readonly Dictionary<PrimeRoute, Action> _routeActions = new();
-        public PrimeRoute Current { get; private set; } = PrimeRoute.News;
+        public PrimeRoute Current { get; private set; } = PrimeRoute.Play;
         public PrimeRoute? Previous => _history.Count == 0 ? null : _history[^1];
         public Func<PrimeRoute, bool>? CanNavigate { get; set; }
         // Registered external actions also run for an already active route,
@@ -61,7 +60,16 @@ namespace MphRead.Mods.Launcher.Gui
         private void Step(int direction)
         {
             int index = Array.IndexOf(Tabs, Current == PrimeRoute.Lobby ? PrimeRoute.Play : Current);
-            Navigate(Tabs[(index + direction + Tabs.Length) % Tabs.Length]);
+            if (index < 0) index = 0;
+            // Tab shortcuts change game workspaces. External tools launch only
+            // when their button is activated, so cycling cannot get stuck there.
+            for (int step = 0; step < Tabs.Length; step++)
+            {
+                index = (index + direction + Tabs.Length) % Tabs.Length;
+                if (_routeActions.ContainsKey(Tabs[index])) continue;
+                Navigate(Tabs[index]);
+                return;
+            }
         }
     }
 }
