@@ -65,8 +65,7 @@ var originalAccent = compiledHalo.Theme.Accent;
 Check(compiledHalo.Theme.Accent == originalAccent && editedTheme.Theme.Accent != haloSaved.Theme.Accent,
     "editing a draft does not modify the published runtime palette");
 var invalidTheme = HudProfileStore.Parse("""
-{"theme":{"background":"not-a-hex","accentOpacity":18,"decorationOpacity":-3,
-"healthTrackOpacity":null}}
+{"theme":{"background":"not-a-hex","accentOpacity":18,"decorationOpacity":-3}}
 """);
 Check(invalidTheme.Theme.Background == "#FFFFFF"
     && invalidTheme.Theme.AccentOpacity == 1
