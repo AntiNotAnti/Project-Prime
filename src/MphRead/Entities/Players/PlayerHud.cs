@@ -1523,6 +1523,11 @@ namespace MphRead.Entities
             {
                 return;
             }
+            if (_scene.DsTopPass)
+            {
+                ModDrawDsTopScreen();
+                return;
+            }
             ApplyNativeHudSmoothing();
             // Before the pause check, not after it: a frame rate you cannot
             // read while the settings window is open -- which is where the
