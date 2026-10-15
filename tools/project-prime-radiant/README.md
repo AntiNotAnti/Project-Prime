@@ -15,8 +15,8 @@ The explicit checkout refuses existing destinations. Build refuses another HEAD
 or altered patch input. The recorded portability patch restores `mesh_t` copy
 assignment, needed by `entity_t` with current C++ standard libraries, and directly
 constructs zero vectors in the draw-vertex initializer for GCC 13's explicit-
-constructor rules. It also replaces a temporary C compound literal in the VFS
-plugin with a named array while preserving the suffix guard before indexing.
+constructor rules. It also replaces temporary C arrays in VFS, brush tools and
+editor dialogs with named arrays, preserving the suffix guard before indexing.
 Remote Linux candidates exposed these issues; failed runs remain recorded.
 Build
 receipts pin source, patch bytes, dependency versions and output hashes. Archive

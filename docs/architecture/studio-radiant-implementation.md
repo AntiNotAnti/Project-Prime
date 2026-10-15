@@ -124,8 +124,9 @@ intermediate passing counts do not certify a later candidate automatically.
   patch bytes. Source/patch/dependency/output receipts and corresponding upstream
   source are included in the local compiler candidate.
 - The first remote Linux fork build exposed a GCC 13 explicit-vector initializer
-  error; a subsequent build reached a VFS temporary-array error. The recorded
-  portability patch covers both errors as well as mesh assignment. Native
+  error; subsequent builds reached temporary-array errors in VFS and editor tools.
+  A source sweep replaced those temporary arrays in five more editor call sites.
+  The recorded portability patch covers these errors and mesh assignment. Native
   Q3Map2 rebuild, original graybox compile and all 71
   source/compiler checks pass again; the refreshed candidate includes the exact
   combined patch and source receipt. Current remote results are recorded in

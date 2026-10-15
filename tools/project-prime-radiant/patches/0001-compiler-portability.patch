@@ -1,3 +1,35 @@
+diff --git a/contrib/bobtoolz/misc.h b/contrib/bobtoolz/misc.h
+index 4a692016..d2a9eda9 100644
+--- a/contrib/bobtoolz/misc.h
++++ b/contrib/bobtoolz/misc.h
+@@ -34,7 +34,10 @@ const char* GetCurrentTexture();
+ class _QERFaceData;
+ void FillDefaultTexture( _QERFaceData* faceData, const vec3_accu_t va, const vec3_accu_t vb, const vec3_accu_t vc, const char* texture );
+ inline void FillDefaultTexture( _QERFaceData* faceData, const vec3_t va, const vec3_t vb, const vec3_t vc, const char* texture ){
+-	FillDefaultTexture( faceData, vec3_accu_t{ va[0], va[1], va[2] }, vec3_accu_t{ vb[0], vb[1], vb[2] }, vec3_accu_t{ vc[0], vc[1], vc[2] }, texture );
++	const vec3_accu_t vaAccu = { va[0], va[1], va[2] };
++	const vec3_accu_t vbAccu = { vb[0], vb[1], vb[2] };
++	const vec3_accu_t vcAccu = { vc[0], vc[1], vc[2] };
++	FillDefaultTexture( faceData, vaAccu, vbAccu, vcAccu, texture );
+ }
+ 
+ void BuildMiniPrt( const std::vector<CopiedString>& exclusionList );
+diff --git a/contrib/bobtoolz/shapes.cpp b/contrib/bobtoolz/shapes.cpp
+index e8bf7a2e..1f2491af 100644
+--- a/contrib/bobtoolz/shapes.cpp
++++ b/contrib/bobtoolz/shapes.cpp
+@@ -83,7 +83,10 @@ void AddFaceWithTexture( scene::Node& brush, const vec3_accu_t va, const vec3_ac
+ 	GlobalBrushCreator().Brush_addFace( brush, faceData );
+ }
+ void AddFaceWithTexture( scene::Node& brush, const vec3_t va, const vec3_t vb, const vec3_t vc, const char* texture, bool detail ){
+-	AddFaceWithTexture( brush, vec3_accu_t{ va[0], va[1], va[2] }, vec3_accu_t{ vb[0], vb[1], vb[2] }, vec3_accu_t{ vc[0], vc[1], vc[2] }, texture, detail );
++	const vec3_accu_t vaAccu = { va[0], va[1], va[2] };
++	const vec3_accu_t vbAccu = { vb[0], vb[1], vb[2] };
++	const vec3_accu_t vcAccu = { vc[0], vc[1], vc[2] };
++	AddFaceWithTexture( brush, vaAccu, vbAccu, vcAccu, texture, detail );
+ }
+ 
+ void AddFaceWithTextureScaled( scene::Node& brush, vec3_t va, vec3_t vb, vec3_t vc,
 diff --git a/plugins/vfspk3/vfs.cpp b/plugins/vfspk3/vfs.cpp
 index f8b4d270..cfd64c8c 100644
 --- a/plugins/vfspk3/vfs.cpp
@@ -18,6 +50,46 @@ index f8b4d270..cfd64c8c 100644
  				}
  
  				if ( GetArchiveTable( archiveModules, ext ) == nullptr ) {
+diff --git a/radiant/gtkdlgs.cpp b/radiant/gtkdlgs.cpp
+index 54e041be..982f6fa3 100644
+--- a/radiant/gtkdlgs.cpp
++++ b/radiant/gtkdlgs.cpp
+@@ -257,9 +257,10 @@ void Game_constructPreferences( PreferencesPage& page ){
+ 	} );
+ 
+ 	if( globalMappingMode().do_mapping_mode ){
++		const char* const mappingModes[] = { globalMappingMode().sp_mapping_mode, globalMappingMode().mp_mapping_mode };
+ 		page.appendCombo(
+ 			"Mapping mode",
+-			(const char*[]){ globalMappingMode().sp_mapping_mode, globalMappingMode().mp_mapping_mode },
++			mappingModes,
+ 			IntImportCallback( GameModeImportCaller() ),
+ 			IntExportCallback( GameModeExportCaller() )
+ 		);
+diff --git a/radiant/patchmanip.cpp b/radiant/patchmanip.cpp
+index b62dc71b..153c2d8b 100644
+--- a/radiant/patchmanip.cpp
++++ b/radiant/patchmanip.cpp
+@@ -919,7 +919,8 @@ void DoPatchDeformDlg(){
+ 
+ 	auto *spin = new SpinBox( -9999, 9999, 64 );
+ 
+-	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z" } );
++	const char* const axes[] = { "X", "Y", "Z" };
++	RadioHBox radioBox = RadioHBox_new( axes );
+ 	radioBox.m_radio->button( 2 )->setChecked( true );
+ 
+ 	{
+@@ -996,7 +997,8 @@ void DoPatchThickenDlg(){
+ 	const int grid = std::max( GetGridSize(), 1.f );
+ 	auto *spin = new SpinBox( -9999, 9999, grid, 2, grid );
+ 
+-	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z", "Normal" } );
++	const char* const axes[] = { "X", "Y", "Z", "Normal" };
++	RadioHBox radioBox = RadioHBox_new( axes );
+ 	radioBox.m_radio->button( 3 )->setChecked( true );
+ 
+ 	auto *check = new QCheckBox( "Side walls" );
 diff --git a/tools/quake3/q3map2/q3map2.h b/tools/quake3/q3map2/q3map2.h
 index 72fe481d..f86b593e 100644
 --- a/tools/quake3/q3map2/q3map2.h
