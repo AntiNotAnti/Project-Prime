@@ -152,7 +152,7 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static bool Enabled
         {
-            get => Wanted && PointerInput.StylusMode;
+            get => (Wanted || DsLayout.Active) && PointerInput.StylusMode;
             set => Wanted = value;
         }
 
@@ -165,11 +165,13 @@ namespace MphRead.Mods.Input
         // Where the zone is, as fractions of the window, so it survives a
         // resize and a change of monitor. Width alone: the height follows
         // from the DS's shape, which the layout depends on.
-        public static float Left { get; private set; } = 0.62f;
-        public static float Top { get; private set; } = 0.60f;
-        public static float Width { get; private set; } = 0.34f;
+        private static float _left = .62f, _top = .60f, _width = .34f;
+        public static float Left { get => DsLayout.Active ? DsLayout.Bottom.X : _left; private set => _left = value; }
+        public static float Top { get => DsLayout.Active ? DsLayout.Bottom.Y : _top; private set => _top = value; }
+        public static float Width { get => DsLayout.Active ? DsLayout.Bottom.Z : _width; private set => _width = value; }
 
-        public static float Height => Width * (DsHeight / DsWidth) * AspectCorrection;
+        public static float Height => DsLayout.Active ? DsLayout.Bottom.W
+            : Width * (DsHeight / DsWidth) * AspectCorrection;
 
         /// <summary>
         /// Window shape, so a zone given as a fraction of the width is still
@@ -609,7 +611,12 @@ namespace MphRead.Mods.Input
             for (int i = 0; i < Buttons.Length; i++)
             {
                 Button button = Buttons[i];
-                if (button.Contains(dsX, dsY))
+                // At 5:3 the art expands horizontally. Preserve the shape
+                // and hit target of round buttons by compensating the width.
+                float targetWidth = button.Width / DsLayout.HorizontalStretch;
+                Button target = new(button.Region, button.X, button.Y,
+                    targetWidth, button.Height, button.Label, button.Round);
+                if (target.Contains(dsX, dsY))
                 {
                     return button.Region;
                 }
