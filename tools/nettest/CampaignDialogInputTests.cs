@@ -63,6 +63,11 @@ internal static class CampaignDialogInputTests
                     clickX, 0, 111, 145, 173, 191),
                     $"top-of-screen click cannot accept the bottom dialog at {width}x{height}");
             }
+            // Mac Retina: GLFW click uses logical 800x500 client points,
+            // while OpenGL may render into a 1600x1000 framebuffer.
+            Check(CampaignDialogInput.PointerHits(800, 500,
+                400, 182f * 500 / 192f, 111, 145, 173, 191),
+                "Retina logical-client mouse click maps to authored DS OK button");
             Check(!CampaignDialogInput.PointerHits(0, 0, 0, 0, 111, 145, 173, 191)
                 && !CampaignDialogInput.PointerHits(1920, 1080, float.NaN, 925,
                     111, 145, 173, 191),
