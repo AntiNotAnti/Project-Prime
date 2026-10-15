@@ -2874,7 +2874,7 @@ namespace MphRead.Mods.Launcher.Gui
 #if !ANDROID
             if(NativePlaytest!=null)
             {
-                await NativePlaytest(p,token);GuardJob(token);return;
+                await NativePlaytest(p,token);GuardJob(token);_status.Text="Playtest accepted by Project Prime.";return;
             }
 #endif
             if(!GameFiles.Ready)throw new IOException("Set up game files in Settings before playtesting.");GameFiles.ApplyPaths();

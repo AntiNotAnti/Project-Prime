@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MphRead.Mods.Render.Hud;
 
@@ -39,7 +41,9 @@ public sealed class HudElementLayout
 /// <summary>Local presentation values only. Never referenced by simulation or networking.</summary>
 public sealed class HudProfile
 {
-    public const int CurrentSchema = 1;
+    // Version 2 reserves optional appearance/typography fields for later port slices.
+    // Version 1 layouts are normalized without altering their visual values.
+    public const int CurrentSchema = 2;
     public int SchemaVersion { get; set; } = CurrentSchema;
     public string Name { get; set; } = "Project Prime";
     public string BasePreset { get; set; } = "Project Prime";
@@ -67,6 +71,12 @@ public sealed class HudProfile
     public CrosshairProfile?[] WeaponCrosshairs { get; set; } = new CrosshairProfile?[9];
     public CrosshairProfile? ZoomCrosshair { get; set; }
     public Dictionary<string, HudElementLayout> Elements { get; set; } = HudProfileDefaults.Elements();
+
+    // Preserve data authored by v19/newer optional profile extensions even before
+    // their renderer adapters are ported. Such data is inert until deliberately
+    // validated and consumed by a future profile schema; no dynamic dispatch.
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? FutureFields { get; set; }
 
     public HudProfile DeepClone() => HudProfileStore.Parse(HudProfileStore.Serialize(this));
     public void DetachGauges()
@@ -100,11 +110,19 @@ public sealed class HudProfile
     }
     public void Validate()
     {
-        if (SchemaVersion != CurrentSchema) throw new FormatException("Unsupported HUD profile version.");
+        // The v1 -> v2 upgrade is data-only. Do not multiply old crosshair
+        // sizes or move anchors: current main already renders v1 correctly.
+        if (SchemaVersion == 1) SchemaVersion = CurrentSchema;
+        if (SchemaVersion != CurrentSchema)
+            throw new FormatException("Unsupported HUD profile version.");
         Name = string.IsNullOrWhiteSpace(Name) ? "Custom" : Name.Trim();
         if (Name.Length > 64) Name = Name[..64];
         if (!Enum.IsDefined(Mode)) Mode = HudMode.Custom;
-        if (Array.IndexOf(HudProfileDefaults.Presets, BasePreset) < 0) BasePreset = "Project Prime";
+        // v19 theme payloads can be imported now and rendered when PR-04 adds
+        // those presets. Do not silently rename their source preset on save.
+        if (Array.IndexOf(HudProfileDefaults.Presets, BasePreset) < 0
+            && BasePreset is not ("Halo" or "Approved 4:3"))
+            BasePreset = "Project Prime";
         GlobalScale = Clamp(GlobalScale, .1f, 8, 1);
         GlobalOpacity = Clamp(GlobalOpacity, 0, 1, 1);
         TextScale = Clamp(TextScale,.5f,3,1); IconScale = Clamp(IconScale,.5f,3,1);

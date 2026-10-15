@@ -255,7 +255,7 @@ This is the primary UI change requested after the original editor screenshot.
 
 New evidence is recorded under `artifacts/radiant-native-mesh/`. The worker's
 actual child-process suite passes 114 checks, and gameplay entity contracts pass
-74. Source regression checks pass 163, layer checks 75 and the latest standalone
+74. Source regression checks pass 163, layer checks 102 and the latest standalone
 host suite 136. Studio and the dedicated server build with zero warnings/errors.
 The native fork builds on macOS ARM64. Real native parser/scene/selection API,
 transform/undo and fixed-sibling process diagnostics run against CLOSE QUARTERS
@@ -311,6 +311,26 @@ The facade and Ctrl/Cmd+Enter follow the same mode-captured route. Twenty-four
 callback-driven checks verify detached launch coordinates, unchanged document
 and undo/redo/save state, explicit team starts and retained recovery/legacy camera
 behavior; the actual Release Studio host passes all 136 checks.
+
+The extracted `1c62bc94` suite also ran the real From Map Spawns action into its
+paired Game. First-launch dialogs correctly blocked the initial handoff; after
+returning Game to the front screen, retry loaded the neutral-spawn mesh fixture
+in 0.42 seconds. The floor, extruded cube, player and HUD were visibly rendered;
+bounded forward input and the pause/Leave Match route ran through the UI. The
+Game-installed package equals the independently verified GUI package exactly.
+All three app seals/ownership and the original project/cartridge asset bytes
+remained intact. Game refreshed four generated `map.build.json` cache receipts;
+the other 3,832 captured files remained exact. Those generated receipts are
+recorded explicitly rather than counted as unchanged cartridge source data.
+Successful handoff now replaces the temporary Preparing status with its actual
+acceptance result.
+
+Hosted Windows then exposed LF-only text edits in the layer test fixture. A
+forced-CRLF local run reproduced the exact failure; normalized fixture editing
+and explicit LF/CRLF import/preservation coverage pass all 102 checks without
+changing production parsing. Newer main changes are integrated through
+`00142b48`; its missing nettest axis-sensitivity dispatcher is restored while
+retaining the added axis, outline and Ion Fracture coverage (8/20/143 checks).
 
 This establishes a bounded native mesh editing/review/package workflow on Mac.
 Broader component/UV/content coverage, Windows/Linux GUI, end-to-end gameplay and

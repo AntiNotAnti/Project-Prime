@@ -14,7 +14,8 @@ namespace MphRead.Mods
     {
         Off,
         Team,
-        Red
+        Red,
+        Custom
     }
 
     public enum GraphicsPreset

@@ -51,7 +51,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Mods.Render.Hud.HudProfile? _hudDraft;
         private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
         private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
-        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null);
+        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null || _outlineDraft != null);
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
@@ -75,6 +75,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (Settings.SettingsPersistence.RestartRequired) return;
             _draft?.Discard();
+            CancelOutlineColorPreview();
+            _outlineDraft = null;
             _hudDraft = null;
             ShowCrosshairRows();
             RenderOptions.FieldOfView = RenderOptions.ParseFov(_settings.FieldOfView, RenderOptions.DefaultFov);
@@ -257,6 +259,8 @@ namespace MphRead.Mods.Launcher.Gui
         private int _audioPageIndex;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
+        private DecimalSliderRow _horizontalSensitivity = null!;
+        private DecimalSliderRow _verticalSensitivity = null!;
         private SliderRow _imperialistZoomSensitivity = null!;
         private SliderRow _imperialistZoomAmount = null!;
         private SliderRow _altSwipeSensitivity = null!;
@@ -299,6 +303,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings = settings;
             _inGame = inGame;
             _players = players;
+            DetachedFromVisualTree += (_, _) => CancelOutlineColorPreview();
 
             Background = Brushes.Transparent;
             Focusable = true;
@@ -926,6 +931,9 @@ namespace MphRead.Mods.Launcher.Gui
                         case SliderRow row:
                             row.ValueChanged += (_, _) => UpdateDraftStatus();
                             break;
+                        case DecimalSliderRow row:
+                            row.ValueChanged += (_, _) => UpdateDraftStatus();
+                            break;
                         case ToggleRow row:
                             row.Changed += (_, _) => UpdateDraftStatus();
                             break;
@@ -1021,6 +1029,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             ChoiceRow row => row.Label,
             SliderRow row => row.Label,
+            DecimalSliderRow row => row.Label,
             ToggleRow row => row.Label,
             FieldRow row => row.Label,
             KeyRow row => row.BindingName,
@@ -1450,7 +1459,7 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
-            var editHud = new HubNavButton("EDIT HUD", compact: true);
+            var editHud = new HubNavButton("CUSTOM HUD / CROSSHAIR", compact: true);
             editHud.Click += (_, _) =>
             {
                 object? previous = Content;
@@ -1470,9 +1479,11 @@ namespace MphRead.Mods.Launcher.Gui
                 });
             };
             page.Children.Add(editHud);
+            Explain(page, "One HUD Studio profile controls both HUD elements and weapon/zoom crosshairs. "
+                + "Use it to edit, preview, reset, import or share your local presentation.");
             if (Mods.Render.Hud.HudProfiles.LoadWarning is string hudWarning) Explain(page, hudWarning);
 
-            _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
+            _proHud = Add(page, new ToggleRow("Modern HUD presentation", Features.ProHud));
             _smoothNativeHud = Add(page, new ToggleRow("Smooth native HUD",
                 RenderOptions.SmoothNativeHud));
             Explain(page, "Smooth native HUD uses filtered sampling for the original DS reticle, meters and weapon-menu sprites when they are enlarged on modern displays. Turn it off for the original hard pixel edges.");
@@ -1535,14 +1546,21 @@ namespace MphRead.Mods.Launcher.Gui
                 }));
             Explain(page, "Local-only multiplayer visibility aid. Team modes use team colors; free-for-all uses suit colors.");
             _playerOutlineRow = Add(page, new ChoiceRow("Player outline",
-                new[] { "Off", "Team color", "Bright red" },
+                new[] { "Off", "Team color", "Bright red", "Custom team/player colors" },
                 (int)RenderOptions.PlayerOutline));
             _playerOutlineWidthRow = Add(page, new SliderRow("Outline thickness",
                 RenderOptions.PlayerOutlineWidth, value => $"{value} px",
                 labelWidth: 160, min: 1, max: 8, keyStep: 1));
             _playerOutlineWidthRow.IsVisible = _playerOutlineRow.Index != 0;
+            var outlineEditor = new HubNavButton("EDIT OUTLINE COLORS", compact: true);
+            outlineEditor.Click += (_, _) => OpenOutlineColors();
+            outlineEditor.IsVisible = _playerOutlineRow.Index == (int)PlayerOutlineStyle.Custom;
+            page.Children.Add(outlineEditor);
             _playerOutlineRow.Changed += (_, _) =>
+            {
                 _playerOutlineWidthRow.IsVisible = _playerOutlineRow.Index != 0;
+                outlineEditor.IsVisible = _playerOutlineRow.Index == (int)PlayerOutlineStyle.Custom;
+            };
             _reduceMotion = Add(page, new ToggleRow(
                 "Reduce menu motion", LauncherPrefs.ReduceMotion));
         }
@@ -1961,6 +1979,11 @@ namespace MphRead.Mods.Launcher.Gui
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
                 min: 1, max: 300, keyStep: 1));
+            _horizontalSensitivity = Add(page, new DecimalSliderRow(
+                "Horizontal sensitivity", InputSettings.HorizontalSensitivity, .01f, 3f, .01f, "x base"));
+            _verticalSensitivity = Add(page, new DecimalSliderRow(
+                "Vertical sensitivity", InputSettings.VerticalSensitivity, .01f, 3f, .01f, "x base"));
+            Explain(page, "Both axis multipliers affect camera aiming equally in local gameplay and network late-aim presentation.");
             _imperialistZoomSensitivity = Add(page, new SliderRow("Imperialist zoom sensitivity",
                 SensitivityToSlider(InputSettings.ImperialistZoomSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
@@ -2161,6 +2184,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.Reset();
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
+                _horizontalSensitivity.Value = InputSettings.HorizontalSensitivity;
+                _verticalSensitivity.Value = InputSettings.VerticalSensitivity;
                 _imperialistZoomSensitivity.Value = SensitivityToSlider(InputSettings.ImperialistZoomSensitivity);
                 _imperialistZoomAmount.Value = (int)MathF.Round(InputSettings.ImperialistZoomAmount * 100);
                 _altSwipeSensitivity.Value = (int)MathF.Round(InputSettings.AltSwipeSensitivity * 100);
@@ -2881,6 +2906,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             RenderOptions.PlayerOutline = (PlayerOutlineStyle)_playerOutlineRow.Index;
             RenderOptions.PlayerOutlineWidth = _playerOutlineWidthRow.Value;
+            // A temporary preview never wins over the explicitly applied draft.
+            CancelOutlineColorPreview();
+            if (_outlineDraft != null)
+                OutlineColorPalette.Publish(_outlineDraft);
             Features.ProHud = _proHud.On;
             Features.KillFeedEnabled = _killFeed.On;
             Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
@@ -2908,6 +2937,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // Controls
             InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
+            InputSettings.HorizontalSensitivity = _horizontalSensitivity.Value;
+            InputSettings.VerticalSensitivity = _verticalSensitivity.Value;
             InputSettings.ImperialistZoomSensitivity = SliderToSensitivity(_imperialistZoomSensitivity.Value);
             InputSettings.ImperialistZoomAmount = _imperialistZoomAmount.Value / 100f;
             InputSettings.AltSwipeSensitivity = _altSwipeSensitivity.Value / 100f;
@@ -3060,6 +3091,7 @@ namespace MphRead.Mods.Launcher.Gui
             Saved = true;
             _draft?.Accept();
             _hudDraft = null;
+            _outlineDraft = null;
             if (!_shell) Close();
         }
     }
