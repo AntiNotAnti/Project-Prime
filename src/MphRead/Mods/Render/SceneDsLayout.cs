@@ -13,6 +13,7 @@ public partial class Scene
     private bool _dsBottomPass;
 
     internal bool DsTopPass => _dsPhysicalOutput.X > 0 && !_dsBottomPass;
+    internal bool DsBottomPass => _dsPhysicalOutput.X > 0 && _dsBottomPass;
     internal bool UseDsLayout =>
         DsLayout.Active && _dsPhysicalOutput.X == 0
         && !Services.IsReplica && !Mods.Network.DemoPlayback.IsActive
