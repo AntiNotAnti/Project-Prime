@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MphRead;
+using MphRead.Formats;
 
 namespace MphRead.Mods.Campaign
 {
