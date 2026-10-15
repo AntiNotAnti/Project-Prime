@@ -132,7 +132,13 @@ namespace MphRead
         private void BeginCompositePass()
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, ReplayOutputFramebuffer());
-            GL.Viewport(0, 0, Size.X, Size.Y);
+            if (_dsPhysicalOutput.X > 0)
+            {
+                Vector4i area = DsViewport(_dsBottomPass);
+                GL.Viewport(area.X, area.Y, area.Z, area.W);
+            }
+            else
+                GL.Viewport(0, 0, Size.X, Size.Y);
             SetScreenPassState();
             GL.Enable(EnableCap.Blend);
             GL.BlendEquation(BlendEquationMode.FuncAdd);
@@ -168,7 +174,13 @@ namespace MphRead
         private void BeginHudPass()
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, ReplayOutputFramebuffer());
-            GL.Viewport(0, 0, Size.X, Size.Y);
+            if (_dsPhysicalOutput.X > 0)
+            {
+                Vector4i area = DsViewport(_dsBottomPass);
+                GL.Viewport(area.X, area.Y, area.Z, area.W);
+            }
+            else
+                GL.Viewport(0, 0, Size.X, Size.Y);
             SetScreenPassState();
             GL.Enable(EnableCap.Blend);
             GL.BlendEquation(BlendEquationMode.FuncAdd);
