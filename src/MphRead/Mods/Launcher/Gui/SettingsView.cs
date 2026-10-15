@@ -1450,7 +1450,7 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
-            var editHud = new HubNavButton("EDIT HUD", compact: true);
+            var editHud = new HubNavButton("CUSTOM HUD / CROSSHAIR", compact: true);
             editHud.Click += (_, _) =>
             {
                 object? previous = Content;
@@ -1470,9 +1470,11 @@ namespace MphRead.Mods.Launcher.Gui
                 });
             };
             page.Children.Add(editHud);
+            Explain(page, "One HUD Studio profile controls both HUD elements and weapon/zoom crosshairs. "
+                + "Use it to edit, preview, reset, import or share your local presentation.");
             if (Mods.Render.Hud.HudProfiles.LoadWarning is string hudWarning) Explain(page, hudWarning);
 
-            _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
+            _proHud = Add(page, new ToggleRow("Modern HUD presentation", Features.ProHud));
             _smoothNativeHud = Add(page, new ToggleRow("Smooth native HUD",
                 RenderOptions.SmoothNativeHud));
             Explain(page, "Smooth native HUD uses filtered sampling for the original DS reticle, meters and weapon-menu sprites when they are enlarged on modern displays. Turn it off for the original hard pixel edges.");
