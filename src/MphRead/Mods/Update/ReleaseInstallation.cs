@@ -68,6 +68,13 @@ internal static class ReleaseInstallation
     {
         // Also guard legacy processes that predate shared leases. Never terminate
         // another editor or game: the player closes it and retries the update.
+        string physicalTarget = ResolveAliases(target);
+        var ownedApphosts = new HashSet<string>(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (string relative in new[] { "ProjectPrime", "ProjectPrime.exe", "ProjectPrimeStudio", "ProjectPrimeStudio.exe",
+            "Project Prime.app/Contents/MacOS/ProjectPrime",
+            "Project Prime Studio.app/Contents/MacOS/ProjectPrimeStudio" })
+            ownedApphosts.Add(OwnedPath(physicalTarget,relative));
         foreach (var process in Process.GetProcesses())
         {
             using (process)
@@ -76,8 +83,7 @@ internal static class ReleaseInstallation
                 try
                 {
                     string? binary = process.MainModule?.FileName;
-                    if (binary != null && Path.GetDirectoryName(Path.GetFullPath(binary)) == target
-                        && Path.GetFileNameWithoutExtension(binary) is "ProjectPrime" or "ProjectPrimeStudio")
+                    if (binary != null && ownedApphosts.Contains(ResolveAliases(binary)))
                         throw new IOException("Close Game and Studio before updating this installation.");
                 }
                 catch (System.ComponentModel.Win32Exception) { }
@@ -88,6 +94,26 @@ internal static class ReleaseInstallation
         try { return new FileStream(OwnedPath(target, UseLockName, internalPath: true), FileMode.OpenOrCreate,
             FileAccess.ReadWrite, FileShare.None); }
         catch (IOException ex) { throw new IOException("Close Game and Studio before updating this installation.", ex); }
+    }
+
+    // System aliases such as macOS /var -> /private/var must not make a live
+    // installation look unrelated to its physical process executable. Resolve
+    // each ancestor, then compare only the six exact owned apphost paths above.
+    private static string ResolveAliases(string path,int depth=0)
+    {
+        if(depth>32)throw new IOException("The installation path contains too many aliases.");
+        path=Path.GetFullPath(path);
+        string root=Path.GetPathRoot(path)!;
+        string current=root;
+        foreach(string component in path[root.Length..].Split(Path.DirectorySeparatorChar,StringSplitOptions.RemoveEmptyEntries))
+        {
+            current=Path.Combine(current,component);
+            FileSystemInfo entry=Directory.Exists(current)?new DirectoryInfo(current):new FileInfo(current);
+            if(entry.LinkTarget!=null)
+                current=ResolveAliases(entry.ResolveLinkTarget(true)?.FullName
+                    ??throw new IOException("The installation alias cannot be resolved."),depth+1);
+        }
+        return Path.TrimEndingDirectorySeparator(current);
     }
     private const int MaximumManifestBytes = 8 * 1024 * 1024;
     private const int MaximumFiles = 100000;

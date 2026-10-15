@@ -11,6 +11,19 @@ using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 
+static void PublishRendezvous(string path,string contents)
+{
+    // File.Exists is the reader's readiness signal. Close the writer before
+    // publishing the final name so Windows cannot observe an open/partial file.
+    string temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+    try
+    {
+        File.WriteAllText(temporary,contents);
+        File.Move(temporary,path);
+    }
+    finally{File.Delete(temporary);}
+}
+
 // Asset-free local Community transfer contract. Does not install into a live
 // scene or claim to validate Android UI or a real remote-service throughput.
 //
@@ -26,7 +39,7 @@ if (args.Length == 6 && args[0] == "--crossprocess-stalled-owner")
     await using var manager = new CommunityTransferManager(directory, credentials);
     Guid id=await manager.EnqueueUploadAsync(endpoint,package,publish:null,
         listed:true,draft:false);
-    File.WriteAllText(receipt,id.ToString("D"));
+    PublishRendezvous(receipt,id.ToString("D"));
     // Parent kills this process without a managed Dispose, deliberately
     // simulating an editor crash in the middle of an HTTP upload.
     await Task.Delay(Timeout.InfiniteTimeSpan);
@@ -42,7 +55,7 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
     var credentials = new DelegateCommunityCredentialSource(
         ct => Task.FromResult(secret), ct => Task.FromResult(secret));
     await using var manager = new CommunityTransferManager(directory, credentials);
-    File.WriteAllText(rendezvous + ".ready", "ready");
+    PublishRendezvous(rendezvous + ".ready", "ready");
 
     static async Task WaitFlag(string name)
     {
@@ -54,11 +67,11 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
     await WaitFlag(rendezvous + ".upload");
     Guid upload = await manager.EnqueueUploadAsync(
         endpoint, package, publish: null, listed: true, draft: false);
-    File.WriteAllText(receipt + ".upload", upload.ToString("D"));
+    PublishRendezvous(receipt + ".upload", upload.ToString("D"));
     var uploaded = await manager.WaitAsync(upload);
     if (uploaded.State != CommunityTransferState.Completed)
         throw new InvalidDataException("Secondary-process upload did not complete: " + uploaded.State);
-    File.WriteAllText(receipt + ".upload-complete", uploaded.PackageHash);
+    PublishRendezvous(receipt + ".upload-complete", uploaded.PackageHash);
 
     await WaitFlag(rendezvous + ".download");
     using (var client = new MapCommunityClient(endpoint,secret))
@@ -66,13 +79,13 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
         CommunityMap exact = await client.GetPackageAsync(exactHash,CancellationToken.None)
             ?? throw new InvalidDataException("Missing published map for cross-process download.");
         Guid id = manager.EnqueueDownload(endpoint,exact);
-        File.WriteAllText(receipt + ".download",id.ToString("D"));
+        PublishRendezvous(receipt + ".download",id.ToString("D"));
         var downloaded = await manager.WaitAsync(id);
         if (downloaded.State != CommunityTransferState.Completed)
             throw new InvalidDataException("Secondary-process download did not complete: " + downloaded.State);
-        File.WriteAllText(receipt + ".download-complete", downloaded.PackageHash);
+        PublishRendezvous(receipt + ".download-complete", downloaded.PackageHash);
     }
-    File.WriteAllText(receipt + ".jobs",
+    PublishRendezvous(receipt + ".jobs",
         string.Join(",",manager.ListJobs().Select(j => j.Id.ToString("D"))));
     await WaitFlag(rendezvous + ".stop");
     return;
@@ -392,7 +405,7 @@ try
         try
         {
             await WaitFile(rendezvous+".ready");
-            File.WriteAllText(rendezvous+".upload","go");
+            PublishRendezvous(rendezvous+".upload","go");
             Guid parentUpload = await parentManager.EnqueueUploadAsync(
                 endpoint,pkgA,publish:null,listed:true,draft:false);
             await WaitFile(receipts+".upload");
@@ -413,7 +426,7 @@ try
             {
                 CommunityMap same = await client.GetPackageAsync(hashA,CancellationToken.None)
                     ?? throw new InvalidDataException("Missing exact map for concurrency fixture");
-                File.WriteAllText(rendezvous+".download","go");
+                PublishRendezvous(rendezvous+".download","go");
                 Guid parentDownload = parentManager.EnqueueDownload(endpoint,same);
                 await WaitFile(receipts+".download");
                 Guid childDownload=Guid.Parse(File.ReadAllText(receipts+".download"));
@@ -430,7 +443,7 @@ try
             Check(File.ReadAllText(receipts+".jobs")
                 .Contains(parentUpload.ToString("D"),StringComparison.OrdinalIgnoreCase),
                 "secondary process sees parent-owned jobs in shared durable history");
-            File.WriteAllText(rendezvous+".stop","stop");
+            PublishRendezvous(rendezvous+".stop","stop");
             using var stopped=new CancellationTokenSource(TimeSpan.FromSeconds(30));
             await child.WaitForExitAsync(stopped.Token);
             Check(child.ExitCode == 0,

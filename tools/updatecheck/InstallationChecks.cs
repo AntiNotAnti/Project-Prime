@@ -20,6 +20,7 @@ internal static class InstallationChecks
 
     internal static int? RunChild(string[] args)
     {
+        if(LegacyProcessChecks.RunChild(args) is int legacyResult)return legacyResult;
         if (args.Length == 3 && args[0] == "--paired-use-lease")
         {
             using var held = ReleaseInstallation.HoldUseLease(args[1]);
@@ -205,6 +206,7 @@ internal static class InstallationChecks
 
     internal static void Run(Action<bool, string> check)
     {
+        LegacyProcessChecks.Run(check);
         string executable = Environment.ProcessPath
             ?? throw new InvalidOperationException("No updater test host path.");
         bool dotnetHost = Path.GetFileNameWithoutExtension(executable)

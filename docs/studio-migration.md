@@ -43,6 +43,11 @@ and coordinated Community writes. Updates stage and verify the whole pair. Close
 both applications before replacing their binaries; maps, sources, recordings and
 sidecars are user files and are never update ownership entries.
 
+On macOS, keep both app bundles and their hidden paired metadata in the extracted
+folder and move the complete folder together. Quit both apps before replacing
+that folder with a new paired archive. In-place bundle updates remain disabled;
+the transaction kernel's process/recovery tests do not enable that UI feature.
+
 ## Editing supported geometry in Radiant
 
 Configure an explicitly installed regular executable through

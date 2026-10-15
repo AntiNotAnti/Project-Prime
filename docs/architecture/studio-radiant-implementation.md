@@ -138,6 +138,11 @@ intermediate passing counts do not certify a later candidate automatically.
   This is source/build evidence, not GUI or redistribution certification.
 - Paired updater rollback/archive checks passed, including actual child-process
   denial of Game startup during an exclusive update and recovery afterward.
+  The final BCL updater suite passes 119 checks, including real pre-lease legacy
+  Game/Studio apphosts in flat and sibling-bundle layouts, physical/case aliases,
+  interrupted recovery and unrelated-process controls. Bundle transactions refuse
+  replacement while either exact apphost is alive. macOS one-click in-place
+  updates remain disabled; users replace the complete paired folder manually.
   Python pair checks 9/9, release
   manifest checks 4/4, synthetic double-app macOS signing/extraction/tamper checks
   passed. Synthetic fixtures do not establish a signed production release.
@@ -148,6 +153,12 @@ intermediate passing counts do not certify a later candidate automatically.
   preserves them under `Resources/symbols`; the complete local two-app signing,
   extraction, manifest and tamper fixture passes with PDB inputs in both apps.
   The updated actual package jobs must pass before macOS delivery is accepted.
+- CI `61f43e31` confirms both Windows/Linux Radiant candidate uploads, Apple
+  Silicon package signing/extraction/pairing and Android package acceptance.
+  A Windows transfer-test receipt race was exposed in that run; all receipt and
+  rendezvous markers now publish by close-then-rename. Its full 51-check suite
+  passes locally. Current exact-head checks remain linked above; no cancelled
+  or still-running job is counted as passed.
 
 ## Required evidence still pending
 
