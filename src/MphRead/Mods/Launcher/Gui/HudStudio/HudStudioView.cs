@@ -17,6 +17,10 @@ internal sealed class HudStudioView : UserControl
     private readonly TextBox _name = new() { PlaceholderText = "Profile name", MinWidth = 130 };
     private readonly TextBox _json = new() { AcceptsReturn = true, Height = 90, PlaceholderText = "Paste profile JSON here to import" };
     private readonly ComboBox _elements;
+    private readonly ComboBox _category = new();
+    private readonly ListBox _categoryElements = new();
+    private static readonly string[] HudCategories = { "Core", "Match", "Combat", "System" };
+    private bool _syncingNavigation;
     private int _weapon = -1;
     private bool _zoom;
     private readonly Action<HudProfile?> _close;
@@ -49,13 +53,49 @@ internal sealed class HudStudioView : UserControl
         });
         Button(toolbar, "Cancel", () => close(null));
         root.Children.Add(toolbar);
-        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,300") };
-        Grid.SetRow(body, 1); root.Children.Add(body); body.Children.Add(_canvas);
-        var scroll = new ScrollViewer { Content = _inspector }; Grid.SetColumn(scroll, 1); body.Children.Add(scroll);
+        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("170,*,300") };
+        Grid.SetRow(body, 1);
+        root.Children.Add(body);
+        var navigation = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 8, 4) };
+        navigation.Children.Add(new TextBlock { Text = "ELEMENT GROUPS", FontSize = 12 });
+        _category.ItemsSource = HudCategories;
+        _category.SelectedIndex = 0;
+        ControllerNav.Identify(_category, "hud.groups");
+        navigation.Children.Add(_category);
+        _categoryElements.MinHeight = 90;
+        ControllerNav.Identify(_categoryElements, "hud.elements");
+        navigation.Children.Add(_categoryElements);
+        var navScroll = new ScrollViewer { Content = navigation };
+        body.Children.Add(navScroll);
+        Grid.SetColumn(_canvas, 1);
+        body.Children.Add(_canvas);
+        var scroll = new ScrollViewer { Content = _inspector };
+        Grid.SetColumn(scroll, 2);
+        body.Children.Add(scroll);
         var footer = new StackPanel { Spacing = 6 };
         var controls = new WrapPanel();
         _elements = new ComboBox { ItemsSource = HudProfileDefaults.ElementIds, SelectedIndex = 0, MinWidth = 180 };
-        _elements.SelectionChanged += (_, _) => { _canvas.Selected = Math.Max(0, _elements.SelectedIndex); Refresh(); };
+        _elements.SelectionChanged += (_, _) =>
+        {
+            _canvas.Selected = Math.Max(0, _elements.SelectedIndex);
+            SyncNavigation(_canvas.Selected);
+            Refresh();
+        };
+        _category.SelectionChanged += (_, _) =>
+        {
+            if (_syncingNavigation || _category.SelectedIndex < 0) return;
+            string prefix = HudCategories[_category.SelectedIndex].ToLowerInvariant() + ".";
+            int first = Array.FindIndex(HudProfileDefaults.ElementIds,
+                id => id.StartsWith(prefix, StringComparison.Ordinal));
+            if (first >= 0) _elements.SelectedIndex = first;
+        };
+        _categoryElements.SelectionChanged += (_, _) =>
+        {
+            if (_syncingNavigation || _categoryElements.SelectedItem is not string id) return;
+            int chosen = Array.IndexOf(HudProfileDefaults.ElementIds, id);
+            if (chosen >= 0) _elements.SelectedIndex = chosen;
+        };
+        SyncNavigation(0);
         controls.Children.Add(_elements);
         var aspects = new ComboBox { ItemsSource = new[] { "16:9", "21:9", "4:3", "16:10", "Android portrait" }, SelectedIndex = 0, MinWidth = 130 };
         aspects.SelectionChanged += (_, _) =>
@@ -81,13 +121,40 @@ internal sealed class HudStudioView : UserControl
         _name.Text = original.Name;
         SizeChanged += (_, e) =>
         {
-            bool narrow = e.NewSize.Width < 700;
-            body.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,300");
-            body.RowDefinitions = new RowDefinitions(narrow ? "*,220" : "*");
-            Grid.SetColumn(scroll, narrow ? 0 : 1); Grid.SetRow(scroll, narrow ? 1 : 0);
+            bool narrow = e.NewSize.Width < 860;
+            body.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "170,*,300");
+            body.RowDefinitions = new RowDefinitions(narrow ? "150,*,220" : "*");
+            _categoryElements.MaxHeight = narrow ? 95 : double.PositiveInfinity;
+            Grid.SetColumn(navScroll, 0); Grid.SetRow(navScroll, 0);
+            Grid.SetColumn(_canvas, narrow ? 0 : 1); Grid.SetRow(_canvas, narrow ? 1 : 0);
+            Grid.SetColumn(scroll, narrow ? 0 : 2); Grid.SetRow(scroll, narrow ? 2 : 0);
         };
         Refresh();
     }
+    private void SyncNavigation(int index)
+    {
+        if (_syncingNavigation) return;
+        _syncingNavigation = true;
+        try
+        {
+            string id = HudProfileDefaults.ElementIds[Math.Clamp(index, 0,
+                HudProfileDefaults.ElementIds.Length - 1)];
+            int category = Array.FindIndex(HudCategories,
+                group => id.StartsWith(group + ".", StringComparison.OrdinalIgnoreCase));
+            category = Math.Max(0, category);
+            if (_category.SelectedIndex != category || _categoryElements.ItemsSource == null)
+            {
+                _category.SelectedIndex = category;
+                string prefix = HudCategories[category].ToLowerInvariant() + ".";
+                _categoryElements.ItemsSource = HudProfileDefaults.ElementIds
+                    .Where(item => item.StartsWith(prefix, StringComparison.Ordinal))
+                    .ToArray();
+            }
+            _categoryElements.SelectedItem = id;
+        }
+        finally { _syncingNavigation = false; }
+    }
+
     private readonly MphRead.Mods.Input.GamepadEdges _editEdges = new();
     private long _padRevision=-1, _padTime;
     private bool _padNeutral;
@@ -213,8 +280,10 @@ internal sealed class HudStudioView : UserControl
         }
         else _inspector.Children.Add(new TextBlock { Text = "Crosshair follows the existing aim center.", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         Number("Scale", e.Scale,.1f,8,(p,v) => p.Elements[id].Scale=v);
-        Number("Opacity", e.Opacity,0,1,(p,v) => p.Elements[id].Opacity=v);
-        ColorField("Tint",e.Color,(p,v)=>p.Elements[id].Color=v);
+        // Alpha is edited beside the tint, using the same selected element
+        // identity and undoable draft. No second stale opacity field.
+        ColorField("Tint",e.Color,(p,v)=>p.Elements[id].Color=v,
+            e.Opacity,(p,v)=>p.Elements[id].Opacity=v);
         Button(_inspector,"Reset element",() => { Edit(p => p.ResetElement(id)); Refresh(); });
         Button(_inspector,"Reset section",() =>
         {
@@ -413,9 +482,12 @@ internal sealed class HudStudioView : UserControl
         ColorField("Warning",m.WarningColor,(p,v)=>Meter(p).WarningColor=v);
         ColorField("Danger",m.DangerColor,(p,v)=>Meter(p).DangerColor=v);
     }
-    private void ColorField(string label, string value, Action<HudProfile,string> set)
+    private void ColorField(string label, string value, Action<HudProfile,string> set,
+        float opacity = 1f, Action<HudProfile,float>? setOpacity = null)
     {
-        _inspector.Children.Add(new HudColorEditor(label,value,color=>Edit(p=>set(p,color))));
+        _inspector.Children.Add(new HudColorEditor(label, value,
+            color => Edit(p => set(p, color)), opacity,
+            setOpacity == null ? null : alpha => Edit(p => setOpacity(p, alpha))));
     }
     private void CrosshairInspector()
     {
