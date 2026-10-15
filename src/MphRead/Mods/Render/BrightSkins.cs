@@ -36,12 +36,17 @@ namespace MphRead.Mods.Render
             {
                 return null;
             }
-            return ResolveOutlineColor(RenderOptions.PlayerOutline, player.OwningScene.GameState.Teams, player.TeamIndex);
+            return ResolveOutlineColor(RenderOptions.PlayerOutline,
+                player.OwningScene.GameState.Teams, player.TeamIndex, player.SlotIndex);
         }
 
-        internal static Vector4 ResolveOutlineColor(PlayerOutlineStyle style, bool teams, int teamIndex)
+        internal static Vector4 ResolveOutlineColor(PlayerOutlineStyle style, bool teams, int teamIndex,
+            int playerSlot = 0)
         {
-            return style == PlayerOutlineStyle.Team && teams ? GetTeamColor(teamIndex) : new Vector4(1, 0.05f, 0.05f, 1);
+            if (style == PlayerOutlineStyle.Custom)
+                return OutlineColorPalette.Color(teams, teams ? teamIndex : playerSlot);
+            return style == PlayerOutlineStyle.Team && teams ? GetTeamColor(teamIndex)
+                : new Vector4(1, 0.05f, 0.05f, 1);
         }
 
         internal static bool ShouldApply(bool enabled, bool multiplayer, bool mainPlayer,
