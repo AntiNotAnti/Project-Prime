@@ -774,7 +774,16 @@ namespace MphRead.Entities
             if (Input.ClickX >= 0 && Input.ClickY >= 0)
             {
                 ButtonInfo info = _buttonInfo[(int)type];
-                if (CampaignDialogInput.PointerHits(_scene.Size.X, _scene.Size.Y,
+                // GLFW delivers mouse coordinates in logical client-area units,
+                // but Scene.Size is the physical framebuffer on Retina/HiDPI.
+                // Android's synthetic mouse remains in its scene's own units.
+                int pointerWidth = !OperatingSystem.IsAndroid()
+                    && Mods.Input.PointerDevice.SurfaceWidth > 1
+                    ? Mods.Input.PointerDevice.SurfaceWidth : _scene.Size.X;
+                int pointerHeight = !OperatingSystem.IsAndroid()
+                    && Mods.Input.PointerDevice.SurfaceHeight > 1
+                    ? Mods.Input.PointerDevice.SurfaceHeight : _scene.Size.Y;
+                if (CampaignDialogInput.PointerHits(pointerWidth, pointerHeight,
                     Input.ClickX, Input.ClickY, info.Left, info.Right, info.Top, info.Bottom))
                 {
                     return true;
