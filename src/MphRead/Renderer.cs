@@ -5501,6 +5501,10 @@ namespace MphRead
                 _unfencedCallbacksAtCleanup =
                     _streamingTextureDecodes.Any(decode => !decode.Task.IsCompleted);
                 ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupStarted);
+                // Retire movie-owned audio before another owner's cleanup
+                // can throw. An incomplete room-transition cancellation must
+                // never leave the film with a live OpenAL source.
+                ReleaseMovieForCleanup();
                 _room?.CancelTransition();
                 Mods.Network.DemoPlayback.Release(this);
                 if (!Services.IsReplica && !SideScene && ReferenceEquals(MphRead.GameState.Current, this.GameState))
@@ -5510,7 +5514,6 @@ namespace MphRead
                 }
                 PlatformEntity.DestroyBeams(this);
                 EnemyInstanceEntity.DestroyBeams(this);
-                ReleaseMovieForCleanup();
                 if (Services.AllowsPresentationSideEffects) Sound.Sfx.ShutDown();
                 OutputStop();
                 Selection.Clear();
