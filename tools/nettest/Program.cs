@@ -39,6 +39,7 @@ namespace MphRead.NetTest
                     + "  --campaign-navigation             Test campaign planet unlocks, progress, and exits.\n"
                     + "  --campaign-ship-flow              Test ship-only travel and completed save receipt.\n"
                     + "  --campaign-movies                 Test cartridge-movie catalog and bounded VX warmup.\n"
+                    + "  --campaign-movie-lifetime         Test private VX decode, cancellation and movie worker retirement.\n"
                     + "  --campaign-endings                Test final cinematics, ending results and save handoff.\n"
                     + "  --campaign-presentation           Test native campaign HUD, scan journal, and map framing.\n"
                     + "  --campaign-audio                  Test original gunship/credits audio and ownership fencing.\n"
@@ -103,6 +104,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--campaign-navigation") return CampaignNavigationTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-ship-flow") return CampaignShipFlowTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-movies") return CampaignMovieTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-movie-lifetime") return CampaignMovieLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-endings") return CampaignEndingTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-presentation") return CampaignPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-audio") return CampaignAudioTests.Run();
