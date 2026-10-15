@@ -26,11 +26,7 @@ public partial class Scene
     {
         // GL viewport origin is bottom-left, whereas DS layout coordinates
         // and tablet contacts are measured downward from the top-left.
-        Vector4i area = bottom
-            ? DsLayout.Bounds(_dsPhysicalOutput.X, _dsPhysicalOutput.Y).Bottom
-            : DsLayout.Bounds(_dsPhysicalOutput.X, _dsPhysicalOutput.Y).Top;
-        return new Vector4i(area.X,
-            _dsPhysicalOutput.Y - area.Y - area.W, area.Z, area.W);
+        return DsLayout.GlBounds(_dsPhysicalOutput.X, _dsPhysicalOutput.Y, bottom);
     }
 
     public void OnDrawFrame()
