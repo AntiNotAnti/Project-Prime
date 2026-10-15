@@ -50,6 +50,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-journey
       - name: Verify campaign tutorials and dialogs accept keyboard and controller edges
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-dialog-input
+      - name: Verify Delano 7 is exclusive to Sylux story presentation
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-delano7
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs
