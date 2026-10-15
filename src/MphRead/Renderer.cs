@@ -2682,7 +2682,7 @@ namespace MphRead
         /// would make the game run differently on a fast monitor, which is the
         /// one failure this split must not have.
         /// </summary>
-        public void OnDrawFrame()
+        private void OnDrawFrameCore()
         {
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
@@ -3432,7 +3432,7 @@ namespace MphRead
             }
         }
 
-        public bool OnRenderFrame()
+        private bool OnRenderFrameCore()
         {
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
                 return theatre.OnRenderFrame();
@@ -3486,6 +3486,15 @@ namespace MphRead
             }
             if (drawGameHud && this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
+                // Stacked presentation keeps the world/reticle on the upper LCD.
+                // Native helmet/visor masks would obscure the split and the
+                // lower LCD has its own HUD pass with the original touch art.
+                if (DsTopPass)
+                {
+                    this.Players.Main.DrawHudObjects();
+                }
+                else
+                {
                 if (this.GameState.MenuPause)
                 {
                     this.Players.Main.DrawPauseMenuBackground();
@@ -3507,6 +3516,7 @@ namespace MphRead
                 if (this.GameState.MenuPause)
                 {
                     this.Players.Main.DrawPauseMenuForeground();
+                }
                 }
             }
             else if (drawGameHud && (ScoreboardOverFreeCamera || NameTagsOverFreeCamera))
