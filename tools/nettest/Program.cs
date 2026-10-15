@@ -33,6 +33,7 @@ namespace MphRead.NetTest
                 Console.WriteLine("Usage: nettest [host] [port]\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
+                    + "  --axis-sensitivity                Test independent mouse axis settings and persistence.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --campaign-save-management        Test Adventure save copy/archive and byte preservation.\n"
@@ -98,6 +99,7 @@ namespace MphRead.NetTest
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
             if (args.Length > 0 && args[0] == "--instagib-ion-fracture") return InstagibIonFractureTests.Run();
             if (args.Length > 0 && args[0] == "--outline-colors") return OutlineColorTests.Run();
+            if (args.Length > 0 && args[0] == "--axis-sensitivity") return AxisSensitivityTests.Run();
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-save-management") return CampaignSaveManagementTests.Run();
@@ -547,6 +549,12 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return NetCombatCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            // A mistyped or unwired test flag must not be treated as a remote host.
+            if (args.Length > 0 && args[0].StartsWith("-", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine($"Unknown nettest option: {args[0]}. Run --help for supported tests.");
+                return 2;
             }
             string host = args.Length > 0 ? args[0] : "127.0.0.1";
             int port = args.Length > 1 && Int32.TryParse(args[1], out int p)
