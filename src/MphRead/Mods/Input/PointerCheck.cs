@@ -89,6 +89,13 @@ namespace MphRead.Mods.Input
                     "top LCD is excluded from touch");
 
                 DsLayout.ScreenAspect = "5:3";
+                StylusZone.SelectSize = 1.08f;
+                StylusZone.Button nativeSelect = Array.Find(StylusZone.Buttons,
+                    b => b.Region == StylusRegion.WeaponSelect);
+                StylusZone.Button effective = StylusZone.EffectiveButton(nativeSelect);
+                Require(effective.X == nativeSelect.X && effective.Y == nativeSelect.Y
+                    && MathF.Abs(effective.Width - nativeSelect.Width * 1.08f) < .0001f,
+                    "WPN selection scale retains original button center");
                 screens = DsLayout.Bounds(960, 1152);
                 Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576))
                     && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576)),
@@ -1010,9 +1017,11 @@ namespace MphRead.Mods.Input
 
                 File.WriteAllText(path,
                     "stylus_mode=true\nds_stacked=true\nds_aspect=5:3\n"
+                    + "stylus_select_size=1.08\n"
                     + "ds_radar_size=1.75\nds_radar_x=0.27\nds_radar_y=0.68\n");
                 InputSettings.Load();
                 Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
+                    && Math.Abs(StylusZone.SelectSize - 1.08f) < .0001f
                     && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f
                     && Math.Abs(DsLayout.RadarX - .27f) < .0001f
                     && Math.Abs(DsLayout.RadarY - .68f) < .0001f,
@@ -1024,11 +1033,13 @@ namespace MphRead.Mods.Input
                 DsLayout.RadarX = DsLayout.RadarY = .5f;
                 InputSettings.Load();
                 Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
+                    && Math.Abs(StylusZone.SelectSize - 1.08f) < .0001f
                     && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f,
                     "stacked LCD aspect and radar settings round trip through controls.txt");
 
                 InputSettings.Reset();
                 Require(!DsLayout.Enabled && DsLayout.ScreenAspect == "4:3"
+                    && StylusZone.SelectSize == 1f
                     && DsLayout.RadarSize == 1f && DsLayout.RadarX == .5f
                     && DsLayout.RadarY == .5f,
                     "controls reset returns to normal single-screen defaults");
