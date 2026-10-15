@@ -367,8 +367,9 @@ namespace MphRead.Entities
                 return false;
             }
             WeaponInfo info = _scene.WeaponRules[(int)beam];
-            int ammo = _ammo[info.AmmoType];
-            return beam == BeamType.PowerBeam || ammo == -1 || ammo >= info.AmmoCost;
+            int ammo = ModAmmoForWeapon(beam, info);
+            int cost = ModAmmoCostForWeapon(beam, info);
+            return beam == BeamType.PowerBeam || ammo == -1 || ammo >= cost;
         }
 
         private bool EndWeaponMenu()

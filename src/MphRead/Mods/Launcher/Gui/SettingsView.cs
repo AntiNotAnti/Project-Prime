@@ -51,7 +51,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Mods.Render.Hud.HudProfile? _hudDraft;
         private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
         private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
-        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null);
+        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null || _outlineDraft != null);
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
@@ -75,6 +75,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (Settings.SettingsPersistence.RestartRequired) return;
             _draft?.Discard();
+            CancelOutlineColorPreview();
+            _outlineDraft = null;
             _hudDraft = null;
             ShowCrosshairRows();
             RenderOptions.FieldOfView = RenderOptions.ParseFov(_settings.FieldOfView, RenderOptions.DefaultFov);
@@ -301,6 +303,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings = settings;
             _inGame = inGame;
             _players = players;
+            DetachedFromVisualTree += (_, _) => CancelOutlineColorPreview();
 
             Background = Brushes.Transparent;
             Focusable = true;
@@ -1543,14 +1546,21 @@ namespace MphRead.Mods.Launcher.Gui
                 }));
             Explain(page, "Local-only multiplayer visibility aid. Team modes use team colors; free-for-all uses suit colors.");
             _playerOutlineRow = Add(page, new ChoiceRow("Player outline",
-                new[] { "Off", "Team color", "Bright red" },
+                new[] { "Off", "Team color", "Bright red", "Custom team/player colors" },
                 (int)RenderOptions.PlayerOutline));
             _playerOutlineWidthRow = Add(page, new SliderRow("Outline thickness",
                 RenderOptions.PlayerOutlineWidth, value => $"{value} px",
                 labelWidth: 160, min: 1, max: 8, keyStep: 1));
             _playerOutlineWidthRow.IsVisible = _playerOutlineRow.Index != 0;
+            var outlineEditor = new HubNavButton("EDIT OUTLINE COLORS", compact: true);
+            outlineEditor.Click += (_, _) => OpenOutlineColors();
+            outlineEditor.IsVisible = _playerOutlineRow.Index == (int)PlayerOutlineStyle.Custom;
+            page.Children.Add(outlineEditor);
             _playerOutlineRow.Changed += (_, _) =>
+            {
                 _playerOutlineWidthRow.IsVisible = _playerOutlineRow.Index != 0;
+                outlineEditor.IsVisible = _playerOutlineRow.Index == (int)PlayerOutlineStyle.Custom;
+            };
             _reduceMotion = Add(page, new ToggleRow(
                 "Reduce menu motion", LauncherPrefs.ReduceMotion));
         }
@@ -2896,6 +2906,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             RenderOptions.PlayerOutline = (PlayerOutlineStyle)_playerOutlineRow.Index;
             RenderOptions.PlayerOutlineWidth = _playerOutlineWidthRow.Value;
+            // A temporary preview never wins over the explicitly applied draft.
+            CancelOutlineColorPreview();
+            if (_outlineDraft != null)
+                OutlineColorPalette.Publish(_outlineDraft);
             Features.ProHud = _proHud.On;
             Features.KillFeedEnabled = _killFeed.On;
             Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
@@ -3077,6 +3091,7 @@ namespace MphRead.Mods.Launcher.Gui
             Saved = true;
             _draft?.Accept();
             _hudDraft = null;
+            _outlineDraft = null;
             if (!_shell) Close();
         }
     }
