@@ -5,7 +5,7 @@
   "product": "Project Prime Radiant",
   "sourceLicense": "Per-file GPL/LGPL/BSD; retain upstream LICENSE, GPL, LGPL and all source headers",
   "patches": [
-    "patches/0001-portable-vector-and-mesh-copy.patch"
+    "patches/0001-compiler-portability.patch"
   ],
   "downloadGamepacks": false,
   "platformQualification": {
