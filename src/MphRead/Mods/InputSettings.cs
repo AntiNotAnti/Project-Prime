@@ -505,6 +505,7 @@ namespace MphRead.Mods
             Input.GamepadProfiles.Initialize();
             HorizontalSensitivity = VerticalSensitivity = 1f;
             Input.DsLayout.Enabled = false;
+            Input.StylusZone.SelectSize = 1f;
             Input.DsLayout.ScreenAspect = "4:3";
             Input.DsLayout.RadarSize = 1f;
             Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
@@ -551,6 +552,13 @@ namespace MphRead.Mods
                             if (key == "horizontal_sensitivity") HorizontalSensitivity = axis;
                             else VerticalSensitivity = axis;
                         }
+                        continue;
+                    }
+                    if (key == "stylus_select_size"
+                        && Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float selectSize))
+                    {
+                        Input.StylusZone.SelectSize = selectSize;
                         continue;
                     }
                     if (key == "ds_stacked" && bool.TryParse(value, out bool stacked))
@@ -914,6 +922,7 @@ namespace MphRead.Mods
                     $"stylus_mode={Input.PointerInput.StylusMode.ToString().ToLowerInvariant()}",
                     $"ds_stacked={Input.DsLayout.Enabled.ToString().ToLowerInvariant()}",
                     $"ds_aspect={Input.DsLayout.ScreenAspect}",
+                    $"stylus_select_size={Input.StylusZone.SelectSize.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"ds_radar_size={Input.DsLayout.RadarSize.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"ds_radar_x={Input.DsLayout.RadarX.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"ds_radar_y={Input.DsLayout.RadarY.ToString("0.###", CultureInfo.InvariantCulture)}",
@@ -1031,6 +1040,7 @@ namespace MphRead.Mods
             Input.TouchSettings.Reset();
             Input.PointerInput.StylusMode = false;
             Input.DsLayout.Enabled = false;
+            Input.StylusZone.SelectSize = 1f;
             Input.DsLayout.ScreenAspect = "4:3";
             Input.DsLayout.RadarSize = 1f;
             Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;

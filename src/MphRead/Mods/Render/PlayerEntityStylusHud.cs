@@ -188,8 +188,9 @@ namespace MphRead.Entities
                     {
                         float scaleX = width / StylusZone.DsWidth;
                         float scaleY = height / StylusZone.DsHeight;
-                        foreach (StylusZone.Button button in StylusZone.Buttons)
+                        foreach (StylusZone.Button original in StylusZone.Buttons)
                         {
+                            StylusZone.Button button = StylusZone.EffectiveButton(original);
                             bool lit = !StylusZone.Placing && StylusZone.Contact
                                 && StylusZone.Region == button.Region;
                             float alpha = lit ? Math.Min(1, buttonAlpha * 6) : buttonAlpha;

@@ -167,8 +167,9 @@ public partial class PlayerEntity
         DsLabel(20, 157, "TACTICAL LINK", .53f);
         DsDrawRadar();
 
-        foreach (StylusZone.Button b in StylusZone.Buttons)
+        foreach (StylusZone.Button original in StylusZone.Buttons)
         {
+            StylusZone.Button b = StylusZone.EffectiveButton(original);
             float halfWidth = b.Round ? b.Width / 2f / DsLayout.HorizontalStretch : b.Width / 2f;
             float halfHeight = b.Height / 2f;
             bool active = StylusZone.Contact && StylusZone.Region == b.Region;
