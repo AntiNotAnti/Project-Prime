@@ -13,6 +13,18 @@ version=${4#v}
 case "$rid" in osx-arm64|osx-x64) ;; *) echo 'error: unsupported RID' >&2; exit 1 ;; esac
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
+# Portable PDBs are diagnostic data. MacOS is a nested-code location to the
+# signer; preserve symbols under Resources rather than treating them as code.
+move_debug_symbols() {
+    local payload=$1 resources=$2 symbol relative
+    find "$payload" -type f -name '*.pdb' -print0 > "$stage/symbol-files"
+    while IFS= read -r -d '' symbol; do
+        relative=${symbol#"$payload"/}
+        mkdir -p "$resources/symbols/$(dirname "$relative")"
+        mv "$symbol" "$resources/symbols/$relative"
+    done < "$stage/symbol-files"
+    rm -f "$stage/symbol-files"
+}
 app="$stage/package/Project Prime.app"
 contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
@@ -20,6 +32,7 @@ mkdir -p "$contents/MacOS" "$contents/Resources"
 # the apphost. Apple's signer treats subdirectories of MacOS as nested code,
 # so non-code data belongs in Resources, resolved by AppPaths.ResourceDirectory.
 ditto "$root" "$contents/MacOS"
+move_debug_symbols "$contents/MacOS" "$contents/Resources"
 [[ ! -e "$contents/MacOS/.project-prime-update-transaction" ]] || { echo 'error: Game publish contains an unfinished update' >&2; exit 1; }
 rm -f "$contents/MacOS/.project-prime-update.lock" "$contents/MacOS/.project-prime-in-use.lock"
 if [[ -d "$contents/MacOS/maps" ]]; then
@@ -60,6 +73,7 @@ studio_app="$stage/package/Project Prime Studio.app"
 studio_contents="$studio_app/Contents"
 mkdir -p "$studio_contents/MacOS" "$studio_contents/Resources"
 ditto "$studio_root" "$studio_contents/MacOS"
+move_debug_symbols "$studio_contents/MacOS" "$studio_contents/Resources"
 [[ ! -e "$studio_contents/MacOS/.project-prime-update-transaction" ]] || { echo 'error: Studio publish contains an unfinished update' >&2; exit 1; }
 rm -f "$studio_contents/MacOS/.project-prime-update.lock" "$studio_contents/MacOS/.project-prime-in-use.lock"
 for resource in maps fidelity-baselines gamecontrollerdb.txt gamecontrollerdb.LICENSE; do

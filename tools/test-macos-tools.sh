@@ -86,12 +86,18 @@ printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
 studio_fixture="$temp/studio-input"
 mkdir -p "$studio_fixture"
 cp "$root/ProjectPrime" "$studio_fixture/ProjectPrimeStudio"
+printf 'Portable protocol symbols fixture\n' > "$fixture/ProjectPrime.Studio.Protocol.pdb"
+printf 'Portable Studio symbols fixture\n' > "$studio_fixture/ProjectPrimeStudio.pdb"
 touch "$fixture/.project-prime-in-use.lock" "$studio_fixture/.project-prime-update.lock"
 "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3 "$studio_fixture"
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
 app="$temp/unpacked/Project Prime.app"
 codesign --verify --deep --strict "$temp/unpacked/Project Prime Studio.app"
+cmp "$fixture/ProjectPrime.Studio.Protocol.pdb" "$app/Contents/Resources/symbols/ProjectPrime.Studio.Protocol.pdb"
+cmp "$studio_fixture/ProjectPrimeStudio.pdb" "$temp/unpacked/Project Prime Studio.app/Contents/Resources/symbols/ProjectPrimeStudio.pdb"
+[[ ! -e "$app/Contents/MacOS/ProjectPrime.Studio.Protocol.pdb" ]] || exit 1
+[[ ! -e "$temp/unpacked/Project Prime Studio.app/Contents/MacOS/ProjectPrimeStudio.pdb" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/.project-prime-in-use.lock" ]] || exit 1
 [[ ! -e "$temp/unpacked/Project Prime Studio.app/Contents/MacOS/.project-prime-update.lock" ]] || exit 1
 python3 "$repo/tools/paired-install-check.py" "$temp/unpacked" --version 1.2.3 --rid "$rid"

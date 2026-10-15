@@ -141,6 +141,13 @@ intermediate passing counts do not certify a later candidate automatically.
   Python pair checks 9/9, release
   manifest checks 4/4, synthetic double-app macOS signing/extraction/tamper checks
   passed. Synthetic fixtures do not establish a signed production release.
+- CI source `b3339620` passes standalone Studio contracts on Windows, Linux and
+  macOS, Windows/Linux client delivery and all server deliveries. Android APK
+  publication passes; device acceptance remains separate. The actual macOS
+  package exposed portable PDB files being treated as nested code. Packaging now
+  preserves them under `Resources/symbols`; the complete local two-app signing,
+  extraction, manifest and tamper fixture passes with PDB inputs in both apps.
+  The updated actual package jobs must pass before macOS delivery is accepted.
 
 ## Required evidence still pending
 
