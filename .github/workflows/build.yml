@@ -648,6 +648,7 @@ jobs:
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --axis-sensitivity
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --terminal-retries
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --architecture
