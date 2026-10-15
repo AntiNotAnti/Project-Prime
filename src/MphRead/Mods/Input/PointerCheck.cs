@@ -68,6 +68,8 @@ namespace MphRead.Mods.Input
                 PointerInput.StylusMode = true;
                 DsLayout.Enabled = true;
                 DsLayout.ScreenAspect = "4:3";
+                Require(Math.Abs(MphRead.Mods.Combat.KillFeed.LifetimeSeconds - 5d) < .0001d,
+                    "stacked mode honors independent five-second death timestamps");
                 var screens = DsLayout.Bounds(768, 1152);
                 Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576))
                     && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576)),
