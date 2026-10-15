@@ -289,6 +289,21 @@ the native Properties label confirm the cube can be picked above the floor.
 The overview now refreshes source state after accepting changes and excludes its
 own Radiant sidecars from Saved Projects while retaining broken user projects.
 
+Fresh Windows/Linux CI then exposed a recipe defect before compilation: patch
+additions were left untracked and therefore absent from the strict recorded
+diff. Checkout now records intent to add; all source-integrity rules remain
+unchanged. Eight recipe checks include real fresh local clones with added source
+files, and the complete pinned native patch validates from a fresh checkout.
+
+A focused UV review also found that new mesh materials assumed 64x64 textures.
+New primitives and newly assigned shaders now acquire their actual native image
+dimensions while preserving existing payload metadata. A real 32x32 VFS fixture
+passes Cube/Plane creation, new assignment, retained metadata and canonical
+worker Fit UV checks. The final native CLOSE QUARTERS diagnostic passes 56 scene
+checks plus 12 worker/texture checks; its real save remains byte-for-byte equal
+to the independently reviewed copy. Exact-head hosted checks after these fixes
+must be observed separately from earlier revision results.
+
 This establishes a bounded native mesh editing/review/package workflow on Mac.
 Broader component/UV/content coverage, Windows/Linux GUI, end-to-end gameplay and
 release qualification remain separate. Earlier brush-only GUI results and

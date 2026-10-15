@@ -116,3 +116,10 @@ For isolated desktop checks, set `PROJECT_PRIME_RADIANT_USER_DATA` to an absolut
 writable profile directory outside the app bundle. This environment-only override
 creates the directory and rejects relative paths, files and a symlink at the final
 directory. Unset it for normal profile discovery. Maps cannot select a profile.
+
+For the optional native texture integration checks, place an original 32x32 PNG
+at `textures/prime_mesh_selftest_32.png` in a private VFS resource root and set
+`PRIME_MESH_TEST_SHADER=prime_mesh_selftest_32` for the diagnostic invocation.
+The checks use the real image loader and sibling worker to verify new Cube/Plane
+materials, shader assignment and one-repeat UV fitting. New materials use actual
+loaded image dimensions; existing payload dimensions and density stay intact.

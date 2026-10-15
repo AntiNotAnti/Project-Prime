@@ -2902,10 +2902,10 @@ index 00000000..d61ef416
 +QJsonObject PrimeMesh_runSelfTests();
 diff --git a/radiant/primemesh_tools.cpp b/radiant/primemesh_tools.cpp
 new file mode 100644
-index 00000000..f756eb38
+index 00000000..d9d65399
 --- /dev/null
 +++ b/radiant/primemesh_tools.cpp
-@@ -0,0 +1,1107 @@
+@@ -0,0 +1,1158 @@
 +/* Native Project Prime polygon editing and bounded canonical modeling worker. */
 +#include "primemesh_tools.h"
 +#include "primemesh.h"
@@ -2913,6 +2913,8 @@ index 00000000..f756eb38
 +#include "ieclass.h"
 +#include "ientity.h"
 +#include "imap.h"
++#include "ishaders.h"
++#include "itextures.h"
 +#include "iselection.h"
 +#include "iundo.h"
 +#include "scenelib.h"
@@ -3383,12 +3385,33 @@ index 00000000..f756eb38
 +	}, "primeMesh paste UV", true );
 +}
 +
++QJsonObject describeMaterial( const QString& name ){
++	const QByteArray shaderName = ( name.startsWith( '$' ) || name.startsWith( "textures/" ) ? name : "textures/" + name ).toUtf8();
++	const auto release = []( IShader* shader ){ if( shader ) shader->DecRef(); };
++	const std::unique_ptr<IShader, decltype( release )> shader( QERApp_Shader_ForName( shaderName.constData() ), release );
++	const qtexture_t* texture = shader ? shader->getTexture() : nullptr;
++	// Missing shaders use the editor's bitmap loader. Its placeholder dimensions
++	// do not describe the requested material's canonical texel coordinates.
++	const bool resolved = texture && texture->texture_number != 0 && texture->load == GlobalTexturesCache().defaultLoader()
++		&& texture->width > 0 && texture->height > 0;
++	return { { "name", name }, { "texScale", 16 }, { "width", resolved ? int( texture->width ) : 64 }, { "height", resolved ? int( texture->height ) : 64 } };
++}
++
++int materialIndex( QJsonObject& payload, const QString& name ){
++	QJsonArray materials = payload.value( "materials" ).toArray();
++	for( int i = 0; i < materials.size(); ++i ){
++		QString existing = materials[i].toObject().value( "name" ).toString(); if( existing.startsWith( "textures/" ) ) existing.remove( 0, 9 );
++		if( existing.compare( name, Qt::CaseInsensitive ) == 0 ) return i;
++	}
++	const int index = materials.size(); materials.append( describeMaterial( name ) ); payload["materials"] = materials; return index;
++}
++
 +QJsonObject newPayload( const QString& label, QString material = {} ){
 +	if( material.isEmpty() ) material = QString::fromUtf8( TextureBrowser_GetSelectedShader() );
 +	if( material.startsWith( "textures/" ) ) material.remove( 0, 9 );
 +	if( material.isEmpty() ) material = "common/caulk";
 +	return { { "schema", 1 }, { "units", 16 },
-+		{ "materials", QJsonArray{ QJsonObject{ { "name", material }, { "texScale", 16 }, { "width", 64 }, { "height", 64 } } } },
++		{ "materials", QJsonArray{ describeMaterial( material ) } },
 +		{ "mesh", QJsonObject{ { "kind", "mesh" }, { "id", QUuid::createUuid().toString( QUuid::WithoutBraces ) },
 +			{ "label", label }, { "layer", "Architecture" }, { "material", 0 }, { "solid", true }, { "damaging", false },
 +			{ "terrain", "Metal" }, { "shade", 1 }, { "hidden", false }, { "locked", false }, { "collisionOnly", false },
@@ -3627,6 +3650,25 @@ index 00000000..f756eb38
 +	if( g_running ) check( "worker command guard is available", false, "Another mesh worker command is running." );
 +	else {
 +		struct Guard { Guard(){ g_running = true; } ~Guard(){ g_running = false; } } guard;
++		// Optional integration fixture supplied by the self-test launcher: a real
++		// 32x32 texture in the configured native VFS, never a fabricated shader.
++		QString textureFixture = QString::fromUtf8( qgetenv( "PRIME_MESH_TEST_SHADER" ) );
++		if( textureFixture.startsWith( "textures/" ) ) textureFixture.remove( 0, 9 );
++		QJsonObject texturePlane;
++		if( !textureFixture.isEmpty() ){
++			auto has32 = []( const QJsonObject& material ){ return material.value( "width" ).toInt() == 32 && material.value( "height" ).toInt() == 32; };
++			texturePlane = primitivePayload( false, textureFixture );
++			const QJsonObject textureCube = primitivePayload( true, textureFixture );
++			check( "real native 32x32 shader dimensions reach Create Plane and Cube", has32( texturePlane.value( "materials" ).toArray()[0].toObject() )
++				&& has32( textureCube.value( "materials" ).toArray()[0].toObject() ), textureFixture );
++			QJsonObject assignment = primitivePayload( false, "common/caulk" );
++			const int added = materialIndex( assignment, textureFixture );
++			check( "new shader assignment acquires real native 32x32 dimensions", added == 1 && has32( assignment.value( "materials" ).toArray()[added].toObject() ) );
++			QJsonArray authoritative = assignment.value( "materials" ).toArray(); QJsonObject retained = authoritative[added].toObject();
++			retained["width"] = 128; retained["height"] = 64; retained["texScale"] = 8; authoritative[added] = retained; assignment["materials"] = authoritative;
++			check( "existing payload material dimensions and density remain authoritative", materialIndex( assignment, textureFixture.toUpper() ) == added
++				&& assignment.value( "materials" ).toArray() == authoritative );
++		}
 +		QJsonObject fixture = primitivePayload( true, "common/caulk" ), mesh = fixture.value( "mesh" ).toObject();
 +		const QString identity = "c051e802-b9c8-49a9-89ee-d44e361924fe";
 +		mesh["id"] = identity;
@@ -3662,6 +3704,20 @@ index 00000000..f756eb38
 +				&& PrimeMesh_validatePayload( returned, &validation ), roundtrip ? validation : message );
 +			check( "opaque interchange provenance survives worker boundary", roundtrip && returned.value( "originalGeometry" ) == fixture.value( "originalGeometry" )
 +				&& returned.value( "originalMeshSha256" ) == fixture.value( "originalMeshSha256" ) );
++			if( !texturePlane.isEmpty() ){
++				QJsonObject fitRequest = request; fitRequest["operation"] = "uvFit"; fitRequest["payload"] = texturePlane;
++				QJsonObject fitted; QString fitMessage;
++				const bool fit = callWorker( fitRequest, fitted, progress, fitMessage );
++				const QJsonArray corners = fitted.value( "payload" ).toObject().value( "mesh" ).toObject().value( "faceTexcoords" ).toArray();
++				double minU = 1e100, minV = 1e100, maxU = -1e100, maxV = -1e100;
++				if( !corners.isEmpty() ) for( const QJsonValue& corner : corners[0].toArray() ){
++					const QJsonArray uv = corner.toArray(); if( uv.size() != 2 ) continue;
++					minU = std::min( minU, uv[0].toDouble() ); maxU = std::max( maxU, uv[0].toDouble() );
++					minV = std::min( minV, uv[1].toDouble() ); maxV = std::max( maxV, uv[1].toDouble() );
++				}
++				check( "canonical worker fits one real 32x32 texture repeat in 32 texels", fit && std::abs( maxU - minU - 32 ) < 1e-5
++					&& std::abs( maxV - minV - 32 ) < 1e-5, fitMessage );
++			}
 +			request["operation"] = "Extrude region"; request["amount"] = .5;
 +			response = QJsonObject(); message.clear();
 +			const bool extruded = callWorker( request, response, progress, message );
@@ -3917,12 +3973,7 @@ index 00000000..f756eb38
 +	if( name.startsWith( "textures/" ) ) name.remove( 0, 9 );
 +	edit( [name]( Target& target, QString& message ){
 +		if( name.isEmpty() || name.size() > 128 || name.contains( ".." ) ) { message = "Invalid Prime material name."; return false; }
-+		QJsonArray materials = target.after.value( "materials" ).toArray(); int index = -1;
-+		for( int i = 0; i < materials.size(); ++i ){
-+			QString existing = materials[i].toObject().value( "name" ).toString(); if( existing.startsWith( "textures/" ) ) existing.remove( 0, 9 );
-+			if( existing.compare( name, Qt::CaseInsensitive ) == 0 ) { index = i; break; }
-+		}
-+		if( index < 0 ) { index = materials.size(); materials.append( QJsonObject{ { "name", name }, { "texScale", 16 }, { "width", 64 }, { "height", 64 } } ); target.after["materials"] = materials; }
++		const int index = materialIndex( target.after, name );
 +		QJsonObject mesh = target.after.value( "mesh" ).toObject(); QJsonArray faceMaterials = mesh.value( "faceMaterials" ).toArray();
 +		while( faceMaterials.size() < mesh.value( "faces" ).toArray().size() ) faceMaterials.append( mesh.value( "material" ).toInt() );
 +		for( const auto face : selectedFaces( target ) ) faceMaterials[face.toInt()] = index;

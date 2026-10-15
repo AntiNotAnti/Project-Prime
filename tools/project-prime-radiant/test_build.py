@@ -59,4 +59,61 @@ class SourceOwnershipTests(unittest.TestCase):
         with self.assertRaises(ValueError): recipe.validate_source(self.source)
 
 
+class FreshCheckoutTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        upstream = self.root / 'upstream'
+        upstream.mkdir()
+        here = self.root / 'recipe'
+        here.mkdir()
+        self.source = self.root / 'checkout'
+        subprocess.run(['git', 'init', '-q', upstream], check=True)
+        (upstream / 'example.cpp').write_text('int value = 1;\n')
+        self.git(upstream, 'add', 'example.cpp')
+        self.git(upstream, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                 'commit', '-qm', 'baseline')
+        commit = self.git(upstream, 'rev-parse', 'HEAD')
+        (upstream / 'example.cpp').write_text('int value = 2;\n')
+        (upstream / 'added').mkdir()
+        (upstream / 'added/source.cpp').write_text('int added = 3;\n')
+        (upstream / 'added/source.h').write_text('extern int added;\n')
+        self.git(upstream, 'add', '--intent-to-add', 'added')
+        self.patch = self.git(upstream, 'diff', 'HEAD', '--no-ext-diff', '--binary')
+        (here / 'one.patch').write_text(self.patch + '\n')
+        self.git(upstream, 'reset', '--hard', 'HEAD')
+        old_here, old_lock = recipe.HERE, recipe.LOCK
+        self.addCleanup(setattr, recipe, 'HERE', old_here)
+        self.addCleanup(setattr, recipe, 'LOCK', old_lock)
+        recipe.HERE = here
+        recipe.LOCK = {'repository': str(upstream), 'commit': commit, 'patches': ['one.patch']}
+        # Exercise the production clone/apply path with a local repository only.
+        recipe.checkout(self.source)
+
+    def git(self, source, *args):
+        return subprocess.run(['git', *args], cwd=source, check=True, text=True,
+                              stdout=subprocess.PIPE).stdout.strip()
+
+    def test_checkout_includes_added_sources_in_pinned_diff(self):
+        recipe.validate_source(self.source)
+        self.assertEqual(self.git(self.source, 'diff', 'HEAD', '--no-ext-diff', '--binary'), self.patch)
+        self.assertEqual((self.source / 'added/source.cpp').read_text(), 'int added = 3;\n')
+        self.assertEqual((self.source / 'added/source.h').read_text(), 'extern int added;\n')
+        self.assertEqual(self.git(self.source, 'ls-files', '--others', '--exclude-standard'),
+                         '.prime-source.json')
+
+    def test_checkout_rejects_additional_source(self):
+        recipe.validate_source(self.source)
+        (self.source / 'added/extra.cpp').write_text('int hidden = 1;\n')
+        with self.assertRaisesRegex(ValueError, 'Unrecorded source files'):
+            recipe.validate_source(self.source)
+
+    def test_checkout_rejects_additional_modification(self):
+        recipe.validate_source(self.source)
+        (self.source / 'added/source.cpp').write_text('int added = 4;\n')
+        with self.assertRaisesRegex(ValueError, 'Source modifications differ'):
+            recipe.validate_source(self.source)
+
+
 if __name__ == '__main__': unittest.main()

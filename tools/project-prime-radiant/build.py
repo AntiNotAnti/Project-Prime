@@ -58,7 +58,8 @@ def checkout(source):
     run(['git', 'checkout', '--detach', LOCK['commit']], cwd=source)
     for patch in LOCK['patches']:
         run(['git', 'apply', '--check', HERE / patch], cwd=source)
-        run(['git', 'apply', HERE / patch], cwd=source)
+        # Include patch-created files in validate_source's exact diff against HEAD.
+        run(['git', 'apply', '--intent-to-add', HERE / patch], cwd=source)
     (source / '.prime-source.json').write_text(json.dumps({
         'commit': LOCK['commit'],
         'patches': {p: digest(HERE / p) for p in LOCK['patches']}
