@@ -136,8 +136,6 @@ jobs:
           "$RUNNER_TEMP/application image check/application-image-check" process
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
-      - name: Instagib Ion Fracture palette and lifetime contract (asset-free)
-        run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
 
   character-model-check:
     name: HD character model contract
@@ -648,6 +646,7 @@ jobs:
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --terminal-retries
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --architecture
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --spectator-camera
