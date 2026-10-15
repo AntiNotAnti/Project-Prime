@@ -994,7 +994,7 @@ namespace MphRead.Entities
                 }
                 if (DrawFuncId == 8)
                 {
-                    SpawnSniperBeam();
+                    SpawnSniperBeam(anyRes.Position);
                 }
             }
         }
@@ -2928,10 +2928,19 @@ namespace MphRead.Entities
                 new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 } // Enemy
             };
 
-        private void SpawnSniperBeam()
+        private void SpawnSniperBeam(Vector3 collisionPosition)
         {
-            // following what the game does, but this should always be the same as SpawnPosition
+            // Preserve vanilla, balanced, and campaign visual paths unchanged.
+            // In Insta-Gib the accepted collision trace produces one bounded,
+            // world-depth-tested presentation event. No damage or wire changes.
             Vector3 spawnPos = PastPositions[8];
+            if (_scene.GameState.Multiplayer && _scene.GameState.InstaGib
+                && Beam == BeamType.Imperialist && Owner is PlayerEntity shooter)
+            {
+                _scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
+                    shooter.SlotIndex, ModShotId, ModLaunchFrame);
+                return;
+            }
             Vector3 up = Position - spawnPos;
             float magnitude = up.Length;
             if (magnitude > 0)
