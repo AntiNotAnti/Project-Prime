@@ -40,6 +40,7 @@ jobs:
       - name: Build pinned Linux editor and compiler
         if: runner.os == 'Linux'
         run: |
+          python tools/project-prime-radiant/test_build.py
           python tools/project-prime-radiant/build.py checkout --source "$RUNNER_TEMP/radiant-source"
           python tools/project-prime-radiant/build.py build --source "$RUNNER_TEMP/radiant-source" --jobs 2
           python tools/project-prime-radiant/real_tool_check.py --q3map2 "$(find "$RUNNER_TEMP/radiant-source/install" -maxdepth 1 -type f -name 'q3map2.*' | head -1)" --output "$RUNNER_TEMP/radiant-compiler-check"
@@ -49,6 +50,7 @@ jobs:
         shell: msys2 {0}
         run: |
           pacman -Q > radiant-dependencies.txt
+          python tools/project-prime-radiant/test_build.py
           python tools/project-prime-radiant/build.py checkout --source C:/radiant-source
           python tools/project-prime-radiant/build.py build --source C:/radiant-source --jobs 2
           python tools/project-prime-radiant/real_tool_check.py --q3map2 C:/radiant-source/install/q3map2.exe --output C:/radiant-compiler-check
@@ -91,6 +93,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python tools/project-prime-radiant/test_build.py
           test "$(uname -m)" = arm64
           brew install pkgconf glib libxml2 jpeg-turbo libpng assimp
           # Qt 5 can install successfully but report a conflict while linking

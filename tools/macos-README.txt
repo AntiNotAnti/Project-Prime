@@ -1,11 +1,12 @@
 Project Prime for macOS
 
 Extract the tar.gz and open "Project Prime.app" or "Project Prime Studio.app".
-Creator packages also include "Project Prime Radiant.app", the native geometry
-editor. In Game, FORGE opens Studio. In Studio, use EDIT GEOMETRY IN RADIANT,
-save the geometry in Radiant, then return to REVIEW / APPLY CHANGES in Studio.
-Studio owns map projects, gameplay settings, validation, packaging and playtest.
-The native geometry fallback is available explicitly for unsupported content.
+Creator packages also include "Project Prime Radiant.app", the native map editor.
+In Game, FORGE opens Studio's project overview. Use EDIT MAP IN RADIANT to edit
+meshes, brushes, patches and gameplay objects. Save in Radiant, then return to
+REVIEW / APPLY CHANGES in Studio. Studio manages project settings, materials,
+assets, validation, runtime packages and playtest. The previous geometry editor
+is available through NATIVE GEOMETRY FALLBACK for recovery.
 
 Keep all included apps and the hidden paired metadata together in one folder. You can
 move that complete folder to Applications. Use osx-arm64 for Apple Silicon, osx-x64 for Intel.
