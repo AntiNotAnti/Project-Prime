@@ -101,6 +101,13 @@ intermediate passing counts do not certify a later candidate automatically.
   contain 120 H.264 frames at 60 fps and exactly two seconds of AAC stereo 48 kHz
   audio. Audio is non-silent. Original SHA-256 stays
   `4B03FA493BEDC797E4BE5CE42E550326E68E28506227B9A1E1A5F3C982B81571`.
+- A third 720p export exercises comparison views and two ordered reel segments
+  switching from the current camera to the director. It also produces exactly
+  120 frames/two seconds with stereo audio and unchanged source bytes. Final
+  decoded frames were inspected: the overlay clears native HUD/radar in full-
+  width and narrow comparison views, and captures omit the wall-clock FPS counter.
+  An actual missing-parent worker exits with code 130 in 0.077 seconds without
+  publishing an output; the separate child-registry check verifies media reaping.
 - Native movement kernel: 2,662 checks across all seven hunters in biped and
   alternate forms. Native authored pickup kernel: 11,364 checks across 18 supported
   item types, respawn intervals, quotas and dropped lifetime.
@@ -130,7 +137,7 @@ These rows cannot become passed from a build, a source scan, or an empty/skipped
 | Native Studio GPU | Game/Studio pixel parity, final responsive-preview visual revisit, picking/high-DPI/context-loss and hardware frame/resource metrics on each supported platform; Mac map/replay lifecycle/transport checks above already pass |
 | Real editor | Windows/Linux and declared macOS fallback; open/edit/save/quit, UV/angled/patch/two-map and conflict loop |
 | End-to-end Game | Offline scene playtest, 1v1 and 8-player FFA, bots/pickups/rotation/Ready/spectator, independent crash/quit |
-| Replay | Historical custom-map/POV/cosmetic/projectile/audio fidelity, final overlay/multiview/reel checks and preview acceptance; two-resolution Mac video/audio outputs already pass |
+| Replay | Historical custom-map/POV/cosmetic/projectile/audio fidelity and full corpus/platform coverage; bounded Mac preview/lifecycle, overlay/multiview/reel and two-resolution video/audio checks above already pass |
 | Android | Real arm64 install/join/spectate/room-transition/error UI; desktop payload absent |
 | Community staging | Revision/parent conflict, visibility/privacy, tickets, concurrent mixed-app jobs, crash recovery, trusted CDN/origin failure |
 | Install/release | Actual paired candidate on each RID, previous-release upgrade/downgrade/rollback/relaunch, exact-head remote CI, seals/signatures |
