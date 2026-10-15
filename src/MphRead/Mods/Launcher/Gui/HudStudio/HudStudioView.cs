@@ -21,6 +21,7 @@ internal sealed class HudStudioView : UserControl
     private bool _zoom;
     private readonly Action<HudProfile?> _close;
     private bool _controllerMove;
+    private bool _themeExpanded;
     public HudStudioView(HudProfile original, Action<HudProfile?> close)
     {
         _close = close;
@@ -30,7 +31,7 @@ internal sealed class HudStudioView : UserControl
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(12) };
         var toolbar = new WrapPanel { Orientation = Orientation.Horizontal };
         toolbar.Children.Add(new TextBlock { Text = "HUD STUDIO", FontSize = 22, Margin = new Thickness(6) });
-        var presets = new ComboBox { ItemsSource = HudProfileDefaults.Presets, SelectedIndex = Array.IndexOf(HudProfileDefaults.Presets, original.Name), MinWidth = 150 };
+        var presets = new ComboBox { ItemsSource = HudProfileDefaults.Presets, SelectedIndex = Array.IndexOf(HudProfileDefaults.Presets, original.BasePreset), MinWidth = 150 };
         presets.SelectionChanged += (_, _) => { if (presets.SelectedItem is string preset) { _history.Replace(HudProfileDefaults.Create(preset)); _name.Text = preset; Refresh(); } };
         toolbar.Children.Add(presets);
         Button(toolbar, "Undo", () => { _history.Undo(); Refresh(); });
@@ -301,6 +302,7 @@ internal sealed class HudStudioView : UserControl
             }
         }
         _inspector.Children.Add(new Separator());
+        ThemeInspector(p);
         var palette=new ComboBox { ItemsSource=HudPalettes.Names,PlaceholderText="Palette" };
         palette.SelectionChanged += (_,_)=> { if(palette.SelectedIndex>=0) { Edit(p=>HudPalettes.Apply(p,palette.SelectedIndex)); Refresh(); } };
         _inspector.Children.Add(palette);
@@ -312,13 +314,84 @@ internal sealed class HudStudioView : UserControl
         Number("Global opacity",p.GlobalOpacity,0,1,(p,v)=>p.GlobalOpacity=v);
         Number("Safe area",p.SafeArea,0,.2f,(p,v)=>p.SafeArea=v);
         _inspector.Children.Add(_name);
-        Button(_inspector,"Save named profile",() => Try(() => { var copy=p.DeepClone(); copy.Name=_name.Text ?? "Custom"; HudProfiles.SaveNamed(copy.Name,copy); _status.Text="Named profile saved. Use in settings, then Apply to activate."; }));
+        Button(_inspector,"Save named profile",() => Try(() => { var copy=p.DeepClone(); copy.Name=_name.Text ?? "Custom"; // Preset display text includes a colon in "Approved 4:3",
+            // which Windows cannot use as a library filename.
+            string libraryName = copy.Name == "Approved 4:3" ? "Approved 4x3" : copy.Name;
+            copy.Name = libraryName;
+            HudProfiles.SaveNamed(libraryName, copy);
+            _name.Text = libraryName;
+            _status.Text="Named profile saved. Use in settings, then Apply to activate."; }));
         Button(_inspector,"Load named profile",() => Try(() => { _history.Replace(HudProfiles.LoadNamed(_name.Text ?? "")); Refresh(); }));
         _inspector.Children.Add(_json);
         Button(_inspector,"Export JSON",() => { _json.Text = HudProfileStore.Serialize(_history.Draft); _status.Text="Select and copy the JSON to share your profile."; });
         Button(_inspector,"Import JSON",() => Try(() => { _history.Replace(HudProfileStore.Parse(_json.Text ?? "")); _name.Text=_history.Draft.Name; Refresh(); }));
         _status.Text = "Drag to move • Arrows to nudge • Shift: 10 units / no snap • Ctrl+Z/Y: undo/redo. Crosshair, gauge and radar-frame geometry is shared; other previews are schematic. Shift-click selects a group.";
     }
+    private void ThemeInspector(HudProfile current)
+    {
+        // Stable property keys are captured, never the currently selected HUD
+        // element. A change queued from a picker cannot edit a later element.
+        var theme = current.Theme;
+        var fields = new StackPanel { Spacing = 6 };
+        fields.Children.Add(new TextBlock
+        {
+            Text = "Local colors for the two-screen chrome. Gameplay health, "
+                + "ammunition and enemy/weapon facts retain their original sources. "
+                + "The match timer has its own independent element color.",
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        });
+        void Color(string title, string color, Action<HudThemeProfile,string> update)
+            => fields.Children.Add(new HudColorEditor(title, color,
+                value => Edit(p => update(p.Theme, value))));
+        void Opacity(string title, float value, Action<HudThemeProfile,float> update)
+        {
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            line.Children.Add(new TextBlock
+            {
+                Text = title, Width = 140,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var number = new NumericUpDown
+            {
+                Minimum = 0m, Maximum = 1m, Value = (decimal)value,
+                Increment = .05m, FormatString = "0.00", Width = 100
+            };
+            number.ValueChanged += (_, _) =>
+            {
+                if (number.Value is decimal chosen)
+                    Edit(p => update(p.Theme, (float)chosen));
+            };
+            line.Children.Add(number);
+            fields.Children.Add(line);
+        }
+        Color("Background", theme.Background, (t,v) => t.Background = v);
+        Color("Panel", theme.Panel, (t,v) => t.Panel = v);
+        Color("Accent", theme.Accent, (t,v) => t.Accent = v);
+        Color("Muted borders", theme.Muted, (t,v) => t.Muted = v);
+        Color("Text", theme.Text, (t,v) => t.Text = v);
+        Color("Button pressed", theme.Pressed, (t,v) => t.Pressed = v);
+        Color("Real health warning", theme.Warning, (t,v) => t.Warning = v);
+        Color("Health track", theme.HealthTrack, (t,v) => t.HealthTrack = v);
+        Opacity("Panel opacity", theme.PanelOpacity, (t,v) => t.PanelOpacity = v);
+        Opacity("Accent opacity", theme.AccentOpacity, (t,v) => t.AccentOpacity = v);
+        Opacity("Muted opacity", theme.MutedOpacity, (t,v) => t.MutedOpacity = v);
+        Opacity("Detail opacity", theme.DecorationOpacity, (t,v) => t.DecorationOpacity = v);
+        Opacity("Health track alpha", theme.HealthTrackOpacity,
+            (t,v) => t.HealthTrackOpacity = v);
+        var expander = new Expander
+        {
+            Header = "Preset themes / stacked colors",
+            IsExpanded = _themeExpanded,
+            Content = fields
+        };
+        expander.PropertyChanged += (_, args) =>
+        {
+            if (args.Property == Expander.IsExpandedProperty)
+                _themeExpanded = expander.IsExpanded;
+        };
+        _inspector.Children.Add(expander);
+    }
+
     private void Try(Action action) { try { action(); } catch (Exception ex) { _status.Text=ex.Message; } }
     private void MeterInspector(bool health)
     {
