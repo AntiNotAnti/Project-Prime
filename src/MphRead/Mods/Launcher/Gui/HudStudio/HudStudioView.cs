@@ -415,53 +415,53 @@ internal sealed class HudStudioView : UserControl
         };
         void Populate()
         {
-        if (fields.Children.Count != 0) return;
-        var theme = current.Theme;
-        fields.Children.Add(new TextBlock
-        {
-            Text = "Local colors for the two-screen chrome. Gameplay health, "
-                + "ammunition and enemy/weapon facts retain their original sources. "
-                + "The match timer has its own independent element color.",
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap
-        });
-        void Color(string title, string color, Action<HudThemeProfile,string> update)
-            => fields.Children.Add(new HudColorEditor(title, color,
-                value => Edit(p => update(p.Theme, value))));
-        void Opacity(string title, float value, Action<HudThemeProfile,float> update)
-        {
-            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            line.Children.Add(new TextBlock
+            if (fields.Children.Count != 0) return;
+            var theme = current.Theme;
+            fields.Children.Add(new TextBlock
             {
-                Text = title, Width = 140,
-                VerticalAlignment = VerticalAlignment.Center
+                Text = "Local colors for the two-screen chrome. Gameplay health, "
+                    + "ammunition and enemy/weapon facts retain their original sources. "
+                    + "The match timer has its own independent element color.",
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
             });
-            var number = new NumericUpDown
+            void Color(string title, string color, Action<HudThemeProfile,string> update)
+                => fields.Children.Add(new HudColorEditor(title, color,
+                    value => Edit(p => update(p.Theme, value))));
+            void Opacity(string title, float value, Action<HudThemeProfile,float> update)
             {
-                Minimum = 0m, Maximum = 1m, Value = (decimal)value,
-                Increment = .05m, FormatString = "0.00", Width = 100
-            };
-            number.ValueChanged += (_, _) =>
-            {
-                if (number.Value is decimal chosen)
-                    Edit(p => update(p.Theme, (float)chosen));
-            };
-            line.Children.Add(number);
-            fields.Children.Add(line);
-        }
-        Color("Background", theme.Background, (t,v) => t.Background = v);
-        Color("Panel", theme.Panel, (t,v) => t.Panel = v);
-        Color("Accent", theme.Accent, (t,v) => t.Accent = v);
-        Color("Muted borders", theme.Muted, (t,v) => t.Muted = v);
-        Color("Text", theme.Text, (t,v) => t.Text = v);
-        Color("Button pressed", theme.Pressed, (t,v) => t.Pressed = v);
-        Color("Real health warning", theme.Warning, (t,v) => t.Warning = v);
-        Color("Health track", theme.HealthTrack, (t,v) => t.HealthTrack = v);
-        Opacity("Panel opacity", theme.PanelOpacity, (t,v) => t.PanelOpacity = v);
-        Opacity("Accent opacity", theme.AccentOpacity, (t,v) => t.AccentOpacity = v);
-        Opacity("Muted opacity", theme.MutedOpacity, (t,v) => t.MutedOpacity = v);
-        Opacity("Detail opacity", theme.DecorationOpacity, (t,v) => t.DecorationOpacity = v);
-        Opacity("Health track alpha", theme.HealthTrackOpacity,
-            (t,v) => t.HealthTrackOpacity = v);
+                var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                line.Children.Add(new TextBlock
+                {
+                    Text = title, Width = 140,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                var number = new NumericUpDown
+                {
+                    Minimum = 0m, Maximum = 1m, Value = (decimal)value,
+                    Increment = .05m, FormatString = "0.00", Width = 100
+                };
+                number.ValueChanged += (_, _) =>
+                {
+                    if (number.Value is decimal chosen)
+                        Edit(p => update(p.Theme, (float)chosen));
+                };
+                line.Children.Add(number);
+                fields.Children.Add(line);
+            }
+            Color("Background", theme.Background, (t,v) => t.Background = v);
+            Color("Panel", theme.Panel, (t,v) => t.Panel = v);
+            Color("Accent", theme.Accent, (t,v) => t.Accent = v);
+            Color("Muted borders", theme.Muted, (t,v) => t.Muted = v);
+            Color("Text", theme.Text, (t,v) => t.Text = v);
+            Color("Button pressed", theme.Pressed, (t,v) => t.Pressed = v);
+            Color("Real health warning", theme.Warning, (t,v) => t.Warning = v);
+            Color("Health track", theme.HealthTrack, (t,v) => t.HealthTrack = v);
+            Opacity("Panel opacity", theme.PanelOpacity, (t,v) => t.PanelOpacity = v);
+            Opacity("Accent opacity", theme.AccentOpacity, (t,v) => t.AccentOpacity = v);
+            Opacity("Muted opacity", theme.MutedOpacity, (t,v) => t.MutedOpacity = v);
+            Opacity("Detail opacity", theme.DecorationOpacity, (t,v) => t.DecorationOpacity = v);
+            Opacity("Health track alpha", theme.HealthTrackOpacity,
+                (t,v) => t.HealthTrackOpacity = v);
         }
         expander.PropertyChanged += (_, args) =>
         {
