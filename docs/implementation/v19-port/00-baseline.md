@@ -6,7 +6,7 @@
 
 * User-supplied `v19 (1).txt` defines custom improvements **1–53** relative to official v0.1.53 `91b1c0c6c44e8c90effd250729709f791a84765e`.
 * Source `v19.zip` is not a trustworthy distributable ZIP: its central directory was missing when inspected. Sequentially recovered files are usable for _review_, but font/audio binaries **must not be imported** until independently verified.
-* `main` still uses the **Avalonia 12.1.2** launcher/settings/HUD Studio, OpenGL/GLES world rendering, fixed 60 Hz simulation, protocol 53 and versioned historical replay readers. The RmlUi candidate is an unmerged draft, not an accepted requirement.
+* `main` still uses the **Avalonia 12.1.2** launcher/settings/HUD Studio, OpenGL/GLES world rendering, fixed 60 Hz simulation, protocol 56 and versioned historical replay readers. The RmlUi candidate is an unmerged draft, not an accepted requirement.
 * Current `HudProfile` schema is **1**; it already supports layout anchors, scale, opacity, contexts, layers, independent health/ammo gauges and crosshair overrides. `HudProfiles` publishes snapshots. Port **deltas only**, not the v19 renderer/network/engine.
 * Existing `PlayerOutlines` uses a depth-tested world mask; custom colors must use that mask, not an x-ray overlay. Known solo-vs-bot depth regressions require separate checks.
 * Current Insta-Gib rules already control Imperialist-only loadouts and authoritative hits. PR-14 is **visual-only**. Do not port Fruity C++ damage, pickups, headless or networking rules.
@@ -16,7 +16,7 @@
 
 | Contract | Baseline | Prohibited changes in presentation PRs |
 | --- | --- | --- |
-| Live wire | Protocol **53** | Packet IDs, layouts, admission, authoritative damage |
+| Live wire | Protocol **56** | Packet IDs, layouts, admission, authoritative damage |
 | Replay | Readers for file formats **1–5**, historical playback support | Codec IDs, fields and snapshot layout |
 | Simulation | **60 Hz** fixed step, independent presentation FPS | Additional simulation work or different damage timing |
 | Renderer | **OpenGL/GLES** | Introducing Vulkan/DX12/Metal or render bypass |
