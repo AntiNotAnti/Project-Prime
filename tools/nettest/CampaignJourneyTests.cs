@@ -127,8 +127,8 @@ internal static class CampaignJourneyTests
             // Stage 2: scan and explored-room log, no hidden log entries.
             var catalog = new[]
             {
-                new StringTableEntry("000", 'L', "SECRET", "must stay hidden", 0, 'L'),
-                new StringTableEntry("001", 'L', "FIRST SCAN", "saved observation", 0, 'L')
+                new StringTableEntry("L000", 'L', "SECRET", "must stay hidden", 0, 'L'),
+                new StringTableEntry("L001", 'L', "FIRST SCAN", "saved observation", 0, 'L')
             };
             fresh.Logbook[0] |= 0b10;
             fresh.ScanCount = 1;

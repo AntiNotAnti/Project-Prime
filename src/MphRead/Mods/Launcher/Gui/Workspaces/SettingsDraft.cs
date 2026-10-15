@@ -27,6 +27,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     case ChoiceRow row: Add(node, () => row.Index, v => row.Index = (int)v!); break;
                     case SliderRow row: Add(node, () => row.Value, v => row.Value = (int)v!); break;
+                    case DecimalSliderRow row: Add(node, () => row.Value, v => row.Value = (float)v!); break;
                     case ToggleRow row: Add(node, () => row.On, v => row.On = (bool)v!); break;
                     case ButtonToggleRow row: Add(node, () => row.On, v => row.On = (bool)v!); break;
                     case FieldRow row: Add(node, () => row.Value, v => row.Value = (string)v!); break;

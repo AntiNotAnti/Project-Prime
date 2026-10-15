@@ -28,10 +28,10 @@ internal static class CampaignPresentationTests
             save.SetVisitedRoom(27); // stale Alinos bit but still locked
             var scanEntries = new[]
             {
-                new StringTableEntry("000", 'L', "HIDDEN LORE", "not yet scanned", 0, 'L'),
-                new StringTableEntry("001", 'L', "DISCOVERED LORE", "unlocked story", 0, 'L'),
-                new StringTableEntry("002", 'B', "HIDDEN BIOFORM", "not yet scanned", 0, 'B'),
-                new StringTableEntry("003", 'O', "DISCOVERED OBJECT", "unlocked item", 0, 'O')
+                new StringTableEntry("L000", 'L', "HIDDEN LORE", "not yet scanned", 0, 'L'),
+                new StringTableEntry("L001", 'L', "DISCOVERED LORE", "unlocked story", 0, 'L'),
+                new StringTableEntry("L002", 'B', "HIDDEN BIOFORM", "not yet scanned", 0, 'B'),
+                new StringTableEntry("L003", 'O', "DISCOVERED OBJECT", "unlocked item", 0, 'O')
             };
             save.Logbook[0] = 0b00001010; // indices 1 and 3 only
             var initial = CampaignJournal.Capture(save, scanEntries);
@@ -51,6 +51,33 @@ internal static class CampaignPresentationTests
                 "logbook count derives from recorded bits, not unseen categories");
             Check(CampaignJournal.CompactHud(save) == "OCTOLITHS 2/8  //  SCANS 2",
                 "compact native mission HUD derives from existing StorySave");
+
+            // The cartridge's ScanLog IDs are sparse. Do not treat ordinal
+            // array positions as the save's actual scan-bit positions.
+            Array.Clear(save.Logbook);
+            save.Logbook[29 >> 3] |= (byte)(1 << (29 & 7));
+            save.Logbook[35 >> 3] |= (byte)(1 << (35 & 7));
+            var sparseEntries = new[]
+            {
+                new StringTableEntry("L027", 'L', "UNSCANNED 27", "secret", 0, 'L'),
+                new StringTableEntry("L029", 'L', "SCANNED 29", "observed", 0, 'L'),
+                new StringTableEntry("L032", 'L', "UNSCANNED 32", "still secret", 0, 'L'),
+                new StringTableEntry("L035", 'L', "SCANNED 35", "observed", 0, 'L'),
+                new StringTableEntry("Lbad", 'L', "INVALID RECORD", "hidden", 0, 'L')
+            };
+            var sparse = CampaignJournal.Capture(save, sparseEntries);
+            Check(sparse.Scans.Count == 2 && sparse.Scans[0].Id == 29
+                && sparse.Scans[1].Id == 35
+                && sparse.Scans.All(x => x.Title.StartsWith("SCANNED ")),
+                "sparse cartridge record identifiers map to actual saved scan bits");
+            Check(CampaignJournal.ReadScanId(sparseEntries[4]) == -1
+                && CampaignJournal.ReadScanId(new StringTableEntry(
+                    "L999", 'L', "INVALID", "hidden", 0, 'L')) == -1,
+                "invalid or out-of-range scan IDs never access unowned save bits");
+
+            // Restore the original fixture for the separate planet/snapshot cases.
+            Array.Clear(save.Logbook);
+            save.Logbook[0] = 0b00001010;
 
             save.Areas |= 1; // Alinos now unlocked
             save.Logbook[0] |= 1; // first lore scanned later

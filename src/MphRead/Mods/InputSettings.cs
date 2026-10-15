@@ -48,6 +48,26 @@ namespace MphRead.Mods
         /// <summary>Multiplier on mouse movement. 1.0 is the original feel.</summary>
         public static float MouseSensitivity { get; set; } = 1;
 
+        // Independent per-axis multipliers apply to the exact same aim
+        // arithmetic on the owner and the late-aim camera presentation path.
+        private static float _horizontalSensitivity = 1, _verticalSensitivity = 1;
+        public static float HorizontalSensitivity
+        {
+            get => _horizontalSensitivity;
+            set => _horizontalSensitivity = Single.IsFinite(value)
+                ? Math.Clamp(value, .01f, 3f) : 1f;
+        }
+        public static float VerticalSensitivity
+        {
+            get => _verticalSensitivity;
+            set => _verticalSensitivity = Single.IsFinite(value)
+                ? Math.Clamp(value, .01f, 3f) : 1f;
+        }
+        public static float MouseAimSensitivityX(bool scoped) =>
+            MouseAimSensitivity(scoped) * HorizontalSensitivity;
+        public static float MouseAimSensitivityY(bool scoped) =>
+            MouseAimSensitivity(scoped) * VerticalSensitivity;
+
         public const float MinImperialistZoomSensitivity = 0.1f;
         public const float MaxImperialistZoomSensitivity = 3f;
         private static float _imperialistZoomSensitivity = 1f;
@@ -483,6 +503,7 @@ namespace MphRead.Mods
         public static void Load()
         {
             Input.GamepadProfiles.Initialize();
+            HorizontalSensitivity = VerticalSensitivity = 1f;
             Input.DsLayout.Enabled = false;
             Input.StylusZone.SelectSize = 1f;
             Input.DsLayout.ScreenAspect = "4:3";
@@ -520,6 +541,16 @@ namespace MphRead.Mods
                             CultureInfo.InvariantCulture, out float parsed))
                         {
                             MouseSensitivity = Math.Clamp(parsed, 0.01f, 10f);
+                        }
+                        continue;
+                    }
+                    if (key is "horizontal_sensitivity" or "vertical_sensitivity")
+                    {
+                        if (Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float axis))
+                        {
+                            if (key == "horizontal_sensitivity") HorizontalSensitivity = axis;
+                            else VerticalSensitivity = axis;
                         }
                         continue;
                     }
@@ -876,6 +907,8 @@ namespace MphRead.Mods
                 {
                     $"# {Branding.Name} controls. Delete a line to go back to the default.",
                     $"sensitivity={MouseSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"horizontal_sensitivity={HorizontalSensitivity.ToString("0.####", CultureInfo.InvariantCulture)}",
+                    $"vertical_sensitivity={VerticalSensitivity.ToString("0.####", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_sensitivity={ImperialistZoomSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_amount={ImperialistZoomAmount.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"invert_y={InvertMouseY.ToString().ToLowerInvariant()}",
@@ -976,6 +1009,7 @@ namespace MphRead.Mods
             _current = PlayerControls.GetDefault();
             _creating = false;
             MouseSensitivity = 1;
+            HorizontalSensitivity = VerticalSensitivity = 1f;
             ImperialistZoomSensitivity = 1;
             ImperialistZoomAmount = 1;
             InvertMouseY = false;
