@@ -547,7 +547,8 @@ namespace MphRead.Entities
             // contact asks the camera to follow. Remote, bot, zoom and alt form
             // paths retain the ordinary easing.
             if (IsMainPlayer && !IsBot && !_scene.Services.IsReplica
-                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon)
+                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon
+                && Mods.Input.PointerDevice.Active)
                 return;
             Vector3 temp2 = _gunVec1 - _facingVector;
             _facingVector = NormalizeSpatialOr(_facingVector + temp2 * 0.1f, _gunVec1);
