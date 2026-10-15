@@ -35,6 +35,45 @@ Check(accessibilityLimits.TextScale==3 && accessibilityLimits.IconScale==.5f,"ac
 Check(accessibilityLimits.Notifications.MaxVisible==5 && accessibilityLimits.Notifications.Spacing==32,"notification bounds");
 Check(accessibilityLimits.Elements["core.health"].Contexts==HudContext.All,"context flags bounded");
 Check(!HudProfileDefaults.Create("Project Prime").Elements["combat.opponent"].Enabled,"custom opponent information opt-in");
+
+var presetNames = HudProfileDefaults.Presets;
+Check(presetNames.Contains("Halo") && presetNames.Contains("Approved 4:3")
+    && presetNames.Contains("Project Prime") && presetNames.Contains("Competitive")
+    && presetNames.Contains("Minimal") && presetNames.Contains("Duel")
+    && presetNames.Contains("Accessibility") && presetNames.Contains("Broadcast"),
+    "new themes keep existing HUD preset family");
+var haloPreset = HudProfileDefaults.Create("Halo");
+var approvedPreset = HudProfileDefaults.Create("Approved 4:3");
+Check(haloPreset.Mode == HudMode.Custom && approvedPreset.Mode == HudMode.Custom
+    && haloPreset.BasePreset == "Halo" && approvedPreset.BasePreset == "Approved 4:3",
+    "themed presets are editable profiles with preserved source identity");
+Check(haloPreset.Health.FullColor == "#7DDEFF"
+    && haloPreset.Elements["match.timer"].Color == "#DAF2FF",
+    "halo health color and independent match-timer color authored");
+Check(approvedPreset.Theme.Accent == "#E2F6FF"
+    && approvedPreset.SafeArea > haloPreset.SafeArea,
+    "Approved 4:3 gets a distinct authored palette and safe area");
+var haloSaved = HudProfileStore.Parse(HudProfileStore.Serialize(haloPreset));
+Check(haloSaved.BasePreset == "Halo" && haloSaved.Theme.Background == "#051124",
+    "Halo theme survives profile save/parse");
+var compiledHalo = new HudRuntimeProfile(haloSaved);
+Near(compiledHalo.Theme.Accent.X, 181f / 255f, "GL theme accent compiled on publish");
+Near(compiledHalo.Theme.Warning.Y, 116f / 255f, "independent warning red/green component");
+var editedTheme = haloSaved.DeepClone();
+editedTheme.Theme.Accent = "#113355";
+var originalAccent = compiledHalo.Theme.Accent;
+Check(compiledHalo.Theme.Accent == originalAccent && editedTheme.Theme.Accent != haloSaved.Theme.Accent,
+    "editing a draft does not modify the published runtime palette");
+var invalidTheme = HudProfileStore.Parse("""
+{"theme":{"background":"not-a-hex","accentOpacity":18,"decorationOpacity":-3,
+"healthTrackOpacity":null}}
+""");
+Check(invalidTheme.Theme.Background == "#FFFFFF"
+    && invalidTheme.Theme.AccentOpacity == 1
+    && invalidTheme.Theme.DecorationOpacity == 0
+    && invalidTheme.Theme.HealthTrackOpacity == .76f,
+    "invalid/oversized theme colors and alpha are normalized");
+
 var inheritedCrosshair=new CrosshairProfile { Color="#00FFFF",HealthColor=false,Dot=true,DotSize=4 };
 var sparseCrosshair=new CrosshairProfile { DotSize=2,OverrideProperties=new[]{nameof(CrosshairProfile.DotSize)} };
 var sparseResolved=CrosshairProperties.Resolve(inheritedCrosshair,sparseCrosshair);
