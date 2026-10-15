@@ -603,29 +603,34 @@ namespace MphRead.Entities
                     _curAlpha = 0;
                 }
             }
-            int ammo = EquipInfo.Ammo;
-            if (ammo >= 0 && ammo < EquipInfo.Weapon.AmmoCost)
+            // An Imperialist in Balanced Mode uses a private five-shot bank;
+            // Battlehammer's burst cost is mode-specific. The old shared-ammo
+            // check could reselect the same empty weapon every frame, looping
+            // the switch/no-ammo sounds while never choosing a usable fallback.
+            int ammo = ModAmmoForWeapon(CurrentWeapon, EquipInfo.Weapon);
+            if (CurrentWeapon != BeamType.PowerBeam && ammo >= 0
+                && ammo < ModAmmoCostForWeapon(CurrentWeapon, EquipInfo.Weapon))
             {
-                int slot = 0;
-                int priority = 0;
-                for (int i = 0; i < 3; i++)
+                BeamType fallback = BeamType.PowerBeam;
+                int priority = -1;
+                for (int i = 0; i < _weaponSlots.Length; i++)
                 {
-                    BeamType slotWeap = _weaponSlots[i];
-                    if (slotWeap != BeamType.None)
+                    BeamType candidate = _weaponSlots[i];
+                    if (candidate == BeamType.None || candidate == CurrentWeapon
+                        || !CanCycleToWeapon(candidate))
+                        continue;
+                    WeaponInfo info = _scene.WeaponRules[(int)candidate];
+                    if (info.Priority > priority)
                     {
-                        WeaponInfo slotInfo = _scene.WeaponRules[(int)slotWeap];
-                        if (slotInfo.Priority > priority && _ammo[slotInfo.AmmoType] >= slotInfo.AmmoCost)
-                        {
-                            priority = slotInfo.Priority;
-                            slot = i;
-                        }
+                        priority = info.Priority;
+                        fallback = candidate;
                     }
                 }
-                if (IsMainPlayer)
-                {
+                // Do not reenter equip transitions mid-animation, and only
+                // show a message on an actual successful fallback.
+                if (GunAnimation != GunAnimation.UpDown
+                    && TryEquipWeapon(fallback) && IsMainPlayer)
                     ShowNoAmmoMessage();
-                }
-                TryEquipWeapon(_weaponSlots[slot]);
             }
             ModMovementShadowBeginFrame();
             Mods.Network.NetPowerUpLedger.ObserveInput(this);
