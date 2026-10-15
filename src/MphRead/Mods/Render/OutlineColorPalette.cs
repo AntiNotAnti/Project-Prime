@@ -50,6 +50,8 @@ public static class OutlineColorPalette
 
     private static Snapshot Prepare(OutlineColorSettings input)
     {
+        if (input.Teams is not { Length: 4 } || input.Players is not { Length: 8 })
+            throw new FormatException("Invalid outline palette dimensions.");
         OutlineColorSettings settings = input.Copy();
         settings.Validate();
         static Vector4[] Resolve(string[] names)
@@ -77,8 +79,17 @@ public static class OutlineColorPalette
         if (string.IsNullOrWhiteSpace(value) || value.Length > 2048) return false;
         try
         {
+            using var document = JsonDocument.Parse(value, new JsonDocumentOptions { MaxDepth = 8 });
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !(document.RootElement.TryGetProperty("Teams", out var teams)
+                    || document.RootElement.TryGetProperty("teams", out teams))
+                || !(document.RootElement.TryGetProperty("Players", out var players)
+                    || document.RootElement.TryGetProperty("players", out players))
+                || teams.ValueKind != JsonValueKind.Array
+                || players.ValueKind != JsonValueKind.Array)
+                return false;
             var parsed = JsonSerializer.Deserialize<OutlineColorSettings>(value,
-                new JsonSerializerOptions { MaxDepth = 8 });
+                new JsonSerializerOptions { MaxDepth = 8, PropertyNameCaseInsensitive = true });
             parsed?.Validate();
             colors = parsed;
             return parsed != null;
