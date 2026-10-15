@@ -36,7 +36,9 @@ try
         Materials = new() { new MapMaterial { Id = Guid.NewGuid(), Name = "textures/prime/check", SourceMaterial = 2, TexScale = 16 } }
     };
     string source = RadiantSourceWorkspace.Prepare(map, root);
-    string original = File.ReadAllText(source);
+    // Fixture edits below use LF anchors; exported source uses the host newline.
+    // Exercise both native file conventions explicitly after constructing fixtures.
+    string original = File.ReadAllText(source).ReplaceLineEndings("\n");
     const string oldDefinition = "//@$& layerdef \"Old layer\" -1 0 0 0";
     Check(original.Contains("//@$& layerdef \"Architecture\" -1 0 0 0"), "Editor export has native default layer.");
     Check(original.Contains(oldDefinition), "Editor export exposes initial canonical layer in native Layers UI.");
@@ -64,6 +66,8 @@ try
     Check(File.ReadAllText(source) == hierarchy, "Import preserves external native hierarchy and RGB colors byte-for-byte.");
     string persistent = Regex.Replace(hierarchy, @"(?m)^//@\$& layer \d+\r?\n", "");
     persistent = persistent.Replace("\n{\n\"classname\" \"worldspawn\"", "\n//@$& layer 1\n{\n\"classname\" \"worldspawn\"");
+    Check(Regex.Matches(persistent, @"(?m)^//@\$& layer 1\r?$").Count == 1,
+        "Persistent-layer fixture contains exactly one native assignment before worldspawn.");
     Assigned(Import(persistent), "Parent/Child");
     string defaults = Regex.Replace(original, @"(?m)^//@\$& layer \d+\r?\n", "")
         .Replace("layerdef \"Architecture\"", "layerdef \"0\"");
@@ -74,8 +78,18 @@ try
     Check(oldSource.Definition.Geometry.Single(g => g.Id == mesh.Id).Layer == "Old layer", "Legacy native mesh retains its original payload layer.");
     var plain = Import(hierarchy.Replace("//@$& ", ""));
     Check(plain.Definition.Geometry.All(g => g.Layer == "Parent/Child"), "Native layer tokens are parsed with or without their compatibility marker.");
-    var zeroOnly = Import(noMetadata.Replace("\n{\n\"classname\" \"worldspawn\"", "\n//@$& layer 0\n{\n\"classname\" \"worldspawn\""));
+    string explicitZero = noMetadata.Replace("\n{\n\"classname\" \"worldspawn\"", "\n//@$& layer 0\n{\n\"classname\" \"worldspawn\"");
+    var zeroOnly = Import(explicitZero);
     Check(zeroOnly.Definition.Geometry.All(g => g.Layer == "Architecture"), "Explicit native index zero without definitions uses canonical Architecture.");
+    foreach (string newline in new[] { "\n", "\r\n" })
+    {
+        string nativeHierarchy = hierarchy.ReplaceLineEndings(newline);
+        Assigned(Import(nativeHierarchy), "Parent/Child");
+        Check(File.ReadAllText(source) == nativeHierarchy,
+            "Import preserves native hierarchy, RGB colors and LF/CRLF line endings byte-for-byte.");
+        Assigned(Import(persistent.ReplaceLineEndings(newline)), "Parent/Child");
+        Assigned(Import(explicitZero.ReplaceLineEndings(newline)), "Architecture");
+    }
     const string stockDefault = "//@$& layerdef \"0\" -1 0 0 0\n";
     string stockSave = stockDefault + noMetadata;
     var implicitDefault = Import(stockSave);
