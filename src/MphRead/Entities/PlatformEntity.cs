@@ -5,6 +5,7 @@ using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Formats.Collision;
 using MphRead.Formats.Culling;
+using MphRead.Mods.Campaign;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -62,6 +63,11 @@ namespace MphRead.Entities
         private readonly float _backwardSpeed;
         private int _currentAnimState = 0; // todo: names
         private int _currentAnimId = 0;
+        // Native Sylux Delano 7 is presentation only. Original SamusShip
+        // animations, collision and campaign script messages remain authoritative.
+        private readonly bool _useDelano7;
+        private bool _delano7TakingOff;
+        private bool _delano7Hidden;
         private float _moveSfxAmount = 0;
 
         // todo: would be nice to have the ability to manipulate these transforms manually
@@ -140,6 +146,20 @@ namespace MphRead.Entities
                 if (modelMeta.CollisionPath != null)
                 {
                     SetCollision(Collision.GetCollision(modelMeta), attach: inst);
+                }
+                Hunter? storyHunter = scene.Players.PlayerCount > 0
+                    ? scene.Players.Main.Hunter : null;
+                _useDelano7 = CampaignShipVisualPolicy.UseDelano7(
+                    scene.GameState.Mode, Flags, _meta.Name, storyHunter,
+                    scene.Services.IsReplica);
+                if (_useDelano7)
+                {
+                    // Slot 0 keeps the intro/collision rig. Extra slots render
+                    // Delano 7 and its turret with the ROM's own model data.
+                    SetUpModel(CampaignShipVisualPolicy.DelanoModel, animIndex: -1);
+                    PlatformMetadata turret = Metadata.GetPlatformById(21)!;
+                    SetUpModel(CampaignShipVisualPolicy.DelanoTurretModel,
+                        turret.AnimationIds[(int)PlatAnimId.InstantSleep]);
                 }
             }
             if (EntityCollision[0] == null)
@@ -277,7 +297,7 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
-            if (Flags.TestFlag(PlatformFlags.SamusShip))
+            if (Flags.TestFlag(PlatformFlags.SamusShip) && !_useDelano7)
             {
                 _effectNodeIds[0] = _models[0].Model.GetNodeIndexByName("R_Turret");
                 _effectNodeIds[1] = _models[0].Model.GetNodeIndexByName("R_Turret1");
@@ -423,6 +443,15 @@ namespace MphRead.Entities
             {
                 Debug.Assert(!_models[0].IsPlaceholder);
                 _models[0].SetAnimation(index, flags);
+            }
+            if (_useDelano7)
+            {
+                _delano7TakingOff = index == GetAnimation(PlatAnimId.Sleep);
+                _delano7Hidden = index == GetAnimation(PlatAnimId.InstantSleep);
+                PlatformMetadata delano = Metadata.GetPlatformById(8)!;
+                // Delano's departure uses its own authored flight timing.
+                _models[1].SetAnimation(_delano7TakingOff
+                    ? delano.AnimationIds[(int)PlatAnimId.Sleep] : -1, flags);
             }
         }
 
@@ -809,7 +838,16 @@ namespace MphRead.Entities
             {
                 UpdateAnimFrames(_models[0]);
             }
-            if (_currentAnimState != -2 && _models[0].AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+            if (_useDelano7)
+            {
+                if (_delano7TakingOff)
+                    UpdateAnimFrames(_models[1]);
+                UpdateAnimFrames(_models[2]);
+            }
+            // Preserve the original gunship script transition, but do not
+            // hide Delano 7 before its longer flight animation has completed.
+            ModelInstance shipAnim = _useDelano7 && _delano7TakingOff ? _models[1] : _models[0];
+            if (_currentAnimState != -2 && shipAnim.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
                 SetPlatAnimation(_currentAnimState, AnimFlags.None);
                 _currentAnimState = -2;
@@ -895,13 +933,34 @@ namespace MphRead.Entities
                         draw = false;
                     }
                 }
-                if (_animFlags.TestFlag(PlatAnimFlags.HasAnim) && _currentAnimId < 0)
+                if ((_animFlags.TestFlag(PlatAnimFlags.HasAnim) && _currentAnimId < 0)
+                    || (_useDelano7 && _delano7Hidden))
                 {
                     draw = false;
                 }
                 if (draw)
                 {
-                    base.GetDrawInfo();
+                    if (_useDelano7)
+                    {
+                        // The original rig remains active but invisible. It
+                        // supplies Delano's stationary landing pose, while the
+                        // actual ship and turret are the only visible models.
+                        UpdateTransforms(_models[0], 0);
+                        UpdateTransforms(_models[1], 1);
+                        UpdateTransforms(_models[2], 2);
+                        if (!Hidden)
+                        {
+                            GetDrawItems(_models[1], 1);
+                            GetDrawItems(_models[2], 2);
+                        }
+                        if (_scene.ShowCollision
+                            && (_scene.ColEntDisplay == EntityType.All || _scene.ColEntDisplay == Type))
+                            GetCollisionDrawInfo();
+                    }
+                    else
+                    {
+                        base.GetDrawInfo();
+                    }
                     _animFlags |= PlatAnimFlags.WasDrawn;
                 }
                 if (Flags.TestFlag(PlatformFlags.SamusShip))
@@ -1270,6 +1329,21 @@ namespace MphRead.Entities
 
         protected override Matrix4 GetModelTransform(ModelInstance inst, int index)
         {
+            if (_useDelano7 && index == 2)
+            {
+                // Sylux's turret mounts directly on Delano's authored ship
+                // root, in both stationary and moving poses.
+                return Matrix4.CreateScale(inst.Model.Scale)
+                    * _models[1].Model.Nodes[0].Animation;
+            }
+            if (_useDelano7 && index == 1 && !_delano7TakingOff)
+            {
+                // At rest the replacement follows the original gunship
+                // camera/collision root. During departure the native Delano
+                // animation is relative to the unmodified platform transform.
+                return Matrix4.CreateScale(inst.Model.Scale)
+                    * _models[0].Model.Nodes[0].Animation;
+            }
             return Matrix4.CreateScale(inst.Model.Scale) * GetTransform();
         }
 
