@@ -45,8 +45,10 @@ public partial class PlayerEntity
     }
 
     private void DsLabel(float x, float y, string value, float scale = .55f,
-        ColorRgba? ink = null) =>
+        ColorRgba? ink = null)
+    {
         DrawText2D(x, y, Align.Left, 0, value.AsSpan(), ink ?? DsText, scale: scale);
+    }
 
     private bool DsWeaponIcon(BeamType beam, float centerX, float centerY, float extent)
     {
