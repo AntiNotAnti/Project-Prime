@@ -40,6 +40,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-ship-flow
       - name: Verify cinematic catalog and decoder startup failure policy
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movies
+      - name: Verify movie decode worker cancellation, lifetime, and scene isolation
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movie-lifetime
       - name: Verify both Gorea endings and save completion handoff
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-endings
       - name: Verify campaign journal, scan HUD and map projection
