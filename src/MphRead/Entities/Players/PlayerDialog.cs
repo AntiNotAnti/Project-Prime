@@ -4,6 +4,8 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using MphRead.Hud;
 using MphRead.Text;
+using MphRead.Mods.Campaign;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace MphRead.Entities
@@ -756,21 +758,59 @@ namespace MphRead.Entities
                 string text = Strings.GetHudMessage(104); // ok
                 DrawText2D(posX + _dialogButtonInst.Width / 2 + 1, posY + 5, Align.Center, palette: 0, text);
             }
+            if (_scene.GameState.DialogPause)
+            {
+                // The original DS instructions still belong to the cartridge.
+                // Add a portable input hint instead of changing localized text.
+                string hint = dialogType == DialogType.YesNo
+                    ? "ENTER / A: YES    ESC / B: NO"
+                    : "ENTER / SPACE / A: OK";
+                DrawText2D(128, 162, Align.Center, palette: 0, hint);
+            }
         }
 
         private bool CheckButtonPressed(DialogButton type)
         {
             if (Input.ClickX >= 0 && Input.ClickY >= 0)
             {
-                float clickX = Input.ClickX / _scene.Size.X;
-                float clickY = Input.ClickY / _scene.Size.Y;
                 ButtonInfo info = _buttonInfo[(int)type];
-                if (clickX >= info.Left && clickX < info.Right && clickY >= info.Top && clickY < info.Bottom)
+                // GLFW delivers mouse coordinates in logical client-area units,
+                // but Scene.Size is the physical framebuffer on Retina/HiDPI.
+                // Android's synthetic mouse remains in its scene's own units.
+                int pointerWidth = !OperatingSystem.IsAndroid()
+                    && Mods.Input.PointerDevice.SurfaceWidth > 1
+                    ? Mods.Input.PointerDevice.SurfaceWidth : _scene.Size.X;
+                int pointerHeight = !OperatingSystem.IsAndroid()
+                    && Mods.Input.PointerDevice.SurfaceHeight > 1
+                    ? Mods.Input.PointerDevice.SurfaceHeight : _scene.Size.Y;
+                if (CampaignDialogInput.PointerHits(pointerWidth, pointerHeight,
+                    Input.ClickX, Input.ClickY, info.Left, info.Right, info.Top, info.Bottom))
                 {
                     return true;
                 }
             }
-            return false;
+            // The DS prompt requires a lower-screen tap. A player with a
+            // keyboard or controller must be able to accept the same dialog
+            // without losing focus or changing gameplay/replay input bindings.
+            bool KeyPressed(Keys key) => Input.KeyboardState?.IsKeyDown(key) == true
+                && Input.PrevKeyboardState?.IsKeyDown(key) != true;
+            bool confirm = KeyPressed(Keys.Enter) || KeyPressed(Keys.Space)
+                || Controls.Jump.IsPressed;
+            bool cancel = KeyPressed(Keys.Escape) || Controls.Morph.IsPressed;
+            bool previous = KeyPressed(Keys.Left) || Controls.MoveLeft.IsPressed;
+            bool next = KeyPressed(Keys.Right) || Controls.MoveRight.IsPressed;
+            CampaignDialogInput.Action? action = type switch
+            {
+                DialogButton.Okay => CampaignDialogInput.Action.Okay,
+                DialogButton.Yes => CampaignDialogInput.Action.Yes,
+                DialogButton.No => CampaignDialogInput.Action.No,
+                DialogButton.Left => CampaignDialogInput.Action.PreviousPage,
+                DialogButton.Right => CampaignDialogInput.Action.NextPage,
+                _ => null
+            };
+            return action.HasValue && CampaignDialogInput.Pressed(
+                DialogType, _scene.GameState.DialogPause, action.Value,
+                confirm, cancel, previous, next);
         }
 
         private readonly struct ButtonInfo

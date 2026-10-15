@@ -48,6 +48,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-audio
       - name: Verify full three-slot campaign progression and native save roundtrip
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-journey
+      - name: Verify campaign tutorials and dialogs accept keyboard and controller edges
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-dialog-input
       - name: Fence foreground release and cancelled room completion
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
       - name: Soak 10, 100 and 500 device-free owner/save handoffs
