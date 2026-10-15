@@ -248,14 +248,18 @@ internal sealed class HudStudioView : UserControl
         field.IsCheckedChanged += (_, _) => Edit(p => set(p, field.IsChecked == true)); _inspector.Children.Add(field);
     }
     private CrosshairProfile CrosshairOf(HudProfile p)
+        => CrosshairOf(p, _weapon, _zoom);
+
+    private static CrosshairProfile CrosshairOf(HudProfile p, int weapon, bool zoom)
     {
         CrosshairProfile Inherited()
         {
             var inherited=HudProfileStore.Parse(HudProfileStore.Serialize(p)).Crosshair;
-            inherited.OverrideProperties=Array.Empty<string>(); return inherited;
+            inherited.OverrideProperties=Array.Empty<string>();
+            return inherited;
         }
-        if (_zoom) return p.ZoomCrosshair ??= Inherited();
-        if (_weapon >= 0) return p.WeaponCrosshairs[_weapon] ??= Inherited();
+        if (zoom) return p.ZoomCrosshair ??= Inherited();
+        if (weapon >= 0) return p.WeaponCrosshairs[weapon] ??= Inherited();
         return p.Crosshair;
     }
     private void Refresh()
@@ -494,59 +498,65 @@ internal sealed class HudStudioView : UserControl
         var target = new ComboBox { ItemsSource = new[] { "Default", "Power Beam", "Volt Driver", "Missile", "Battlehammer", "Imperialist", "Judicator", "Magmaul", "Shock Coil", "Omega Cannon", "Zoom" }, SelectedIndex = _zoom ? 10 : _weapon+1 };
         target.SelectionChanged += (_, _) => { _zoom=target.SelectedIndex==10; _weapon=_zoom ? -1 : target.SelectedIndex-1; _canvas.Weapon=_weapon; _canvas.Zoom=_zoom; Refresh(); };
         _inspector.Children.Add(target);
+        // Capture which crosshair these controls edit. Delayed numeric/clipboard
+        // notifications must not update a weapon or zoom target selected later.
+        int weaponAtOpen = _weapon;
+        bool zoomAtOpen = _zoom;
+        CrosshairProfile ForTarget(HudProfile profile)
+            => CrosshairOf(profile, weaponAtOpen, zoomAtOpen);
         var p=_history.Draft;
-        bool custom = _zoom ? p.ZoomCrosshair != null : _weapon < 0 || p.WeaponCrosshairs[_weapon] != null;
-        if (_zoom || _weapon >= 0)
+        bool custom = zoomAtOpen ? p.ZoomCrosshair != null : weaponAtOpen < 0 || p.WeaponCrosshairs[weaponAtOpen] != null;
+        if (zoomAtOpen || weaponAtOpen >= 0)
         {
-            Toggle("Override default",custom,(p,v) => { if (v) CrosshairOf(p); else if (_zoom) p.ZoomCrosshair=null; else p.WeaponCrosshairs[_weapon]=null; });
+            Toggle("Override default",custom,(p,v) => { if (v) ForTarget(p); else if (zoomAtOpen) p.ZoomCrosshair=null; else p.WeaponCrosshairs[weaponAtOpen]=null; });
             Button(_inspector,"Refresh override controls",Refresh);
             if (!custom) return;
         }
-        var c=CrosshairOf(p);
+        var c=ForTarget(p);
         if(c.Native) _inspector.Children.Add(new TextBlock { Text="Native reticle uses the current hunter's game sprite and palette. Size and opacity apply; geometric part controls apply when Native is off.",TextWrapping=Avalonia.Media.TextWrapping.Wrap });
         var presets = new ComboBox { ItemsSource=CrosshairPresets.Names, PlaceholderText="Crosshair preset" };
-        presets.SelectionChanged += (_,_) => { if (presets.SelectedIndex < 0) return; Edit(p => { var c=CrosshairPresets.Create(presets.SelectedIndex); if (_zoom) p.ZoomCrosshair=c; else if (_weapon>=0) p.WeaponCrosshairs[_weapon]=c; else p.Crosshair=c; }); Refresh(); };
+        presets.SelectionChanged += (_,_) => { if (presets.SelectedIndex < 0) return; Edit(p => { var c=CrosshairPresets.Create(presets.SelectedIndex); if (zoomAtOpen) p.ZoomCrosshair=c; else if (weaponAtOpen>=0) p.WeaponCrosshairs[weaponAtOpen]=c; else p.Crosshair=c; }); Refresh(); };
         _inspector.Children.Add(presets);
-        Button(_inspector,"Share crosshair",() => { _json.Text = CrosshairPresets.Share(CrosshairOf(_history.Draft)); _json.BringIntoView(); });
+        Button(_inspector,"Share crosshair",() => { _json.Text = CrosshairPresets.Share(ForTarget(_history.Draft)); _json.BringIntoView(); });
         Button(_inspector,"Import crosshair code",() => Try(() =>
         {
             var imported = CrosshairPresets.Import(_json.Text?.Trim() ?? "");
-            Edit(p => { if (_zoom) p.ZoomCrosshair=imported; else if (_weapon>=0) p.WeaponCrosshairs[_weapon]=imported; else p.Crosshair=imported; }); Refresh();
+            Edit(p => { if (zoomAtOpen) p.ZoomCrosshair=imported; else if (weaponAtOpen>=0) p.WeaponCrosshairs[weaponAtOpen]=imported; else p.Crosshair=imported; }); Refresh();
         }));
-        var inherited = _zoom ? CrosshairProperties.Resolve(p.Crosshair,p.WeaponCrosshairs[4]) : p.Crosshair;
-        var displayed = _zoom || _weapon>=0 ? CrosshairProperties.Resolve(inherited,c) : c;
+        var inherited = zoomAtOpen ? CrosshairProperties.Resolve(p.Crosshair,p.WeaponCrosshairs[4]) : p.Crosshair;
+        var displayed = zoomAtOpen || weaponAtOpen>=0 ? CrosshairProperties.Resolve(inherited,c) : c;
         string? category=null;
         foreach (var descriptor in CrosshairProperties.All.OrderBy(d=>d.Category))
         {
             if(category!=descriptor.Category)
             { category=descriptor.Category; _inspector.Children.Add(new TextBlock { Text=category,FontSize=16 }); }
             object value=descriptor.Get(displayed)!;
-            if(descriptor.Type==typeof(bool)) Toggle(descriptor.Name,(bool)value,(p,v)=>descriptor.Set(CrosshairOf(p),v));
-            else if(descriptor.Type==typeof(string)) ColorField(descriptor.Name,(string)value,(p,v)=>descriptor.Set(CrosshairOf(p),v));
+            if(descriptor.Type==typeof(bool)) Toggle(descriptor.Name,(bool)value,(p,v)=>descriptor.Set(ForTarget(p),v));
+            else if(descriptor.Type==typeof(string)) ColorField(descriptor.Name,(string)value,(p,v)=>descriptor.Set(ForTarget(p),v));
             else if(descriptor.Type.IsEnum)
             {
                 var choice=new ComboBox { ItemsSource=Enum.GetNames(descriptor.Type),SelectedIndex=Convert.ToInt32(value) };
-                choice.SelectionChanged += (_,_)=>Edit(p=>descriptor.Set(CrosshairOf(p),Enum.ToObject(descriptor.Type,Math.Max(0,choice.SelectedIndex))));
+                choice.SelectionChanged += (_,_)=>Edit(p=>descriptor.Set(ForTarget(p),Enum.ToObject(descriptor.Type,Math.Max(0,choice.SelectedIndex))));
                 _inspector.Children.Add(choice);
             }
-            else Number(descriptor.Name,Convert.ToSingle(value),descriptor.Min,descriptor.Max,(p,v)=>descriptor.Set(CrosshairOf(p),descriptor.Type==typeof(int) ? (object)(int)v : v));
+            else Number(descriptor.Name,Convert.ToSingle(value),descriptor.Min,descriptor.Max,(p,v)=>descriptor.Set(ForTarget(p),descriptor.Type==typeof(int) ? (object)(int)v : v));
             Button(_inspector,"Reset "+descriptor.Name,()=>
-            { Edit(p=>descriptor.Reset(CrosshairOf(p),_weapon>=0 || _zoom ? inherited : HudProfileDefaults.Create(p.BasePreset).Crosshair)); Refresh(); });
+            { Edit(p=>descriptor.Reset(ForTarget(p),weaponAtOpen>=0 || zoomAtOpen ? inherited : HudProfileDefaults.Create(p.BasePreset).Crosshair)); Refresh(); });
         }
         foreach(string partName in CrosshairProperties.PartNames)
         {
             var property=typeof(CrosshairProfile).GetProperty(partName)!;
             var part=(CrosshairPartStyle)property.GetValue(displayed)!;
             CrosshairPartStyle Part(HudProfile profile)
-            { var crosshair=CrosshairOf(profile); CrosshairProperties.MarkPart(crosshair,partName); return (CrosshairPartStyle)property.GetValue(crosshair)!; }
+            { var crosshair=ForTarget(profile); CrosshairProperties.MarkPart(crosshair,partName); return (CrosshairPartStyle)property.GetValue(crosshair)!; }
             _inspector.Children.Add(new TextBlock { Text=partName,FontSize=16 });
             Toggle("Custom color",part.CustomColor,(p,v)=>Part(p).CustomColor=v);
-            ColorField("Part",part.Color,(p,v)=>Part(p).Color=v);
-            Number("Part opacity",part.Opacity,0,1,(p,v)=>Part(p).Opacity=v);
+            ColorField("Part",part.Color,(p,v)=>Part(p).Color=v,
+                part.Opacity,(p,v)=>Part(p).Opacity=v);
             Number("Outline (-1 inherits)",part.Outline,-1,20,(p,v)=>Part(p).Outline=v);
             Button(_inspector,"Reset "+partName,()=> { Edit(p=>
             {
-                var crosshair=CrosshairOf(p); property.SetValue(crosshair,new CrosshairPartStyle());
+                var crosshair=ForTarget(p); property.SetValue(crosshair,new CrosshairPartStyle());
                 if(crosshair.OverrideProperties!=null) crosshair.OverrideProperties=crosshair.OverrideProperties.Where(id=>id!=partName).ToArray();
             }); Refresh(); });
         }
@@ -555,9 +565,9 @@ internal sealed class HudStudioView : UserControl
         Toggle("Show hit marker",hit.Enabled,(p,v)=>p.HitMarker.Enabled=v);
         var shape = new ComboBox { ItemsSource=Enum.GetNames<HudHitMarkerShape>(),SelectedIndex=(int)hit.Shape };
         shape.SelectionChanged += (_,_)=>Edit(p=>p.HitMarker.Shape=(HudHitMarkerShape)shape.SelectedIndex); _inspector.Children.Add(shape);
-        ColorField("Hit marker",hit.Color,(p,v)=>p.HitMarker.Color=v);
+        ColorField("Hit marker",hit.Color,(p,v)=>p.HitMarker.Color=v,
+            hit.Opacity,(p,v)=>p.HitMarker.Opacity=v);
         Number("Marker scale",hit.Scale,.1f,8,(p,v)=>p.HitMarker.Scale=v);
-        Number("Marker opacity",hit.Opacity,0,1,(p,v)=>p.HitMarker.Opacity=v);
         Number("Marker gap",hit.Gap,0,100,(p,v)=>p.HitMarker.Gap=v);
         Number("Marker length",hit.Length,.1f,100,(p,v)=>p.HitMarker.Length=v);
         Number("Marker thickness",hit.Thickness,.1f,20,(p,v)=>p.HitMarker.Thickness=v);
