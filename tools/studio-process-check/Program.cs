@@ -30,22 +30,55 @@ string root=Path.Combine(Path.GetTempPath(),"studio-process-check-"+Guid.NewGuid
 Directory.CreateDirectory(root);
 try
 {
-    // Exercise the same route seam used by the Game header and Q/E/gamepad tab
-    // navigation. External launch requests must not instantiate/cache Forge.
+    // Exercise the unified Game header action and Q/E/gamepad workspace cycling.
+    // External launch requests must not instantiate a workspace or alter history.
+    var studioRoutes = new PrimeRouter();
+    int studioRequests = 0, studioChanges = 0;
+    studioRoutes.RegisterRouteAction(PrimeRoute.Studio, () => studioRequests++);
+    studioRoutes.Changed += _ => studioChanges++;
+    Check(PrimeRouter.Tabs.SequenceEqual(new[] { PrimeRoute.Play, PrimeRoute.Community,
+        PrimeRoute.Studio, PrimeRoute.Offline, PrimeRoute.Settings }),
+        "primary tabs expose unified Studio without News, Hunter License, or separate editors");
+    Check(!studioRoutes.Navigate(PrimeRoute.Studio) && !studioRoutes.Navigate(PrimeRoute.Studio)
+        && studioRequests==2 && studioChanges==0 && studioRoutes.Current==PrimeRoute.Play && studioRoutes.Previous==null,
+        "repeated unified Studio launches retain the default Play workspace without navigation history");
+    studioRoutes.CanNavigate = route => route!=PrimeRoute.Studio;
+    Check(!studioRoutes.Navigate(PrimeRoute.Studio) && studioRequests==2 && studioChanges==0
+        && studioRoutes.Current==PrimeRoute.Play && studioRoutes.Previous==null,
+        "unified Studio launch respects navigation guards without changing workspace or history");
+    studioRoutes.CanNavigate = null;
+    studioRoutes.Navigate(PrimeRoute.Community);
+    Check(!studioRoutes.Navigate(PrimeRoute.Studio) && studioRequests==3 && studioChanges==1
+        && studioRoutes.Current==PrimeRoute.Community && studioRoutes.Previous==PrimeRoute.Play,
+        "unified Studio preserves the active workspace and its existing back history");
+    Check(studioRoutes.Back() && studioRoutes.Current==PrimeRoute.Play && studioRoutes.Previous==null,
+        "back after unified Studio returns directly to the preceding game workspace");
+    studioRoutes.Navigate(PrimeRoute.Community);studioRoutes.NextRoute();
+    Check(studioRoutes.Current==PrimeRoute.Offline && studioRequests==3,
+        "forward tab cycling skips the external Studio action");
+    studioRoutes.PreviousRoute();
+    Check(studioRoutes.Current==PrimeRoute.Community && studioRequests==3,
+        "reverse tab cycling skips the external Studio action");
+    studioRoutes.Navigate(PrimeRoute.Play);studioRoutes.PreviousRoute();
+    Check(studioRoutes.Current==PrimeRoute.Settings,"previous primary tab wraps from Play to Settings");
+    studioRoutes.NextRoute();
+    Check(studioRoutes.Current==PrimeRoute.Play && studioRequests==3,"next primary tab wraps to Play without launching Studio");
+
+    // Legacy explicit Forge actions and embedded editor history remain supported.
     var routes = new PrimeRouter();
     int mapRequests = 0, embeddedActivations = 0;
     routes.RegisterRouteAction(PrimeRoute.Forge, () => mapRequests++);
     routes.Changed += route => { if(route==PrimeRoute.Forge)embeddedActivations++; };
-    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==1 && routes.Current==PrimeRoute.News
+    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==1 && routes.Current==PrimeRoute.Play
         && routes.Previous==null && embeddedActivations==0,"normal Forge entry requests Studio without creating embedded workspace or history");
     Check(routes.NavigateWorkspace(PrimeRoute.Forge) && mapRequests==1 && embeddedActivations==1,
         "explicit embedded/legacy entry retains the Forge workspace without an external launch");
     routes.Back();
-    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==2 && embeddedActivations==1 && routes.Current==PrimeRoute.News,
+    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==2 && embeddedActivations==1 && routes.Current==PrimeRoute.Play,
         "normal Forge reentry still opens Studio after an embedded workspace was previously cached");
-    routes.Navigate(PrimeRoute.Theatre);routes.NextRoute();
+    routes.Navigate(PrimeRoute.Theatre);routes.Navigate(PrimeRoute.Forge);
     Check(mapRequests==3 && routes.Current==PrimeRoute.Theatre && embeddedActivations==1,
-        "keyboard/gamepad next-tab Forge entry uses the same external action");
+        "legacy Forge entry from Theatre uses the external action without replacing its workspace");
     routes.CanNavigate = route => route!=PrimeRoute.Forge;
     routes.Navigate(PrimeRoute.Forge);
     Check(mapRequests==3 && routes.Current==PrimeRoute.Theatre,"navigation guards prevent external creator launches");
@@ -72,7 +105,7 @@ try
     currentRoute.Changed += _ => currentChanges++;
     currentRoute.NavigateWorkspace(PrimeRoute.Forge);
     Check(!currentRoute.Navigate(PrimeRoute.Forge) && !currentRoute.Navigate(PrimeRoute.Forge)
-        && currentRequests==2 && currentChanges==1 && currentRoute.Current==PrimeRoute.Forge && currentRoute.Previous==PrimeRoute.News,
+        && currentRequests==2 && currentChanges==1 && currentRoute.Current==PrimeRoute.Forge && currentRoute.Previous==PrimeRoute.Play,
         "repeated normal current-Forge requests open Studio without replacing embedded workspace or history");
     currentRoute.CanNavigate = _ => { guardCalls++;return false; };
     Check(!currentRoute.Navigate(PrimeRoute.Forge) && guardCalls==1 && currentRequests==2 && currentChanges==1,
