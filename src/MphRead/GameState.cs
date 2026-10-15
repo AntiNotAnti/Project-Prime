@@ -2325,7 +2325,12 @@ namespace MphRead
             for (int i = 0; i < logbook.Count; i++)
             {
                 StringTableEntry entry = logbook[i];
-                if (categories.Any(c => c == entry.Category) && (!unlockedOnly || CheckLogbook(i)))
+                // The ROM ScanLog is sparse (for example L029 then L032).
+                // Its table ordinal is not the persistent scan-bit identity.
+                // This read-only correction preserves historical save bytes.
+                int scanId = Mods.Campaign.CampaignJournal.ReadScanId(entry);
+                if (categories.Any(c => c == entry.Category)
+                    && (!unlockedOnly || scanId >= 0 && CheckLogbook(scanId)))
                 {
                     result++;
                 }
