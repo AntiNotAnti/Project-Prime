@@ -18,6 +18,34 @@ var colorEditor=new HudColorEditor("Test","#FFFFFF",v=>chosenColor=v);
 Check(colorEditor.Apply(" 0af ") && chosenColor=="#00AAFF","pasted short hex normalizes");
 Check(!colorEditor.Apply("not a color") && chosenColor=="#00AAFF","invalid color leaves prior value");
 Check(colorEditor.Apply(HudColorEditor.Swatches[6]) && chosenColor=="#FF0000","palette color applies immediately");
+
+foreach (var hex in new[] { "#FF0000", "#00FF00", "#0000FF", "#FFFFFF", "#000000",
+    "#AA55EE", "#56B4E9", "#D55E00" })
+{
+    Check(HudColorMath.TryParseHex(hex, out string normalized, out HudRgb rgb)
+        && normalized == hex, "HSV input normalizes " + hex);
+    HudHsv hsv = HudColorMath.ToHsv(rgb);
+    HudRgb roundtrip = HudColorMath.FromHsv(hsv.Hue, hsv.Saturation, hsv.Value);
+    Check(Math.Abs(rgb.R - roundtrip.R) <= 1
+        && Math.Abs(rgb.G - roundtrip.G) <= 1
+        && Math.Abs(rgb.B - roundtrip.B) <= 1,
+        "HSV roundtrip preserves original RGB " + hex);
+}
+Check(HudColorMath.ToHex(HudColorMath.FromHsv(0, 1, 1)) == "#FF0000"
+    && HudColorMath.ToHex(HudColorMath.FromHsv(120, 1, 1)) == "#00FF00"
+    && HudColorMath.ToHex(HudColorMath.FromHsv(240, 1, 1)) == "#0000FF",
+    "HSV primary axes");
+Check(!HudColorMath.TryParseHex("#GG1111", out _, out _)
+    && !HudColorMath.TryParseHex("#00000000", out _, out _),
+    "invalid hex and unsupported 8-digit alpha refused");
+float chosenOpacity = -1;
+var alphaEditor = new HudColorEditor("Opacity", "#AACCFF", _ => { },
+    opacity: .8f, opacityChanged: v => chosenOpacity = v);
+Check(alphaEditor.ApplyOpacity(.25f) && chosenOpacity == .25f
+    && alphaEditor.Opacity == .25f, "alpha change updates bound field");
+Check(!alphaEditor.ApplyOpacity(float.NaN) && alphaEditor.Opacity == .25f,
+    "nonfinite alpha cannot enter editable HUD profile");
+
 if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT") is {} nativeRoot)
 {
     MphRead.Paths.SetPath("AMHE1",nativeRoot); MphRead.Paths.MphKey="AMHE1";
@@ -121,6 +149,31 @@ Check(!canvas.History.Draft.Elements["core.ammo"].Enabled,"controller Y toggles 
 view.HandleControllerAxes(neutral,96); canvas.History.Undo();
 // The actual UI must survive repeated inspector replacement without parenting errors.
 var chooser=view.GetVisualDescendants().OfType<ComboBox>().First(c=>c.ItemsSource==HudProfileDefaults.ElementIds);
+
+chooser.SelectedIndex = 1;
+window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+var oldTint = view.GetVisualDescendants().OfType<HudColorEditor>().First(
+    c => c.Children.OfType<TextBlock>().Any(t => t.Text == "Tint color"));
+string ammoTint = canvas.History.Draft.Elements["core.ammo"].Color;
+chooser.SelectedIndex = 2;
+window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+Check(oldTint.Apply("#ABCDEF"), "old selected color editor still validates input");
+Check(canvas.History.Draft.Elements["core.health"].Color == "#ABCDEF"
+    && canvas.History.Draft.Elements["core.ammo"].Color == ammoTint,
+    "late color callback targets original element, not newer selection");
+Check(oldTint.ApplyOpacity(.42f) &&
+    MathF.Abs(canvas.History.Draft.Elements["core.health"].Opacity - .42f) < .0001f,
+    "late alpha callback targets original element");
+Check(canvas.History.Draft.Elements["core.ammo"].Opacity == original.Elements["core.ammo"].Opacity,
+    "late alpha callback leaves next element alone");
+var groupSelector=view.GetVisualDescendants().OfType<ComboBox>().First(c =>
+    c.ItemsSource is string[] names && names.Length == 4
+    && names[0] == "Core" && names[3] == "System");
+groupSelector.SelectedIndex=2;
+window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+Check(HudProfileDefaults.ElementIds[canvas.Selected].StartsWith("combat."),
+    "left category selection navigates combat group");
+
 for(int i=0;i<HudProfileDefaults.ElementIds.Length;i++){chooser.SelectedIndex=i;window.UpdateLayout();Dispatcher.UIThread.RunJobs();}
 chooser.SelectedIndex=0; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
 string shots=Path.Combine(directory,"shots"); Directory.CreateDirectory(shots);
