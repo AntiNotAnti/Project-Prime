@@ -22,8 +22,10 @@ namespace MphRead
         public IReadOnlyList<WeaponInfo> WeaponRules => GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
         internal IReadOnlyList<PlayerEntity.HudMessage> HudMessages { get; } = PlayerEntity.CreateHudMessages();
         internal Mods.Combat.KillFeed KillFeed { get; } = new();
-        // Presentation-only; one bounded rail pool per Scene, never a process-static list.
-        internal Mods.Render.InstagibIonFracture IonFracture { get; } = new();
+        // Presentation-only, lazily allocated: headless servers and standard
+        // matches never pay for the rail pool. Ownership ends with this Scene.
+        private Mods.Render.InstagibIonFracture? _ionFracture;
+        internal Mods.Render.InstagibIonFracture IonFracture => _ionFracture ??= new();
         internal Mods.MatchEvents.SceneMatchEvents MatchEvents { get; } = new();
         internal Mods.MatchEvents.MatchSemanticPublisher SemanticPublisher { get; } = new();
         internal Mods.MatchEvents.MatchSemanticPresentation SemanticPresentation { get; } = new();
