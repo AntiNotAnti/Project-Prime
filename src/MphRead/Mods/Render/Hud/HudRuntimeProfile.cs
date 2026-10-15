@@ -118,6 +118,7 @@ public sealed class HudRuntimeProfile
     public readonly HudInventoryRuntime Inventory;
     public readonly HudHitMarkerRuntime HitMarker;
     public readonly HudRadarRuntime Radar;
+    public readonly HudThemeRuntime Theme;
     public readonly CrosshairRuntime Crosshair;
     private readonly CrosshairRuntime?[] _weapons = new CrosshairRuntime?[9];
     private readonly CrosshairRuntime? _zoom;
@@ -130,6 +131,7 @@ public sealed class HudRuntimeProfile
         IndependentGauges=p.IndependentGauges;
         TextScale=p.TextScale; IconScale=p.IconScale; ReduceMotion=p.ReduceMotion; ReduceTransparency=p.ReduceTransparency;
         Notifications=new(p.Notifications);
+        Theme=new(p.Theme);
         Health=new(p.Health); Ammo=new(p.Ammo); KillFeed=new(p.KillFeed); Inventory=new(p.Inventory); HitMarker=new(p.HitMarker); Radar=new(p.Radar);
         Crosshair = new(p.Crosshair);
         for (int i = 0; i < 9; i++) if (p.WeaponCrosshairs[i] is {} weapon) _weapons[i] = new(CrosshairProperties.Resolve(p.Crosshair,weapon));
