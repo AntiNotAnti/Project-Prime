@@ -159,6 +159,28 @@ namespace MphRead.Mods.Render
 
             if (reducedMotion) return; // readable beam without animated fragments
 
+            // Signature feature: an X-shaped phase knot races down the actual
+            // rail in the first 0.19s. It briefly splits the energy into two
+            // diagonal crystalline edges, then vanishes into the impact prism.
+            // No helical winding or per-frame random number generation.
+            const float pulseLife = 0.19f;
+            if (age < pulseLife)
+            {
+                float travel = age / pulseLife;
+                float along = 0.06f + travel * 0.91f;
+                Vector3 center = lance.Start + delta * along;
+                float bloom = MathF.Sin(travel * MathF.PI);
+                Vector3 wedge = (right + up) * (0.20f * bloom);
+                Vector3 opposing = (right - up) * (0.20f * bloom);
+                float pulseAlpha = fade * bloom * 0.92f;
+                DrawFacet(scene, center - axis * 0.22f - wedge,
+                    center + axis * 0.22f + wedge, up,
+                    0.022f, 0.006f, hot, pulseAlpha);
+                DrawFacet(scene, center - axis * 0.22f + opposing,
+                    center + axis * 0.22f - opposing, right,
+                    0.022f, 0.006f, lance.Color, pulseAlpha * 0.75f);
+            }
+
             // Three stationary-in-shot-space shear fractures, not a corkscrew.
             // As the beam ages, each crystalline fin opens once and dissipates.
             // The stagger is stable per-shot, independent of the frame cadence.
