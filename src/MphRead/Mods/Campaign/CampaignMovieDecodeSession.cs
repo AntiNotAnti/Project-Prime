@@ -19,6 +19,7 @@ namespace MphRead.Mods.Campaign
         public VxDecoder? Bottom { get; }
         public Task TopTask { get; }
         public Task? BottomTask { get; }
+        public CancellationToken Token { get; }
 
         public bool IsCancellationRequested => Volatile.Read(ref _stopped) != 0;
         public bool IsQuiescent => TopTask.IsCompleted && (BottomTask?.IsCompleted ?? true);
@@ -30,6 +31,7 @@ namespace MphRead.Mods.Campaign
             Top = top;
             Bottom = bottom;
             CancellationToken token = _cancel.Token;
+            Token = token;
             TopTask = Task.Run(() => decodeTop(token), token);
             if (decodeBottom != null)
                 BottomTask = Task.Run(() => decodeBottom(token), token);
