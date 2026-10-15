@@ -5248,7 +5248,7 @@ namespace MphRead
 
             Mods.Network.NetConfirmedImpacts.Draw(this);
             // PR-14: depth-tested world-only prismatic Insta-Gib shot trails.
-            IonFracture.Draw(this);
+            _ionFracture?.Draw(this);
             PrepareEffectDraw();
 
             for (int i = 0; i < _activeElements.Count; i++)
