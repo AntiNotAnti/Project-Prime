@@ -19,11 +19,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly LayoutTransformControl _canvas;
         private readonly PrimeUiPulse _pulse;
         private double _scale = 1;
-        public PrimeShell(Func<PrimeRoute, Control> create, Action update)
+        public PrimeShell(Func<PrimeRoute, Control> create, Action update, Action? openStudio = null)
         {
             Background = PrimeTheme.BackgroundBrush;
             Workspaces = new PrimeWorkspaceHost(create) { HasOverlay = () => Overlays.IsOpen };
-            Header = new PrimeHeader(r => Router.Navigate(r));
+            Header = new PrimeHeader(r => Router.Navigate(r), openStudio);
             Footer = new PrimeFooter(update);
             var main = new Grid { RowDefinitions = new("Auto,*,Auto") };
             main.Children.Add(Header);

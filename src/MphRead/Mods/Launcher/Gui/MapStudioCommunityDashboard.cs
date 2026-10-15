@@ -269,6 +269,26 @@ internal sealed partial class MapStudioScreen
             _ = Job("Installing community map", async token =>
             {
                 status.Text = "Downloading and validating " + (package.DisplayName ?? package.Name) + "…";
+#if !ANDROID
+                if(NativeInstall!=null)
+                {
+                    string staged=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString("N")+".ppmap");
+                    try
+                    {
+                        await CommunityOperations(Endpoint()).UseClientAsync(false,async client=>
+                        {
+                            await client.DownloadResumableAsync(package,staged,token);
+                            return true;
+                        },token);
+                        var identity=MapContentIdentity.FromPackage(staged);
+                        if(host && NativeHost!=null)await NativeHost(staged,identity,Endpoint(),token);
+                        else await NativeInstall(staged,identity,token);
+                        GuardJob(token);status.Text=host?"Exact map ready in Project Prime's hosting screen.":"Exact map installed by Project Prime.";
+                        return;
+                    }
+                    finally{if(File.Exists(staged))File.Delete(staged);}
+                }
+#endif
                 if (!GameFiles.Ready)
                     throw new IOException("Set up game files before installing playable maps.");
                 EnsureMapInstallationAllowed();
@@ -1233,6 +1253,13 @@ internal sealed partial class MapStudioScreen
         import.Click += (_, _) => Browse("Install map package", false,
             path => _ = Job("Installing map package", async token =>
             {
+#if !ANDROID
+                if(NativeInstall!=null)
+                {
+                    var installedByGame=await NativeInstall(path,MapContentIdentity.FromPackage(path),token);
+                    GuardJob(token);status.Text="Installed "+installedByGame.Name+" in Project Prime.";return;
+                }
+#endif
                 if (!GameFiles.Ready)
                     throw new IOException("Set up game files before installing playable maps.");
                 EnsureMapInstallationAllowed();

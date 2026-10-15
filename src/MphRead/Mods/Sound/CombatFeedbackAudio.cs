@@ -240,8 +240,11 @@ namespace MphRead.Mods.Sound
             }
         }
 
+        internal static Action<byte[], float, bool>? OfflineCueSink { get; set; }
+
         public static void Warm()
         {
+            if (OfflineCueSink != null) return;
             if (MphRead.Mods.Headless.Active || MphRead.Mods.ThumbnailMode.Active
                 || !MusicPlayer.Available)
             {
@@ -252,6 +255,8 @@ namespace MphRead.Mods.Sound
                 _ = TryGetPlayer(GetSelection(cue));
             }
         }
+
+        internal static void StopPlayback() { lock (_gate) foreach (var player in _players.Values) player.Stop(); }
 
         public static void Reload()
         {
@@ -425,6 +430,13 @@ namespace MphRead.Mods.Sound
                 return;
             }
 
+            if (OfflineCueSink is { } offline)
+            {
+                if (!TryRead(id, out byte[] data) && !TryRead(DefaultSelection(cue), out data))
+                    throw new InvalidOperationException("The selected replay combat cue is unavailable: " + id);
+                offline(data, Math.Clamp(Sfx.Volume * AudioMixer.GetVolume(AudioBus.Notifications) * LauncherPrefs.CombatFeedbackVolume, 0, 1.5f), replaceExisting);
+                return;
+            }
             CuePlayer? player = TryGetPlayer(id);
             if (player == null && id.StartsWith(CustomPrefix, StringComparison.OrdinalIgnoreCase))
             {

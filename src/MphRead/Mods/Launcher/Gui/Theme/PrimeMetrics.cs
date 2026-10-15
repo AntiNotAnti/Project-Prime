@@ -22,8 +22,8 @@ namespace MphRead.Mods.Launcher.Gui
     internal static class PrimeTypography
     {
         public static readonly FontFamily Ui = new("fonts:Inter#Inter");
-        public static readonly FontFamily Display = new("avares://ProjectPrime/Assets/Fonts/Rajdhani-Bold.ttf#Rajdhani");
-        public static readonly FontFamily Label = new("avares://ProjectPrime/Assets/Fonts/Rajdhani-SemiBold.ttf#Rajdhani");
+        public static readonly FontFamily Display = new($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Rajdhani-Bold.ttf#Rajdhani");
+        public static readonly FontFamily Label = new($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Rajdhani-SemiBold.ttf#Rajdhani");
         public static readonly FontFamily Data = Deck.Mono;
         public const double DisplayLarge = 34, DisplayMedium = 30;
         public const double HeadingLarge = 26, HeadingMedium = 20, HeadingSmall = 17;

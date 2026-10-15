@@ -526,9 +526,9 @@ namespace MphRead.Mods.Launcher.Gui
                 Dispatcher.UIThread.Invoke(() =>
                 {
                     foreach (string asset in new[] {
-                        "avares://ProjectPrime/Assets/Fonts/Rajdhani-SemiBold.ttf",
-                        "avares://ProjectPrime/Assets/Fonts/Rajdhani-Bold.ttf",
-                        "avares://ProjectPrime/Assets/Fonts/Rajdhani-OFL.txt" })
+                        $"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Rajdhani-SemiBold.ttf",
+                        $"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Rajdhani-Bold.ttf",
+                        $"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Fonts/Rajdhani-OFL.txt" })
                         Check(Avalonia.Platform.AssetLoader.Exists(new Uri(asset)), "bundled tactical font asset " + asset);
                     Check(new Avalonia.Media.Typeface(PrimeTypography.Display, weight: Avalonia.Media.FontWeight.Bold)
                         .GlyphTypeface.FamilyName.Contains("Rajdhani", StringComparison.OrdinalIgnoreCase), "display resolves to bundled Rajdhani");

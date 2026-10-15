@@ -83,10 +83,18 @@ printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.t
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"
 printf '{"Name":"PACKAGING TEST"}\n' > "$fixture/maps/fixture.json"
 printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
-"$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3
+studio_fixture="$temp/studio-input"
+mkdir -p "$studio_fixture"
+cp "$root/ProjectPrime" "$studio_fixture/ProjectPrimeStudio"
+touch "$fixture/.project-prime-in-use.lock" "$studio_fixture/.project-prime-update.lock"
+"$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3 "$studio_fixture"
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
 app="$temp/unpacked/Project Prime.app"
+codesign --verify --deep --strict "$temp/unpacked/Project Prime Studio.app"
+[[ ! -e "$app/Contents/MacOS/.project-prime-in-use.lock" ]] || exit 1
+[[ ! -e "$temp/unpacked/Project Prime Studio.app/Contents/MacOS/.project-prime-update.lock" ]] || exit 1
+python3 "$repo/tools/paired-install-check.py" "$temp/unpacked" --version 1.2.3 --rid "$rid"
 [[ -f "$app/Contents/Resources/maps/fixture.json" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/maps" ]] || exit 1
 cmp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"

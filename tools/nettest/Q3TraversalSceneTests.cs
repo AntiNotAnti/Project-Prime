@@ -194,6 +194,11 @@ internal static class Q3TraversalSceneTests
         byte[] invalidCount = (byte[])valid.Clone();
         BitConverter.GetBytes(4097).CopyTo(invalidCount, 12);
         Reject(invalidCount, "mismatched/oversized traversal checkpoint trigger count rejected");
+        byte[] invalidCooldown = (byte[])valid.Clone();
+        BitConverter.GetBytes(-.1f).CopyTo(invalidCooldown, 0);
+        BitConverter.GetBytes(123).CopyTo(invalidCooldown, 4);
+        BitConverter.GetBytes(601).CopyTo(invalidCooldown, 16);
+        Reject(invalidCooldown, "late invalid cooldown rejects entire traversal checkpoint without partially changing flight");
     }
     private static void ObserveOwnerProof(Scene scene, PlayerEntity p)
     {

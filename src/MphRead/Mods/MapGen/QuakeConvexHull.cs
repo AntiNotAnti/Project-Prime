@@ -18,7 +18,8 @@ internal static class QuakeConvexHull
     private const float VertexToleranceSq = PlaneTolerance * PlaneTolerance;
     private sealed record Plane(Vector3 Normal, float Distance);
 
-    public static MapGeometry FromQuakePlanes(IReadOnlyList<Vector3[]> sourceFaces, float units)
+    public static MapGeometry FromQuakePlanes(IReadOnlyList<Vector3[]> sourceFaces, float units,
+        bool legacyPrimeWinding = false)
     {
         if (sourceFaces.Count is < 4 or > 32)
             throw new InvalidOperationException("Convex Quake brush requires 4-32 planes.");
@@ -31,7 +32,12 @@ internal static class QuakeConvexHull
                 !float.IsFinite(p.X) || !float.IsFinite(p.Y) || !float.IsFinite(p.Z)
                 || Math.Abs(p.X) > 65536 || Math.Abs(p.Y) > 65536 || Math.Abs(p.Z) > 65536))
                 throw new InvalidOperationException("Invalid or out-of-budget Quake brush plane coordinates.");
-            Vector3 normal = Vector3.Cross(source[1] - source[0], source[2] - source[0]);
+            // Quake 3 PlaneFromPoints uses CrossProduct(d2, d1). The initial
+            // Prime exporter used the opposite convention; only its explicit
+            // v1 source header permits reading that historical format.
+            Vector3 normal = legacyPrimeWinding
+                ? Vector3.Cross(source[1] - source[0], source[2] - source[0])
+                : Vector3.Cross(source[2] - source[0], source[1] - source[0]);
             if (!float.IsFinite(normal.LengthSquared()) || normal.LengthSquared() < 0.000001f)
                 throw new InvalidOperationException("Degenerate Quake brush plane.");
             normal = Vector3.Normalize(normal);

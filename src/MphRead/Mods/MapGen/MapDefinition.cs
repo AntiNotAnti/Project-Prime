@@ -139,6 +139,15 @@ namespace MphRead.Mods.MapGen
             return LoadCore(path, catalogOnly: false);
         }
 
+        // Authoring loads bind their revision to the exact bytes parsed, rather
+        // than hashing a second read which may belong to a newer external save.
+        internal static MapDefinition ParseProjectBytes(byte[] bytes, string path)
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            return Parse(reader.ReadToEnd(), path, bundled: false);
+        }
+
         /// <summary>
         /// Read enough of a map to list it in the launcher without cryptographically
         /// streaming every asset in a potentially hundreds-of-megabytes package.

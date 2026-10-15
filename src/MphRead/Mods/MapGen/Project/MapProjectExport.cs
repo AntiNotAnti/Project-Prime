@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace MphRead.Mods.MapGen
@@ -6,6 +7,12 @@ namespace MphRead.Mods.MapGen
     {
         // Copy only referenced, validated assets, never raw archive paths.
         public static void Save(MapDefinition definition,string path)
+            => SaveCore(definition,path,null);
+
+        internal static string SaveGuarded(MapDefinition definition,string path,Action beforeCommit)
+            => SaveCore(definition,path,beforeCommit);
+
+        private static string SaveCore(MapDefinition definition,string path,Action? beforeCommit)
         {
             string destination=Path.GetDirectoryName(Path.GetFullPath(path))!;
             foreach(string asset in MapDependencyAnalyzer.PackageAssets(definition))
@@ -50,7 +57,10 @@ namespace MphRead.Mods.MapGen
                 collision.BaseDirectory = destination;
             }
             definition.BundlePath=null;definition.SourcePath=Path.GetFullPath(path);definition.BaseDirectory=Path.GetDirectoryName(definition.SourcePath);
-            definition.Save(path);
+            byte[] projectBytes=System.Text.Encoding.UTF8.GetBytes(MapProjectFolder.Serialize(definition));
+            if(beforeCommit==null)AtomicFile.Write(path,projectBytes);
+            else MapSourceRevision.Commit(path,projectBytes,beforeCommit);
+            return MapSourceRevision.HashBytes(projectBytes);
         }
     }
 }

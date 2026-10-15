@@ -9,9 +9,10 @@ internal static class ReplayAudioOwner
     private static Scene? _owner, _live;
     private static SfxInstanceBase? _backend;
     private static ulong _version;
+    internal static bool Owns(Scene scene) => ReferenceEquals(_owner, scene);
     internal static bool MayPlay(Scene scene) => _owner == null
         ? scene.Services.AllowsPresentationSideEffects : ReferenceEquals(_owner, scene);
-    internal static ulong Acquire(Scene scene, Scene live)
+    internal static ulong Acquire(Scene scene, Scene? live)
     {
         _version++; _owner = scene; _live = live; _backend = Sfx.Instance;
         _backend?.StopAllSound(); _backend?.SetListenerScene(scene);

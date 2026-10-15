@@ -662,6 +662,7 @@ namespace MphRead.Mods.Network
 
         private void ReturnToLobby()
         {
+            if (!TryPrepareNextMap(_now)) return;
             RotationEntry next = _rotation.Advance();
             // Preserve the complete configured match. Only the room advances.
             // Rebuilding from RotationEntry here was the source of time/goal/mode

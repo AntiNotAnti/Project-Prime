@@ -1,11 +1,14 @@
 # Community Hub PR-14 | Safe cutover preparation, cleanup and release readiness
 
-**Repository:** `AntiNotAnti/Project-Prime`  
-**Stack:** PR-10 #546 -> PR-11 #547 -> PR-12 #549 -> PR-13 #551 -> PR-14 (this draft).  
-**Status:** implementation and review staging. **No production cutover or default-editor change.**  
-**Test policy:** Creator/user has deliberately deferred actual NetRadiant, Q3Map2, game-device, multiplayer and replay acceptance. These are **not passed**.
+**Repository:** `AntiNotAnti/Project-Prime`
+**Historical scope:** PR-10 #546 through PR-14 #556; all are now merged. Activation #559 subsequently changed feature defaults.
+**Current status:** creator workspace and public-map mirror default on in source; configured external NetRadiant preference conditional on a valid installed executable. Production, real-editor and device certification remain pending.
+**Historical evidence:** The sections below describe the PR-14 candidate before #559. Their opt-in/off defaults and rollout sequence are historical, superseded by [feature activation](community-hub-feature-activation.md) and [current integration status](community-hub-status.md). They do not authorize reverting current defaults.
+**Current rollback:** explicitly set `PROJECT_PRIME_STUDIO_COMMUNITY_HUB_PREVIEW=0`, `PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED=0` or `PROJECT_PRIME_NETRADIANT_DEFAULT=0`. Leaving these unset does not disable them. Trusted CDN hosts remain operator-configured.
 
-## What changed
+**Test policy:** Actual NetRadiant, Q3Map2, game-device, multiplayer and replay acceptance was deferred in the historical PR. No manual test is passed by this document; the new implementation ledger records fresh evidence.
+
+## What changed in the historical PR-14 candidate
 
 - `PrimeRoute.Community` already provides a game-level Discover / Installed /
   Favorites / Downloads workspace independent of Map Studio. PR-14 does not
@@ -38,7 +41,7 @@
   local/offline playtest remain accessible. The legacy dashboard is a rollback
   path, not a second actively enabled cutover route by default.
 
-## Default-off activation controls
+## Historical PR-14 default-off activation controls (superseded by #559)
 
 | Control | Default | Behavior | Revert |
 |---|---|---|---|

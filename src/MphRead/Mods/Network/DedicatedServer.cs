@@ -869,8 +869,44 @@ namespace MphRead.Mods.Network
             BroadcastMapChoices();
         }
 
+        private string? _blockedRotationRoom;
+        private string? _blockedRotationError;
+        private double _rotationPreparationRetryAt;
+
+        private bool TryPrepareNextMap(double now)
+        {
+            if (_controlPlaneOnlyForTests) return true;
+            string room = _rotation.Next.RoomKey;
+            if (_blockedRotationRoom == room && now < _rotationPreparationRetryAt) return false;
+            try
+            {
+                NetworkMapIdentity.PrepareRoom(room);
+                _blockedRotationRoom = _blockedRotationError = null;
+                _rotationPreparationRetryAt = 0;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                string reason = ex.GetBaseException().Message;
+                if (_blockedRotationRoom != room || _blockedRotationError != reason)
+                {
+                    Announce($"cannot rotate to {room}: {reason}");
+                    Log($"rotation preparation failed for {room}: {reason}");
+                }
+                // Keep the current entry and scene. A failed rotation cannot
+                // terminate the server or retry compilation on every pump.
+                _blockedRotationRoom = room;
+                _blockedRotationError = reason;
+                _rotationPreparationRetryAt = now + 5;
+                return false;
+            }
+        }
+
         private void AdvanceMap(double now)
         {
+            // Validate the next immutable package and all five outputs before
+            // advancing the rotation or tearing down the current scene.
+            if (!TryPrepareNextMap(now)) return;
             ServerReplayRecorder.Stop(matchEnded: true);
             RotationEntry entry = _rotation.Advance();
             NetworkMapIdentity.StageRoom(entry.RoomKey);
@@ -1473,6 +1509,7 @@ namespace MphRead.Mods.Network
                     if (!_controlPlaneOnlyForTests && !Mods.Multiplayer.MapModeCapabilities.Supports(resolved,
                         ModeForRoom(resolved), LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers), out string incompatible))
                     { Tell(peer, incompatible); return; }
+                    if (!TryPrepareVoteRoom(peer, resolved)) return;
                     key = resolved;
                 }
             }
@@ -1704,6 +1741,7 @@ namespace MphRead.Mods.Network
             if (!_controlPlaneOnlyForTests && !Mods.Multiplayer.MapModeCapabilities.Supports(resolved,
                 ModeForRoom(resolved), LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers), out string incompatible))
             { Tell(peer, incompatible); return; }
+            if (!TryPrepareVoteRoom(peer, resolved)) return;
             _voteRunning = true;
             _voteRoom = resolved;
             // The mode the rotation would play this map in if it lists it,
@@ -1806,6 +1844,17 @@ namespace MphRead.Mods.Network
             // vote pass on less than what was asked for.
             int needed = Math.Max(1, (int)Math.Ceiling(eligible * VoteThreshold));
             return (yes, no, eligible, needed);
+        }
+
+        private bool TryPrepareVoteRoom(Peer peer, string room)
+        {
+            if (_controlPlaneOnlyForTests) return true;
+            try { NetworkMapIdentity.PrepareRoom(room); return true; }
+            catch (Exception ex)
+            {
+                Tell(peer, $"cannot select {room}: {ex.GetBaseException().Message}");
+                return false;
+            }
         }
 
         private void ResolveVote(double now, bool passed, string count)

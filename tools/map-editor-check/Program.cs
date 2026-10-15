@@ -7,6 +7,14 @@ using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 
+if(args.Contains("--source-revision-only"))
+{
+    string fixture=Path.Combine(Path.GetTempPath(),"prime-source-revision-check-"+Guid.NewGuid().ToString("N"));
+    int sourceChecks=0;Directory.CreateDirectory(fixture);
+    try{MapSourceRevisionChecks.Run((condition,label)=>{if(!condition)throw new Exception(label);sourceChecks++;},fixture);}
+    finally{Directory.Delete(fixture,true);}
+    Console.WriteLine($"Map source revisions: {sourceChecks} checks passed.");return;
+}
 if(args.Contains("--runtime-only"))
 {
     string folder=Path.Combine(Path.GetTempPath(),"prime-runtime-check-"+Guid.NewGuid().ToString("N"));
@@ -76,6 +84,7 @@ string? previousQ3Cache = Pk3DiscoveryService.CacheDirectoryOverride;
 Pk3DiscoveryService.CacheDirectoryOverride = Path.Combine(root, "isolated-q3-cache");
 try
 {
+    MapSourceRevisionChecks.Run(Check,root);
     // Exercise the launcher/runtime entry point, including its generation lease
     // and the installer's publication lease. Direct scheduler tests miss a
     // nested acquisition of the same lock, which leaves maps unplayable.

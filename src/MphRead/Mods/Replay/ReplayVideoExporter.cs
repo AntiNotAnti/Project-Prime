@@ -13,9 +13,9 @@ namespace MphRead.Mods.Replay
     /// replay exactly once per captured source frame and the queue starts the
     /// next job only after the current renderer has released ownership.
     /// </summary>
-    internal enum ReplayExportState { Idle, Queued, Seeking, Rendering, Encoding, Completed, Failed, Cancelled }
+    internal enum ReplayExportState { Idle, Queued, Seeking, Rendering, Encoding, Completed, Failed, Cancelled, MixingAudio }
 
-    internal static class ReplayVideoExporter
+    internal static partial class ReplayVideoExporter
     {
         private static ReplayVideoExportManifest? _job;
         private static ReplayVideoSegment[] _segments = Array.Empty<ReplayVideoSegment>();

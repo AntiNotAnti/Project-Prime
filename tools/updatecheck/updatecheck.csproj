@@ -6,6 +6,7 @@
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">local</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Launcher/ClientInstanceGuard.cs" Link="ClientInstanceGuard.cs" />
     <Compile Include="../../src/MphRead/Mods/Platform/WebLink.cs" Link="WebLink.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/ServerUpdate.cs" Link="ServerUpdate.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/Updater.cs" Link="Updater.cs" />

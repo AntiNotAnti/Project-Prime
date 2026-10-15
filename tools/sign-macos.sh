@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $# == 1 ]] || { echo 'usage: sign-macos.sh <publish-directory>' >&2; exit 1; }
+[[ $# == 1 || $# == 2 ]] || { echo 'usage: sign-macos.sh <publish-directory> [apphost-name]' >&2; exit 1; }
 [[ $(uname -s) == Darwin ]] || { echo 'error: signing requires macOS' >&2; exit 1; }
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 root=$(cd "$1" && pwd)
+apphost=${2:-ProjectPrime}
 entitlements="$repo/src/MphRead/Platforms/macOS/ProjectPrime.entitlements"
-[[ -x "$root/ProjectPrime" ]] || { echo "error: no executable in $root" >&2; exit 1; }
+[[ -x "$root/$apphost" ]] || { echo "error: no executable in $root" >&2; exit 1; }
 plutil -lint "$entitlements"
 
 # Inspect every file, including extensionless framework binaries and helpers.
@@ -14,7 +15,7 @@ list=$(mktemp)
 trap 'rm -f "$list"' EXIT
 find "$root" -type f -print0 > "$list"
 while IFS= read -r -d '' component; do
-    [[ "$component" != "$root/ProjectPrime" ]] || continue
+    [[ "$component" != "$root/$apphost" ]] || continue
     description=$(file -b "$component")
     if [[ "$description" == *Mach-O* ]]; then
         codesign --force --sign - "$component"
@@ -27,5 +28,5 @@ while IFS= read -r -d '' framework; do
     codesign --force --sign - "$framework"
     codesign --verify --strict --verbose=2 "$framework"
 done < "$list"
-codesign --force --sign - --entitlements "$entitlements" "$root/ProjectPrime"
-codesign --verify --strict --verbose=4 "$root/ProjectPrime"
+codesign --force --sign - --entitlements "$entitlements" "$root/$apphost"
+codesign --verify --strict --verbose=4 "$root/$apphost"

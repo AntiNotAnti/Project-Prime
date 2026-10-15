@@ -29,6 +29,7 @@ internal static class ClientInstanceGuard
 
     private static readonly object Gate = new();
     private static Lease? _processLease;
+    private static IDisposable? _installationLease;
 
     /// <summary>
     /// Acquire once for the interactive process and keep ownership through
@@ -60,17 +61,20 @@ internal static class ClientInstanceGuard
                         "another interactive Project Prime client is still running; duplicate launch suppressed");
                     return false;
                 }
+                try { _installationLease = Update.DesktopUpdate.HoldInstallationUseLease(); }
+                catch { try { mutex.ReleaseMutex(); } finally { mutex.Dispose(); } throw; }
                 _processLease = new Lease(mutex);
                 return true;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or PlatformNotSupportedException)
             {
-                // Instance coordination is an optimization and safety rail, not a
-                // reason to make an otherwise valid platform unable to launch.
+                // In-use lease contention includes an updater replacing this
+                // exact installation. Never start against a partial pair even
+                // if the interactive mutex itself was acquired successfully.
                 DebugLog.Line("startup",
-                    "single-client coordination unavailable: " + ex.Message);
-                return true;
+                    "client startup refused: installation coordination is unavailable or an update is active: " + ex.Message);
+                return false;
             }
         }
     }
@@ -84,5 +88,6 @@ internal static class ClientInstanceGuard
             _processLease = null;
         }
         lease?.Dispose();
+        Interlocked.Exchange(ref _installationLease, null)?.Dispose();
     }
 }

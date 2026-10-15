@@ -19,6 +19,7 @@ namespace MphRead.Mods.MapGen
     public sealed class MapProject
     {
         public MapDefinition Definition { get; }
+        internal MapSourceRevision? SourceRevision { get; set; }
         public MapProject(MapDefinition definition) { Definition = definition; }
         public MapProjectMetadata Metadata => new()
         {
@@ -32,7 +33,31 @@ namespace MphRead.Mods.MapGen
     public static class MapProjectSerializer
     {
         private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
-        public static MapProject Load(string path) => new(MapDefinition.Load(path));
+        public static MapProject Load(string path)
+        {
+            if (MapBundle.Is(path)) return new(MapDefinition.Load(path));
+            string physical = MapSourceRevision.ResolvePath(path);
+            byte[] bytes;
+            using (var input = new FileStream(physical, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (input.Length > MapPackageReader.MaxProjectBytes)
+                    throw new InvalidDataException("Map project exceeds 32 MiB.");
+                using var output = new MemoryStream();
+                byte[] buffer = new byte[81920];
+                int read;
+                while ((read = input.Read(buffer, 0, buffer.Length)) != 0)
+                {
+                    if (output.Length + read > MapPackageReader.MaxProjectBytes)
+                        throw new InvalidDataException("Map project exceeds 32 MiB.");
+                    output.Write(buffer, 0, read);
+                }
+                bytes = output.ToArray();
+            }
+            var revision = new MapSourceRevision(physical, MapSourceRevision.HashBytes(bytes));
+            var project = new MapProject(MapDefinition.ParseProjectBytes(bytes, path)) { SourceRevision = revision };
+            revision.RequireUnchanged(path);
+            return project;
+        }
         public static MapDefinition Clone(MapDefinition source)
         {
             var copy = JsonSerializer.Deserialize<MapDefinition>(source.Serialize(), Options)!;
@@ -71,7 +96,7 @@ namespace MphRead.Mods.MapGen
             foreach (var x in copy.Spawns) if (x.Id == Guid.Empty) x.Id = Guid.NewGuid();
             foreach (var x in copy.Items) if (x.Id == Guid.Empty) x.Id = Guid.NewGuid();
             foreach (var x in copy.JumpPads) if (x.Id == Guid.Empty) x.Id = Guid.NewGuid();
-            return new(copy);
+            return new(copy) { SourceRevision = source.SourceRevision };
         }
     }
 }

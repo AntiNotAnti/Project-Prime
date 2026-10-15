@@ -27,8 +27,8 @@ for relative in files:
     if (len(relative) > 1024 or relative.startswith("/")
             or any(part in ("", ".", "..") or part.endswith((" ", "."))
                    or ":" in part or "\\" in part for part in parts)
-            or parts[0] in (".project-prime-update.lock",
-                            ".project-prime-update-transaction")):
+            or parts[0].lower() in (".project-prime-update.lock",
+                            ".project-prime-update-transaction", ".project-prime-in-use.lock")):
         raise SystemExit(f"unsafe file in release manifest: {relative!r}")
     path = root / relative
     if path.is_symlink():

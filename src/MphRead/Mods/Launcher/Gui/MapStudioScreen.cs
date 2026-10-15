@@ -62,6 +62,7 @@ namespace MphRead.Mods.Launcher.Gui
         private MapDocument? _document;
         private MapViewport? _viewport;
         private CancellationTokenSource? _work;
+        private TaskCompletionSource? _jobFinished;
         private bool _refreshing;
         private string _hierarchySignature = "";
         private string _inspectorPage = "Inspector";
@@ -134,6 +135,7 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(backStudio, "studio.back");
             var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto,Auto",
                 backStudio, _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
+            headerActions.VerticalAlignment = VerticalAlignment.Center;
             var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
             _root.Children.Add(header);
             _editingControls.AddRange(new Control[]
@@ -158,7 +160,8 @@ namespace MphRead.Mods.Launcher.Gui
             MenuGroup("File",("Source changes…",ShowSourceChanges),("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
                 ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),
                 ("Edit current in NetRadiant…",EditCurrentInNetRadiant),
-                ("Open in NetRadiant…",LaunchNetRadiant),("Compile NetRadiant Source…",CompileNetRadiantSource),
+                ("Open in NetRadiant…",LaunchNetRadiant),("Review Radiant geometry changes…",ReviewRadiantGeometryChanges),
+                ("Compile source to BSP reference…",CompileNetRadiantSource),
                 ("Import editable .map…",ImportEditableQuakeMap),("Export editable .map…",ExportEditableQuakeMap),
                 ("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
                 ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
@@ -185,20 +188,30 @@ namespace MphRead.Mods.Launcher.Gui
             _cancelJob.IsVisible = false;
             _editingControls.AddRange(toolbar.Children);
 
-            _path.MinWidth = 320;
+            _path.MinWidth = 100;
             var commandBar = new Grid
             {
-                ColumnDefinitions = new("Auto,*,Auto"),
-                ColumnSpacing = 10
+                ColumnDefinitions = new("Auto,*"),
+                RowDefinitions = new("Auto,Auto"),
+                ColumnSpacing = 10,
+                RowSpacing = 6
             };
-            commandBar.Children.Add(toolbar);
+            var commandScroll = new ScrollViewer
+            {
+                Content = toolbar,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            };
+            Grid.SetColumnSpan(commandScroll, 2);
+            commandBar.Children.Add(commandScroll);
+            Grid.SetRow(_path, 1);
             Grid.SetColumn(_path, 1);
             commandBar.Children.Add(_path);
             var projectOps = PrimeChrome.Text(
-                "PROJECT FILE  //  menus retain full import / export / online operations",
+                "PROJECT FILE",
                 PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
             projectOps.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(projectOps, 2);
+            Grid.SetRow(projectOps, 1);
             commandBar.Children.Add(projectOps);
             var commandPanel = new PrimePanel(commandBar, raised: true)
             {
@@ -336,8 +349,12 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(materialsQuick, "studio.materials");
             ControllerNav.Identify(assetsQuick, "studio.assets");
             ControllerNav.Identify(healthQuick, "studio.health");
-            var inspectorQuick = PrimeChrome.Columns("*,*,*,*",
-                inspectQuick, materialsQuick, assetsQuick, healthQuick);
+            var inspectorQuick = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (var quick in new[] { inspectQuick, materialsQuick, assetsQuick, healthQuick })
+            {
+                quick.Margin = new Thickness(0, 0, 4, 4);
+                inspectorQuick.Children.Add(quick);
+            }
             var inspectorHeader = PrimeChrome.Stack(
                 PrimeChrome.Eyebrow("PROPERTIES // CONTEXT"),
                 _inspectorTitle,
@@ -474,7 +491,11 @@ namespace MphRead.Mods.Launcher.Gui
                 if(_document==null||!_document.IsDirty||_document.LastEditUtc<=_autosaved||DateTime.UtcNow-_document.LastEditUtc<TimeSpan.FromSeconds(3))return;
                 if (_autosave.Queue(_document.CaptureAutosave(CustomRooms.UserMapDirectory))) _autosaved = _document.LastEditUtc;
             };
-            AttachedToVisualTree+=(_,_)=>{_detached=false;_autosave=new();LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);_idle.Start();
+            AttachedToVisualTree+=(_,_)=>{_detached=false;
+#if !MPHREAD_STUDIO
+                _autosave=new();
+#endif
+                LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);_idle.Start();
 #if MPHREAD_SHELL
                 Shell.FilesDropped+=OnFilesDropped;
 #endif
@@ -483,7 +504,11 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_SHELL
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
-                _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
+                _idle.Stop();
+#if !MPHREAD_STUDIO
+                _detached=true;_editorGeneration++;_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();
+#endif
+            };
             RefreshStudioChrome();
             if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
         }
@@ -570,12 +595,19 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void Close()
         {
+#if MPHREAD_STUDIO
+            Closed?.Invoke(this,EventArgs.Empty);return;
+#else
             if (_poppedOut) { Closed?.Invoke(this, EventArgs.Empty); return; }
             if (_overlays != null) Closed?.Invoke(this, EventArgs.Empty);
             else WithUnsaved(() => Closed?.Invoke(this, EventArgs.Empty));
+#endif
         }
         internal void Load(MapProject project,string? path=null)
         {
+#if !ANDROID
+            if(path!=null&&NativeCanOpenSource?.Invoke(path)==false)return;
+#endif
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
             _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
@@ -600,7 +632,7 @@ namespace MphRead.Mods.Launcher.Gui
                     :$"Picked authored material {hit.Material}.";
                 MaterialInspector();
             };
-            _viewportHost.Children.Clear();_viewportHost.Children.Add(_viewport);_path.Text=path!=null&&!MapBundle.Is(path)?path:Path.Combine(CustomRooms.UserMapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
+            _viewportHost.Children.Clear();_viewportHost.Children.Add(HostViewport(_viewport));_path.Text=path!=null&&!MapBundle.Is(path)?path:Path.Combine(CustomRooms.UserMapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
             Dismiss();Changed();_viewport.FrameAll();
             if(_document.HasRecovery(CustomRooms.UserMapDirectory))Recovery();
             if(project.Definition.Import!=null||project.Definition.NativeRoom!=null)
@@ -628,6 +660,9 @@ namespace MphRead.Mods.Launcher.Gui
             if(_document==null)return;
             try
             {
+#if !ANDROID
+                NativeRequireSaveTarget?.Invoke(path);
+#endif
                 // No old autosave may recreate recovery after a successful manual save.
                 _autosave.Dispose();_autosave.Completion.GetAwaiter().GetResult();
                 _document.Save(path);_document.DiscardRecovery(CustomRooms.UserMapDirectory);
@@ -644,6 +679,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Changed()
         {
+#if !ANDROID
+            DocumentChanged?.Invoke();
+#endif
             try { RefreshSourceWatch(); } catch (IOException ex) { _status.Text="Source watch: "+ex.Message; }
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
@@ -2431,7 +2469,15 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using var bitmap=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)_viewport.Bounds.Width,(int)_viewport.Bounds.Height),new Avalonia.Vector(96,96));
-                bitmap.Render(_viewport);using var stream=new MemoryStream();bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+#if MPHREAD_STUDIO
+                // Explicit thumbnails use the canonical CPU view while the native
+                // surface retains its own current-context rendering ownership.
+                bool native=_viewport.NativeGpuActive;_viewport.NativeGpuActive=false;
+                try{bitmap.Render(_viewport);}finally{_viewport.NativeGpuActive=native;}
+#else
+                bitmap.Render(_viewport);
+#endif
+                using var stream=new MemoryStream();bitmap.Save(stream, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 byte[] preview = stream.ToArray();
 #if MPHREAD_SHELL
                 preview = _viewport.CaptureGpuPreview(preview);
@@ -2456,9 +2502,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_work!=null||_detached||_poppedOut)return;var work=new CancellationTokenSource();_work=work;
             _jobDocument=_document;_jobState=_document?.CurrentStateId;_jobGeneration=_editorGeneration;long generation=_editorGeneration;
+            var finished=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);_jobFinished=finished;
             _status.Text=label+"…";
             SetBusy(true);
-            try{await action(work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);}finally{work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}}
+            try{await action(work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);}finally{work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}finished.TrySetResult();}
         }
         private void SetBusy(bool busy)
         {
@@ -2556,6 +2603,16 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private Task Play(MapSpawn? start=null)=>Work("Preparing playtest",async(p,token)=>
         {
+#if !ANDROID
+            if(NativePlaytest!=null)
+            {
+                // Apply the requested start to the detached playtest snapshot;
+                // preserve the authored document and its runtime map identity.
+                if(start!=null){p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=(float[])start.Position.Clone(),Yaw=start.Yaw,Team=start.Team});}
+                else if(_viewport!=null){var pos=_viewport.CameraPosition;p.Definition.Spawns.Clear();p.Definition.Spawns.Add(new(){Position=new[]{pos.X,pos.Y,pos.Z}});}
+                await NativePlaytest(p,token);GuardJob(token);return;
+            }
+#endif
             if(!GameFiles.Ready)throw new IOException("Set up game files in Settings before playtesting.");GameFiles.ApplyPaths();
             p.Definition.Name=_previewName;p.Definition.SourcePath=null;
             p.Definition.Capabilities=null;
@@ -2570,7 +2627,12 @@ namespace MphRead.Mods.Launcher.Gui
         private Task Audit()=>Work("Running map audit",async(p,token)=>
         {
             if(!GameFiles.Ready)throw new IOException("Set up game files before running a map audit.");
-            var result=await MapAuditRunner.Run(p,token);GuardJob(token);_status.Text=result.Passed?"Map audit passed.":"Map audit failed.";
+#if !ANDROID
+            var result=NativeAudit!=null?await NativeAudit(p,token):await MapAuditRunner.Run(p,token);
+#else
+            var result=await MapAuditRunner.Run(p,token);
+#endif
+            GuardJob(token);_status.Text=result.Passed?"Map audit passed.":"Map audit failed.";
             _problems.ItemsSource=result.Lines;
         });
         private void OnFilesDropped(IReadOnlyList<string> files)

@@ -23,12 +23,17 @@ internal sealed partial class MapStudioScreen
         if(definition.Collision?.Resolve() is {} collision)sources.Add(new(collision,""));
         if(definition.Import?.Resolve() is {} import)sources.Add(new(import,""));
         if(definition.BaseDirectory is {} root)sources.AddRange(definition.Materials.Where(m=>m.Texture!=null).Select(m=>new MapSourceDependency(Path.Combine(root,m.Texture!),"")));
+        if (definition.MapId != Guid.Empty)
+        {
+            string radiant = RadiantSourceWorkspace.SourcePath(Path.Combine(CustomRooms.UserMapDirectory, "netradiant-sources"), definition.MapId);
+            if (File.Exists(radiant)) sources.Add(new(radiant, ""));
+        }
         sources=sources.Where(s=>Path.IsPathFullyQualified(s.Path)).GroupBy(s=>s.Path).Select(g=>g.First()).OrderBy(s=>s.Path,StringComparer.Ordinal).ToList();
         string signature=string.Join("\n",sources.Select(s=>s.Path+"\0"+s.Hash));if(signature==_sourceWatchSignature&&_sourceWatch!=null)return;_sourceWatchSignature=signature;
         if(_sourceWatch==null)
         {
             _sourceWatch=new();var document=_document;var service=_sourceWatch;
-            service.Changed+=path=>Dispatcher.UIThread.Post(()=>{if(_document!=document||_sourceWatch!=service||_detached)return;_changedSources.Add(path);_status.Text=$"SOURCE CHANGED · {Path.GetFileName(path)} · File → Source changes to review.";});
+            service.Changed+=path=>Dispatcher.UIThread.Post(()=>{if(_document==null||_sourceWatch!=service||_detached||!_sourceWatchSignature.Contains(path+"\0",StringComparison.Ordinal))return;_changedSources.Add(path);_status.Text=$"SOURCE CHANGED · {Path.GetFileName(path)} · File → Source changes to review.";});
         }
         _sourceWatch.SetSources(sources.Select(s=>s.Hash.Length>0?s:new(s.Path,File.Exists(s.Path)?MapHash256.HashFile(s.Path).ToString():"missing")));
     }
@@ -38,6 +43,12 @@ internal sealed partial class MapStudioScreen
         foreach(string path in _changedSources.Order(StringComparer.Ordinal).ToArray())
         {
             panel.Children.Add(Text(Path.GetFileName(path)+" changed externally."));
+            if (Path.GetExtension(path).Equals(".map", StringComparison.OrdinalIgnoreCase)
+                && File.Exists(path + ".prime-source.json"))
+            {
+                AddButton(panel, "Review Radiant geometry changes", () => { Dismiss(); ReviewRadiantGeometryChanges(path); });
+                continue;
+            }
             var model=_document.Project.Definition.ModelSources.FirstOrDefault(s=>s.Source==path||s.Dependencies.Any(d=>d.Path==path));
             if(model!=null)
             {AddButton(panel,"Review changes",()=>{Dismiss();ModelImportOptions(model.Source,model);});AddButton(panel,"Reimport preview",()=>{Dismiss();AnalyzeModel(model.Source,model.Settings,model.Id);});}

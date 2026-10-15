@@ -263,6 +263,8 @@ namespace MphRead.Mods
                 // Custom maps can compile while players are choosing settings,
                 // instead of making Start Match pay that cost.
                 MapGen.CustomRooms.GenerateMissing(metadata.Name);
+                if (MapGen.CustomRooms.WhyUnplayable(metadata.Name) is { } unplayable)
+                    throw new InvalidDataException(unplayable);
 
                 List<string> paths = AssetPaths(metadata);
                 var files = new Dictionary<string, Lazy<byte[]>>(PathComparer);

@@ -1,0 +1,19 @@
+diff --git a/tools/quake3/q3map2/q3map2.h b/tools/quake3/q3map2/q3map2.h
+index 72fe481d..7d42dc8b 100644
+--- a/tools/quake3/q3map2/q3map2.h
++++ b/tools/quake3/q3map2/q3map2.h
+@@ -805,7 +805,13 @@ public:
+ 	}
+ 	mesh_t( mesh_t&& other ) noexcept : width( other.width ), height( other.height ), m_verts( std::exchange( other.m_verts, nullptr ) ) {
+ 	}
+-	mesh_t& operator=( const mesh_t& ) = delete;
++	mesh_t& operator=( const mesh_t& other ) {
++		if( this != &other ){
++			std::destroy_at( this );
++			std::construct_at( this, other );
++		}
++		return *this;
++	}
+ 	mesh_t& operator=( mesh_t&& other ) noexcept {
+ 		if( this != &other ){
+ 			std::destroy_at( this );

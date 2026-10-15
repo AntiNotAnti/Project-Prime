@@ -324,7 +324,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             base.Render(context);
 #if MPHREAD_SHELL
-            if (GpuActive) context.Custom(new ViewportHole(new Rect(Bounds.Size)));
+            if (NativeGpuActive) { }
+            else if (GpuActive) context.Custom(new ViewportHole(new Rect(Bounds.Size)));
             else
 #endif
                 context.FillRectangle(new SolidColorBrush(Color.Parse("#141c25")),new Rect(Bounds.Size));

@@ -58,6 +58,7 @@ public static class QuakeMapInterchange
             || unitsPerPrimeUnit is < 1f or > 1024f)
             throw new ArgumentOutOfRangeException(nameof(unitsPerPrimeUnit));
         string full = Path.GetFullPath(source);
+        if (sidecarPath != null) RadiantSourceTransaction.Recover(full, sidecarPath);
         if (!File.Exists(full) || Path.GetExtension(full).ToLowerInvariant() != ".map"
             || new FileInfo(full).Length is <= 0 or > 32L * 1024 * 1024)
             throw new InvalidDataException("Input must be a bounded editable Quake .map file.");
@@ -112,6 +113,7 @@ public static class QuakeMapInterchange
         int depth = 0;
         int lineNo = 0, brushIndex = 0, patchIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
         var seenObjectIds = new HashSet<Guid>();
+        bool legacyPrimeWinding = false;
         bool inPatch = false, patchBodyClosed = false;
         bool? patchSolid = null;
         int? patchTessellation = null;
@@ -207,7 +209,7 @@ public static class QuakeMapInterchange
             try
             {
                 geometry = QuakeConvexHull.FromQuakePlanes(
-                    faces.Select(f => f.Points).ToArray(), unitsPerPrimeUnit);
+                    faces.Select(f => f.Points).ToArray(), unitsPerPrimeUnit, legacyPrimeWinding);
             }
             catch (InvalidOperationException ex)
             {
@@ -227,9 +229,9 @@ public static class QuakeMapInterchange
                     int targetIndex = faceIndex;
                     if (boxFaces != null)
                     {
-                        Vector3 normal = Vector3.Normalize(Vector3.Cross(
-                            face.Points[1] - face.Points[0],
-                            face.Points[2] - face.Points[0]));
+                        Vector3 normal = Vector3.Normalize(legacyPrimeWinding
+                            ? Vector3.Cross(face.Points[1] - face.Points[0], face.Points[2] - face.Points[0])
+                            : Vector3.Cross(face.Points[2] - face.Points[0], face.Points[1] - face.Points[0]));
                         Vector3 converted = new(normal.X, normal.Z, -normal.Y);
                         targetIndex = -1;
                         for (int i = 0; i < boxFaces.Count; i++)
@@ -418,6 +420,28 @@ public static class QuakeMapInterchange
             if (raw.Length > 4096)
                 throw new InvalidDataException("Quake map has an oversized source line.");
             string line = raw.Trim();
+            // The exact v1 exporter header is a format marker, not permission
+            // to guess at malformed third-party planes. Real Quake sources
+            // and every newly exported source use Quake's PlaneFromPoints.
+            if (line == "// Project Prime original Quake3 .map brush authoring source" && depth == 0)
+            {
+                if (worldspawnCount != 0)
+                    Error("FP-RADIANT-WINDING", lineNo, "Legacy winding marker must precede map entities.");
+                else
+                {
+                    legacyPrimeWinding = true;
+                    diagnostics.Add(new("FP-RADIANT-LEGACY-WINDING", lineNo,
+                        "Historical Prime source uses legacy plane winding. Import and export a new .map before using a real Quake compiler.", false));
+                }
+                continue;
+            }
+            if (line.StartsWith("// PRIME_PLANE_WINDING=", StringComparison.Ordinal) && depth == 0)
+            {
+                if (worldspawnCount != 0 || line != "// PRIME_PLANE_WINDING=quake3")
+                    Error("FP-RADIANT-WINDING", lineNo, "Unsupported or misplaced source plane winding marker.");
+                else legacyPrimeWinding = false;
+                continue;
+            }
             if (line.StartsWith("// PRIME_ID=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
             {
@@ -644,6 +668,15 @@ public static class QuakeMapInterchange
 
     public static void Export(MapDefinition map, string output, string? sidecarPath = null,
         float unitsPerPrimeUnit = DefaultUnits)
+        => ExportCore(map, output, sidecarPath, unitsPerPrimeUnit, false);
+
+    internal static void ExportUnderLease(MapDefinition map, string output, string sidecarPath,
+        Func<string, byte[]>? nativeAdjunct = null, Action<RadiantSourceCommitPoint>? fault = null)
+        => ExportCore(map, output, sidecarPath, DefaultUnits, true, nativeAdjunct, fault);
+
+    private static void ExportCore(MapDefinition map, string output, string? sidecarPath,
+        float unitsPerPrimeUnit, bool leaseHeld, Func<string, byte[]>? nativeAdjunct = null,
+        Action<RadiantSourceCommitPoint>? fault = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit <= 0)
@@ -719,7 +752,8 @@ public static class QuakeMapInterchange
         if (errors.Count != 0) throw new QuakeMapInterchangeException(errors.ToArray());
 
         var sb = new StringBuilder();
-        sb.AppendLine("// Project Prime original Quake3 .map brush authoring source");
+        sb.AppendLine("// Project Prime Quake3 .map brush authoring source v2");
+        sb.AppendLine("// PRIME_PLANE_WINDING=quake3");
         sb.AppendLine("{");
         sb.AppendLine("\"classname\" \"worldspawn\"");
         foreach (MapGeometry geometry in map.Geometry)
@@ -744,7 +778,7 @@ public static class QuakeMapInterchange
             void Plane(int faceIndex, Vector3 first, Vector3 second,
                 Vector3 third, Vector3 expected)
             {
-                if (Vector3.Dot(Vector3.Cross(second - first, third - first), expected) < 0)
+                if (Vector3.Dot(Vector3.Cross(third - first, second - first), expected) < 0)
                     (second, third) = (third, second);
                 MapQuakeFace? face = geometry.QuakeFaces?[faceIndex];
                 string faceShader = face == null
@@ -851,6 +885,10 @@ public static class QuakeMapInterchange
             Path.GetDirectoryName(full)!, "project-prime.json"));
         if (string.Equals(full, sidecar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Quake source and identity sidecar must be distinct files.");
+        using var sourceLease = leaseHeld ? null : RadiantSourceTransaction.Acquire(full);
+        RadiantSourceTransaction.RecoverUnderLease(full, sidecar);
+        string? sourceBefore = File.Exists(full) ? MapBuildFingerprint.HashFile(full) : null;
+        string? sidecarBefore = File.Exists(sidecar) ? MapBuildFingerprint.HashFile(sidecar) : null;
         QuakeMapSidecar? previous = null;
         if (File.Exists(full) && File.GetAttributes(full).HasFlag(FileAttributes.ReparsePoint))
             throw new InvalidDataException("Refusing to overwrite a symbolic-link .map source.");
@@ -883,10 +921,16 @@ public static class QuakeMapInterchange
             throw new IOException("Quake .map changed since its identity sidecar was written "
                 + "or has no trusted sidecar. Import the updated source or export to a new path.");
         // Refuse identity/source conflicts before modifying either source or sidecar.
-        AtomicFile.Write(full, Encoding.UTF8.GetBytes(sb.ToString()));
-        AtomicFile.Write(sidecar, JsonSerializer.SerializeToUtf8Bytes(
+        byte[] sourceBytes = Encoding.UTF8.GetBytes(sb.ToString());
+        byte[] sidecarBytes = JsonSerializer.SerializeToUtf8Bytes(
             new QuakeMapSidecar(1, map.MapId, map.Name, unitsPerPrimeUnit,
-                MapBuildFingerprint.HashFile(full)), MapPackageReader.JsonOptions));
+                Convert.ToHexString(SHA256.HashData(sourceBytes)).ToLowerInvariant()),
+            MapPackageReader.JsonOptions);
+        byte[]? adjunctBytes = nativeAdjunct?.Invoke(Convert.ToHexString(SHA256.HashData(sourceBytes)).ToLowerInvariant());
+        string? adjunctPath = adjunctBytes == null ? null : full + ".prime-source.json";
+        string? adjunctBefore = adjunctPath != null && File.Exists(adjunctPath) ? MapBuildFingerprint.HashFile(adjunctPath) : null;
+        RadiantSourceTransaction.CommitUnderLease(full, sidecar, sourceBytes, sidecarBytes, sourceBefore, sidecarBefore,
+            fault, adjunctPath, adjunctBytes, adjunctBefore);
     }
 
     private static bool SafeShader(string? shader)
@@ -902,6 +946,25 @@ public static class QuakeMapInterchange
                 or >= '0' and <= '9' or '_' or '-' or '.' or '/'))
                 return false;
         return true;
+    }
+
+    public static QuakeMapSidecar ReadIdentity(string path)
+    {
+        if (!File.Exists(path) || new FileInfo(path).Length > 65536)
+            throw new InvalidDataException("Missing or oversized Quake identity sidecar.");
+        return ReadIdentityBytes(File.ReadAllBytes(path));
+    }
+
+    internal static QuakeMapSidecar ReadIdentityBytes(byte[] bytes)
+    {
+        var sidecar = ReadSidecarStrict(bytes);
+        if (sidecar?.SchemaVersion != 1 || sidecar.MapId == Guid.Empty
+            || !float.IsFinite(sidecar.UnitsPerPrimeUnit)
+            || sidecar.UnitsPerPrimeUnit is < 1 or > 1024
+            || sidecar.SourceSha256 is not { Length: 64 }
+            || sidecar.SourceSha256.Any(c => !Uri.IsHexDigit(c)))
+            throw new InvalidDataException("Invalid Quake identity sidecar.");
+        return sidecar;
     }
 
     private static QuakeMapSidecar? ReadSidecarStrict(byte[] bytes)

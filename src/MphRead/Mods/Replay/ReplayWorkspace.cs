@@ -185,7 +185,7 @@ namespace MphRead.Mods.Replay
         {
             string sidecar = Sidecar(replay);
             Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
-            File.WriteAllText(sidecar, JsonSerializer.Serialize(doc, JsonOptions));
+            ReplayAnnotations.WriteAtomic(sidecar, JsonSerializer.Serialize(doc, JsonOptions));
         }
 
         private static string RequireReplay(string replay)

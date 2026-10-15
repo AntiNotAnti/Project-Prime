@@ -14,8 +14,12 @@ internal sealed partial class MapStudioScreen
             {
                 try
                 {
-                    var sidecar = Path.Combine(Path.GetDirectoryName(source)!,
-                        "project-prime.json");
+                    if (_document != null && File.Exists(source + ".prime-source.json"))
+                    {
+                        ReviewRadiantGeometryChanges(source);
+                        return;
+                    }
+                    var sidecar = RadiantSourceWorkspace.SidecarPath(source);
                     var result = QuakeMapInterchange.Import(source,
                         File.Exists(sidecar) ? sidecar : null);
                     // Never save the Project Prime JSON back over the external
@@ -41,7 +45,7 @@ internal sealed partial class MapStudioScreen
                         + string.Join("; ", ex.Diagnostics.Take(4)
                             .Select(d => d.Code + " line " + d.Line + " " + d.Message));
                 }
-                catch (Exception ex) when (ex is IOException or ArgumentException
+                catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                     or System.Text.Json.JsonException or MapAuthoringException
                     or UnauthorizedAccessException)
                 { Failure(ex); }
@@ -65,7 +69,7 @@ internal sealed partial class MapStudioScreen
                         + string.Join("; ", ex.Diagnostics.Take(4)
                             .Select(d => d.Code + " " + d.Message));
                 }
-                catch (Exception ex) when (ex is IOException or InvalidOperationException
+                catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException
                     or ArgumentException or MapAuthoringException
                     or UnauthorizedAccessException)
                 { Failure(ex); }

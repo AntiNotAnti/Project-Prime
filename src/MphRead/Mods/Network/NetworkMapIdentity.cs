@@ -63,6 +63,29 @@ public readonly record struct NetworkMapIdentity(Guid MapId, MapHash256 ContentH
         var value = installed.Identity;
         return new(value.MapId, value.ContentHash, value.PackageHash, NetworkMapFlags.Custom);
     }
+
+    /// <summary>Prepare and verify before a vote or rotation advertises a custom room.</summary>
+    public static void PrepareRoom(string room)
+    {
+        lock (MapRuntimeUsage.Gate)
+        {
+            if (!Metadata.IsBuiltInRoom(room) && MapRuntimeUsage.IsInUse(room))
+            {
+                // Ready in-use content can be advertised, but staging a loose
+                // map or repairing its outputs would publish beneath a scene
+                // or prewarm reader. Keep those bytes untouched until release.
+                if (!CustomRooms.Installed.TryGet(room, out var owned)
+                    || !CustomRooms.Installed.HasExact(owned.Identity)
+                    || CustomRooms.WhyUnplayable(room) != null)
+                    throw new InvalidDataException("A scene or preparation still owns this map. Close it before preparing missing, damaged or stale map content: " + room);
+                return;
+            }
+            StageRoom(room);
+            CustomRooms.GenerateMissing(room);
+            if (CustomRooms.WhyUnplayable(room) is { } reason)
+                throw new InvalidDataException(reason);
+        }
+    }
 }
 
 public enum MapAvailabilityState : byte { Unknown, Missing, Downloading, Verifying, Installing, Building, Prewarming, Ready, Failed }

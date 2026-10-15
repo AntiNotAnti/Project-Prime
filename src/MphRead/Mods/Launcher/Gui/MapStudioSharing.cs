@@ -11,24 +11,31 @@ namespace MphRead.Mods.Launcher.Gui;
 
 internal sealed partial class MapStudioScreen
 {
-    private bool _poppedOut;
+    private bool _poppedOut = false;
     private static string CommunitySettingsPath => Path.Combine(LauncherPrefs.Directory, "map-community.txt");
     private static string UserMapLibrary => CustomRooms.UserMapDirectory;
 
     // The editor only supplies the current account's ticket callbacks.
     // Authentication, retry and client lifetime belong to the shared facade.
-    private static CommunityMapOperations CommunityOperations(string address)
-        => new(address, new DelegateCommunityCredentialSource(
+    private CommunityMapOperations CommunityOperations(string address)
+        => new(address,
+#if !ANDROID
+            NativeCommunityCredentials ??
+#endif
+            new DelegateCommunityCredentialSource(
             HunterLicenseClient.GetCommunityMapTicketAsync,
             HunterLicenseClient.RefreshCommunityMapTicketAsync));
 
-    private static Task<T> WithCommunityAuthentication<T>(string address,
+    private Task<T> WithCommunityAuthentication<T>(string address,
         CancellationToken token, Func<MapCommunityClient, Task<T>> action)
         => CommunityOperations(address).UseClientAsync(true, action, token);
 
     private async Task PopOut()
     {
-#if MPHREAD_SHELL
+#if MPHREAD_STUDIO
+        await Task.CompletedTask;
+        _status.Text="This workspace is already running in Project Prime Studio.";
+#elif MPHREAD_SHELL
         if (_poppedOut || _work != null) return;
         if (Shell.StudioWindow) { _status.Text = "This is already a separate editor window. Resize or maximize it using the window controls."; return; }
         string? project = null;
@@ -42,21 +49,9 @@ internal sealed partial class MapStudioScreen
                 _document.Save(project);
                 _document.DiscardRecovery(CustomRooms.UserMapDirectory);
             }
-            string executable = Environment.ProcessPath ?? throw new IOException("Cannot locate the application executable.");
-            var start = new ProcessStartInfo(executable) { UseShellExecute=false, WorkingDirectory=AppContext.BaseDirectory };
-            if (Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-                start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ProjectPrime.dll"));
-            start.ArgumentList.Add("-mapstudio");
-            if (!string.IsNullOrWhiteSpace(project)) { start.ArgumentList.Add("-studioproject"); start.ArgumentList.Add(Path.GetFullPath(project)); }
-            using var child = Process.Start(start) ?? throw new IOException("Could not open Map Studio.");
-            _poppedOut=true; SetBusy(true);
-            _status.Text="Editing in the separate Map Studio window. Close it to resume editing here.";
-            await child.WaitForExitAsync();
-            if (project != null && File.Exists(project))
-            {
-                Load(MapProjectSerializer.Load(project), project);
-                _status.Text=child.ExitCode==0 ? "Editor window closed. Reloaded the saved project; unsaved edits are available through recovery." : $"Editor process exited with code {child.ExitCode}. Your saved project has been reloaded.";
-            }
+            if (!StudioIntegration.StudioApplicationLauncher.TryOpen(project, false, out string? error, "maps"))
+                throw new IOException(error);
+            _status.Text = "Project Prime Studio opened with the saved project. Close this embedded copy before editing the same file in Studio.";
         }
         catch (Exception ex) { Failure(ex); }
         finally { _poppedOut=false; _autosave=new(); SetBusy(false); }
@@ -115,6 +110,13 @@ internal sealed partial class MapStudioScreen
             GuardJob(token);
             Directory.CreateDirectory(LauncherPrefs.Directory);
             File.WriteAllText(CommunitySettingsPath, address.Trim());
+#if !ANDROID
+            if(NativeHost!=null)
+            {
+                await NativeHost(path,MapContentIdentity.FromPackage(path),address,token);
+                GuardJob(token);_status.Text="Exact package is ready in Project Prime's hosting screen.";return;
+            }
+#endif
             var installed = await Task.Run(() => MapPackageInstaller.Install(path, manifest.MapId,
                 manifest.ContentHash, MapBuildFingerprint.HashFile(path), UserMapLibrary), token);
             GuardJob(token);

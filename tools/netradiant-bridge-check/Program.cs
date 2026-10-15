@@ -21,6 +21,13 @@ Check(config.Root?.Name.LocalName == "game"
     && (string?)config.Root.Attribute("type") == "q3"
     && (string?)config.Root.Attribute("mapformat") == "q3",
     "Project Prime gamepack XML is well-formed Quake-compatible external configuration");
+foreach (string required in new[] { "basegamename", "unknowngamename", "entities", "entityclass", "entityclasstype", "brushtypes", "patchtypes", "maptypes", "shaders", "texturetypes", "archivetypes", "modeltypes", "engine_win32", "engine_linux", "engine_macos", "enginepath_win32", "enginepath_linux", "enginepath_macos" })
+    Check(config.Root?.Attribute(required) != null,
+        "gamepack declares required NetRadiant module/path attribute " + required);
+XDocument entityDefinitions = XDocument.Load(Path.Combine(gamepack, "entities.ent"));
+Check(entityDefinitions.Root?.Name.LocalName == "classes"
+    && entityDefinitions.Root.Elements("point").Any(x => (string?)x.Attribute("name") == "info_player_deathmatch"),
+    "entity definitions use actual NetRadiant XML .ent syntax");
 string entities = File.ReadAllText(Path.Combine(gamepack, "entities.ent"));
 Check(entities.Contains("info_player_deathmatch", StringComparison.Ordinal)
     && entities.Contains("trigger_teleport", StringComparison.Ordinal),
@@ -81,6 +88,26 @@ try
             "native Studio remains available when NetRadiant is not installed");
         string testExecutable = Path.Combine(directory, "local-radiant-tool");
         File.WriteAllText(testExecutable, "test binary locator only");
+        var genericLaunch = NetRadiantBridge.CreateEditorStartInfo(testExecutable, map);
+        Check(genericLaunch.ArgumentList.SequenceEqual(new[] { map }) && !genericLaunch.UseShellExecute,
+            "generic external editor retains the source-only argument contract");
+        Directory.CreateDirectory(Path.Combine(directory, "games"));
+        Directory.CreateDirectory(Path.Combine(directory, "gamepacks", "projectprime.game"));
+        File.WriteAllText(Path.Combine(directory, "games", "projectprime.game"), "trusted sibling pack marker");
+        var primeLaunch = NetRadiantBridge.CreateEditorStartInfo(testExecutable, map);
+        Check(primeLaunch.ArgumentList.SequenceEqual(new[] { "-global-gamefile", "projectprime.game", map }),
+            "trusted installed sibling gamepack selects the pinned Prime editor configuration");
+        string legacySource = Path.Combine(directory, "legacy-source.map");
+        File.WriteAllText(legacySource, "// Project Prime original Quake3 .map brush authoring source\n{\n\"classname\" \"worldspawn\"\n}\n");
+        bool legacyRefused = false;
+        try
+        {
+            await NetRadiantBridge.CompileImportAsync(testExecutable, legacySource, "LEGACY",
+                Path.Combine(directory, "legacy-output"), CancellationToken.None);
+        }
+        catch (InvalidDataException) { legacyRefused = true; }
+        Check(legacyRefused && !Directory.Exists(Path.Combine(directory, "legacy-output")),
+            "legacy Prime winding requires explicit native reexport before invoking a real compiler");
         Environment.SetEnvironmentVariable(
             CommunityCutoverPolicy.NetRadiantExecutableVariable, testExecutable);
         Check(CommunityCutoverPolicy.NetRadiantDefault

@@ -12,15 +12,24 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _status = PrimeChrome.Text("LOCAL SYSTEM", 10, PrimeTheme.GreenBrush, true);
         private readonly PrimeButton _profile;
         private readonly PrimeButton _lobby;
-        public PrimeHeader(Action<PrimeRoute> navigate)
+        public PrimeHeader(Action<PrimeRoute> navigate, Action? openStudio = null)
         {
             Height = PrimeMetrics.HeaderHeight;
             Background = PrimeTheme.BackgroundDeepBrush;
             BorderBrush = PrimeTheme.BorderBrush;
             BorderThickness = new Thickness(0, 0, 0, 1);
             Padding = new Thickness(24, 12);
-            var identity = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
-            identity.Spacing = 4;
+            var identityCopy = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
+            identityCopy.Spacing = 4;
+            Control identity = identityCopy;
+#if MPHREAD_SHELL
+            if (openStudio != null)
+            {
+                var studio = new PrimeButton("STUDIO", openStudio, compact: true) { MinHeight = 22, Height = 22 };
+                ControllerNav.Identify(studio, "prime.studio");
+                identity = PrimeChrome.Columns("*,Auto", identityCopy, studio);
+            }
+#endif
             var nav = new Grid { ColumnDefinitions = new("0.75*,0.7*,1.0*,1.0*,1.0*,1.05*,0.85*,0.85*"), ColumnSpacing = 3 };
             int index = 0;
             foreach (var route in PrimeRouter.Tabs)

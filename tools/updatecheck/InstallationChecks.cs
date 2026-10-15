@@ -8,8 +8,25 @@ using MphRead.Mods.Update;
 
 internal static class InstallationChecks
 {
+    private static void WritePair(string root, string version)
+    {
+        string game = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
+        string studio = OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
+        File.WriteAllBytes(Path.Combine(root, ReleaseInstallation.PairName),
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new ReleaseInstallation.DesktopPair(
+                2, version, version, 1, game, studio,
+                ReleaseInstallation.Hash(Path.Combine(root, game)), ReleaseInstallation.Hash(Path.Combine(root, studio)))));
+    }
+
     internal static int? RunChild(string[] args)
     {
+        if (args.Length == 3 && args[0] == "--paired-use-lease")
+        {
+            using var held = ReleaseInstallation.HoldUseLease(args[1]);
+            File.WriteAllText(args[2], "ready");
+            Thread.Sleep(15000);
+            return 0;
+        }
         if (args.Length == 3 && args[0] == "--updater-ready-fixture")
         {
             if (args[2] == "exit") return 41;
@@ -80,11 +97,7 @@ internal static class InstallationChecks
 
             // Restore a complete pair, then reproduce the Linux-only lock
             // leak that caused the published release's Invalid release path.
-            File.WriteAllText(Path.Combine(staged, ".project-prime-desktop.json"),
-                System.Text.Json.JsonSerializer.Serialize(new {
-                    Version = 1, GameVersion = "0.1.53",
-                    StudioVersion = "0.1.53", IpcVersion = 1
-                }));
+            WritePair(staged, "0.1.53");
             File.Delete(Path.Combine(staged, ReleaseInstallation.ManifestName));
             ReleaseInstallation.EnsureManifest(staged);
             File.WriteAllText(Path.Combine(staged, ".project-prime-update.lock"), "");
@@ -364,24 +377,100 @@ internal static class InstallationChecks
             check(rejected && Original(prohibited.Target)
                 && File.ReadAllText(Path.Combine(prohibited.Target, studioName)) == "installed Studio",
                 "older build cannot silently remove newer installed Studio");
+            var priorOwnership = ReleaseInstallation.ReadManifest(prohibited.Target)!;
+            File.WriteAllBytes(Path.Combine(prohibited.Target, ReleaseInstallation.ManifestName),
+                System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(priorOwnership with
+                { Files = priorOwnership.Files.Append(studioName).ToArray(), Hashes = null }));
+            File.Delete(Path.Combine(prohibited.Target, studioName));
+            rejected = false;
+            try { ReleaseInstallation.ValidateIncoming(prohibited.Source, prohibited.Target); }
+            catch (InvalidDataException) { rejected = true; }
+            check(rejected && File.ReadAllText(Path.Combine(prohibited.Target, "a.dll")) == "old A"
+                && File.ReadAllText(Path.Combine(prohibited.Target, "settings.json")) == "player settings",
+                "paired ownership still prevents downgrade when installed Studio needs repair");
 
             var paired = Fixture("forward-paired");
             File.WriteAllText(Path.Combine(paired.Source, currentName), "new game");
             File.WriteAllText(Path.Combine(paired.Source, studioName), "new Studio");
-            File.WriteAllText(Path.Combine(paired.Source, ".project-prime-desktop.json"),
-                System.Text.Json.JsonSerializer.Serialize(new {
-                    Version = 1,
-                    GameVersion = "0.1.52",
-                    StudioVersion = "0.1.52",
-                    IpcVersion = 1
-                }));
+            WritePair(paired.Source, "0.1.53");
             File.Delete(Path.Combine(paired.Source, ReleaseInstallation.ManifestName));
             ReleaseInstallation.EnsureManifest(paired.Source);
+            using (ReleaseInstallation.HoldUseLease(paired.Target))
+            {
+                bool inUseRejected = false;
+                try { ReleaseInstallation.Apply(paired.Source, paired.Target); }
+                catch (IOException) { inUseRejected = true; }
+                check(inUseRejected && Original(paired.Target), "active Game or Studio lease prevents every update mutation");
+            }
+            string leaseReady = Path.Combine(root, "paired-lease.ready");
+            using (Process holder = Process.Start(Child("--paired-use-lease", paired.Target, leaseReady))!)
+            {
+                try
+                {
+                    var deadline = Stopwatch.StartNew();
+                    while (!File.Exists(leaseReady) && !holder.HasExited && deadline.ElapsedMilliseconds < 5000) Thread.Sleep(25);
+                    bool blocked = false;
+                    if (File.Exists(leaseReady))
+                        try { ReleaseInstallation.Apply(paired.Source, paired.Target); }
+                        catch (IOException) { blocked = true; }
+                    check(blocked && Original(paired.Target), "independent Studio process lease blocks paired update without touching user data");
+                }
+                finally { if (!holder.HasExited) holder.Kill(); holder.WaitForExit(); }
+            }
+            File.AppendAllText(Path.Combine(paired.Source, studioName), "tamper");
+            bool pairDigestRejected = false;
+            try { ReleaseInstallation.ValidateIncoming(paired.Source, paired.Target); }
+            catch (InvalidDataException) { pairDigestRejected = true; }
+            check(pairDigestRejected && Original(paired.Target), "changed Studio apphost is rejected before exit");
+            File.WriteAllText(Path.Combine(paired.Source, studioName), "new Studio");
+            for (int step = 1; step <= 8; step++)
+            {
+                bool rolledBack = false;
+                try { ReleaseInstallation.Apply(paired.Source, paired.Target, mutation =>
+                    { if (mutation == step) throw new IOException("paired crash fixture"); }); }
+                catch (IOException) { rolledBack = true; }
+                check(rolledBack && Original(paired.Target) && !File.Exists(Path.Combine(paired.Target, studioName)),
+                    "paired publication rolls back Game and Studio at mutation " + step);
+            }
             ReleaseInstallation.Apply(paired.Source, paired.Target);
             check(File.ReadAllText(Path.Combine(paired.Target, currentName)) == "new game"
                 && File.ReadAllText(Path.Combine(paired.Target, studioName)) == "new Studio"
                 && File.ReadAllText(Path.Combine(paired.Target, "settings.json")) == "player settings",
                 "legacy game can transactionally upgrade to a paired Game and Studio release");
+
+            // A later paired version must restore both existing apphosts if
+            // publication is interrupted, including a hard process death.
+            File.WriteAllText(Path.Combine(paired.Source, currentName), "next game");
+            File.WriteAllText(Path.Combine(paired.Source, studioName), "next Studio");
+            WritePair(paired.Source, "0.1.54");
+            File.Delete(Path.Combine(paired.Source, ReleaseInstallation.ManifestName));
+            ReleaseInstallation.EnsureManifest(paired.Source);
+            for (int step = 1; step <= 10; step++)
+            {
+                using Process child = Process.Start(Child("--crash-install", paired.Source, paired.Target, step.ToString()))!;
+                if (!child.WaitForExit(15000)) { child.Kill(); throw new TimeoutException("Paired crash fixture timed out."); }
+                if (step == 1)
+                {
+                    var before = Directory.EnumerateFiles(paired.Target, "*", SearchOption.AllDirectories)
+                        .ToDictionary(p => Path.GetRelativePath(paired.Target, p), ReleaseInstallation.Hash);
+                    using (ReleaseInstallation.HoldUseLease(paired.Target))
+                    {
+                        bool recoveryBlocked = false;
+                        try { ReleaseInstallation.Apply(paired.Source, paired.Target); }
+                        catch (IOException) { recoveryBlocked = true; }
+                        check(recoveryBlocked && before.All(p => File.Exists(Path.Combine(paired.Target, p.Key))
+                            && ReleaseInstallation.Hash(Path.Combine(paired.Target, p.Key)) == p.Value),
+                            "update recovery cannot restore a crashed transaction while Game or Studio is active");
+                    }
+                }
+                ReleaseInstallation.Recover(paired.Target);
+                check(child.ExitCode == 73
+                    && File.ReadAllText(Path.Combine(paired.Target, currentName)) == "new game"
+                    && File.ReadAllText(Path.Combine(paired.Target, studioName)) == "new Studio"
+                    && File.ReadAllText(Path.Combine(paired.Target, "settings.json")) == "player settings",
+                    "current paired installation restores both apphosts after worker death " + step);
+                ReleaseInstallation.ValidatePair(paired.Target, ReleaseInstallation.ReadManifest(paired.Target)!);
+            }
 
             var locked = Fixture("running");
             rejected = false;

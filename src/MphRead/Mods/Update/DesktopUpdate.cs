@@ -37,6 +37,37 @@ namespace MphRead.Mods.Update
     /// </summary>
     public static class DesktopUpdate
     {
+        /// <summary>Hold for the lifetime of either desktop application.</summary>
+        public static IDisposable HoldInstallationUseLease()
+            => ReleaseInstallation.HoldUseLease(InstallationRoot());
+
+        private static string InstallationRoot()
+        {
+            string root = AppContext.BaseDirectory;
+            if (OperatingSystem.IsMacOS() && root.TrimEnd(Path.DirectorySeparatorChar).EndsWith("/Contents/MacOS", StringComparison.Ordinal))
+                root = Path.GetFullPath(Path.Combine(root, "../../.."));
+            return root;
+        }
+
+        /// <summary>Resolve only a digest-verified executable from paired release metadata.</summary>
+        public static bool TryGetPairedStudioExecutable(out string path, out string error)
+        {
+            path = ""; error = "";
+            try
+            {
+                string root = InstallationRoot();
+                var manifest = ReleaseInstallation.ReadManifest(root)
+                    ?? throw new InvalidDataException("The paired release manifest is missing.");
+                var pair = ReleaseInstallation.ValidatePair(root, manifest);
+                if (pair.GameVersion != BuildVersion.Current?.ToString())
+                    throw new InvalidDataException("Installed Studio does not match this Game version.");
+                path = ReleaseInstallation.OwnedPath(root, pair.StudioBinary);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            { error = ex.Message; return false; }
+        }
+
         /// <summary>The argument that turns a launch into the copying half.</summary>
         public const string ApplyFlag = "applyupdate";
 

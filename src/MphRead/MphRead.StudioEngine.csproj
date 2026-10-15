@@ -1,0 +1,12 @@
+<Project TreatAsLocalProperty="MphReadStudioEngine;MphReadServer;PublishSingleFile">
+  <!-- A separate assembly/output identity over the current canonical engine.
+       Studio never calls the game's entry point or creates its foreground Shell. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/StudioEngine/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/StudioEngine/</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+    <MphReadStudioEngine>true</MphReadStudioEngine>
+    <MphReadServer>false</MphReadServer>
+  </PropertyGroup>
+  <Import Project="MphRead.csproj" />
+</Project>

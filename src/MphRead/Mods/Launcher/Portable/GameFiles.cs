@@ -50,6 +50,9 @@ namespace MphRead.Mods.Launcher
         /// <summary>What is wrong with the setup, or null when nothing is.</summary>
         public static string? Problem()
         {
+#if MPHREAD_STUDIO
+            return AvaloniaShared.StudioGameAssets.Ready ? null : AvaloniaShared.StudioGameAssets.Problem;
+#else
             if (!File.Exists(PathsFile))
             {
                 return "No game files yet";
@@ -84,6 +87,7 @@ namespace MphRead.Mods.Launcher
                 return "No Metroid Prime Hunters files are configured";
             }
             return null;
+#endif
         }
 
         /// <summary>"Ready -- AMHE1" for the button's second line.</summary>
@@ -224,9 +228,13 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static void ApplyPaths()
         {
+#if MPHREAD_STUDIO
+            AvaloniaShared.StudioGameAssets.Apply();
+#else
             Paths.UpdatePaths();
             Paths.ChooseMphPath();
             Paths.ChooseFhPath();
+#endif
         }
 
         /// <summary>

@@ -22,11 +22,15 @@ namespace MphRead.Mods.MapEditor
         public event Action<MapDocumentChange>? Invalidated;
         public event Action? Changed;
         private readonly string _recoveryKey;
+        private MapSourceRevision? _sourceRevision;
 
         public MapDocument(MapProject project, string? path = null)
         {
             Project = new(MapProjectSerializer.Clone(project.Definition));
             FilePath = path;
+            _sourceRevision = path == null || MapBundle.Is(path) ? null
+                : project.SourceRevision ?? MapSourceRevision.Capture(path);
+            Project.SourceRevision = _sourceRevision;
             // Legacy object IDs exist in the editor snapshot only until Save.
             foreach (var item in MapObjects.All(Project.Definition)) if (item.Id == Guid.Empty) item.SetId(Guid.NewGuid());
             SavedStateId = path == null ? null : History.CurrentStateId;
@@ -132,14 +136,30 @@ namespace MphRead.Mods.MapEditor
         public void Save(string path)
         {
             if (MapBundle.Is(path)) throw new IOException("Choose a .json project filename.");
+            path = Path.GetFullPath(path);
+            string physical = MapSourceRevision.ResolvePath(path);
+            // An alias to the open source is still an ordinary save. A genuinely
+            // different Save As destination retains the UI's explicit overwrite.
+            bool sameSource = _sourceRevision != null &&
+                (FilePath != null && MapSourceRevision.SamePath(Path.GetFullPath(FilePath),path)
+                    || MapSourceRevision.SamePath(_sourceRevision.PhysicalPath,physical));
+            using var saveLease = MapSourceRevision.AcquireSave(physical);
+            void GuardSource()
+            {
+                if (sameSource) _sourceRevision!.RequireUnchanged(path);
+                else if (!MapSourceRevision.SamePath(MapSourceRevision.ResolvePath(path),physical))
+                    throw new IOException("The map destination alias changed while saving. Choose the destination again.");
+            }
+            GuardSource();
             var definition = Project.ToDefinition();
-            MapProjectExport.Save(definition, path);
+            string savedHash = MapProjectExport.SaveGuarded(definition, physical, GuardSource);
+            _sourceRevision = new(physical,savedHash);
             FilePath = Path.GetFullPath(path);
             definition.BaseDirectory = Path.GetDirectoryName(FilePath); definition.SourcePath = FilePath;
             definition.BundlePath = null;
             if (definition.Import != null) { definition.Import.BaseDirectory=definition.BaseDirectory; definition.Import.BundlePath=null; }
             if (definition.Collision != null) { definition.Collision.BaseDirectory=definition.BaseDirectory; definition.Collision.BundlePath=null; }
-            _snapshot = null; Project = new(definition); SavedStateId = CurrentStateId; History.MarkSaved();
+            _snapshot = null; Project = new(definition) { SourceRevision = _sourceRevision }; SavedStateId = CurrentStateId; History.MarkSaved();
             Invalidated?.Invoke(new(MapChangeDomain.Metadata)); Changed?.Invoke();
         }
         public string RecoveryPath(string directory) => Path.Combine(directory, ".autosave", _recoveryKey + ".json");

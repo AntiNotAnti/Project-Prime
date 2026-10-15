@@ -23,6 +23,8 @@ namespace MphRead.Mods.MapGen
         private static IReadOnlyList<MapDefinition>? _definitions;
         private static int _firstId = -1;
         private static InstalledMapRegistry? _installed;
+        private sealed record GenerationFailure(string Fingerprint, string Message);
+        private static readonly Dictionary<string, GenerationFailure> _generationFailures = new(StringComparer.Ordinal);
         /// <summary>
         /// The graphical shell can present its built-in room list before touching
         /// the custom-map catalog. Headless/server/tool paths leave this false and
@@ -139,6 +141,7 @@ namespace MphRead.Mods.MapGen
             lock (_lock)
             {
                 var entries = new MapCatalog(MapDirectory).Refresh();
+                _generationFailures.Clear();
                 if (_firstId < 0) { _definitions = null; _installed = null; }
                 return entries;
             }
@@ -319,18 +322,38 @@ namespace MphRead.Mods.MapGen
             // for the same runtime outputs concurrently. Fence publication across
             // threads/processes, then re-check after acquiring the lease so every
             // waiter except the first becomes a cache hit.
+            string failureKey = OutputsFor(def).Manifest;
+            string? fingerprint = null;
             try
             {
                 using var lease = AcquireGenerationLease(def);
                 if (!NeedsGenerating(def))
+                {
+                    lock (_lock) _generationFailures.Remove(failureKey);
                     return;
+                }
+                fingerprint = MapBuildFingerprint.Create(def).ContentKey;
+                lock (_lock)
+                    if (_generationFailures.TryGetValue(failureKey, out var failed)
+                        && failed.Fingerprint == fingerprint) return;
                 Console.WriteLine($"[mapgen] building {def.Name}");
                 MapPacker.Generate(def, ArchiveDirectory(def), EntityDirectory(), NodeDirectory(), verbose: false);
+                lock (_lock) _generationFailures.Remove(failureKey);
             }
             catch (Exception ex)
             {
+                if (fingerprint != null)
+                    lock (_lock) _generationFailures[failureKey] = new(fingerprint, ex.GetBaseException().Message);
                 Console.WriteLine($"[mapgen] {def.Name} could not be built: {ex.Message}");
             }
+        }
+
+        /// <summary>Explicit user retry after a transient build failure. Source/dependency changes retry automatically.</summary>
+        public static void RetryGeneration(string roomName)
+        {
+            lock (_lock)
+                foreach (var definition in Definitions.Where(d => d.Name.Equals(roomName, StringComparison.OrdinalIgnoreCase)))
+                    _generationFailures.Remove(OutputsFor(definition).Manifest);
         }
 
         private static FileStream AcquireGenerationLease(MapDefinition def)
@@ -378,13 +401,18 @@ namespace MphRead.Mods.MapGen
                     break;
                 }
             }
-            if (def == null || !NeedsGenerating(def))
+            if (def == null)
             {
                 return null;
             }
+            if (Installed.TryGet(roomName, out var installed) && !Installed.HasExact(installed.Identity))
+                return $"{def.Name}'s installed .ppmap package is missing or changed. Reinstall the exact map package before loading.";
+            if (!NeedsGenerating(def)) return null;
             string file = Path.GetFileName(def.SourcePath) ?? "its map file";
-            return $"{def.Name} could not be built from {file}, so there is no room to load. "
-                + "The [mapgen] line above says what went wrong with it.";
+            string? failure;
+            lock (_lock) failure = _generationFailures.GetValueOrDefault(OutputsFor(def).Manifest)?.Message;
+            return $"{def.Name} has missing, damaged or stale runtime files from {file}. "
+                + (failure == null ? "Prepare the map again before loading." : $"Build failed: {failure}. Fix the source or retry preparation.");
         }
 
         public static MapOutputSet OutputsFor(MapDefinition definition)

@@ -39,7 +39,11 @@ namespace MphRead.Mods.Launcher.Gui
         public StartScreen(MenuSettings settings, IReadOnlyList<string> rooms)
         {
             _settings = settings; _rooms = new List<string>(rooms); Focusable = true;
-            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager);
+            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager
+#if MPHREAD_SHELL
+                , OpenStudioChooser
+#endif
+            );
             _prime.IsVisible = false; _prime.IsEnabled = false;
             _layers.Children.Add(_prime);
             _startup = new PrimeStartupScreen();
@@ -327,6 +331,29 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.IsVisible = true; _prime.IsEnabled = true;
             _prime.Router.Navigate(PrimeRoute.Forge);
         }
+#if MPHREAD_SHELL
+        private void OpenStudioChooser()
+        {
+            void Open(string? workspace)
+            {
+                if (StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error, workspace)) { Pop(); return; }
+                _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO UNAVAILABLE"),
+                    PrimeChrome.Text(error ?? "Install the complete paired desktop release."),
+                    new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
+            }
+            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME STUDIO"),
+                PrimeChrome.Text("Open maps and replays in the separate Studio window, or continue with the embedded map editor."),
+                new PrimeButton("STUDIO", () => Open(null)),
+                new PrimeButton("MAP EDITOR", () => Open("maps")),
+                new PrimeButton("REPLAY EDITOR", () => Open("replays")),
+                new PrimeButton("EMBEDDED MAP EDITOR", () => { Pop(); OpenMapStudio(); }),
+                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Medium);
+        }
+#endif
+        internal bool ExternalStudioUiBusy => _startup != null || _prime.Overlays.IsOpen
+            || (_prime.Router.Current == PrimeRoute.Settings
+                && _prime.Workspaces.TryGet(PrimeRoute.Settings) is SettingsView { IsDirty: true });
+        internal void OpenStudioHosting(string room) => OpenCreateServer(room);
         private void OpenCreateServer(string? firstMap = null)
         {
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }

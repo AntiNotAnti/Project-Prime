@@ -18,6 +18,10 @@ public static class NetRadiantBridge
     private const int MaximumOutputChars = 256 * 1024;
 
     public static Process LaunchEditor(string executable, string mapSource)
+        => Process.Start(CreateEditorStartInfo(executable, mapSource))
+            ?? throw new IOException("NetRadiant did not start.");
+
+    public static ProcessStartInfo CreateEditorStartInfo(string executable, string mapSource)
     {
         if (OperatingSystem.IsAndroid())
             throw new PlatformNotSupportedException(
@@ -30,9 +34,23 @@ public static class NetRadiantBridge
             WorkingDirectory = Path.GetDirectoryName(source)!
         };
         // Never use a shell, string concatenation or editor-provided commands.
+        // The original Project Prime gamepack is selected only when installed
+        // beside the explicitly configured trusted editor binary. Map sources
+        // cannot nominate a gamepack or supply arbitrary editor arguments.
+        string installation = Path.GetDirectoryName(binary)!;
+        string game = Path.Combine(installation, "games", "projectprime.game");
+        string pack = Path.Combine(installation, "gamepacks", "projectprime.game");
+        if (File.Exists(game) && Directory.Exists(pack)
+            && !File.GetAttributes(game).HasFlag(FileAttributes.ReparsePoint)
+            && !File.GetAttributes(Path.GetDirectoryName(game)!).HasFlag(FileAttributes.ReparsePoint)
+            && !File.GetAttributes(pack).HasFlag(FileAttributes.ReparsePoint)
+            && !File.GetAttributes(Path.GetDirectoryName(pack)!).HasFlag(FileAttributes.ReparsePoint))
+        {
+            args.ArgumentList.Add("-global-gamefile");
+            args.ArgumentList.Add("projectprime.game");
+        }
         args.ArgumentList.Add(source);
-        return Process.Start(args)
-            ?? throw new IOException("NetRadiant did not start.");
+        return args;
     }
 
     public sealed record CompileResult(
@@ -54,6 +72,10 @@ public static class NetRadiantBridge
         string tool = ValidateTool(q3map2Executable);
         string source = ValidateSource(mapSource);
         MapValidator.RequireRuntimeName(roomName);
+        if (File.ReadLines(source).Any(line => line.Trim()
+            == "// Project Prime original Quake3 .map brush authoring source"))
+            throw new InvalidDataException("Historical Prime .map source uses legacy plane winding. "
+                + "Import it in native Studio and export a new editable .map before compiling with Q3Map2.");
 
         string digest = MapBuildFingerprint.HashFile(source);
         string parent = Path.GetDirectoryName(Path.GetFullPath(destination))

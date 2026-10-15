@@ -32,7 +32,7 @@ namespace MphRead.Mods.Launcher.Gui
             VerticalContentAlignment = VerticalAlignment.Stretch;
             ControllerNav.Identify(this, "startup.continue", initial: true);
             SetValue(ControllerNav.ModalProperty, true);
-            using var stream = AssetLoader.Open(new Uri("avares://ProjectPrime/Assets/Backgrounds/launcher-bg.png"));
+            using var stream = AssetLoader.Open(new Uri($"avares://{typeof(Scene).Assembly.GetName().Name}/Assets/Backgrounds/launcher-bg.png"));
             _art = new Bitmap(stream);
             var layers = new Panel();
             // Uniform preserves the wordmark even on ultrawide and short landscape screens.

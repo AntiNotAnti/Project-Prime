@@ -1,0 +1,65 @@
+name: Project Prime Radiant source candidate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/project-prime-radiant/**'
+      - 'tools/netradiant-gamepack/**'
+      - '.github/workflows/radiant-candidate.yml'
+permissions:
+  contents: read
+jobs:
+  source-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        if: runner.os == 'Linux'
+        with:
+          python-version: '3.12'
+      - name: Linux source build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential pkg-config qtbase5-dev libqt5svg5-dev libglib2.0-dev libxml2-dev libjpeg-dev libpng-dev libassimp-dev libgl-dev
+          dpkg-query -W > radiant-dependencies.txt
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          update: false
+          path-type: minimal
+          install: base-devel git mingw-w64-x86_64-toolchain mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-svg mingw-w64-x86_64-assimp mingw-w64-x86_64-libxml2 mingw-w64-x86_64-python mingw-w64-x86_64-pkgconf
+      - name: Build pinned Linux editor and compiler
+        if: runner.os == 'Linux'
+        run: |
+          python tools/project-prime-radiant/build.py checkout --source "$RUNNER_TEMP/radiant-source"
+          python tools/project-prime-radiant/build.py build --source "$RUNNER_TEMP/radiant-source" --jobs 2
+          python tools/project-prime-radiant/real_tool_check.py --q3map2 "$(find "$RUNNER_TEMP/radiant-source/install" -maxdepth 1 -type f -name 'q3map2.*' | head -1)" --output "$RUNNER_TEMP/radiant-compiler-check"
+          python tools/project-prime-radiant/build.py bundle --source "$RUNNER_TEMP/radiant-source" --output "$RUNNER_TEMP/radiant-candidate"
+      - name: Build pinned Windows editor and compiler
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          pacman -Q > radiant-dependencies.txt
+          python tools/project-prime-radiant/build.py checkout --source C:/radiant-source
+          python tools/project-prime-radiant/build.py build --source C:/radiant-source --jobs 2
+          python tools/project-prime-radiant/real_tool_check.py --q3map2 C:/radiant-source/install/q3map2.exe --output C:/radiant-compiler-check
+          python tools/project-prime-radiant/build.py bundle --source C:/radiant-source --output C:/radiant-candidate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Radiant-source-candidate-${{ runner.os }}
+          include-hidden-files: true
+          path: |
+            ${{ runner.temp }}/radiant-candidate/
+            ${{ runner.temp }}/radiant-compiler-check/
+            C:/radiant-candidate/
+            C:/radiant-compiler-check/
+            radiant-dependencies.txt
+  # Native macOS editor usability is not certified by a compiler-only build.
+  # Keep native JSON Studio as the explicit fallback until GUI evidence exists.

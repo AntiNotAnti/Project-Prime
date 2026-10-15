@@ -87,6 +87,8 @@ jobs:
         run: dotnet run --project tools/updatecheck -c Release
       - name: portable hotfix packaging and hidden file guards
         run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
+      - name: paired desktop identity and layout regressions
+        run: python3 -m unittest discover -s tools -p 'test_studio_pair.py' -v
       - name: v0.1.46 published archive plus future-release failure fixtures (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -111,6 +113,44 @@ jobs:
           Expand-Archive -LiteralPath $oldZip -DestinationPath $old
           dotnet run --project tools/updatecheck -c Release -- --published-legacy-fixture $old
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  studio-contracts:
+    name: standalone Studio contracts (${{ matrix.os }})
+    needs: assets
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: build independent Studio application
+        run: dotnet build src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release
+      - name: canonical Studio map editing lifecycle in headless Safe Mode
+        run: dotnet src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio.dll --self-test
+      - name: authenticated IPC and process lifetime contracts
+        run: dotnet run --project tools/studio-process-check -c Release
+      - name: Game broker ownership and exact playtest installation
+        run: dotnet run --project tools/studio-game-broker-check -c Release
+      - name: Radiant source leases and crash recovery
+        run: dotnet run --project tools/radiant-source-check -c Release
+      - name: map load readiness and tamper rejection
+        run: dotnet run --project tools/map-ready-acceptance -c Release
+      - name: independent replay documents and retained presentation
+        run: dotnet run --project tools/studio-replay-check -c Release
+      - name: concurrent Community index writers
+        run: dotnet run --project tools/community-writer-check -c Release
+      - name: execute both application version diagnostics without native startup
+        shell: bash
+        env:
+          EXE_SUFFIX: ${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: >
+          python3 tools/studio-pair.py smoke
+          "src/MphRead/bin/Release/net10.0/ProjectPrime$EXE_SUFFIX"
+          "src/ProjectPrime.Studio/bin/Release/net10.0/ProjectPrimeStudio$EXE_SUFFIX" local
 
   server-compile:
     name: dedicated server compile gate
@@ -703,6 +743,19 @@ jobs:
           --self-contained true -p:PublishSingleFile=true
           -o publish/${{ matrix.id }}
 
+      - name: publish and validate matching standalone Studio
+        if: matrix.extra == ''
+        run: |
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true -o studio-publish/${{ matrix.id }}
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          python3 tools/studio-pair.py merge publish/${{ matrix.id }} studio-publish/${{ matrix.id }} "$VERSION"
+          python3 tools/write-release-manifest.py publish/${{ matrix.id }}
+          python3 tools/paired-install-check.py publish/${{ matrix.id }} --version "$VERSION" --rid '${{ matrix.rid }}'
+          if [ '${{ matrix.id }}' = linux-x64 ]; then
+            python3 tools/studio-pair.py smoke publish/${{ matrix.id }}/ProjectPrime publish/${{ matrix.id }}/ProjectPrimeStudio local
+          fi
+
       - name: map editor history regressions
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/map-editor-check -c Release
@@ -847,9 +900,18 @@ jobs:
         if: matrix.rid == 'linux-x64'
         run: tools/check-dedicated-server.sh publish/${{ matrix.id }}
 
+      - name: seal the desktop artifact after smoke processes exit
+        if: matrix.extra == ''
+        run: |
+          rm -f 'publish/${{ matrix.id }}/.project-prime-update.lock' 'publish/${{ matrix.id }}/.project-prime-in-use.lock'
+          test ! -e 'publish/${{ matrix.id }}/.project-prime-update-transaction'
+          python3 tools/write-release-manifest.py 'publish/${{ matrix.id }}'
+          python3 tools/paired-install-check.py 'publish/${{ matrix.id }}' --rid '${{ matrix.rid }}'
+
       - uses: actions/upload-artifact@v7
         with:
           name: ProjectPrime-${{ matrix.id }}
+          include-hidden-files: true
           path: publish/${{ matrix.id }}
           if-no-files-found: error
 
@@ -921,7 +983,10 @@ jobs:
           tools/check-no-game-assets.sh "publish/$RID"
           tools/check-maps-shipped.sh "publish/$RID"
           VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
-          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+            --self-contained true -p:PublishSingleFile=true -o "studio-publish/$RID"
+          python3 tools/studio-pair.py smoke "publish/$RID/ProjectPrime" "studio-publish/$RID/ProjectPrimeStudio" local
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION" "studio-publish/$RID"
       - uses: actions/upload-artifact@v7
         with:
           name: ProjectPrime-${{ matrix.rid }}

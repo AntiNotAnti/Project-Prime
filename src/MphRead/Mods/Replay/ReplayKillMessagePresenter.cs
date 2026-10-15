@@ -16,28 +16,37 @@ namespace MphRead.Mods.Replay;
 /// </summary>
 internal static class ReplayKillMessagePresenter
 {
-    private static Scene? _scene;
-    private static uint _frame;
-    private static long _seekGeneration = -1;
+    private static readonly ReplayCombatPresenter Presenter = new();
+    internal static void Reset() => Presenter.Reset();
+    internal static void Update(Scene scene) => Presenter.Update(scene, DemoPlayback.Session);
+    internal static int MessageId(bool friendly, bool headshot) => ReplayCombatPresenter.MessageId(friendly, headshot);
+}
 
-    internal static void Reset()
+/// <summary>Per-presentation transient feedback driven by an explicit private replay clock.</summary>
+internal sealed class ReplayCombatPresenter
+{
+    private Scene? _scene;
+    private uint _frame;
+    private long _seekGeneration = -1;
+
+    internal void Reset()
     {
         _scene = null;
         _frame = 0;
         _seekGeneration = -1;
     }
 
-    internal static void Update(Scene scene)
+    internal void Update(Scene scene, ReplayPlaybackSession session)
     {
-        uint frame = DemoPlayback.CurrentFrame;
-        long generation = DemoPlayback.Session.Transport.SeekGeneration;
+        uint frame = session.CurrentFrame;
+        long generation = session.Transport.SeekGeneration;
         bool timelineReset = !ReferenceEquals(_scene, scene)
             || generation != _seekGeneration || frame < _frame;
 
         // A seek rebuilds visual state by stepping the replica. Transient HUD
         // messages and audio must not replay that history when the new target
         // becomes visible.
-        if (timelineReset || DemoPlayback.Session.Transport.IsSeeking)
+        if (timelineReset || session.Transport.IsSeeking)
         {
             scene.Players.Main?.ModResetReplayDamageIndicators();
             _scene = scene;
@@ -50,8 +59,8 @@ internal static class ReplayKillMessagePresenter
         // editor intent and can briefly disagree with the scene during seeks/export
         // segment setup, which caused valid POV feedback to be skipped.
         bool firstPersonPov = scene.CameraMode == CameraMode.Player
-            && !scene.IsFreeCam && !SpectatorMode.FreeCamera;
-        if (!DemoPlayback.IsActive || !firstPersonPov)
+            && !scene.IsFreeCam && (scene.StudioOutputFramebuffer.HasValue || !SpectatorMode.FreeCamera);
+        if (!session.IsActive || !firstPersonPov)
         {
             _frame = frame;
             _seekGeneration = generation;
@@ -76,7 +85,7 @@ internal static class ReplayKillMessagePresenter
             // Legacy/non-weapon deaths still use the durable replay marker.
             // A modern lethal shot fact owns the same kill and suppresses the
             // old adapter so the native message cannot be queued twice.
-            foreach (ReplayEvent kill in DemoPlayback.Events)
+            foreach (ReplayEvent kill in session.Events)
             {
                 if (kill.Type != ReplayEventType.Kill || kill.Frame < start || kill.Frame > frame
                     || kill.ActorSlot != pov || kill.TargetSlot >= PlayerEntity.SlotCapacity
@@ -84,7 +93,7 @@ internal static class ReplayKillMessagePresenter
                 {
                     continue;
                 }
-                QueueLegacy(scene, kill);
+                QueueLegacy(scene, kill, session.Events);
             }
         }
 
@@ -106,7 +115,7 @@ internal static class ReplayKillMessagePresenter
                 fact.VictimGeneration, fact.VictimLifeId);
 
         if (victimPov && fact.Damage > 0
-            && !ReplayVideoExporter.SuppressGameHud
+            && (scene.StudioReplayGameHud ?? !ReplayVideoExporter.SuppressGameHud)
             && poses.TryResolvedShotDirection(fact, out var direction))
         {
             scene.Players.Main.ModPresentReplayDamageIndicator(direction);
@@ -122,7 +131,7 @@ internal static class ReplayKillMessagePresenter
                 scene, (BeamType)fact.Weapon);
         }
 
-        if (fact.Lethal && !ReplayVideoExporter.SuppressGameHud)
+        if (fact.Lethal && (scene.StudioReplayGameHud ?? !ReplayVideoExporter.SuppressGameHud))
         {
             QueueAuthoritative(scene, fact);
         }
@@ -146,18 +155,18 @@ internal static class ReplayKillMessagePresenter
         Queue(scene, fact.VictimSlot, MessageId(friendly, fact.Headshot));
     }
 
-    private static void QueueLegacy(Scene scene, ReplayEvent kill)
+    private static void QueueLegacy(Scene scene, ReplayEvent kill, IReadOnlyList<ReplayEvent> events)
     {
         PlayerEntity attacker = scene.Players.Items[kill.ActorSlot];
         PlayerEntity victim = scene.Players.Items[kill.TargetSlot];
         bool friendly = scene.GameState.Teams && attacker.TeamIndex >= 0
             && TeamRules.AreAllies(attacker.TeamIndex, victim.TeamIndex);
-        bool headshot = !friendly && DemoPlayback.Events.Any(e =>
+        bool headshot = !friendly && events.Any(e =>
             e.Type == ReplayEventType.Headshot
             && e.ActorSlot == kill.ActorSlot
             && e.TargetSlot == kill.TargetSlot
             && Math.Abs((long)e.Frame - kill.Frame) <= 1);
-        if (!ReplayVideoExporter.SuppressGameHud)
+        if ((scene.StudioReplayGameHud ?? !ReplayVideoExporter.SuppressGameHud))
         {
             Queue(scene, kill.TargetSlot, MessageId(friendly, headshot));
         }
