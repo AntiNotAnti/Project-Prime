@@ -22,6 +22,8 @@ namespace MphRead
         public IReadOnlyList<WeaponInfo> WeaponRules => GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
         internal IReadOnlyList<PlayerEntity.HudMessage> HudMessages { get; } = PlayerEntity.CreateHudMessages();
         internal Mods.Combat.KillFeed KillFeed { get; } = new();
+        // Presentation-only; one bounded rail pool per Scene, never a process-static list.
+        internal Mods.Render.InstagibIonFracture IonFracture { get; } = new();
         internal Mods.MatchEvents.SceneMatchEvents MatchEvents { get; } = new();
         internal Mods.MatchEvents.MatchSemanticPublisher SemanticPublisher { get; } = new();
         internal Mods.MatchEvents.MatchSemanticPresentation SemanticPresentation { get; } = new();
