@@ -2934,7 +2934,7 @@ namespace MphRead.Entities
             // In Insta-Gib the accepted collision trace produces one bounded,
             // world-depth-tested presentation event. No damage or wire changes.
             Vector3 spawnPos = PastPositions[8];
-            if (_scene.GameState.Multiplayer && _scene.GameState.InstaGib
+            if (!Mods.Headless.Active && _scene.GameState.Multiplayer && _scene.GameState.InstaGib
                 && Beam == BeamType.Imperialist && Owner is PlayerEntity shooter)
             {
                 _scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
