@@ -314,7 +314,13 @@ internal sealed class HudStudioView : UserControl
         Number("Global opacity",p.GlobalOpacity,0,1,(p,v)=>p.GlobalOpacity=v);
         Number("Safe area",p.SafeArea,0,.2f,(p,v)=>p.SafeArea=v);
         _inspector.Children.Add(_name);
-        Button(_inspector,"Save named profile",() => Try(() => { var copy=p.DeepClone(); copy.Name=_name.Text ?? "Custom"; HudProfiles.SaveNamed(copy.Name,copy); _status.Text="Named profile saved. Use in settings, then Apply to activate."; }));
+        Button(_inspector,"Save named profile",() => Try(() => { var copy=p.DeepClone(); copy.Name=_name.Text ?? "Custom"; // Preset display text includes a colon in "Approved 4:3",
+            // which Windows cannot use as a library filename.
+            string libraryName = copy.Name == "Approved 4:3" ? "Approved 4x3" : copy.Name;
+            copy.Name = libraryName;
+            HudProfiles.SaveNamed(libraryName, copy);
+            _name.Text = libraryName;
+            _status.Text="Named profile saved. Use in settings, then Apply to activate."; }));
         Button(_inspector,"Load named profile",() => Try(() => { _history.Replace(HudProfiles.LoadNamed(_name.Text ?? "")); Refresh(); }));
         _inspector.Children.Add(_json);
         Button(_inspector,"Export JSON",() => { _json.Text = HudProfileStore.Serialize(_history.Draft); _status.Text="Select and copy the JSON to share your profile."; });
