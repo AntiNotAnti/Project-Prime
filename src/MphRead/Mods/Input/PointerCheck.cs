@@ -1033,6 +1033,10 @@ namespace MphRead.Mods.Input
                     "stacked LCD aspect and radar settings round trip through controls.txt");
 
                 InputSettings.Reset();
+                Require(!DsLayout.Enabled && DsLayout.ScreenAspect == "4:3"
+                    && DsLayout.RadarSize == 1f && DsLayout.RadarX == .5f
+                    && DsLayout.RadarY == .5f,
+                    "controls reset returns to normal single-screen defaults");
                 Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
                     "reset restores ordinary mouse defaults");
                 Require(InputSettings.MouseMovementBoost && InputSettings.StylusMovementBoost,
