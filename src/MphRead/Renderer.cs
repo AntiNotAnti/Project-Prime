@@ -5495,8 +5495,11 @@ namespace MphRead
                 _exiting = true;
                 // Keep known asynchronous/decoder owners explicit. No release
                 // is inferred merely because UnloadGl later clears its queues.
-                _unfencedCallbacksAtCleanup = _decoderCts != null
-                    || _streamingTextureDecodes.Any(decode => !decode.Task.IsCompleted);
+                // Movie decoder workers never capture Scene or OpenAL and
+                // can retire independently after cancellation. Only truly
+                // unfenced streaming callbacks count as a teardown risk.
+                _unfencedCallbacksAtCleanup =
+                    _streamingTextureDecodes.Any(decode => !decode.Task.IsCompleted);
                 ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupStarted);
                 _room?.CancelTransition();
                 Mods.Network.DemoPlayback.Release(this);
@@ -5507,9 +5510,9 @@ namespace MphRead
                 }
                 PlatformEntity.DestroyBeams(this);
                 EnemyInstanceEntity.DestroyBeams(this);
+                ReleaseMovieForCleanup();
                 if (Services.AllowsPresentationSideEffects) Sound.Sfx.ShutDown();
                 OutputStop();
-                _decoderCts?.Cancel();
                 Selection.Clear();
                 _cleanupComplete = true;
                 ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupComplete);
