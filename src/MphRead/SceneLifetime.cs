@@ -24,6 +24,6 @@ public partial class Scene
         SceneLifetimeDiagnostics.Record(new(LifetimeGeneration, role, stage, roots,
             Players.PlayerCount, _entities.Count, _ownedTextures.Count, programs,
             _modelLeases.Count, _streamingTextureDecodes.Count,
-            _decoderCts?.IsCancellationRequested == true, null, null));
+            _movieDecode?.IsCancellationRequested == true, null, null));
     }
 }
