@@ -280,6 +280,9 @@ namespace MphRead.Mods.Launcher
                                 RenderOptions.PlayerOutline = outlineStyle;
                             }
                             break;
+                        case "player_outline_colors":
+                            Mods.Render.OutlineColorPalette.Json = value;
+                            break;
                         case "player_outline_width":
                             if (Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture,
                                 out int outlineWidth))
