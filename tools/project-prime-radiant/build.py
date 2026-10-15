@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 
@@ -16,9 +17,9 @@ ROOT = HERE.parent.parent
 LOCK = json.loads((HERE / 'upstream.lock.json').read_text())
 
 
-def run(argv, cwd=None, capture=False):
+def run(argv, cwd=None, capture=False, env=None):
     result = subprocess.run([str(x) for x in argv], cwd=cwd, check=True,
-                            text=True, stdout=subprocess.PIPE if capture else None)
+                            text=True, stdout=subprocess.PIPE if capture else None, env=env)
     return result.stdout.strip() if capture else None
 
 
@@ -64,10 +65,10 @@ def checkout(source):
     }, indent=2) + '\n')
 
 
-def dependencies():
+def dependencies(env=None):
     receipt = {}
     for package in ['glib-2.0', 'libxml-2.0', 'libpng', 'Qt5Core', 'Qt5Widgets', 'Qt5Svg', 'assimp']:
-        try: receipt[package] = run(['pkg-config', '--modversion', package], capture=True)
+        try: receipt[package] = run(['pkg-config', '--modversion', package], capture=True, env=env)
         except (OSError, subprocess.CalledProcessError): receipt[package] = None
     return receipt
 
@@ -78,17 +79,39 @@ def build(source, jobs, compiler_only):
                'DEPENDENCIES_CHECK=off', 'RADIANT_ABOUTMSG=Project Prime Radiant source candidate']
     if os.name == 'nt' or os.environ.get('MSYSTEM'):
         options.append('MAKEFILE_CONF=msys2-Makefile.conf')
-    if platform.system() == 'Darwin':
-        # q3map2 is native; the upstream editor still requires its X11/Qt5 stack.
+    environment = dict(os.environ)
+    native_mac = platform.system() == 'Darwin'
+    if native_mac:
         prefix = Path('/opt/homebrew/opt/jpeg-turbo' if platform.machine() == 'arm64' else '/usr/local/opt/jpeg-turbo')
         if prefix.exists():
             options += ['CPPFLAGS_JPEG=-I' + str(prefix / 'include'), 'LIBS_JPEG=-L' + str(prefix / 'lib') + ' -ljpeg']
-    run(['make', '-j' + str(jobs), 'binaries-q3map2' if compiler_only else 'all', *options], cwd=source)
+        brew_prefix = Path('/opt/homebrew' if platform.machine() == 'arm64' else '/usr/local')
+        options += ['MACLIBDIR=' + str(brew_prefix / 'lib')]
+        if not compiler_only:
+            qt = Path(environment.get('PROJECT_PRIME_QT_PREFIX', str(brew_prefix / 'opt/qt@5')))
+            if not qt.is_absolute() or not (qt / 'bin/qmake').is_file():
+                raise ValueError('Native macOS editor requires Qt 5; set PROJECT_PRIME_QT_PREFIX to its absolute prefix.')
+            environment['PATH'] = str(qt / 'bin') + os.pathsep + environment.get('PATH', '')
+            environment['PKG_CONFIG_PATH'] = str(qt / 'lib/pkgconfig') + os.pathsep + environment.get('PKG_CONFIG_PATH', '')
+            for module in ['Qt5Core', 'Qt5Widgets', 'Qt5Svg']:
+                run(['pkg-config', '--exists', module], env=environment)
+    targets = ['binaries-q3map2'] if compiler_only else ['binaries-radiant', 'binaries-q3map2'] if native_mac else ['all']
+    run(['make', '-j' + str(jobs), *targets, *options], cwd=source, env=environment)
+    if native_mac and not compiler_only:
+        # Stage editor resources directly; upstream install-data also builds
+        # unrelated legacy game compilers and can download third-party packs.
+        install = source / 'install'
+        shutil.copytree(source / 'setup/data/tools', install, dirs_exist_ok=True)
+        makefile = (source / 'Makefile').read_text()
+        for part in ['MAJOR', 'MINOR']:
+            value = re.search(r'^RADIANT_' + part + r'_VERSION\s*=\s*([0-9]+)', makefile, re.M)
+            if value is None: raise ValueError('Missing Radiant resource version: ' + part)
+            (install / ('RADIANT_' + part)).write_text(value[1] + '\n')
     binaries = [p for p in (source / 'install').rglob('*') if p.is_file() and not p.is_symlink()]
     (source / 'prime-build-receipt.json').write_text(json.dumps({
         'schema': 1, 'commit': LOCK['commit'], 'patches': {p: digest(HERE / p) for p in LOCK['patches']},
         'platform': platform.platform(), 'compilerOnly': compiler_only,
-        'dependencies': dependencies(), 'makeOptions': options,
+        'dependencies': dependencies(environment), 'makeOptions': options,
         'binaries': {str(p.relative_to(source / 'install')): digest(p) for p in binaries},
         'guiAcceptance': 'pending', 'redistributionReview': 'pending'
     }, indent=2) + '\n')
@@ -124,11 +147,12 @@ def bundle(source, output):
     shutil.copytree(HERE, recipe / 'project-prime-radiant', ignore=shutil.ignore_patterns('__pycache__'))
     shutil.copytree(ROOT / 'tools' / 'netradiant-gamepack', recipe / 'netradiant-gamepack')
     gamepack = ROOT / 'tools' / 'netradiant-gamepack'
-    (output / 'games').mkdir(exist_ok=True)
-    shutil.copy2(gamepack / 'projectprime.game', output / 'games')
+    (output / 'gamepacks/games').mkdir(parents=True, exist_ok=True)
+    shutil.copy2(gamepack / 'projectprime.game', output / 'gamepacks/games')
     pack = output / 'gamepacks' / 'projectprime.game'
     (pack / 'baseq3').mkdir(parents=True)
     shutil.copy2(gamepack / 'entities.ent', pack / 'baseq3' / 'entities.ent')
+    shutil.copy2(gamepack / 'default_build_menu.xml', pack / 'default_build_menu.xml')
     from real_tool_check import fixture
     fixture(pack)  # Original graybox plus generated checkerboard; no game assets.
     shutil.copy2(gamepack / 'README.md', pack / 'README.md')

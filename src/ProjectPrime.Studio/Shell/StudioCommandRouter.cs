@@ -2,7 +2,7 @@ using System.Windows.Input;
 
 namespace ProjectPrime.Studio.Shell;
 
-public enum StudioCommand { OpenMap, OpenReplay, OpenClip, NewMapWorkspace, NewReplayWorkspace, Save, SaveAs, Close, Undo, Redo, FrameAll, ToggleWireframe, ReplayPlayPause, ReplayMarkIn, MapValidate, MapBuild, RestoreLayout, ClearRecent, GlobalSearch, ConfigureHotkeys, MapPlaytest }
+public enum StudioCommand { OpenMap, OpenReplay, OpenClip, NewMapWorkspace, NewReplayWorkspace, Save, SaveAs, Close, Undo, Redo, FrameAll, ToggleWireframe, ReplayPlayPause, ReplayMarkIn, MapValidate, MapBuild, RestoreLayout, ClearRecent, GlobalSearch, ConfigureHotkeys, MapPlaytest, NewMapInRadiant, EditGeometryInRadiant, ReviewRadiantGeometryChanges, NativeGeometryFallback }
 public sealed record StudioCommandContext(IStudioDocument? Document);
 
 public sealed class StudioCommandRouter

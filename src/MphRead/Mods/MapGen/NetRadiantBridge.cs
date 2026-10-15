@@ -9,9 +9,8 @@ using System.Threading.Tasks;
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// Optional external GPL editor bridge. Neither NetRadiant nor q3map2 is
-/// redistributed, linked or installed by Project Prime. A caller opts into
-/// configured, separately obtained executables and retained editable sources.
+/// External-process geometry editor bridge. Packaged and explicitly configured
+/// tools retain editable sources; no editor code is linked into the game.
 /// </summary>
 public static class NetRadiantBridge
 {
@@ -34,20 +33,28 @@ public static class NetRadiantBridge
             WorkingDirectory = Path.GetDirectoryName(source)!
         };
         // Never use a shell, string concatenation or editor-provided commands.
-        // The original Project Prime gamepack is selected only when installed
-        // beside the explicitly configured trusted editor binary. Map sources
-        // cannot nominate a gamepack or supply arbitrary editor arguments.
-        string installation = Path.GetDirectoryName(binary)!;
-        string game = Path.Combine(installation, "games", "projectprime.game");
-        string pack = Path.Combine(installation, "gamepacks", "projectprime.game");
-        if (File.Exists(game) && Directory.Exists(pack)
-            && !File.GetAttributes(game).HasFlag(FileAttributes.ReparsePoint)
-            && !File.GetAttributes(Path.GetDirectoryName(game)!).HasFlag(FileAttributes.ReparsePoint)
-            && !File.GetAttributes(pack).HasFlag(FileAttributes.ReparsePoint)
-            && !File.GetAttributes(Path.GetDirectoryName(pack)!).HasFlag(FileAttributes.ReparsePoint))
+        // Fixed installation resources select the original gamepack. Map sources
+        // cannot nominate a gamepack, resource root or arbitrary arguments.
+        string installation = NetRadiantToolDiscovery.ResourceDirectoryForExecutable(binary);
+        string packs = Path.Combine(installation, "gamepacks");
+        string pack = Path.Combine(packs, "projectprime.game");
+        string game = Path.Combine(packs, "games", "projectprime.game");
+        bool canonical = NetRadiantToolDiscovery.RegularFile(game)
+            && NetRadiantToolDiscovery.RegularDirectory(Path.GetDirectoryName(game)!);
+        if (!canonical) game = Path.Combine(installation, "games", "projectprime.game");
+        if (NetRadiantToolDiscovery.RegularDirectory(installation)
+            && NetRadiantToolDiscovery.RegularFile(game)
+            && NetRadiantToolDiscovery.RegularDirectory(Path.GetDirectoryName(game)!)
+            && NetRadiantToolDiscovery.RegularDirectory(pack)
+            && NetRadiantToolDiscovery.RegularDirectory(packs))
         {
             args.ArgumentList.Add("-global-gamefile");
             args.ArgumentList.Add("projectprime.game");
+            if (canonical)
+            {
+                args.ArgumentList.Add("-projectprime.game-EnginePath");
+                args.ArgumentList.Add(pack + Path.DirectorySeparatorChar);
+            }
         }
         args.ArgumentList.Add(source);
         return args;

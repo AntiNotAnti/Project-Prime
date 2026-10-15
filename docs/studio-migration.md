@@ -47,14 +47,34 @@ On macOS, keep both app bundles and their hidden paired metadata in the extracte
 folder and move the complete folder together. Quit both apps before replacing
 that folder with a new paired archive. In-place bundle updates remain disabled;
 the transaction kernel's process/recovery tests do not enable that UI feature.
+When the archive includes `Project Prime Radiant.app`, keep that third sibling
+with the pair as well.
 
 ## Editing supported geometry in Radiant
 
-Configure an explicitly installed regular executable through
-`PROJECT_PRIME_NETRADIANT_EXE=/absolute/path/to/radiant` and optional compiler
-`PROJECT_PRIME_Q3MAP2_EXE=/absolute/path/to/q3map2`. Candidate fork source/build
-instructions are in [the separate fork recipe](../tools/project-prime-radiant/README.md).
-The recipe's current platform/GUI/license qualification status is explicit.
+Studio's primary geometry action is **Edit Geometry in Radiant**. **New map in
+Radiant** creates and launches a new owned workspace; opening or restoring a
+project alone never launches the editor. Use **Native geometry fallback** for
+native tools or unsupported geometry.
+
+Studio discovers fixed installed siblings: `Project Prime Radiant.app` beside
+the Game/Studio apps on macOS, or a `Project Prime Radiant` directory on
+Windows/Linux. On macOS the executables are `Contents/MacOS/radiant` and
+`Contents/MacOS/q3map2`, with resources under `Contents/Resources/netradiant`.
+Override discovery with `PROJECT_PRIME_NETRADIANT_EXE=/absolute/path/to/radiant`
+and optional `PROJECT_PRIME_Q3MAP2_EXE=/absolute/path/to/q3map2`. Overrides must be
+regular absolute files, not symlinks; an invalid override blocks discovery of
+that tool until corrected or removed. Studio never searches PATH or map content.
+The launcher selects the installed original gamepack at
+`gamepacks/games/projectprime.game` and its creator engine root.
+
+The [separate fork recipe](../tools/project-prime-radiant/README.md) describes the
+native Cocoa Qt5 Mac build, symlink-free app with closed non-system dependencies
+and verified ad hoc signatures, and the optional sixth Radiant app argument to
+`tools/package-macos.sh`. A bounded native Mac open/edit/save/quit and strict
+review/package loop passed on October 15;
+Windows/Linux GUI checks, release signing and dependency/license qualification
+remain separate from build and packaging checks.
 
 A supported project creates its own source workspace:
 
@@ -70,11 +90,22 @@ Source, identity and initial adjunct use one recoverable commit. Keep any
 `.prime-transaction` recovery file if there is a conflict; it contains the bytes
 needed for reconciliation. Never delete it to force an unreviewed overwrite.
 
-Save geometry in Radiant, return to Studio, choose **Review Radiant geometry
-changes**, inspect the object diff, and apply one undoable edit. Source changes
+Save geometry in Radiant, return to Studio, choose **Review / Apply** (Tools:
+**Review / apply Radiant geometry changes**), inspect the object diff, and apply
+one undoable edit. Source changes
 made during review require a new preview. Studio geometry/material changes since
 export require explicit conflict reconciliation. Reopening never exports over an
 external author's saved `.map`.
+
+Version 2 workspaces store each primitive in a marked `func_group` with a durable
+`prime_id`; patch collision and tessellation are persistent entity keys. The
+patched editor normalizes new worldspawn brushes/patches and plain single-
+primitive groups on Save, preserving their surfaces and assigning identities.
+Multi-primitive groups or unsupported group properties require reconciliation;
+they are not silently split. Version 1 workspaces upgrade only when the source,
+identity and native geometry baseline still match the original export. If any
+changed, keep both files and reconcile explicitly before exporting a fresh
+workspace; opening never overwrites those external edits.
 
 The hybrid workflow edits supported boxes, convex brushes and patches. Native
 imports/remixes, specialized collision, team spawns, traversal, audio, materials

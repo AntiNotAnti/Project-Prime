@@ -76,5 +76,73 @@ jobs:
         with:
           name: Radiant-dependency-receipt-${{ runner.os }}
           path: radiant-dependencies.txt
-  # Native macOS editor usability is not certified by a compiler-only build.
-  # Keep native JSON Studio as the explicit fallback until GUI evidence exists.
+  macos-arm64-source:
+    name: Native macOS ARM64 source candidate
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native Qt 5 source-build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          brew install pkgconf glib libxml2 jpeg-turbo libpng assimp
+          # Qt 5 can install successfully but report a conflict while linking
+          # qmake beside preinstalled Qt 6. Keep Qt 6 links untouched and prove
+          # the selected keg itself is complete before accepting that status.
+          qt_install_status=0
+          brew install --force qt@5 > "$RUNNER_TEMP/qt5-install.log" 2>&1 || qt_install_status=$?
+          cat "$RUNNER_TEMP/qt5-install.log"
+          qt_prefix="$(brew --prefix qt@5)"
+          export PATH="$qt_prefix/bin:$PATH"
+          export PKG_CONFIG_PATH="$qt_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          test -x "$qt_prefix/bin/qmake"
+          test -x "$qt_prefix/bin/macdeployqt"
+          case "$("$qt_prefix/bin/qmake" -query QT_VERSION)" in 5.*) ;; *) exit 1 ;; esac
+          for module in Qt5Core Qt5Widgets Qt5Svg; do pkg-config --exists "$module"; done
+          if [ "$qt_install_status" -ne 0 ]; then
+            echo 'Qt install/link returned nonzero; absolute Qt 5 tools and pkg-config validation passed.'
+          fi
+          echo "PROJECT_PRIME_QT_PREFIX=$qt_prefix" >> "$GITHUB_ENV"
+          echo "$qt_prefix/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
+          brew list --versions > "$RUNNER_TEMP/radiant-macos-dependencies.txt"
+          "$qt_prefix/bin/qmake" -query >> "$RUNNER_TEMP/radiant-macos-dependencies.txt"
+          clang --version >> "$RUNNER_TEMP/radiant-macos-dependencies.txt"
+      - name: Build pinned native editor and prove real BSP output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/project-prime-radiant/build.py checkout --source "$RUNNER_TEMP/radiant-source"
+          python tools/project-prime-radiant/build.py build --source "$RUNNER_TEMP/radiant-source" --jobs 2 2>&1 | tee "$RUNNER_TEMP/radiant-macos-build.log"
+          python tools/project-prime-radiant/real_tool_check.py --q3map2 "$RUNNER_TEMP/radiant-source/install/q3map2.arm64" --output "$RUNNER_TEMP/radiant-compiler-check"
+          python tools/project-prime-radiant/build.py bundle --source "$RUNNER_TEMP/radiant-source" --output "$RUNNER_TEMP/radiant-candidate"
+      - name: Package and verify native Cocoa candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/project-prime-radiant/package_macos.py --candidate "$RUNNER_TEMP/radiant-candidate" --output "$RUNNER_TEMP/Project Prime Radiant.app" --qt-prefix "$PROJECT_PRIME_QT_PREFIX" 2>&1 | tee "$RUNNER_TEMP/radiant-macos-package.log"
+          # Tar preserves executable modes and the complete app/source layout.
+          # This is a qualification artifact; actual GUI acceptance stays pending.
+          COPYFILE_DISABLE=1 tar -czf "$RUNNER_TEMP/radiant-native-macos-arm64.tar.gz" -C "$RUNNER_TEMP" 'Project Prime Radiant.app' radiant-candidate radiant-compiler-check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Radiant-native-source-candidate-macos-arm64
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: |
+            ${{ runner.temp }}/radiant-native-macos-arm64.tar.gz
+            ${{ runner.temp }}/radiant-macos-dependencies.txt
+            ${{ runner.temp }}/qt5-install.log
+            ${{ runner.temp }}/radiant-macos-build.log
+            ${{ runner.temp }}/radiant-macos-package.log
+            ${{ runner.temp }}/radiant-source/prime-build-receipt.json
+            ${{ runner.temp }}/radiant-compiler-check/receipt.json
+            ${{ runner.temp }}/radiant-compiler-check/q3map2.log

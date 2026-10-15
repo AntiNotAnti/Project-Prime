@@ -1,3 +1,73 @@
+diff --git a/Makefile b/Makefile
+index 54ccbb6e..0b535369 100644
+--- a/Makefile
++++ b/Makefile
+@@ -71,19 +71,19 @@ LIBS_PNG           ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) li
+ CPPFLAGS_PNG       := $(CPPFLAGS_PNG)
+ LIBS_PNG           := $(LIBS_PNG)
+ CPPFLAGS_QTCORE    ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Core --cflags $(STDERR_TO_DEVNULL)) -DQT_NO_KEYWORDS
+-LIBS_QTCORE        ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Core --libs-only-L --libs-only-l $(STDERR_TO_DEVNULL))
++LIBS_QTCORE        ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Core --libs $(STDERR_TO_DEVNULL))
+ CPPFLAGS_QTCORE    := $(CPPFLAGS_QTCORE)
+ LIBS_QTCORE        := $(LIBS_QTCORE)
+ CPPFLAGS_QTGUI     ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Gui --cflags $(STDERR_TO_DEVNULL)) -DQT_NO_KEYWORDS
+-LIBS_QTGUI         ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Gui --libs-only-L --libs-only-l $(STDERR_TO_DEVNULL))
++LIBS_QTGUI         ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Gui --libs $(STDERR_TO_DEVNULL))
+ CPPFLAGS_QTGUI     := $(CPPFLAGS_QTGUI)
+ LIBS_QTGUI         := $(LIBS_QTGUI)
+ CPPFLAGS_QTWIDGETS ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Widgets --cflags $(STDERR_TO_DEVNULL)) -DQT_NO_KEYWORDS
+-LIBS_QTWIDGETS     ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Widgets --libs-only-L --libs-only-l $(STDERR_TO_DEVNULL))
++LIBS_QTWIDGETS     ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Widgets --libs $(STDERR_TO_DEVNULL))
+ CPPFLAGS_QTWIDGETS := $(CPPFLAGS_QTWIDGETS)
+ LIBS_QTWIDGETS     := $(LIBS_QTWIDGETS)
+ CPPFLAGS_QTSVG     ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Svg --cflags $(STDERR_TO_DEVNULL)) -DQT_NO_KEYWORDS
+-LIBS_QTSVG         ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Svg --libs-only-L --libs-only-l $(STDERR_TO_DEVNULL))
++LIBS_QTSVG         ?= $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKGCONFIG) Qt5Svg --libs $(STDERR_TO_DEVNULL))
+ CPPFLAGS_QTSVG     := $(CPPFLAGS_QTSVG)
+ LIBS_QTSVG         := $(LIBS_QTSVG)
+ ASSIMP_INTERNAL    ?= no
+@@ -97,7 +97,7 @@ CPPFLAGS_ASSIMP    := -Ilibs/assimp/include -DASSIMP_INCLUDE\(x\)=\#x
+ LIBS_ASSIMP        := -lassimp_ -L$(INSTALLDIR)
+ endif
+ CPPFLAGS_GL        ?=
+-LIBS_GL            ?= -lGL # -lopengl32 on Win32
++LIBS_GL            ?= $(if $(filter Darwin,$(OS)),-framework OpenGL,-lGL)
+ CPPFLAGS_DL        ?=
+ LIBS_DL            ?= -ldl # nothing on Win32
+ CPPFLAGS_ZLIB      ?=
+@@ -244,12 +244,12 @@ ifeq ($(OS),Win32)
+ else
+ 
+ ifeq ($(OS),Darwin)
+-	CPPFLAGS_COMMON += -DPOSIX -DXWINDOWS
++	CPPFLAGS_COMMON += -DPOSIX
+ 	CFLAGS_COMMON += -fPIC
+ 	CXXFLAGS_COMMON += -fno-exceptions -fno-rtti
+ 	MACLIBDIR ?= /opt/local/lib
+-	CPPFLAGS_COMMON += -I$(MACLIBDIR)/../include -I/usr/X11R6/include
+-	LDFLAGS_COMMON += -L$(MACLIBDIR) -L/usr/X11R6/lib
++	CPPFLAGS_COMMON += -I$(MACLIBDIR)/../include
++	LDFLAGS_COMMON += -L$(MACLIBDIR)
+ 	LDFLAGS_DLL += -dynamiclib -ldl
+ 	EXE ?= $(shell uname -m)
+ 	MAKE_EXE_SYMLINK = true
+@@ -259,8 +259,6 @@ ifeq ($(OS),Darwin)
+ 	# workaround for weird prints
+ 	ECHO_NOLF = /bin/echo -n
+ 
+-	# workaround: http://developer.apple.com/qa/qa2007/qa1567.html
+-	LIBS_GL += -lX11 -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+ 	# workaround: we have no "ldd" for OS X, so...
+ 	LDD =
+ 	OTOOL = otool
+@@ -1032,6 +1030,7 @@ $(INSTALLDIR)/modules/archivepak.$(DLL): \
+ 	plugins/archivepak/plugin.o \
+ 
+ $(INSTALLDIR)/modules/entity.$(DLL): CPPFLAGS_EXTRA := -Ilibs -Iinclude $(CPPFLAGS_QTGUI)
++$(INSTALLDIR)/modules/entity.$(DLL): LIBS_EXTRA := $(LIBS_QTCORE)
+ $(INSTALLDIR)/modules/entity.$(DLL): \
+ 	plugins/entity/angle.o \
+ 	plugins/entity/angles.o \
 diff --git a/contrib/bobtoolz/misc.h b/contrib/bobtoolz/misc.h
 index 4a692016..d2a9eda9 100644
 --- a/contrib/bobtoolz/misc.h
@@ -30,6 +100,111 @@ index e8bf7a2e..1f2491af 100644
  }
  
  void AddFaceWithTextureScaled( scene::Node& brush, vec3_t va, vec3_t vb, vec3_t vc,
+diff --git a/libs/gtkutil/glwidget.cpp b/libs/gtkutil/glwidget.cpp
+index d874b503..fbcd2f14 100644
+--- a/libs/gtkutil/glwidget.cpp
++++ b/libs/gtkutil/glwidget.cpp
+@@ -30,6 +30,10 @@
+ #include <QSurfaceFormat>
+ #include <QCoreApplication>
+ #include <QOpenGLWidget>
++#if defined( __APPLE__ )
++#include <QOpenGLFramebufferObject>
++#include <QOpenGLFunctions>
++#endif
+ 
+ void ( *GLWidget_sharedContextCreated )() = 0;
+ void ( *GLWidget_sharedContextDestroyed )() = 0;
+@@ -53,7 +57,44 @@ void glwidget_context_created( QOpenGLWidget& widget ){
+ 		ASSERT_MESSAGE( GlobalOpenGL().funcs, "failed to initializeOpenGLFunctions" );
+ 		GlobalOpenGL().contextValid = true;
+ 
++#if defined( __APPLE__ )
++		// QOpenGLWidget calls initializeGL before allocating its draw FBO.
++		// Cocoa shader validation requires a complete current framebuffer.
++		auto *functions = widget.context()->functions();
++		const bool separateFramebuffers = QOpenGLFramebufferObject::hasOpenGLFramebufferBlit();
++		GLint drawFramebuffer, readFramebuffer, renderbuffer, activeTexture, texture;
++		GLint viewport[4];
++		functions->glGetIntegerv( GL_FRAMEBUFFER_BINDING, &drawFramebuffer );
++		readFramebuffer = drawFramebuffer;
++		if ( separateFramebuffers )
++			functions->glGetIntegerv( GL_READ_FRAMEBUFFER_BINDING, &readFramebuffer );
++		functions->glGetIntegerv( GL_RENDERBUFFER_BINDING, &renderbuffer );
++		functions->glGetIntegerv( GL_ACTIVE_TEXTURE, &activeTexture );
++		functions->glGetIntegerv( GL_TEXTURE_BINDING_2D, &texture );
++		functions->glGetIntegerv( GL_VIEWPORT, viewport );
++		{
++			QOpenGLFramebufferObjectFormat format;
++			format.setAttachment( QOpenGLFramebufferObject::CombinedDepthStencil );
++			QOpenGLFramebufferObject bootstrap( 1, 1, format );
++			const bool bound = bootstrap.bind();
++			ASSERT_MESSAGE( bootstrap.isValid() && bound, "failed to create shader bootstrap framebuffer" );
++			GLWidget_sharedContextCreated();
++		}
++		// Destroy the temporary attachments before restoring Qt's exact bindings.
++		if ( separateFramebuffers ) {
++			functions->glBindFramebuffer( GL_DRAW_FRAMEBUFFER, drawFramebuffer );
++			functions->glBindFramebuffer( GL_READ_FRAMEBUFFER, readFramebuffer );
++		}
++		else {
++			functions->glBindFramebuffer( GL_FRAMEBUFFER, drawFramebuffer );
++		}
++		functions->glBindRenderbuffer( GL_RENDERBUFFER, renderbuffer );
++		functions->glActiveTexture( activeTexture );
++		functions->glBindTexture( GL_TEXTURE_2D, texture );
++		functions->glViewport( viewport[0], viewport[1], viewport[2], viewport[3] );
++#else
+ 		GLWidget_sharedContextCreated();
++#endif
+ 	}
+ }
+ 
+@@ -70,7 +111,11 @@ void glwidget_setDefaultFormat(){
+ 	QCoreApplication::setAttribute( Qt::ApplicationAttribute::AA_ShareOpenGLContexts );
+ 	QSurfaceFormat format;
+ 	format.setVersion( 2, 0 );
++#if defined( __APPLE__ )
++	format.setDepthBufferSize( 24 );
++	format.setStencilBufferSize( 8 );
++#endif
+ 	format.setSwapInterval( 0 );
+ //	format.setSamples( 8 );
+ 	QSurfaceFormat::setDefaultFormat( format );
+-}
+\ No newline at end of file
++}
+diff --git a/plugins/entity/group.cpp b/plugins/entity/group.cpp
+index 2fcafcd3..183c6c91 100644
+--- a/plugins/entity/group.cpp
++++ b/plugins/entity/group.cpp
+@@ -46,6 +46,7 @@
+ #include "namekeys.h"
+ 
+ #include "entity.h"
++#include <QUuid>
+ 
+ /// The "origin" key directly controls the entity's local-to-parent transform.
+ 
+@@ -470,7 +471,17 @@ public:
+ 	}
+ 
+ 	scene::Node& clone() const override {
+-		return ( new GroupNode( *this ) )->node();
++		auto* copy = new GroupNode( *this );
++		Entity& entity = copy->get( NullType<Entity>() );
++		// Duplicating geometry creates a new authored object. Existing objects
++		// keep their epair identity across ordinary saves and undo/redo.
++		if ( string_equal( entity.getKeyValue( "classname" ), "func_group" )
++		     && string_equal( entity.getKeyValue( "prime_geometry" ), "1" )
++		     && string_not_empty( entity.getKeyValue( "prime_id" ) ) ) {
++			const auto id = QUuid::createUuid().toString( QUuid::WithoutBraces ).toLatin1();
++			entity.setKeyValue( "prime_id", id.constData() );
++		}
++		return copy->node();
+ 	}
+ 
+ 	void insert( scene::Node& child ) override {
 diff --git a/plugins/vfspk3/vfs.cpp b/plugins/vfspk3/vfs.cpp
 index f8b4d270..cfd64c8c 100644
 --- a/plugins/vfspk3/vfs.cpp
@@ -50,6 +225,76 @@ index f8b4d270..cfd64c8c 100644
  				}
  
  				if ( GetArchiveTable( archiveModules, ext ) == nullptr ) {
+diff --git a/radiant/environment.cpp b/radiant/environment.cpp
+index 38317709..d546eb73 100644
+--- a/radiant/environment.cpp
++++ b/radiant/environment.cpp
+@@ -212,28 +212,38 @@ void cmdMap(){
+ 
+ #include <glib.h>
+ 
++#if defined( __APPLE__ )
++#include <mach-o/dyld.h>
++#else
+ const char* LINK_NAME =
+ #if defined ( __linux__ )
+     "/proc/self/exe"
+-#else // FreeBSD and OSX
++#else // FreeBSD
+     "/proc/curproc/file"
+ #endif
+     ;
++#endif
+ 
+ /// brief Returns the filename of the executable belonging to the current process, or empty string, if not found.
+ const char* getexename( char *buf ){
++#if defined( __APPLE__ )
++	char executable[PATH_MAX];
++	uint32_t size = sizeof( executable );
++	if ( _NSGetExecutablePath( executable, &size ) == 0 && realpath( executable, buf ) != nullptr )
++		return buf;
++#else
+ 	/* Now read the symbolic link */
+-	const int ret = readlink( LINK_NAME, buf, PATH_MAX );
++	const int ret = readlink( LINK_NAME, buf, PATH_MAX - 1 );
+ 
+-	if ( ret == -1 ) {
+-		globalWarningStream() << "getexename: falling back to argv[0]: " << Quoted( g_argv[0] );
+-		if( realpath( g_argv[0], buf ) == 0 )
+-			*buf = '\0'; /* In case of an error, leave the handling up to the caller */
+-	}
+-	else{
++	if ( ret != -1 ) {
+ 		/* Ensure proper NUL termination */
+ 		buf[ret] = 0;
++		return buf;
+ 	}
++#endif
++	globalWarningStream() << "getexename: falling back to argv[0]: " << Quoted( g_argv[0] );
++	if( realpath( g_argv[0], buf ) == nullptr )
++		*buf = '\0'; /* In case of an error, leave the handling up to the caller */
+ 	return buf;
+ }
+ 
+@@ -257,6 +267,18 @@ void environment_init( int argc, char* argv[] ){
+ 		// NOTE: we build app path with a trailing '/'
+ 		// it's a general convention in Radiant to have the slash at the end of directories
+ 		app_path = PathFilenameless( real );
++#if defined( __APPLE__ )
++		// App bundles keep editor data and modules outside Contents/MacOS.
++		const char suffix[] = "/Contents/MacOS/";
++		const size_t path_length = strlen( app_path.c_str() );
++		if ( path_length >= sizeof( suffix ) - 1
++		     && string_equal( app_path.c_str() + path_length - ( sizeof( suffix ) - 1 ), suffix ) ) {
++			const auto resources = StringStream( app_path, "../Resources/netradiant/" );
++			char resource_path[PATH_MAX];
++			if ( realpath( resources.c_str(), resource_path ) != nullptr && file_is_directory( resource_path ) )
++				app_path = StringStream( DirectoryCleaned( resource_path ) );
++		}
++#endif
+ 	}
+ 
+ 	if ( !portable_app_setup() ) {
 diff --git a/radiant/gtkdlgs.cpp b/radiant/gtkdlgs.cpp
 index 54e041be..982f6fa3 100644
 --- a/radiant/gtkdlgs.cpp
@@ -66,6 +311,228 @@ index 54e041be..982f6fa3 100644
  			IntImportCallback( GameModeImportCaller() ),
  			IntExportCallback( GameModeExportCaller() )
  		);
+diff --git a/radiant/map.cpp b/radiant/map.cpp
+index 09eba269..283cd231 100644
+--- a/radiant/map.cpp
++++ b/radiant/map.cpp
+@@ -49,6 +49,7 @@
+ 
+ #include "gtkutil/filechooser.h"
+ #include "gtkutil/widget.h"
++#include "gtkutil/messagebox.h"
+ #include "timer.h"
+ #include "select.h"
+ #include "plugin.h"
+@@ -66,7 +67,9 @@
+ #include "autosave.h"
+ #include "brushmodule.h"
+ #include "brush.h"
++#include "patch.h"
+ #include "grid.h"
++#include <QUuid>
+ 
+ class NameObserver
+ {
+@@ -760,9 +763,10 @@ inline scene::Node& node_clone( scene::Node& node ){
+ class CloneAll : public scene::Traversable::Walker
+ {
+ 	mutable scene::Path m_path;
++	bool m_preservePrimeIdentity;
+ public:
+-	CloneAll( scene::Node& root )
+-		: m_path( makeReference( root ) ){
++	CloneAll( scene::Node& root, bool preservePrimeIdentity = false )
++		: m_path( makeReference( root ) ), m_preservePrimeIdentity( preservePrimeIdentity ){
+ 	}
+ 	bool pre( scene::Node& node ) const override {
+ 		if ( node.isRoot() ) {
+@@ -771,6 +775,13 @@ public:
+ 
+ 		m_path.push( makeReference( node_clone( node ) ) );
+ 		m_path.top().get().IncRef();
++		// Save As clones the scene as storage, not as a new authored object.
++		if ( m_preservePrimeIdentity ) {
++			Entity* original = Node_getEntity( node );
++			Entity* copy = Node_getEntity( m_path.top() );
++			if ( original && copy && string_equal( original->getKeyValue( "prime_geometry" ), "1" ) )
++				copy->setKeyValue( "prime_id", original->getKeyValue( "prime_id" ) );
++		}
+ 
+ 		return true;
+ 	}
+@@ -1215,7 +1226,7 @@ void Map_RenameAbsolute( const char* absolute ){
+ 	swap_layers( Node_getLayers( GlobalSceneGraph().root() ), Node_getLayers( clone ) );
+ 	{
+ 		//ScopeTimer timer( "clone subgraph" );
+-		Node_getTraversable( GlobalSceneGraph().root() )->traverse( CloneAll( clone ) );
++		Node_getTraversable( GlobalSceneGraph().root() )->traverse( CloneAll( clone, true ) );
+ 	}
+ 
+ 	g_map.m_resource->detach( g_map );
+@@ -1247,7 +1258,129 @@ void Map_Rename( const char* filename ){
+ 	}
+ }
+ 
++// Only Project Prime's geometry workspace needs one persistent identity per
++// primitive. Gather references before changing the graph, then keep the same
++// brush/patch nodes so authored surfaces and UVs remain untouched.
++class PrimeGeometrySaveCollector : public scene::Graph::Walker
++{
++public:
++	struct Primitive {
++		NodeSmartReference node;
++		scene::Path path;
++	};
++	mutable std::vector<Primitive> worldPrimitives;
++	mutable std::vector<NodeSmartReference> plainGroups;
++	mutable bool valid = true;
++	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
++		Entity* entity = Node_getEntity( path.top() );
++		if ( !entity ) return true;
++		const bool world = string_equal( entity->getClassName(), "worldspawn" );
++		const bool group = string_equal( entity->getClassName(), "func_group" );
++		if ( !world && !group ) return false;
++		struct Children : scene::Traversable::Walker {
++			mutable std::vector<NodeSmartReference> nodes;
++			bool pre( scene::Node& node ) const override { nodes.emplace_back( node ); return false; }
++		} children;
++		Node_getTraversable( path.top() )->traverse( children );
++		if ( world ) {
++			for ( const auto& child : children.nodes ) {
++				if ( !Node_isPrimitive( child ) ) { valid = false; continue; }
++				scene::Path childPath( path );
++				childPath.push( makeReference( child.get() ) );
++				worldPrimitives.push_back( { child, childPath } );
++			}
++		}
++		else if ( !children.nodes.empty() ) {
++			if ( children.nodes.size() != 1 || !Node_isPrimitive( children.nodes.front() ) )
++				valid = false; // never silently split a group with existing identity/intent
++			else if ( !string_equal( entity->getKeyValue( "prime_geometry" ), "1" ) ) {
++				struct PlainGroup : Entity::Visitor {
++					bool plain = true;
++					void visit( const char* key, const char* value ) override {
++						if ( !string_equal( key, "classname" ) ) plain = false;
++					}
++				} test;
++				entity->forEachKeyValue( test );
++				if ( test.plain ) plainGroups.emplace_back( path.top().get() );
++				else valid = false;
++			}
++		}
++		return false;
++	}
++};
++
++void PrimeGeometry_setIdentity( scene::Node& group, bool patch ){
++	Entity& entity = *Node_getEntity( group );
++	entity.setKeyValue( "prime_geometry", "1" );
++	const auto id = QUuid::createUuid().toString( QUuid::WithoutBraces ).toLatin1();
++	entity.setKeyValue( "prime_id", id.constData() );
++	if ( patch ) {
++		entity.setKeyValue( "prime_patch_solid", "true" );
++		entity.setKeyValue( "prime_patch_tessellation", "3" ); // QuakePatchDef2 importer default
++	}
++}
++
++bool PrimeGeometry_normaliseForSave(){
++	if ( !g_pGameDescription || !string_equal( g_pGameDescription->mGameFile.c_str(), "projectprime.game" ) )
++		return true;
++	PrimeGeometrySaveCollector plan;
++	GlobalSceneGraph().traverse( plan );
++	if ( !plan.valid ) {
++		qt_MessageBox( MainFrame_getWindow(),
++			"Prime geometry groups must contain exactly one brush or patch. Ungroup multiple primitives before saving. "
++			"Groups with unsupported properties must be reconciled in Studio; no source was saved.",
++			"Project Prime geometry identities", EMessageBoxType::Error );
++		return false;
++	}
++	if ( plan.worldPrimitives.empty() && plan.plainGroups.empty() ) return true;
++	{
++		UndoableCommand undo( "assignPrimeGeometryIdentities" );
++		for ( const auto& group : plan.plainGroups ) {
++			struct PatchChild : scene::Traversable::Walker {
++				mutable bool patch = false;
++				bool pre( scene::Node& node ) const override { patch = Node_isPatch( node ); return false; }
++			} child;
++			Node_getTraversable( group )->traverse( child );
++			PrimeGeometry_setIdentity( group, child.patch );
++		}
++		for ( const auto& primitive : plan.worldPrimitives ) {
++			scene::Instance& original = findInstance( primitive.path );
++			const bool selected = Instance_isSelected( original );
++			NodeSmartReference group( GlobalEntityCreator().createEntity( GlobalEntityClassManager().findOrInsert( "func_group", true ) ) );
++			group.get().m_layer = primitive.node.get().m_layer;
++			Node_getTraversable( GlobalSceneGraph().root() )->insert( group );
++			PrimeGeometry_setIdentity( group, Node_isPatch( primitive.node ) );
++			Node_getTraversable( group )->insert( primitive.node );
++			scene::Path newPath( makeReference( GlobalSceneGraph().root() ) );
++			newPath.push( makeReference( group.get() ) );
++			newPath.push( makeReference( primitive.node.get() ) );
++			scene::Instance& replacement = findInstance( newPath );
++			// Copy component selection while both instances still exist.
++			if ( BrushInstance* oldBrush = Instance_getBrush( original ) ) {
++				std::vector<FaceInstance*> faces;
++				Brush_ForEachFaceInstance( *oldBrush, [&]( FaceInstance& face ){ faces.push_back( &face ); } );
++				std::size_t index = 0;
++				Brush_ForEachFaceInstance( *Instance_getBrush( replacement ), [&]( FaceInstance& face ){
++					const FaceInstance& before = *faces[index++];
++					face.setSelected( SelectionSystem::eFace, before.isSelected() );
++					for ( std::size_t i = 0; i < before.getFace().getWinding().numpoints; ++i ) {
++						if ( before.selected_vertex( i ) ) face.select_vertex( i, true );
++						if ( before.selected_edge( i ) ) face.select_edge( i, true );
++					}
++				} );
++			}
++			else if ( PatchInstance* oldPatch = Instance_getPatch( original ) )
++				Instance_getPatch( replacement )->copyComponentSelection( *oldPatch );
++			Node_getTraversable( primitive.path.parent() )->erase( primitive.node );
++			Instance_setSelected( replacement, selected );
++		}
++	}
++	SceneChangeNotify();
++	return true;
++}
++
+ bool Map_Save(){
++	if ( !PrimeGeometry_normaliseForSave() ) return false;
+ 	Pointfile_Clear();
+ 
+ 	ScopeTimer timer( "map save" );
+@@ -1636,6 +1769,7 @@ tryDecompile:
+    ===========
+  */
+ bool Map_SaveFile( const char* filename ){
++	if ( !PrimeGeometry_normaliseForSave() ) return false;
+ 	ScopeDisableScreenUpdates disableScreenUpdates( "Processing...", "Saving Map" );
+ 	return MapResource_saveFile( MapFormat_forFile( filename ), GlobalSceneGraph().root(), Map_Traverse, filename );
+ }
+@@ -1865,6 +1999,7 @@ bool Map_SaveAs(){
+ 	const char* filename = map_save( "Save Map" );
+ 
+ 	if ( filename != 0 ) {
++		if ( !PrimeGeometry_normaliseForSave() ) return false;
+ 		MRU_AddFile( filename );
+ 		Map_Rename( filename );
+ 		return Map_Save();
+diff --git a/radiant/patch.h b/radiant/patch.h
+index 7da776f2..8e3a9ffa 100644
+--- a/radiant/patch.h
++++ b/radiant/patch.h
+@@ -1429,6 +1429,13 @@ public:
+ 	bool isSelected() const override {
+ 		return m_selectable.isSelected();
+ 	}
++	// Reparenting the same patch creates a new scene instance, not new controls.
++	void copyComponentSelection( const PatchInstance& other ){
++		ASSERT_MESSAGE( &m_patch == &other.m_patch && m_ctrl_instances.size() == other.m_ctrl_instances.size(),
++			"patch component selection requires identical underlying topology" );
++		for ( std::size_t i = 0; i < m_ctrl_instances.size(); ++i )
++			m_ctrl_instances[i].m_selectable.setSelected( other.m_ctrl_instances[i].m_selectable.isSelected() );
++	}
+ 
+ 
+ 	void update_selected() const {
 diff --git a/radiant/patchmanip.cpp b/radiant/patchmanip.cpp
 index b62dc71b..153c2d8b 100644
 --- a/radiant/patchmanip.cpp
@@ -90,6 +557,106 @@ index b62dc71b..153c2d8b 100644
  	radioBox.m_radio->button( 3 )->setChecked( true );
  
  	auto *check = new QCheckBox( "Side walls" );
+diff --git a/radiant/select.cpp b/radiant/select.cpp
+index 20d4846d..64f04906 100644
+--- a/radiant/select.cpp
++++ b/radiant/select.cpp
+@@ -28,6 +28,7 @@
+ #include "iundo.h"
+ 
+ #include <vector>
++#include <algorithm>
+ 
+ #include "stream/stringstream.h"
+ #include "signal/isignal.h"
+@@ -50,6 +51,7 @@
+ #include "tools.h"
+ #include "grid.h"
+ #include "map.h"
++#include "preferences.h"
+ #include "csg.h"
+ 
+ 
+@@ -1230,8 +1232,29 @@ class CloneSelected : public scene::Graph::Walker
+ {
+ 	const bool m_makeUnique;
+ 	const scene::Node* m_world = Map_FindWorldspawn( g_map );
++	bool primePrimitiveContainerSelected( const scene::Path& path, const scene::Instance& instance ) const {
++		if ( !g_pGameDescription || g_pGameDescription->mGameFile != "projectprime.game" || !instance.childSelected() )
++			return false;
++		Entity* entity = Node_getEntity( path.top() );
++		if ( !entity || !string_equal( entity->getClassName(), "func_group" )
++		     || !string_equal( entity->getKeyValue( "prime_geometry" ), "1" )
++		     || string_empty( entity->getKeyValue( "prime_id" ) ) )
++			return false;
++		struct SinglePrimitive : scene::Traversable::Walker {
++			mutable std::size_t count = 0;
++			mutable bool primitive = false;
++			bool pre( scene::Node& node ) const override {
++				++count;
++				primitive = Node_isPrimitive( node );
++				return false;
++			}
++		} child;
++		Node_getTraversable( path.top() )->traverse( child );
++		return child.count == 1 && child.primitive;
++	}
+ public:
+ 	mutable std::vector<scene::Node*> m_cloned;
++	mutable std::vector<scene::Node*> m_primitiveContainers;
+ 	CloneSelected( bool makeUnique ) : m_makeUnique( makeUnique ){
+ 	}
+ 	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
+@@ -1247,6 +1270,9 @@ public:
+ 			if ( Instance_isSelected( instance ) ) {
+ 				return false;
+ 			}
++			// A Prime primitive's one-object entity carries its persistent ID.
++			// Duplicate that entity as a unit, even after ordinary brush selection.
++			if ( primePrimitiveContainerSelected( path, instance ) ) return false;
+ 			if( m_makeUnique && instance.childSelected() ){ /* clone selected group entity primitives to new group entity */
+ 				return false;
+ 			}
+@@ -1264,11 +1290,13 @@ public:
+ 		}
+ 
+ 		if ( !path.top().get().isRoot() ) {
+-			if ( Instance_isSelected( instance ) ) {
++			const bool promotePrimitive = !Instance_isSelected( instance ) && primePrimitiveContainerSelected( path, instance );
++			if ( Instance_isSelected( instance ) || promotePrimitive ) {
+ 				NodeSmartReference clone( Node_Clone( path.top() ) );
+ 				Map_gatherNamespaced( clone );
+ 				Node_getTraversable( path.parent().get() )->insert( clone );
+ 				m_cloned.push_back( clone.get_pointer() );
++				if ( promotePrimitive ) m_primitiveContainers.push_back( clone.get_pointer() );
+ 			}
+ 			else if( m_makeUnique && instance.childSelected() ){ /* clone selected group entity primitives to new group entity */
+ 				NodeSmartReference clone( Node_Clone_Selected( path.top() ) );
+@@ -1293,8 +1321,13 @@ void Scene_Clone_Selected( scene::Graph& graph, bool makeUnique ){
+ 	{
+ 		class walker : public scene::Traversable::Walker
+ 		{
++			scene::Node* m_skipContainer;
+ 		public:
++			walker( scene::Node* skipContainer ) : m_skipContainer( skipContainer ){
++			}
+ 			bool pre( scene::Node& node ) const override {
++				// Preserve ordinary primitive selection; its new wrapper stays unselected.
++				if ( &node == m_skipContainer ) return true;
+ 				if( scene::Instantiable *instantiable = Node_getInstantiable( node ) ){
+ 					class visitor : public scene::Instantiable::Visitor
+ 					{
+@@ -1309,7 +1342,9 @@ void Scene_Clone_Selected( scene::Graph& graph, bool makeUnique ){
+ 				return true;
+ 			}
+ 		};
+-		Node_traverseSubgraph( *node, walker() );
++		const bool primitiveOnly = std::find( cloneSelected.m_primitiveContainers.begin(),
++			cloneSelected.m_primitiveContainers.end(), node ) != cloneSelected.m_primitiveContainers.end();
++		Node_traverseSubgraph( *node, walker( primitiveOnly ? node : nullptr ) );
+ 	}
+ }
+ 
 diff --git a/tools/quake3/q3map2/q3map2.h b/tools/quake3/q3map2/q3map2.h
 index 72fe481d..f86b593e 100644
 --- a/tools/quake3/q3map2/q3map2.h

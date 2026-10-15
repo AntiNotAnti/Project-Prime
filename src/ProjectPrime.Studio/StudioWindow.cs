@@ -52,9 +52,12 @@ public sealed class StudioWindow : Window
     private Task? _initialization;
     private Task? _disposal;
     private readonly List<Task> _queuedRequests = [];
+    private readonly Action<System.Diagnostics.ProcessStartInfo>? _radiantLauncher;
 
-    public StudioWindow(StudioPaths paths, StudioSettings settings, StudioOpenRequest initialRequest, StudioSession? previousSession = null)
+    public StudioWindow(StudioPaths paths, StudioSettings settings, StudioOpenRequest initialRequest, StudioSession? previousSession = null,
+        Action<System.Diagnostics.ProcessStartInfo>? radiantLauncher = null)
     {
+        _radiantLauncher = radiantLauncher;
         _settings = settings;
         _paths = paths;
         MapIntegration = new GameBrokerMapIntegration(paths);
@@ -275,8 +278,9 @@ public sealed class StudioWindow : Window
         },cancellation);
     private MapStudioDocument CreateMapDocument(StudioDocumentId? id = null)
     {
-        MapStudioDocument map = new(_paths,this,Jobs,id,MapIntegration,_settings.MapLayout);
-        map.Host.ConfigureSourceOwnership(path=>Documents.CanOpenSource(map,path),path=>Documents.RequireSaveTarget(map,path));
+        MapStudioDocument map = new(_paths,this,Jobs,id,MapIntegration,_settings.MapLayout,_radiantLauncher);
+        map.Host.ConfigureSourceOwnership(path=>Documents.CanOpenSource(map,path),path=>Documents.RequireSaveTarget(map,path),
+            path=>_ = EditMapSourceInRadiantAsync(path));
         map.CloseRequested += () => _ = CloseDocumentAsync(map);
         map.LayoutChanged += PersistSettings;
         return map;
@@ -285,6 +289,16 @@ public sealed class StudioWindow : Window
     {
         if (_closing) return;
         var map=CreateMapDocument(); map.NewProject(name,example); Documents.Add(map);
+    }
+    private async Task EditMapSourceInRadiantAsync(string path)
+    {
+        try
+        {
+            var result = await HandleLaunchRequestAsync(new(Guid.NewGuid(),StudioOpenKind.Map,path));
+            if (result.Accepted && !_closing && !_disposed && Documents.Find(StudioDocumentKind.Map,path) is MapStudioDocument map)
+                map.Host.EditGeometryInRadiant();
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
     }
     public void NewReplayWorkspace()
     {
@@ -445,6 +459,12 @@ public sealed class StudioWindow : Window
         Commands.Register(StudioCommand.OpenReplay, _ => OpenDialogAsync(StudioDocumentKind.Replay));
         Commands.Register(StudioCommand.OpenClip, _ => OpenDialogAsync(StudioDocumentKind.ReplayClip));
         Commands.Register(StudioCommand.NewMapWorkspace, _ => { NewMapProject(); return Task.CompletedTask; });
+        Commands.Register(StudioCommand.NewMapInRadiant, _ =>
+        {
+            NewMapProject();
+            if (Documents.ActiveDocument is MapStudioDocument map) map.Host.EditGeometryInRadiant();
+            return Task.CompletedTask;
+        },_ => MphRead.Mods.MapGen.CommunityCutoverPolicy.NetRadiantDefault);
         Commands.Register(StudioCommand.NewReplayWorkspace, _ => { NewReplayWorkspace(); return Task.CompletedTask; });
         Commands.Register(StudioCommand.Save, ctx => SaveAsync(ctx.Document!, false), ctx => ctx.Document is { CanSave: true, Dirty: true });
         Commands.Register(StudioCommand.SaveAs, ctx => SaveAsync(ctx.Document!, true), ctx => ctx.Document is { CanSave: true });
@@ -456,6 +476,9 @@ public sealed class StudioWindow : Window
         Commands.Register(StudioCommand.MapValidate, ctx => ((MapStudioDocument)ctx.Document!).Host.ValidateAsync(),ctx => ctx.Document is MapStudioDocument {CanSave:true});
         Commands.Register(StudioCommand.MapBuild, ctx => ((MapStudioDocument)ctx.Document!).Host.BuildAsync(),ctx => ctx.Document is MapStudioDocument {CanSave:true});
         Commands.Register(StudioCommand.MapPlaytest, ctx => ((MapStudioDocument)ctx.Document!).Host.PlaytestAsync(),ctx => ctx.Document is MapStudioDocument {CanSave:true});
+        Commands.Register(StudioCommand.EditGeometryInRadiant, ctx => { ((MapStudioDocument)ctx.Document!).Host.EditGeometryInRadiant();return Task.CompletedTask; },ctx => ctx.Document is MapStudioDocument {CanSave:true} && MphRead.Mods.MapGen.CommunityCutoverPolicy.NetRadiantDefault);
+        Commands.Register(StudioCommand.ReviewRadiantGeometryChanges, ctx => { ((MapStudioDocument)ctx.Document!).Host.ReviewRadiantGeometryChanges();return Task.CompletedTask; },ctx => ctx.Document is MapStudioDocument {CanSave:true});
+        Commands.Register(StudioCommand.NativeGeometryFallback, ctx => { ((MapStudioDocument)ctx.Document!).Host.ShowNativeGeometryTools();return Task.CompletedTask; },ctx => ctx.Document is MapStudioDocument {CanSave:true});
         Commands.Register(StudioCommand.FrameAll, ctx => { ((MapStudioDocument)ctx.Document!).Host.FrameAll(); return Task.CompletedTask; },ctx => ctx.Document is MapStudioDocument {CanSave:true});
         Commands.Register(StudioCommand.ToggleWireframe, ctx => { ((MapStudioDocument)ctx.Document!).Host.ToggleWireframe(); return Task.CompletedTask; },ctx => ctx.Document is MapStudioDocument {CanSave:true});
         Commands.Register(StudioCommand.ReplayPlayPause, ctx => { ((ReplayStudioDocument)ctx.Document!).TogglePause(); return Task.CompletedTask; },ctx => ctx.Document is ReplayStudioDocument {Session:not null});
@@ -470,6 +493,7 @@ public sealed class StudioWindow : Window
         home.Click += (_, _) => Documents.Select(null);
         file.Items.Add(home);
         AddMenu(file, "New _map", StudioCommand.NewMapWorkspace);
+        AddMenu(file, "New map in Radiant", StudioCommand.NewMapInRadiant);
         AddMenu(file, "New _replay workspace", StudioCommand.NewReplayWorkspace);
         MenuItem assets=new() { Header="Choose game asset paths…" };
         assets.Click += async (_,_) => await ChooseAssetPathsAsync();
@@ -504,6 +528,9 @@ public sealed class StudioWindow : Window
         MenuItem jobs = new() { Header = "Background jobs…" };
         jobs.Click += (_,_) => OpenJobsWindow();view.Items.Add(jobs);
         MenuItem tools = new() { Header = "_Tools" };
+        AddMenu(tools,"Edit geometry in Radiant",StudioCommand.EditGeometryInRadiant);
+        AddMenu(tools,"Review / apply Radiant geometry changes",StudioCommand.ReviewRadiantGeometryChanges);
+        AddMenu(tools,"Native geometry fallback",StudioCommand.NativeGeometryFallback);
         AddMenu(tools,"Validate map",StudioCommand.MapValidate);
         AddMenu(tools,"Build map package",StudioCommand.MapBuild);
         AddMenu(tools,"External playtest",StudioCommand.MapPlaytest);

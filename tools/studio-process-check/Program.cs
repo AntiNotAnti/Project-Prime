@@ -6,6 +6,7 @@ using ProjectPrime.Studio;
 using ProjectPrime.Studio.IPC;
 using ProjectPrime.Studio.Jobs;
 using ProjectPrime.Studio.Protocol;
+using MphRead.Mods.Launcher.Gui;
 
 if (args is ["--child", var childRoot])
 {
@@ -29,6 +30,57 @@ string root=Path.Combine(Path.GetTempPath(),"studio-process-check-"+Guid.NewGuid
 Directory.CreateDirectory(root);
 try
 {
+    // Exercise the same route seam used by the Game header and Q/E/gamepad tab
+    // navigation. External launch requests must not instantiate/cache Forge.
+    var routes = new PrimeRouter();
+    int mapRequests = 0, embeddedActivations = 0;
+    routes.RegisterRouteAction(PrimeRoute.Forge, () => mapRequests++);
+    routes.Changed += route => { if(route==PrimeRoute.Forge)embeddedActivations++; };
+    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==1 && routes.Current==PrimeRoute.News
+        && routes.Previous==null && embeddedActivations==0,"normal Forge entry requests Studio without creating embedded workspace or history");
+    Check(routes.NavigateWorkspace(PrimeRoute.Forge) && mapRequests==1 && embeddedActivations==1,
+        "explicit embedded/legacy entry retains the Forge workspace without an external launch");
+    routes.Back();
+    Check(!routes.Navigate(PrimeRoute.Forge) && mapRequests==2 && embeddedActivations==1 && routes.Current==PrimeRoute.News,
+        "normal Forge reentry still opens Studio after an embedded workspace was previously cached");
+    routes.Navigate(PrimeRoute.Theatre);routes.NextRoute();
+    Check(mapRequests==3 && routes.Current==PrimeRoute.Theatre && embeddedActivations==1,
+        "keyboard/gamepad next-tab Forge entry uses the same external action");
+    routes.CanNavigate = route => route!=PrimeRoute.Forge;
+    routes.Navigate(PrimeRoute.Forge);
+    Check(mapRequests==3 && routes.Current==PrimeRoute.Theatre,"navigation guards prevent external creator launches");
+    Check(!routes.NavigateWorkspace(PrimeRoute.Forge) && embeddedActivations==1,
+        "explicit embedded entry still respects unsaved/overlay navigation guards");
+    routes.CanNavigate = null;
+    routes.NavigateWorkspace(PrimeRoute.Forge);routes.Navigate(PrimeRoute.Offline);routes.Back();
+    Check(mapRequests==3 && routes.Current==PrimeRoute.Forge && embeddedActivations==3,
+        "back navigation restores an explicitly opened embedded editor without launching another process");
+    routes.Navigate(PrimeRoute.Settings);
+    Action? continueNavigation = null;
+    routes.CanNavigate = route =>
+    {
+        bool workspace = routes.IsWorkspaceNavigation;
+        continueNavigation = () => { routes.CanNavigate=null;if(workspace)routes.NavigateWorkspace(route);else routes.Navigate(route); };
+        return false;
+    };
+    routes.NavigateWorkspace(PrimeRoute.Forge);continueNavigation!();
+    Check(mapRequests==3 && routes.Current==PrimeRoute.Forge && !routes.IsWorkspaceNavigation,
+        "delayed unsaved-settings continuation retains explicit embedded intent and resets navigation scope");
+    var currentRoute = new PrimeRouter();
+    int currentRequests=0, currentChanges=0, guardCalls=0;
+    currentRoute.RegisterRouteAction(PrimeRoute.Forge, () => currentRequests++);
+    currentRoute.Changed += _ => currentChanges++;
+    currentRoute.NavigateWorkspace(PrimeRoute.Forge);
+    Check(!currentRoute.Navigate(PrimeRoute.Forge) && !currentRoute.Navigate(PrimeRoute.Forge)
+        && currentRequests==2 && currentChanges==1 && currentRoute.Current==PrimeRoute.Forge && currentRoute.Previous==PrimeRoute.News,
+        "repeated normal current-Forge requests open Studio without replacing embedded workspace or history");
+    currentRoute.CanNavigate = _ => { guardCalls++;return false; };
+    Check(!currentRoute.Navigate(PrimeRoute.Forge) && guardCalls==1 && currentRequests==2 && currentChanges==1,
+        "current-Forge external action still obeys overlay and navigation guards");
+    currentRoute.CanNavigate=null;currentRoute.Navigate(PrimeRoute.Settings);guardCalls=0;
+    currentRoute.CanNavigate = _ => { guardCalls++;return false; };
+    Check(currentRoute.Navigate(PrimeRoute.Settings) && guardCalls==0 && currentRequests==2 && currentChanges==2,
+        "ordinary current Settings remains a no-op without prompting for unsaved edits");
     Check(StudioLaunchRequest.TryParse(["--home","--safe-mode"],out var home,out _) && home.Kind==StudioOpenKind.Home && home.SafeMode,"explicit home and safe mode");
     Check(!StudioLaunchRequest.TryParse(["--home","--map","map.json"],out _,out _),"reject competing workspace selectors");
     Check(!StudioLaunchRequest.TryParse(["--replay","wrong.json"],out _,out _),"reject document extension mismatch");

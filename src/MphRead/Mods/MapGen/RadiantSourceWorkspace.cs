@@ -37,8 +37,15 @@ public static class RadiantSourceWorkspace
             var existing = Read(source);
             if (existing.MapId != definition.MapId)
                 throw new InvalidDataException("Radiant source belongs to another map.");
-            // The author may have saved in Radiant. Opening never exports over it.
-            return source;
+            if (existing.Version == 2) return source;
+            // Legacy comments do not survive Radiant Save. Upgrade only the
+            // exact source and native baseline we previously exported.
+            if (MapBuildFingerprint.HashFile(source) != existing.SourceHash
+                || GeometryHash(definition) != existing.GeometryHash
+                || QuakeMapInterchange.ReadIdentity(sidecar).SourceSha256 != existing.SourceHash)
+                throw new IOException("Legacy Radiant source cannot be upgraded because source or native geometry changed. "
+                    + "Keep both files, reconcile the existing source explicitly, and export a fresh source workspace; "
+                    + "opening will not overwrite external edits.");
         }
         var geometry = MapProjectSerializer.Clone(definition);
         geometry.Import = null; geometry.NativeRoom = null; geometry.Collision = null;
@@ -47,7 +54,7 @@ public static class RadiantSourceWorkspace
         // Geometry remains intact: meshes/rotation/UVs outside the supported
         // subset fail with the existing actionable diagnostics.
         QuakeMapInterchange.ExportUnderLease(geometry, source, sidecar,
-            hash => ManifestBytes(definition, hash), fault);
+            hash => ManifestBytes(definition, hash), fault, editorContainers: true);
         return source;
     }
 
@@ -74,8 +81,13 @@ public static class RadiantSourceWorkspace
             throw new IOException("Import conflict: Studio geometry or material bindings changed since export. "
                 + "Keep both sources and reconcile in native Studio or export a new source workspace.");
         string sourceHash = MapBuildFingerprint.HashFile(source);
+        if (manifest.Version == 1 && sourceHash != manifest.SourceHash)
+            throw new IOException("Legacy Radiant source changed and may have lost comment identities. "
+                + "Keep both files, reconcile the existing source explicitly, and export a fresh source workspace "
+                + "before applying geometry edits.");
         string sidecarHash = MapBuildFingerprint.HashFile(SidecarPath(source));
-        var imported = QuakeMapInterchange.Import(source, SidecarPath(source)).Definition;
+        var imported = QuakeMapInterchange.Import(source, SidecarPath(source),
+            requireDurableGeometryContainers: manifest.Version == 2).Definition;
         if (MapBuildFingerprint.HashFile(source) != sourceHash
             || MapBuildFingerprint.HashFile(SidecarPath(source)) != sidecarHash)
             throw new IOException("Radiant source or identity changed while reading. Preview changes again.");
@@ -137,12 +149,12 @@ public static class RadiantSourceWorkspace
     {
         if (!MapBuildFingerprint.HashFile(source).Equals(expectedSourceHash, StringComparison.OrdinalIgnoreCase))
             throw new IOException("Radiant source changed before its native baseline could be saved. Review the newer revision.");
-        AtomicFile.Write(ManifestPath(source), ManifestBytes(definition, expectedSourceHash));
+        AtomicFile.Write(ManifestPath(source), ManifestBytes(definition, expectedSourceHash, Read(source).Version));
     }
-    private static byte[] ManifestBytes(MapDefinition definition, string sourceHash)
+    private static byte[] ManifestBytes(MapDefinition definition, string sourceHash, int version = 2)
     {
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new Manifest(
-            1, definition.MapId, sourceHash.ToLowerInvariant(), GeometryHash(definition), definition.Serialize()));
+            version, definition.MapId, sourceHash.ToLowerInvariant(), GeometryHash(definition), definition.Serialize()));
         if (bytes.Length > 16L * 1024 * 1024)
             throw new InvalidDataException("Native Radiant adjunct exceeds its 16 MiB limit. Keep this project in native Studio.");
         return bytes;
@@ -153,7 +165,7 @@ public static class RadiantSourceWorkspace
         try { manifest = JsonSerializer.Deserialize<Manifest>(bytes)
             ?? throw new InvalidDataException("Invalid native source recovery metadata."); }
         catch (JsonException ex) { throw new InvalidDataException("Invalid native source recovery metadata.", ex); }
-        if (manifest.Version != 1 || manifest.MapId != mapId
+        if (manifest.Version is not (1 or 2) || manifest.MapId != mapId
             || !string.Equals(manifest.SourceHash, sourceHash, StringComparison.OrdinalIgnoreCase)
             || manifest.GeometryHash is not { Length: 64 } || manifest.NativeProjectJson == null)
             throw new InvalidDataException("Native source recovery ownership or fingerprint differs.");
@@ -165,7 +177,7 @@ public static class RadiantSourceWorkspace
             throw new InvalidDataException("Missing or oversized native Radiant adjunct. Keep source and import explicitly.");
         var result = JsonSerializer.Deserialize<Manifest>(File.ReadAllBytes(path))
             ?? throw new InvalidDataException("Invalid native Radiant adjunct.");
-        if (result.Version != 1 || result.MapId == Guid.Empty)
+        if (result.Version is not (1 or 2) || result.MapId == Guid.Empty)
             throw new InvalidDataException("Unsupported native Radiant adjunct.");
         if (QuakeMapInterchange.ReadIdentity(SidecarPath(source)).MapId != result.MapId)
             throw new InvalidDataException("Radiant adjunct and sidecar ownership differ.");

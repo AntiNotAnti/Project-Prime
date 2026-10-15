@@ -114,6 +114,7 @@ internal static class StudioAcceptanceChecks
             }
             Check(!StudioGraphicsHost.HasDevice&&StudioGraphicsHost.NativeSurfaceCount==0,"Safe Mode creates no native surfaces over ten lifecycles");
             Complete(documents.DisposeAsync().AsTask());Complete(jobs.DisposeAsync().AsTask());
+            checks += StudioRadiantWorkflowChecks.Run(paths,source,Complete);
             Console.WriteLine($"Studio host: {checks} checks passed (offline map editing/save/recovery/package; 10 document lifecycles; Safe Mode). Physical OpenGL and external services not exercised.");
             return 0;
         }

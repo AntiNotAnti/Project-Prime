@@ -20,10 +20,12 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
     public string? RecoveryPath => Document?.RecoveryPath(CustomRooms.UserMapDirectory);
     public event Action? Changed;
     public event EventHandler? CloseRequested;
-    public AvaloniaMapStudioHost(Func<MapProject,CancellationToken,Task>? playtest = null)
+    public AvaloniaMapStudioHost(Func<MapProject,CancellationToken,Task>? playtest = null,
+        Action<System.Diagnostics.ProcessStartInfo>? radiantLauncher = null)
     {
         StudioGameAssets.InitializeAuthoringProcess();
         _screen = new MapStudioScreen();
+        _screen.RadiantLauncher = radiantLauncher;
         _screen.NativePlaytest = playtest;
         _screen.DocumentChanged += OnChanged;
         _screen.Closed += OnClose;
@@ -31,8 +33,9 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
     }
     private void OnChanged() => Changed?.Invoke();
     private void OnClose(object? sender, EventArgs e) => CloseRequested?.Invoke(this,e);
-    public void ConfigureSourceOwnership(Func<string,bool> canOpen,Action<string> requireSaveTarget)
-    { _screen.NativeCanOpenSource=canOpen;_screen.NativeRequireSaveTarget=requireSaveTarget; }
+    public void ConfigureSourceOwnership(Func<string,bool> canOpen,Action<string> requireSaveTarget,
+        Action<string>? editGeometrySource = null)
+    { _screen.NativeCanOpenSource=canOpen;_screen.NativeRequireSaveTarget=requireSaveTarget;_screen.NativeEditGeometrySource=editGeometrySource; }
     public void ConfigureGameServices(ICommunityCredentialSource credentials,
         Func<string,MapContentIdentity,CancellationToken,Task<MapDefinition>> install,
         Func<string,MapContentIdentity,string,CancellationToken,Task> host,
@@ -42,6 +45,12 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
         _screen.NativeHost=host;_screen.NativeAudit=audit;
     }
     public void NewProject(string name = "Untitled Map", bool example = false) => _screen.Load(MapTemplates.Create(name,example));
+    public void NewProjectInRadiant(string name = "Untitled Map", bool example = false)
+    { NewProject(name,example);EditGeometryInRadiant(); }
+    public void EditGeometryInRadiant() => _screen.EditCurrentInNetRadiant();
+    public void OpenGeometryInRadiant(string path) => _screen.OpenGeometryInRadiant(path);
+    public void ReviewRadiantGeometryChanges() => _screen.ReviewRadiantGeometryChanges();
+    public void ShowNativeGeometryTools() => _screen.ShowNativeGeometryTools();
     public async Task OpenAsync(string path,CancellationToken cancellation = default)
     {
         var project = await Task.Run(()=>MapProjectSerializer.Load(path),cancellation);

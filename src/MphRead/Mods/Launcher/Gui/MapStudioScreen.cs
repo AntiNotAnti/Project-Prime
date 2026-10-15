@@ -38,6 +38,10 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _toolSelectionState = PrimeChrome.Text(
             "OBJECT MODE", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
         private readonly TextBlock _inspectorTitle = PrimeChrome.Title("INSPECTOR");
+        private readonly PrimeButton _studioRadiant;
+        private readonly PrimeButton _studioRadiantReview;
+        private readonly TextBlock _geometryWorkflow = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+        private Expander? _nativeGeometryTools;
         private readonly PrimeButton _studioSave;
         private readonly PrimeButton _studioValidate;
         private readonly PrimeButton _studioBuild;
@@ -115,7 +119,15 @@ namespace MphRead.Mods.Launcher.Gui
             _hierarchy.Background = _problems.Background = PrimeTheme.PanelBrush;
             _hierarchy.Foreground = _problems.Foreground = PrimeTheme.TextBrush;
             _hierarchy.BorderBrush = _problems.BorderBrush = PrimeTheme.BorderBrush;
-            _studioSave = new PrimeButton("SAVE", Save, primary: true, compact: true);
+            _studioRadiant = new PrimeButton("EDIT GEOMETRY IN RADIANT", EditCurrentInNetRadiant, primary: true, compact: true) { Name="StudioEditGeometryInRadiant" };
+            _studioRadiantReview = new PrimeButton("REVIEW / APPLY CHANGES", ReviewRadiantGeometryChanges, compact: true) { Name="StudioReviewRadiantGeometry" };
+            ControllerNav.Identify(_studioRadiant, "studio.radiant");
+            ControllerNav.Identify(_studioRadiantReview, "studio.radiantReview");
+            var nativeGeometry = new PrimeButton("NATIVE GEOMETRY FALLBACK", ShowNativeGeometryTools, compact: true);
+            var geometryActions = new WrapPanel();
+            foreach (var action in new[] { _studioRadiant, _studioRadiantReview, nativeGeometry })
+            { action.Margin = new Thickness(0, 0, 5, 3); geometryActions.Children.Add(action); }
+            _studioSave = new PrimeButton("SAVE", Save, compact: true);
             _studioValidate = new PrimeButton("VALIDATE", () => _ = Validate(), compact: true);
             _studioBuild = new PrimeButton("BUILD .PPMAP", () => _ = Build(true), compact: true);
             _studioPlaytest = new PrimeButton("PLAYTEST", PlaytestInspector, compact: true);
@@ -127,9 +139,8 @@ namespace MphRead.Mods.Launcher.Gui
             var headerCopy = PrimeChrome.Stack(
                 PrimeChrome.Eyebrow("MAP STUDIO // AUTHORING WORKSPACE"),
                 _projectTitle,
-                PrimeChrome.Text(
-                    "Build geometry, gameplay, materials and packages in one retained editor workspace.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _geometryWorkflow,
+                geometryActions,
                 _projectState);
             var backStudio = new PrimeButton("BACK", Close, compact: true);
             ControllerNav.Identify(backStudio, "studio.back");
@@ -140,7 +151,7 @@ namespace MphRead.Mods.Launcher.Gui
             _root.Children.Add(header);
             _editingControls.AddRange(new Control[]
             {
-                _studioSave, _studioValidate, _studioBuild, _studioPlaytest
+                _studioRadiant, _studioRadiantReview, _studioSave, _studioValidate, _studioBuild, _studioPlaytest
             });
 
             var toolbar = new StackPanel
@@ -178,8 +189,6 @@ namespace MphRead.Mods.Launcher.Gui
                 ("Export .ppmap",()=>_=Build(true)),("Playtest",PlaytestInspector),("Run map audit",()=>_=Audit()));
             MenuGroup("Online",("Community maps…",ShowCommunity),("Host current map…",()=>_=PrepareOnline()));
             AddButton(toolbar, "LIBRARY", ShowLibrary);
-            if (CommunityCutoverPolicy.NetRadiantDefault)
-                AddButton(toolbar, "EDIT IN NETRADIANT", EditCurrentInNetRadiant);
             AddButton(toolbar, "IMPORT MODEL", ImportModel);
             AddButton(toolbar, "ASSETS", () => ShowInspectorPage("Assets & music"));
             AddButton(toolbar, "POP OUT", () => _ = PopOut());
@@ -408,10 +417,18 @@ namespace MphRead.Mods.Launcher.Gui
                 RowSpacing = 4
             };
             toolsShell.Children.Add(PrimeChrome.Columns("*,Auto",
-                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _toolSelectionState));
+                PrimeChrome.Eyebrow("NATIVE GEOMETRY & GAMEPLAY TOOLS"), _toolSelectionState));
             Grid.SetRow(toolsScroll, 1);
             toolsShell.Children.Add(toolsScroll);
-            var toolsPanel = new PrimePanel(toolsShell)
+            _nativeGeometryTools = new Expander
+            {
+                Name = "StudioNativeGeometryFallback",
+                Header = "Native geometry tools (fallback) and gameplay placement",
+                IsExpanded = !CommunityCutoverPolicy.NetRadiantDefault,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = toolsShell
+            };
+            var toolsPanel = new PrimePanel(_nativeGeometryTools)
             {
                 Padding = new Thickness(8, 6)
             };
@@ -866,6 +883,10 @@ namespace MphRead.Mods.Launcher.Gui
                 new("Overlay: Collision Normals","view collision normals face direction",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=true;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
                 new("Overlay: Collision Heat","view collision heat budget",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=true;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
                 new("Overlay: Collision Repairs","view collision repairs heal topology movement",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();}}),
+                new("Edit geometry in Radiant","geometry netradiant primary",EditCurrentInNetRadiant),
+                new("Review / apply Radiant geometry changes","radiant source import review",ReviewRadiantGeometryChanges),
+                new("Native geometry fallback","geometry native modeling",ShowNativeGeometryTools),
+                new("New map in Radiant / template gallery","new template radiant",()=>NewMap(true)),
                 new("New map / template gallery","new template",NewMap),
                 new("Import Q3 BSP / PK3","import bsp pk3",Import),
                 new("Clone built-in map","native remix clone",CloneBuiltIn)
@@ -890,7 +911,8 @@ namespace MphRead.Mods.Launcher.Gui
             Refresh();Modal(panel);search.Focus();
         }
 
-        private void NewMap()
+        private void NewMap() => NewMap(CommunityCutoverPolicy.NetRadiantDefault);
+        private void NewMap(bool editInRadiant)
         {
             var view=new Grid{RowDefinitions=new("Auto,Auto,*,Auto"),MinWidth=760,Height=610};
             view.Children.Add(Text("NEW MAP · TEMPLATE GALLERY"));
@@ -922,7 +944,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Grid.SetColumn(copy,1);card.Children.Add(copy);return card;
             });
             var buttons=new WrapPanel();Grid.SetRow(buttons,3);view.Children.Add(buttons);
-            AddButton(buttons,"Create / Continue",()=>WithUnsaved(()=>
+            void Create(bool radiant) => WithUnsaved(()=>
             {
                 if(list.SelectedItem is not MapTemplateInfo info)return;
                 try
@@ -931,7 +953,9 @@ namespace MphRead.Mods.Launcher.Gui
                     switch(info.Action)
                     {
                         case MapTemplateAction.Create:
-                            Load(MapTemplates.Create(name.Text??"",info.Id));break;
+                            Load(MapTemplates.Create(name.Text??"",info.Id));
+                            if (radiant) EditCurrentInNetRadiant();
+                            break;
                         case MapTemplateAction.ImportQ3:
                             _inspectorPage="Collision repairs";Import();break;
                         case MapTemplateAction.CloneNative:
@@ -939,7 +963,9 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }
                 catch(Exception ex){Failure(ex);}
-            }));
+            });
+            if (editInRadiant) AddButton(buttons,"Create in Radiant",()=>Create(true));
+            AddButton(buttons,editInRadiant?"Create in native Studio (fallback)":"Create / Continue",()=>Create(false));
             AddButton(buttons,"Cancel",Dismiss);
             Modal(view);
         }
@@ -976,7 +1002,9 @@ namespace MphRead.Mods.Launcher.Gui
             });
             try{list.ItemsSource=_catalog.Refresh(false).Select(e=>new LibraryRow(e)).ToArray();}catch(Exception ex){Failure(ex);}
             var buttons=new WrapPanel();Grid.SetRow(buttons,2);view.Children.Add(buttons);
-            AddButton(buttons,"Open",()=>{if(list.SelectedItem is LibraryRow row)Open(row.Entry.Path);});
+            if (CommunityCutoverPolicy.NetRadiantDefault)
+                AddButton(buttons,"Edit geometry in Radiant",()=>{if(list.SelectedItem is LibraryRow row)OpenGeometryInRadiant(row.Entry.Path);});
+            AddButton(buttons,"Open in Studio",()=>{if(list.SelectedItem is LibraryRow row)Open(row.Entry.Path);});
             AddButton(buttons,"Duplicate",()=>{if(list.SelectedItem is LibraryRow {Entry.Definition:not null} row){var p=MapProjectMigrator.Upgrade(new(row.Entry.Definition));p.Definition.MapId=Guid.NewGuid();p.Definition.Name=NextCopyName(p.Definition.Name);WithUnsaved(()=>Load(p));}});
             AddButton(buttons,"Delete",()=>{if(list.SelectedItem is LibraryRow row)Confirm("Delete "+Path.GetFileName(row.Entry.Path)+"?",()=>{try{File.Delete(row.Entry.Path);ShowLibrary();}catch(Exception ex){Failure(ex);}});});
             AddButton(buttons,"Reveal folder",()=>{try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CustomRooms.MapDirectory){UseShellExecute=true});}catch(Exception ex){Failure(ex);}});
@@ -1138,6 +1166,15 @@ namespace MphRead.Mods.Launcher.Gui
         private void RefreshStudioChrome()
         {
             bool loaded = _document != null;
+            bool radiant = CommunityCutoverPolicy.NetRadiantDefault;
+            _studioRadiant.IsVisible = radiant;
+            _studioRadiantReview.IsVisible = radiant || HasRadiantSource;
+            _studioRadiant.IsEnabled = loaded;
+            _studioRadiantReview.IsEnabled = loaded && HasRadiantSource;
+            _geometryWorkflow.Text = radiant
+                ? "Edit geometry in Radiant, then review changes here. Studio owns gameplay, assets, validation and packages."
+                : CommunityCutoverPolicy.NetRadiantTools.EditorError
+                    ?? "Native geometry fallback · Install or enable Project Prime Radiant to use the primary geometry editor.";
             _studioSave.IsEnabled = loaded;
             _studioValidate.IsEnabled = loaded;
             _studioBuild.IsEnabled = loaded;

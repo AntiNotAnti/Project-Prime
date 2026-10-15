@@ -51,6 +51,9 @@ namespace MphRead.Mods.Launcher.Gui
             _layers.Children.Add(_startup);
             Content = _layers;
             _prime.Router.CanNavigate = CanNavigate;
+#if MPHREAD_SHELL
+            _prime.Router.RegisterRouteAction(PrimeRoute.Forge, () => OpenStandaloneStudio("maps"));
+#endif
             _prime.Router.Changed += _ => { UpdateReplayBackground(); TryShowUpdatePrompt(); };
             _prime.BackRequested = () =>
             {
@@ -126,7 +129,13 @@ namespace MphRead.Mods.Launcher.Gui
             if (_prime.Router.Current == PrimeRoute.Settings
                 && _prime.Workspaces.Get(PrimeRoute.Settings) is SettingsView settings && settings.IsDirty)
             {
-                ShowUnsaved(settings, () => { _bypassGuard = true; _prime.Router.Navigate(route); _bypassGuard = false; });
+                bool workspace = _prime.Router.IsWorkspaceNavigation;
+                ShowUnsaved(settings, () =>
+                {
+                    _bypassGuard = true;
+                    try { if (workspace) _prime.Router.NavigateWorkspace(route); else _prime.Router.Navigate(route); }
+                    finally { _bypassGuard = false; }
+                });
                 return false;
             }
             return true;
@@ -329,24 +338,32 @@ namespace MphRead.Mods.Launcher.Gui
             // An explicit editor launch bypasses the ordinary startup gate.
             if (_startup != null) { _layers.Children.Remove(_startup); _startup.Dispose(); _startup = null; }
             _prime.IsVisible = true; _prime.IsEnabled = true;
-            _prime.Router.Navigate(PrimeRoute.Forge);
+            _prime.Router.NavigateWorkspace(PrimeRoute.Forge);
         }
 #if MPHREAD_SHELL
+        private void OpenEmbeddedMapEditor()
+        {
+            _prime.Overlays.Clear();
+            OpenMapStudio();
+        }
+        private void OpenStandaloneStudio(string? workspace, bool closeChooser = false)
+        {
+            if (StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error, workspace))
+            { if (closeChooser) Pop(); return; }
+            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO UNAVAILABLE"),
+                PrimeChrome.Text(error ?? "Install the complete paired desktop release."),
+                new PrimeButton("EMBEDDED MAP EDITOR", OpenEmbeddedMapEditor),
+                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
+        }
         private void OpenStudioChooser()
         {
-            void Open(string? workspace)
-            {
-                if (StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error, workspace)) { Pop(); return; }
-                _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("STUDIO UNAVAILABLE"),
-                    PrimeChrome.Text(error ?? "Install the complete paired desktop release."),
-                    new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
-            }
+            void Open(string? workspace) => OpenStandaloneStudio(workspace, closeChooser: true);
             _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME STUDIO"),
                 PrimeChrome.Text("Open maps and replays in the separate Studio window, or continue with the embedded map editor."),
                 new PrimeButton("STUDIO", () => Open(null)),
                 new PrimeButton("MAP EDITOR", () => Open("maps")),
                 new PrimeButton("REPLAY EDITOR", () => Open("replays")),
-                new PrimeButton("EMBEDDED MAP EDITOR", () => { Pop(); OpenMapStudio(); }),
+                new PrimeButton("EMBEDDED MAP EDITOR", OpenEmbeddedMapEditor),
                 new PrimeButton("CLOSE", Pop))), PrimeModalSize.Medium);
         }
 #endif
@@ -442,7 +459,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Pop(); if (!yes) return;
 #if MPHREAD_SHELL
-                if (forge != null && !forge.SaveRecovery()) { _prime.Router.Navigate(PrimeRoute.Forge); return; }
+                if (forge != null && !forge.SaveRecovery()) { _prime.Router.NavigateWorkspace(PrimeRoute.Forge); return; }
 #endif
                 Finish(default);
             };

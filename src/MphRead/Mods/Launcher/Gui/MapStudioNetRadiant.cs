@@ -9,11 +9,15 @@ namespace MphRead.Mods.Launcher.Gui;
 
 internal sealed partial class MapStudioScreen
 {
-    // Default external authoring is available when a separately installed
-    // NetRadiant executable has been configured. The original JSON project
+    internal Action<System.Diagnostics.ProcessStartInfo>? RadiantLauncher;
+    internal Action<string>? NativeEditGeometrySource;
+    private string? RadiantSource => _document?.Project.Definition.MapId is { } id && id != Guid.Empty
+        ? RadiantSourceWorkspace.SourcePath(Path.Combine(CustomRooms.UserMapDirectory, "netradiant-sources"), id) : null;
+    private bool HasRadiantSource => RadiantSource is { } source && File.Exists(source);
+    // The shipped editor is the primary geometry workflow. The original JSON project
     // stays open and unmodified; never execute source-provided programs or
     // overwrite an external author's changed .map without a valid sidecar.
-    private void EditCurrentInNetRadiant()
+    internal void EditCurrentInNetRadiant()
     {
         if (_document == null)
         {
@@ -23,9 +27,8 @@ internal sealed partial class MapStudioScreen
         string? executable = CommunityCutoverPolicy.NetRadiantExecutable;
         if (!CommunityCutoverPolicy.NetRadiantDefault || executable == null)
         {
-            _status.Text = "NetRadiant needs an installed desktop executable at "
-                + "PROJECT_PRIME_NETRADIANT_EXE. Continue editing in native Studio "
-                + "or use File > Import editable .map.";
+            _status.Text = CommunityCutoverPolicy.NetRadiantTools.EditorError
+                ?? "Install Project Prime Radiant beside this application, or configure PROJECT_PRIME_NETRADIANT_EXE. Native geometry fallback remains available. Check PROJECT_PRIME_NETRADIANT_DEFAULT if Radiant was disabled.";
             return;
         }
         try
@@ -33,12 +36,13 @@ internal sealed partial class MapStudioScreen
             var definition = _document.Project.Definition;
             string source = RadiantSourceWorkspace.Prepare(definition,
                 Path.Combine(CustomRooms.UserMapDirectory, "netradiant-sources"));
-            using var opened = NetRadiantBridge.LaunchEditor(executable, source);
+            LaunchRadiant(executable, source);
             RefreshSourceWatch();
+            RefreshStudioChrome();
             _status.Text = "RADIANT · " + RadiantSourceWorkspace.State(definition, source)
                 + " · Geometry source: " + source
                 + ". Native gameplay, materials, assets and environment remain in this project. "
-                + "Save there, then File > Review Radiant geometry changes.";
+                + "Save there, then choose Review / Apply changes above.";
         }
         catch (QuakeMapInterchangeException ex)
         {
@@ -48,8 +52,38 @@ internal sealed partial class MapStudioScreen
         }
         catch (Exception ex) when (ex is IOException or ArgumentException
             or InvalidDataException or MapAuthoringException or PlatformNotSupportedException
-            or UnauthorizedAccessException)
+            or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         { Failure(ex); }
+    }
+
+    private void LaunchRadiant(string executable, string source)
+    {
+        var start = NetRadiantBridge.CreateEditorStartInfo(executable, source);
+        if (RadiantLauncher is { } launch) launch(start);
+        else { using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("Radiant did not start."); }
+    }
+
+    internal void ShowNativeGeometryTools()
+    {
+        if (_nativeGeometryTools != null) _nativeGeometryTools.IsExpanded = true;
+        _status.Text = "Native geometry fallback and gameplay placement tools are open. Radiant sources remain unchanged until explicitly reviewed and applied.";
+    }
+
+    internal void OpenGeometryInRadiant(string path)
+    {
+        if (NativeEditGeometrySource is { } open) { open(path); return; }
+        WithUnsaved(() =>
+        {
+            try
+            {
+#if !ANDROID
+                if (NativeCanOpenSource?.Invoke(path) == false) return;
+#endif
+                Load(MapProjectSerializer.Load(path), path);
+                EditCurrentInNetRadiant();
+            }
+            catch (Exception ex) { Failure(ex); }
+        });
     }
 
     private void LaunchNetRadiant()
@@ -58,14 +92,15 @@ internal sealed partial class MapStudioScreen
             {
                 try
                 {
-                    string executable = Environment.GetEnvironmentVariable(
-                        "PROJECT_PRIME_NETRADIANT_EXE") ?? "";
-                    using var process = NetRadiantBridge.LaunchEditor(executable, path);
+                    string executable = CommunityCutoverPolicy.NetRadiantDefault
+                        ? CommunityCutoverPolicy.NetRadiantExecutable! : throw new IOException(
+                            CommunityCutoverPolicy.NetRadiantTools.EditorError ?? "Install or enable Project Prime Radiant first.");
+                    LaunchRadiant(executable, path);
                     _status.Text = "Opened external NetRadiant source editor. "
                         + "Save the .map there, then choose Compile NetRadiant Source.";
                 }
                 catch (Exception ex) when (ex is IOException or ArgumentException
-                    or InvalidDataException or PlatformNotSupportedException)
+                    or InvalidDataException or PlatformNotSupportedException or System.ComponentModel.Win32Exception)
                 { Failure(ex); }
             }, ".map");
 
@@ -76,8 +111,8 @@ internal sealed partial class MapStudioScreen
     private Task CompileNetRadiantSourceAsync(string source)
         => Job("Compiling source to BSP reference", async cancellation =>
         {
-            string compiler = Environment.GetEnvironmentVariable(
-                "PROJECT_PRIME_Q3MAP2_EXE") ?? "";
+            string compiler = CommunityCutoverPolicy.Q3Map2Executable ?? throw new IOException(
+                CommunityCutoverPolicy.NetRadiantTools.CompilerError ?? "Install the packaged q3map2 compiler or configure PROJECT_PRIME_Q3MAP2_EXE.");
             string name = new string(Path.GetFileNameWithoutExtension(source)
                 .Select(ch => char.IsLetterOrDigit(ch) || ch == '_'
                     ? char.ToUpperInvariant(ch) : '_').Take(32).ToArray());
@@ -101,7 +136,7 @@ internal sealed partial class MapStudioScreen
                 + ". Validate collision, materials and gameplay before building .ppmap.";
         });
 
-    private void ReviewRadiantGeometryChanges()
+    internal void ReviewRadiantGeometryChanges()
     {
         if (_document == null) { _status.Text = "Open the native project before reviewing Radiant changes."; return; }
         string source = RadiantSourceWorkspace.SourcePath(

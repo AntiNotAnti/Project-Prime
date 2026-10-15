@@ -52,7 +52,8 @@ public static class QuakeMapInterchange
     }
 
     public static QuakeMapImportResult Import(string source, string? sidecarPath = null,
-        string? roomName = null, float unitsPerPrimeUnit = DefaultUnits)
+        string? roomName = null, float unitsPerPrimeUnit = DefaultUnits,
+        bool requireDurableGeometryContainers = false)
     {
         if (!float.IsFinite(unitsPerPrimeUnit)
             || unitsPerPrimeUnit is < 1f or > 1024f)
@@ -111,6 +112,7 @@ public static class QuakeMapInterchange
         var faces = new List<Face>();
         Guid brushId = Guid.Empty;
         int depth = 0;
+        int entityPrimitiveCount = 0;
         int lineNo = 0, brushIndex = 0, patchIndex = 0, spawnIndex = 0, itemIndex = 0, worldspawnCount = 0;
         var seenObjectIds = new HashSet<Guid>();
         bool legacyPrimeWinding = false;
@@ -118,6 +120,50 @@ public static class QuakeMapInterchange
         bool? patchSolid = null;
         int? patchTessellation = null;
         var patchBody = new List<string>();
+
+        bool GeometryContainer() => entity.GetValueOrDefault("classname", "")
+            .Equals("func_group", StringComparison.OrdinalIgnoreCase);
+
+        void OpenPrimitive()
+        {
+            entityPrimitiveCount++;
+            if (entity.GetValueOrDefault("classname", "").Equals("worldspawn", StringComparison.OrdinalIgnoreCase))
+            {
+                if (requireDurableGeometryContainers)
+                    Error("FP-RADIANT-DURABLE-GEOMETRY", lineNo,
+                        "This source workspace requires every brush and patch inside a marked Prime geometry container with a durable prime_id. "
+                        + "Save it with Project Prime Radiant before reviewing changes; comment-only identities are not durable.");
+                return;
+            }
+            if (!GeometryContainer())
+            {
+                Error("FP-RADIANT-BRUSH-ENTITY", lineNo,
+                    "Only worldspawn geometry or marked Prime geometry containers are supported.");
+                return;
+            }
+            foreach (string key in entity.Keys)
+                if (key is not ("classname" or "prime_geometry" or "prime_id"
+                    or "prime_patch_solid" or "prime_patch_tessellation"))
+                    Error("FP-RADIANT-CONTAINER", lineNo, "Unsupported geometry container key: " + key);
+            if (entity.GetValueOrDefault("prime_geometry") != "1" || entityPrimitiveCount != 1)
+                Error("FP-RADIANT-CONTAINER", lineNo,
+                    "A marked Prime geometry container must contain exactly one primitive.");
+            if (!Guid.TryParse(entity.GetValueOrDefault("prime_id"), out brushId) || brushId == Guid.Empty)
+                Error("FP-RADIANT-ID", lineNo, "Geometry container prime_id must be a nonempty GUID.");
+            if (entity.TryGetValue("prime_patch_solid", out string? solidText))
+            {
+                if (!bool.TryParse(solidText, out bool solid))
+                    Error("FP-RADIANT-PATCH", lineNo, "Invalid container patch collision metadata.");
+                else patchSolid = solid;
+            }
+            if (entity.TryGetValue("prime_patch_tessellation", out string? tessellationText))
+            {
+                if (!int.TryParse(tessellationText, NumberStyles.None, CultureInfo.InvariantCulture,
+                    out int level) || level is < 1 or > BezierPatchCompiler.MaximumTessellation)
+                    Error("FP-RADIANT-PATCH", lineNo, "Invalid container patch tessellation metadata.");
+                else patchTessellation = level;
+            }
+        }
 
         int Material(string shaderName)
         {
@@ -300,7 +346,13 @@ public static class QuakeMapInterchange
         void CloseEntity()
         {
             string type = entity.GetValueOrDefault("classname") ?? "";
-            if (type.Equals("worldspawn", StringComparison.OrdinalIgnoreCase))
+            if (GeometryContainer())
+            {
+                if (entity.GetValueOrDefault("prime_geometry") != "1" || entityPrimitiveCount != 1)
+                    Error("FP-RADIANT-CONTAINER", lineNo,
+                        "A marked Prime geometry container must contain exactly one primitive.");
+            }
+            else if (type.Equals("worldspawn", StringComparison.OrdinalIgnoreCase))
             {
                 worldspawnCount++;
                 if (worldspawnCount != 1)
@@ -410,6 +462,7 @@ public static class QuakeMapInterchange
                 Error("FP-RADIANT-ENTITY", lineNo,
                     "Unsupported Quake entity: " + type + ". No gameplay entity was silently dropped.");
             entity.Clear();
+            entityPrimitiveCount = 0;
         }
 
         foreach (string raw in File.ReadLines(full))
@@ -445,6 +498,8 @@ public static class QuakeMapInterchange
             if (line.StartsWith("// PRIME_ID=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
             {
+                if (GeometryContainer())
+                    Error("FP-RADIANT-CONTAINER", lineNo, "Container identity must use its prime_id property.");
                 if (!Guid.TryParse(line[12..], out brushId) || brushId == Guid.Empty)
                     Error("FP-RADIANT-ID", lineNo, "Invalid or empty geometry identity marker.");
                 continue;
@@ -452,6 +507,8 @@ public static class QuakeMapInterchange
             if (line.StartsWith("// PRIME_PATCH_SOLID=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
             {
+                if (GeometryContainer())
+                    Error("FP-RADIANT-CONTAINER", lineNo, "Container patch flags must use entity properties.");
                 if (inPatch || patchSolid != null
                     || !bool.TryParse(line["// PRIME_PATCH_SOLID=".Length..], out bool solid))
                     Error("FP-RADIANT-PATCH", lineNo, "Invalid/duplicate patch collision metadata.");
@@ -461,6 +518,8 @@ public static class QuakeMapInterchange
             if (line.StartsWith("// PRIME_PATCH_TESSELLATION=", StringComparison.OrdinalIgnoreCase)
                 && depth == 2)
             {
+                if (GeometryContainer())
+                    Error("FP-RADIANT-CONTAINER", lineNo, "Container patch flags must use entity properties.");
                 if (inPatch || patchTessellation.HasValue
                     || !int.TryParse(line["// PRIME_PATCH_TESSELLATION=".Length..],
                         NumberStyles.None, CultureInfo.InvariantCulture, out int level)
@@ -474,6 +533,8 @@ public static class QuakeMapInterchange
                 continue;
             if (depth == 2 && line == "patchDef2")
             {
+                if (GeometryContainer() && (patchSolid == null || patchTessellation == null))
+                    Error("FP-RADIANT-PATCH", lineNo, "Marked patches require explicit collision and tessellation properties.");
                 if (inPatch || faces.Count > 0 || patchBodyClosed)
                     Error("FP-RADIANT-PATCH", lineNo,
                         "Cannot mix a quadratic patch and brush planes in one source object.");
@@ -495,10 +556,7 @@ public static class QuakeMapInterchange
                         "Unsupported nested patch, brushDef or source object.");
                     break;
                 }
-                if (depth == 2 && !entity.GetValueOrDefault("classname", "").Equals(
-                    "worldspawn", StringComparison.OrdinalIgnoreCase))
-                    Error("FP-RADIANT-BRUSH-ENTITY", lineNo,
-                        "Only worldspawn geometry is supported by direct editable import.");
+                if (depth == 2) OpenPrimitive();
                 continue;
             }
             if (line == "}")
@@ -532,6 +590,8 @@ public static class QuakeMapInterchange
             }
             if (depth == 1)
             {
+                if (entityPrimitiveCount > 0)
+                    Error("FP-RADIANT-CONTAINER", lineNo, "Entity properties must precede all primitives.");
                 Match kv = EntityPattern.Match(line);
                 if (kv.Success)
                 {
@@ -671,12 +731,13 @@ public static class QuakeMapInterchange
         => ExportCore(map, output, sidecarPath, unitsPerPrimeUnit, false);
 
     internal static void ExportUnderLease(MapDefinition map, string output, string sidecarPath,
-        Func<string, byte[]>? nativeAdjunct = null, Action<RadiantSourceCommitPoint>? fault = null)
-        => ExportCore(map, output, sidecarPath, DefaultUnits, true, nativeAdjunct, fault);
+        Func<string, byte[]>? nativeAdjunct = null, Action<RadiantSourceCommitPoint>? fault = null,
+        bool editorContainers = false)
+        => ExportCore(map, output, sidecarPath, DefaultUnits, true, nativeAdjunct, fault, editorContainers);
 
     private static void ExportCore(MapDefinition map, string output, string? sidecarPath,
         float unitsPerPrimeUnit, bool leaseHeld, Func<string, byte[]>? nativeAdjunct = null,
-        Action<RadiantSourceCommitPoint>? fault = null)
+        Action<RadiantSourceCommitPoint>? fault = null, bool editorContainers = false)
     {
         ArgumentNullException.ThrowIfNull(map);
         if (!float.IsFinite(unitsPerPrimeUnit) || unitsPerPrimeUnit <= 0)
@@ -756,20 +817,38 @@ public static class QuakeMapInterchange
         sb.AppendLine("// PRIME_PLANE_WINDING=quake3");
         sb.AppendLine("{");
         sb.AppendLine("\"classname\" \"worldspawn\"");
+        if (editorContainers) sb.AppendLine("}");
         foreach (MapGeometry geometry in map.Geometry)
         {
             string shader = map.Materials[geometry.Material].Name;
             if (!SafeShader(shader))
                 throw new InvalidDataException("Shader name is not portable to Quake .map.");
+            if (editorContainers)
+            {
+                sb.AppendLine("{");
+                sb.AppendLine("\"classname\" \"func_group\"");
+                sb.AppendLine("\"prime_geometry\" \"1\"");
+                sb.AppendLine("\"prime_id\" \"" + geometry.Id + "\"");
+                if (geometry is MapBezierPatch patch)
+                {
+                    sb.AppendLine("\"prime_patch_solid\" \"" + patch.Solid.ToString().ToLowerInvariant() + "\"");
+                    sb.AppendLine("\"prime_patch_tessellation\" \""
+                        + patch.Tessellation.ToString(CultureInfo.InvariantCulture) + "\"");
+                }
+            }
             sb.AppendLine("{");
-            sb.AppendLine("// PRIME_ID=" + geometry.Id);
+            if (!editorContainers) sb.AppendLine("// PRIME_ID=" + geometry.Id);
             if (geometry is MapBezierPatch authored)
             {
-                sb.AppendLine("// PRIME_PATCH_SOLID=" + authored.Solid.ToString().ToLowerInvariant());
-                sb.AppendLine("// PRIME_PATCH_TESSELLATION="
-                    + authored.Tessellation.ToString(CultureInfo.InvariantCulture));
+                if (!editorContainers)
+                {
+                    sb.AppendLine("// PRIME_PATCH_SOLID=" + authored.Solid.ToString().ToLowerInvariant());
+                    sb.AppendLine("// PRIME_PATCH_TESSELLATION="
+                        + authored.Tessellation.ToString(CultureInfo.InvariantCulture));
+                }
                 QuakePatchDef2.Write(authored, shader, unitsPerPrimeUnit, sb);
                 sb.AppendLine("}");
+                if (editorContainers) sb.AppendLine("}");
                 continue;
             }
             static string P(Vector3 p) => "( " + p.X.ToString("G9", CultureInfo.InvariantCulture)
@@ -840,8 +919,9 @@ public static class QuakeMapInterchange
                 }
             }
             sb.AppendLine("}");
+            if (editorContainers) sb.AppendLine("}");
         }
-        sb.AppendLine("}");
+        if (!editorContainers) sb.AppendLine("}");
 
         foreach (MapSpawn spawn in map.Spawns)
         {

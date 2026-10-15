@@ -27,13 +27,14 @@ public sealed class MapStudioDocument : IStudioDocument,IStudioDocumentNotificat
     private readonly StudioPaths _paths;
     private readonly IStudioMapIntegration _integration;
     private bool _disposed,_discarded;
-    public MapStudioDocument(StudioPaths paths,Window window,StudioJobManager jobs,StudioDocumentId? id=null,IStudioMapIntegration? integration=null,StudioDockLayout? layout=null)
+    public MapStudioDocument(StudioPaths paths,Window window,StudioJobManager jobs,StudioDocumentId? id=null,IStudioMapIntegration? integration=null,StudioDockLayout? layout=null,
+        Action<System.Diagnostics.ProcessStartInfo>? radiantLauncher=null)
     {
         Id=id??StudioDocumentId.New();_paths=paths;_integration=integration??new UnavailableStudioMapIntegration();
         Directory.CreateDirectory(paths.UserDataDirectory);
         CustomRooms.UserMapDirectory=System.IO.Path.Combine(paths.UserDataDirectory,"user-maps");
         Directory.CreateDirectory(CustomRooms.UserMapDirectory);
-        Host=new(PlaytestAsync);
+        Host=new(PlaytestAsync,radiantLauncher);
         Host.ConfigureGameServices(new DelegateCommunityCredentialSource(token=>_integration.CommunityTicketAsync(false,token),token=>_integration.CommunityTicketAsync(true,token)),
             _integration.InstallAsync,_integration.HostAsync,_integration.AuditAsync);
         Host.Changed+=OnChanged;Host.CloseRequested+=OnClose;

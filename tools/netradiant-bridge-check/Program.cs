@@ -132,6 +132,67 @@ try
             CommunityCutoverPolicy.NetRadiantDefaultVariable, previousDefault);
     }
 
+    // Resolve simulated platform layouts under a private tree; never execute fixtures.
+    string products = Path.Combine(directory, "installed products");
+    string studioMac = Path.Combine(products, "Project Prime Studio.app", "Contents", "MacOS");
+    string radiantMac = Path.Combine(products, "Project Prime Radiant.app", "Contents", "MacOS");
+    string resourcesMac = Path.Combine(products, "Project Prime Radiant.app", "Contents", "Resources", "netradiant");
+    Directory.CreateDirectory(studioMac);Directory.CreateDirectory(radiantMac);
+    string macEditor = Path.Combine(radiantMac, "radiant"), macCompiler = Path.Combine(radiantMac, "q3map2");
+    File.WriteAllText(macEditor, "locator fixture");File.WriteAllText(macCompiler, "locator fixture");
+    var discovered = NetRadiantToolDiscovery.Resolve(studioMac, NetRadiantPlatform.MacOS);
+    Check(discovered.EditorExecutable == macEditor && discovered.CompilerExecutable == macCompiler
+        && discovered.ResourceDirectory == resourcesMac,
+        "Mac Studio discovers only the fixed sibling Radiant app and Resources/netradiant root");
+    Check(NetRadiantToolDiscovery.Resolve(Path.Combine(products,"Unrelated.app","Contents","MacOS"), NetRadiantPlatform.MacOS).EditorExecutable == null,
+        "unrelated Mac app paths do not gain sibling editor discovery");
+    foreach (var platform in new[] { NetRadiantPlatform.Windows, NetRadiantPlatform.Linux })
+    {
+        string flat = Path.Combine(products, platform.ToString());
+        string product = Path.Combine(flat, "Project Prime Radiant");Directory.CreateDirectory(product);
+        string suffix = platform == NetRadiantPlatform.Windows ? ".exe" : "";
+        string editor = Path.Combine(product,"radiant"+suffix), compilerPath = Path.Combine(product,"q3map2"+suffix);
+        File.WriteAllText(editor,"locator fixture");File.WriteAllText(compilerPath,"locator fixture");
+        var found = NetRadiantToolDiscovery.Resolve(flat,platform);
+        Check(found.EditorExecutable == editor && found.CompilerExecutable == compilerPath && found.ResourceDirectory == product,
+            platform + " discovers the fixed separate Radiant product directory");
+        var overridden = NetRadiantToolDiscovery.Resolve(flat,platform,macEditor,macCompiler);
+        Check(overridden.EditorExecutable == macEditor && overridden.CompilerExecutable == macCompiler,
+            platform + " explicit absolute tool overrides take precedence");
+        foreach (string invalid in new[] { "radiant", "", Path.Combine(directory,"missing-tool") })
+        {
+            var refused = NetRadiantToolDiscovery.Resolve(flat,platform,invalid,invalid);
+            Check(refused.EditorExecutable == null && refused.CompilerExecutable == null
+                && refused.EditorError != null && refused.CompilerError != null,
+                platform + " malformed overrides refuse packaged fallback: " + (invalid.Length == 0 ? "empty" : Path.GetFileName(invalid)));
+        }
+        File.Delete(editor);
+        Check(NetRadiantToolDiscovery.Resolve(flat,platform).EditorExecutable == null,
+            platform + " missing packaged editor retains native fallback");
+    }
+    Check(NetRadiantToolDiscovery.Resolve(studioMac,NetRadiantPlatform.Unsupported,macEditor,macCompiler) is {EditorExecutable:null,CompilerExecutable:null},
+        "Android/unsupported platforms cannot activate external tools even with overrides");
+    string gameDescription = Path.Combine(resourcesMac,"gamepacks","games","projectprime.game");
+    string primePack = Path.Combine(resourcesMac,"gamepacks","projectprime.game");
+    Directory.CreateDirectory(Path.GetDirectoryName(gameDescription)!);Directory.CreateDirectory(primePack);
+    File.WriteAllText(gameDescription,"trusted fixed pack fixture");
+    var macLaunch = NetRadiantBridge.CreateEditorStartInfo(macEditor,map);
+    Check(macLaunch.FileName == macEditor && !macLaunch.UseShellExecute && macLaunch.WorkingDirectory == directory
+        && macLaunch.ArgumentList.SequenceEqual(new[] {"-global-gamefile","projectprime.game","-projectprime.game-EnginePath",primePack+Path.DirectorySeparatorChar,map}),
+        "Mac launch selects trusted resource gamepack and engine root with exact shell-free arguments");
+    File.Delete(gameDescription);
+    Check(NetRadiantBridge.CreateEditorStartInfo(macEditor,map).ArgumentList.SequenceEqual(new[]{map}),
+        "missing canonical gamepack never borrows configuration from source or working directory");
+    string linkedEditor = Path.Combine(directory,"linked-editor");
+    try
+    {
+        File.CreateSymbolicLink(linkedEditor,macEditor);
+        Check(NetRadiantToolDiscovery.Resolve(studioMac,NetRadiantPlatform.MacOS,linkedEditor).EditorExecutable == null,
+            "symbolic executable override is refused without falling back to packaged tools");
+    }
+    catch(Exception ex) when(OperatingSystem.IsWindows() && ex is UnauthorizedAccessException or IOException)
+    { Console.WriteLine("SKIP symbolic override fixture: Windows symlink creation is unavailable."); }
+
     string? compiler = Environment.GetEnvironmentVariable("PROJECT_PRIME_Q3MAP2_EXE");
     if (!string.IsNullOrWhiteSpace(compiler) && File.Exists(compiler))
         Console.WriteLine("External q3map2 configured: run separate real BSP gamepack acceptance.");

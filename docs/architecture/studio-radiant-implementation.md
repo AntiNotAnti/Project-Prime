@@ -35,11 +35,11 @@ automated evidence, native executable evidence and release approval.
 | ST-04 | Canonical engine projection, owner-context OpenGL surfaces, public CGL/IOSurface GPU transport on macOS, Safe Mode | Actual Mac scene and lifecycle checks pass; cross-platform pixels, picking, high-DPI and performance qualification remain |
 | ST-05 | Private replay documents/player, non-destructive authoring, bounded detached export worker, loopback audio | Two native Mac video/audio exports pass; historical/cosmetic fidelity and other platforms remain separate acceptance |
 | ST-06 | Canonical map editor/compiler/package and existing Community operations hosted in Studio; Game owns runtime install/playtest | Offline host cycles and broker tests; staging creator service acceptance pending |
-| RD-01 | Pinned independent fork source/build/bundle recipe, original gamepack and graybox, candidate CI | Native Windows/Linux editor+compiler builds and real BSP checks pass; GUI, dependency/source licensing and signing remain pending |
+| RD-01 | Pinned independent fork source/build/bundle recipe, original gamepack and graybox, native Cocoa Qt5 ARM64 packaging and candidate CI | Windows/Linux editor/compiler builds and real BSP checks pass; bounded Mac GUI/source/package proof below; wider platform, dependency/source licensing and release signing remain separate |
 | RD-02/03 | Strict supported geometry reconciliation with Prime metadata preserved, revision review, source watch and cancellation | Unsupported geometry stays native; no promise that all native maps convert |
 | MAP-01 | Vote/load/rotation exact readiness gates, bounded failed-generation retries, traversal and authored pickup probes | Automated/native kernel evidence below; live 1v1/8-player and Android pending |
-| ST-07/08 | Explicit external entry points and compatibility fallback | **Gate held**: do not remove embedded full editors before functional/platform parity |
-| RD-04 | Reversible external-editor preference retained | **Gate held**: official primary bundled Radiant requires actual editor/platform/gameplay signoff |
+| ST-07/08 | Normal Game FORGE opens paired Studio; Studio exposes primary Radiant geometry, review/apply and explicit native fallback | Embedded/legacy entry remains explicit; full source removal is held for functional/platform parity |
+| RD-04 | Primary Radiant workflow and trusted installed-tool discovery; reversible preference and native fallback | Native Mac candidate passes bounded real editor/source/package loop; wider platform/gameplay/release signoff remains pending |
 | REL-01 | Paired binary/hash/architecture metadata, coordinated update lease/recovery/rollback, sibling macOS apps, desktop CI | Synthetic pairing/updater tests; actual previous-release upgrade and remote candidate CI pending |
 | REL-02 | Reproducible commands, migration/fallback guide and release evidence contract | **Gate held**: no public release, deployment, owner signoff or device certification recorded |
 
@@ -60,7 +60,7 @@ intermediate passing counts do not certify a later candidate automatically.
   shared-source boundary has been reviewed, but needs its actual workload build.
 - Authenticated IPC/process suite: 22 checks, including actual child processes,
   independent instance scopes, forwarding and crash recovery.
-- Standalone host self-test: 79 checks, ten offline map document lifecycles,
+- Standalone host self-test: 91 checks, ten offline map document lifecycles,
   edit/undo/save/autosave/recovery, cancellation and exact package construction.
   Includes inner and outer source ownership routing. Safe Mode creates no native
   viewports; native rendering has its own evidence below.
@@ -160,6 +160,53 @@ intermediate passing counts do not certify a later candidate automatically.
   passes locally. Current exact-head checks remain linked above; no cancelled
   or still-running job is counted as passed.
 
+## Native Mac geometry replacement candidate, October 15
+
+The earlier private `8ffeaa2d` Mac copy contained Game and Studio only. It did
+not contain the Radiant replacement; its 47 successful CI checks do not certify
+these subsequent changes. The new candidate adds a separate native Cocoa Qt5
+`Project Prime Radiant.app` discovered beside the paired Game/Studio apps.
+
+- Normal Game FORGE launches Studio Maps through the paired trusted launcher,
+  including repeated FORGE requests while the explicit embedded workspace is
+  active. Navigation guards and delayed unsaved-settings intent are preserved.
+  Process/route checks pass 33 cases; Main/Studio build with zero warnings/errors.
+- Studio exposes Edit Geometry in Radiant, Review / Apply Changes and an explicit
+  native geometry fallback. Its actual headless host passes 91 checks, including
+  twelve ownership/primary-action routes. Opening/restoring documents never
+  implicitly launches another editor. Tool discovery/bridge checks pass 50 cases.
+- Workspace v2 uses one durable `func_group` per primitive with `prime_id`, plus
+  explicit patch collision/tessellation keys. Stock comment stripping cannot
+  erase IDs. Changed v1 workspaces are preserved for explicit reconciliation;
+  unchanged source/identity/native baselines can upgrade transactionally. Strict
+  v2 review rejects every unmarked or comment-only primitive before mutation.
+  Source/compiler checks pass 106 cases with the actual pinned Q3Map2.
+- Native Project Prime Save assigns containers to newly authored worldspawn
+  primitives while preserving the same primitive nodes and selection. Ordinary
+  brush Duplicate copies its container as a separate object with a fresh ID;
+  Save As keeps existing IDs. Malformed multi-primitive groups refuse Save.
+- The first real Mac launch exposed an invalid framebuffer during shader
+  validation. The native bootstrap now supplies a complete temporary FBO, keeps
+  shader validation enabled, and restores Qt's exact GL bindings afterward.
+- Actual Candidate 03 GUI opened a protected six-object brush/patch fixture,
+  moved a wall, saved, and quit cleanly. Strict review retained all six IDs,
+  native labels/layers/locked/terrain/shade, patch collision/tessellation and
+  every gameplay/project domain. Apply/one undo and package build/reload pass
+  15 checks. A separate real Save As, ordinary selected-brush Duplicate, drawn
+  brush, Undo/Redo, subsequent move and Save produced eight stable unique IDs.
+  Strict review/package of those exact saved bytes passes 15 further checks.
+  Actual input SHA is
+  `e7d10ae0dee3cda5d129f4736fa961df8d74d0da29e0bbe0e82470206016a624`.
+- Native package closure verifies 73 ARM64 Mach-O images, eleven flattened Qt
+  frameworks, zero symlinks, source-backed editor artwork/provenance and ad hoc
+  nested/app seals. Optional three-app canonical packaging and ownership/tamper
+  fixtures pass. Private receipts/logs are in `artifacts/studio-radiant-mac/`.
+
+This proves a bounded Mac geometry workflow, not complete Windows/Linux GUI,
+physical multiplayer/device, UV/content corpus, performance or public-release
+qualification. Existing native material bindings remain authoritative; new
+Radiant shaders need an explicit native texture binding before publishing.
+
 ## Required evidence still pending
 
 These rows cannot become passed from a build, a source scan, or an empty/skipped test:
@@ -167,7 +214,7 @@ These rows cannot become passed from a build, a source scan, or an empty/skipped
 | Gate | Required evidence |
 |---|---|
 | Native Studio GPU | Game/Studio pixel parity, final responsive-preview visual revisit, picking/high-DPI/context-loss and hardware frame/resource metrics on each supported platform; Mac map/replay lifecycle/transport checks above already pass |
-| Real editor | Windows/Linux and declared macOS fallback; open/edit/save/quit, UV/angled/patch/two-map and conflict loop |
+| Real editor | Windows/Linux GUI and broader UV/angled/patch/two-map/conflict corpus; bounded native Mac open/edit/save/quit and strict package loop above already pass |
 | End-to-end Game | Offline scene playtest, 1v1 and 8-player FFA, bots/pickups/rotation/Ready/spectator, independent crash/quit |
 | Replay | Historical custom-map/POV/cosmetic/projectile/audio fidelity and full corpus/platform coverage; bounded Mac preview/lifecycle, overlay/multiview/reel and two-resolution video/audio checks above already pass |
 | Android | Real arm64 install/join/spectate/room-transition/error UI; desktop payload absent |

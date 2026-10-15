@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $# == 5 ]] || { echo 'usage: package-macos.sh <publish-directory> <dist-directory> <rid> <version> <studio-publish-directory>' >&2; exit 1; }
+[[ $# == 5 || $# == 6 ]] || { echo 'usage: package-macos.sh <publish-directory> <dist-directory> <rid> <version> <studio-publish-directory> [prebuilt-radiant.app]' >&2; exit 1; }
 [[ $(uname -s) == Darwin ]] || { echo 'error: packaging requires macOS' >&2; exit 1; }
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 root=$(cd "$1" && pwd)
@@ -11,6 +11,11 @@ rid=$3
 version=${4#v}
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'error: version must be X.Y.Z' >&2; exit 1; }
 case "$rid" in osx-arm64|osx-x64) ;; *) echo 'error: unsupported RID' >&2; exit 1 ;; esac
+radiant_source=''
+if [[ $# == 6 ]]; then
+    radiant_source=$(cd "$6" && pwd)
+    python3 "$repo/tools/project-prime-radiant/package_macos.py" --validate-app "$radiant_source" --rid "$rid"
+fi
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 # Portable PDBs are diagnostic data. MacOS is a nested-code location to the
@@ -91,13 +96,26 @@ chmod +x "$studio_contents/MacOS/ProjectPrimeStudio"
 "$repo/tools/sign-macos.sh" "$studio_contents/MacOS" ProjectPrimeStudio
 codesign --force --sign - --entitlements "$repo/src/MphRead/Platforms/macOS/ProjectPrime.entitlements" "$studio_app"
 codesign --verify --deep --strict --verbose=4 "$studio_app"
+# Radiant is a separate native sibling with source-backed editor artwork.
+# Validate Game/Studio with the normal asset guard; native artwork uses its
+# package receipt and forbidden-payload checks instead of a global image waiver.
+"$repo/tools/check-no-game-assets.sh" "$stage/package"
+if [[ -n "$radiant_source" ]]; then
+    radiant_app="$stage/package/Project Prime Radiant.app"
+    ditto "$radiant_source" "$radiant_app"
+    python3 "$repo/tools/project-prime-radiant/package_macos.py" --validate-app "$radiant_app" --rid "$rid"
+fi
 # Signing changes apphost bytes. Bind the final sealed executables, then write
-# the complete ownership manifest outside both resource-sealed bundles.
+# the complete ownership manifest outside all resource-sealed bundles.
 rm -f "$stage/package/.project-prime-update.lock" "$stage/package/.project-prime-in-use.lock"
 python3 "$repo/tools/studio-pair.py" metadata "$stage/package" "$version"
 python3 "$repo/tools/write-release-manifest.py" "$stage/package"
 python3 "$repo/tools/paired-install-check.py" "$stage/package" --version "$version" --rid "$rid"
-"$repo/tools/check-no-game-assets.sh" "$stage/package"
+if [[ -z "$radiant_source" ]]; then
+    "$repo/tools/check-no-game-assets.sh" "$stage/package"
+else
+    "$repo/tools/check-no-game-assets.sh" "$app" "$studio_app"
+fi
 archive="$stage/ProjectPrime-v$version-$rid.tar.gz"
 COPYFILE_DISABLE=1 tar -czf "$archive" -C "$stage/package" .
 # Validate what a player extracts, including mode bits and resource seals.
@@ -106,5 +124,8 @@ tar -xzf "$archive" -C "$stage/extracted"
 codesign --verify --deep --strict --verbose=4 "$stage/extracted/Project Prime.app"
 "$repo/tools/run-macos-smoke.sh" "$stage/extracted/Project Prime.app/Contents/MacOS" "$rid"
 codesign --verify --deep --strict --verbose=4 "$stage/extracted/Project Prime Studio.app"
+if [[ -n "$radiant_source" ]]; then
+    python3 "$repo/tools/project-prime-radiant/package_macos.py" --validate-app "$stage/extracted/Project Prime Radiant.app" --rid "$rid"
+fi
 python3 "$repo/tools/paired-install-check.py" "$stage/extracted" --version "$version" --rid "$rid"
 cp "$archive" "$dist/"
