@@ -29,6 +29,10 @@ test("page, search and identity-directory filters are strictly bounded", () => {
   assert.equal(parse().page, 1);
   assert.equal(parse("page=100").pageSize, 25);
   assert.equal(parse("only_public=1").onlyPublic, true);
+  assert.equal(parse("only_public=1&page=201").page, 201);
+  assert.equal(parse("only_public=1&page=500").page, 500);
+  assert.throws(() => parse("only_public=1&page=501"), InvalidLeaderboardQuery);
+  assert.throws(() => parse("only_public=1&mode=3&page=101"), InvalidLeaderboardQuery);
   assert.throws(() => parse("page=101"), InvalidLeaderboardQuery);
   assert.throws(() => parse("page=-1"), InvalidLeaderboardQuery);
   assert.throws(() => parse("only_public=maybe"), InvalidLeaderboardQuery);

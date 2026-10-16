@@ -287,6 +287,21 @@ namespace MphRead.Mods.Launcher
                     },
                     cancellationToken).ConfigureAwait(false);
 
+                // A guest Supabase identity is still the Hunter's own account.
+                // Offer the same opt-out in-game so guests do not need to link
+                // an email merely to hide their public profile.
+                try
+                {
+                    snapshot.PublicVisible = await VisibilityRpcAsync(
+                        session.AccessToken, null, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    Console.WriteLine("[hunter-license] public visibility unavailable: "
+                        + FriendlyAction(ex));
+                    snapshot.PublicVisible = null;
+                }
+
                 foreach (var cosmetic in snapshot.Cosmetics)
                     if (cosmetic.Hunter >= 0 && cosmetic.Hunter < 7)
                         Cosmetics.CosmeticPersistence.MergeRemote((Hunter)cosmetic.Hunter,
@@ -325,6 +340,34 @@ namespace MphRead.Mods.Launcher
             {
                 Gate.Release();
             }
+        }
+
+        /// <summary>
+        /// Change only this Supabase user's public Hunter profile preference.
+        /// The server RPC resolves auth.uid() and cannot mutate another
+        /// player's privacy or any authoritative career statistics.
+        /// </summary>
+        public static async Task<HunterLicenseActionResult> SetPublicVisibilityAsync(
+            bool visible, CancellationToken cancellationToken = default)
+        {
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                bool saved = await VisibilityRpcAsync(session.AccessToken, visible,
+                    cancellationToken).ConfigureAwait(false);
+                if (saved != visible)
+                    return HunterLicenseActionResult.Fail("Visibility was not confirmed by the server.");
+                return HunterLicenseActionResult.Ok(visible
+                    ? "Your Hunter name and public career profile are now visible."
+                    : "Your Hunter name and public profile are hidden. Your career totals remain intact.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return HunterLicenseActionResult.Fail(FriendlyAction(ex));
+            }
+            finally { Gate.Release(); }
         }
 
         public static async Task<HunterLicenseActionResult> UpdateCosmeticAsync(Hunter hunter,
@@ -624,6 +667,26 @@ namespace MphRead.Mods.Launcher
                 ?? throw new InvalidOperationException("Supabase Auth returned no user.");
         }
 
+        private static async Task<bool> VisibilityRpcAsync(
+            string accessToken, bool? visible, CancellationToken cancellationToken)
+        {
+            string function = visible.HasValue
+                ? "project_prime_set_hunter_visibility" : "project_prime_hunter_visibility";
+            object body = visible.HasValue
+                ? new Dictionary<string, object?> { ["p_public"] = visible.Value }
+                : new Dictionary<string, object?>();
+            using var request = Request(HttpMethod.Post,
+                "/rest/v1/rpc/" + function, accessToken, body);
+            using HttpResponseMessage response = await Http.SendAsync(request,
+                cancellationToken).ConfigureAwait(false);
+            string result = await response.Content.ReadAsStringAsync(cancellationToken)
+                .ConfigureAwait(false);
+            EnsureSuccess(response, result, "Hunter profile visibility");
+            if (!Boolean.TryParse(result.Trim(), out bool parsed))
+                throw new InvalidDataException("Profile visibility returned an invalid state.");
+            return parsed;
+        }
+
         private static async Task<T> FunctionAsync<T>(
             string accessToken, string function, object body, CancellationToken cancellationToken)
         {
@@ -865,6 +928,10 @@ namespace MphRead.Mods.Launcher
     {
         [JsonIgnore]
         public bool Connected { get; set; }
+        // Null means the privacy service has not been reached. Do not display
+        // a guessed server setting or enable the toggle in that state.
+        [JsonIgnore]
+        public bool? PublicVisible { get; set; }
         [JsonIgnore]
         public string Status { get; set; } = "";
         [JsonIgnore]

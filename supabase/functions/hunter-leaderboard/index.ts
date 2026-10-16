@@ -40,25 +40,30 @@ Deno.serve(async (req: Request) => {
       // The opaque ID is not the Supabase/Auth UUID.
       const profiles = await sql`
         SELECT
-          md5('project-prime:public-hunter:v1:' || a."PlayerId"::text) AS public_id,
+          md5('project-prime:public-hunter:v1:' || l."PlayerId"::text) AS public_id,
           p."DisplayName" AS display_name,
           p."FavoriteHunter" AS favorite_hunter,
-          a."Matches"::double precision AS matches, a."Wins"::double precision AS wins,
-          a."Losses"::double precision AS losses, a."Ties"::double precision AS ties,
-          a."Kills"::double precision AS kills, a."Deaths"::double precision AS deaths,
-          a."Assists"::double precision AS assists, a."Damage"::double precision AS damage,
-          a."HeadshotKills"::double precision AS headshots,
-          a."OctolithScores"::double precision AS octolith_scores,
-          a."NodesCaptured"::double precision AS nodes_captured,
-          round(100.0*a."Wins"/greatest(a."Matches",1),1)::double precision AS win_rate,
-          round(a."Kills"::numeric/greatest(a."Deaths",1),2)::double precision AS kd
-        FROM prime.career_aggregates a
-        JOIN prime.player_profiles p ON p."PlayerId" = a."PlayerId"
-        JOIN prime.hunter_public_visibility visibility
-          ON visibility.player_id = a."PlayerId" AND visibility.is_public = true
-        WHERE a."TrustClass"=-1 AND a."Dimension"='career' AND a."Key"='all'
-          AND a."Matches">0
-          AND md5('project-prime:public-hunter:v1:' || a."PlayerId"::text)
+          coalesce(a."Matches",0)::double precision AS matches,
+          coalesce(a."Wins",0)::double precision AS wins,
+          coalesce(a."Losses",0)::double precision AS losses,
+          coalesce(a."Ties",0)::double precision AS ties,
+          coalesce(a."Kills",0)::double precision AS kills,
+          coalesce(a."Deaths",0)::double precision AS deaths,
+          coalesce(a."Assists",0)::double precision AS assists,
+          coalesce(a."Damage",0)::double precision AS damage,
+          coalesce(a."HeadshotKills",0)::double precision AS headshots,
+          coalesce(a."OctolithScores",0)::double precision AS octolith_scores,
+          coalesce(a."NodesCaptured",0)::double precision AS nodes_captured,
+          round(100.0*coalesce(a."Wins",0)/greatest(coalesce(a."Matches",0),1),1)::double precision AS win_rate,
+          round(coalesce(a."Kills",0)::numeric/greatest(coalesce(a."Deaths",0),1),2)::double precision AS kd
+        FROM prime.hunter_licenses l
+        JOIN prime.player_profiles p ON p."PlayerId" = l."PlayerId"
+        LEFT JOIN prime.career_aggregates a ON a."PlayerId" = l."PlayerId"
+          AND a."TrustClass"=-1 AND a."Dimension"='career' AND a."Key"='all'
+        LEFT JOIN prime.hunter_public_visibility visibility
+          ON visibility.player_id = l."PlayerId"
+        WHERE coalesce(visibility.is_public,true)
+          AND md5('project-prime:public-hunter:v1:' || l."PlayerId"::text)
             = ${query.hunter}
         LIMIT 1
       `;
@@ -78,24 +83,31 @@ Deno.serve(async (req: Request) => {
     const results = await sql`
       WITH eligible AS (
         SELECT
-          a."PlayerId" AS player_id,
-          coalesce(v.is_public,false) AS is_public,
+          l."PlayerId" AS player_id,
+          coalesce(v.is_public,true) AS is_public,
           p."DisplayName" AS public_name,
-          a."Matches" AS matches, a."Wins" AS wins,
-          a."Losses" AS losses, a."Ties" AS ties,
-          a."Kills" AS kills, a."Deaths" AS deaths,
-          a."Assists" AS assists, a."HeadshotKills" AS headshots,
-          round(100.0*a."Wins"/greatest(a."Matches",1),1)::double precision AS win_rate,
-          round(a."Kills"::numeric/greatest(a."Deaths",1),2)::double precision AS kd
-        FROM prime.career_aggregates a
-        JOIN prime.player_profiles p ON p."PlayerId"=a."PlayerId"
-        LEFT JOIN prime.hunter_public_visibility v ON v.player_id=a."PlayerId"
-        WHERE a."TrustClass"=-1
+          coalesce(a."Matches",0)::double precision AS matches,
+          coalesce(a."Wins",0)::double precision AS wins,
+          coalesce(a."Losses",0)::double precision AS losses,
+          coalesce(a."Ties",0)::double precision AS ties,
+          coalesce(a."Kills",0)::double precision AS kills,
+          coalesce(a."Deaths",0)::double precision AS deaths,
+          coalesce(a."Assists",0)::double precision AS assists,
+          coalesce(a."HeadshotKills",0)::double precision AS headshots,
+          round(100.0*coalesce(a."Wins",0)/greatest(coalesce(a."Matches",0),1),1)::double precision AS win_rate,
+          round(coalesce(a."Kills",0)::numeric/greatest(coalesce(a."Deaths",0),1),2)::double precision AS kd
+        FROM prime.hunter_licenses l
+        JOIN prime.player_profiles p ON p."PlayerId"=l."PlayerId"
+        LEFT JOIN prime.career_aggregates a
+          ON a."PlayerId"=l."PlayerId"
+          AND a."TrustClass"=-1
           AND a."Dimension"=${dimension} AND a."Key"=${bucket}
-          AND a."Matches">0
-          AND (NOT ${query.onlyPublic}::boolean OR coalesce(v.is_public,false))
+        LEFT JOIN prime.hunter_public_visibility v ON v.player_id=l."PlayerId"
+        WHERE (coalesce(a."Matches",0)>0
+          OR (${query.onlyPublic}::boolean AND ${dimension}::text='career'))
+          AND (NOT ${query.onlyPublic}::boolean OR coalesce(v.is_public,true))
           AND (${query.search}::text='' OR (
-             coalesce(v.is_public,false) AND p."DisplayName" ILIKE ${search}
+             coalesce(v.is_public,true) AND p."DisplayName" ILIKE ${search}
           ))
       ),
       scored AS (
