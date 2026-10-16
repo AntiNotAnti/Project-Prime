@@ -75,6 +75,15 @@ internal static class RmlUiOpenGlSmoke
                     ? host.ReadField(host.HomeDocument, "play_player_name", 128) : "";
                 controller.Dispatch(intent.Kind, intent.Argument, address, player);
             }
+            // A native navigation may have opened the existing setup/create
+            // modal or legacy workspace within this very frame. Yield capture
+            // immediately, not one presented frame later.
+            if (!Shell.RmlUiCanPresent)
+            {
+                _shown = false;
+                host.ReleaseInput();
+                return;
+            }
             RmlUiMenuSnapshot snapshot = controller.Tick();
             if (snapshot.Revision > _lastPresentedRevision)
             {
