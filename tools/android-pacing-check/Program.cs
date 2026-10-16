@@ -110,4 +110,10 @@ Check(!AndroidFramePacer.PresentationOwnsCadence(displayPaced: false,
         modernPresentationBlocks: false),
     "nonblocking modern presentation may use the software deadline");
 
+Check(AndroidGcTelemetry.ParseCounter("98") == 98, "ART GC numeric runtime stat");
+Check(AndroidGcTelemetry.ParseCounter("missing") == null, "missing ART GC runtime stat");
+Check(AndroidGcTelemetry.CounterDelta(11, 7) == "4", "ART GC counter delta");
+Check(AndroidGcTelemetry.CounterDelta(null, 7) == "n/a", "unavailable ART GC delta");
+Check(AndroidGcTelemetry.CounterDelta(1, 5) == "n/a", "reset ART GC counter does not produce negative delta");
+
 return failures == 0 ? 0 : 1;

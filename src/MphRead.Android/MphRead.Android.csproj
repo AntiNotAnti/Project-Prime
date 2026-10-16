@@ -67,6 +67,8 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Opt-in experiment: benchmark nursery sizes on real devices before choosing a production default. -->
+    <AndroidGcNurserySize Condition="'$(AndroidGcNurserySize)' == ''"></AndroidGcNurserySize>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled
@@ -78,6 +80,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Alternate Mono nursery configurations are packaged only when explicitly requested. -->
+    <AndroidEnvironment Include="gc-profiles\$(AndroidGcNurserySize).txt" Condition="'$(AndroidGcNurserySize)' != ''" />
     <!-- This head's own files. -->
     <Compile Include="*.cs" />
     <!-- The game, the launcher's logic and its Avalonia controls. -->
@@ -222,4 +226,8 @@
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Target Name="ValidateAndroidGcNurserySize" BeforeTargets="Build" Condition="'$(AndroidGcNurserySize)' != ''">
+    <Error Condition="'$(AndroidGcNurserySize)' != '16m' and '$(AndroidGcNurserySize)' != '32m' and '$(AndroidGcNurserySize)' != '64m'"
+           Text="AndroidGcNurserySize must be empty, 16m, 32m or 64m." />
+  </Target>
 </Project>
