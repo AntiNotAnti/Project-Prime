@@ -9,7 +9,7 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private ToggleRow? _dsStacked;
         private ChoiceRow? _dsAspect;
-        private SliderRow? _dsRadarSize, _dsRadarX, _dsRadarY, _dsSelectSize;
+        private SliderRow? _dsRadarSize, _dsRadarX, _dsRadarY;
 
         private void BuildDsLayout(StackPanel page)
         {
@@ -21,11 +21,6 @@ namespace MphRead.Mods.Launcher.Gui
                 + "Other layouts remain unchanged.");
             _dsAspect = Add(page, new ChoiceRow("Each screen aspect",
                 new[] { "4:3", "5:3" }, DsLayout.ScreenAspect == "5:3" ? 1 : 0));
-            _dsSelectSize = Add(page, new SliderRow("WPN button size",
-                (int)MathF.Round(StylusZone.SelectSize * 100),
-                v => v + "%", min: 50, max: 109, keyStep: 1));
-            Explain(page, "The WPN selector stays centered on its original control. "
-                + "Its visible boundary and touch target grow together, capped at the LCD edge.");
             _dsRadarSize = Add(page, new SliderRow("Bottom radar size",
                 (int)MathF.Round(DsLayout.RadarSize * 100),
                 v => v + "%", min: 25, max: 300, keyStep: 5));
@@ -43,7 +38,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             bool active = _dsStacked?.On == true && _penTablet.On;
             if (_dsAspect != null) _dsAspect.IsVisible = active;
-            if (_dsSelectSize != null) _dsSelectSize.IsVisible = active;
             if (_dsRadarSize != null) _dsRadarSize.IsVisible = active;
             if (_dsRadarX != null) _dsRadarX.IsVisible = active;
             if (_dsRadarY != null) _dsRadarY.IsVisible = active;
@@ -53,7 +47,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_dsStacked == null) return;
             DsLayout.Enabled = _dsStacked.On;
-            if (_dsSelectSize != null) StylusZone.SelectSize = _dsSelectSize.Value / 100f;
             DsLayout.ScreenAspect = _dsAspect?.Index == 1 ? "5:3" : "4:3";
             if (_dsRadarSize != null) DsLayout.RadarSize = _dsRadarSize.Value / 100f;
             if (_dsRadarX != null) DsLayout.RadarX = _dsRadarX.Value / 100f;
@@ -64,7 +57,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_dsStacked == null) return;
             _dsStacked.On = DsLayout.Enabled;
-            if (_dsSelectSize != null) _dsSelectSize.Value = (int)MathF.Round(StylusZone.SelectSize * 100);
             if (_dsAspect != null) _dsAspect.Index = DsLayout.ScreenAspect == "5:3" ? 1 : 0;
             if (_dsRadarSize != null) _dsRadarSize.Value = (int)MathF.Round(DsLayout.RadarSize * 100);
             if (_dsRadarX != null) _dsRadarX.Value = (int)MathF.Round(DsLayout.RadarX * 100);

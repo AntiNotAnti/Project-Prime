@@ -44,11 +44,7 @@ namespace MphRead.Mods.Combat
     internal sealed class KillFeed
     {
         internal static int MaxVisible => Render.Hud.HudProfiles.Runtime.KillFeed.Rows;
-        // Each entry already records its own arrival clock. Stacked mode fixes
-        // the independent lifetime to five seconds without refreshing older
-        // entries when a new authoritative death is recorded.
-        internal static double LifetimeSeconds => Mods.Input.DsLayout.Active
-            ? 5 : Render.Hud.HudProfiles.Runtime.KillFeed.Lifetime;
+        internal static double LifetimeSeconds => Render.Hud.HudProfiles.Runtime.KillFeed.Lifetime;
         internal const double FadeSeconds = 1;
 
         private const int Capacity = 10;
