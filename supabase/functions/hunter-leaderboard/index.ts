@@ -16,7 +16,9 @@ function respond(status: number, value: unknown) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": status === 200 ? "public, max-age=60, s-maxage=60" : "no-store",
+      // Let the website own its short public list cache. Never stack two
+      // shared-cache TTLs for users who opt out of name visibility.
+      "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });
@@ -41,13 +43,13 @@ Deno.serve(async (req: Request) => {
           md5('project-prime:public-hunter:v1:' || a."PlayerId"::text) AS public_id,
           p."DisplayName" AS display_name,
           p."FavoriteHunter" AS favorite_hunter,
-          a."Matches" AS matches, a."Wins" AS wins,
-          a."Losses" AS losses, a."Ties" AS ties,
-          a."Kills" AS kills, a."Deaths" AS deaths,
-          a."Assists" AS assists, a."Damage" AS damage,
-          a."HeadshotKills" AS headshots,
-          a."OctolithScores" AS octolith_scores,
-          a."NodesCaptured" AS nodes_captured,
+          a."Matches"::double precision AS matches, a."Wins"::double precision AS wins,
+          a."Losses"::double precision AS losses, a."Ties"::double precision AS ties,
+          a."Kills"::double precision AS kills, a."Deaths"::double precision AS deaths,
+          a."Assists"::double precision AS assists, a."Damage"::double precision AS damage,
+          a."HeadshotKills"::double precision AS headshots,
+          a."OctolithScores"::double precision AS octolith_scores,
+          a."NodesCaptured"::double precision AS nodes_captured,
           round(100.0*a."Wins"/greatest(a."Matches",1),1)::double precision AS win_rate,
           round(a."Kills"::numeric/greatest(a."Deaths",1),2)::double precision AS kd
         FROM prime.career_aggregates a
