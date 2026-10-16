@@ -334,36 +334,30 @@ namespace MphRead.Text
         public void SetData(byte[] widths, byte[] offsets, byte[] chars, int minChar, bool packed = true)
         {
             int[] widthData = new int[widths.Length];
-            for (int i = 0; i < widths.Length; i++)
-            {
-                widthData[i] = widths[i];
-            }
-            Widths = widthData;
+            for (int i = 0; i < widths.Length; i++) widthData[i] = widths[i];
             int[] offsetData = new int[offsets.Length];
-            for (int i = 0; i < offsets.Length; i++)
-            {
-                offsetData[i] = (sbyte)offsets[i];
-            }
-            Offsets = offsetData;
+            for (int i = 0; i < offsets.Length; i++) offsetData[i] = (sbyte)offsets[i];
+            byte[] charData;
             if (packed)
             {
                 Debug.Assert(chars.Length > 0 && chars.Length % 2 == 0);
-                byte[] charData = new byte[chars.Length * 2];
+                charData = new byte[chars.Length * 2];
                 for (int i = 0; i < chars.Length; i++)
                 {
                     byte data = chars[i];
                     charData[i * 2] = (byte)(data & 0xF);
                     charData[i * 2 + 1] = (byte)(data >> 4);
                 }
-                CharacterData = charData;
             }
-            else
-            {
-                // this code path is hypothetically for the "1D" version of character data,
-                // which is more easily parsed out of the 1bit kanji font files, but which
-                // would require some tweaking to DoTexture() in the HUD object which expects "2D"
-                CharacterData = chars;
-            }
+            else charData = chars;
+
+            // Fill missing Japanese punctuation only when the native tile is blank,
+            // and place the additional symbols in previously unassigned tiles.
+            if (ReferenceEquals(this, Normal) && packed)
+                PlayerNameGlyphArt.Install(ref widthData, ref offsetData, ref charData, minChar);
+            Widths = widthData;
+            Offsets = offsetData;
+            CharacterData = charData;
             MinCharacter = minChar;
         }
     }
