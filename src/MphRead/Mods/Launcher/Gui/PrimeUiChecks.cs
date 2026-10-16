@@ -2,7 +2,9 @@
 using System;
 using Avalonia.LogicalTree;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -293,6 +295,55 @@ namespace MphRead.Mods.Launcher.Gui
             finally { window.Close(); }
         }
 
+        private static void CheckCommunityNonblockingActivation()
+        {
+            // Reproduce the UI freeze deterministically without touching the
+            // live transfer journal or contacting any Community endpoint.
+            using var entered = new ManualResetEventSlim(false);
+            using var release = new ManualResetEventSlim(false);
+            using var localEntered = new ManualResetEventSlim(false);
+            using var localRelease = new ManualResetEventSlim(false);
+            var community = new CommunityWorkspace(new PrimeOverlayHost(),
+                fixture: CommunitySample(),
+                transferFactory: () =>
+                {
+                    entered.Set();
+                    if (!release.Wait(TimeSpan.FromSeconds(5)))
+                        throw new IOException("Intentional stalled transfer fixture timed out.");
+                    throw new IOException("Intentional transfer fixture shutdown.");
+                },
+                localLibraryReader: () =>
+                {
+                    localEntered.Set();
+                    if (!localRelease.Wait(TimeSpan.FromSeconds(5)))
+                        throw new IOException("Intentional installed-map fixture timed out.");
+                    throw new IOException("Intentional installed-map fixture shutdown.");
+                });
+            try
+            {
+                Stopwatch timer = Stopwatch.StartNew();
+                community.OnActivated();
+                timer.Stop();
+                Check(timer.Elapsed < TimeSpan.FromSeconds(1),
+                    "Community tab activation never waits for transfer index locks");
+                Check(entered.Wait(TimeSpan.FromSeconds(5)),
+                    "Community transfer setup runs on a background worker");
+                Check(localEntered.Wait(TimeSpan.FromSeconds(5)),
+                    "first installed-map registry load also runs off the UI thread");
+                Check(community.GetVisualDescendants().OfType<UiListRow>()
+                    .Any(row => Equals(row.Choice, CommunitySample()[0].MapId))
+                    || community.Content != null,
+                    "Community fixture browser remains constructible while transfer setup waits");
+                community.OnDeactivated();
+            }
+            finally
+            {
+                community.Dispose();
+                release.Set();
+                localRelease.Set();
+            }
+        }
+
         private static void CheckCommunityMapPicker()
         {
             var map = new MapGen.CommunityMap(new string('a', 64), Guid.NewGuid(), new string('b', 64),
@@ -545,6 +596,7 @@ namespace MphRead.Mods.Launcher.Gui
                     CheckHunterLicenseIdentitySurface();
                     CheckLicenseAccountFeedback();
                     CheckCommunityMapPicker();
+                    CheckCommunityNonblockingActivation();
                     CheckSavedLobbyLimits();
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
