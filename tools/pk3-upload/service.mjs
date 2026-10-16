@@ -57,6 +57,24 @@ export function createPk3UploadService({
   const uploadRoot = path.join(root, "uploads");
   const jobRoot = path.join(root, "jobs");
   const locked = new Set();
+  // Bound polling and admission traffic per verified creator, rather than
+  // the reverse-proxy's shared loopback IP.
+  const requestWindows = new Map();
+  function allowCreatorRequest(creatorId) {
+    const current = now();
+    let window = requestWindows.get(creatorId);
+    if (!window || current - window.start >= 60_000) {
+      window = { start: current, count: 0 };
+      requestWindows.set(creatorId, window);
+    }
+    window.count++;
+    if (requestWindows.size > 1024) {
+      for (const [id, record] of requestWindows)
+        if (current - record.start >= 60_000) requestWindows.delete(id);
+      if (requestWindows.size > 1024) requestWindows.clear();
+    }
+    return window.count <= 180;
+  }
   let activeJob = null;
   let closing = false;
   let service;
@@ -254,6 +272,9 @@ export function createPk3UploadService({
       identity = await verifyTicket(req.headers.authorization.slice(7));
       if (!identity || !/^hunter:[a-f0-9-]{36}$/i.test(identity.creatorId))
         return send(res, 401, { error: "hunter_license_invalid" });
+      if (!allowCreatorRequest(identity.creatorId))
+        return send(res, 429, { error: "creator_request_rate_limited" },
+          { "Retry-After": "30" });
     } catch {
       return send(res, 503, { error: "identity_service_unavailable" });
     }
