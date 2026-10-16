@@ -474,6 +474,9 @@ The foundational Metroid Prime Hunters recreation, model viewer, renderer, file 
 
 **Livetek** is credited for development of **Fruity Prime**, an earlier fork in Project Prime's development lineage.
 
+### Second Hunt
+**BountyHunterKanden** is credited for Second Hunt porject which introduced some super cool characters and features!
+
 ### Additional Upstream Work
 
 The original MphRead work also builds upon research, libraries, tools, and contributions from:
