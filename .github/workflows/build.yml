@@ -405,12 +405,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          # The Windows map suite creates many build/fixture paths. GitHub's
-          # post-job cache save re-evaluated the recursive hashFiles globs and
-          # timed out after all map checks passed. Keep this cache key constant
-          # per platform and revision; NuGet restore remains authoritative for
-          # packages added after the cache was seeded.
-          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-mapcheck-v1
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
