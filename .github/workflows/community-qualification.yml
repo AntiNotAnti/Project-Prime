@@ -8,6 +8,7 @@ on:
       - "src/MphRead/Mods/Network/*Map*"
       - "src/MphRead/Mods/Launcher/Gui/Workspaces/*Community*"
       - "tools/community-qualification/**"
+      - "tools/map-editor-check/**"
       - ".github/workflows/community-qualification.yml"
   workflow_dispatch:
 
