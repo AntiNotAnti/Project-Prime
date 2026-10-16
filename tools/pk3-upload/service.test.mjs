@@ -207,3 +207,24 @@ test("creator-scoped rate limiter denies excess API calls without affecting anot
     assert.equal((await env.request(route, "GET", undefined, other)).status, 404);
   } finally { await env.cleanup(); }
 });
+
+test("one creator can convert two BSP variants from the same .pk3 independently", async () => {
+  const env = await fixture();
+  try {
+    const input = Buffer.from("two-level fixture");
+    const hash = sum(input);
+    const a = "/v1/sources/" + hash + "?roomName=Q3_LEVEL_ONE&levelName=map1";
+    const b = "/v1/sources/" + hash + "?roomName=Q3_LEVEL_TWO&levelName=map2";
+    const meta = (roomName, levelName) => JSON.stringify({
+      bytes: input.length, roomName, levelName, rightsConfirmed: true,
+    });
+    assert.equal((await env.request(a, "POST", meta("Q3_LEVEL_ONE", "map1"))).status, 201);
+    assert.equal((await env.request(b, "POST", meta("Q3_LEVEL_TWO", "map2"))).status, 201);
+    assert.equal((await env.request(a + "&offset=0", "PUT", input.subarray(0, 4))).status, 200);
+    const one = await env.request(a), two = await env.request(b);
+    assert.equal((await one.json()).offset, 4);
+    assert.equal((await two.json()).offset, 0);
+    const mismatch = await env.request(b, "POST", meta("Q3_LEVEL_ONE", "map1"));
+    assert.equal(mismatch.status, 400);
+  } finally { await env.cleanup(); }
+});
