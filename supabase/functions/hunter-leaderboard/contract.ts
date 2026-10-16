@@ -24,15 +24,19 @@ export function parseLeaderboardRequest(url: URL) {
   const mode = q.get("mode") || "all";
   if (mode !== "all" && (!/^\d{1,2}$/.test(mode) || !modeNames[Number(mode)]))
     throw new InvalidLeaderboardQuery("invalid_mode");
+  const onlyPublic = q.get("only_public") || "0";
+  if (onlyPublic !== "0" && onlyPublic !== "1")
+    throw new InvalidLeaderboardQuery("invalid_visibility_filter");
   const rawPage = q.get("page") || "1";
   if (!/^\d{1,3}$/.test(rawPage))
     throw new InvalidLeaderboardQuery("invalid_page");
   const page = Number(rawPage);
-  if (page < 1 || page > 100)
+  // All registered public Licenses may exceed the original 2,500-player
+  // career-only pagination cap. Extend only the public all-mode directory;
+  // normal competitive rankings retain their narrow 100-page bound.
+  const maxPage = onlyPublic === "1" && mode === "all" ? 500 : 100;
+  if (page < 1 || page > maxPage)
     throw new InvalidLeaderboardQuery("invalid_page");
-  const onlyPublic = q.get("only_public") || "0";
-  if (onlyPublic !== "0" && onlyPublic !== "1")
-    throw new InvalidLeaderboardQuery("invalid_visibility_filter");
   const rawSearch = (q.get("q") || "").normalize("NFC");
   // Validate before trimming so hidden control characters cannot disappear.
   if (Array.from(rawSearch).length > 40 ||
