@@ -24,6 +24,9 @@ namespace MphRead
         // should only be needed by the player entity
         public void SetModel(Model model)
         {
+            // PlayerDraw selects the same LOD every presentation frame. Do
+            // not erase two real animation ticks on a no-op SetModel call.
+            if (ReferenceEquals(Model, model)) return;
             PresentationSamples.Reset();
             Model = model;
         }
