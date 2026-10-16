@@ -2156,14 +2156,8 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "Pen tablet");
             _penTablet = Add(page, new ToggleRow("Stylus mode", Mods.Input.PointerInput.StylusMode));
             BuildStylusZone(page);
-            BuildDsLayout(page);
-            _penTablet.Changed += (_, _) =>
-            {
-                ShowStylusRows();
-                ShowDsLayoutRows();
-            };
+            _penTablet.Changed += (_, _) => ShowStylusRows();
             ShowStylusRows();
-            ShowDsLayoutRows();
         }
 
         private void BuildGamepad(StackPanel page)
@@ -2202,7 +2196,6 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_mouseAltFormMovement != null) _mouseAltFormMovement.On = InputSettings.MouseAltFormMovement;
                 if (_stylusMovementBoost != null) _stylusMovementBoost.On = InputSettings.StylusMovementBoost;
                 _penTablet.On = Mods.Input.PointerInput.StylusMode;
-                ResetDsLayoutRows();
                 if (_repositionFilter != null) _repositionFilter.On = Mods.Input.PointerInput.GuardJumps;
                 if (_stylusZone != null)
                 {
@@ -3003,7 +2996,6 @@ namespace MphRead.Mods.Launcher.Gui
                     Mods.Input.TouchSettings.ReplaceLayout(_touchEditor.CopyLayout());
                 }
             }
-            ApplyDsLayout();
             InputSettings.Save();
             // The players in the match already have their own copies of these.
             // In-game settings target the registry supplied by the owning match:

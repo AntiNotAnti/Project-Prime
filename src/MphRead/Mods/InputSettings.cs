@@ -504,10 +504,6 @@ namespace MphRead.Mods
         {
             Input.GamepadProfiles.Initialize();
             HorizontalSensitivity = VerticalSensitivity = 1f;
-            Input.DsLayout.Enabled = false;
-            Input.DsLayout.ScreenAspect = "4:3";
-            Input.DsLayout.RadarSize = 1f;
-            Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
             if (!File.Exists(Path))
             {
                 return;
@@ -550,30 +546,6 @@ namespace MphRead.Mods
                         {
                             if (key == "horizontal_sensitivity") HorizontalSensitivity = axis;
                             else VerticalSensitivity = axis;
-                        }
-                        continue;
-                    }
-                    if (key == "ds_stacked" && bool.TryParse(value, out bool stacked))
-                    {
-                        Input.DsLayout.Enabled = stacked;
-                        continue;
-                    }
-                    if (key == "ds_aspect")
-                    {
-                        Input.DsLayout.ScreenAspect = value;
-                        continue;
-                    }
-                    if (key is "ds_radar_size" or "ds_radar_x" or "ds_radar_y")
-                    {
-                        if (Single.TryParse(value, NumberStyles.Float,
-                            CultureInfo.InvariantCulture, out float radar))
-                        {
-                            switch (key)
-                            {
-                                case "ds_radar_size": Input.DsLayout.RadarSize = radar; break;
-                                case "ds_radar_x": Input.DsLayout.RadarX = radar; break;
-                                case "ds_radar_y": Input.DsLayout.RadarY = radar; break;
-                            }
                         }
                         continue;
                     }
@@ -912,11 +884,6 @@ namespace MphRead.Mods
                     $"alt_swipe_sensitivity={AltSwipeSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
                     $"stylus_mode={Input.PointerInput.StylusMode.ToString().ToLowerInvariant()}",
-                    $"ds_stacked={Input.DsLayout.Enabled.ToString().ToLowerInvariant()}",
-                    $"ds_aspect={Input.DsLayout.ScreenAspect}",
-                    $"ds_radar_size={Input.DsLayout.RadarSize.ToString("0.###", CultureInfo.InvariantCulture)}",
-                    $"ds_radar_x={Input.DsLayout.RadarX.ToString("0.###", CultureInfo.InvariantCulture)}",
-                    $"ds_radar_y={Input.DsLayout.RadarY.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"pointer_jump_guard={Input.PointerInput.GuardJumps.ToString().ToLowerInvariant()}",
                     // What was asked for, not what is in force: the zone's
                     // switch survives stylus mode being turned off and on.
@@ -1030,10 +997,6 @@ namespace MphRead.Mods
             Input.PadBindings.Reset();
             Input.TouchSettings.Reset();
             Input.PointerInput.StylusMode = false;
-            Input.DsLayout.Enabled = false;
-            Input.DsLayout.ScreenAspect = "4:3";
-            Input.DsLayout.RadarSize = 1f;
-            Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
             Input.PointerInput.GuardJumps = true;
             Input.StylusZone.Enabled = false;
             Input.StylusZone.ResetAppearance();

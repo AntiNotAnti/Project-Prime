@@ -191,13 +191,7 @@ namespace MphRead
                 case Mods.Render.FrameRenderPassKind.Composite:
                     CheckGlError("EndWorldPass");
                     BeginCompositePass();
-                    if (DsTopPass)
-                        GL.ClearColor(.012f, .025f, .057f, 1f);
-                    // Clear the physical output, including letterbox gutters.
-                    // GL.Clear is independent of the chosen LCD viewport.
                     GL.Clear(ClearBufferMask.ColorBufferBit);
-                    if (DsTopPass)
-                        GL.ClearColor(_clearColor);
                     {
                         GL.Begin(PrimitiveType.TriangleStrip);
                         GL.TexCoord3(1f, 1f, 0f);

@@ -65,16 +65,6 @@ internal static class DsLayout
         return (new Vector4i(x, y, w, h), new Vector4i(x, y + h, w, h));
     }
 
-    // GL uses a bottom-left origin whereas DS touch/UI uses top-left.
-    // Keep this translation pure and shared with scene drawing and tests.
-    public static Vector4i GlBounds(int physicalWidth, int physicalHeight, bool lower)
-    {
-        var screens = Bounds(physicalWidth, physicalHeight);
-        Vector4i rect = lower ? screens.Bottom : screens.Top;
-        return new Vector4i(rect.X,
-            physicalHeight - rect.Y - rect.W, rect.Z, rect.W);
-    }
-
     public static Vector4 Bottom { get; private set; }
     public static Vector2i InputSize { get; private set; }
 

@@ -72,11 +72,6 @@ namespace MphRead.Mods.Input
                 Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576))
                     && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576)),
                     "4:3 equal LCDs exact authored 768x576 reference");
-                Require(DsLayout.GlBounds(768, 1152, lower: false)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576))
-                    && DsLayout.GlBounds(768, 1152, lower: true)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576)),
-                    "4:3 desktop GL top and bottom Y origins match input");
                 DsLayout.UpdateInputBounds(768, 1152);
                 Require(StylusZone.Enabled && MathF.Abs(StylusZone.Top - .5f) < .0001f
                     && MathF.Abs(StylusZone.Height - .5f) < .0001f,
@@ -93,11 +88,6 @@ namespace MphRead.Mods.Input
                 Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576))
                     && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576)),
                     "5:3 equal LCDs exact authored 960x576 reference");
-                Require(DsLayout.GlBounds(960, 1152, lower: false)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576))
-                    && DsLayout.GlBounds(960, 1152, lower: true)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576)),
-                    "5:3 GL viewport does not stretch outside physical LCD");
                 DsLayout.UpdateInputBounds(960, 1152);
                 Require(MathF.Abs(DsLayout.HorizontalStretch - 1.25f) < .0001f
                     && StylusZone.RegionAt(SelectX(), SelectY()) == StylusRegion.WeaponSelect,
@@ -1013,30 +1003,7 @@ namespace MphRead.Mods.Input
                     && StylusZone.GuideColor == "#33AAFF",
                     "native UI, guide color and per-element opacity settings round trip");
 
-                File.WriteAllText(path,
-                    "stylus_mode=true\nds_stacked=true\nds_aspect=5:3\n"
-                    + "ds_radar_size=1.75\nds_radar_x=0.27\nds_radar_y=0.68\n");
-                InputSettings.Load();
-                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
-                    && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f
-                    && Math.Abs(DsLayout.RadarX - .27f) < .0001f
-                    && Math.Abs(DsLayout.RadarY - .68f) < .0001f,
-                    "stacked LCD settings load independently of stylus zone placement");
-                InputSettings.Save();
-                DsLayout.Enabled = false;
-                DsLayout.ScreenAspect = "4:3";
-                DsLayout.RadarSize = 1;
-                DsLayout.RadarX = DsLayout.RadarY = .5f;
-                InputSettings.Load();
-                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
-                    && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f,
-                    "stacked LCD aspect and radar settings round trip through controls.txt");
-
                 InputSettings.Reset();
-                Require(!DsLayout.Enabled && DsLayout.ScreenAspect == "4:3"
-                    && DsLayout.RadarSize == 1f && DsLayout.RadarX == .5f
-                    && DsLayout.RadarY == .5f,
-                    "controls reset returns to normal single-screen defaults");
                 Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
                     "reset restores ordinary mouse defaults");
                 Require(InputSettings.MouseMovementBoost && InputSettings.StylusMovementBoost,
