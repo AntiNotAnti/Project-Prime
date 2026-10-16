@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading;
+using System.Threading.Tasks;
 using MphRead.Mods.Update;
 
 if (InstallationChecks.RunChild(args) is int workerResult) return workerResult;
