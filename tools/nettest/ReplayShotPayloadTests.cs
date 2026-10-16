@@ -93,9 +93,13 @@ internal static class ReplayShotPayloadTests
                 LifeId = 1, Frame = 500
             };
             recorder.AcceptIntent(0, quiet, 500);
+            // HasFireEvents denotes that the canonical payload carries the
+            // fire-event section, not that a shot actually occurred. The
+            // zero count is the invariant preventing invented idle shots.
             Check(records.Count == weapons.Length + 1
-                && !IntentPacket.Read(records[^1].AsSpan(2)).HasFireEvents,
-                "idle source remains free of invented shots");
+                && IntentPacket.Read(records[^1].AsSpan(2)).HasFireEvents
+                && IntentPacket.Read(records[^1].AsSpan(2)).FireEventCount == 0,
+                "idle canonical carrier retains an empty fire-event section");
 
             // The existing compact-intent suite exercises older event
             // carriers, replica acceptance and held movement bootstraps.
