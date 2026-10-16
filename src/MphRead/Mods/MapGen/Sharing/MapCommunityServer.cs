@@ -1320,6 +1320,13 @@ public static class MapCommunityServer
                         if(query["mode"] is { } mode)projects=projects.Where(p=>
                             Presentation(p).SupportedModes.Length==0
                             ||Presentation(p).SupportedModes.Contains(mode,StringComparer.OrdinalIgnoreCase));
+                        if(query["players"] is { } requestedPlayers)
+                        {
+                            if(!int.TryParse(requestedPlayers,out int count)||count is <1 or >8)
+                            {context.Response.StatusCode=400;return;}
+                            projects=projects.Where(p=>Presentation(p).MinPlayers<=count
+                                && Presentation(p).MaxPlayers>=count);
+                        }
                         if(query["author"] is { } author)projects=projects.Where(p=>
                             string.Equals(p.Author,author,StringComparison.OrdinalIgnoreCase));
                         projects=query["sort"]=="favorites"

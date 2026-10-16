@@ -1,6 +1,7 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.IO;
+using Avalonia.Media.Imaging;
 using System.Net.Http;
 using System.Linq;
 using System.Threading;
@@ -37,6 +38,21 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private int _totalProjects;
     private bool _newestFirst = true;
     private readonly PrimeButton _sort;
+    private readonly PrimeButton _filter;
+    private int _filterIndex;
+    private readonly Image _previewImage = new()
+    {
+        Height = 142,
+        Stretch = Avalonia.Media.Stretch.UniformToFill,
+        IsVisible = false
+    };
+    private readonly TextBlock _previewStatus = PrimeChrome.Text(
+        "Preview available when published by the creator.",
+        PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+    private Bitmap? _previewBitmap;
+    private CancellationTokenSource? _previewLifetime;
+    private string? _previewHash;
+    private bool _previewMissing;
     private readonly PrimeButton _previous;
     private readonly PrimeButton _next;
     private readonly PrimeStatePanel _state = new(PrimeStateKind.Loading, "CONTACTING COMMUNITY",
@@ -65,6 +81,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         if (_transfers != null) _transfers.Changed += QueueChanged;
         _refresh = new PrimeButton("REFRESH", () => _ = RefreshAsync(), compact: true);
         _sort = new PrimeButton("SORT: UPDATED", ToggleSort, compact: true);
+        _filter = new PrimeButton("FILTER: ALL", CycleFilter, compact: true);
+        ControllerNav.Identify(_filter, "community.filter");
         _previous = new PrimeButton("PREVIOUS", () => ChangePage(-1), compact: true);
         _next = new PrimeButton("NEXT", () => ChangePage(1), compact: true);
         ControllerNav.Identify(_sort, "community.sort");
@@ -120,8 +138,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         Grid.SetRow(body, 2);
         root.Children.Add(body);
 
-        var footer = PrimeChrome.Columns("*,Auto,Auto,Auto,Auto",
-            _status, _sort, _previous, _next, _cancel);
+        var footer = PrimeChrome.Columns("*,Auto,Auto,Auto,Auto,Auto",
+            _status, _filter, _sort, _previous, _next, _cancel);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
         Content = root;
@@ -179,6 +197,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _active = false;
         _load?.Cancel();
         _searchDelay.Stop();
+        ClearPreview();
         // The worker retains its verified partial bytes. Only the foreground
         // install handoff is cancelled when leaving this workspace.
         _transfer?.Cancel();
@@ -206,6 +225,103 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         if (_active) _ = RefreshAsync();
     }
 
+    private void CycleFilter()
+    {
+        _filterIndex = (_filterIndex + 1) % 4;
+        _filter.Label = _filterIndex switch
+        {
+            1 => "FILTER: 2P",
+            2 => "FILTER: 8P",
+            3 => "FILTER: TEAMS",
+            _ => "FILTER: ALL"
+        };
+        _page = 1;
+        if (_active) _ = RefreshAsync();
+    }
+
+    private void ClearPreview()
+    {
+        _previewLifetime?.Cancel();
+        _previewLifetime?.Dispose();
+        _previewLifetime = null;
+        _previewImage.Source = null;
+        _previewImage.IsVisible = false;
+        _previewBitmap?.Dispose();
+        _previewBitmap = null;
+        _previewHash = null;
+        _previewMissing = false;
+    }
+
+    private void RequestPreview(string hash)
+    {
+        // A single selected map owns one bounded screenshot at a time.
+        if (_previewHash == hash
+            && (_previewBitmap != null || _previewMissing || _previewLifetime != null))
+            return;
+        ClearPreview();
+        _previewHash = hash;
+        _previewStatus.Text = "Loading map preview…";
+        if (_fixture != null)
+        {
+            _previewStatus.Text = "Preview unavailable in fixture mode.";
+            _previewMissing = true;
+            return;
+        }
+        var cancel = new CancellationTokenSource();
+        _previewLifetime = cancel;
+        _ = LoadPreviewAsync(hash, cancel.Token);
+    }
+
+    private async Task LoadPreviewAsync(string hash, CancellationToken cancellation)
+    {
+        try
+        {
+            byte[]? preview = await Operations().GetPreviewAsync(hash, cancellation);
+            if (cancellation.IsCancellationRequested || !_active || _disposed
+                || _previewHash != hash) return;
+            if (preview == null)
+            {
+                _previewMissing = true;
+                _previewStatus.Text = "Creator has not added a compatible PNG preview.";
+                return;
+            }
+            using var stream = new MemoryStream(preview, writable: false);
+            Bitmap decoded = Bitmap.DecodeToWidth(stream, 320);
+            if (cancellation.IsCancellationRequested || !_active || _disposed
+                || _previewHash != hash)
+            {
+                decoded.Dispose();
+                return;
+            }
+            _previewBitmap = decoded;
+            _previewImage.Source = decoded;
+            _previewImage.IsVisible = true;
+            _previewStatus.Text = "Preview of the exact published revision.";
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception ex) when (ex is HttpRequestException or IOException
+            or InvalidDataException or ArgumentException)
+        {
+            if (_active && !_disposed && !cancellation.IsCancellationRequested
+                && _previewHash == hash)
+            {
+                _previewMissing = true;
+                _previewStatus.Text = "Map preview unavailable.";
+            }
+        }
+        finally
+        {
+            // The creator may revisit the same hash after another selection.
+            // An older task must not clear a newer request's cancellation token.
+            if (_previewLifetime != null
+                && _previewLifetime.Token.Equals(cancellation))
+            {
+                _previewLifetime.Dispose();
+                _previewLifetime = null;
+            }
+        }
+    }
+
     private void ChangePage(int direction)
     {
         if (_tabs.Index is not (0 or 2) || _fixture != null) return;
@@ -220,6 +336,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         bool online = _fixture == null && _tabs.Index is 0 or 2;
         _sort.IsVisible = online;
+        _filter.IsVisible = online;
         _previous.IsVisible = online;
         _next.IsVisible = online;
         _previous.IsEnabled = online && _page > 1;
@@ -259,7 +376,9 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 mine: false, favorites: _tabs.Index == 2,
                 sort: _newestFirst ? "updated" : "name",
                 query: _search.Text, page: _page, pageSize: CatalogPageSize,
-                cancellation: cancel.Token);
+                cancellation: cancel.Token,
+                mode: _filterIndex == 3 ? "BattleTeams" : null,
+                players: _filterIndex switch { 1 => 2, 2 => 8, _ => null });
             if (cancel.IsCancellationRequested || !_active || _disposed) return;
             _projects = page.Items;
             _totalProjects = page.Total;
@@ -477,6 +596,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
 
     private void ShowEmptyDetails(string title, string description)
     {
+        ClearPreview();
         _details.Children.Clear();
         _details.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // DETAILS"));
         _details.Children.Add(PrimeChrome.Title(title));
@@ -507,6 +627,9 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _details.Children.Clear();
         _details.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // MAP DETAILS"));
         _details.Children.Add(PrimeChrome.Title(project.DisplayName ?? project.Name));
+        _details.Children.Add(_previewImage);
+        _details.Children.Add(_previewStatus);
+        RequestPreview(map.Hash);
         _details.Children.Add(PrimeChrome.Text(
             $"By {project.Author ?? "Unknown author"} · {map.Bytes / 1048576.0:0.0} MiB · revision {project.CurrentRevision?.RevisionNumber ?? project.LatestRevision.RevisionNumber}",
             PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));

@@ -131,6 +131,19 @@ try
         Check(onePage.Total == 1 && onePage.Items.Length == 1
             && onePage.Items[0].MapId == published.MapId,
             "paged client facade returns server-side filtered exact project metadata");
+        var compatible = await pageOperations.BrowseProjectsPageAsync(
+            false, false, "updated", null, 1, 24, CancellationToken.None,
+            players: published.MinPlayers);
+        Check(compatible.Total == 1 && compatible.Items[0].MapId == published.MapId,
+            "player-count filter preserves compatible published map");
+        var impossible = await pageOperations.BrowseProjectsPageAsync(
+            false, false, "updated", null, 1, 24, CancellationToken.None,
+            players: 8);
+        Check(impossible.Total == (published.MaxPlayers >= 8 ? 1 : 0),
+            "player-count filter uses server-side compatibility bounds");
+        byte[]? previewBytes = await api.GetPreviewAsync(published.Hash, CancellationToken.None);
+        Check(previewBytes != null && previewBytes.SequenceEqual(png),
+            "bounded PNG preview client avoids downloading full .ppmap archive");
         var emptyPage = await pageOperations.BrowseProjectsPageAsync(
             mine: false, favorites: false, sort: "name", query: "not-a-real-map",
             page: 1, pageSize: 1, cancellation: CancellationToken.None);
