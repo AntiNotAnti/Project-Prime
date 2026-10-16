@@ -5,6 +5,7 @@ using MphRead;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
+using MphRead.Mods.Network;
 
 static void Check(bool pass, string name)
 {
@@ -100,6 +101,69 @@ Check(Text(controller.Tick(), "play_status") == "READY TO DEPLOY",
 Check(!controller.Dispatch(RmlUiIntentKind.PlayServer, 8),
     "invalid ABI server index rejected before touching services");
 
+
+// Native rule editing uses a private revision-fenced draft; it never changes
+// the session until the host echoes UpdateMatch at a newer revision.
+var sourceRules = new RmlUiRuleDraft(5, 999, 17,
+    new MatchDefinition
+    {
+        RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle,
+        Format = MatchFormat.FreeForAll, PointGoal = 7, TimeLimitSeconds = 420
+    }, LobbyRuleFlags.RequireReady);
+var editor = new RmlUiRuleEditor(sourceRules);
+Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
+    "native 16-toggle sheet presents inverse health/powerup labels correctly");
+for (int i = 0; i < 16; i++)
+{
+    bool before = editor.IsOn(i);
+    Check(editor.Toggle(i) && editor.IsOn(i) != before && editor.Toggle(i)
+          && editor.IsOn(i) == before, "rule toggle " + i + " is reversible");
+}
+Check(editor.Draft == sourceRules && !editor.Dirty,
+    "cancelled local rules preserve the exact original session");
+editor.Toggle(8); editor.Toggle(9);
+Check(!editor.Validate(out string invalid) && invalid.Contains("Balanced Mode"),
+    "current modifier conflicts still reject native drafts");
+editor.Toggle(9); editor.Toggle(8);
+Check(editor.NextFormat() && editor.Draft.Match.Mode == GameMode.BattleTeams,
+    "native matchup cycling uses the current canonical format catalog");
+Check(editor.TrySetLimits("7:30", "12", out _) &&
+      editor.Draft.Match.TimeLimitSeconds == 450 && editor.Draft.Match.PointGoal == 12,
+    "native time and score fields parse into existing wire values");
+Check(!editor.TrySetLimits("7:65", "12", out _),
+    "invalid time cannot be submitted to the server");
+Check(!editor.SameSession(sourceRules with { SessionRevision = 18 }),
+    "stale rule revisions are refused");
+
+services.LobbyView = services.LobbyView with
+{
+    CanStart = true,
+    Owner = true,
+    Active = true
+};
+services.AuthorityRules = sourceRules;
+Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
+    && Flag(controller.Tick(), "lobby_rules_open"),
+    "native rules modal opens from real authority snapshot");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 0)
+    && Text(controller.Tick(), "rules_toggle0") == "OFF"
+    && services.Submissions == 0, "native edits remain private until Apply");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "8:20", ruleGoal: "10")
+    && services.Submissions == 1 && Flag(controller.Tick(), "rules_pending"),
+    "owner Apply submits exactly one validated UpdateMatch draft");
+Check(Flag(controller.Tick(), "lobby_rules_open"),
+    "native sheet waits for authoritative revision instead of optimistic success");
+services.AuthorityRules = services.SubmittedRule with { SessionRevision = 18 };
+Check(!Flag(Wait(controller, s => !Flag(s, "lobby_rules_open")), "lobby_rules_open"),
+    "server-confirmed matching rules retire local draft and modal");
+services.LobbyView = services.LobbyView with { Owner = false };
+Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
+    && !controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 1)
+    && !controller.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "8:20", ruleGoal: "10"),
+    "non-owner cannot mutate rule state");
+controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
+services.LobbyView = Stub.EmptyLobby;
+
 Exception? wrongThread = null;
 Task.Run(() =>
 {
@@ -117,7 +181,9 @@ sealed class Stub : IRmlUiMenuServices
     public TaskCompletionSource<RmlUiDirectory> BrowsePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<RmlUiJoinResult> JoinPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RmlUiLobbyView LobbyView = EmptyLobby;
-    public int Accepted, ReadyCalls, StartCalls, LeaveCalls;
+    public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
+    public RmlUiRuleDraft? AuthorityRules;
+    public RmlUiRuleDraft SubmittedRule;
     public HubSnapshot Hub() => new("Pilot", Hunter.Samus, Hunter.Samus, 0, true, "Desktop");
     public string BuildVersion() => "0.1.99";
     public RmlUiLobbyView Lobby() => LobbyView;
@@ -135,5 +201,16 @@ sealed class Stub : IRmlUiMenuServices
     public bool NextHunter() => true;
     public bool NextSuit() => true;
     public bool OpenLobbyDetails() => true;
+    public RmlUiRuleDraft? ReadRules() => LobbyView.Active ? AuthorityRules : null;
+    public IReadOnlyList<string> BuiltInArenaKeys() => new[] { "MP1 SANCTORUS" };
+    public bool SubmitRules(RmlUiRuleDraft draft, out string error)
+    {
+        error = "";
+        if (!LobbyView.Owner || AuthorityRules?.SessionRevision != draft.SessionRevision)
+            return false;
+        SubmittedRule = draft;
+        Submissions++;
+        return true;
+    }
     public void Quit() { }
 }
