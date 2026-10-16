@@ -279,6 +279,15 @@ try
             "transfer receipts survive application/service object restart");
         Check(recovered.VerifiedArchivePath(downloadId) == archivePath,
             "reopened transfer store finds the same verified archive");
+        using (var dismiss = new CancellationTokenSource())
+        {
+            dismiss.Cancel();
+            bool exited = false;
+            try { await recovered.WaitAsync(downloadId, dismiss.Token); }
+            catch (OperationCanceledException) { exited = true; }
+            Check(exited && recovered.GetJob(downloadId).State == CommunityTransferState.Completed,
+                "foreground wait cancellation never cancels a completed durable transfer");
+        }
 
         // Repeated exact selection reuses a complete immutable download even
         // if the author source is now gone. No network request is required.
@@ -588,6 +597,14 @@ try
                         CommunityTransferState.Uploading);
                     Check(!LocalOwner(peer,id),
                         "joining Game process respects still-live Studio upload ownership");
+                    using (var foreground = new CancellationTokenSource(TimeSpan.FromMilliseconds(20)))
+                    {
+                        bool dismissed = false;
+                        try { await peer.WaitAsync(id, foreground.Token); }
+                        catch (OperationCanceledException) { dismissed = true; }
+                        Check(dismissed && peer.GetJob(id).State == CommunityTransferState.Uploading,
+                            "closing a remote transfer view does not cancel its owner process");
+                    }
                     peer.Pause(id);
                     await Eventually(()=>peer.GetJob(id).State ==
                         CommunityTransferState.Paused);

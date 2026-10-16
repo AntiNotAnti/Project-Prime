@@ -483,7 +483,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 NetworkMapIdentity.ConfiguredDownloadSource(), map), cancel.Token);
             _activeJobId = id;
             _cancel.IsVisible = true;
-            CommunityTransferJob result = await _transfers.WaitAsync(id);
+            CommunityTransferJob result = await _transfers.WaitAsync(id, cancel.Token);
             if (result.State != CommunityTransferState.Completed)
             {
                 if (!cancel.IsCancellationRequested && !_disposed)
