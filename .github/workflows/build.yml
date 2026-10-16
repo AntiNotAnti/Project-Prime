@@ -387,6 +387,8 @@ jobs:
         run: dotnet run --project tools/nettest -c Release --no-build -- --transport-stress
       - name: transport profiling delivery and queue gates
         run: dotnet run --project tools/nettest -c Release --no-build -- --transport-profile-json "$RUNNER_TEMP/transport-profile.json"
+      - name: canonical own/remote shot event replay payload conformance
+        run: dotnet run --project tools/nettest -c Release -- --replay-shot-payload
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
