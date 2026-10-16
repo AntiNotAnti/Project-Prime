@@ -43,6 +43,13 @@ internal static class AnimationSamplingTests
                 "canonical transition parity count=" + count + " frame=" + frame + " flags=" + flags);
         }
 
+        Check(Math.Abs(AnimationSampling.BlendChannel(10f, 20f, 0.25f) - 12.5f) < 0.000001f,
+            "channel blend midpoint");
+        Check(Math.Abs(AnimationSampling.BlendChannel(179f * MathF.PI / 180f,
+            -179f * MathF.PI / 180f, 0.5f, isRotation: true) - MathF.PI) < 0.001f,
+            "rotation shortest arc");
+        Check(AnimationSampling.BlendChannel(1f, 7f, float.NaN) == 1f,
+            "nonfinite blend refused");
         var sampler = new AnimationSamples();
         var state = new AnimationInfo();
         state.Frame[0] = 2; state.FrameCount[0] = 10; state.Step[0] = 1;
