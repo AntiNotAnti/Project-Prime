@@ -57,6 +57,11 @@ internal static class AnimationSamplingTests
         Check(AnimationSampling.BlendChannel(0f, 1f, -1f) == 0f
             && AnimationSampling.BlendChannel(0f, 1f, 2f) == 1f,
             "UV and material fractional sampling clamps unsafe time");
+        Check(AnimationRollout.EnabledValues(null, null), "animation channels default on");
+        Check(!AnimationRollout.EnabledValues("0", null), "global rollback switch");
+        Check(!AnimationRollout.EnabledValues(null, "off"), "channel rollback switch");
+        Check(!AnimationRollout.EnabledValues("FALSE", "1"), "case insensitive rollback");
+        Check(AnimationRollout.EnabledValues("1", "1"), "explicit override");
         var sampler = new AnimationSamples();
         var state = new AnimationInfo();
         state.Frame[0] = 2; state.FrameCount[0] = 10; state.Step[0] = 1;
