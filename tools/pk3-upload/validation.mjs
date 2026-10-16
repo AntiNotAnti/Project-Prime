@@ -35,10 +35,12 @@ export function validOrigin(origin) {
       url.search === "" && url.hash === "" && url.origin === origin;
   } catch { return false; }
 }
-export function sessionKey(creatorId, hash) {
+export function sessionKey(creatorId, hash, roomName = "", levelName = "") {
   if (!/^hunter:[a-f0-9-]{36}$/i.test(creatorId) || !validHash(hash))
     throw new Error("Invalid immutable upload identity.");
-  return createHash("sha256").update(creatorId + "\0" + hash).digest("hex");
+  return createHash("sha256").update(
+    creatorId + "\0" + hash + "\0" + roomName + "\0" + levelName
+  ).digest("hex");
 }
 export function validStart(body, maxBytes = MAX_INPUT_BYTES) {
   if (body == null || typeof body !== "object" || Array.isArray(body) ||
