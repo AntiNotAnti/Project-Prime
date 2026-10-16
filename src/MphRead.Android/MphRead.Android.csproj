@@ -67,6 +67,8 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Opt-in A/B of persistent driver program binaries; ordinary builds use the existing shader compiler. -->
+    <DefineConstants Condition="'$(AndroidShaderBinaryCache)' == 'true'">$(DefineConstants);PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE</DefineConstants>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled

@@ -49,6 +49,12 @@ public partial class Scene
         long start = Stopwatch.GetTimestamp();
         try
         {
+#if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+            bool fromBinary = Mods.Render.AndroidShaderProgramBinaryCache.TryLoad(
+                vertexSource ?? Shaders.SelectedVertexShader, fragmentSource, out program);
+            if (!fromBinary)
+            {
+#endif
             vertex = GL.CreateShader(ShaderType.VertexShader);
             fragment = GL.CreateShader(ShaderType.FragmentShader);
             GL.ShaderSource(vertex, vertexSource ?? Shaders.SelectedVertexShader);
@@ -62,10 +68,18 @@ public partial class Scene
             program = GL.CreateProgram();
             GL.AttachShader(program, vertex); GL.AttachShader(program, fragment);
             Mods.Render.OpenGlFailureInjection.ShaderObject("variant-program", program);
+ #if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+            Mods.Render.AndroidShaderProgramBinaryCache.EnableRetrieval(program);
+#endif
             GL.LinkProgram(program);
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
             if (linked == 0) return null;
             GL.DetachShader(program, vertex); GL.DetachShader(program, fragment);
+#if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+            Mods.Render.AndroidShaderProgramBinaryCache.Save(
+                vertexSource ?? Shaders.SelectedVertexShader, fragmentSource, program);
+            }
+#endif
             _shaderProgramId = program;
             // Auxiliary HUD/post locations belong to shared programs; copy them
             // before replacing only the world locations in the new bundle.

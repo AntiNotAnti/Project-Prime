@@ -110,4 +110,17 @@ Check(!AndroidFramePacer.PresentationOwnsCadence(displayPaced: false,
         modernPresentationBlocks: false),
     "nonblocking modern presentation may use the software deadline");
 
+{
+    string a = MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Adreno X");
+    Check(a == MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Adreno X"),
+        "shader key is stable for same sources and driver");
+    Check(a != MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex changed", "fragment", "Adreno X")
+        && a != MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Mali Y"),
+        "shader cache invalidates for source or driver changes");
+    Check(MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(1024)
+        && !MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(0)
+        && !MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(int.MaxValue),
+        "cached shader binaries are strictly size bounded");
+}
+
 return failures == 0 ? 0 : 1;
