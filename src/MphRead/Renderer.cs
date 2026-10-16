@@ -9464,7 +9464,8 @@ localCenter *= _profileHudScale;
                 base.OnMouseDown(e);
                 return;
             }
-#endif            Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
+#endif
+            Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
             // the settings. It gets the whole of the input while it is, the
@@ -9544,7 +9545,8 @@ localCenter *= _profileHudScale;
                 base.OnMouseUp(e);
                 return;
             }
-#endif            _ = _scene?.HardwareInputReady;
+#endif
+            _ = _scene?.HardwareInputReady;
             if (e.Button == MouseButton.Button1
                 && Mods.Replay.ReplayInput.PointerUp(MouseState.X / Math.Max(ClientSize.X, 1))) return;
 #if MPHREAD_SHELL
@@ -9589,7 +9591,8 @@ localCenter *= _profileHudScale;
                 base.OnMouseMove(e);
                 return;
             }
-#endif            if (Math.Abs(e.DeltaX) + Math.Abs(e.DeltaY) > 2)
+#endif
+            if (Math.Abs(e.DeltaX) + Math.Abs(e.DeltaY) > 2)
                 Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
@@ -9640,7 +9643,8 @@ localCenter *= _profileHudScale;
                 base.OnMouseWheel(e);
                 return;
             }
-#endif            if (Mods.Chat.ChatBox.Composing)
+#endif
+            if (Mods.Chat.ChatBox.Composing)
             {
                 if (Mods.Chat.ChatBox.HistoryOpen)
                 {
@@ -9692,7 +9696,8 @@ localCenter *= _profileHudScale;
                 base.OnTextInput(e);
                 return;
             }
-#endif#if MPHREAD_SHELL
+#endif
+#if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
             // the settings. It gets the whole of the input while it is, the
             // way a window on top of the game used to get it from the window
@@ -9721,7 +9726,8 @@ localCenter *= _profileHudScale;
                 base.OnKeyUp(e);
                 return;
             }
-#endif            _ = _scene?.HardwareInputReady;
+#endif
+            _ = _scene?.HardwareInputReady;
 #if MPHREAD_SHELL
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
@@ -9751,7 +9757,8 @@ localCenter *= _profileHudScale;
                 base.OnKeyDown(e);
                 return;
             }
-#endif            Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
+#endif
+            Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
             // F11 and Alt+Enter first, screen or no screen.
             //
