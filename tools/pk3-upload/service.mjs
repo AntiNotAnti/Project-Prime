@@ -7,7 +7,7 @@ import {
   CHUNK_BYTES, MAX_INPUT_BYTES, MAX_OUTPUT_BYTES,
   MAX_UPLOADS_PER_CREATOR, MAX_JOBS_PER_CREATOR,
   validHash, validJobId, validOrigin, validStart,
-  canonicalState, sessionKey,
+  validRoomName, validLevelName, canonicalState, sessionKey,
 } from "./validation.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -89,8 +89,8 @@ export function createPk3UploadService({
       reason: j.status === "failed" ? "Conversion failed. Review map format or retry in Studio." : null,
     };
   }
-  async function getSession(owner, hash) {
-    const key = sessionKey(owner, hash);
+  async function getSession(owner, hash, roomName, levelName) {
+    const key = sessionKey(owner, hash, roomName, levelName ?? "");
     const dir = path.join(uploadRoot, key);
     const meta = await readJson(path.join(dir, "session.json"));
     if (!canonicalState(meta) || meta.creatorId !== owner || meta.hash !== hash)
@@ -265,10 +265,16 @@ export function createPk3UploadService({
       const job = /^\/v1\/conversions\/([0-9a-f-]{36})(?:\/(package))?$/.exec(url.pathname);
       if (source) {
         const hash = source[1], operation = source[2];
-        const key = sessionKey(owner, hash);
+        // A single PK3 can carry many playable BSPs. Scope every upload
+        // session to source + selected level + destination runtime name.
+        const variantRoom = url.searchParams.get("roomName");
+        const variantLevel = url.searchParams.get("levelName");
+        if (!validRoomName(variantRoom) || !validLevelName(variantLevel))
+          return send(res, 400, { error: "invalid_conversion_variant" });
+        const key = sessionKey(owner, hash, variantRoom, variantLevel ?? "");
         const dir = path.join(uploadRoot, key);
         if (req.method === "GET" && !operation) {
-          const s = await getSession(owner, hash);
+          const s = await getSession(owner, hash, variantRoom, variantLevel);
           return s ? send(res, 200, statePublic(s)) :
             send(res, 404, { error: "source_not_found" });
         }
@@ -284,9 +290,11 @@ export function createPk3UploadService({
             let parsed;
             try { parsed = JSON.parse(body); }
             catch { return send(res, 400, { error: "invalid_json" }); }
-            if (!validStart(parsed, maxBytes))
+            if (!validStart(parsed, maxBytes) ||
+                parsed.roomName !== variantRoom ||
+                (parsed.levelName ?? null) !== variantLevel)
               return send(res, 400, { error: "invalid_source_metadata" });
-            let state = await getSession(owner, hash);
+            let state = await getSession(owner, hash, variantRoom, variantLevel);
             if (state) {
               if (state.bytes !== parsed.bytes || state.roomName !== parsed.roomName ||
                   state.levelName !== (parsed.levelName ?? null))
@@ -306,7 +314,7 @@ export function createPk3UploadService({
             await atomicJson(path.join(dir, "session.json"), meta);
             return send(res, 201, statePublic(meta));
           }
-          const state = await getSession(owner, hash);
+          const state = await getSession(owner, hash, variantRoom, variantLevel);
           if (!state) return send(res, 404, { error: "source_not_found" });
           if (req.method === "PUT" && !operation) {
             if (state.jobId) return send(res, 409, { error: "source_already_converted" });
