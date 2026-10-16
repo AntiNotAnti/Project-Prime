@@ -123,6 +123,8 @@ internal sealed class AnimationSamples
         if ((uint)slot >= 2) return false;
         ref SlotTick tick = ref _ticks[slot];
         if (!tick.Valid || tick.Interval <= 0 || tick.Next == tick.Frame
+            || tick.Frame < 0 || tick.Next < 0 || tick.Frame >= tick.FrameCount
+            || tick.Next >= tick.FrameCount || tick.FrameCount <= 1
             || !double.IsFinite(drawSimulationStep)
             || tick.Flags.TestFlag(AnimFlags.Paused) || tick.Flags.TestFlag(AnimFlags.Ended)
             || info.Frame[slot] != tick.Frame || info.Flags[slot] != tick.Flags
