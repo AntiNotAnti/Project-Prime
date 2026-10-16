@@ -165,6 +165,13 @@ def check_sidecars(character, skeleton, weights, motions, vertex_count):
     for group in groups:
         if not isinstance(group, list) or not 1 <= len(group) <= 64:
             raise ValueError("Invalid source CSKR group")
+        # Project Prime's runtime weighted-character contract supports up
+        # to four vertex influences. Never silently truncate more when
+        # authoring a preview GLB for possible future retargeting.
+        if sum(item.get("weight", 0) > 0 for item in group) > 4:
+            raise ValueError("This source skin has more than four bone influences per vertex")
+        if sum(item.get("weight", 0) for item in group) <= 0:
+            raise ValueError("Source CSKR group has zero useful bone weight")
         for influence in group:
             bone_id = influence.get("boneId")
             weight = influence.get("weight")
@@ -254,6 +261,7 @@ def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, 
     bpy.ops.export_scene.gltf(
         filepath=str(output), export_format="GLB", use_selection=True,
         export_skins=True, export_animations=False,
+        export_influence_nb=4, export_all_influences=False,
     )
     if not output.is_file() or output.stat().st_size <= 0:
         raise RuntimeError("Blender did not produce a skinned GLB preview")

@@ -64,6 +64,15 @@ class RetroRigPreview(unittest.TestCase):
             skeleton["Bones"][0]["Parent"] = 4294967295
             path.write_text(json.dumps(skeleton), encoding="utf-8")
             check(True)
+            weights["groups"][1] = [
+                {"boneId": 10, "weight": 0.2},
+                {"boneId": 11, "weight": 0.2},
+                {"boneId": 10, "weight": 0.2},
+                {"boneId": 11, "weight": 0.2},
+                {"boneId": 10, "weight": 0.2},
+            ]
+            wpath.write_text(json.dumps(weights), encoding="utf-8")
+            check(False)
 
 
 if __name__ == "__main__":
