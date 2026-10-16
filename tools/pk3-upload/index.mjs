@@ -22,7 +22,8 @@ const key = process.env.PK3_SUPABASE_PUBLISHABLE_KEY ||
 if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
     origins.length < 1 || origins.some(value => !validOrigin(value)) ||
     !Number.isInteger(port) || port < 1024 || port > 65535 ||
-    !["127.0.0.1", "::1"].includes(hostname) ||
+    !["127.0.0.1", "::1"].includes(hostname) &&
+      !(hostname === "0.0.0.0" && process.env.PK3_CONTAINER_BIND === "1") ||
     !/^sb_publishable_[a-zA-Z0-9_-]+$/.test(key) ||
     new URL(url).protocol !== "https:") {
   console.error("Configure PK3_STORAGE_ROOT, PK3_CONVERTER_EXEC, PK3_ALLOWED_ORIGINS, PK3_PORT and a loopback PK3_HOST.");
