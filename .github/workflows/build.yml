@@ -39,6 +39,11 @@ jobs:
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
+      - name: validate RmlUi native build script and pinned manifest tooling
+        run: |
+          bash -n tools/rmlui/build-native.sh
+          python3 -c "import ast; from pathlib import Path; ast.parse(Path('tools/rmlui/verify-runtime.py').read_text())"
+
       - name: compile opt-in RmlUi OpenGL smoke bridge
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
 

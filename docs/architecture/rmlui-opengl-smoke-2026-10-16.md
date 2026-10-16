@@ -25,8 +25,18 @@ launcher migration.**
 
 ## Developer build
 
-Use the exact native bridge source in native/rmlui-poc (requires RmlUi 6.3
-and FreeType). Place the resulting platform library in the executable
+The restored pinned native builder downloads RmlUi 6.3 and FreeType, compiles
+the compatibility-GL2 bridge, and verifies its native ABI, hash, architecture,
+and license manifest. It does not build or reinstate other game renderers:
+
+```sh
+bash tools/rmlui/build-native.sh auto gl2
+# Linux example; for Windows/macOS copy the DLL/dylib for that RID instead:
+cp artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+  src/MphRead/bin/Release/net10.0/
+```
+
+Place the matching native library in the executable
 directory using .NET's normal P/Invoke discovery rules:
 ProjectPrime.RmlUi.Native.dll (Windows), libProjectPrime.RmlUi.Native.so
 (Linux), or libProjectPrime.RmlUi.Native.dylib (macOS).
