@@ -58,6 +58,34 @@ try
     Expect<InvalidDataException>(() =>
         RetroCharacterPreviewExporter.WriteObj(bad, new StringWriter()),
         "source triangle outside vertex bounds");
+    // Exact CSKR source weights, deduplicated by their real repeated group
+    // references, are necessary to rig the offline preview mesh later.
+    var group0 = new (uint Bone, float Weight)[] { (10, 1f) };
+    var group1 = new (uint Bone, float Weight)[] { (10, 0.4f), (11, 0.6f) };
+    body.Skin = new System.Collections.Generic.List<(uint Bone, float Weight)[]> {
+        group0, group0, group1
+    };
+    using var weightsOutput = new MemoryStream();
+    RetroCharacterSkinWeights.Write(body, weightsOutput);
+    using var weightsDoc = System.Text.Json.JsonDocument.Parse(weightsOutput.ToArray());
+    var weights = weightsDoc.RootElement;
+    Check(weights.GetProperty("vertexCount").GetInt32() == 3 &&
+        weights.GetProperty("groups").GetArrayLength() == 2 &&
+        weights.GetProperty("vertexGroupIds").EnumerateArray()
+            .Select(x => x.GetInt32()).SequenceEqual(new[]{0,0,1}) &&
+        weights.GetProperty("groups")[1][1].GetProperty("boneId").GetUInt32() == 11,
+        "lossless per-vertex bone influence sidecar uses bounded shared groups");
+    body.Skin = new System.Collections.Generic.List<(uint Bone, float Weight)[]> {
+        group0, group0, new (uint Bone, float Weight)[] { (99, float.NaN) }
+    };
+    Expect<InvalidDataException>(() =>
+        RetroCharacterSkinWeights.Write(body, new MemoryStream()),
+        "nonfinite source weight rejected without publish");
+    body.Skin = new System.Collections.Generic.List<(uint Bone, float Weight)[]> { group0 };
+    Expect<InvalidDataException>(() =>
+        RetroCharacterSkinWeights.Write(body, new MemoryStream()),
+        "incomplete skin cannot be used as a rig");
+
     Console.WriteLine("PASS: five source character identities, safe local OBJ output and invalid geometry refusal");
     return 0;
 }

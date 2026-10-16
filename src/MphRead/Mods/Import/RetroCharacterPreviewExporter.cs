@@ -46,7 +46,7 @@ public static class RetroCharacterPreviewExporter
         {
             IReadOnlyList<string> files = ExportFromOwnedGame(sourcePath);
             Console.WriteLine("[retro-character] Wrote " + files.Count +
-                " non-animated private OBJ previews and CINF skeleton sidecars:");
+                " private OBJ, CINF skeleton, skin-weight and sparse motion sidecars:");
             foreach (string file in files) Console.WriteLine("[retro-character] " + file);
             Console.WriteLine("[retro-character] Not installed as a playable Hunter; no files were uploaded.");
             return 0;
@@ -98,8 +98,9 @@ public static class RetroCharacterPreviewExporter
             var staged = new List<(string Temp, string Final)>();
             foreach (SourceCharacter spec in Sources.Where(x => x.Game == disc.Game))
             {
+                byte[] ancsBytes = Resource(spec.Ancs);
                 RetroCharacterRefs refs = RetroCharacterSource.FindCharacter(
-                    Resource(spec.Ancs), spec.NativeName);
+                    ancsBytes, spec.NativeName);
                 if (refs.Cmdl == 0 || refs.Cskr == 0 || refs.Cinf == 0)
                     throw new InvalidDataException("Incomplete Retro character resource references: " + spec.Id);
                 RetroNativeSkeleton skeleton =
@@ -129,8 +130,27 @@ public static class RetroCharacterPreviewExporter
                         .ToArray(),
                     Notes = "Local preview: needs rig retargeting, animation, materials, gun and alt form before gameplay."
                 }));
+                // Optional sparse pose samples are authored from the same
+                // validated local disc. Blends stay explicitly unresolved;
+                // no unsupported ANIM is substituted with a guessed pose.
+                RetroMotionPreview.Inventory motion = RetroMotionPreview.FromLocalSource(
+                    ancsBytes, Resource, disc.Game == ExternalGameKind.Echoes);
+                string motionName = spec.Id + ".motions.json";
+                string stagedMotion = Path.Combine(staging, motionName);
+                File.WriteAllText(stagedMotion, JsonSerializer.Serialize(motion));
+                if (new FileInfo(stagedMotion).Length > RetroMotionPreview.MaxAnimationResourceBytes)
+                    throw new InvalidDataException("Motion preview exceeds bounded sidecar output.");
                 staged.Add((stagedObj, Path.Combine(root, obj)));
                 staged.Add((stagedSkeleton, Path.Combine(root, json)));
+                staged.Add((stagedMotion, Path.Combine(root, motionName)));
+                string weightsName = spec.Id + ".weights.json";
+                string stagedWeights = Path.Combine(staging, weightsName);
+                using (FileStream weightsFile = new(stagedWeights, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 65536))
+                    RetroCharacterSkinWeights.Write(model, weightsFile);
+                if (new FileInfo(stagedWeights).Length > MaxOutputBytes)
+                    throw new InvalidDataException("Source skin weights exceed the private sidecar budget.");
+                staged.Add((stagedWeights, Path.Combine(root, weightsName)));
             }
             if (staged.Count == 0)
                 throw new InvalidDataException("No supported Retro characters in the supplied source.");
