@@ -76,7 +76,12 @@ internal static class ReplayShotPayloadTests
                 Check(decoded.FireEvents[0].HasPose && decoded.FireEvents[0].HasReticle
                     && decoded.FireEvents[0].Origin == fire.Origin
                     && decoded.FireEvents[0].Direction == fire.Direction
-                    && decoded.FireEvents[0].Reticle == fire.Reticle,
+                    // Reticle coordinates are intentionally quantized to
+                    // ushort on the canonical wire (1/65535 resolution).
+                    // Compare within that defined wire precision instead
+                    // of exact binary-float equality.
+                    && MathF.Abs(decoded.FireEvents[0].Reticle.X - fire.Reticle.X) <= 1f / ushort.MaxValue
+                    && MathF.Abs(decoded.FireEvents[0].Reticle.Y - fire.Reticle.Y) <= 1f / ushort.MaxValue,
                     "authored ray, origin and reticle retained " + weapons[i]);
             }
             Check(records.Count == weapons.Length, "every owner and remote carrier recorded");
