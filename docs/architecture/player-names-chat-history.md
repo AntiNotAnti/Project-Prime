@@ -29,11 +29,12 @@ their own authored pixels and advances, prior to native HUD font texture
 creation. The `…` (ellipsis) and `﹍` (dashed low line) glyphs remain
 different in Unicode, transport, and rendered shape.
 
-No protocol packet layout, name limit, database schema, or replay file format
+No packet layout, name limit, database schema, or replay file format
 is altered. A normal name still occupies at most 24 glyphs / 48 wire bytes.
-Because older binaries cannot recognize newly assigned glyph codes, deploy
-the game client and dedicated-server binaries together (alongside the
-Supabase name validator) before using the new names in multiplayer.
+The Hello version advances from protocol 56 to 57, because protocol-56 builds
+cannot recognize newly assigned glyph IDs. This safely rejects mixed live
+clients/servers while retaining support for existing protocol-56 recordings.
+Deploy the game client, dedicated server and Supabase name validator together.
 For visual verification of the native font fallback, legally extracted original
 game assets must be supplied locally; no ROM font data is committed here.
 
