@@ -10,6 +10,8 @@ namespace MphRead
     {
         public Model Model { get; private set; }
         public AnimationInfo AnimInfo { get; } = new AnimationInfo();
+        // Presentation-only snapshots; never used for gameplay or serialization.
+        internal Mods.Render.AnimationSamples PresentationSamples { get; } = new();
         public bool IsPlaceholder { get; set; }
         public bool Active { get; set; } = true;
         public bool NodeAnimIgnoreRoot { get; set; }
@@ -22,6 +24,7 @@ namespace MphRead
         // should only be needed by the player entity
         public void SetModel(Model model)
         {
+            PresentationSamples.Reset();
             Model = model;
         }
 
@@ -29,6 +32,7 @@ namespace MphRead
         // -- anim2 is node > mat > tex > uv, anim1 is node > tex > uv > mat
         public void SetAnimation(int index, AnimFlags animFlags = AnimFlags.None)
         {
+            PresentationSamples.Reset();
             if (Model.AnimationGroups.Any && index >= 0)
             {
                 AnimInfo.Step[0] = 1;
@@ -72,6 +76,7 @@ namespace MphRead
 
         public void SetAnimation(int index, int slot, SetFlags setFlags, AnimFlags animFlags = AnimFlags.None)
         {
+            PresentationSamples.Reset();
             if (Model.AnimationGroups.Any && index >= 0)
             {
                 AnimInfo.Step[slot] = 1;
@@ -127,13 +132,20 @@ namespace MphRead
 
         public void UpdateAnimFrames()
         {
-            if (AnimInfo.Node.Slot == 0 || AnimInfo.Material.Slot == 0 || AnimInfo.Texcoord.Slot == 0 || AnimInfo.Texture.Slot == 0)
+            bool zero = AnimInfo.Node.Slot == 0 || AnimInfo.Material.Slot == 0
+                || AnimInfo.Texcoord.Slot == 0 || AnimInfo.Texture.Slot == 0;
+            bool one = AnimInfo.Node.Slot == 1 || AnimInfo.Material.Slot == 1
+                || AnimInfo.Texcoord.Slot == 1 || AnimInfo.Texture.Slot == 1;
+            if (zero) UpdateAnimFrames(slot: 0);
+            if (one) UpdateAnimFrames(slot: 1);
+
+            // Observe ticks only AFTER the original integer state machine runs.
+            // No lookahead ever calls UpdateAnimFrames on this canonical instance.
+            if (Mods.Render.FrameTiming.Active)
             {
-                UpdateAnimFrames(slot: 0);
-            }
-            if (AnimInfo.Node.Slot == 1 || AnimInfo.Material.Slot == 1 || AnimInfo.Texcoord.Slot == 1 || AnimInfo.Texture.Slot == 1)
-            {
-                UpdateAnimFrames(slot: 1);
+                long step = Mods.Render.FrameTiming.TotalSteps;
+                if (zero) PresentationSamples.Record(AnimInfo, 0, step);
+                if (one) PresentationSamples.Record(AnimInfo, 1, step);
             }
         }
 
@@ -213,6 +225,7 @@ namespace MphRead
         // viewer manipulation only
         public void SetNodeAnim(int index)
         {
+            PresentationSamples.Reset();
             if (index <= -1 || index >= Model.AnimationGroups.Node.Count)
             {
                 AnimInfo.Index[AnimInfo.Node.Slot] = -1;
@@ -226,6 +239,7 @@ namespace MphRead
 
         public void SetMaterialAnim(int index)
         {
+            PresentationSamples.Reset();
             if (index <= -1 || index >= Model.AnimationGroups.Material.Count)
             {
                 AnimInfo.Index[AnimInfo.Material.Slot] = -1;
@@ -568,6 +582,10 @@ namespace MphRead
         }
 
         public void AnimateNodes(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info)
+            => AnimateNodes(index, useNodeTransform, parentTansform, scale, info, null);
+
+        internal void AnimateNodes(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale,
+            AnimationInfo info, Mods.Render.AnimationSamples.Sample? presentation)
         {
             for (int i = index; i != -1;)
             {
@@ -576,7 +594,7 @@ namespace MphRead
                 NodeAnimationGroup? group = info.Node.Group;
                 if (group != null && group.Animations.TryGetValue(node.Name, out NodeAnimation animation))
                 {
-                    transform = AnimateNode(group, animation, scale, info.NodeFrame);
+                    transform = AnimateNode(group, animation, scale, info.NodeFrame, presentation);
                     if (node.ParentIndex != -1 && !node.AnimIgnoreParent)
                     {
                         transform *= Nodes[node.ParentIndex].Animation;
@@ -585,7 +603,7 @@ namespace MphRead
                 node.Animation = transform;
                 if (node.ChildIndex != -1 && !node.AnimIgnoreChild)
                 {
-                    AnimateNodes(node.ChildIndex, useNodeTransform, parentTansform, scale, info);
+                    AnimateNodes(node.ChildIndex, useNodeTransform, parentTansform, scale, info, presentation);
                 }
                 if (node.AfterTransform.HasValue)
                 {
@@ -602,6 +620,10 @@ namespace MphRead
 
         // todo: merge this into one that works for everything
         public void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info)
+            => AnimateNodes2(index, useNodeTransform, parentTansform, scale, info, null);
+
+        internal void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale,
+            AnimationInfo info, Mods.Render.AnimationSamples.Sample? presentation)
         {
             for (int i = index; i != -1;)
             {
@@ -610,7 +632,7 @@ namespace MphRead
                 NodeAnimationGroup? group = info.Node.Group;
                 if (group != null && group.Animations.TryGetValue(node.Name, out NodeAnimation animation))
                 {
-                    transform = AnimateNode(group, animation, scale, info.NodeFrame);
+                    transform = AnimateNode(group, animation, scale, info.NodeFrame, presentation);
                     if (node.ParentIndex != -1 && !node.AnimIgnoreParent)
                     {
                         transform *= Nodes[node.ParentIndex].Animation;
@@ -627,32 +649,44 @@ namespace MphRead
                 }
                 if (node.ChildIndex != -1 && !node.AnimIgnoreChild)
                 {
-                    AnimateNodes2(node.ChildIndex, useNodeTransform, parentTansform, scale, info);
+                    AnimateNodes2(node.ChildIndex, useNodeTransform, parentTansform, scale, info, presentation);
                 }
                 node.Animation *= parentTansform;
                 i = node.NextIndex;
             }
         }
 
-        private Matrix4 AnimateNode(NodeAnimationGroup group, NodeAnimation animation, Vector3 modelScale, int currentFrame)
+        private Matrix4 AnimateNode(NodeAnimationGroup group, NodeAnimation animation, Vector3 modelScale, int currentFrame,
+            Mods.Render.AnimationSamples.Sample? presentation = null)
         {
-            float scaleX = InterpolateAnimation(group.Scales, animation.ScaleLutIndexX, currentFrame,
+            float Value(IReadOnlyList<float> values, int start, int frame, int blend,
+                int length, int count, bool isRotation = false)
+            {
+                float canonical = InterpolateAnimation(values, start, frame, blend, length, count, isRotation);
+                if (presentation is not { } sample || sample.Fraction <= 0 || sample.FromFrame != frame)
+                    return canonical;
+                float following = InterpolateAnimation(values, start, sample.ToFrame,
+                    blend, length, count, isRotation);
+                return Mods.Render.AnimationSampling.BlendChannel(
+                    canonical, following, sample.Fraction, isRotation);
+            }
+            float scaleX = Value(group.Scales, animation.ScaleLutIndexX, currentFrame,
                 animation.ScaleBlendX, animation.ScaleLutLengthX, group.FrameCount);
-            float scaleY = InterpolateAnimation(group.Scales, animation.ScaleLutIndexY, currentFrame,
+            float scaleY = Value(group.Scales, animation.ScaleLutIndexY, currentFrame,
                 animation.ScaleBlendY, animation.ScaleLutLengthY, group.FrameCount);
-            float scaleZ = InterpolateAnimation(group.Scales, animation.ScaleLutIndexZ, currentFrame,
+            float scaleZ = Value(group.Scales, animation.ScaleLutIndexZ, currentFrame,
                 animation.ScaleBlendZ, animation.ScaleLutLengthZ, group.FrameCount);
-            float rotateX = InterpolateAnimation(group.Rotations, animation.RotateLutIndexX, currentFrame,
+            float rotateX = Value(group.Rotations, animation.RotateLutIndexX, currentFrame,
                 animation.RotateBlendX, animation.RotateLutLengthX, group.FrameCount, isRotation: true);
-            float rotateY = InterpolateAnimation(group.Rotations, animation.RotateLutIndexY, currentFrame,
+            float rotateY = Value(group.Rotations, animation.RotateLutIndexY, currentFrame,
                 animation.RotateBlendY, animation.RotateLutLengthY, group.FrameCount, isRotation: true);
-            float rotateZ = InterpolateAnimation(group.Rotations, animation.RotateLutIndexZ, currentFrame,
+            float rotateZ = Value(group.Rotations, animation.RotateLutIndexZ, currentFrame,
                 animation.RotateBlendZ, animation.RotateLutLengthZ, group.FrameCount, isRotation: true);
-            float translateX = InterpolateAnimation(group.Translations, animation.TranslateLutIndexX, currentFrame,
+            float translateX = Value(group.Translations, animation.TranslateLutIndexX, currentFrame,
                 animation.TranslateBlendX, animation.TranslateLutLengthX, group.FrameCount);
-            float translateY = InterpolateAnimation(group.Translations, animation.TranslateLutIndexY, currentFrame,
+            float translateY = Value(group.Translations, animation.TranslateLutIndexY, currentFrame,
                 animation.TranslateBlendY, animation.TranslateLutLengthY, group.FrameCount);
-            float translateZ = InterpolateAnimation(group.Translations, animation.TranslateLutIndexZ, currentFrame,
+            float translateZ = Value(group.Translations, animation.TranslateLutIndexZ, currentFrame,
                 animation.TranslateBlendZ, animation.TranslateLutLengthZ, group.FrameCount);
             var nodeMatrix = Matrix4.CreateTranslation(translateX / modelScale.X, translateY / modelScale.Y, translateZ / modelScale.Z);
             nodeMatrix = Matrix4.CreateRotationX(rotateX) * Matrix4.CreateRotationY(rotateY) * Matrix4.CreateRotationZ(rotateZ) * nodeMatrix;

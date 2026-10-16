@@ -586,6 +586,13 @@ namespace MphRead.Entities
             return IsVisible(NodeRef);
         }
 
+        // Pilot for base-rendered world entities only. Player biped models are
+        // composed from multiple animation instances and muzzle-effect nodes;
+        // bosses/turrets/platforms also derive gameplay facts from their model
+        // matrices. They are excluded until independent ownership tests pass.
+        private static readonly bool WorldAnimationBlendEnabled =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_WORLD_ANIMATION_BLEND") == "1";
+
         public virtual void GetDrawInfo()
         {
             for (int i = 0; i < _models.Count; i++)
@@ -598,8 +605,42 @@ namespace MphRead.Entities
                 UpdateTransforms(inst, i);
                 if (!Hidden)
                 {
-                    // todo: hide attached effects
-                    GetDrawItems(inst, i);
+                    bool blended = false;
+                    Matrix4 canonicalTransform = default;
+                    bool transformNodes = false;
+                    try
+                    {
+                        // Explicitly allow only static cosmetic Object entities
+                        // through this pilot. Do not touch weapons, collision
+                        // platforms, animated room surfaces or arbitrary
+                        // derived GetDrawInfo paths yet.
+                        if (WorldAnimationBlendEnabled && Type == EntityType.Object
+                            && Mods.Render.FrameTiming.Active
+                            && Mods.Render.FrameTiming.HighRefreshPresentation
+                            && inst.PresentationSamples.TryGet(inst.AnimInfo, inst.AnimInfo.Node.Slot,
+                                Mods.Render.FrameTiming.TotalSteps
+                                    + Mods.Render.FrameTiming.PresentationAlpha, out var sample))
+                        {
+                            canonicalTransform = GetModelTransform(inst, i);
+                            transformNodes = UseNodeTransform || _scene.TransformRoomNodes;
+                            blended = true;
+                            inst.Model.AnimateNodes(0, transformNodes, canonicalTransform,
+                                inst.Model.Scale, inst.AnimInfo, sample);
+                            inst.Model.UpdateMatrixStack();
+                        }
+                        // AddRenderItem snapshots the palette before it enters
+                        // world queues; the draw-only pose never escapes here.
+                        GetDrawItems(inst, i);
+                    }
+                    finally
+                    {
+                        if (blended)
+                        {
+                            inst.Model.AnimateNodes(0, transformNodes, canonicalTransform,
+                                inst.Model.Scale, inst.AnimInfo);
+                            inst.Model.UpdateMatrixStack();
+                        }
+                    }
                 }
             }
             if (_scene.ShowCollision && (_scene.ColEntDisplay == EntityType.All || _scene.ColEntDisplay == Type))
