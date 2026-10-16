@@ -369,6 +369,8 @@ jobs:
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
+      - name: browser join persistence and offline-selection regression
+        run: dotnet run --project tools/nettest -c Release -- --browser-join
       - name: retired live rules, archived wire state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
