@@ -1,0 +1,33 @@
+# Run behind a trusted HTTPS reverse proxy; never expose raw HTTP on the internet.
+# Copy to a private deployment folder before editing. DNS and TLS remain
+# operator-managed. These are example values and are not production credentials.
+services:
+  pk3-converter:
+    build:
+      context: ../..
+      dockerfile: tools/pk3-upload/Dockerfile
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 1536m
+    cpus: 1.5
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=128m
+    volumes:
+      - pk3-data:/data
+    ports:
+      - "127.0.0.1:8094:8094"
+    environment:
+      PK3_HOST: "0.0.0.0"
+      PK3_PORT: "8094"
+      PK3_STORAGE_ROOT: /data
+      PK3_CONVERTER_EXEC: /opt/pk3-converter/pk3-converter
+      PK3_ALLOWED_ORIGINS: "https://projectprime.gg,https://www.projectprime.gg"
+      PK3_SUPABASE_URL: "https://hwcjaygoistufktorbmf.supabase.co"
+      PK3_SUPABASE_PUBLISHABLE_KEY: "${PK3_SUPABASE_PUBLISHABLE_KEY:?Set a public Supabase key}"
+volumes:
+  pk3-data:

@@ -1,0 +1,45 @@
+name: PK3 website conversion and upload queue
+
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/Mods/MapGen/Q3WebConversion.cs'
+      - 'tools/pk3-converter/**'
+      - 'tools/pk3-upload/**'
+      - '.github/workflows/pk3-website.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Mods/MapGen/Q3WebConversion.cs'
+      - 'tools/pk3-converter/**'
+      - 'tools/pk3-upload/**'
+
+permissions:
+  contents: read
+
+jobs:
+  upload-http:
+    name: PK3 upload API (Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resumable source API, credentials, digest and queue tests
+        run: node --test tools/pk3-upload/service.test.mjs
+      - name: JavaScript syntax checks
+        run: |
+          node --check tools/pk3-upload/index.mjs
+          node --check tools/pk3-upload/service.mjs
+          node --check tools/pk3-upload/validation.mjs
+  converter:
+    name: PK3 portable converter (net10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build headless converter
+        run: dotnet build tools/pk3-converter/pk3-converter.csproj -c Release -p:MphReadServer=true
