@@ -148,6 +148,17 @@ internal static class OpenGlFrameProfiler
                     displayedHz = FrameTiming.MeasuredFrameHz,
                     droppedSimulationSteps = FrameTiming.DroppedSteps,
                     stalls = FrameTiming.Stalls,
+                    // The hardware A/B validator must prove which branch
+                    // was actually active during each 240-frame capture.
+                    animationBlend = AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND"),
+                    animationChannels = new {
+                        hunter = AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND"),
+                        boss = AnimationRollout.Enabled("PROJECT_PRIME_BOSS_ANIMATION_BLEND"),
+                        preview = AnimationRollout.Enabled("PROJECT_PRIME_PREVIEW_ANIMATION_BLEND"),
+                        material = AnimationRollout.Enabled("PROJECT_PRIME_MATERIAL_ANIMATION_BLEND"),
+                        texcoord = AnimationRollout.Enabled("PROJECT_PRIME_TEXCOORD_ANIMATION_BLEND"),
+                        world = AnimationRollout.Enabled("PROJECT_PRIME_WORLD_ANIMATION_BLEND")
+                    },
                     vbo = DesktopRetainedGeometry.Enabled,
                     bindingCache = OpenGlScopedBindingCache.Enabled,
                     batching = DesktopRetainedGeometry.BatchEnabled,
