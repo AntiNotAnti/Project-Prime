@@ -14,7 +14,22 @@ namespace MphRead.Mods.MapGen;
 /// </summary>
 public sealed class CommunityArchiveCache
 {
-    private const long DefaultMaxBytes = 4L * 1024 * 1024 * 1024;
+    // A phone should not silently reserve the same disk budget as desktop.
+    // Maximum archive size is 512 MiB; reserve that single-archive capacity.
+    private static long DefaultMaxBytes => OperatingSystem.IsAndroid()
+        ? 512L * 1024 * 1024 : 4L * 1024 * 1024 * 1024;
+    internal const string QuotaVariable = "PROJECT_PRIME_COMMUNITY_CACHE_MIB";
+
+    internal static long ResolveMaximumBytes()
+    {
+        string? configured = Environment.GetEnvironmentVariable(QuotaVariable);
+        if (string.IsNullOrWhiteSpace(configured)) return DefaultMaxBytes;
+        // Invalid policy is an error, not permission for unlimited caching.
+        if (!long.TryParse(configured, out long mib) || mib is < 512 or > 1048576)
+            throw new InvalidOperationException(
+                "PROJECT_PRIME_COMMUNITY_CACHE_MIB must be 512-1048576.");
+        return checked(mib * 1024 * 1024);
+    }
     private readonly string _root;
     private readonly string _archives;
     private readonly string _locks;
@@ -23,16 +38,17 @@ public sealed class CommunityArchiveCache
 
     public long MaximumBytes { get; }
 
-    public CommunityArchiveCache(string root, long maximumBytes = DefaultMaxBytes)
+    public CommunityArchiveCache(string root, long? maximumBytes = null)
     {
-        if (maximumBytes is < 1 or > 1024L * 1024 * 1024 * 1024)
+        long budget = maximumBytes ?? ResolveMaximumBytes();
+        if (budget is < 1 or > 1024L * 1024 * 1024 * 1024)
             throw new ArgumentOutOfRangeException(nameof(maximumBytes));
         _root = Path.GetFullPath(root);
         _archives = Path.Combine(_root, "archives");
         _locks = Path.Combine(_root, "locks");
         _access = Path.Combine(_root, "access");
         _quarantine = Path.Combine(_root, "quarantine");
-        MaximumBytes = maximumBytes;
+        MaximumBytes = budget;
         foreach (string directory in new[] { _archives, _locks, _access, _quarantine })
             Directory.CreateDirectory(directory);
     }

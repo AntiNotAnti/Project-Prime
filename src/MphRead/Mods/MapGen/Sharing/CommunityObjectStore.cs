@@ -21,6 +21,8 @@ public sealed class CommunityObjectStore
 {
     private readonly string _objects;
     private readonly string? _cdn;
+    private readonly long _budgetBytes;
+    internal const string MirrorBudgetVariable = "PROJECT_PRIME_MAP_MIRROR_MAX_GIB";
     // Immutable public objects are strictly hashed at promotion and whenever
     // freshness is uncertain. Metadata requests can reuse that verification
     // briefly if the file identity/size/timestamps have not changed.
@@ -30,9 +32,21 @@ public sealed class CommunityObjectStore
         new(StringComparer.Ordinal);
     private const long VerificationTtlMilliseconds = 30_000;
 
-    public CommunityObjectStore(string storage, string? cdnBase = null)
+    private static long DefaultMirrorBudget()
+    {
+        string? value = Environment.GetEnvironmentVariable(MirrorBudgetVariable);
+        if (string.IsNullOrWhiteSpace(value)) return 50L * 1024 * 1024 * 1024;
+        if (!long.TryParse(value, out long gib) || gib is < 1 or > 1000)
+            throw new InvalidOperationException(
+                "PROJECT_PRIME_MAP_MIRROR_MAX_GIB must be 1-1000.");
+        return checked(gib * 1024 * 1024 * 1024);
+    }
+
+    public CommunityObjectStore(string storage, string? cdnBase = null, long? maxBytes = null)
     {
         _objects = Path.Combine(Path.GetFullPath(storage), "objects-v3", "sha256");
+        _budgetBytes = maxBytes ?? DefaultMirrorBudget();
+        if (_budgetBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
         Directory.CreateDirectory(_objects);
         if (!string.IsNullOrWhiteSpace(cdnBase))
         {
@@ -112,6 +126,45 @@ public sealed class CommunityObjectStore
         if (HasVerified(hash, expectedBytes)) return false;
         if (File.Exists(output))
             throw new InvalidDataException("Object store contains a corrupt existing immutable key.");
+
+        // Mirror bytes are OPTIONAL, unlike authoritative published packages.
+        // An over-budget mirror must fail without affecting upload/catalog
+        // publication or the original authenticated origin read path.
+        long used = 0;
+        foreach (string file in Directory.EnumerateFiles(_objects, "*.ppmap",
+            SearchOption.AllDirectories))
+        {
+            long size = new FileInfo(file).Length;
+            if (size > _budgetBytes - used)
+                throw new IOException("Public object mirror exceeds its configured storage budget.");
+            used += size;
+        }
+        if (expectedBytes > _budgetBytes - used)
+            throw new IOException("Public object mirror quota reached; origin remains available.");
+        // Preserve at least 64 MiB free for service metadata and staging.
+        // A mounted object store may live on another volume than '/'.
+        // Use the longest matching mounted drive root, not the process root.
+        string path = Path.GetFullPath(_objects);
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        DriveInfo? volume = DriveInfo.GetDrives()
+            .Where(d =>
+            {
+                try
+                {
+                    string mount = d.RootDirectory.FullName;
+                    string prefix = mount.EndsWith(Path.DirectorySeparatorChar)
+                        ? mount : mount + Path.DirectorySeparatorChar;
+                    return d.IsReady && (path.Equals(mount, comparison)
+                        || path.StartsWith(prefix, comparison));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { return false; }
+            })
+            .OrderByDescending(d => d.RootDirectory.FullName.Length)
+            .FirstOrDefault();
+        if (volume == null || volume.AvailableFreeSpace < expectedBytes + 64L * 1024 * 1024)
+            throw new IOException("Insufficient free space for optional public mirror.");
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         string temp = output + "." + Guid.NewGuid().ToString("N") + ".pending";
         try

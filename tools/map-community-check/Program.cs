@@ -82,6 +82,19 @@ try
         catch (OperationCanceledException) { checks++; }
     }
     Check(issued == 2 && renewed == 2, "cancelled operation did not mint credentials");
+    // Pooled handlers must never pool bearer tokens: each short-lived client
+    // owns only its own Authorization header, even when sockets are reused.
+    for (int i = 0; i < 8; i++)
+    {
+        using var listed = new MapCommunityClient(address, secret);
+        using var anonymous = new MapCommunityClient(address);
+        Check((await listed.BrowseProjectsAsync(default, mine: true)).Length == 1,
+            "pooled authenticated catalog read");
+        bool denied = false;
+        try { await anonymous.BrowseProjectsAsync(default, mine: true); }
+        catch (HttpRequestException ex) { denied = ex.StatusCode == HttpStatusCode.Unauthorized; }
+        Check(denied, "shared handler never forwards a prior client's bearer token");
+    }
     using var http=new HttpClient();
     Check((await http.GetStringAsync(address+"health")).Contains("prime-maps"),"service health endpoint");
     byte[] downloaded=await http.GetByteArrayAsync(address+"maps/"+published.Hash);

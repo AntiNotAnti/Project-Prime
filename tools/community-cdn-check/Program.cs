@@ -60,6 +60,17 @@ try
         "first object copy is immutable and validated before publication");
     Check(!objects.MirrorPublic(source, hash, bytes),
         "repeated exact map hash does not upload or copy duplicate object bytes");
+    string smallRoot = Path.Combine(root, "tiny-mirror");
+    var tiny = new CommunityObjectStore(smallRoot,
+        "https://cdn.projectprime.example/public/", maxBytes: bytes - 1);
+    bool budgetRejected = false;
+    try { tiny.MirrorPublic(source, hash, bytes); }
+    catch (IOException) { budgetRejected = true; }
+    Check(budgetRejected && tiny.PublicLocation(hash, bytes, published: true) == null,
+        "public mirror budget refusal never exposes an unverified CDN object");
+    Check(!File.Exists(Path.Combine(smallRoot, "objects-v3", "sha256",
+        hash[..2], hash + ".ppmap")),
+        "mirror storage limit does not stage or publish a partial object");
     Uri? valid = objects.PublicLocation(hash, bytes, published: true);
     Check(valid != null && valid.AbsoluteUri.EndsWith(hash + ".ppmap")
         && objects.PublicLocation(hash, bytes, published: false) == null,
