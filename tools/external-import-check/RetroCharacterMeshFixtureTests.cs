@@ -21,7 +21,11 @@ internal static class RetroCharacterMeshFixtureTests
         Expect<InvalidDataException>(() => Cskr.Load(skin), "CSKR weight count budget");
         Set(skin, 4, 1);
         Set(skin, 16, uint.MaxValue);
-        Expect<OverflowException>(() => Cskr.Load(skin), "CSKR overflowing vertex count");
+        Expect<InvalidDataException>(() => Cskr.Load(skin), "CSKR overflowing vertex count");
+        var overflowingGroups = (byte[])skin.Clone();
+        Set(overflowingGroups, 0, uint.MaxValue);
+        Expect<InvalidDataException>(() => Cskr.Load(overflowingGroups), "CSKR oversized groups");
+        Expect<InvalidDataException>(() => Cskr.Load(new byte[3]), "CSKR truncated header");
         Check(Be.U32(new byte[]{0,0,0,2}, 0) == 2, "big endian resource IDs");
         Expect<InvalidDataException>(() => Be.Slice(new byte[4], -1, 2), "negative resource offset");
         Expect<InvalidDataException>(() => Cmdl.Load(_ => new byte[64], 0x10), "invalid CMDL");

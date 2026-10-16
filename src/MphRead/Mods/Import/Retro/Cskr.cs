@@ -19,28 +19,41 @@ public static class Cskr
         ArgumentNullException.ThrowIfNull(source);
         var per = new List<(uint, float)[]>();
         int at = 0;
-        int groupCount = checked((int)Be.U32(source, at)); at += 4;
-        if (groupCount < 0 || groupCount > MaxGroups)
+        uint rawGroups = ReadU32(source, at); at += 4;
+        if (rawGroups > MaxGroups)
             throw new InvalidDataException("CSKR group count exceeds budget.");
-        for (int group = 0; group < groupCount; group++)
+        int groups = (int)rawGroups;
+        for (int group = 0; group < groups; group++)
         {
-            int count = checked((int)Be.U32(source, at)); at += 4;
-            if (count < 0 || count > MaxWeightsPerGroup)
+            uint rawWeights = ReadU32(source, at); at += 4;
+            if (rawWeights > MaxWeightsPerGroup)
                 throw new InvalidDataException("CSKR bone weight count exceeds budget.");
+            int count = (int)rawWeights;
+            if ((long)count * 8 > source.Length - at)
+                throw new InvalidDataException("CSKR weights extend beyond the local source.");
             var weights = new (uint Bone, float Weight)[count];
             for (int i = 0; i < count; i++)
             {
-                float weight = Be.F32(source, at + 8 * i + 4);
+                int position = at + 8 * i;
+                float weight = Be.F32(source, position + 4);
                 if (!float.IsFinite(weight) || weight < 0 || weight > 1f)
                     throw new InvalidDataException("CSKR bone weight is invalid.");
-                weights[i] = (Be.U32(source, at + 8 * i), weight);
+                weights[i] = (Be.U32(source, position), weight);
             }
-            at = checked(at + 8 * count);
-            int vertices = checked((int)Be.U32(source, at)); at += 4;
-            if (vertices < 0 || vertices > MaxVertices - per.Count)
+            at += 8 * count;
+            uint rawVertices = ReadU32(source, at); at += 4;
+            if (rawVertices > MaxVertices - per.Count)
                 throw new InvalidDataException("CSKR vertex count exceeds budget.");
+            int vertices = (int)rawVertices;
             for (int i = 0; i < vertices; i++) per.Add(weights);
         }
         return per;
+    }
+
+    private static uint ReadU32(byte[] source, int at)
+    {
+        if (at < 0 || source.Length - at < 4)
+            throw new InvalidDataException("Truncated CSKR bone/weight source.");
+        return Be.U32(source, at);
     }
 }
