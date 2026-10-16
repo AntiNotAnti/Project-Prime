@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MphRead.Android/AndroidFramePacer.cs" Link="AndroidFramePacer.cs" />
+    <Compile Include="../../src/MphRead.Android/AndroidGcTelemetry.cs" Link="AndroidGcTelemetry.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/ModernTexturePromotionPacer.cs" Link="ModernTexturePromotionPacer.cs" />
   </ItemGroup>
 </Project>
