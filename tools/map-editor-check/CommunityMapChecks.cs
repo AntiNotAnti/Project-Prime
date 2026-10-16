@@ -187,7 +187,38 @@ internal static class CommunityMapChecks
             byte[] storedBytes = File.ReadAllBytes(storedV1);
             byte[] corruptBytes = (byte[])storedBytes.Clone();
             corruptBytes[corruptBytes.Length / 2] ^= 0x5A;
-            File.WriteAllBytes(storedV1, corruptBytes);
+
+            // A response can finish at the client before the server has closed
+            // its read handle. Overwriting the immutable archive in place fails
+            // on Windows and could corrupt an in-flight download. Stage the
+            // fixture on the same volume and replace the directory entry.
+            void ReplaceStoredFixture(byte[] replacement)
+            {
+                string staged = Path.Combine(storage,
+                    "fixture-replacement-" + Guid.NewGuid().ToString("N") + ".tmp");
+                try
+                {
+                    File.WriteAllBytes(staged, replacement);
+                    File.Move(staged, storedV1, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(staged)) File.Delete(staged);
+                }
+            }
+
+            // An existing reader keeps the original immutable bytes, while
+            // subsequent opens observe the replacement archive.
+            using (var activeReader = new FileStream(storedV1, FileMode.Open,
+                FileAccess.Read, FileShare.Read | FileShare.Delete))
+            {
+                ReplaceStoredFixture(corruptBytes);
+                activeReader.Position = storedBytes.Length / 2;
+                check(activeReader.ReadByte() == storedBytes[storedBytes.Length / 2]
+                    && File.ReadAllBytes(storedV1)[storedBytes.Length / 2]
+                        == corruptBytes[corruptBytes.Length / 2],
+                    "corruption fixture replacement preserves active archive readers");
+            }
             bool rejectedCorruptDownload = false;
             try { await client.InstallAsync(v1, Path.Combine(root, "corrupt-install"), default); }
             catch (InvalidDataException ex)
@@ -195,7 +226,7 @@ internal static class CommunityMapChecks
                 rejectedCorruptDownload = ex.Message.Contains("SHA-256", StringComparison.Ordinal)
                     && ex.Message.Contains("discarded after a retry", StringComparison.OrdinalIgnoreCase);
             }
-            finally { File.WriteAllBytes(storedV1, storedBytes); }
+            finally { ReplaceStoredFixture(storedBytes); }
             check(rejectedCorruptDownload,
                 "same-length corrupted community download is rejected by package hash before ZIP parsing");
 
