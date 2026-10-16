@@ -16,6 +16,19 @@ internal static class AnimationSampling
     /// Pure equivalent of ModelInstance.UpdateAnimFrames(slot)'s integer rules.
     /// No changes to the canonical implementation are made in this PR.
     /// </summary>
+    internal static float BlendChannel(float first, float second, float fraction, bool isRotation = false)
+    {
+        if (!float.IsFinite(first) || !float.IsFinite(second) || !float.IsFinite(fraction))
+            return first;
+        float difference = second - first;
+        if (isRotation)
+        {
+            if (difference > MathF.PI) difference -= 2f * MathF.PI;
+            else if (difference < -MathF.PI) difference += 2f * MathF.PI;
+        }
+        return first + difference * Math.Clamp(fraction, 0f, 1f);
+    }
+
     internal static NextFrame Predict(int frame, AnimFlags flags, int step, int frameCount)
     {
         if (flags.TestFlag(AnimFlags.Paused) || flags.TestFlag(AnimFlags.Ended))
