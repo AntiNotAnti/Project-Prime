@@ -456,22 +456,25 @@ namespace MphRead.Mods.Render
             // integer pose afterwards so no simulation or other model owner
             // observes an interpolated transform from the preview pass.
             bool blended = false;
-            double phase = _lastPreviewStepStamp == 0 ? 0
-                : Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(_lastPreviewStepStamp)
-                    .TotalSeconds * 60.0, 0, 1);
-            if (PreviewBlendEnabled && _previewSteps > 0
-                && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Node.Slot,
-                    _previewSteps + phase, out var sample))
-            {
-                _model.Model.AnimateNodes(0, UseNodeTransform, pose,
-                    _model.Model.Scale, _model.AnimInfo, sample);
-                _model.Model.UpdateMatrixStack();
-                blended = true;
-            }
             var previous = _scene.CosmeticSubmission;
-            _scene.CosmeticSubmission = surface;
             try
             {
+                double phase = !PreviewBlendEnabled || _lastPreviewStepStamp == 0 ? 0
+                    : Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(_lastPreviewStepStamp)
+                        .TotalSeconds * 60.0, 0, 1);
+                if (PreviewBlendEnabled && _previewSteps > 0
+                    && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Node.Slot,
+                        _previewSteps + phase, out var sample))
+                {
+                    // Arm the restoration before writing a single node. Even a
+                    // draw/curve failure must not leak the visual pose into the
+                    // shared model's simulation-owned matrices.
+                    blended = true;
+                    _model.Model.AnimateNodes(0, UseNodeTransform, pose,
+                        _model.Model.Scale, _model.AnimInfo, sample);
+                    _model.Model.UpdateMatrixStack();
+                }
+                _scene.CosmeticSubmission = surface;
                 if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0
                     && progress < _cosmetics.Death.HideBodyAt))
                 {
