@@ -53,19 +53,20 @@ internal static class Q3ShaderNativePlan
                 || !shader.TryNativeUv(out MapMaterialAnimation animation))
                 continue;
 
+            if (imported >= MaxImportedTracks)
+                continue;
             plan[i] = new MapMaterial { Name = name, Animation = animation };
             MapMaterial[] animated = plan.Where(MapUvAnimation.IsAnimated).ToArray();
             if (!MapUvAnimation.TryGetGroupFrameCount(animated, out int group)
                 || MapUvAnimation.ScaleEntryCount(animated, group) > MapUvAnimation.MaxLutEntries
                 || MapUvAnimation.RotationEntryCount(animated, group) > MapUvAnimation.MaxLutEntries
-                || MapUvAnimation.TranslationEntryCount(animated, group) > MapUvAnimation.MaxLutEntries
-                || ++imported > MaxImportedTracks)
+                || MapUvAnimation.TranslationEntryCount(animated, group) > MapUvAnimation.MaxLutEntries)
             {
                 // An upstream shader must not compromise authored materials,
                 // overload native LUTs or spill over the 16-bit address space.
                 plan[i] = new MapMaterial { Name = name };
-                --imported;
             }
+            else imported++;
         }
         return plan;
     }
