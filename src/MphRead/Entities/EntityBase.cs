@@ -668,8 +668,8 @@ namespace MphRead.Entities
 
         // Only an explicitly scoped presentation pass may bind a fractional UV
         // sample. It must restore both fields in finally before returning.
-        protected ModelInstance? _presentationTexcoordOwner;
-        protected Mods.Render.AnimationSamples.Sample? _presentationTexcoordSample;
+        private protected ModelInstance? _presentationTexcoordOwner;
+        private protected Mods.Render.AnimationSamples.Sample? _presentationTexcoordSample;
 
         protected virtual Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId, Node node, int recolor = -1)
         {
