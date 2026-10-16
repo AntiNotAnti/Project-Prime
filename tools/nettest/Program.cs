@@ -102,6 +102,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--animation-sampling") return AnimationSamplingTests.Run();
             if (args.Length > 0 && args[0] == "--shot-pose-bounds") return ShotPoseBoundsTests.Run();
             if (args.Length > 0 && args[0] == "--replay-shot-payload") return ReplayShotPayloadTests.Run();
+            if (args.Length > 0 && args[0] == "--q3-mover-source") return Q3MoverSourceTests.Run();
             if (args.Length > 0 && args[0] == "--outline-colors") return OutlineColorTests.Run();
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();
