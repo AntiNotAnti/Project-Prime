@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MphRead.Mods.MapGen;
 
 namespace MphRead.NetTest;
@@ -81,6 +82,29 @@ internal static class Q3ShaderStagesTests
         Check(Q3ShaderStageParser.Parse(new string('x', Q3ShaderStageParser.MaxScriptChars + 1)).Count == 0,
             "oversized shader scripts rejected");
 
+        var authored = new MapMaterial[]
+        {
+            new MapMaterial { Name = "custom-native", Animation = new MapMaterialAnimation
+                { UvScroll = new[] { 0.1f, 0f }, LoopFrames = 300 } }
+        };
+        var imported = Q3ShaderNativePlan.Build(authored,
+            new[] { "textures/test/panel", "textures/test/fog",
+                "textures/test/multipass" }, result);
+        Check(imported.Count == 4 && imported[0].Animation != null,
+            "single-stage UV curve preserves shader material ordering");
+        Check(imported[1].Animation == null && imported[2].Animation == null,
+            "fog and multipass remain safe baked-image fallbacks");
+        Check(ReferenceEquals(imported[3], authored[0]),
+            "native authored material remains completely unchanged");
+        Check(MapUvAnimation.TryGetGroupFrameCount(
+            imported.Where(MapUvAnimation.IsAnimated).ToArray(), out int nativeCycle)
+                && nativeCycle <= MapUvAnimation.MaxLoopFrames,
+            "imported plus authored UV cycles remain within native frame budget");
+        var duplicate = Q3ShaderNativePlan.Build(Array.Empty<MapMaterial>(),
+            new[] { "textures/test/panel", "textures/test/panel" }, result);
+        Check(duplicate.Count == 2 && duplicate[0].Animation != null
+            && duplicate[1].Animation == null,
+            "duplicate source shader material name does not generate ambiguous tracks");
         Console.WriteLine("Q3 SHADER STAGES PASS " + checks + " checks");
         return 0;
     }
