@@ -80,6 +80,11 @@ public sealed record CommunityMapProjectPage(
 public sealed class MapCommunityClient : IDisposable
 {
     public const string DefaultAddress = "https://maps.rebooty.xyz/";
+    // SocketsHttpHandler owns the connection pool and stays shared across
+    // short-lived catalog/creator operations. Bearer headers remain on each
+    // private HttpClient instance and are never stored on the pool.
+    private static readonly SocketsHttpHandler ProxyHandler = NewHandler(useProxy: true);
+    private static readonly SocketsHttpHandler DirectHandler = NewHandler(useProxy: false);
     private readonly HttpClient _http;
     private readonly Lazy<HttpClient> _directHttp;
     private volatile bool _preferDirectReads;
@@ -105,13 +110,19 @@ public sealed class MapCommunityClient : IDisposable
         return uri;
     }
 
+    private static SocketsHttpHandler NewHandler(bool useProxy) => new()
+    {
+        AllowAutoRedirect = false,
+        UseProxy = useProxy,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+        MaxConnectionsPerServer = 32
+    };
+
     private static HttpClient CreateHttpClient(Uri uri, string? uploadToken, bool useProxy)
     {
-        var client = new HttpClient(new HttpClientHandler
-        {
-            AllowAutoRedirect = false,
-            UseProxy = useProxy
-        })
+        var client = new HttpClient(useProxy ? ProxyHandler : DirectHandler,
+            disposeHandler: false)
         {
             BaseAddress = uri,
             Timeout = TimeSpan.FromMinutes(10)
