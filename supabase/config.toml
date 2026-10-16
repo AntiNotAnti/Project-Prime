@@ -1,2 +1,6 @@
 [functions.community-map-ticket]
 verify_jwt = false
+
+# Public read-only career stats, no Supabase JWT on these aggregate views.
+[functions.hunter-leaderboard]
+verify_jwt = false
