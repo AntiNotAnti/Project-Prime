@@ -33,6 +33,60 @@ internal static class PlayerNameChatTests
             Check(PlayerNameCodec.TryEncode(glyph, bytes, out _), "table encode " + glyph);
             Check(PlayerNameCodec.Decode(bytes) == PlayerNameCodec.Normalize(glyph), "table round trip " + glyph);
         }
+        const string RequestedPunctuation = "【】〝〞（）〔〕〈〉…｜＾∓〃′⨉‐―｀﹍";
+        foreach (Rune rune in RequestedPunctuation.EnumerateRunes())
+        {
+            string character = rune.ToString();
+            Check(PlayerNameCodec.TryEncode(character, bytes, out _), "requested glyph encodes " + character);
+            Check(PlayerNameCodec.Decode(bytes) == character, "requested glyph decodes " + character);
+        }
+        foreach (string value in new[] { "【PRIME】", "〝hunter〞", "…﹍…", "±∓×⨉", "〈〔（X）〕〉", new string('﹍', 24) })
+        {
+            Check(PlayerNameCodec.TryEncode(value, bytes, out _), "extended glyph name encodes " + value);
+            Check(PlayerNameCodec.Decode(bytes) == value, "extended glyph name decodes " + value);
+        }
+        const string JisPunctuation = "　、。，．・：；？！゛゜´｀¨＾￣＿ヽヾゝゞ〃仝々〆〇ー―‐／＼〜‖｜…‥‘’“”（）〔〕［］｛｝〈〉《》「」『』【】＋−±×÷＝≠＜＞≦≧∞∴♂♀°′″℃￥＄";
+        Check(JisPunctuation.Length == 80, "JIS punctuation index count");
+        for (int i = 1; i < JisPunctuation.Length; i++)
+        {
+            int code = 0x1B0 + i;
+            // Preserve legacy wire codes for the old unique characters ‾, −, ᐟ.
+            if (code is 0x1C0 or 0x1CD or 0x1FB) continue;
+            Check(MphGlyphMap.Unicode(code) == JisPunctuation[i].ToString(),
+                "JIS punctuation slot " + code.ToString("X"));
+        }
+        foreach (string character in new[] { "‾", "−", "ᐟ" })
+        {
+            Check(PlayerNameCodec.TryEncode(character, bytes, out _), "legacy glyph still encodes " + character);
+            Check(PlayerNameCodec.Decode(bytes) == character, "legacy glyph still decodes " + character);
+        }
+        Check(PlayerNameCodec.TryMapUnicodeToGlyph(new Rune('…'), out ushort ellipsisCode)
+            && PlayerNameCodec.TryMapUnicodeToGlyph(new Rune('﹍'), out ushort dashedLowLineCode)
+            && ellipsisCode != dashedLowLineCode, "ellipsis and dashed low line distinct");
+        Check(PlayerNameCodec.TryMapUnicodeToGlyph(new Rune('×'), out ushort multiplicationCode)
+            && PlayerNameCodec.TryMapUnicodeToGlyph(new Rune('⨉'), out ushort nAryTimesCode)
+            && multiplicationCode != nAryTimesCode, "multiplication and n-ary times distinct");
+        int[] fallbackWidths = new int[480], fallbackOffsets = new int[480];
+        byte[] fallbackPixels = new byte[512 * 64];
+        PlayerNameGlyphArt.Install(ref fallbackWidths, ref fallbackOffsets, ref fallbackPixels, 32);
+        foreach (int code in new[] { 0x1C2, 0x1C6, 0x1E3, 0x1E9, 0x1EA, 0x1F1, 0x1FF,
+            0x200, 0x201, 0x202, 0x203, 0x204, 0x205, 0x206, 0x207 })
+        {
+            int index = code - 32;
+            bool ink = false;
+            for (int i = 0; i < 64; i++)
+                if (fallbackPixels[index * 64 + i] != 0) { ink = true; break; }
+            Check(fallbackWidths[index] == 8 && ink, "supplemental glyph draws " + code.ToString("X"));
+        }
+        Check(fallbackPixels[(0x204 - 32) * 64 + 6 * 8] == 1
+            && fallbackPixels[(0x204 - 32) * 64 + 2 * 8] == 0,
+            "dashed low line is below an ellipsis");
+        int nativeIndex = 0x1E9 - 32;
+        fallbackPixels[nativeIndex * 64] = 3;
+        fallbackWidths[nativeIndex] = 5;
+        PlayerNameGlyphArt.Install(ref fallbackWidths, ref fallbackOffsets, ref fallbackPixels, 32);
+        Check(fallbackWidths[nativeIndex] == 5 && fallbackPixels[nativeIndex * 64] == 3,
+            "native JIS font artwork is never overwritten");
         foreach (string name in new[] { "JÄRRETT™", "ハンター", "「PRIME」", "PRIME∞" })
         {
             string canonical = PlayerNameCodec.Normalize(name);
