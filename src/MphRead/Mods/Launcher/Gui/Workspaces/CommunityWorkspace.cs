@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
+using MphRead.Mods.Update;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -647,6 +648,18 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _details.Children.Add(_install);
         _details.Children.Add(_favorite);
         _details.Children.Add(_report);
+        // A stable MapId URL lets players read release notes and share the
+        // same project on the website. The game still installs by exact SHA.
+        // Reuse the existing desktop/Android browser opener and never assume
+        // an OS-level custom URI handler is registered.
+        string mapPage = "https://projectprime.gg/maps/" + project.MapId.ToString("D");
+        var viewWebsite = new PrimeButton("VIEW ON WEBSITE", () =>
+        {
+            if (!Updater.OpenLink(mapPage))
+                _status.Text = "Map page: " + mapPage;
+        }, compact: true);
+        ControllerNav.Identify(viewWebsite, "community.website");
+        _details.Children.Add(viewWebsite);
         _details.Children.Add(PrimeChrome.Text(
             "After installing, select the arena in Create Lobby → Map Rotation. Publishing remains available from Map Studio.",
             PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
