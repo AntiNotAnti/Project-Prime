@@ -157,7 +157,7 @@ export function createPk3UploadService({
     }
   }
 
-  async function capacity(creatorId, requestedBytes) {
+  async function capacity(creatorId, requestedBytes, forConversion = false) {
     let pending = 0, count = 0;
     for (const item of await files(uploadRoot)) {
       if (!item.isDirectory()) continue;
@@ -174,7 +174,8 @@ export function createPk3UploadService({
       jobs++; if (j.creatorId === creatorId) perCreator++;
       used += Number(j.bytes || 0) + Number(j.outputBytes || 0);
     }
-    if (count >= MAX_UPLOADS_PER_CREATOR || perCreator >= MAX_JOBS_PER_CREATOR ||
+    if ((!forConversion && count >= MAX_UPLOADS_PER_CREATOR) ||
+        perCreator >= MAX_JOBS_PER_CREATOR ||
         jobs >= MAX_JOBS || used + requestedBytes > MAX_DISK_BYTES)
       return false;
     if (typeof fs.statfs === "function") {
@@ -347,7 +348,7 @@ export function createPk3UploadService({
               { error: "upload_incomplete", offset: state.offset });
             if (await digest(path.join(dir, "source.part")) !== hash)
               return send(res, 422, { error: "source_sha256_mismatch" });
-            if (!await capacity(owner, 0))
+            if (!await capacity(owner, 0, true))
               return send(res, 507, { error: "conversion_queue_full" });
             const id = randomUUID();
             const folder = path.join(jobRoot, id);
