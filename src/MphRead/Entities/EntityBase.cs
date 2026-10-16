@@ -590,8 +590,8 @@ namespace MphRead.Entities
         // composed from multiple animation instances and muzzle-effect nodes;
         // bosses/turrets/platforms also derive gameplay facts from their model
         // matrices. They are excluded until independent ownership tests pass.
-        private static readonly bool WorldAnimationBlendEnabled =
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_WORLD_ANIMATION_BLEND") == "1";
+        private static readonly bool WorldAnimationBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_WORLD_ANIMATION_BLEND");
 
         public virtual void GetDrawInfo()
         {
