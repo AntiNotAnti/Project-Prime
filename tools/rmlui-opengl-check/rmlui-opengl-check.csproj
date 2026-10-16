@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Match the opt-in contract of this test and its game reference. -->
+    <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj"
