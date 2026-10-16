@@ -1,0 +1,96 @@
+<rml>
+<head>
+    <title>Hunter License</title>
+    <link type="text/template" href="../../components/app-shell.rml" />
+    <link type="text/rcss" href="license.rcss" />
+</head>
+<body template="prime-shell">
+<div id="license_page">
+    <div class="eyebrow">HOME // HUNTER LICENSE</div>
+    <h1>YOUR PROFILE. YOUR LEGACY.</h1>
+    <div class="license_identity">
+        <h2 id="license_player" />
+        <span id="license_id" /> <span id="license_rank" />
+        <p>FAVORITE HUNTER // <span id="license_favorite" /> // LICENSE ISSUED <span id="license_created" /></p>
+        <span id="license_account_kind" />
+    </div>
+    <div class="license_tabs">
+        <button id="license_overview" data-action="license:overview">OVERVIEW</button>
+        <button id="license_customization" data-action="license:customization">CUSTOMIZATION</button>
+        <button id="license_stats" data-action="license:stats">STATS</button>
+        <button id="license_history" data-action="license:history">MATCH HISTORY</button>
+        <button id="license_achievements" data-action="license:achievements">ACHIEVEMENTS</button>
+        <button id="license_emblems" data-action="license:emblems">EMBLEMS</button>
+        <button id="license_titles" data-action="license:titles">TITLES</button>
+        <button id="license_comparison" data-action="license:comparison">COMPARISON</button>
+        <button id="license_account" data-action="license:account">ACCOUNT</button>
+    </div>
+    <div class="license_content">
+        <div id="license_face_0" class="license_face">
+            <h2>CAREER RECORD</h2>
+            <p>Career totals come only from server-accepted matches.</p>
+            <div id="license_overview_metrics" class="license_lines" />
+            <h3>LAST FIVE // RECENT FORM</h3><p id="license_recent_form" />
+        </div>
+        <div id="license_face_1" class="license_face">
+            <h2>CUSTOMIZATION</h2>
+            <p>Preview and equip each Hunter's skins, armor effects and death presentations. Local equips remain saved if account synchronization fails.</p>
+            <button data-action="license:customization">OPEN HUNTER CUSTOMIZATION</button>
+            <p id="license_cosmetic_count" />
+        </div>
+        <div id="license_face_2" class="license_face"><h2>CAREER STATS</h2><div id="license_metrics" class="license_lines" /></div>
+        <div id="license_face_3" class="license_face">
+            <h2>MATCH HISTORY</h2><p id="license_history_page" />
+            <p id="license_history_empty">No accepted matches yet. Complete an eligible online match to begin your record.</p>
+            <div id="license_match_0" class="license_match"><h3 id="license_match_label_0" /><p id="license_match_detail_0" /></div>
+            <div id="license_match_1" class="license_match"><h3 id="license_match_label_1" /><p id="license_match_detail_1" /></div>
+            <div id="license_match_2" class="license_match"><h3 id="license_match_label_2" /><p id="license_match_detail_2" /></div>
+            <div id="license_match_3" class="license_match"><h3 id="license_match_label_3" /><p id="license_match_detail_3" /></div>
+            <div id="license_match_4" class="license_match"><h3 id="license_match_label_4" /><p id="license_match_detail_4" /></div>
+            <div id="license_match_5" class="license_match"><h3 id="license_match_label_5" /><p id="license_match_detail_5" /></div>
+            <div id="license_match_6" class="license_match"><h3 id="license_match_label_6" /><p id="license_match_detail_6" /></div>
+            <div id="license_match_7" class="license_match"><h3 id="license_match_label_7" /><p id="license_match_detail_7" /></div>
+            <button id="license_previous_page" data-action="license:previous-page">PREVIOUS</button>
+            <button id="license_next_page" data-action="license:next-page">NEXT</button>
+        </div>
+        <div id="license_face_4" class="license_face">
+            <h2>ACHIEVEMENTS</h2><p>Milestones are derived from accepted career totals.</p>
+            <p id="license_achievement_0" /><p id="license_achievement_1" /><p id="license_achievement_2" />
+            <p id="license_achievement_3" /><p id="license_achievement_4" /><p id="license_achievement_5" /><p id="license_achievement_6" />
+        </div>
+        <div id="license_face_5" class="license_face"><h2>EMBLEMS // UNAVAILABLE</h2><p id="license_emblems_reason" /></div>
+        <div id="license_face_6" class="license_face"><h2>TITLES // UNAVAILABLE</h2><p id="license_titles_reason" /></div>
+        <div id="license_face_7" class="license_face">
+            <h2>PER-MATCH BENCHMARK</h2><div id="license_comparison_metrics" class="license_lines" /><p id="license_comparison_reason" />
+        </div>
+        <div id="license_face_8" class="license_face">
+            <h2>SECURE AND RECOVER YOUR LICENSE</h2>
+            <p>Link recovery methods to the same Hunter ID and career. Verify your email before setting a password.</p>
+            <p>EMAIL // <span id="license_account_email" /></p><p>PROVIDERS // <span id="license_account_providers" /></p>
+            <p id="license_security_status" class="license_warning" />
+            <div class="license_account_inputs">
+                <label for="license_email">EMAIL</label><input id="license_email" type="text" maxlength="254" />
+                <label for="license_password">PASSWORD</label><input id="license_password" type="password" maxlength="128" />
+                <label for="license_confirmation">CONFIRM PASSWORD</label><input id="license_confirmation" type="password" maxlength="128" />
+            </div>
+            <button id="license_send_verification" data-action="license:send-verification">SEND VERIFICATION / EMAIL CHANGE</button>
+            <button id="license_finish_password" data-action="license:finish-password">I VERIFIED // SET PASSWORD</button>
+            <h3>LINK A SIGN-IN PROVIDER</h3>
+            <button id="license_link_google" data-action="license:link-google">LINK GOOGLE</button>
+            <button id="license_link_github" data-action="license:link-github">LINK GITHUB</button>
+            <button id="license_link_discord" data-action="license:link-discord">LINK DISCORD</button>
+            <button id="license_refresh_account" data-action="license:refresh-account">REFRESH LINK STATUS</button>
+            <h3>RECOVER AN EXISTING LICENSE</h3><p id="license_recovery_reason" />
+            <button id="license_recover" data-action="license:recover">SIGN IN // RECOVER LICENSE</button>
+            <p>Project Prime stores the refresh credential locally. Passwords are never written to disk by the game.</p>
+        </div>
+    </div>
+    <div class="license_footer">
+        <p id="license_status" /><p id="license_error" class="license_warning" />
+        <button id="license_refresh" data-action="license:refresh">SYNC LICENSE</button>
+        <button id="license_cancel_refresh" data-action="license:cancel-refresh">CANCEL SYNC</button>
+        <button id="license_back" data-action="license:back">BACK</button>
+    </div>
+</div>
+</body>
+</rml>

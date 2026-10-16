@@ -1,0 +1,25 @@
+.setup_workspace { position: absolute; left: 5%; top: 5%; width: 90%; height: 90%; padding: 22dp; background-color: rgba(2, 9, 17, 95%); border: 1dp #29465b; }
+.setup_heading { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 70dp; }
+.setup_heading h1 { font-size: 27dp; }
+.setup_heading button { width: 150dp; height: 40dp; }
+.setup_columns { display: flex; flex-direction: row; width: 100%; height: 65%; }
+.setup_panel { width: 49%; height: 100%; overflow: auto; padding: 12dp 20dp 12dp 12dp; }
+.setup_panel + .setup_panel { margin-left: 2%; border-left: 1dp #254157; }
+.setup_panel h2 { font-size: 22dp; margin-bottom: 12dp; }
+.setup_panel h3 { margin-top: 16dp; margin-bottom: 8dp; font-size: 16dp; }
+.setup_panel p { margin: 9dp 0dp; font-size: 14dp; color: #afc6d8; }
+.setup_hint { color: #7994ab; }
+.setup_panel button { display: block; width: 100%; height: 37dp; margin: 7dp 0dp; font-size: 13dp; }
+.setup_panel label { display: block; margin: 10dp 0dp 5dp; font-size: 13dp; }
+.setup_panel input { display: block; width: 100%; height: 33dp; }
+.setup_path { white-space: pre-wrap; }
+.setup_versions { width: 100%; max-height: 135dp; overflow: auto; }
+.setup_release { text-align: left; padding-left: 12dp; background-color: #0c1c2c; color: #b8d4e7; border: 1dp #203d53; }
+.setup_release.selected, .setup_release:hover, .setup_release:focus { background-color: #123a52; border-color: #61bdd3; }
+.setup_notes { white-space: pre-wrap; font-size: 13dp; line-height: 1.4; color: #93adc0; width: 100%; max-height: 130dp; overflow: auto; }
+.setup_status, .setup_error, .setup_progress { width: 100%; min-height: 20dp; padding-top: 5dp; font-size: 13dp; }
+.setup_status { color: #a8d7cf; }.setup_error { color: #ff9189; }.setup_progress { color: #a9c6db; }
+.setup_log { width: 100%; height: 11%; overflow: auto; white-space: pre-wrap; font-size: 11dp; color: #7895aa; }
+.setup_dialog { position: absolute; left: 22%; top: 26%; width: 56%; padding: 28dp; background-color: #07121f; border: 1dp #284d68; }
+.setup_dialog h1 { font-size: 25dp; margin-bottom: 15dp; }.setup_dialog p { white-space: pre-wrap; color: #b3c8da; line-height: 1.4; margin-bottom: 18dp; }
+.setup_dialog .dialog_actions { display: flex; justify-content: flex-end; width: 100%; }.setup_dialog button { width: 42%; height: 42dp; margin-left: 10dp; }

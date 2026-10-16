@@ -1,0 +1,37 @@
+<rml>
+<head>
+    <title>Select Offline arena</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="offline.rcss" />
+</head>
+<body template="prime-dialog">
+    <div class="offline_dialog">
+        <h1>SELECT ARENA</h1>
+        <p>Choose an installed arena compatible with this game type and combatant count.</p>
+        <div class="offline_field"><label for="offline_arena_search">Search arena name</label><input id="offline_arena_search" type="text" maxlength="80" /></div>
+        <button class="offline_action" id="offline_arena_search_apply" data-action="offline:arena-search">SEARCH</button>
+        <div id="offline_arena_page" class="offline_summary" />
+        <div id="offline_arena_picker_error" class="offline_error" />
+        <div class="offline_arena_list">
+            <div id="offline_arena_row_0" class="offline_arena_row"><button id="offline_arena_pick_0" data-action="offline:arena:0"><span id="offline_arena_name_0" /></button><div id="offline_arena_reason_0" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_1" class="offline_arena_row"><button id="offline_arena_pick_1" data-action="offline:arena:1"><span id="offline_arena_name_1" /></button><div id="offline_arena_reason_1" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_2" class="offline_arena_row"><button id="offline_arena_pick_2" data-action="offline:arena:2"><span id="offline_arena_name_2" /></button><div id="offline_arena_reason_2" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_3" class="offline_arena_row"><button id="offline_arena_pick_3" data-action="offline:arena:3"><span id="offline_arena_name_3" /></button><div id="offline_arena_reason_3" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_4" class="offline_arena_row"><button id="offline_arena_pick_4" data-action="offline:arena:4"><span id="offline_arena_name_4" /></button><div id="offline_arena_reason_4" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_5" class="offline_arena_row"><button id="offline_arena_pick_5" data-action="offline:arena:5"><span id="offline_arena_name_5" /></button><div id="offline_arena_reason_5" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_6" class="offline_arena_row"><button id="offline_arena_pick_6" data-action="offline:arena:6"><span id="offline_arena_name_6" /></button><div id="offline_arena_reason_6" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_7" class="offline_arena_row"><button id="offline_arena_pick_7" data-action="offline:arena:7"><span id="offline_arena_name_7" /></button><div id="offline_arena_reason_7" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_8" class="offline_arena_row"><button id="offline_arena_pick_8" data-action="offline:arena:8"><span id="offline_arena_name_8" /></button><div id="offline_arena_reason_8" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_9" class="offline_arena_row"><button id="offline_arena_pick_9" data-action="offline:arena:9"><span id="offline_arena_name_9" /></button><div id="offline_arena_reason_9" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_10" class="offline_arena_row"><button id="offline_arena_pick_10" data-action="offline:arena:10"><span id="offline_arena_name_10" /></button><div id="offline_arena_reason_10" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_11" class="offline_arena_row"><button id="offline_arena_pick_11" data-action="offline:arena:11"><span id="offline_arena_name_11" /></button><div id="offline_arena_reason_11" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_12" class="offline_arena_row"><button id="offline_arena_pick_12" data-action="offline:arena:12"><span id="offline_arena_name_12" /></button><div id="offline_arena_reason_12" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_13" class="offline_arena_row"><button id="offline_arena_pick_13" data-action="offline:arena:13"><span id="offline_arena_name_13" /></button><div id="offline_arena_reason_13" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_14" class="offline_arena_row"><button id="offline_arena_pick_14" data-action="offline:arena:14"><span id="offline_arena_name_14" /></button><div id="offline_arena_reason_14" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_15" class="offline_arena_row"><button id="offline_arena_pick_15" data-action="offline:arena:15"><span id="offline_arena_name_15" /></button><div id="offline_arena_reason_15" class="offline_arena_reason" /></div>
+        </div>
+        <div class="offline_actions"><button id="offline_arena_previous" class="offline_action" data-action="offline:arena-page:previous">PREVIOUS</button><button id="offline_arena_next" class="offline_action" data-action="offline:arena-page:next">NEXT</button></div>
+        <button id="offline_arena_cancel" class="offline_action" data-action="offline:cancel-arena">CANCEL</button>
+    </div>
+</body>
+</rml>

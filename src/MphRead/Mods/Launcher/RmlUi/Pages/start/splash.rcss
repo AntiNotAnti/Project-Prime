@@ -1,0 +1,9 @@
+body { width: 100%; height: 100%; font-family: Rajdhani; color: #e7f5ff; background-color: #030b14; } .splash { position: absolute; width: 100%; height: 100%; background-color: rgba(4,17,30,94%); border-top: 3dp #5abfff; border-bottom: 3dp #5abfff; } .splash_copy { position: absolute; top: 32%; left: 10%; width: 80%; text-align: center; } h1 { display: block; width: 100%; font-size: 78dp; letter-spacing: 8dp; font-weight: bold; margin: 12dp 0dp 24dp; } .splash_eyebrow { color: #72c7ff; font-size: 22dp; letter-spacing: 10dp; } .splash_rule { width: 50%; height: 2dp; margin: 0dp auto 36dp; background-color: #275271; } #splash_continue { width: 260dp; height: 60dp; font-size: 24dp; letter-spacing: 3dp; color: #e7f5ff; background-color: #102c43; border: 1dp #72c7ff; tab-index: auto; } #splash_continue:hover, #splash_continue:focus { background-color: #205775; border-color: #d8f2ff; } .splash_hint { margin-top: 18dp; font-size: 12dp; letter-spacing: 2dp; color: #7998af; } .splash_quit { position: absolute; right: 32dp; bottom: 24dp; width: 100dp; height: 40dp; color: #a3bdd1; background-color: #0a1d2c; border: 1dp #275271; tab-index: auto; } @media (max-width: 800dp) { h1 { font-size: 46dp; letter-spacing: 4dp; } .splash_eyebrow { font-size: 16dp; } } @media (max-height: 500dp) { .splash_copy { top: 18%; } h1 { margin-bottom: 12dp; } .splash_rule { margin-bottom: 16dp; } }
+#splash_art { position: absolute; }
+#splash_fallback { position: absolute; left: 10%; top: 25%; width: 80%; text-align: center; }
+.splash_copy { top: auto; bottom: 7%; }
+#splash_continue { background-color: rgba(3,13,23,90%); }
+.splash_hint { background-color: rgba(3,13,23,80%); width: 300dp; margin: 10dp auto; padding: 5dp; }
+
+#splash_continue { display: block; margin: 0dp auto; text-align: center; line-height: 58dp; }
+.splash_quit { display: block; text-align: center; line-height: 38dp; }

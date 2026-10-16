@@ -1,0 +1,22 @@
+#play_queue_panel {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 640dp;
+    max-height: 78vh;
+    overflow-y: auto;
+    padding: 16dp;
+    background-color: #081c2e;
+    border: 1dp #386d93;
+}
+#play_queue_panel h2 { margin: 7dp 0 12dp; font-size: 21dp; }
+#play_queue_panel p { margin: 7dp 0; line-height: 18dp; font-size: 13dp; }
+#play_queue_status { color: #b9e4ff; }
+#play_queue_position { color: #86bad9; }
+.queue_actions { display: flex; flex-wrap: wrap; margin-top: 12dp; }
+.queue_actions button { margin: 3dp; min-height: 36dp; padding: 8dp 12dp; }
+@media (max-height: 430dp) {
+    #play_queue_panel { padding: 8dp; max-height: 80vh; }
+    #play_queue_panel h2 { font-size: 16dp; margin: 4dp 0; }
+    #play_queue_panel p { margin: 4dp 0; line-height: 15dp; font-size: 11dp; }
+    .queue_actions { margin-top: 5dp; }
+}

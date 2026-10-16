@@ -1,0 +1,4 @@
+/* Modal documents are full viewport surfaces; native modal ownership traps input. */
+.prime_modal { background-color: rgba(0,0,0,0); }
+#dialog_backdrop { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background-color: rgba(1,5,10,78%); }
+#dialog_content { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }

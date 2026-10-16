@@ -1,0 +1,40 @@
+#social_page { position: absolute; left: 3%; right: 3%; top: 3%; bottom: 3%; padding: 18dp; overflow-y: auto; background-color: rgba(2, 9, 16, 93%); }
+#social_page h1 { margin: 6dp 0 10dp; font-size: 28dp; line-height: 32dp; color: #ffffff; }
+#social_page h2, #social_confirmation h2 { margin: 0 0 12dp; font-size: 20dp; line-height: 25dp; color: #e0f2ff; }
+#social_page p, #social_confirmation p { line-height: 22dp; color: #b2cadc; }
+.social_header { display: flex; align-items: center; justify-content: space-between; }
+#social_self_id { width: 250dp; height: 36dp; font-family: "JetBrains Mono"; font-size: 13dp; background-color: rgba(5, 25, 43, 85%); color: #b2cadc; border: 1dp #537f9d; padding: 7dp; }
+.social_tabs, .social_searches, .social_commands, .social_paging { display: flex; flex-wrap: wrap; align-items: center; }
+.social_tabs { margin: 12dp 0; }
+.social_tabs button, .social_searches button, .social_commands button, .social_paging button { min-height: 42dp; padding: 10dp 13dp; margin: 0 7dp 7dp 0; font-size: 13dp; font-weight: bold; color: #cdeaff; border: 1dp rgba(114, 199, 255, 35%); background-color: rgba(5, 31, 53, 92%); }
+.social_tabs button.selected { border-bottom: 3dp #55e18c; background-color: rgba(13, 58, 62, 90%); }
+.social_searches { margin-bottom: 14dp; }
+.social_searches input { flex: 1; min-width: 180dp; height: 40dp; margin: 0 8dp 7dp 0; padding: 8dp; color: #e0f2ff; background-color: rgba(1, 8, 16, 95%); border: 1dp #537f9d; font-family: "JetBrains Mono"; font-size: 12dp; }
+.social_columns { display: flex; align-items: stretch; }
+.social_panel { padding: 16dp; border: 1dp rgba(114, 199, 255, 27%); background-color: rgba(4, 19, 33, 94%); }
+.social_list { width: 46%; margin-right: 14dp; }
+.social_details { flex: 1; }
+.social_row { display: block; width: 100%; min-height: 54dp; padding: 10dp 12dp; margin-bottom: 8dp; text-align: left; color: #d5eaff; border: 1dp rgba(114, 199, 255, 25%); background-color: rgba(9, 35, 57, 88%); }
+.social_row b, .social_row span { display: block; }
+.social_row b { font-size: 16dp; line-height: 21dp; }
+.social_row span { font-size: 13dp; line-height: 18dp; color: #91b9d5; }
+.social_row.selected { border-left: 4dp #55e18c; background-color: rgba(13, 58, 62, 90%); }
+.social_row:hover, .social_row:focus, .social_tabs button:hover, .social_tabs button:focus, .social_commands button:hover, .social_commands button:focus, .social_searches button:hover, .social_searches button:focus, .social_paging button:hover, .social_paging button:focus { border-color: #72c7ff; color: #ffffff; }
+.social_searches input:focus, #social_self_id:focus { border-color: #72c7ff; }
+.social_paging span { flex: 1; font-size: 12dp; color: #91b9d5; }
+.social_notice { white-space: pre-wrap; word-break: break-word; }
+.social_party_status, .social_privacy { margin-top: 14dp; }
+.social_status { margin: 14dp 0 10dp; padding: 12dp; border-left: 3dp #72c7ff; background-color: rgba(15, 41, 63, 85%); }
+.social_error { margin-bottom: 12dp; padding: 12dp; color: #ffb7bf; border: 1dp rgba(255, 120, 138, 60%); background-color: rgba(64, 17, 31, 80%); }
+.social_commands .social_danger { border-color: rgba(255, 120, 138, 65%); color: #ffcad0; }
+#social_confirmation { position: absolute; width: 520dp; max-width: 92%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+@media (max-width: 850dp) {
+    #social_page { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 12dp; }
+    .social_columns { display: block; }
+    .social_list, .social_details { width: 100%; margin: 0 0 12dp; }
+    .social_header { display: block; }
+    #social_page h1 { font-size: 25dp; line-height: 29dp; }
+    .social_panel { padding: 12dp; }
+}
+
+#social_page h1, #social_page h2, #social_page p, #social_confirmation h2, #social_confirmation p { display: block; }

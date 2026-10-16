@@ -1,0 +1,47 @@
+
+#license_page { position: absolute; top: 5%; left: 5%; width: 90%; height: 90%; color: #d7e1e9; }
+#license_page h1 { font-size: 26dp; margin: 0 0 12dp; }
+#license_page h2 { font-size: 19dp; margin: 5dp 0; color: #72dbdc; }
+#license_page h3 { font-size: 13dp; margin: 12dp 0 6dp; }
+#license_page p { font-size: 14dp; margin: 6dp 0; }
+.license_identity { background-color: #10202cee; border: 1dp #345567; padding: 10dp; }
+.license_identity span { margin-right: 16dp; }
+.license_tabs { margin: 10dp 0; }
+#license_page button { display: inline-block; font-size: 14dp; min-height: 44dp; margin: 3dp 6dp 3dp 0; padding: 8dp 12dp; background-color: #172a36; color: #d7e1e9; border: 1dp #365564; }
+#license_page button:hover, #license_page button:focus, #license_page button.selected { border-color: #72dbdc; background-color: #22414e; }
+#license_page button:disabled { opacity: 0.45; }
+.license_content { height: 54%; overflow-y: auto; background-color: #0e1a25ee; border: 1dp #345567; padding: 14dp; }
+.license_face { display: block; }
+.license_lines { white-space: pre-wrap; line-height: 24dp; font-size: 14dp; }
+.license_match { border-bottom: 1dp #345567; padding: 6dp 0; }
+.license_warning { color: #ffbc73; }
+.license_account_inputs { max-width: 560dp; }
+.license_account_inputs label { display: block; margin: 10dp 0 4dp; font-size: 14dp; }
+.license_account_inputs input { display: block; width: 94%; height: 44dp; padding: 7dp; border: 1dp #365564; background-color: #152631; color: #d7e1e9; font-size: 16dp; }
+.license_account_inputs input:focus { border-color: #72dbdc; }
+.license_footer { padding-top: 8dp; }
+@media (max-width: 850dp) {
+    #license_page { top: 3%; left: 3%; width: 94%; height: 94%; }
+    #license_page h1 { font-size: 19dp; }
+    #license_page button { padding: 7dp 9dp; font-size: 14dp; min-height: 44dp; }
+    .license_content { height: 45%; }
+}
+
+/* The whole route scrolls so landscape tabs cannot place the account fields
+   below an unreachable nested-scroll origin. Keep identity and every tab. */
+#license_page { overflow-y: auto; overflow-x: hidden; }
+#license_page h1, #license_page h2, #license_page h3, #license_page p { display: block; }
+.license_content { height: auto; min-height: 150dp; overflow-y: visible; }
+@media (max-height: 480dp) {
+ #license_page { top: 1%; height: 98%; }
+ #license_page h1 { font-size: 18dp; margin-bottom: 5dp; }
+ .license_identity { padding: 6dp; }
+ .license_identity h2 { font-size: 16dp; margin: 0 0 3dp; }
+ .license_identity p { margin: 3dp 0; }
+ .license_tabs { margin: 5dp 0; }
+ .license_content { padding: 10dp; min-height: 150dp; }
+}
+
+#license_page { font-size: 16dp; }
+#license_page p { line-height: 21dp; }
+.license_account_inputs label { line-height: 19dp; }

@@ -1,0 +1,30 @@
+<rml><head><link type="text/rcss" href="../../components/controls.rcss"/><title>Match menu</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="match.rcss"/></head>
+<body><div class="match-panel">
+<div class="eyebrow">MATCH MENU</div><h1 id="ingame_title">MATCH PAUSED</h1><p id="ingame_session"/>
+<div id="ingame_error" class="error"/>
+<div id="ingame_pause"><button id="ingame_resume" class="primary" data-action="ingame:resume">RESUME</button>
+<div class="match-actions">
+<button id="ingame_settings" data-action="ingame:settings">SETTINGS</button>
+<button id="ingame_fullscreen" data-action="ingame:fullscreen">TOGGLE FULLSCREEN</button>
+<button id="ingame_replay" data-action="ingame:replay">REPLAY CONTROLS</button>
+<button id="ingame_spectate" data-action="ingame:spectate">SPECTATE</button><button id="ingame_rejoin" data-action="ingame:rejoin">JOIN MATCH</button>
+<button id="ingame_record" data-action="ingame:recorder">RECORD REPLAY</button>
+<button id="ingame_bots" data-action="ingame:bots">MANAGE BOTS</button>
+<button id="ingame_return" data-action="ingame:return-lobby">RETURN TO LOBBY</button>
+<button id="ingame_propose" data-action="ingame:vote">PROPOSE MAP VOTE</button>
+<button id="ingame_vote_yes" data-action="ingame:vote-yes">ACCEPT MAP VOTE</button><button id="ingame_vote_no" data-action="ingame:vote-no">DENY MAP VOTE</button>
+</div><p id="ingame_vote_prompt"/><p id="ingame_vote_reason"/>
+<div class="match-actions"><button data-action="ingame:leave">LEAVE MATCH</button><button class="danger" data-action="ingame:quit">QUIT</button></div></div>
+<div id="ingame_vote"><h2>PROPOSE A MAP</h2><button id="ingame_map" data-action="ingame:map-next"/>
+<p>Cycle locally available arenas. The server checks whether the proposed map is valid.</p>
+<button class="primary" data-action="ingame:vote-submit">PROPOSE</button><button data-action="ingame:cancel">BACK</button></div>
+<div id="ingame_bots_panel"><h2>BOT ADMINISTRATION</h2><div id="ingame_bot_summary"/><div id="ingame_bot_selected" class="bot-state"/>
+<div class="match-actions"><button id="ingame_bot_select" data-action="ingame:bot-select">SELECT NEXT BOT</button>
+<button id="ingame_bot_hunter" data-action="ingame:bot-hunter">HUNTER</button><button id="ingame_bot_suit" data-action="ingame:bot-suit">SUIT</button>
+<button id="ingame_bot_skill" data-action="ingame:bot-skill">SKILL</button><button id="ingame_bot_team" data-action="ingame:bot-team">TEAM</button>
+<button id="ingame_bot_handicap" data-action="ingame:bot-handicap">DAMAGE REDUCTION</button></div>
+<p id="ingame_bot_teams"/><p>Hunter, suit, skill and team are a local draft until APPLY. Damage reduction sends its own server command. The server confirms every change.</p><p id="ingame_bot_status"/>
+<div class="match-actions"><button id="ingame_bot_apply" class="primary" data-action="ingame:bot-apply">APPLY BOT DRAFT</button>
+<button id="ingame_bot_add" data-action="ingame:bot-add">ADD BOT FROM DRAFT</button><button id="ingame_bot_remove" class="danger" data-action="ingame:bot-remove">REMOVE SELECTED BOT</button>
+<button id="ingame_bot_back" data-action="ingame:cancel">BACK</button></div></div>
+</div></body></rml>

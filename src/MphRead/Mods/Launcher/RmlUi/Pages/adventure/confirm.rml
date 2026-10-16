@@ -1,0 +1,21 @@
+<rml>
+<head>
+    <title>Replace Adventure save</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="saves.rcss" />
+</head>
+<body template="prime-dialog">
+    <div id="adventure_confirmation" class="adventure_panel">
+        <div class="eyebrow">ADVENTURE // NEW RUN</div>
+        <h2 id="adventure_overwrite_title" />
+        <p>Starting a new run replaces this slot's existing progress when saved.</p>
+        <div id="adventure_confirmation_error" class="adventure_notice adventure_error">
+            <div id="adventure_confirmation_error_text" />
+        </div>
+        <div class="adventure_actions">
+            <button id="adventure_cancel_new_run" class="play_action" data-action="adventure:cancel-new-run">CANCEL</button>
+            <button id="adventure_confirm_new_run" class="play_action adventure_danger" data-action="adventure:confirm-new-run">START NEW RUN</button>
+        </div>
+    </div>
+</body>
+</rml>
