@@ -132,7 +132,11 @@ public static class Q3Gameplay
             else if (name == "target_teleporter")
                 Warn($"{group.Count()} target_teleporter entity/entities require scripted activation that Prime does not simulate. Replace essential scripted routes.");
             else if (name.StartsWith("func_", StringComparison.Ordinal) && name != "func_group")
-                Warn($"{group.Count()} {name} entity/entities are not simulated. Their rendered surfaces may remain, but movement and brush-model collision are not imported. Replace essential doors, lifts or platforms with Prime geometry/routes.");
+            {
+                int validated = group.Count(e => TryModel(e.GetValueOrDefault("model"), bsp.Models.Count, out int model)
+                    && Q3MoverSource.TryRead(e, bsp.Models[model], model, 0, unitsPerUnit, out _, out _));
+                Warn($"{group.Count()} {name} entity/entities are not simulated ({validated} have valid source mover descriptors). Their visible faces may remain, but dynamic brush-model collision and passenger movement are not imported. Replace essential doors/lifts/platforms with native Prime geometry until runtime mover support is complete.");
+            }
             else if ((name.StartsWith("trigger_", StringComparison.Ordinal) && name != "trigger_push")
                 || (name.StartsWith("target_", StringComparison.Ordinal) && name is not ("target_position" or "target_location"))
                 || name.StartsWith("shooter_", StringComparison.Ordinal))
