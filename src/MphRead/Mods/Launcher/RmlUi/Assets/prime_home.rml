@@ -1,0 +1,409 @@
+<rml>
+<head>
+    <title>Project Prime</title>
+    <link type="text/rcss" href="prime_home.rcss" />
+</head>
+<body data-model="prime_menu">
+    <div id="screen" data-class-reduce-motion="reduce_motion" data-class-lobby="lobby_mode">
+        <div id="top_rule"></div>
+
+        <div id="topbar" class="enter_top">
+            <div id="brand">
+                <div id="brand_mark">P</div>
+                <div id="brand_copy">
+                    <div class="brand_title">PROJECT PRIME</div>
+                    <div class="brand_subtitle">HUNTERS ONLINE</div>
+                </div>
+            </div>
+
+            <div id="primary_nav">
+                <button id="nav_play" class="nav active" data-event-click="noop">PLAY</button>
+                <button id="nav_hunters" class="nav" data-event-click="nav_hunters">HUNTERS</button>
+                <button id="nav_community" class="nav" data-event-click="nav_community">COMMUNITY</button>
+                <button id="nav_studio" class="nav" data-event-click="nav_studio">STUDIO</button>
+            </div>
+
+            <div id="account_cluster">
+                <div class="online_dot"></div>
+                <div class="account_copy">
+                    <div class="account_name">{{player_name}}</div>
+                    <div class="account_meta">{{profile_state}}</div>
+                </div>
+                <button id="profile" class="utility" data-event-click="open_profile">PROFILE</button>
+            </div>
+        </div>
+
+        <div id="stage">
+            <div id="activity_panel" class="enter_left" data-if="home_mode">
+                <div id="activity_compact" data-class-hidden="activity_selector_open">
+                    <div class="eyebrow">{{activity_group}}</div>
+
+                    <button id="activity_selector" data-event-click="toggle_activity_selector">
+                        <span class="selector_art">
+                            <span class="selector_art_label">MODE</span>
+                        </span>
+                        <span class="selector_copy">
+                            <span class="selector_title">{{activity_title}}</span>
+                            <span class="selector_meta">{{activity_description}}</span>
+                            <span class="selector_hint">{{activity_hint}}</span>
+                        </span>
+                        <span class="selector_change">
+                            <span class="selector_change_label">CHANGE</span>
+                            <span class="selector_change_arrow">V</span>
+                        </span>
+                    </button>
+
+                    <div id="activity_status">
+                        <span>{{activity_hint}}</span>
+                        <span class="ready">READY</span>
+                    </div>
+
+                    <button id="deploy" data-event-click="deploy">
+                        <span class="deploy_kicker">{{activity_group}} ACTIVITY</span>
+                        <span class="deploy_label">{{activity_action}}</span>
+                        <span class="deploy_arrow">&gt;</span>
+                    </button>
+                </div>
+
+                <div id="activity_drawer" data-class-open="activity_selector_open">
+                    <div class="drawer_header">
+                        <div>
+                            <div class="eyebrow">PLAY</div>
+                            <div class="drawer_title">CHOOSE ACTIVITY</div>
+                        </div>
+                        <button id="drawer_close" data-event-click="close_activity_selector">CLOSE</button>
+                    </div>
+
+                    <div class="drawer_section">MULTIPLAYER</div>
+                    <button id="drawer_quick" class="drawer_item"
+                            data-class-selected="activity_index == 0"
+                            data-event-mouseover="preview_quick"
+                            data-event-focus="preview_quick"
+                            data-event-click="select_quick">
+                        <span class="drawer_code">01</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">QUICK PLAY</span>
+                            <span class="drawer_meta">Automatic public matchmaking</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 0">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <button id="drawer_browser" class="drawer_item"
+                            data-class-selected="activity_index == 1"
+                            data-event-mouseover="preview_browser"
+                            data-event-focus="preview_browser"
+                            data-event-click="select_browser">
+                        <span class="drawer_code">02</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">SERVER BROWSER</span>
+                            <span class="drawer_meta">Browse public and private sessions</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 1">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_section">LOCAL</div>
+                    <button id="drawer_offline" class="drawer_item"
+                            data-class-selected="activity_index == 2"
+                            data-event-mouseover="preview_offline"
+                            data-event-focus="preview_offline"
+                            data-event-click="select_offline">
+                        <span class="drawer_code">03</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">OFFLINE BATTLE</span>
+                            <span class="drawer_meta">Bots, training and custom rules</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 2">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_section">SOLO</div>
+                    <button id="drawer_adventure" class="drawer_item"
+                            data-class-selected="activity_index == 3"
+                            data-event-mouseover="preview_adventure"
+                            data-event-focus="preview_adventure"
+                            data-event-click="select_adventure">
+                        <span class="drawer_code">04</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">ADVENTURE</span>
+                            <span class="drawer_meta">Continue or load a solo save</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 3">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_footer">
+                        HOVER OR FOCUS TO PREVIEW THE MENU STAGE // SELECT TO CONFIRM
+                    </div>
+                </div>
+            </div>
+
+            <div id="hunter_caption" class="enter_hunter" data-if="home_mode">
+                <div class="hunter_rule"></div>
+                <div>
+                    <div class="eyebrow">ACTIVE HUNTER</div>
+                    <div id="hunter_name">{{hunter_name}}</div>
+                    <div id="hunter_meta">SELECTED LOADOUT</div>
+                </div>
+            </div>
+
+            <div id="session_panel" class="enter_right" data-if="home_mode">
+                <div class="session_header">
+                    <div class="eyebrow">CURRENT SESSION</div>
+                    <div class="session_state">SOLO</div>
+                </div>
+                <div class="session_player">
+                    <div class="session_badge">P</div>
+                    <div class="session_copy">
+                        <div class="session_name">{{player_name}}</div>
+                        <div class="session_meta">{{hunter_name}} // READY</div>
+                    </div>
+                </div>
+                <div class="session_slot">
+                    <span class="plus">+</span>
+                    <span>OPEN PARTY SLOT</span>
+                </div>
+                <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
+            </div>
+
+            <!-- New native multiplayer entry. The existing network services
+                 still own matching, server discovery and lobby creation. -->
+            <div id="multiplayer_stage" data-if="multiplayer_mode">
+                <div id="play_header" class="enter_left">
+                    <div class="eyebrow">PLAY // MULTIPLAYER</div>
+                    <div class="play_title">FIND YOUR NEXT HUNT</div>
+                    <div class="play_status">{{play_status}}</div>
+                </div>
+
+                <div id="play_browser" data-if="play_browser_mode" class="enter_left">
+                    <div class="play_toolbar">
+                        <button id="play_quick" class="play_action primary" data-event-click="play_quick">QUICK PLAY</button>
+                        <button id="play_create_open" class="play_action" data-event-click="play_create_open">CREATE LOBBY</button>
+                        <button id="play_refresh" class="play_action" data-event-click="play_browse">REFRESH</button>
+                        <button id="play_back" class="play_action" data-event-click="play_back">BACK</button>
+                    </div>
+                    <div class="play_panel">
+                        <div class="play_panel_head">
+                            <span>LIVE SERVER DIRECTORY</span>
+                            <span>{{play_server_count}}</span>
+                        </div>
+                        <button id="play_entry0" class="play_server" data-if="play_server0_present" data-event-click="play_server0"><b>{{play_server0_name}}</b><span>{{play_server0_details}}</span></button>
+                        <button id="play_entry1" class="play_server" data-if="play_server1_present" data-event-click="play_server1"><b>{{play_server1_name}}</b><span>{{play_server1_details}}</span></button>
+                        <button id="play_entry2" class="play_server" data-if="play_server2_present" data-event-click="play_server2"><b>{{play_server2_name}}</b><span>{{play_server2_details}}</span></button>
+                        <button id="play_entry3" class="play_server" data-if="play_server3_present" data-event-click="play_server3"><b>{{play_server3_name}}</b><span>{{play_server3_details}}</span></button>
+                        <button id="play_entry4" class="play_server" data-if="play_server4_present" data-event-click="play_server4"><b>{{play_server4_name}}</b><span>{{play_server4_details}}</span></button>
+                        <button id="play_entry5" class="play_server" data-if="play_server5_present" data-event-click="play_server5"><b>{{play_server5_name}}</b><span>{{play_server5_details}}</span></button>
+                        <button id="play_entry6" class="play_server" data-if="play_server6_present" data-event-click="play_server6"><b>{{play_server6_name}}</b><span>{{play_server6_details}}</span></button>
+                        <button id="play_entry7" class="play_server" data-if="play_server7_present" data-event-click="play_server7"><b>{{play_server7_name}}</b><span>{{play_server7_details}}</span></button>
+                        <div id="play_browser_empty" data-if="play_no_servers" class="play_empty">NO PUBLIC SESSIONS LISTED. CREATE YOUR OWN OR ENTER AN ADDRESS.</div>
+                    </div>
+                </div>
+
+                <div id="play_connect" class="enter_right" data-if="play_browser_mode">
+                    <div class="eyebrow">YOUR DEPLOYMENT</div>
+                    <div class="play_form_label">PLAYER NAME</div>
+                    <input id="play_player_name" class="play_input" type="text" maxlength="24" value="Player" />
+                    <div class="play_form_label">DIRECT CONNECT</div>
+                    <input id="play_join_address" class="play_input" type="text" maxlength="120" value="" />
+                    <button id="play_join" class="play_action primary wide" data-event-click="play_join">JOIN SERVER</button>
+                    <div class="play_form_hint">HOST OR HOST:PORT // SELECT A LIVE ROW TO JOIN INSTANTLY</div>
+                </div>
+
+                <div id="play_create" class="enter_left" data-if="play_create_mode">
+                    <div class="eyebrow">DEPLOYMENT // CREATE LOBBY</div>
+                    <div class="play_section_title">NEW MULTIPLAYER LOBBY</div>
+                    <div class="play_form_label">YOUR PLAYER NAME</div>
+                    <input id="play_create_player_name" class="play_input" type="text" maxlength="24" value="Player" />
+                    <div class="play_form_label">LOBBY NAME</div>
+                    <input id="play_create_name" class="play_input" type="text" maxlength="48" value="Project Prime lobby" />
+                    <div class="play_form_label">FIRST ARENA</div>
+                    <button id="play_next_map" class="play_choice" data-event-click="play_next_map">{{play_create_map}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_label">GAME TYPE</div>
+                    <button id="play_next_mode" class="play_choice" data-event-click="play_next_mode">{{play_create_mode_name}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_label">HOST LOCATION</div>
+                    <button id="play_toggle_host" class="play_choice" data-event-click="play_toggle_host">{{play_create_host}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_hint">DEFAULT 8 PLAYERS // ADVANCED RULES REMAIN AVAILABLE AFTER CREATION</div>
+                    <div class="play_toolbar">
+                        <button id="play_create_submit" class="play_action primary" data-event-click="play_create_submit">CREATE &amp; JOIN</button>
+                        <button id="play_create_cancel" class="play_action" data-event-click="play_back">BACK TO BROWSER</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lobby_stage" data-if="lobby_mode">
+                <div id="lobby_heading" class="enter_left">
+                    <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
+                    <div class="lobby_title">{{lobby_name}}</div>
+                    <div class="lobby_status_line">{{lobby_status}}</div>
+                </div>
+
+                <div id="lobby_match_panel" class="lobby_side_panel enter_left">
+                    <div class="eyebrow">NEXT MATCH</div>
+                    <div class="lobby_panel_title">{{lobby_mode_name}}</div>
+                    <div class="lobby_data_row"><span>ARENA</span><b>{{lobby_map}}</b></div>
+                    <div class="lobby_data_row"><span>FORMAT</span><b>{{lobby_format}}</b></div>
+                    <div class="lobby_data_row"><span>PLAYERS</span><b>{{lobby_player_count}}</b></div>
+                    <div class="lobby_data_row"><span>READY</span><b>{{lobby_ready_count}}</b></div>
+                    <button id="lobby_match_rules" class="lobby_small_button" data-event-click="lobby_rules_open">MAP / RULES &gt;</button>
+                </div>
+
+                <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
+                    <div class="lobby_roster_header">
+                        <div class="eyebrow">CONNECTED HUNTERS</div>
+                        <div class="lobby_roster_count">{{lobby_player_count}}</div>
+                    </div>
+
+                    <div class="lobby_roster_row" data-if="slot0_occupied" data-class-ready="slot0_ready" data-class-local="slot0_local">
+                        <span class="lobby_roster_index">1</span><span class="lobby_roster_copy"><b>{{slot0_name}}</b><span class="lobby_roster_hunter">{{slot0_hunter}}</span></span><span class="lobby_roster_state">{{slot0_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot1_occupied" data-class-ready="slot1_ready" data-class-local="slot1_local">
+                        <span class="lobby_roster_index">2</span><span class="lobby_roster_copy"><b>{{slot1_name}}</b><span class="lobby_roster_hunter">{{slot1_hunter}}</span></span><span class="lobby_roster_state">{{slot1_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot2_occupied" data-class-ready="slot2_ready" data-class-local="slot2_local">
+                        <span class="lobby_roster_index">3</span><span class="lobby_roster_copy"><b>{{slot2_name}}</b><span class="lobby_roster_hunter">{{slot2_hunter}}</span></span><span class="lobby_roster_state">{{slot2_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot3_occupied" data-class-ready="slot3_ready" data-class-local="slot3_local">
+                        <span class="lobby_roster_index">4</span><span class="lobby_roster_copy"><b>{{slot3_name}}</b><span class="lobby_roster_hunter">{{slot3_hunter}}</span></span><span class="lobby_roster_state">{{slot3_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot4_occupied" data-class-ready="slot4_ready" data-class-local="slot4_local">
+                        <span class="lobby_roster_index">5</span><span class="lobby_roster_copy"><b>{{slot4_name}}</b><span class="lobby_roster_hunter">{{slot4_hunter}}</span></span><span class="lobby_roster_state">{{slot4_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot5_occupied" data-class-ready="slot5_ready" data-class-local="slot5_local">
+                        <span class="lobby_roster_index">6</span><span class="lobby_roster_copy"><b>{{slot5_name}}</b><span class="lobby_roster_hunter">{{slot5_hunter}}</span></span><span class="lobby_roster_state">{{slot5_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot6_occupied" data-class-ready="slot6_ready" data-class-local="slot6_local">
+                        <span class="lobby_roster_index">7</span><span class="lobby_roster_copy"><b>{{slot6_name}}</b><span class="lobby_roster_hunter">{{slot6_hunter}}</span></span><span class="lobby_roster_state">{{slot6_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot7_occupied" data-class-ready="slot7_ready" data-class-local="slot7_local">
+                        <span class="lobby_roster_index">8</span><span class="lobby_roster_copy"><b>{{slot7_name}}</b><span class="lobby_roster_hunter">{{slot7_hunter}}</span></span><span class="lobby_roster_state">{{slot7_state}}</span>
+                    </div>
+                </div>
+
+                <div id="lobby_slot0" class="lobby_nameplate local" data-if="slot0_occupied"><b>{{slot0_name}}</b><span>{{slot0_hunter}} // {{slot0_state}}</span></div>
+                <div id="lobby_slot1" class="lobby_nameplate" data-if="slot1_occupied"><b>{{slot1_name}}</b><span>{{slot1_hunter}}</span></div>
+                <div id="lobby_slot2" class="lobby_nameplate" data-if="slot2_occupied"><b>{{slot2_name}}</b><span>{{slot2_hunter}}</span></div>
+                <div id="lobby_slot3" class="lobby_nameplate" data-if="slot3_occupied"><b>{{slot3_name}}</b><span>{{slot3_hunter}}</span></div>
+                <div id="lobby_slot4" class="lobby_nameplate" data-if="slot4_occupied"><b>{{slot4_name}}</b><span>{{slot4_hunter}}</span></div>
+                <div id="lobby_slot5" class="lobby_nameplate" data-if="slot5_occupied"><b>{{slot5_name}}</b><span>{{slot5_hunter}}</span></div>
+                <div id="lobby_slot6" class="lobby_nameplate" data-if="slot6_occupied"><b>{{slot6_name}}</b><span>{{slot6_hunter}}</span></div>
+                <div id="lobby_slot7" class="lobby_nameplate" data-if="slot7_occupied"><b>{{slot7_name}}</b><span>{{slot7_hunter}}</span></div>
+
+                <div id="lobby_actions" class="enter_bottom">
+                    <button id="lobby_ready" class="lobby_action primary" data-if="lobby_require_ready" data-event-click="lobby_ready">{{lobby_ready_action}}</button>
+                    <button id="lobby_hunter" class="lobby_action" data-event-click="lobby_next_hunter">HUNTER // {{lobby_local_hunter}}</button>
+                    <button id="lobby_suit" class="lobby_action" data-event-click="lobby_next_suit">NEXT SUIT</button>
+                    <button id="lobby_rules" class="lobby_action" data-event-click="lobby_rules_open">LOBBY RULES</button>
+                    <button id="lobby_leave" class="lobby_action danger" data-event-click="lobby_leave">LEAVE</button>
+                    <button id="lobby_start" class="lobby_action start" data-if="lobby_owner" data-event-click="lobby_start">START MATCH</button>
+                </div>
+
+                <!-- Owner edits are staged locally and sent only by APPLY.
+                     The authoritative NetSession rules stay on the server. -->
+                <div id="lobby_rules_modal" data-if="lobby_rules_open">
+                    <div id="lobby_rules_dimmer"></div>
+                    <div id="lobby_rules_sheet">
+                        <div class="rules_heading">
+                            <div>
+                                <div class="eyebrow">MULTIPLAYER // SESSION AUTHORITY</div>
+                                <div class="rules_title">LOBBY RULES</div>
+                            </div>
+                            <button id="rules_close_top" class="play_action" data-event-click="lobby_rules_close">CLOSE</button>
+                        </div>
+
+                        <div class="rules_columns">
+                            <div class="rules_main">
+                                <div class="eyebrow">MATCH CONFIGURATION</div>
+                                <div class="play_form_label">NEXT ARENA</div>
+                                <button id="rules_map_next" class="rules_choice" data-event-click="lobby_rules_map">
+                                    <span>{{rules_map}}</span><span class="rules_change">&gt;</span>
+                                </button>
+                                <div class="play_form_label">GAME TYPE</div>
+                                <button id="rules_mode_next" class="rules_choice" data-event-click="lobby_rules_mode">
+                                    <span>{{rules_mode}}</span><span class="rules_change">&gt;</span>
+                                </button>
+                                <div class="play_form_label">MATCHUP / TEAMS</div>
+                                <button id="rules_format_next" class="rules_choice" data-event-click="lobby_rules_format">
+                                    <span>{{rules_format}}</span><span class="rules_change">&gt;</span>
+                                </button>
+
+                                <div class="rules_limit_row">
+                                    <div class="rules_limit">
+                                        <div class="play_form_label">TIME LIMIT</div>
+                                        <input id="rules_time" class="play_input" type="text" maxlength="8" value="7:00" />
+                                    </div>
+                                    <div class="rules_limit">
+                                        <div class="play_form_label">{{rules_goal_label}}</div>
+                                        <input id="rules_goal" class="play_input" type="text" maxlength="8" value="7" />
+                                    </div>
+                                </div>
+                                <div class="rules_hint">MINUTES OR M:SS // LIVES DISPLAY INCLUDES FIRST LIFE</div>
+                            </div>
+
+                            <div class="rules_flags">
+                                <div class="eyebrow">MATCH &amp; GAMEPLAY</div>
+                                <div class="rules_toggle_columns">
+                                    <div class="rules_toggle_column">
+                                        <button id="rules_toggle0" class="rules_toggle" data-event-click="lobby_rules_toggle0">REQUIRE READY <span>{{rules_toggle0}}</span></button>
+                                        <button id="rules_toggle1" class="rules_toggle" data-event-click="lobby_rules_toggle1">JOIN IN PROGRESS <span>{{rules_toggle1}}</span></button>
+                                        <button id="rules_toggle2" class="rules_toggle" data-event-click="lobby_rules_toggle2">LOCK TEAMS <span>{{rules_toggle2}}</span></button>
+                                        <button id="rules_toggle3" class="rules_toggle" data-event-click="lobby_rules_toggle3">OPPONENT HEALTH <span>{{rules_toggle3}}</span></button>
+                                        <button id="rules_toggle4" class="rules_toggle" data-event-click="lobby_rules_toggle4">POWERUPS <span>{{rules_toggle4}}</span></button>
+                                        <button id="rules_toggle5" class="rules_toggle" data-event-click="lobby_rules_toggle5">SPAWN PROTECTION <span>{{rules_toggle5}}</span></button>
+                                        <button id="rules_toggle6" class="rules_toggle" data-event-click="lobby_rules_toggle6">AFFINITY WEAPONS <span>{{rules_toggle6}}</span></button>
+                                        <button id="rules_toggle7" class="rules_toggle" data-event-click="lobby_rules_toggle7">FRIENDLY FIRE <span>{{rules_toggle7}}</span></button>
+                                    </div>
+                                    <div class="rules_toggle_column">
+                                        <button id="rules_toggle8" class="rules_toggle" data-event-click="lobby_rules_toggle8">BALANCED MODE <span>{{rules_toggle8}}</span></button>
+                                        <button id="rules_toggle9" class="rules_toggle" data-event-click="lobby_rules_toggle9">INSTA-GIB <span>{{rules_toggle9}}</span></button>
+                                        <button id="rules_toggle10" class="rules_toggle" data-event-click="lobby_rules_toggle10">LOW TIER <span>{{rules_toggle10}}</span></button>
+                                        <button id="rules_toggle11" class="rules_toggle" data-event-click="lobby_rules_toggle11">NO IMPERIALIST <span>{{rules_toggle11}}</span></button>
+                                        <button id="rules_toggle12" class="rules_toggle" data-event-click="lobby_rules_toggle12">FIESTA <span>{{rules_toggle12}}</span></button>
+                                        <button id="rules_toggle13" class="rules_toggle" data-event-click="lobby_rules_toggle13">VANILLA 1V1 PICKUPS <span>{{rules_toggle13}}</span></button>
+                                        <button id="rules_toggle14" class="rules_toggle" data-event-click="lobby_rules_toggle14">SHADOW FREEZE <span>{{rules_toggle14}}</span></button>
+                                        <button id="rules_toggle15" class="rules_toggle" data-event-click="lobby_rules_toggle15">OCTOLITH RESET <span>{{rules_toggle15}}</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="rules_status">{{rules_status}}</div>
+                        <div class="rules_footer">
+                            <div class="rules_owner_message" data-if="rules_owner">CHANGES ARE SUBMITTED TO THE SERVER ONLY WHEN YOU APPLY.</div>
+                            <div class="rules_owner_message" data-if="!rules_owner">VIEW ONLY // THE LOBBY OWNER CONTROLS THESE SETTINGS.</div>
+                            <button id="rules_classic" class="play_action" data-event-click="lobby_classic">OTHER OPTIONS</button>
+                            <button id="rules_cancel" class="play_action" data-event-click="lobby_rules_close">CANCEL</button>
+                            <button id="rules_apply" class="play_action primary" data-if="rules_owner" data-event-click="lobby_rules_apply">APPLY RULES</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="diagnostics_panel" data-class-open="diagnostics_visible">
+            <div class="diag_header">
+                <span>UI DIAGNOSTICS</span>
+                <span class="diag_key">F10</span>
+            </div>
+            <div class="diag_row"><span>LIBRARY</span><b>RMLUI 6.3</b></div>
+            <div class="diag_row"><span>RENDERER</span><b>{{renderer_name}}</b></div>
+            <div class="diag_row"><span>GAME DATA</span><b>{{game_data_state}}</b></div>
+            <div class="diag_row"><span>SUBMIT</span><b>{{ui_cost}}</b></div>
+        </div>
+
+        <div id="footerbar" class="enter_bottom">
+            <div id="build_info">
+                <span class="blue">BUILD {{build_version}}</span>
+                <span class="divider">//</span>
+                <span>PROJECT PRIME CLIENT</span>
+            </div>
+            <div id="footer_actions" data-if="home_mode">
+                <button class="footer_button" data-event-click="open_classic">NEWS</button>
+                <button class="footer_button" data-event-click="open_settings">SETTINGS</button>
+                <button class="footer_button danger" data-event-click="quit_game">QUIT</button>
+            </div>
+            <div id="lobby_footer_state" data-if="lobby_mode">{{lobby_status}}</div>
+        </div>
+    </div>
+</body>
+</rml>

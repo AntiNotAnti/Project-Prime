@@ -39,6 +39,9 @@ jobs:
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
+      - name: compile opt-in RmlUi OpenGL smoke bridge
+        run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
+
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
