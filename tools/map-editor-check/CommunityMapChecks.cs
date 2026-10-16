@@ -197,14 +197,19 @@ internal static class CommunityMapChecks
             corruptListener.Prefixes.Add(corruptAddress);
             corruptListener.Start();
             int corruptResponses = 0;
+            // HttpListener.Stop() can abort a pending GetContextAsync() before
+            // IsListening becomes false on Windows (HttpListenerException 995).
+            // Record the intended shutdown *before* stopping the listener so
+            // unexpected transport failures still propagate during the test.
+            using var corruptShutdown = new CancellationTokenSource();
             async Task ServeCorruptDownloadsAsync()
             {
-                while (corruptListener.IsListening)
+                while (!corruptShutdown.IsCancellationRequested)
                 {
                     HttpListenerContext request;
                     try { request = await corruptListener.GetContextAsync(); }
-                    catch (HttpListenerException) when (!corruptListener.IsListening) { return; }
-                    catch (ObjectDisposedException) when (!corruptListener.IsListening) { return; }
+                    catch (HttpListenerException) when (corruptShutdown.IsCancellationRequested) { return; }
+                    catch (ObjectDisposedException) when (corruptShutdown.IsCancellationRequested) { return; }
                     try
                     {
                         if (request.Request.HttpMethod != HttpMethod.Get.Method
@@ -235,6 +240,9 @@ internal static class CommunityMapChecks
             }
             finally
             {
+                // Set the marker first: the abort from Stop is expected only
+                // during cleanup, not while serving the corrupted response.
+                corruptShutdown.Cancel();
                 corruptListener.Stop();
                 await corruptServer;
             }
