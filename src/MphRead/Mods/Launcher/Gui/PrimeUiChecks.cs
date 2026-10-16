@@ -301,6 +301,8 @@ namespace MphRead.Mods.Launcher.Gui
             // live transfer journal or contacting any Community endpoint.
             using var entered = new ManualResetEventSlim(false);
             using var release = new ManualResetEventSlim(false);
+            using var localEntered = new ManualResetEventSlim(false);
+            using var localRelease = new ManualResetEventSlim(false);
             var community = new CommunityWorkspace(new PrimeOverlayHost(),
                 fixture: CommunitySample(),
                 transferFactory: () =>
@@ -309,6 +311,13 @@ namespace MphRead.Mods.Launcher.Gui
                     if (!release.Wait(TimeSpan.FromSeconds(5)))
                         throw new IOException("Intentional stalled transfer fixture timed out.");
                     throw new IOException("Intentional transfer fixture shutdown.");
+                },
+                localLibraryReader: () =>
+                {
+                    localEntered.Set();
+                    if (!localRelease.Wait(TimeSpan.FromSeconds(5)))
+                        throw new IOException("Intentional installed-map fixture timed out.");
+                    throw new IOException("Intentional installed-map fixture shutdown.");
                 });
             try
             {
@@ -319,6 +328,8 @@ namespace MphRead.Mods.Launcher.Gui
                     "Community tab activation never waits for transfer index locks");
                 Check(entered.Wait(TimeSpan.FromSeconds(5)),
                     "Community transfer setup runs on a background worker");
+                Check(localEntered.Wait(TimeSpan.FromSeconds(5)),
+                    "first installed-map registry load also runs off the UI thread");
                 Check(community.GetVisualDescendants().OfType<UiListRow>()
                     .Any(row => Equals(row.Choice, CommunitySample()[0].MapId))
                     || community.Content != null,
@@ -329,6 +340,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 community.Dispose();
                 release.Set();
+                localRelease.Set();
             }
         }
 
