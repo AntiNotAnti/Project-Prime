@@ -74,6 +74,25 @@ public static class MapCommunityServer
         var objectStore = new CommunityObjectStore(storage, mirrorEnabled
             ? Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_CDN_BASE")
             : null);
+        // Only browser origins explicitly approved by the map-service operator may
+        // use the Community API cross-origin. Native game clients do not send Origin.
+        // The default is intentionally limited to the official production website.
+        string allowedOriginSetting = Environment.GetEnvironmentVariable(
+            "PROJECT_PRIME_MAP_CORS_ORIGINS")
+            ?? "https://projectprime.gg,https://www.projectprime.gg";
+        var browserOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string candidate in allowedOriginSetting.Split(',',
+                     StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out Uri? origin)
+                || origin.UserInfo.Length != 0 || origin.Query.Length != 0
+                || origin.Fragment.Length != 0 || origin.AbsolutePath != "/"
+                || (origin.Scheme != Uri.UriSchemeHttps
+                    && !(origin.Scheme == Uri.UriSchemeHttp && origin.IsLoopback)))
+                throw new InvalidOperationException(
+                    "PROJECT_PRIME_MAP_CORS_ORIGINS must contain HTTPS origins (loopback HTTP allowed).");
+            browserOrigins.Add(origin.GetLeftPart(UriPartial.Authority));
+        }
         long publishedBytes = maps.Values.Sum(m => m.Bytes);
         DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
         object lifecycleSweepGate = new();
@@ -498,6 +517,35 @@ public static class MapCommunityServer
             try
             {
                 await SweepLifecycleIfDue(deadline.Token);
+                // Browser upload requests use Authorization and Content-Type,
+                // which require an OPTIONS preflight. Respond before identity
+                // verification, never echo arbitrary Origin values, and apply
+                // headers to error responses as well as successful requests.
+                string? browserOrigin = context.Request.Headers["Origin"];
+                bool allowedBrowserOrigin = browserOrigin != null
+                    && browserOrigins.Contains(browserOrigin);
+                if (allowedBrowserOrigin)
+                {
+                    context.Response.Headers["Access-Control-Allow-Origin"] = browserOrigin!;
+                    context.Response.Headers["Vary"] = "Origin";
+                    context.Response.Headers["Access-Control-Expose-Headers"] =
+                        "ETag, X-Total-Count, Accept-Ranges, Content-Range, Retry-After";
+                }
+                if (context.Request.HttpMethod == "OPTIONS")
+                {
+                    if (!allowedBrowserOrigin)
+                    {
+                        context.Response.StatusCode = 403;
+                        return;
+                    }
+                    context.Response.Headers["Access-Control-Allow-Methods"] =
+                        "GET, POST, PUT, DELETE, OPTIONS";
+                    context.Response.Headers["Access-Control-Allow-Headers"] =
+                        "Authorization, Content-Type, Accept, Range, If-None-Match";
+                    context.Response.Headers["Access-Control-Max-Age"] = "600";
+                    context.Response.StatusCode = 204;
+                    return;
+                }
                 string route = context.Request.Url!.AbsolutePath.TrimEnd('/');
                 string root = new Uri(prefix).AbsolutePath.TrimEnd('/');
                 string? authorization=context.Request.Headers["Authorization"];

@@ -95,6 +95,40 @@ try
         firstAddress = started.Url;
         using var http = started.Client;
         using var api = new MapCommunityClient(firstAddress, secret);
+        // The public site must be able to preflight cross-origin, authenticated
+        // browser PUT/POST operations. No wildcard or origin reflection is allowed.
+        using (var browser = new HttpClient { BaseAddress = new Uri(firstAddress) })
+        {
+            using var preflight = new HttpRequestMessage(HttpMethod.Options,
+                "uploads/" + new string('a', 64));
+            preflight.Headers.TryAddWithoutValidation("Origin", "https://projectprime.gg");
+            preflight.Headers.TryAddWithoutValidation("Access-Control-Request-Method", "PUT");
+            preflight.Headers.TryAddWithoutValidation("Access-Control-Request-Headers",
+                "authorization,content-type");
+            using var allowed = await browser.SendAsync(preflight);
+            Check(allowed.StatusCode == HttpStatusCode.NoContent
+                && allowed.Headers.TryGetValues("Access-Control-Allow-Origin", out var origins)
+                && origins.Single() == "https://projectprime.gg"
+                && allowed.Headers.TryGetValues("Access-Control-Allow-Headers", out var headers)
+                && headers.Single().Contains("Authorization", StringComparison.Ordinal),
+                "approved website receives authenticated upload CORS preflight");
+
+            using var hostile = new HttpRequestMessage(HttpMethod.Options, "v2/maps");
+            hostile.Headers.TryAddWithoutValidation("Origin", "https://untrusted.example");
+            using var rejected = await browser.SendAsync(hostile);
+            Check(rejected.StatusCode == HttpStatusCode.Forbidden
+                && !rejected.Headers.Contains("Access-Control-Allow-Origin"),
+                "unapproved browser origin cannot preflight the Community API");
+
+            using var anonymous = new HttpRequestMessage(HttpMethod.Get, "v2/maps");
+            anonymous.Headers.TryAddWithoutValidation("Origin", "https://www.projectprime.gg");
+            using var publicList = await browser.SendAsync(anonymous);
+            Check(publicList.IsSuccessStatusCode
+                && publicList.Headers.TryGetValues("Access-Control-Allow-Origin", out var readOrigins)
+                && readOrigins.Single() == "https://www.projectprime.gg"
+                && publicList.Headers.Vary.Contains("Origin"),
+                "public browser catalog response varies by approved Origin");
+        }
         var caps = await api.GetCapabilitiesAsync();
         Check(caps is { ApiVersion: 3, LegacyApiVersion: 2,
             SupportsSequentialResumableUploads: true,
