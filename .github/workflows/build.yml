@@ -107,7 +107,7 @@ jobs:
       - name: compile pinned RmlUi GL2 native bridge
         run: PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh linux-x64 gl2
       - name: compile current-engine GL frame fixture
-        run: dotnet build tools/rmlui-opengl-check -c Release
+        run: dotnet build tools/rmlui-opengl-check -c Release -m:1 -p:BuildInParallel=false
       - name: validate native Home pixels and terminal OpenGL state
         run: |
           set -euo pipefail
