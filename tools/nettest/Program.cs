@@ -99,6 +99,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--instagib-ion-fracture") return InstagibIonFractureTests.Run();
             if (args.Length > 0 && args[0] == "--browser-join") return BrowserJoinTests.Run();
             if (args.Length > 0 && args[0] == "--map-vote-ready") return MapVoteReadyTests.Run();
+            if (args.Length > 0 && args[0] == "--animation-sampling") return AnimationSamplingTests.Run();
             if (args.Length > 0 && args[0] == "--outline-colors") return OutlineColorTests.Run();
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--post-match-save") return PostMatchSaveTests.Run();

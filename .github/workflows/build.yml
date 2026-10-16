@@ -371,6 +371,8 @@ jobs:
         run: dotnet run --project tools/lobby-waitlist-check -c Release
       - name: custom map vote output and immutable manifest regressions
         run: dotnet run --project tools/nettest -c Release -- --map-vote-ready
+      - name: canonical animation frame-prediction and sample-isolation regressions
+        run: dotnet run --project tools/nettest -c Release -- --animation-sampling
       - name: retired live rules, archived wire state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle
