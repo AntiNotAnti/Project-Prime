@@ -1,0 +1,88 @@
+# External content port: pinned source and compatibility contract
+
+Status: implementation inventory only; not an enabled content port. This document and
+`second-hunt-manifest.json` are source-code review artifacts, not extracted Nintendo data.
+
+## Source pin
+
+- Source: [Second Hunt](https://github.com/BountyHunterKanden/SecondHunt/tree/c16a907b3658c2fd4079e394a73711596a85caee)
+  at `c16a907b3658c2fd4079e394a73711596a85caee` (do **not** assume later upstream commits are compatible).
+- Target baseline: [Project Prime](https://github.com/AntiNotAnti/Project-Prime/tree/ebbf3c51fa6f205ac3b8c952f4f3ab67d0e7cc80)
+  at `ebbf3c51fa6f205ac3b8c952f4f3ab67d0e7cc80`.
+- Upstream code is MIT-licensed with notices; the MIT code license does not license
+  Nintendo/Retro Studios meshes, music, disc images, textures or cutscenes.
+- Review the files and notices when adapting code. Do not vendor ROM, PAK, MREA,
+  generated body/model/collision archives, or disc keys. Generated game material
+  must stay on the importing user's machine.
+
+## Exactly what the source offers
+
+Playable identities: `darksamus` (Samus-equivalent simulation and separate
+Echoes/Corruption native visual rigs) and `trooper` (Weavel-derived but NEW
+wall-cling, Scout Drone, Pirate Blaster gameplay). Four Trooper looks are skins
+of a single identity, not four character kits. Dark Samus is not a Samus skin.
+
+Six Echoes multiplayer arenas: Sidehopper Station, Spires, Crossfire Chaos,
+Pipeline, Spider Complex, Shooting Gallery. Each has a recipe to locate the
+user-provided Echoes assets. Arena conversion builds new collision, entity
+spawns, pickups, navigation, and HD presentation. Arena-specific movement and
+interactions MUST remain independently testable.
+
+Useful upstream references at the pinned SHA:
+- `docs/CHARACTERS_AND_SKINS.md`, `src/MphRecomp.Core/Multiplayer/Characters.cs`
+- `src/MphRead/Entities/Players/PlayerWallCling.cs`
+- `src/MphRead/Entities/Players/PlayerScoutDrone.cs`,
+  `src/MphRead/Entities/Players/PlayerDroneLaser.cs`
+- `src/MphRecomp.Core/Arenas/EchoesArena.cs`,
+  `src/MphRecomp.Core/Arenas/EchoesMovement.cs`
+- `src/MphRecomp.Core/Import/Disc/GcDisc.cs`,
+  `src/MphRecomp.Core/Import/Disc/DiscFileSystem.cs`
+- `recipes/arenas/*.json`, `recipes/bodies/*.json`
+
+## Project Prime integration invariants
+
+1. Existing `Hunter` numeric IDs, original hunter balance, and vanilla
+   character behavior are unchanged. Introduce a separate stable character ID
+   in match setup and a locally resolved cosmetic ID; no enum renumbering.
+2. The dedicated server owns legal movement, hit detection, drone/projectile
+   spawn, damage, destructible geometry and pickup mutation. Never adopt the
+   upstream peer/relay networking as Project Prime authoritative networking.
+3. Imported skins are strictly draw-only and cannot change hurtboxes or physics.
+   Clients missing a skin render a locally generated native MPH look-alike;
+   no proprietary model/texture is transferred over the network.
+4. Imported map collisions MUST match exactly across participating clients and
+   the dedicated server. Missing Echoes assets are a join precondition failure,
+   not an instruction to silently use different collision. Avoid publishing
+   generated commercial game assets into Community map packages.
+5. Stable map identity, namespace and content fingerprints must use Project
+   Prime's existing map registration/package paths. Never replace historical
+   room IDs, saved maps or replay asset references.
+6. All new gameplay remains disabled unless the host explicitly enables it.
+   Preserve legacy replay decoding, 60 Hz sim, ordinary hunter movement,
+   vanilla maps and backward-compatible default rules.
+7. Source import validates disc header, FST boundaries, recipe version and
+   hashes before reading; it reads from a user-supplied file or extracted
+   local tree, not from a network service. Failed imports leave active state
+   unchanged. No import work on the render frame thread.
+8. The menu must distinguish available/local, not imported, incomplete,
+   incompatible source and unsupported compressed/edition formats.
+9. Test Windows, Linux, Android, headless server, 1v1, four- and eight-player
+   matches, offline bots, wrong-source rejections, interrupted import, replay
+   playback/seek, deterministic damage and no local asset leakage.
+
+## Reviewable PR sequence
+
+- 00 inventory and asset-free acceptance gate (this change).
+- 01 source import foundation: bounded, read-only GameCube FST and validation;
+  expanded RVZ/WIA/Wii support only with actual regression fixtures.
+- 02 Dark Samus vertical slice: identity, imported native visual rigs, fallback.
+- 03 one Echoes arena to native Project Prime map runtime: Spires.
+- 04 other five arenas, mechanics and map mode capabilities.
+- 05 Echoes-only movement and authoritative dynamic map state.
+- 06 Trooper body, selector and authoritative wall cling.
+- 07 Scout Drone and Pirate Blaster authority, replication and replay support.
+- 08 cross-platform device/performance and backward-compatibility signoff.
+
+**Validation truth:** inventory/asset-free tests are not evidence that any new
+character/arena is playable. Each later PR must report actual imports, builds,
+tests and evidence instead of marking acceptance complete on metadata alone.
