@@ -69,6 +69,28 @@ namespace MphRead.Mods.Update
         public static string? LastReason { get; private set; }
 
         /// <summary>
+        /// Safe, actionable category for managed HTTP failures. The native
+        /// Android HttpClient handler already manages its own CA store;
+        /// never echo exception messages, URLs, tokens or request headers.
+        /// </summary>
+        internal static string TransportFailureReason(Exception ex)
+        {
+            for (Exception? cause = ex; cause != null; cause = cause.InnerException)
+            {
+                if (cause is System.Security.Authentication.AuthenticationException)
+                    return "could not reach GitHub (TLS certificate validation or handshake failed)";
+                if (cause is System.Net.Sockets.SocketException socket)
+                    return "could not reach GitHub (DNS/socket " + socket.SocketErrorCode + ")";
+            }
+            return ex switch
+            {
+                OperationCanceledException => "could not reach GitHub (request timed out or cancelled)",
+                NotSupportedException => "could not reach GitHub (platform HTTP handler unsupported)",
+                _ => "could not reach GitHub (" + ex.GetType().Name + ")"
+            };
+        }
+
+        /// <summary>
         /// The release worth installing over this build, or null.
         ///
         /// Null covers every ordinary case -- already current, no network, a
@@ -147,7 +169,7 @@ namespace MphRead.Mods.Update
             {
                 // Offline, GitHub down, DNS hijacked by a hotel: all the same
                 // thing here, which is "not now".
-                LastReason = $"could not reach GitHub ({ex.GetType().Name})";
+                LastReason = TransportFailureReason(ex);
                 return null;
             }
             return json;
@@ -197,7 +219,7 @@ namespace MphRead.Mods.Update
             }
             catch (Exception ex)
             {
-                LastReason = $"could not reach GitHub ({ex.GetType().Name})";
+                LastReason = TransportFailureReason(ex);
                 return Array.Empty<UpdateInfo>();
             }
             return ParseReleases(json, limit);
@@ -350,7 +372,7 @@ namespace MphRead.Mods.Update
             }
             catch (Exception ex)
             {
-                LastReason = $"could not reach GitHub ({ex.GetType().Name})";
+                LastReason = TransportFailureReason(ex);
                 return null;
             }
         }
