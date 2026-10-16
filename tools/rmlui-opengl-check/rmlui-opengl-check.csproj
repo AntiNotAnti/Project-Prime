@@ -4,9 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Propagate the opt-in symbol through the entire reference graph. -->
+    <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/MphRead/MphRead.csproj"
-                      AdditionalProperties="MphReadRmlUiGlSmoke=true" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
   </ItemGroup>
 </Project>
