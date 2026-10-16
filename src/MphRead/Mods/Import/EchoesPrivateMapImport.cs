@@ -19,11 +19,11 @@ public static class EchoesPrivateMapImport
     public static MapDefinition ReadSpires(string isoPath) =>
         ReadSelectedArenas(isoPath, new[] { "M02_Spires" }).Single();
 
-    public static IReadOnlyList<MapDefinition> ReadAllArenas(string isoPath) =>
-        ReadSelectedArenas(isoPath, EchoesArenaSources.All.Select(x => x.Key).ToArray());
+    public static IReadOnlyList<MapDefinition> ReadAllArenas(string isoPath, bool sourceVisuals = false) =>
+        ReadSelectedArenas(isoPath, EchoesArenaSources.All.Select(x => x.Key).ToArray(), sourceVisuals);
 
     private static IReadOnlyList<MapDefinition> ReadSelectedArenas(
-        string isoPath, IReadOnlyCollection<string> keys)
+        string isoPath, IReadOnlyCollection<string> keys, bool sourceVisuals = false)
     {
         using var disc = GameCubeDiscReader.Open(isoPath);
         if (disc.Game != ExternalGameKind.Echoes)
@@ -42,9 +42,15 @@ public static class EchoesPrivateMapImport
             if (!pak.Contains(arena.ResourceId) || pak.Entry(arena.ResourceId).Type != "MREA")
                 throw new InvalidDataException(arena.Name + " MREA is missing from the supplied Echoes source.");
             EchoesMreaSections area = EchoesMreaSections.Parse(pak.ReadResource(arena.ResourceId));
-            maps.Add(EchoesLocalMapDraft.BuildArena(
+            MapDefinition draft = EchoesLocalMapDraft.BuildArena(
                 arena, EchoesCollisionSource.Read(area), EchoesScriptSource.Read(area),
-                verified.ActualSha1!));
+                verified.ActualSha1!);
+            // Source world meshes are an independent, explicitly opt-in
+            // visual channel. The collision remains the original MREA
+            // physics geometry and never derives from the render model.
+            if (sourceVisuals)
+                draft = EchoesVisualLayer.CreatePreview(draft, EchoesWorldGeometrySource.Read(area));
+            maps.Add(draft);
         }
         if (maps.Count != keys.Count)
             throw new InvalidDataException("The requested Echoes arena inventory is incomplete.");
@@ -56,6 +62,9 @@ public static class EchoesPrivateMapImport
 
     public static IReadOnlyList<string> InstallAllArenas(string isoPath, string userMapDirectory) =>
         InstallLocalDefinitions(ReadAllArenas(isoPath), userMapDirectory);
+
+    public static IReadOnlyList<string> InstallVisualPreviews(string isoPath, string userMapDirectory) =>
+        InstallLocalDefinitions(ReadAllArenas(isoPath, sourceVisuals: true), userMapDirectory);
 
     public static string InstallLocalDefinition(MapDefinition definition, string userMapDirectory) =>
         InstallLocalDefinitions(new[] { definition }, userMapDirectory)[0];
@@ -86,8 +95,9 @@ public static class EchoesPrivateMapImport
         foreach (MapDefinition map in requests)
         {
             ArgumentNullException.ThrowIfNull(map);
+            bool sourceVisuals = map.Name.StartsWith("VISUAL ECHOES ", StringComparison.Ordinal);
             EchoesArenaSources.Arena arena = EchoesArenaSources.All.FirstOrDefault(x =>
-                map.Name == "LOCAL ECHOES " + x.Name.ToUpperInvariant());
+                map.Name == (sourceVisuals ? "VISUAL ECHOES " : "LOCAL ECHOES ") + x.Name.ToUpperInvariant());
             if (string.IsNullOrEmpty(arena.Key) || !map.LocalSourceOnly ||
                 map.FormatVersion != 3 || map.MapId == Guid.Empty || !ids.Add(map.MapId))
                 throw new InvalidDataException("Only distinct local Echoes source maps can be installed.");
@@ -101,6 +111,7 @@ public static class EchoesPrivateMapImport
                 "M06_ShootingGallery" => "shooting-gallery.json",
                 _ => throw new InvalidDataException("Unsupported local Echoes arena.")
             };
+            if (sourceVisuals) filename = "visual-" + filename;
             if (!filenames.Add(filename))
                 throw new InvalidDataException("Duplicate local Echoes filename.");
 
@@ -136,6 +147,26 @@ public static class EchoesPrivateMapImport
 
     public static int RunAllArenasCommand(string? isoPath) =>
         RunCommand(isoPath, single: false);
+
+    public static int RunVisualPreviewsCommand(string? isoPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(isoPath))
+                throw new ArgumentException("Usage: -importechoesvisuals <path-to-owned-Echoes.iso-or-gcm>");
+            var installed = InstallVisualPreviews(isoPath, CustomRooms.UserMapDirectory);
+            Console.WriteLine("[echoes] Installed " + installed.Count +
+                " local-only world-model preview maps. Restart the game to discover them.");
+            Console.WriteLine("[echoes] Original source geometry remains private; online matches and Community transfers are disabled.");
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException
+            or ArgumentException or NotSupportedException or OverflowException or MapAuthoringException)
+        {
+            Console.Error.WriteLine("[echoes] Visual preview import failed: " + ex.Message);
+            return 1;
+        }
+    }
 
     private static int RunCommand(string? isoPath, bool single)
     {
