@@ -30,8 +30,8 @@ public static class EchoesFloorPlacement
             if (Snap(floors, spawn.Position, maxDrop, out float[] aligned))
             { spawn.Position = aligned; moved++; }
         foreach (MapItem item in definition.Items)
-            if (Snap(floors, item.Position, maxDrop, out float[] aligned))
-            { item.Position = aligned; moved++; }
+            if (Snap(floors, item.Position, maxDrop, out float[] pickupAligned))
+            { item.Position = pickupAligned; moved++; }
         return moved;
     }
 
