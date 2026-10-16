@@ -10,6 +10,8 @@ namespace MphRead
     {
         public Model Model { get; private set; }
         public AnimationInfo AnimInfo { get; } = new AnimationInfo();
+        // Presentation-only snapshots; never used for gameplay or serialization.
+        internal Mods.Render.AnimationSamples PresentationSamples { get; } = new();
         public bool IsPlaceholder { get; set; }
         public bool Active { get; set; } = true;
         public bool NodeAnimIgnoreRoot { get; set; }
@@ -22,6 +24,7 @@ namespace MphRead
         // should only be needed by the player entity
         public void SetModel(Model model)
         {
+            PresentationSamples.Reset();
             Model = model;
         }
 
@@ -29,6 +32,7 @@ namespace MphRead
         // -- anim2 is node > mat > tex > uv, anim1 is node > tex > uv > mat
         public void SetAnimation(int index, AnimFlags animFlags = AnimFlags.None)
         {
+            PresentationSamples.Reset();
             if (Model.AnimationGroups.Any && index >= 0)
             {
                 AnimInfo.Step[0] = 1;
@@ -72,6 +76,7 @@ namespace MphRead
 
         public void SetAnimation(int index, int slot, SetFlags setFlags, AnimFlags animFlags = AnimFlags.None)
         {
+            PresentationSamples.Reset();
             if (Model.AnimationGroups.Any && index >= 0)
             {
                 AnimInfo.Step[slot] = 1;
@@ -127,13 +132,20 @@ namespace MphRead
 
         public void UpdateAnimFrames()
         {
-            if (AnimInfo.Node.Slot == 0 || AnimInfo.Material.Slot == 0 || AnimInfo.Texcoord.Slot == 0 || AnimInfo.Texture.Slot == 0)
+            bool zero = AnimInfo.Node.Slot == 0 || AnimInfo.Material.Slot == 0
+                || AnimInfo.Texcoord.Slot == 0 || AnimInfo.Texture.Slot == 0;
+            bool one = AnimInfo.Node.Slot == 1 || AnimInfo.Material.Slot == 1
+                || AnimInfo.Texcoord.Slot == 1 || AnimInfo.Texture.Slot == 1;
+            if (zero) UpdateAnimFrames(slot: 0);
+            if (one) UpdateAnimFrames(slot: 1);
+
+            // Observe ticks only AFTER the original integer state machine runs.
+            // No lookahead ever calls UpdateAnimFrames on this canonical instance.
+            if (Mods.Render.FrameTiming.Active)
             {
-                UpdateAnimFrames(slot: 0);
-            }
-            if (AnimInfo.Node.Slot == 1 || AnimInfo.Material.Slot == 1 || AnimInfo.Texcoord.Slot == 1 || AnimInfo.Texture.Slot == 1)
-            {
-                UpdateAnimFrames(slot: 1);
+                long step = Mods.Render.FrameTiming.TotalSteps;
+                if (zero) PresentationSamples.Record(AnimInfo, 0, step);
+                if (one) PresentationSamples.Record(AnimInfo, 1, step);
             }
         }
 
@@ -213,6 +225,7 @@ namespace MphRead
         // viewer manipulation only
         public void SetNodeAnim(int index)
         {
+            PresentationSamples.Reset();
             if (index <= -1 || index >= Model.AnimationGroups.Node.Count)
             {
                 AnimInfo.Index[AnimInfo.Node.Slot] = -1;
@@ -226,6 +239,7 @@ namespace MphRead
 
         public void SetMaterialAnim(int index)
         {
+            PresentationSamples.Reset();
             if (index <= -1 || index >= Model.AnimationGroups.Material.Count)
             {
                 AnimInfo.Index[AnimInfo.Material.Slot] = -1;
