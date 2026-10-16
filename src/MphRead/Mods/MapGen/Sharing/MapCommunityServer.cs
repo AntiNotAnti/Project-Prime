@@ -1130,7 +1130,15 @@ public static class MapCommunityServer
                         {
                             string[] hashes=revisionCatalog.MapHashes(lifecycleMapId);
                             if(hashes.Length==0){context.Response.StatusCode=404;return;}
-                            PurgeLifecycleHashes(hashes);
+                            // Do not acknowledge a permanent purge while any immutable
+                            // archive is still locked (e.g. by an external Windows
+                            // reader). The retained revisions remain retryable.
+                            if (PurgeLifecycleHashes(hashes) != hashes.Length)
+                            {
+                                context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+                                context.Response.Headers["Retry-After"] = "1";
+                                return;
+                            }
                             context.Response.StatusCode=204;
                         }
                         finally{publication.Release();}
@@ -1218,7 +1226,13 @@ public static class MapCommunityServer
                         await publication.WaitAsync(deadline.Token);
                         try
                         {
-                            PurgeLifecycleHashes(new[]{hash});
+                            // A deferred file deletion is not a completed purge.
+                            if (PurgeLifecycleHashes(new[]{hash}) != 1)
+                            {
+                                context.Response.StatusCode = (int)HttpStatusCode.ServiceUnavailable;
+                                context.Response.Headers["Retry-After"] = "1";
+                                return;
+                            }
                             context.Response.StatusCode=204;
                         }
                         finally{publication.Release();}
@@ -1541,7 +1555,14 @@ public static class MapCommunityServer
                     }
                     context.Response.ContentType = "application/octet-stream";
                     context.Response.ContentLength64 = total - start;
-                    await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
+                    // Permit moderation/retention purge while a download is in
+                    // flight on Windows. The already-open handle retains its
+                    // immutable bytes; subsequent requests use the catalog.
+                    await using var file = new FileStream(
+                        Path.Combine(storage, hash + ".ppmap"),
+                        FileMode.Open, FileAccess.Read,
+                        FileShare.Read | FileShare.Delete, 65536,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan);
                     if (start > 0) file.Position = start;
                     await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
                     Interlocked.Add(ref completedDownloadBytes, total - start);
