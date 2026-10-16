@@ -36,6 +36,9 @@ jobs:
       - name: diagnostic command-line credential redaction
         run: dotnet run --project tools/diagnostic-args-check -c Release
 
+      - name: RmlUi native-host lifetime and typed intent contracts
+        run: dotnet run --project tools/rmlui-runtime-check -c Release
+
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
