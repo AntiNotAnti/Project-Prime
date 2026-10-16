@@ -72,6 +72,10 @@ public sealed record CommunityMap(string Hash, Guid MapId, string ContentHash, s
 }
 
 /// <summary>Immutable, content-addressed packages. Network work never touches the active editor document.</summary>
+/// <summary>Bounded v2 map project page for browser discovery.</summary>
+public sealed record CommunityMapProjectPage(
+    CommunityMapProject[] Items, int Total, int Page, int PageSize);
+
 public sealed class MapCommunityClient : IDisposable
 {
     public const string DefaultAddress = "https://maps.rebooty.xyz/";
@@ -390,6 +394,68 @@ public sealed class MapCommunityClient : IDisposable
         return JsonSerializer.Deserialize<CommunityMapProject[]>(
             data.ToArray(), MapPackageReader.JsonOptions)
             ?? Array.Empty<CommunityMapProject>();
+    }
+
+    /// <summary>
+    /// Fetch only the requested Community browser page. Older map services
+    /// lacking v2 retain an in-memory legacy fallback, never a second catalog.
+    /// </summary>
+    public async Task<CommunityMapProjectPage> BrowseProjectsPageAsync(
+        CancellationToken token, bool mine = false, bool favorites = false,
+        string? sort = null, string? query = null, int page = 1, int pageSize = 24)
+    {
+        page = Math.Clamp(page, 1, 2000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        query = query?.Trim();
+        if (query?.Length > 128)
+            throw new ArgumentException("Community map search exceeds 128 characters.", nameof(query));
+        string resource = "v2/maps?mine=" + mine.ToString().ToLowerInvariant()
+            + "&favorites=" + favorites.ToString().ToLowerInvariant()
+            + "&sort=" + Uri.EscapeDataString(sort ?? "updated")
+            + "&page=" + page + "&pageSize=" + pageSize;
+        if (!string.IsNullOrEmpty(query))
+            resource += "&query=" + Uri.EscapeDataString(query);
+        using var response = await GetReadAsync(resource,
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            // Pre-v2 servers expose an unpaged array. Preserve their behavior
+            // without treating their response as an authoritative modern page.
+            IEnumerable<CommunityMapProject> legacy = GroupLegacyProjects(
+                await BrowseAsync(token, mine, favorites, sort).ConfigureAwait(false));
+            if (!string.IsNullOrEmpty(query))
+                legacy = legacy.Where(p => (p.DisplayName + " " + p.Name + " " + p.Author)
+                    .Contains(query, StringComparison.OrdinalIgnoreCase));
+            legacy = sort is "updated" or "new"
+                ? legacy.OrderByDescending(p => p.UpdatedAt).ThenBy(p => p.MapId)
+                : legacy.OrderBy(p => p.DisplayName ?? p.Name).ThenBy(p => p.MapId);
+            var all = legacy.ToArray();
+            return new CommunityMapProjectPage(
+                all.Skip((page - 1) * pageSize).Take(pageSize).ToArray(),
+                all.Length, page, pageSize);
+        }
+
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token)
+            .ConfigureAwait(false), data, 4 * 1024 * 1024, token).ConfigureAwait(false);
+        CommunityMapProject[] items = JsonSerializer.Deserialize<CommunityMapProject[]>(
+            data.ToArray(), MapPackageReader.JsonOptions) ?? Array.Empty<CommunityMapProject>();
+
+        bool hasTotal = response.Headers.TryGetValues("X-Total-Count", out var counts)
+            && int.TryParse(counts.FirstOrDefault(), out int count) && count >= 0;
+        int total = hasTotal ? int.Parse(counts!.First()) : items.Length;
+        if (!hasTotal && items.Length > pageSize)
+        {
+            // Intermediate v2 hosts may ignore optional paging. Slice their
+            // bounded legacy payload instead of showing every row in the UI.
+            items = items.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+        }
+        else if (!hasTotal)
+            total = (page - 1) * pageSize + items.Length;
+        if (items.Length > pageSize)
+            throw new InvalidDataException("Community page exceeded the requested limit.");
+        return new CommunityMapProjectPage(items, total, page, pageSize);
     }
 
     public async Task<CommunityMapProject?> GetProjectAsync(Guid mapId,

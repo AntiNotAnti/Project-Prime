@@ -27,7 +27,18 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private readonly UiTabs _tabs = new(new[] { "DISCOVER", "INSTALLED", "FAVORITES", "DOWNLOADS" });
     private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
     private readonly StackPanel _details = new() { Spacing = 8 };
-    private readonly TextBox _search = new() { PlaceholderText = "Search maps or creators" };
+    private readonly TextBox _search = new() { PlaceholderText = "Search maps or creators", MaxLength = 128 };
+    private readonly Avalonia.Threading.DispatcherTimer _searchDelay = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(300)
+    };
+    private const int CatalogPageSize = 24;
+    private int _page = 1;
+    private int _totalProjects;
+    private bool _newestFirst = true;
+    private readonly PrimeButton _sort;
+    private readonly PrimeButton _previous;
+    private readonly PrimeButton _next;
     private readonly PrimeStatePanel _state = new(PrimeStateKind.Loading, "CONTACTING COMMUNITY",
         "Fetching the published map catalog.");
     private readonly TextBlock _status = PrimeChrome.Text("Community ready.", PrimeTypography.BodySmall,
@@ -53,6 +64,12 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _transfers = fixture == null ? CommunityTransferSession.Shared : null;
         if (_transfers != null) _transfers.Changed += QueueChanged;
         _refresh = new PrimeButton("REFRESH", () => _ = RefreshAsync(), compact: true);
+        _sort = new PrimeButton("SORT: UPDATED", ToggleSort, compact: true);
+        _previous = new PrimeButton("PREVIOUS", () => ChangePage(-1), compact: true);
+        _next = new PrimeButton("NEXT", () => ChangePage(1), compact: true);
+        ControllerNav.Identify(_sort, "community.sort");
+        ControllerNav.Identify(_previous, "community.previous");
+        ControllerNav.Identify(_next, "community.next");
         _install = new PrimeButton("INSTALL MAP", () => _ = InstallAsync(), primary: true, compact: true);
         _favorite = new PrimeButton("FAVORITE", () => _ = FavoriteAsync(), compact: true);
         _report = new PrimeButton("REPORT", Report, compact: true);
@@ -103,7 +120,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         Grid.SetRow(body, 2);
         root.Children.Add(body);
 
-        var footer = PrimeChrome.Columns("*,Auto", _status, _cancel);
+        var footer = PrimeChrome.Columns("*,Auto,Auto,Auto,Auto",
+            _status, _sort, _previous, _next, _cancel);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
         Content = root;
@@ -111,11 +129,29 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _tabs.Changed += (_, _) =>
         {
             _selected = null;
+            _page = 1;
+            _totalProjects = 0;
             _search.Text = "";
+            _searchDelay.Stop();
             if (_active) _ = RefreshAsync();
             else RenderList();
         };
-        _search.TextChanged += (_, _) => RenderList();
+        _searchDelay.Tick += (_, _) =>
+        {
+            _searchDelay.Stop();
+            if (_active && _tabs.Index is 0 or 2) _ = RefreshAsync();
+        };
+        _search.TextChanged += (_, _) =>
+        {
+            if (_tabs.Index is 1 or 3 || _fixture != null)
+            {
+                RenderList();
+                return;
+            }
+            _page = 1;
+            _searchDelay.Stop();
+            _searchDelay.Start();
+        };
         if (_fixture != null) _projects = _fixture;
         RenderList();
     }
@@ -142,6 +178,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         _active = false;
         _load?.Cancel();
+        _searchDelay.Stop();
         // The worker retains its verified partial bytes. Only the foreground
         // install handoff is cancelled when leaving this workspace.
         _transfer?.Cancel();
@@ -161,6 +198,34 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         Content = null;
     }
 
+    private void ToggleSort()
+    {
+        _newestFirst = !_newestFirst;
+        _sort.Label = _newestFirst ? "SORT: UPDATED" : "SORT: NAME";
+        _page = 1;
+        if (_active) _ = RefreshAsync();
+    }
+
+    private void ChangePage(int direction)
+    {
+        if (_tabs.Index is not (0 or 2) || _fixture != null) return;
+        int limit = Math.Max(1, (_totalProjects + CatalogPageSize - 1) / CatalogPageSize);
+        int page = Math.Clamp(_page + direction, 1, limit);
+        if (page == _page) return;
+        _page = page;
+        if (_active) _ = RefreshAsync();
+    }
+
+    private void UpdatePager()
+    {
+        bool online = _fixture == null && _tabs.Index is 0 or 2;
+        _sort.IsVisible = online;
+        _previous.IsVisible = online;
+        _next.IsVisible = online;
+        _previous.IsEnabled = online && _page > 1;
+        _next.IsEnabled = online && _page * CatalogPageSize < _totalProjects;
+    }
+
     private async Task RefreshAsync()
     {
         if (!_active || _disposed) return;
@@ -177,6 +242,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         {
             _load = null;
             _projects = _fixture;
+            _totalProjects = _projects.Length;
             _refresh.IsEnabled = true;
             RenderList();
             return;
@@ -189,12 +255,17 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             "Contacting the configured Community catalog.", visible: true);
         try
         {
-            CommunityMapProject[] result = await Operations().BrowseProjectsAsync(
-                mine: false, favorites: _tabs.Index == 2, sort: "updated",
+            CommunityMapProjectPage page = await Operations().BrowseProjectsPageAsync(
+                mine: false, favorites: _tabs.Index == 2,
+                sort: _newestFirst ? "updated" : "name",
+                query: _search.Text, page: _page, pageSize: CatalogPageSize,
                 cancellation: cancel.Token);
             if (cancel.IsCancellationRequested || !_active || _disposed) return;
-            _projects = result;
-            _status.Text = $"{result.Length} Community maps listed.";
+            _projects = page.Items;
+            _totalProjects = page.Total;
+            int first = _projects.Length == 0 ? 0 : (_page - 1) * CatalogPageSize + 1;
+            int last = first == 0 ? 0 : first + _projects.Length - 1;
+            _status.Text = $"Showing {first}–{last} of {_totalProjects} Community maps.";
             RenderList();
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { }
@@ -229,6 +300,7 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (_disposed) return;
         Guid? previousSelection = _selected?.MapId;
+        UpdatePager();
         _list.Clear();
         _list.IsVisible = true;
         _state.IsVisible = false;

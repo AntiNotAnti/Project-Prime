@@ -132,6 +132,14 @@ public sealed class CommunityMapOperations
             client => client.BrowseProjectsAsync(cancellation, mine, favorites, sort),
             cancellation);
 
+    public Task<CommunityMapProjectPage> BrowseProjectsPageAsync(
+        bool mine, bool favorites, string? sort, string? query,
+        int page, int pageSize, CancellationToken cancellation)
+        => UseClientAsync(mine || favorites,
+            client => client.BrowseProjectsPageAsync(
+                cancellation, mine, favorites, sort, query, page, pageSize),
+            cancellation);
+
     public Task<CommunityMap?> GetPackageAsync(string packageHash, CancellationToken cancellation)
         => UseClientAsync(false, client => client.GetPackageAsync(packageHash, cancellation),
             cancellation);
