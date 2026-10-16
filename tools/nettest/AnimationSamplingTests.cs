@@ -50,6 +50,13 @@ internal static class AnimationSamplingTests
             "rotation shortest arc");
         Check(AnimationSampling.BlendChannel(1f, 7f, float.NaN) == 1f,
             "nonfinite blend refused");
+        Check(Math.Abs(AnimationSampling.BlendChannel(0f, 31f, 0.5f) - 15.5f) < 0.000001f,
+            "material RGB and alpha intermediate value");
+        Check(Math.Abs(AnimationSampling.BlendChannel(-1f, 1f, 0.25f) + 0.5f) < 0.000001f,
+            "UV scrolling interpolation preserves signed offsets");
+        Check(AnimationSampling.BlendChannel(0f, 1f, -1f) == 0f
+            && AnimationSampling.BlendChannel(0f, 1f, 2f) == 1f,
+            "UV and material fractional sampling clamps unsafe time");
         var sampler = new AnimationSamples();
         var state = new AnimationInfo();
         state.Frame[0] = 2; state.FrameCount[0] = 10; state.Step[0] = 1;
