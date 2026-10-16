@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "repository": "BountyHunterKanden/SecondHunt",
+    "ref": "master",
+    "commit": "c16a907b3658c2fd4079e394a73711596a85caee",
+    "license": "MIT (code; game assets excluded)",
+    "targetBaseline": "ebbf3c51fa6f205ac3b8c952f4f3ab67d0e7cc80"
+  },
+  "defaultPolicy": {
+    "enabled": false,
+    "clientAssets": "local-import-only",
+    "networkAssets": "none",
+    "dedicatedServerMustHaveContent": true,
+    "legacyHunterIds": "unchanged",
+    "legacyReplayFormat": "unchanged"
+  },
+  "games": [
+    {
+      "id": "mp1",
+      "name": "Metroid Prime",
+      "discPrefixes": [
+        "GM8"
+      ],
+      "platform": "gamecube",
+      "requiredFor": [
+        "trooper"
+      ]
+    },
+    {
+      "id": "mp2",
+      "name": "Metroid Prime 2: Echoes",
+      "discPrefixes": [
+        "G2M"
+      ],
+      "platform": "gamecube",
+      "requiredFor": [
+        "darksamus",
+        "echoes-arenas"
+      ]
+    },
+    {
+      "id": "mp3",
+      "name": "Metroid Prime 3: Corruption",
+      "discPrefixes": [
+        "R3M"
+      ],
+      "platform": "wii",
+      "requiredFor": [
+        "darksamus-corruption"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "darksamus",
+      "baseHunter": "Samus",
+      "cosmeticSkins": [
+        "MP2DarkSamus",
+        "MP3DarkSamus"
+      ],
+      "importRecipes": [
+        "recipes/bodies/MP2DarkSamus.json",
+        "recipes/bodies/MP3DarkSamus.json"
+      ],
+      "runtimeChanges": [
+        "visual-hover",
+        "native-clips"
+      ],
+      "gameplayChanges": []
+    },
+    {
+      "id": "trooper",
+      "baseHunter": "Weavel",
+      "cosmeticSkins": [
+        "MP1PowerTrooper",
+        "MP1IceTrooper",
+        "MP1WaveTrooper",
+        "MP1PlasmaTrooper"
+      ],
+      "importRecipes": [
+        "recipes/bodies/MP1PowerTrooper.json",
+        "recipes/bodies/MP1IceTrooper.json",
+        "recipes/bodies/MP1WaveTrooper.json",
+        "recipes/bodies/MP1PlasmaTrooper.json"
+      ],
+      "runtimeChanges": [
+        "native-clips",
+        "skin-fallback"
+      ],
+      "gameplayChanges": [
+        "wall-cling",
+        "scout-drone",
+        "pirate-blaster"
+      ]
+    }
+  ],
+  "arenas": [
+    {
+      "key": "M01_SidehopperStation",
+      "name": "Sidehopper Station",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M01_SidehopperStation.json",
+      "features": [
+        "jump-pads",
+        "grates"
+      ]
+    },
+    {
+      "key": "M02_Spires",
+      "name": "Spires",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M02_Spires.json",
+      "features": [
+        "static-props"
+      ]
+    },
+    {
+      "key": "M03_CrossfireChaos",
+      "name": "Crossfire Chaos",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M03_CrossfireChaos.json",
+      "features": [
+        "destructible-walls"
+      ]
+    },
+    {
+      "key": "M04_Pipeline",
+      "name": "Pipeline",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M04_Pipeline.json",
+      "features": [
+        "water",
+        "gravity-boost"
+      ]
+    },
+    {
+      "key": "M05_SpiderComplex",
+      "name": "Spider Complex",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M05_SpiderComplex.json",
+      "features": [
+        "vertical-traversal"
+      ]
+    },
+    {
+      "key": "M06_ShootingGallery",
+      "name": "Shooting Gallery",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M06_ShootingGallery.json",
+      "features": [
+        "dark-water",
+        "grates"
+      ]
+    }
+  ]
+}
