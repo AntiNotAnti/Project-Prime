@@ -119,6 +119,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         private DispatcherTimer? _statusTimer;
         private CancellationTokenSource? _statusCancel;
+        // Each refresh owns its own set of rows; completed UDP probes from an
+        // earlier set must not update the newly drawn list or its selected map.
+        private int _serverQueryGeneration;
         private DispatcherTimer? _replayPreviewTimer;
         private int _replayPreviewIndex;
         private string? _replaySelectedPath;
@@ -820,6 +823,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            _serverQueryGeneration++;
             StopPolling();
             base.OnDetachedFromVisualTree(e);
         }
@@ -894,6 +898,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void Rebuild()
         {
+            _serverQueryGeneration++;
             StopPolling();
             StopReplayPreview();
             if (_replaySelection != null) { _list.SelectionChanged -= _replaySelection; _replaySelection = null; }
@@ -1151,7 +1156,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void ReloadServers()
         {
+            int generation = ++_serverQueryGeneration;
             _list.Clear();
+            _asked = 0;
             _replied = 0;
             _live = 0;
             if (Sample != null)
@@ -1182,7 +1189,8 @@ namespace MphRead.Mods.Launcher.Gui
                     LauncherPrefs.MasterPort);
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (_finished || Current != Face.Online)
+                    if (_finished || Current != Face.Online
+                        || generation != _serverQueryGeneration)
                     {
                         return;
                     }
@@ -1203,7 +1211,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _note.Text = $"asking {_asked} servers\u2026";
                     foreach (MasterListing listing in result.Servers)
                     {
-                        AddServerRow(listing);
+                        AddServerRow(listing, generation);
                     }
                 });
             });
@@ -1243,7 +1251,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : $"{_live} of {asked} answered. Click one to join.";
         }
 
-        private void AddServerRow(MasterListing listing)
+        private void AddServerRow(MasterListing listing, int generation)
         {
             string name = listing.ServerName.Length > 0 ? listing.ServerName : listing.Endpoint;
             var row = new ServerRow(name, listing.Endpoint);
@@ -1254,10 +1262,19 @@ namespace MphRead.Mods.Launcher.Gui
             // dropped into a match they had only meant to read the ping of.
             _list.Add(row, _ =>
             {
-                if (_address != null)
+                if (generation != _serverQueryGeneration || _finished)
+                    return;
+                // Selecting a dead/incompatible row must not silently change
+                // the address that the JOIN action will use.
+                if (!row.CanJoin && !row.CanQueue)
                 {
-                    _address.Value = $"{listing.Address}:{listing.Port}";
+                    _note.Text = "This server has not confirmed an available slot. "
+                        + "You can still enter an address manually.";
+                    _note.Foreground = GuiTheme.WarmBrush;
+                    return;
                 }
+                if (_address != null)
+                    _address.Value = $"{listing.Address}:{listing.Port}";
             });
             Task.Run(() =>
             {
@@ -1265,6 +1282,9 @@ namespace MphRead.Mods.Launcher.Gui
                     allowJoinProbe: false);
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (_finished || Current != Face.Online
+                        || generation != _serverQueryGeneration)
+                        return;
                     row.SetStatus(status);
                     _replied++;
                     if (status.Online)
@@ -1376,7 +1396,24 @@ namespace MphRead.Mods.Launcher.Gui
                 _note.Text = nameError;
                 return;
             }
-            (string host, int port) = Endpoint();
+            (string fallbackHost, int fallbackPort) = Endpoint();
+            if (!ServerBrowserService.TryParseEndpoint(_address?.Value ?? "",
+                    fallbackHost, fallbackPort, out string host, out int port))
+            {
+                _note.Text = "Enter a valid host or host:port.";
+                _note.Foreground = GuiTheme.BadBrush;
+                return;
+            }
+            if (_list.Selected is ServerRow selected && !selected.CanJoin && !selected.CanQueue
+                && ServerBrowserService.TryParseEndpoint(selected.Endpoint,
+                    fallbackHost, fallbackPort, out string selectedHost, out int selectedPort)
+                && string.Equals(host, selectedHost, StringComparison.OrdinalIgnoreCase)
+                && port == selectedPort)
+            {
+                _note.Text = "The selected server is offline, full, or not compatible.";
+                _note.Foreground = GuiTheme.BadBrush;
+                return;
+            }
             string name = _name != null && _name.Value.Trim().Length > 0
                 ? _name.Value.Trim() : PlayerName();
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _hunter!.Value);

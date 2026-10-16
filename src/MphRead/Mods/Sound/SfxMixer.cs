@@ -80,6 +80,37 @@ namespace MphRead.Mods.Sound
         private static SoundPlayer? _player;
         private static bool _unavailable;
         private static int _outputRate = 32728;
+#if PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS
+        private static long _mixBlocks, _mixTotalTicks, _mixMaxTicks, _mixOverDeadline;
+
+        internal static string ReadAndResetAudioCallbackMetrics()
+        {
+            long blocks = System.Threading.Interlocked.Exchange(ref _mixBlocks, 0);
+            long ticks = System.Threading.Interlocked.Exchange(ref _mixTotalTicks, 0);
+            long maximum = System.Threading.Interlocked.Exchange(ref _mixMaxTicks, 0);
+            long overdue = System.Threading.Interlocked.Exchange(ref _mixOverDeadline, 0);
+            if (blocks <= 0) return "sfx callbacks none";
+            double ratio = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            return $"sfx callback work avg/max {ticks / (double)blocks * ratio:0.000}/{maximum * ratio:0.000}ms "
+                + $"over-buffer {overdue}/{blocks} (not output underruns)";
+        }
+
+        private static void RecordAudioCallback(long started, int samples)
+        {
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            System.Threading.Interlocked.Increment(ref _mixBlocks);
+            System.Threading.Interlocked.Add(ref _mixTotalTicks, elapsed);
+            long prior;
+            do
+            {
+                prior = System.Threading.Interlocked.Read(ref _mixMaxTicks);
+                if (elapsed <= prior) break;
+            } while (System.Threading.Interlocked.CompareExchange(ref _mixMaxTicks, elapsed, prior) != prior);
+            long deadlineTicks = (long)(samples / (2.0 * Math.Max(1, _outputRate))
+                * System.Diagnostics.Stopwatch.Frequency);
+            if (elapsed > deadlineTicks) System.Threading.Interlocked.Increment(ref _mixOverDeadline);
+        }
+#endif
 
         // ------------------------------------------------------------ device
 
@@ -453,6 +484,11 @@ namespace MphRead.Mods.Sound
         /// </summary>
         private static void Mix(Span<float> output)
         {
+#if PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS
+            long callbackStart = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+#endif
             output.Clear();
             try
             {
@@ -480,6 +516,10 @@ namespace MphRead.Mods.Sound
                 // now and then; clipping quietly beats wrapping loudly.
                 output[i] = Math.Clamp(output[i], -1f, 1f);
             }
+#if PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS
+            }
+            finally { RecordAudioCallback(callbackStart, output.Length); }
+#endif
         }
 
         private static void MixVoice(Voice voice, Span<float> output)
