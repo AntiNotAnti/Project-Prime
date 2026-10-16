@@ -23,6 +23,18 @@ internal static class RetroPakFixtureTests
             Expect<KeyNotFoundException>(() => reader.ReadResource(0xff), "unknown resource");
         }
 
+        // LZO short block (three decoded bytes) followed by one stored byte.
+        // The decoder must not demand exactly the declared 4-byte total from
+        // the first positive segment.
+        byte[] shortBlock = Build();
+        Put(shortBlock, 92 + 12, 16);
+        Put(shortBlock, 350, 4);
+        new byte[] { 0, 7, 0x14, 65, 66, 67, 0x11, 0, 0, 0xff, 0xff, 68 }
+            .CopyTo(shortBlock, 354);
+        using (var reader = Open(shortBlock))
+            Check(reader.ReadResource(Lzo).SequenceEqual(new byte[] { 65, 66, 67, 68 }),
+                "MP2 short LZO block followed by stored segment");
+
         var bad = Build();
         Put(bad, 0, 0);
         Expect<InvalidDataException>(() => Open(bad), "unknown PAK version");

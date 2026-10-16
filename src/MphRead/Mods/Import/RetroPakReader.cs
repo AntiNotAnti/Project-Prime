@@ -20,7 +20,7 @@ public sealed class RetroPakReader : IDisposable
     public const int MaxResources = 200_000;
     public const int MaxResourceBytes = 256 * 1024 * 1024;
     private const int MaxNameBytes = 4096;
-    private const int SegmentUnpackedBytes = 0x4000;
+    private const int MaxDecodedSegmentBytes = 1024 * 1024;
 
     private readonly Stream _archive;
     private readonly bool _leaveOpen;
@@ -155,6 +155,22 @@ public sealed class RetroPakReader : IDisposable
         return output;
     }
 
+    private static byte[] InflateAtMost(ReadOnlySpan<byte> data, int limit)
+    {
+        using var input = new MemoryStream(data.ToArray(), writable: false);
+        using var zlib = new ZLibStream(input, CompressionMode.Decompress);
+        using var output = new MemoryStream();
+        byte[] buffer = new byte[8192];
+        int n;
+        while ((n = zlib.Read(buffer)) > 0)
+        {
+            if (n > limit - output.Length)
+                throw new InvalidDataException("Compressed PAK segment exceeds its bounded output.");
+            output.Write(buffer, 0, n);
+        }
+        return output.ToArray();
+    }
+
     internal static byte[] UnpackSegments(ReadOnlySpan<byte> bytes, int expected)
     {
         var output = new byte[expected];
@@ -183,12 +199,17 @@ public sealed class RetroPakReader : IDisposable
             }
             else
             {
-                int blockSize = Math.Min(SegmentUnpackedBytes, remaining);
+                // A Retro segmented stream is not guaranteed to fill an
+                // entire 16 KiB decoded block. The previous strict-equality
+                // rule rejected legitimate shorter LZO/zlib chunks followed
+                // by additional segments. Enforce an independent per-segment
+                // budget, then use the actual decoded byte count.
+                int cap = Math.Min(remaining, MaxDecodedSegmentBytes);
                 byte[] decoded = IsZlib(part)
-                    ? Inflate(part, blockSize)
-                    : Lzo1x.Decompress(part.ToArray(), blockSize);
-                if (decoded.Length != blockSize)
-                    throw new InvalidDataException("Compressed PAK segment has the wrong decoded size.");
+                    ? InflateAtMost(part, cap)
+                    : Lzo1x.Decompress(part.ToArray(), cap);
+                if (decoded.Length == 0 || decoded.Length > cap)
+                    throw new InvalidDataException("Compressed PAK segment has an invalid decoded size.");
                 decoded.CopyTo(output, written);
                 written += decoded.Length;
             }
