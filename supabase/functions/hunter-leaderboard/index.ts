@@ -43,7 +43,6 @@ Deno.serve(async (req: Request) => {
           md5('project-prime:public-hunter:v1:' || l."PlayerId"::text) AS public_id,
           p."DisplayName" AS display_name,
           p."FavoriteHunter" AS favorite_hunter,
-          l."CreatedAt" AS created_at,
           coalesce(a."Matches",0)::double precision AS matches,
           coalesce(a."Wins",0)::double precision AS wins,
           coalesce(a."Losses",0)::double precision AS losses,
