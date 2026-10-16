@@ -56,6 +56,16 @@ namespace MphRead.Mods
                 return true;
             }
 
+            // Optional, explicitly local source previews require neither
+            // installed MPH files nor an OpenGL context. No match, replay,
+            // skin pack, or Community asset is modified by this command.
+            if (HasFlag(args, "retrocharacterexport"))
+            {
+                Environment.ExitCode = Import.RetroCharacterPreviewExporter.RunCommand(
+                    ValueAfter(args, "retrocharacterexport"));
+                return true;
+            }
+
             if (HasFlag(args, "enhancedhunters"))
             {
                 Console.Error.WriteLine("[rules] Enhanced Hunters has been retired; remove -enhancedhunters. Vanilla and Balanced Mode remain available.");
