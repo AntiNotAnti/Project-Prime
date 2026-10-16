@@ -4,10 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Propagate the opt-in symbol through the entire reference graph. -->
+    <!-- Match the opt-in contract of this test and its game reference. -->
     <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj"
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true" />
   </ItemGroup>
 </Project>
