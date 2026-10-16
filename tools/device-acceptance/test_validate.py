@@ -56,11 +56,23 @@ class PhysicalEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(EvidenceError, "human visual review"):
             evaluate(self.data, self.base, self.enabled, self.root)
 
+    def test_android_gles_requires_native_profiler(self):
+        self._log(self.base)
+        self._log(self.enabled, blend=True)
+        self.data.update(source="native-game-on-physical-device",
+                         emulator=False, reviewed=True, reviewed_by="fixture")
+        with self.assertRaisesRegex(EvidenceError, "Android GLES profiler is not yet instrumented"):
+            evaluate(self.data, self.base, self.enabled, self.root)
+
     def test_requires_all_hunter_boss_map_and_replay_cases(self):
         self._log(self.base)
         self._log(self.enabled, blend=True)
         self.data.update(source="native-game-on-physical-device",
                          emulator=False, reviewed=True, reviewed_by="fixture")
+        # Android deliberately stops at the unsupported profiler gate before
+        # visual-case validation. Select an instrumented desktop platform so
+        # this test actually reaches the missing-capture check.
+        self.data["device"]["platform"] = "windows-opengl"
         with self.assertRaisesRegex(EvidenceError, "required Hunter"):
             evaluate(self.data, self.base, self.enabled, self.root)
 
