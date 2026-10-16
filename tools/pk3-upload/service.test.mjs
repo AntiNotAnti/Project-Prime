@@ -188,3 +188,22 @@ test("identical source SHA does not share a conversion session across Hunters", 
     assert.equal((await bb.json()).offset, 0);
   } finally { await env.cleanup(); }
 });
+
+test("creator-scoped rate limiter denies excess API calls without affecting another Hunter", async () => {
+  const env = await fixture();
+  try {
+    const route = "/v1/conversions/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+    let throttled = false;
+    for (let i = 0; i < 190; i++) {
+      const result = await env.request(route);
+      if (result.status === 429) {
+        throttled = true;
+        assert.equal(result.headers.get("retry-after"), "30");
+        break;
+      }
+      assert.equal(result.status, 404);
+    }
+    assert.equal(throttled, true);
+    assert.equal((await env.request(route, "GET", undefined, other)).status, 404);
+  } finally { await env.cleanup(); }
+});
