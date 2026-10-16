@@ -361,7 +361,7 @@
   <!-- RML-01: the restored managed native host compiles in desktop clients,
        but dedicated servers retain no RmlUi UI host or P/Invoke surface. -->
   <ItemGroup Condition="'$(MphReadServer)' == 'true'">
-    <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
+    <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/RmlUi/Core/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
   </ItemGroup>
   <!-- Phase 02 developer-only RmlUi GL2 smoke path. Shipping clients still use Avalonia. -->
   <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
