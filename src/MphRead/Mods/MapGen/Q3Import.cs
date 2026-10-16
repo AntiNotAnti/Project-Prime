@@ -63,6 +63,19 @@ namespace MphRead.Mods.MapGen
                         + "not in its bundle, and could not be baked from the level.");
             }
             map.ImportDiagnostics.AddRange(Q3Gameplay.Inspect(bsp, unit, typedTraversal: def.Q3Triggers != null));
+            // Parse user-owned shader scripts for explicit fidelity diagnostics.
+            // Fog volumes, alpha waves and multi-pass depth blending are not
+            // flattened into a visually misleading single native material.
+            var shaderSource = Q3ShaderStageParser.ReadArchives(
+                MapTextureBake.DiscoverArchives(import.Resolve() ?? import.Source));
+            foreach (Q3Texture texture in bsp.Textures)
+            {
+                if (!shaderSource.TryGetValue(texture.Name, out var shader)) continue;
+                if (shader.RequiresFullShader)
+                    map.ImportDiagnostics.Add(new MapDiagnostic("FP-MAP-024",
+                        MapDiagnosticSeverity.Warning,
+                        $"Shader {shader.Name} uses Quake multipass, fog or stage blending that requires explicit native support; the baked image is a visual fallback."));
+            }
             var missingMaterials = new HashSet<int>();
 
             // How big the sky's own texture should be drawn. A sky surface's
