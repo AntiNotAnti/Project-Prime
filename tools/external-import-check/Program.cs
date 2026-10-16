@@ -141,6 +141,7 @@ try
     EchoesWorldSourceFixtureTests.Run();
     EchoesVisualLayerFixtureTests.Run();
     EchoesCannonFixtureTests.Run();
+    EchoesRouteFixtureTests.Run();
     EchoesFloorPlacementFixtureTests.Run();
     EchoesOfflineGateFixtureTests.Run();
     RetroCharacterMeshFixtureTests.Run();

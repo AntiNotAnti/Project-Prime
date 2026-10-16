@@ -159,6 +159,12 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "mapdirectory") is { } mapDirectory)
                 MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
+            if (HasFlag(args, "importechoesroutes"))
+            {
+                Environment.ExitCode = Import.EchoesPrivateMapImport.RunRoutedCannonPlaytestsCommand(
+                    ValueAfter(args, "importechoesroutes"));
+                return true;
+            }
             if (HasFlag(args, "importechoescannons"))
             {
                 Environment.ExitCode = Import.EchoesPrivateMapImport.RunCannonPlaytestsCommand(
