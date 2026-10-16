@@ -63,6 +63,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly Dictionary<Guid, CommunityTransferJob> _jobs = new();
     private readonly Dictionary<Guid, (CancellationTokenSource Cancellation, Task Running)> _running = new();
+    // UI notifications can be more frequent than durable receipt writes.
+    // Only the worker's process emits these transient progress snapshots.
+    private readonly Dictionary<Guid, long> _lastUiProgressTick = new();
     private readonly object _gate = new();
     private bool _disposed;
 
@@ -366,15 +369,18 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
     }
 
-    public async Task<CommunityTransferJob> WaitAsync(Guid id)
+    public async Task<CommunityTransferJob> WaitAsync(Guid id,
+        CancellationToken cancellation = default)
     {
+        // Cancelling a foreground screen must not stop the durable job owner.
+        cancellation.ThrowIfCancellationRequested();
         Task? running;
         lock (_gate)
             running = _running.TryGetValue(id, out var value)
                 ? value.Running : null;
         if (running != null)
         {
-            await running.ConfigureAwait(false);
+            await running.WaitAsync(cancellation).ConfigureAwait(false);
             return GetJob(id);
         }
         // Wait for a different process's lifetime lease instead of returning
@@ -392,7 +398,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 return job;
             if (job.State == CommunityTransferState.Queued)
                 Schedule(id);
-            await Task.Delay(250).ConfigureAwait(false);
+            await Task.Delay(250, cancellation).ConfigureAwait(false);
         }
     }
 
@@ -650,30 +656,61 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             AcknowledgedBytes = map.Bytes, Error = null });
     }
 
+    private static bool ShouldPersistProgress(long received, long total,
+        long acknowledged, TimeSpan sinceLastWrite)
+        => received >= total || received - acknowledged >= 8L * 1024 * 1024
+            || sinceLastWrite >= TimeSpan.FromSeconds(2);
+
     private void Progress(Guid id, long received, long total)
     {
+        CommunityTransferJob? notification = null;
         lock (_gate)
         {
-            using var gate = LockAndReloadLocked();
-            if (!_jobs.TryGetValue(id, out var job)
-                || job.State is CommunityTransferState.Paused
-                    or CommunityTransferState.Cancelled) return;
-            long bounded = Math.Clamp(received, 0, total);
-            if (bounded <= job.AcknowledgedBytes
-                || bounded < job.TotalBytes
-                    && bounded - job.AcknowledgedBytes < 1024 * 1024
-                    && DateTimeOffset.UtcNow - job.UpdatedAt < TimeSpan.FromSeconds(2))
-                return;
-            CommunityTransferJob next = job with
+            // Stream callbacks arrive for each 64 KiB. Avoid taking an OS
+            // cross-process lock, parsing the full JSON index and rewriting it
+            // for every chunk that does not need durable acknowledgement.
+            if (!_jobs.TryGetValue(id, out var cached)
+                || cached.State is CommunityTransferState.Paused
+                    or CommunityTransferState.Cancelled
+                    or CommunityTransferState.Completed) return;
+            long bounded = Math.Clamp(received, 0, cached.TotalBytes);
+            if (bounded <= cached.AcknowledgedBytes) return;
+
+            long tick = Environment.TickCount64;
+            bool durable = ShouldPersistProgress(bounded, cached.TotalBytes,
+                cached.AcknowledgedBytes, DateTimeOffset.UtcNow - cached.UpdatedAt);
+            if (!durable)
             {
-                AcknowledgedBytes = bounded,
-                UpdatedAt = DateTimeOffset.UtcNow
-            };
-            _jobs[id] = next;
-            PersistLocked();
+                if (_lastUiProgressTick.TryGetValue(id, out long prior)
+                    && tick - prior < 250) return;
+                _lastUiProgressTick[id] = tick;
+                // Presentation only. The authoritative persisted offset is
+                // changed only by a durable transaction under index-v1.lock.
+                notification = cached with { AcknowledgedBytes = bounded };
+            }
+            else
+            {
+                using var gate = LockAndReloadLocked();
+                // A different running Game/Studio may have requested Pause or
+                // Cancel; re-read its state before writing this acknowledgement.
+                if (!_jobs.TryGetValue(id, out var latest)
+                    || latest.State is CommunityTransferState.Paused
+                        or CommunityTransferState.Cancelled
+                        or CommunityTransferState.Completed) return;
+                bounded = Math.Clamp(received, 0, latest.TotalBytes);
+                if (bounded <= latest.AcknowledgedBytes) return;
+                notification = latest with
+                {
+                    AcknowledgedBytes = bounded,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                };
+                _jobs[id] = notification;
+                PersistLocked();
+                _lastUiProgressTick[id] = tick;
+            }
         }
-        // Event notifications must not run inside the durable-index lock.
-        Changed?.Invoke(GetJob(id));
+        // Never dispatch UI callbacks while owning either process lock.
+        if (notification != null) Changed?.Invoke(notification);
     }
 
     private void Stop(Guid id, bool cancel)
