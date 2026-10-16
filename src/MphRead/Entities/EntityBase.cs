@@ -666,6 +666,11 @@ namespace MphRead.Entities
             return Vector3.Zero;
         }
 
+        // Only an explicitly scoped presentation pass may bind a fractional UV
+        // sample. It must restore both fields in finally before returning.
+        protected ModelInstance? _presentationTexcoordOwner;
+        protected Mods.Render.AnimationSamples.Sample? _presentationTexcoordSample;
+
         protected virtual Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId, Node node, int recolor = -1)
         {
             Model model = inst.Model;
@@ -679,7 +684,8 @@ namespace MphRead.Entities
             if (group != null && animation != null && (!inst.Model.FirstHunt || material.TexgenMode != TexgenMode.None))
             {
                 // MPH overwrites a material's None texgen with Texcoord when parsing a texcoord animation; FH does not
-                texcoordMatrix = model.AnimateTexcoords(group, animation.Value, inst.AnimInfo.TexcoordFrame);
+                texcoordMatrix = model.AnimateTexcoords(group, animation.Value, inst.AnimInfo.TexcoordFrame,
+                    ReferenceEquals(inst, _presentationTexcoordOwner) ? _presentationTexcoordSample : null);
             }
             if (material.TexgenMode != TexgenMode.None)
             {
