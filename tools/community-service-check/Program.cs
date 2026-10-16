@@ -124,6 +124,18 @@ try
         var published = await api.UploadAsync(package, CancellationToken.None);
         Check(published.Hash == MapBuildFingerprint.HashFile(package),
             "unchanged Community publication retains exact package SHA-256");
+        var pageOperations = new CommunityMapOperations(firstAddress);
+        var onePage = await pageOperations.BrowseProjectsPageAsync(
+            mine: false, favorites: false, sort: "updated", query: "PREFLIGHT",
+            page: 1, pageSize: 1, cancellation: CancellationToken.None);
+        Check(onePage.Total == 1 && onePage.Items.Length == 1
+            && onePage.Items[0].MapId == published.MapId,
+            "paged client facade returns server-side filtered exact project metadata");
+        var emptyPage = await pageOperations.BrowseProjectsPageAsync(
+            mine: false, favorites: false, sort: "name", query: "not-a-real-map",
+            page: 1, pageSize: 1, cancellation: CancellationToken.None);
+        Check(emptyPage.Total == 0 && emptyPage.Items.Length == 0,
+            "Community search uses authoritative server totals rather than stale local filtering");
 
         using (var catalog = await http.GetAsync("v2/maps?page=1&pageSize=1"))
         {
