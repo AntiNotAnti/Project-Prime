@@ -71,7 +71,7 @@ internal static class AndroidShaderProgramBinaryCache
             int length = saved.Length - FileHeader;
             if (!ShaderProgramCacheKey.AcceptBinaryLength(length)) return false;
             var bytes = new byte[length];
-            Buffer.BlockCopy(saved, FileHeader, bytes, 0, length);
+            System.Buffer.BlockCopy(saved, FileHeader, bytes, 0, length);
             int candidate = GraphicsApi.CreateProgram();
             try
             {
@@ -110,7 +110,7 @@ internal static class AndroidShaderProgramBinaryCache
             byte[] serialized = new byte[FileHeader + length];
             BitConverter.GetBytes(Magic).CopyTo(serialized, 0);
             BitConverter.GetBytes(format).CopyTo(serialized, 4);
-            Buffer.BlockCopy(bytes, 0, serialized, FileHeader, length);
+            System.Buffer.BlockCopy(bytes, 0, serialized, FileHeader, length);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllBytes(temp, serialized);
