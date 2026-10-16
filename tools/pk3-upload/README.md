@@ -10,15 +10,18 @@ Community package catalog.
 
 1. Browser creates a `ppm1` Hunter License ticket via the existing
    `/api/maps/ticket` endpoint. No backend secrets go to the browser.
-2. `POST /v1/sources/{sha256}` with JSON
-   `{"bytes":10000,"roomName":"Q3_ARENA","levelName":"q3dm17","rightsConfirmed":true}`
-   reserves a private upload session.
-3. `PUT /v1/sources/{sha256}?offset=0` sends sequential binary chunks no
-   larger than 8 MiB, with exact `Content-Length`.
-   `GET /v1/sources/{sha256}` recovers the server-confirmed offset.
-   A session belongs exclusively to its verified Hunter identity, even when
-   two players upload the exact same archive hash.
-4. `POST /v1/sources/{sha256}/complete` verifies the whole input SHA-256,
+2. `POST /v1/sources/{sha256}?roomName=Q3_ARENA&levelName=q3dm17`
+   with JSON `{"bytes":10000,"roomName":"Q3_ARENA","levelName":"q3dm17","rightsConfirmed":true}`
+   reserves a private upload session for that exact BSP and destination.
+3. `PUT /v1/sources/{sha256}?roomName=Q3_ARENA&levelName=q3dm17&offset=0`
+   sends sequential binary chunks no larger than 8 MiB, with exact
+   `Content-Length`. `GET /v1/sources/{sha256}` with the **same**
+   roomName/levelName query recovers the server-confirmed offset.
+   A session belongs exclusively to its verified Hunter identity and
+   selected level/name, even when the same creator imports several levels
+   from a single source archive.
+4. `POST /v1/sources/{sha256}/complete` with the same roomName/levelName
+   query verifies the whole input SHA-256,
    moves it atomically to a private job and queues conversion.
 5. `GET /v1/conversions/{jobId}` polls queue progress or validated output.
    The worker output is checked for exact hash, size and map GUID.
