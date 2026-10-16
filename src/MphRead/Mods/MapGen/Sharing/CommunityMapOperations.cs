@@ -145,6 +145,38 @@ public sealed class CommunityMapOperations
         => UseClientAsync(false, client => client.GetPreviewAsync(packageHash, cancellation),
             cancellation);
 
+    // Creator lifecycle actions stay in the shared, UI-neutral facade so
+    // authorization refresh and client lifetime remain centralized.
+    public Task<CommunityMapProject?> GetOwnedProjectAsync(Guid id, CancellationToken cancellation)
+        => UseClientAsync(true, client => client.GetProjectAsync(id, cancellation), cancellation);
+
+    public Task<CommunityMapRevision[]> GetRevisionsAsync(Guid id, CancellationToken cancellation)
+        => UseClientAsync(true, client => client.GetRevisionsAsync(id, cancellation), cancellation);
+
+    public Task<CommunityMapProject?> ArchiveProjectAsync(Guid id, CancellationToken cancellation)
+        => UseClientAsync(true, client => client.ArchiveMapAsync(id, cancellation), cancellation);
+
+    public Task<CommunityMapProject?> RestoreProjectAsync(Guid id, CancellationToken cancellation)
+        => UseClientAsync(true, client => client.RestoreMapAsync(id, cancellation), cancellation);
+
+    public Task<CommunityMapProject?> PromoteRevisionAsync(Guid id, int revision,
+        CancellationToken cancellation)
+        => UseClientAsync(true, client => client.PromoteRevisionAsync(id, revision, cancellation),
+            cancellation);
+
+    public Task<CommunityMapProject?> RestoreRevisionAsync(Guid id, int revision,
+        CancellationToken cancellation)
+        => UseClientAsync(true, client => client.RestoreRevisionAsync(id, revision, cancellation),
+            cancellation);
+
+    public async Task SetRevisionVisibilityAsync(string hash, string visibility,
+        CancellationToken cancellation)
+        => await UseClientAsync(true, async client =>
+        {
+            await client.SetVisibilityAsync(hash, visibility, cancellation).ConfigureAwait(false);
+            return true;
+        }, cancellation).ConfigureAwait(false);
+
     public Task<CommunityMap?> GetPackageAsync(string packageHash, CancellationToken cancellation)
         => UseClientAsync(false, client => client.GetPackageAsync(packageHash, cancellation),
             cancellation);
