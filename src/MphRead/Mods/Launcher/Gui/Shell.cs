@@ -122,6 +122,84 @@ namespace MphRead.Mods.Launcher.Gui
         internal static string? StudioProjectPath { get; set; }
         internal static bool StudioWindow { get; set; }
 
+
+        // The developer RmlUi presenter shares this StartScreen and its lobby pump.
+        // Display is suppressed for setup, modal confirmation, legacy workspace
+        // handoff and gameplay. It must never create a second NetSession owner.
+        private static bool _rmlUiPreferLegacyLobby;
+        private static bool _rmlUiPreferLegacyNews;
+        internal static bool RmlUiCanPresent
+        {
+            get
+            {
+                if (!Active || _window == null || _window.HasScene || _front == null
+                    || !_front.RmlUiCanPresent) return false;
+                PrimeRoute route = _front.Prime.Router.Current;
+                if (_rmlUiPreferLegacyLobby)
+                {
+                    if (route == PrimeRoute.Lobby) return false;
+                    _rmlUiPreferLegacyLobby = false;
+                }
+                if (_rmlUiPreferLegacyNews)
+                {
+                    if (route == PrimeRoute.News) return false;
+                    _rmlUiPreferLegacyNews = false;
+                }
+                return route is PrimeRoute.News or PrimeRoute.Lobby;
+            }
+        }
+
+        internal static bool RmlUiAcceptJoin(LaunchPlan plan)
+        {
+            if (!Active || _window?.HasScene != false || _front == null) return false;
+            _rmlUiPreferLegacyLobby = false;
+            return _front.RmlUiAcceptJoin(plan);
+        }
+
+        internal static bool RmlUiOpenCreateLobby()
+            => Active && _window?.HasScene == false
+                && _front?.RmlUiOpenCreateLobby() == true;
+
+        internal static bool RmlUiNavigate(MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument destination)
+        {
+            if (!Active || _front == null || _window?.HasScene != false) return false;
+            PrimeRoute? route = destination switch
+            {
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Home
+                    or MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.News => PrimeRoute.News,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Play => PrimeRoute.Play,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Offline
+                    or MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Adventure
+                    or MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Training => PrimeRoute.Offline,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Community => PrimeRoute.Community,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.HunterLicense => PrimeRoute.HunterLicense,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Theatre => PrimeRoute.Theatre,
+                MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Settings => PrimeRoute.Settings,
+                _ => null
+            };
+            if (!route.HasValue || !_front.RmlUiNavigate(route.Value)) return false;
+            _rmlUiPreferLegacyNews = destination == MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.News;
+            return true;
+        }
+
+        internal static bool RmlUiNavigateStudio()
+        {
+            if (!Active || _front == null || _window?.HasScene != false) return false;
+            _front.OpenMapStudio();
+            return true;
+        }
+
+        internal static bool RmlUiLeaveLobby()
+            => Active && _window?.HasScene == false && _front?.RmlUiLeaveLobby() == true;
+
+        internal static bool RmlUiShowLegacyLobby()
+        {
+            if (!Active || _front == null || _window?.HasScene != false
+                || !_front.RmlUiNavigate(PrimeRoute.Lobby)) return false;
+            _rmlUiPreferLegacyLobby = true;
+            return true;
+        }
+
         public static bool Run()
         {
             return RunSession();
