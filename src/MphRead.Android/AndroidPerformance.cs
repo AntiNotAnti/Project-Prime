@@ -43,6 +43,8 @@ namespace MphRead.Droid
         private static int _sampleCount;
         private static long _lastReport;
         private static long _allocatedBytes;
+        private static double _lastManagedGcPauseMs;
+        private static long? _lastArtGcCount, _lastArtGcTimeMs;
         private static int _thermalStatus;
         private static bool _matchActive;
         private static bool _sustainedPerformanceModeCleared;
@@ -226,6 +228,9 @@ namespace MphRead.Droid
                 _lastGcCounts[generation] = GC.CollectionCount(generation);
             }
             _lastReport = Environment.TickCount64;
+            _lastManagedGcPauseMs = GC.GetTotalPauseDuration().TotalMilliseconds;
+            _lastArtGcCount = ReadArtStat("art.gc.gc-count");
+            _lastArtGcTimeMs = ReadArtStat("art.gc.gc-time");
 
             DisableSustainedPerformanceMode();
             if (!active)
@@ -362,6 +367,13 @@ namespace MphRead.Droid
             }
         }
 
+        // Binder/runtime-stat lookups are deliberately only performed at the 5s reporting boundary.
+        private static long? ReadArtStat(string key)
+        {
+            try { return AndroidGcTelemetry.ParseCounter(Android.OS.Debug.GetRuntimeStat(key)); }
+            catch (Exception) { return null; }
+        }
+
         private static void Report(int width, int height)
         {
             int count = _sampleCount;
@@ -389,10 +401,24 @@ namespace MphRead.Droid
                 if (ms > 50) over50++;
             }
 
+            double pauseNow = GC.GetTotalPauseDuration().TotalMilliseconds;
+            double managedPauseDelta = Math.Max(0, pauseNow - _lastManagedGcPauseMs);
+            long? artCountNow = ReadArtStat("art.gc.gc-count");
+            long? artTimeNow = ReadArtStat("art.gc.gc-time");
+            string artDelta = AndroidGcTelemetry.CounterDelta(artCountNow, _lastArtGcCount);
+            string artTimeDelta = AndroidGcTelemetry.CounterDelta(artTimeNow, _lastArtGcTimeMs);
+            _lastManagedGcPauseMs = pauseNow;
+            _lastArtGcCount = artCountNow;
+            _lastArtGcTimeMs = artTimeNow;
+
+#if PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS
+            DebugLog.Line("androidaudio", MphRead.Mods.Sound.SfxMixer.ReadAndResetAudioCallbackMetrics());
+#endif
             DebugLog.Line("androidperf",
                 $"frame ms p50/p90/p95/p99 {p50:0.00}/{p90:0.00}/{p95:0.00}/{p99:0.00}; "
                 + $"stage p95 sim/render/ui/swap {sim95:0.00}/{render95:0.00}/{ui95:0.00}/{swap95:0.00}; "
                 + $"limiter p95 {limiter95:0.00}; GC delta {gc0 - _lastGcCounts[0]}/{gc1 - _lastGcCounts[1]}/{gc2 - _lastGcCounts[2]}; "
+                 + $"GC pause {managedPauseDelta:0.00}ms ART gc {artDelta} time {artTimeDelta}ms; "
                 + $">20/33/50 {over20}/{over33}/{over50} of {count}; "
                 + $"alloc {_allocatedBytes / 1024.0:0.0} KiB; "
                 + $"{width}x{height} world {RenderOptions.ResolutionScale}% cap "

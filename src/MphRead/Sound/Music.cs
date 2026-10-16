@@ -767,7 +767,7 @@ namespace MphRead
         private static Sound.MusicPlaybackGraph? Current => _loads?.Current as Sound.MusicPlaybackGraph;
         private static readonly AudioFormat _format;
 
-        private const int _sampleRate = 32728;
+        private static readonly int _sampleRate = 32728;
 
         /// <summary>
         /// False when no playback device could be opened. The game then runs
@@ -797,6 +797,14 @@ namespace MphRead
 
         static MusicPlayer()
         {
+#if ANDROID
+#if PROJECTPRIME_ANDROID_NATIVE_AUDIO_RATE
+            // Experiment only: request the Android mixer native rate; NCSF synthesis
+            // and the shared SFX mixer must use the identical selected rate.
+            _sampleRate = MphRead.Droid.AndroidAudioProfile.SelectOutputRate(_sampleRate);
+#endif
+            MphRead.Droid.AndroidAudioProfile.Report(_sampleRate);
+#endif
             _format = new AudioFormat()
             {
                 SampleRate = _sampleRate,
