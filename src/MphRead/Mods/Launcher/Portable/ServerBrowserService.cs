@@ -202,19 +202,16 @@ namespace MphRead.Mods.Launcher
             playerName = playerName.Trim();
             if (host.Length == 0)
                 return new(false, default, "Enter a server address.");
+            if (port is < 1 or > 65535)
+                return new(false, default, "Enter a valid server port (1-65535).");
             if (playerName.Length == 0)
                 playerName = "Player";
 
             suit = Math.Clamp(suit, 0, 3);
-            LauncherPrefs.PlayerName = playerName;
-            LauncherPrefs.LastHunter = hunter;
-            LauncherPrefs.LastColor = suit;
-            LauncherPrefs.ServerAddress = host;
-            LauncherPrefs.ServerPort = port;
-            LauncherPrefs.LastKind = (int)LaunchKind.Online;
-            LauncherPrefs.Save();
-
+            // A selected or manually entered address is transient until the server admits
+            // us. Saving here poisoned the next launch after a timeout or bad address.
             bool joined;
+            string? connectFailure = null;
             try
             {
                 joined = await Task.Run(() => NetLaunch.Connect(host, port,
@@ -226,15 +223,31 @@ namespace MphRead.Mods.Launcher
             {
                 joined = false;
             }
+            catch (Exception ex)
+            {
+                // Network and process-start failures should not leave the launcher
+                // on a dead address, or escape through an async UI event handler.
+                joined = false;
+                connectFailure = "Connection failed: " + ex.Message;
+            }
 
-            if (!joined)
+            if (!joined || cancellationToken.IsCancellationRequested)
             {
                 string error = cancellationToken.IsCancellationRequested
                     ? "Join cancelled."
-                    : NetLaunch.LastJoinError;
+                    : connectFailure ?? NetLaunch.LastJoinError;
                 NetSession.Stop();
                 return new(false, default, error);
             }
+
+            // Admission succeeded: this is now the last-known-good endpoint.
+            LauncherPrefs.PlayerName = playerName;
+            LauncherPrefs.LastHunter = hunter;
+            LauncherPrefs.LastColor = suit;
+            LauncherPrefs.ServerAddress = host;
+            LauncherPrefs.ServerPort = port;
+            LauncherPrefs.LastKind = (int)LaunchKind.Online;
+            LauncherPrefs.Save();
 
             return new(true, new LaunchPlan
             {
