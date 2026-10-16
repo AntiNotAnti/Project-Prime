@@ -581,8 +581,11 @@ namespace MphRead
             return transform;
         }
 
-        public void AnimateNodes(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info,
-            Mods.Render.AnimationSamples.Sample? presentation = null)
+        public void AnimateNodes(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info)
+            => AnimateNodes(index, useNodeTransform, parentTansform, scale, info, null);
+
+        internal void AnimateNodes(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale,
+            AnimationInfo info, Mods.Render.AnimationSamples.Sample? presentation)
         {
             for (int i = index; i != -1;)
             {
@@ -616,8 +619,11 @@ namespace MphRead
         }
 
         // todo: merge this into one that works for everything
-        public void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info,
-            Mods.Render.AnimationSamples.Sample? presentation = null)
+        public void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info)
+            => AnimateNodes2(index, useNodeTransform, parentTansform, scale, info, null);
+
+        internal void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale,
+            AnimationInfo info, Mods.Render.AnimationSamples.Sample? presentation)
         {
             for (int i = index; i != -1;)
             {
