@@ -97,6 +97,30 @@ try
             " collision triangles, " + compiled.Faces.Count + " visual proxy faces");
         return 0; // Never write/package/upload derived commercial assets.
     }
+    if (args.Length == 2 && args[0] == "--probe-darksamus")
+    {
+        using var disc = GameCubeDiscReader.Open(args[1]);
+        if (disc.Game != ExternalGameKind.Echoes)
+            throw new InvalidDataException("A local Echoes GameCube source is required.");
+        var requirements = ExternalSourceRequirements.For(disc.Game)
+            .Where(x => x.Path == "Metroid1.pak" || x.Path == "Metroid5.pak").ToArray();
+        if (requirements.Any(x => ExternalSourceRequirements.Verify(disc, x).Status != ExternalArchiveStatus.Verified))
+            throw new InvalidDataException("Dark Samus PAK resources do not match a pinned Echoes edition.");
+        using var stream1 = disc.OpenRead("Metroid1.pak");
+        using var stream5 = disc.OpenRead("Metroid5.pak");
+        using var pak1 = new RetroPakReader(stream1);
+        using var pak5 = new RetroPakReader(stream5);
+        RetroPakReader Owner(uint id) => pak1.Contains(id) ? pak1 :
+            pak5.Contains(id) ? pak5 : throw new InvalidDataException("Required Dark Samus source resource absent: " + id.ToString("x8"));
+        var ancs = Owner(RetroCharacterSource.EchoesDarkSamusAncs)
+            .ReadResource(RetroCharacterSource.EchoesDarkSamusAncs);
+        var refs = RetroCharacterSource.FindCharacter(ancs, "Dark_Samus");
+        var skeleton = RetroCharacterSource.ReadSkeleton(Owner(refs.Cinf).ReadResource(refs.Cinf));
+        Console.WriteLine("Dark Samus (Echoes): CMDL " + refs.Cmdl.ToString("x8") +
+            ", CSKR " + refs.Cskr.ToString("x8") + ", CINF " + refs.Cinf.ToString("x8") +
+            ", bones=" + skeleton.Bones.Count + " (no assets exported)");
+        return 0;
+    }
     if (args.Length != 0)
     {
         Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
@@ -107,6 +131,7 @@ try
     EchoesMreaFixtureTests.Run();
     EchoesSurfaceFixtureTests.Run();
     EchoesLocalMapFixtureTests.Run();
+    DarkSamusSourceFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
