@@ -49,6 +49,7 @@ try
         "oversized animation count rejects before downstream use");
     Expect<InvalidDataException>(() => Anim.Load(new byte[] { 0, 0, 0, 3 }, false),
         "unsupported source animation compression");
+    RetroMotionPreviewCheck.Run();
     Console.WriteLine("PASS: Retro ANCS clip index and source animation interpolation contracts");
     return 0;
 }
