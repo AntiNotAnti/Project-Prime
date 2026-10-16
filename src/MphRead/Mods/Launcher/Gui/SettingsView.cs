@@ -259,8 +259,6 @@ namespace MphRead.Mods.Launcher.Gui
         private int _audioPageIndex;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
-        private DecimalSliderRow _horizontalSensitivity = null!;
-        private DecimalSliderRow _verticalSensitivity = null!;
         private SliderRow _imperialistZoomSensitivity = null!;
         private SliderRow _imperialistZoomAmount = null!;
         private SliderRow _altSwipeSensitivity = null!;
@@ -931,9 +929,6 @@ namespace MphRead.Mods.Launcher.Gui
                         case SliderRow row:
                             row.ValueChanged += (_, _) => UpdateDraftStatus();
                             break;
-                        case DecimalSliderRow row:
-                            row.ValueChanged += (_, _) => UpdateDraftStatus();
-                            break;
                         case ToggleRow row:
                             row.Changed += (_, _) => UpdateDraftStatus();
                             break;
@@ -1029,7 +1024,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             ChoiceRow row => row.Label,
             SliderRow row => row.Label,
-            DecimalSliderRow row => row.Label,
             ToggleRow row => row.Label,
             FieldRow row => row.Label,
             KeyRow row => row.BindingName,
@@ -1459,7 +1453,7 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
-            var editHud = new HubNavButton("CUSTOM HUD / CROSSHAIR", compact: true);
+            var editHud = new HubNavButton("EDIT HUD", compact: true);
             editHud.Click += (_, _) =>
             {
                 object? previous = Content;
@@ -1479,11 +1473,9 @@ namespace MphRead.Mods.Launcher.Gui
                 });
             };
             page.Children.Add(editHud);
-            Explain(page, "One HUD Studio profile controls both HUD elements and weapon/zoom crosshairs. "
-                + "Use it to edit, preview, reset, import or share your local presentation.");
             if (Mods.Render.Hud.HudProfiles.LoadWarning is string hudWarning) Explain(page, hudWarning);
 
-            _proHud = Add(page, new ToggleRow("Modern HUD presentation", Features.ProHud));
+            _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
             _smoothNativeHud = Add(page, new ToggleRow("Smooth native HUD",
                 RenderOptions.SmoothNativeHud));
             Explain(page, "Smooth native HUD uses filtered sampling for the original DS reticle, meters and weapon-menu sprites when they are enlarged on modern displays. Turn it off for the original hard pixel edges.");
@@ -1979,11 +1971,6 @@ namespace MphRead.Mods.Launcher.Gui
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
                 min: 1, max: 300, keyStep: 1));
-            _horizontalSensitivity = Add(page, new DecimalSliderRow(
-                "Horizontal sensitivity", InputSettings.HorizontalSensitivity, .01f, 3f, .01f, "x base"));
-            _verticalSensitivity = Add(page, new DecimalSliderRow(
-                "Vertical sensitivity", InputSettings.VerticalSensitivity, .01f, 3f, .01f, "x base"));
-            Explain(page, "Both axis multipliers affect camera aiming equally in local gameplay and network late-aim presentation.");
             _imperialistZoomSensitivity = Add(page, new SliderRow("Imperialist zoom sensitivity",
                 SensitivityToSlider(InputSettings.ImperialistZoomSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
@@ -2156,14 +2143,8 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "Pen tablet");
             _penTablet = Add(page, new ToggleRow("Stylus mode", Mods.Input.PointerInput.StylusMode));
             BuildStylusZone(page);
-            BuildDsLayout(page);
-            _penTablet.Changed += (_, _) =>
-            {
-                ShowStylusRows();
-                ShowDsLayoutRows();
-            };
+            _penTablet.Changed += (_, _) => ShowStylusRows();
             ShowStylusRows();
-            ShowDsLayoutRows();
         }
 
         private void BuildGamepad(StackPanel page)
@@ -2190,8 +2171,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.Reset();
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
-                _horizontalSensitivity.Value = InputSettings.HorizontalSensitivity;
-                _verticalSensitivity.Value = InputSettings.VerticalSensitivity;
                 _imperialistZoomSensitivity.Value = SensitivityToSlider(InputSettings.ImperialistZoomSensitivity);
                 _imperialistZoomAmount.Value = (int)MathF.Round(InputSettings.ImperialistZoomAmount * 100);
                 _altSwipeSensitivity.Value = (int)MathF.Round(InputSettings.AltSwipeSensitivity * 100);
@@ -2202,7 +2181,6 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_mouseAltFormMovement != null) _mouseAltFormMovement.On = InputSettings.MouseAltFormMovement;
                 if (_stylusMovementBoost != null) _stylusMovementBoost.On = InputSettings.StylusMovementBoost;
                 _penTablet.On = Mods.Input.PointerInput.StylusMode;
-                ResetDsLayoutRows();
                 if (_repositionFilter != null) _repositionFilter.On = Mods.Input.PointerInput.GuardJumps;
                 if (_stylusZone != null)
                 {
@@ -2944,8 +2922,6 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // Controls
             InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
-            InputSettings.HorizontalSensitivity = _horizontalSensitivity.Value;
-            InputSettings.VerticalSensitivity = _verticalSensitivity.Value;
             InputSettings.ImperialistZoomSensitivity = SliderToSensitivity(_imperialistZoomSensitivity.Value);
             InputSettings.ImperialistZoomAmount = _imperialistZoomAmount.Value / 100f;
             InputSettings.AltSwipeSensitivity = _altSwipeSensitivity.Value / 100f;
@@ -3003,7 +2979,6 @@ namespace MphRead.Mods.Launcher.Gui
                     Mods.Input.TouchSettings.ReplaceLayout(_touchEditor.CopyLayout());
                 }
             }
-            ApplyDsLayout();
             InputSettings.Save();
             // The players in the match already have their own copies of these.
             // In-game settings target the registry supplied by the owning match:

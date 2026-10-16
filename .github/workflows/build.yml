@@ -35,8 +35,6 @@ jobs:
           global-json-file: global.json
       - name: diagnostic command-line credential redaction
         run: dotnet run --project tools/diagnostic-args-check -c Release
-      - name: HUD profile schema 1/2 and import roundtrip contracts
-        run: dotnet run --project tools/hud-check -c Release
 
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
@@ -405,12 +403,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          # The Windows map suite creates many build/fixture paths. GitHub's
-          # post-job cache save re-evaluated the recursive hashFiles globs and
-          # timed out after all map checks passed. Keep this cache key constant
-          # per platform and revision; NuGet restore remains authoritative for
-          # packages added after the cache was seeded.
-          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-mapcheck-v1
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
           restore-keys: |
             nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
@@ -653,7 +646,6 @@ jobs:
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
-          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --axis-sensitivity
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --outline-colors
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --terminal-retries

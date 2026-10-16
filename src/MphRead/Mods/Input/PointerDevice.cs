@@ -20,9 +20,6 @@ namespace MphRead.Mods.Input
         public static PointerSample Current { get; private set; }
         public static bool Active { get; private set; }
         public static bool PrimaryDown { get; private set; }
-        // Physical tip contact in the gameplay aim region, independent of
-        // whether a mouse button/shot is held. Hover never follows the camera.
-        public static bool AimContact { get; private set; }
         public static int SurfaceWidth { get; private set; } = 1;
         public static int SurfaceHeight { get; private set; } = 1;
         private static bool _acceptingInput;
@@ -55,7 +52,6 @@ namespace MphRead.Mods.Input
             PointerSample previous = Current;
             Current = sample;
             StylusZone.AspectCorrection = width / (float)Math.Max(height, 1);
-            DsLayout.UpdateInputBounds(width, height);
             bool identityChanged = sample.Device != previous.Device || sample.Id != previous.Id;
             bool hadPendingRelease = _stylusReleasePending;
             bool rawContact = Active && acceptsInput && sample.InContact;
@@ -150,10 +146,6 @@ namespace MphRead.Mods.Input
             }
             StylusZone.Update(sample.X / Math.Max(width, 1), sample.Y / Math.Max(height, 1),
                 effectiveContact);
-            // Only a real in-contact input can steer the dynamic camera.
-            // Contacts captured by buttons, placing or a UI owner are excluded.
-            AimContact = effectiveContact && sample.InContact && !StylusZone.Placing
-                && (!StylusZone.Enabled || StylusZone.Aiming);
             bool gameplayPrimary = effectiveContact && sample.PrimaryDown;
             PrimaryDown = acceptsInput && ResolvePrimary(gameplayPrimary, independentPrimaryDown,
                 StylusZone.CapturingPrimaryButton || StylusZone.Placing);
@@ -226,7 +218,6 @@ namespace MphRead.Mods.Input
             _acceptingInput = false;
             Current = default;
             PrimaryDown = false;
-            AimContact = false;
             _pendingX = _pendingY = 0;
             _stylusReleasePending = false;
             _stylusReleaseObservedBySimulation = false;

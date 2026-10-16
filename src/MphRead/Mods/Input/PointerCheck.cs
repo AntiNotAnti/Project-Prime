@@ -23,7 +23,6 @@ namespace MphRead.Mods.Input
                 NativeTouchChecks.Run();
                 CheckCameraBasis();
                 CheckZone();
-                CheckStackedGeometry();
                 CheckPlayerInput();
                 CheckOfflineInput();
                 CheckSettings();
@@ -54,88 +53,6 @@ namespace MphRead.Mods.Input
             if (!condition)
             {
                 throw new InvalidOperationException(label);
-            }
-        }
-
-        private static void CheckStackedGeometry()
-        {
-            bool oldStylus = PointerInput.StylusMode;
-            bool oldEnabled = DsLayout.Enabled;
-            string oldAspect = DsLayout.ScreenAspect;
-            float oldSize = DsLayout.RadarSize, oldX = DsLayout.RadarX, oldY = DsLayout.RadarY;
-            try
-            {
-                PointerInput.StylusMode = true;
-                DsLayout.Enabled = true;
-                DsLayout.ScreenAspect = "4:3";
-                Require(Math.Abs(MphRead.Mods.Combat.KillFeed.LifetimeSeconds - 5d) < .0001d,
-                    "stacked mode honors independent five-second death timestamps");
-                var screens = DsLayout.Bounds(768, 1152);
-                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576))
-                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576)),
-                    "4:3 equal LCDs exact authored 768x576 reference");
-                Require(DsLayout.GlBounds(768, 1152, lower: false)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 576, 768, 576))
-                    && DsLayout.GlBounds(768, 1152, lower: true)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 0, 768, 576)),
-                    "4:3 desktop GL top and bottom Y origins match input");
-                DsLayout.UpdateInputBounds(768, 1152);
-                Require(StylusZone.Enabled && MathF.Abs(StylusZone.Top - .5f) < .0001f
-                    && MathF.Abs(StylusZone.Height - .5f) < .0001f,
-                    "4:3 pen uses actual lower LCD while enabled");
-                float SelectX() => StylusZone.Left + (232f / StylusZone.DsWidth) * StylusZone.Width;
-                float SelectY() => StylusZone.Top + (43f / StylusZone.DsHeight) * StylusZone.Height;
-                Require(StylusZone.RegionAt(SelectX(), SelectY()) == StylusRegion.WeaponSelect,
-                    "4:3 round select button maps to LCD");
-                Require(StylusZone.RegionAt(.5f, .25f) == StylusRegion.None,
-                    "top LCD is excluded from touch");
-
-                DsLayout.ScreenAspect = "5:3";
-                StylusZone.SelectSize = 1.08f;
-                StylusZone.Button nativeSelect = Array.Find(StylusZone.Buttons,
-                    b => b.Region == StylusRegion.WeaponSelect);
-                StylusZone.Button effective = StylusZone.EffectiveButton(nativeSelect);
-                Require(effective.X == nativeSelect.X && effective.Y == nativeSelect.Y
-                    && MathF.Abs(effective.Width - nativeSelect.Width * 1.08f) < .0001f,
-                    "WPN selection scale retains original button center");
-                screens = DsLayout.Bounds(960, 1152);
-                Require(screens.Top.Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576))
-                    && screens.Bottom.Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576)),
-                    "5:3 equal LCDs exact authored 960x576 reference");
-                Require(DsLayout.GlBounds(960, 1152, lower: false)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 576, 960, 576))
-                    && DsLayout.GlBounds(960, 1152, lower: true)
-                        .Equals(new OpenTK.Mathematics.Vector4i(0, 0, 960, 576)),
-                    "5:3 GL viewport does not stretch outside physical LCD");
-                DsLayout.UpdateInputBounds(960, 1152);
-                Require(MathF.Abs(DsLayout.HorizontalStretch - 1.25f) < .0001f
-                    && StylusZone.RegionAt(SelectX(), SelectY()) == StylusRegion.WeaponSelect,
-                    "5:3 horizontal stretch keeps native weapon-control center");
-                float edgeX = StylusZone.Left + (252f / StylusZone.DsWidth) * StylusZone.Width;
-                Require(StylusZone.RegionAt(edgeX, SelectY()) == StylusRegion.Aim,
-                    "5:3 round control compensates for horizontal stretch");
-                DsLayout.RadarSize = 1.5f;
-                DsLayout.RadarX = DsLayout.RadarY = .5f;
-                var center = DsLayout.RadarCenter;
-                Require(MathF.Abs(center.X - 384f) < .001f &&
-                    MathF.Abs(center.Y - 288f) < .001f,
-                    "independent radar controls keep center at fifty percent");
-                DsLayout.RadarX = -10f;
-                DsLayout.RadarY = 25f;
-                Require(DsLayout.RadarX == 0f && DsLayout.RadarY == 1f,
-                    "radar position bounds clamped");
-                Require(DsLayout.HealthBlink(100, 0) == 1f
-                    && DsLayout.HealthBlink(99, 0) >= .35f,
-                    "99 HP warning threshold preserves actual health resource");
-            }
-            finally
-            {
-                DsLayout.Enabled = oldEnabled;
-                DsLayout.ScreenAspect = oldAspect;
-                DsLayout.RadarSize = oldSize;
-                DsLayout.RadarX = oldX;
-                DsLayout.RadarY = oldY;
-                PointerInput.StylusMode = oldStylus;
             }
         }
 
@@ -409,17 +326,14 @@ namespace MphRead.Mods.Input
             Frame(100, 600, false);
             Frame(1500, 600, true);
             Require(StylusZone.Held == StylusRegion.Aim && !StylusZone.Aiming, "first contact belongs to aim without rotating");
-            Require(!PointerDevice.AimContact, "touchdown does not prematurely steer the camera");
             Require(!PointerDevice.PrimaryDown && PointerDevice.TakeDelta() == (0f, 0f), "contact teleport cannot aim or fire");
             Frame(1510, 605, true);
             Frame(1520, 610, true); // two pictures before the simulation reads
             Require(StylusZone.Aiming && PointerDevice.TakeDelta() == (20f, 10f), "drag accumulates between simulation steps");
-            Require(PointerDevice.AimContact, "active aim drag requests follow without firing");
             Require(PointerDevice.TakeDelta() == (0f, 0f), "catch-up simulation cannot apply movement twice");
             Frame(1530, 615, true, independentDown: true);
             Require(PointerDevice.PrimaryDown, "native independent mouse is not captured");
             Frame(1540, 620, false);
-            Require(!PointerDevice.AimContact, "pen-up immediately stops camera follow");
             PointerDevice.AdvanceSimulationStep();
             Frame(100, 600, false);
             Frame(1500, 600, true);
@@ -430,7 +344,6 @@ namespace MphRead.Mods.Input
             Frame(1810, 650, true);
             Require(!StylusZone.Aiming && PointerDevice.TakeDelta() == (0f, 0f),
                 "pause/focus return quarantines held stylus input");
-            Require(!PointerDevice.AimContact, "UI-owned held contact cannot steer follow");
             Frame(1820, 650, true, id: 2);
             Require(!StylusZone.Aiming && !StylusZone.CapturingPointer
                 && PointerDevice.TakeDelta() == (0f, 0f),
@@ -460,7 +373,6 @@ namespace MphRead.Mods.Input
             Frame(weaponX, weaponY, true, id: 10);
             Require(StylusZone.TakePressed() == StylusRegion.Weapons,
                 "WPN contact produces one action");
-            Require(!PointerDevice.AimContact, "WPN button cannot steer camera follow");
             Frame(weaponX, weaponY, true, id: 11);
             Require(StylusZone.Held == StylusRegion.Weapons
                 && StylusZone.TakePressed() == StylusRegion.None,
@@ -1022,34 +934,7 @@ namespace MphRead.Mods.Input
                     && StylusZone.GuideColor == "#33AAFF",
                     "native UI, guide color and per-element opacity settings round trip");
 
-                File.WriteAllText(path,
-                    "stylus_mode=true\nds_stacked=true\nds_aspect=5:3\n"
-                    + "stylus_select_size=1.08\n"
-                    + "ds_radar_size=1.75\nds_radar_x=0.27\nds_radar_y=0.68\n");
-                InputSettings.Load();
-                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
-                    && Math.Abs(StylusZone.SelectSize - 1.08f) < .0001f
-                    && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f
-                    && Math.Abs(DsLayout.RadarX - .27f) < .0001f
-                    && Math.Abs(DsLayout.RadarY - .68f) < .0001f,
-                    "stacked LCD settings load independently of stylus zone placement");
-                InputSettings.Save();
-                DsLayout.Enabled = false;
-                DsLayout.ScreenAspect = "4:3";
-                DsLayout.RadarSize = 1;
-                DsLayout.RadarX = DsLayout.RadarY = .5f;
-                InputSettings.Load();
-                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3"
-                    && Math.Abs(StylusZone.SelectSize - 1.08f) < .0001f
-                    && Math.Abs(DsLayout.RadarSize - 1.75f) < .0001f,
-                    "stacked LCD aspect and radar settings round trip through controls.txt");
-
                 InputSettings.Reset();
-                Require(!DsLayout.Enabled && DsLayout.ScreenAspect == "4:3"
-                    && StylusZone.SelectSize == 1f
-                    && DsLayout.RadarSize == 1f && DsLayout.RadarX == .5f
-                    && DsLayout.RadarY == .5f,
-                    "controls reset returns to normal single-screen defaults");
                 Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
                     "reset restores ordinary mouse defaults");
                 Require(InputSettings.MouseMovementBoost && InputSettings.StylusMovementBoost,

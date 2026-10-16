@@ -131,26 +131,6 @@ namespace MphRead.Mods.Input
             new Button(StylusRegion.AltForm, 228, 166, 44, 44, "ALT", round: true)
         };
 
-        // User-configurable upper-right WPN-selector footprint. The control
-        // never moves from its native center; dimensions are clamped so the
-        // visible boundary and clickable ellipse agree at the screen edge.
-        private static float _selectSize = 1f;
-        private static float SelectLimit => 48f / 44f * DsLayout.HorizontalStretch;
-        public static float SelectSize
-        {
-            get => Math.Clamp(_selectSize, .5f, SelectLimit);
-            set => _selectSize = float.IsFinite(value)
-                ? Math.Clamp(value, .5f, SelectLimit) : 1f;
-        }
-
-        public static Button EffectiveButton(Button button)
-        {
-            if (button.Region != StylusRegion.WeaponSelect) return button;
-            return new Button(button.Region, button.X, button.Y,
-                button.Width * SelectSize, button.Height * SelectSize,
-                button.Label, button.Round);
-        }
-
         /// <summary>
         /// Whether the zone is being used at all.
         ///
@@ -172,7 +152,7 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static bool Enabled
         {
-            get => (Wanted || DsLayout.Active) && PointerInput.StylusMode;
+            get => Wanted && PointerInput.StylusMode;
             set => Wanted = value;
         }
 
@@ -185,13 +165,11 @@ namespace MphRead.Mods.Input
         // Where the zone is, as fractions of the window, so it survives a
         // resize and a change of monitor. Width alone: the height follows
         // from the DS's shape, which the layout depends on.
-        private static float _left = .62f, _top = .60f, _width = .34f;
-        public static float Left { get => DsLayout.Active ? DsLayout.Bottom.X : _left; private set => _left = value; }
-        public static float Top { get => DsLayout.Active ? DsLayout.Bottom.Y : _top; private set => _top = value; }
-        public static float Width { get => DsLayout.Active ? DsLayout.Bottom.Z : _width; private set => _width = value; }
+        public static float Left { get; private set; } = 0.62f;
+        public static float Top { get; private set; } = 0.60f;
+        public static float Width { get; private set; } = 0.34f;
 
-        public static float Height => DsLayout.Active ? DsLayout.Bottom.W
-            : Width * (DsHeight / DsWidth) * AspectCorrection;
+        public static float Height => Width * (DsHeight / DsWidth) * AspectCorrection;
 
         /// <summary>
         /// Window shape, so a zone given as a fraction of the width is still
@@ -291,7 +269,6 @@ namespace MphRead.Mods.Input
             ButtonOpacity = DefaultButtonOpacity;
             CursorOpacity = DefaultCursorOpacity;
             GuideColor = DefaultGuideColor;
-            SelectSize = 1f;
         }
 
         public static void SetRect(float left, float top, float width)
@@ -631,13 +608,8 @@ namespace MphRead.Mods.Input
             float dsY = (y - Top) / height * DsHeight;
             for (int i = 0; i < Buttons.Length; i++)
             {
-                Button button = EffectiveButton(Buttons[i]);
-                // At 5:3 the art expands horizontally. Preserve the shape
-                // and hit target of round buttons by compensating the width.
-                float targetWidth = button.Width / DsLayout.HorizontalStretch;
-                Button target = new(button.Region, button.X, button.Y,
-                    targetWidth, button.Height, button.Label, button.Round);
-                if (target.Contains(dsX, dsY))
+                Button button = Buttons[i];
+                if (button.Contains(dsX, dsY))
                 {
                     return button.Region;
                 }

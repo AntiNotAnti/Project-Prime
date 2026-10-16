@@ -543,30 +543,8 @@ namespace MphRead.Entities
                     Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * tangent,
                     _gunVec1);
             }
-            // Local dynamic free-aim preserves shot direction until genuine pen
-            // contact asks the camera to follow. Remote, bot, zoom and alt form
-            // paths retain the ordinary easing.
-            if (IsMainPlayer && !IsBot && !_scene.Services.IsReplica
-                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon
-                && Mods.Input.PointerDevice.Active)
-                return;
             Vector3 temp2 = _gunVec1 - _facingVector;
             _facingVector = NormalizeSpatialOr(_facingVector + temp2 * 0.1f, _gunVec1);
-        }
-
-        private void UpdateStylusAimFollow()
-        {
-            if (IsMainPlayer && !IsBot && !_scene.Services.IsReplica
-                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon
-                && Mods.Input.PointerDevice.AimContact
-                && _scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) != true
-                && !_scene.FrameAdvance && !_scene.FrameAdvanceLastFrame)
-            {
-                // Once per 60 Hz input step, follow raw shot aim without changing
-                // the shot vector. 0.1 is calibrated behavior, not ROM fidelity.
-                _facingVector = NormalizeSpatialOr(
-                    _facingVector + (_gunVec1 - _facingVector) * .1f, _gunVec1);
-            }
         }
 
         private float AimScopeBlend()
@@ -782,9 +760,9 @@ namespace MphRead.Entities
                     // now the point where one lives (1.0 = this exact feel).
                     float mouseSensitivity = Mods.InputSettings.MouseAimSensitivity(
                         EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist);
-                    float aimY = -Input.MouseDeltaY / 4f * mouseSensitivity * Mods.InputSettings.VerticalSensitivity
+                    float aimY = -Input.MouseDeltaY / 4f * mouseSensitivity
                         * (Mods.InputSettings.InvertMouseY ? -1 : 1);
-                    float aimX = -Input.MouseDeltaX / 4f * mouseSensitivity * Mods.InputSettings.HorizontalSensitivity
+                    float aimX = -Input.MouseDeltaX / 4f * mouseSensitivity
                         * (Mods.InputSettings.InvertMouseX ? -1 : 1);
                     if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                         || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
@@ -804,7 +782,6 @@ namespace MphRead.Entities
                     UpdateHudShiftX(aimX);
                     UpdateAimY(aimY);
                     UpdateAimX(aimX);
-                    UpdateStylusAimFollow();
                     if (Flags1.TestFlag(PlayerFlags1.Grounded))
                     {
                         // sktodo: threshold values
@@ -1823,9 +1800,9 @@ namespace MphRead.Entities
                     ApplyModAim();
                     if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
                     {
-                        float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseSensitivity * Mods.InputSettings.VerticalSensitivity
+                        float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseSensitivity
                             * (Mods.InputSettings.InvertMouseY ? -1 : 1);
-                        float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseSensitivity * Mods.InputSettings.HorizontalSensitivity
+                        float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseSensitivity
                             * (Mods.InputSettings.InvertMouseX ? -1 : 1);
                         if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                             || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
