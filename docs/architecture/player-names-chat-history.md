@@ -10,6 +10,34 @@ Chat keeps three compact transient rows with the existing timing. During composi
 
 Replay packet adapters decode protocol-24/25/26 ASCII identity layouts before passing packets into current readers. Replica checkpoints accept the corresponding legacy roster/session layouts. New chat presentation facts and checkpoint chat state use the recording frame for expiration, so paused playback does not age messages by wall time. Cached library compatibility is refreshed. Unrelated incompatible engine/world schemas remain subject to existing replay validation.
 
+## Expanded Japanese punctuation and distinct supplemental glyphs
+
+The supported name repertoire now includes the recognizable JIS X 0208 first-row
+punctuation at native indices 0x1B1..0x1FF, plus supplemental characters
+`〝〞∓⨉﹍￣‐′` in previously unused glyph slots 0x200..0x207.
+
+**Replay stability:** three already-used native glyph codes are intentionally
+left untouched: 0x1C0 remains `‾`, 0x1CD remains `−`, and 0x1FB remains `ᐟ`.
+Their JIS-standard counterparts `￣`, `‐` and `′` get separate identities.
+All previous supported Unicode names remain accepted. The invisible ideographic
+space (`U+3000`) is not newly admitted.
+
+Original ROM glyphs are preserved if they contain nonblank pixels and valid
+advance widths. For missing JIS punctuation artwork, the normal 8×8 font receives
+a deterministic fallback at load time. New supplemental glyphs always receive
+their own authored pixels and advances, prior to native HUD font texture
+creation. The `…` (ellipsis) and `﹍` (dashed low line) glyphs remain
+different in Unicode, transport, and rendered shape.
+
+No packet layout, name limit, database schema, or replay file format
+is altered. A normal name still occupies at most 24 glyphs / 48 wire bytes.
+The Hello version advances from protocol 56 to 57, because protocol-56 builds
+cannot recognize newly assigned glyph IDs. This safely rejects mixed live
+clients/servers while retaining support for existing protocol-56 recordings.
+Deploy the game client, dedicated server and Supabase name validator together.
+For visual verification of the native font fallback, legally extracted original
+game assets must be supplied locally; no ROM font data is committed here.
+
 ## Verification
 
 - `dotnet run --project tools/nettest -- --player-names-chat`: glyph-table round trips, rejection corpus, 8-slot packets, legacy packet conversion/generated replay opening, chat checkpoints, history retention/navigation and expiration.

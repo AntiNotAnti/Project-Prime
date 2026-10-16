@@ -44,10 +44,10 @@ internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, in
         {
             var features = (ReplayReplicaCheckpointFeatures)bytes[7];
             if (protocol == 55 && features == (ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups)
-                || protocol == 56 && features == CurrentFeatures)
+                || (protocol == 56 || protocol == 57) && features == CurrentFeatures)
                 return [new(version, protocol, features, 8)];
         }
-        if (version == CurrentVersion && bytes.Length >= 8 && protocol == 56
+        if (version == CurrentVersion && bytes.Length >= 8 && (protocol == 56 || protocol == 57)
             && (ReplayReplicaCheckpointFeatures)bytes[7] == (CurrentFeatures | ReplayReplicaCheckpointFeatures.TimedShots))
             return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
         throw new InvalidDataException("Unsupported replica checkpoint layout/features.");

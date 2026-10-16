@@ -9,5 +9,10 @@ const expected = new Set([...Array.from({ length: 95 }, (_, i) => String.fromCha
 assert.deepEqual([...supportedPlayerGlyphs].sort(), [...expected].sort());
 for (const value of ['ハンター∞', 'JÄRRETT™', '「PRIME」', 'あ'.repeat(24)]) assert.equal(normalizePlayerName(value), value);
 for (const value of ['', 'A'.repeat(25), '😀', 'a\u202e', 'a\0', 'a\n', '\ud800', 'a\u200b']) assert.equal(normalizePlayerName(value), null);
+for (const name of ['【PRIME】', '〝hunter〞', '…﹍…', '±∓×⨉', '〈〔（X）〕〉', '﹍'.repeat(24)])
+  assert.equal(normalizePlayerName(name), name);
+for (const c of Array.from('【】〝〞（）〔〕〈〉…｜＾∓〃′⨉‐―｀﹍'))
+  assert.ok(supportedPlayerGlyphs.has(c), 'missing requested glyph ' + c);
+assert.notEqual('…', '﹍');
 assert.equal(normalizePlayerName('e\u0301'), 'é');
 console.log('Backend name validation and native table parity passed.');

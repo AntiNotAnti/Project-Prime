@@ -1,0 +1,48 @@
+name: player-name glyphs
+
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/Text/MphGlyphMap.cs'
+      - 'src/MphRead/Text/PlayerNameGlyphArt.cs'
+      - 'src/MphRead/Strings.cs'
+      - 'src/MphRead/Mods/Network/PlayerNameCodec.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/PlayerNameGlyphPicker.cs'
+      - 'tools/nettest/PlayerNameChatTests.cs'
+      - 'supabase/functions/_shared/player-name.ts'
+      - 'supabase/tests/player-name.test.mjs'
+      - '.github/workflows/player-name-glyphs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Text/MphGlyphMap.cs'
+      - 'src/MphRead/Text/PlayerNameGlyphArt.cs'
+      - 'src/MphRead/Strings.cs'
+      - 'src/MphRead/Mods/Network/PlayerNameCodec.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/PlayerNameGlyphPicker.cs'
+      - 'tools/nettest/PlayerNameChatTests.cs'
+      - 'supabase/functions/_shared/player-name.ts'
+      - 'supabase/tests/player-name.test.mjs'
+      - '.github/workflows/player-name-glyphs.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  glyph-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify native names, glyph art and legacy replay support
+        run: dotnet run --project tools/nettest -c Release -- --player-names-chat
+      - name: Verify backend name and native table parity
+        run: node --experimental-strip-types supabase/tests/player-name.test.mjs

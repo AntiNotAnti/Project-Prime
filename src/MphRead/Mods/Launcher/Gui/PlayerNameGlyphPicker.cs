@@ -26,28 +26,40 @@ internal static class PlayerNameGlyphPicker
         string[] chars = Enumerable.Range(32, 95).Select(i => ((char)i).ToString())
             .Concat(MphGlyphMap.Extended.Where(c => c.Length == 1 && c != " ")).Distinct().ToArray();
         int Category(string c) => c[0] < 127 ? 0 : c[0] is >= '\u3041' and <= '\u3096' ? 2
-            : c[0] is >= '\u30a1' and <= '\u30ff' ? 3 : c[0] < '\u3000' ? 1 : 4;
+            : c[0] is >= '\u30a1' and <= '\u30ff' ? 3
+            : "…﹍∓⨉′″‐―".Contains(c[0]) ? 4 : c[0] < '\u3000' ? 1 : 4;
+
+        Avalonia.Controls.Button GlyphButton(string character)
+        {
+            var glyph = new Avalonia.Controls.Button { Content = character, MinWidth = 32, MinHeight = 32,
+                Padding = new Thickness(4) };
+            glyph.Click += (_, _) =>
+            {
+                string text = box.Text ?? "";
+                int start = Math.Min(box.SelectionStart, box.SelectionEnd);
+                int end = Math.Max(box.SelectionStart, box.SelectionEnd);
+                string candidate = text[..start] + character + text[end..];
+                if (PlayerNameCodec.ValidationError(candidate) != null) return;
+                box.Text = candidate;
+                box.CaretIndex = start + character.Length;
+                box.SelectionStart = box.SelectionEnd = box.CaretIndex;
+            };
+            return glyph;
+        }
+
+        // Place the reported symbols first instead of hiding them in a 400-glyph list.
+        categories.Children.Add(new TextBlock { Text = "QUICK SPECIALS" });
+        var quick = new WrapPanel();
+        foreach (char c in "【】〝〞（）〔〕〈〉…｜＾∓〃′⨉‐―｀﹍")
+            quick.Children.Add(GlyphButton(c.ToString()));
+        categories.Children.Add(quick);
+
         for (int category = 0; category < labels.Length; category++)
         {
             categories.Children.Add(new TextBlock { Text = labels[category] });
             var row = new WrapPanel();
             foreach (string character in chars.Where(c => Category(c) == category))
-            {
-                var glyph = new Avalonia.Controls.Button { Content = character, MinWidth = 32, MinHeight = 32,
-                    Padding = new Thickness(4) };
-                glyph.Click += (_, _) =>
-                {
-                    string text = box.Text ?? "";
-                    int start = Math.Min(box.SelectionStart, box.SelectionEnd);
-                    int end = Math.Max(box.SelectionStart, box.SelectionEnd);
-                    string candidate = text[..start] + character + text[end..];
-                    if (PlayerNameCodec.ValidationError(candidate) != null) return;
-                    box.Text = candidate;
-                    box.CaretIndex = start + character.Length;
-                    box.SelectionStart = box.SelectionEnd = box.CaretIndex;
-                };
-                row.Children.Add(glyph);
-            }
+                row.Children.Add(GlyphButton(character));
             categories.Children.Add(row);
         }
         button.Click += (_, _) => popup.IsOpen = !popup.IsOpen;

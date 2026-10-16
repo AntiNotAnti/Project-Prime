@@ -2530,8 +2530,11 @@ namespace MphRead.Mods.Network
         // Protocol 52 adds exact reliable turret fire emission/refusal outcomes.
         // Protocol 53 carries ordered 30 Hz Morph Ball touch input in live compact intents.
         // Protocol 55 combines native touch with pickup claims; staged 53/54 layouts are distinct historical inputs.
-        public const int ProtocolVersion = 56;
         // Protocol 56 adds authoritative timed grant reconciliation to the combined touch/pickup contract.
+        // Protocol 57 expands the accepted native player-name glyph repertoire.
+        // Packet layouts are unchanged, but older clients reject the new glyph IDs;
+        // reject mixed builds at Hello rather than corrupting names or replay facts.
+        public const int ProtocolVersion = 57;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
