@@ -820,6 +820,18 @@ namespace MphRead
 
         private void InitShadersCore()
         {
+#if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+            // Load a linked program before compiling either shader. The original
+            // grouped compilation below remains the default and desktop path.
+            _shaderProgramId = CompileAndLinkCachedSceneProgram(
+                Shaders.SelectedVertexShader, Shaders.FragmentShader, "main-program");
+            _rttShaderProgramId = CompileAndLinkCachedSceneProgram(
+                Shaders.RttVertexShader, Shaders.RttFragmentShader, "rtt-program");
+            _shiftShaderProgramId = CompileAndLinkCachedSceneProgram(
+                Shaders.RttVertexShader, Shaders.ShiftFragmentShader, "shift-program");
+            _celShaderProgramId = CompileAndLinkCachedSceneProgram(
+                Shaders.RttVertexShader, Shaders.CelFragmentShader, "cel-program");
+#else
             int vertexShader = 0, fragmentShader = 0;
             try
             {
@@ -845,6 +857,7 @@ namespace MphRead
                 DeleteSceneShader(ref fragmentShader);
                 DeleteSceneShader(ref vertexShader);
             }
+#endif
 
             _frameBuffer = GL.GenFramebuffer();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);

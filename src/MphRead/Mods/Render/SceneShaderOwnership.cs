@@ -42,6 +42,10 @@ public partial class Scene
             GL.AttachShader(program, vertex);
             GL.AttachShader(program, fragment);
             Mods.Render.OpenGlFailureInjection.ShaderObject(stage, program);
+            // Only experimental Android builds request a retrievable driver binary.
+#if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+            Mods.Render.AndroidShaderProgramBinaryCache.EnableRetrieval(program);
+#endif
             GL.LinkProgram(program);
             GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
             if (linked == 0) throw new ProgramException($"Failed to link {stage}. {GL.GetProgramInfoLog(program)}");
@@ -51,6 +55,28 @@ public partial class Scene
         }
         catch { GL.DeleteProgram(program); throw; }
     }
+
+#if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
+    private static int CompileAndLinkCachedSceneProgram(string vertexSource, string fragmentSource, string stage)
+    {
+        if (Mods.Render.AndroidShaderProgramBinaryCache.TryLoad(vertexSource, fragmentSource, out int cached))
+            return cached;
+        int vertex = 0, fragment = 0;
+        try
+        {
+            vertex = CompileSceneShader(ShaderType.VertexShader, vertexSource, stage + "-vertex");
+            fragment = CompileSceneShader(ShaderType.FragmentShader, fragmentSource, stage + "-fragment");
+            int program = LinkSceneProgram(vertex, fragment, stage);
+            Mods.Render.AndroidShaderProgramBinaryCache.Save(vertexSource, fragmentSource, program);
+            return program;
+        }
+        finally
+        {
+            DeleteSceneShader(ref fragment);
+            DeleteSceneShader(ref vertex);
+        }
+    }
+#endif
 
     private static void DeleteSceneShader(ref int shader)
     {

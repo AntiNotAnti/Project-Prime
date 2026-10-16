@@ -67,6 +67,8 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Opt-in A/B of persistent driver program binaries; ordinary builds use the existing shader compiler. -->
+    <DefineConstants Condition="'$(AndroidShaderBinaryCache)' == 'true'">$(DefineConstants);PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE</DefineConstants>
     <!-- Opt-in experiment: benchmark nursery sizes on real devices before choosing a production default. -->
     <AndroidGcNurserySize Condition="'$(AndroidGcNurserySize)' == ''"></AndroidGcNurserySize>
     <!-- There is no XAML in this project: every screen here is written in C#.
