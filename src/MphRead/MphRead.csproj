@@ -358,4 +358,9 @@
           Link="fidelity-baselines/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- RML-01: the restored managed native host compiles in desktop clients,
+       but dedicated servers retain no RmlUi UI host or P/Invoke surface. -->
+  <ItemGroup Condition="'$(MphReadServer)' == 'true'">
+    <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
+  </ItemGroup>
 </Project>
