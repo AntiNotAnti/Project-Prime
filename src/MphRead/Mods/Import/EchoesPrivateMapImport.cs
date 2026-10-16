@@ -82,6 +82,21 @@ public static class EchoesPrivateMapImport
     public static IReadOnlyList<string> InstallCannonPlaytests(string isoPath, string userMapDirectory) =>
         InstallLocalDefinitions(ReadCannonPlaytests(isoPath), userMapDirectory);
 
+    public static IReadOnlyList<MapDefinition> ReadRoutedCannonPlaytests(string isoPath)
+    {
+        var cannons = ReadCannonPlaytests(isoPath);
+        return cannons.Select(map =>
+        {
+            EchoesArenaSources.Arena arena = EchoesArenaSources.All.Single(a =>
+                map.Name == "CANNON ECHOES " + a.Name.ToUpperInvariant());
+            return EchoesTunedCannons.CreateRoutedVariant(map, arena.Key);
+        }).ToArray();
+    }
+
+    public static IReadOnlyList<string> InstallRoutedCannonPlaytests(string isoPath, string userMapDirectory) =>
+        InstallLocalDefinitions(ReadRoutedCannonPlaytests(isoPath), userMapDirectory);
+
+
 
     public static string InstallLocalDefinition(MapDefinition definition, string userMapDirectory) =>
         InstallLocalDefinitions(new[] { definition }, userMapDirectory)[0];
@@ -112,16 +127,23 @@ public static class EchoesPrivateMapImport
         foreach (MapDefinition map in requests)
         {
             ArgumentNullException.ThrowIfNull(map);
-            bool cannonPlaytest = map.Name.StartsWith("CANNON ECHOES ", StringComparison.Ordinal);
-            bool sourceVisuals = !cannonPlaytest &&
+            bool routed = map.Name.StartsWith("ROUTED ECHOES ", StringComparison.Ordinal);
+            bool cannonPlaytest = !routed &&
+                map.Name.StartsWith("CANNON ECHOES ", StringComparison.Ordinal);
+            bool sourceVisuals = !routed && !cannonPlaytest &&
                 map.Name.StartsWith("VISUAL ECHOES ", StringComparison.Ordinal);
-            string prefix = cannonPlaytest ? "CANNON ECHOES " :
+            string prefix = routed ? "ROUTED ECHOES " :
+                cannonPlaytest ? "CANNON ECHOES " :
                 sourceVisuals ? "VISUAL ECHOES " : "LOCAL ECHOES ";
             EchoesArenaSources.Arena arena = EchoesArenaSources.All.FirstOrDefault(x =>
                 map.Name == prefix + x.Name.ToUpperInvariant());
             if (cannonPlaytest && (EchoesTunedCannons.CountFor(arena.Key) == 0 ||
                 map.Capabilities?.MaxPlayers != 1))
                 throw new InvalidDataException("Tuned cannon maps require the original private solo-only arena.");
+            if (routed && (map.Capabilities?.MaxPlayers != 1 ||
+                map.NavigationLinks.Count != EchoesTunedCannons.CountFor(arena.Key) ||
+                map.NavigationLinks.Any(x => x.Kind != MapNavigationLinkKind.JumpPad || x.Bidirectional)))
+                throw new InvalidDataException("Routed Echoes map requires its authored one-way routes and solo-only mode.");
             if (string.IsNullOrEmpty(arena.Key) || !map.LocalSourceOnly ||
                 map.FormatVersion != 3 || map.MapId == Guid.Empty || !ids.Add(map.MapId))
                 throw new InvalidDataException("Only distinct local Echoes source maps can be installed.");
@@ -137,6 +159,7 @@ public static class EchoesPrivateMapImport
             };
             if (sourceVisuals) filename = "visual-" + filename;
             if (cannonPlaytest) filename = "cannon-" + filename;
+            if (routed) filename = "routed-" + filename;
             if (!filenames.Add(filename))
                 throw new InvalidDataException("Duplicate local Echoes filename.");
 
@@ -148,6 +171,8 @@ public static class EchoesPrivateMapImport
             var compiled = MapBuilder.Build(map);
             if (compiled.Faces.Count == 0 || compiled.Solid.Count == 0 || compiled.Entities.Count < 2)
                 throw new InvalidDataException(arena.Name + " has no viable geometry or spawns.");
+            if (routed)
+                MapNodePacker.Analyze(compiled.Solid, MapNodePacker.EffectiveLinks(map));
 
             byte[] bytes = Encoding.UTF8.GetBytes(map.Serialize());
             if (bytes.LongLength is 0 or > MapPackageReader.MaxProjectBytes)
@@ -172,6 +197,25 @@ public static class EchoesPrivateMapImport
 
     public static int RunAllArenasCommand(string? isoPath) =>
         RunCommand(isoPath, single: false);
+
+    public static int RunRoutedCannonPlaytestsCommand(string? isoPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(isoPath))
+                throw new ArgumentException("Usage: -importechoesroutes <path-to-owned-Echoes.iso-or-gcm>");
+            var files = InstallRoutedCannonPlaytests(isoPath, CustomRooms.UserMapDirectory);
+            Console.WriteLine("[echoes] Installed " + files.Count +
+                " solo-only cannon bot-route playtests. Restart to load them.");
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException
+            or ArgumentException or NotSupportedException or OverflowException or MapAuthoringException)
+        {
+            Console.Error.WriteLine("[echoes] Routed cannon import rejected: " + ex.Message);
+            return 1;
+        }
+    }
 
     public static int RunCannonPlaytestsCommand(string? isoPath)
     {
