@@ -628,7 +628,29 @@ internal static class CommunityMapChecks
                         "incomplete purge retains its locked archive and map tombstone");
                 }
             }
-            await client.PurgeMapAsync(lifecycleMapId, default);
+            // Windows antivirus/indexers can retain a read handle briefly
+            // after the deliberate locked-archive test scope ends. Preserve
+            // the strict 503-on-lock assertion above, then retry only the
+            // documented retryable response with a short, bounded backoff.
+            // Persistent incomplete purge remains a real test failure.
+            for (int retry = 0; ; retry++)
+            {
+                try
+                {
+                    await client.PurgeMapAsync(lifecycleMapId, default);
+                    break;
+                }
+                catch (HttpRequestException ex) when
+                    (OperatingSystem.IsWindows()
+                     && ex.StatusCode == HttpStatusCode.ServiceUnavailable
+                     && retry < 8)
+                {
+                    check((await client.GetProjectAsync(lifecycleMapId, default))
+                        is { DeletedAt: not null },
+                        "retryable Windows purge must retain the deleted map tombstone");
+                    await Task.Delay(TimeSpan.FromMilliseconds(50 * (retry + 1)));
+                }
+            }
             using (var purgedPackage = await http.GetAsync(
                 "packages/" + lifecycleOne.Package.Hash))
                 check(purgedPackage.StatusCode == HttpStatusCode.NotFound,
