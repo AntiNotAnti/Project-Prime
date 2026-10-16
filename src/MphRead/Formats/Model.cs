@@ -694,8 +694,18 @@ namespace MphRead
             return nodeMatrix;
         }
 
-        public void AnimateMaterials(AnimationInfo info)
+        public void AnimateMaterials(AnimationInfo info) => AnimateMaterials(info, null);
+
+        internal void AnimateMaterials(AnimationInfo info, Mods.Render.AnimationSamples.Sample? presentation)
         {
+            float Value(IReadOnlyList<float> values, int start, int frame, int blend, int length, int count)
+            {
+                float canonical = InterpolateAnimation(values, start, frame, blend, length, count);
+                if (presentation is not { } sample || sample.Fraction <= 0 || sample.FromFrame != frame)
+                    return canonical;
+                float following = InterpolateAnimation(values, start, sample.ToFrame, blend, length, count);
+                return Mods.Render.AnimationSampling.BlendChannel(canonical, following, sample.Fraction);
+            }
             for (int i = 0; i < Materials.Count; i++)
             {
                 Material material = Materials[i];
@@ -709,23 +719,23 @@ namespace MphRead
                     int currentFrame = info.MaterialFrame;
                     if (!material.AnimationFlags.TestFlag(MatAnimFlags.DisableColor))
                     {
-                        float diffuseR = InterpolateAnimation(group.Colors, animation.DiffuseLutIndexR, currentFrame,
+                        float diffuseR = Value(group.Colors, animation.DiffuseLutIndexR, currentFrame,
                             animation.DiffuseBlendR, animation.DiffuseLutLengthR, group.FrameCount);
-                        float diffuseG = InterpolateAnimation(group.Colors, animation.DiffuseLutIndexG, currentFrame,
+                        float diffuseG = Value(group.Colors, animation.DiffuseLutIndexG, currentFrame,
                             animation.DiffuseBlendG, animation.DiffuseLutLengthG, group.FrameCount);
-                        float diffuseB = InterpolateAnimation(group.Colors, animation.DiffuseLutIndexB, currentFrame,
+                        float diffuseB = Value(group.Colors, animation.DiffuseLutIndexB, currentFrame,
                             animation.DiffuseBlendB, animation.DiffuseLutLengthB, group.FrameCount);
-                        float ambientR = InterpolateAnimation(group.Colors, animation.AmbientLutIndexR, currentFrame,
+                        float ambientR = Value(group.Colors, animation.AmbientLutIndexR, currentFrame,
                             animation.AmbientBlendR, animation.AmbientLutLengthR, group.FrameCount);
-                        float ambientG = InterpolateAnimation(group.Colors, animation.AmbientLutIndexG, currentFrame,
+                        float ambientG = Value(group.Colors, animation.AmbientLutIndexG, currentFrame,
                             animation.AmbientBlendG, animation.AmbientLutLengthG, group.FrameCount);
-                        float ambientB = InterpolateAnimation(group.Colors, animation.AmbientLutIndexB, currentFrame,
+                        float ambientB = Value(group.Colors, animation.AmbientLutIndexB, currentFrame,
                             animation.AmbientBlendB, animation.AmbientLutLengthB, group.FrameCount);
-                        float specularR = InterpolateAnimation(group.Colors, animation.SpecularLutIndexR, currentFrame,
+                        float specularR = Value(group.Colors, animation.SpecularLutIndexR, currentFrame,
                             animation.SpecularBlendR, animation.SpecularLutLengthR, group.FrameCount);
-                        float specularG = InterpolateAnimation(group.Colors, animation.SpecularLutIndexG, currentFrame,
+                        float specularG = Value(group.Colors, animation.SpecularLutIndexG, currentFrame,
                             animation.SpecularBlendG, animation.SpecularLutLengthG, group.FrameCount);
-                        float specularB = InterpolateAnimation(group.Colors, animation.SpecularLutIndexB, currentFrame,
+                        float specularB = Value(group.Colors, animation.SpecularLutIndexB, currentFrame,
                             animation.SpecularBlendB, animation.SpecularLutLengthB, group.FrameCount);
                         material.CurrentDiffuse = new Vector3(diffuseR / 31.0f, diffuseG / 31.0f, diffuseB / 31.0f);
                         material.CurrentAmbient = new Vector3(ambientR / 31.0f, ambientG / 31.0f, ambientB / 31.0f);
@@ -733,7 +743,7 @@ namespace MphRead
                     }
                     if (!material.AnimationFlags.TestFlag(MatAnimFlags.DisableAlpha))
                     {
-                        material.CurrentAlpha = InterpolateAnimation(group.Colors, animation.AlphaLutIndex, currentFrame,
+                        material.CurrentAlpha = Value(group.Colors, animation.AlphaLutIndex, currentFrame,
                             animation.AlphaBlend, animation.AlphaLutLength, group.FrameCount) / 31.0f;
                     }
                 }
@@ -741,16 +751,30 @@ namespace MphRead
         }
 
         public Matrix4 AnimateTexcoords(TexcoordAnimationGroup group, TexcoordAnimation animation, int currentFrame)
+            => AnimateTexcoords(group, animation, currentFrame, null);
+
+        internal Matrix4 AnimateTexcoords(TexcoordAnimationGroup group, TexcoordAnimation animation,
+            int currentFrame, Mods.Render.AnimationSamples.Sample? presentation)
         {
-            float scaleS = InterpolateAnimation(group.Scales, animation.ScaleLutIndexS, currentFrame,
+            float Value(IReadOnlyList<float> values, int start, int frame, int blend,
+                int length, int count, bool isRotation = false)
+            {
+                float canonical = InterpolateAnimation(values, start, frame, blend, length, count, isRotation);
+                if (presentation is not { } sample || sample.Fraction <= 0 || sample.FromFrame != frame)
+                    return canonical;
+                float following = InterpolateAnimation(values, start, sample.ToFrame,
+                    blend, length, count, isRotation);
+                return Mods.Render.AnimationSampling.BlendChannel(canonical, following, sample.Fraction, isRotation);
+            }
+            float scaleS = Value(group.Scales, animation.ScaleLutIndexS, currentFrame,
                 animation.ScaleBlendS, animation.ScaleLutLengthS, group.FrameCount);
-            float scaleT = InterpolateAnimation(group.Scales, animation.ScaleLutIndexT, currentFrame,
+            float scaleT = Value(group.Scales, animation.ScaleLutIndexT, currentFrame,
                 animation.ScaleBlendT, animation.ScaleLutLengthT, group.FrameCount);
-            float rotate = InterpolateAnimation(group.Rotations, animation.RotateLutIndexZ, currentFrame,
+            float rotate = Value(group.Rotations, animation.RotateLutIndexZ, currentFrame,
                 animation.RotateBlendZ, animation.RotateLutLengthZ, group.FrameCount, isRotation: true);
-            float translateS = InterpolateAnimation(group.Translations, animation.TranslateLutIndexS, currentFrame,
+            float translateS = Value(group.Translations, animation.TranslateLutIndexS, currentFrame,
                 animation.TranslateBlendS, animation.TranslateLutLengthS, group.FrameCount);
-            float translateT = InterpolateAnimation(group.Translations, animation.TranslateLutIndexT, currentFrame,
+            float translateT = Value(group.Translations, animation.TranslateLutIndexT, currentFrame,
                 animation.TranslateBlendT, animation.TranslateLutLengthT, group.FrameCount);
             var textureMatrix = Matrix4.CreateTranslation(translateS, translateT, 0.0f);
             if (rotate != 0)
