@@ -76,9 +76,10 @@ public static class RetroCharacterSource
     public static RetroNativeSkeleton ReadSkeleton(ReadOnlySpan<byte> cinf)
     {
         if (cinf.Length < 4) throw new InvalidDataException("CINF skeleton is truncated.");
-        int bones = checked((int)U32(cinf, 0));
-        if (bones <= 0 || bones > MaxBones)
+        uint rawBones = U32(cinf, 0);
+        if (rawBones == 0 || rawBones > MaxBones)
             throw new InvalidDataException("CINF bone count exceeds supported size.");
+        int bones = (int)rawBones;
         var result = new Dictionary<uint, RetroNativeBone>(bones);
         long at = 4;
         for (int i = 0; i < bones; i++)
