@@ -81,13 +81,23 @@ public sealed class MapCommunityClient : IDisposable
 
     public MapCommunityClient(string address, string? uploadToken = null)
     {
+        var uri = ValidateBaseAddress(address);
+        _http = CreateHttpClient(uri, uploadToken, useProxy: true);
+        _directHttp = new Lazy<HttpClient>(() => CreateHttpClient(uri, uploadToken, useProxy: false));
+    }
+
+    // The persisted transfer index validates each receipt on reload. Keep
+    // this policy independent of HttpClient creation and socket resources.
+    internal static Uri ValidateBaseAddress(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            throw new ArgumentException("A Community service address is required.", nameof(address));
         var uri = new Uri(address.TrimEnd('/') + "/", UriKind.Absolute);
         if (uri.Scheme != "https" && !(uri.Scheme == "http" && uri.IsLoopback))
             throw new ArgumentException("Use an HTTPS community address (HTTP is allowed only on localhost).");
         if (!string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
             throw new ArgumentException("Use a community base address without credentials, query, or fragment.");
-        _http = CreateHttpClient(uri, uploadToken, useProxy: true);
-        _directHttp = new Lazy<HttpClient>(() => CreateHttpClient(uri, uploadToken, useProxy: false));
+        return uri;
     }
 
     private static HttpClient CreateHttpClient(Uri uri, string? uploadToken, bool useProxy)

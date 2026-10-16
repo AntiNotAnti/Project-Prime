@@ -30,6 +30,8 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
     private readonly Action _advanced;
     private readonly UiTabs _tabs = new(new[] { "MY UPLOADS", "TRANSFERS", "PUBLISH" });
     private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
+    private readonly System.Collections.Generic.Dictionary<Guid, UiListRow> _transferRows = new();
+    private Guid? _selectedTransferId;
     private readonly StackPanel _details = new() { Spacing = 8 };
     private readonly TextBlock _status = PrimeChrome.Text(
         "Community creator workspace.", PrimeTypography.BodySmall,
@@ -122,6 +124,7 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
         _operation = cancel;
         _list.Clear();
         _details.Children.Clear();
+        _transferRows.Clear();
         if (_tabs.Index == 1)
         {
             ShowTransfers();
@@ -192,29 +195,48 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
             PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
     }
 
+    private static string TransferDetail(CommunityTransferJob job)
+        => $"{job.State} · {job.AcknowledgedBytes / 1048576d:0.0} / "
+            + $"{job.TotalBytes / 1048576d:0.0} MiB";
+
     private void ShowTransfers()
     {
+        // Rebuilding after a tab switch or membership change must replace old
+        // rows, never append them on top of prior progress notifications.
+        _list.Clear();
+        _details.Children.Clear();
+        _transferRows.Clear();
         _status.Text = "Durable downloads and creator uploads, including offline history.";
         var jobs = _queue.ListJobs();
         if (jobs.Count == 0)
+        {
+            _selectedTransferId = null;
             _details.Children.Add(PrimeChrome.Text(
                 "No transfers yet.", PrimeTypography.BodySmall,
                 PrimeTheme.TextSecondaryBrush));
+            return;
+        }
         foreach (CommunityTransferJob receipt in jobs)
         {
             var job = receipt;
-            _list.Add(new UiListRow(
+            var row = new UiListRow(
                 job.Download?.DisplayName ?? (job.Kind == CommunityTransferKind.Upload
                     ? "Creator upload" : "Map download"),
-                $"{job.State} · {job.AcknowledgedBytes / 1048576d:0.0} / "
-                    + $"{job.TotalBytes / 1048576d:0.0} MiB", spacious: true)
-                { Choice = job.Id },
-                _ => ShowTransfer(job));
+                TransferDetail(job), spacious: true) { Choice = job.Id };
+            _transferRows.Add(job.Id, row);
+            _list.Add(row, _ => ShowTransfer(_queue.GetJob(job.Id)));
+        }
+        if (_selectedTransferId is Guid selected
+            && _transferRows.ContainsKey(selected))
+        {
+            _list.SelectTag(selected);
+            ShowTransfer(_queue.GetJob(selected));
         }
     }
 
     private void ShowTransfer(CommunityTransferJob job)
     {
+        _selectedTransferId = job.Id;
         _details.Children.Clear();
         _details.Children.Add(PrimeChrome.Title(job.State.ToString().ToUpperInvariant()));
         _details.Children.Add(PrimeChrome.Text(
@@ -340,7 +362,14 @@ internal sealed class StudioCreatorCommunityWorkspace : UserControl, IDisposable
         Dispatcher.UIThread.Post(() =>
         {
             if (_disposed || _tabs.Index != 1) return;
-            ShowTransfers();
+            if (_transferRows.TryGetValue(job.Id, out UiListRow? row))
+            {
+                // A frequent byte update should not rebuild the entire list,
+                // discard keyboard focus, or duplicate rows.
+                row.Detail = TransferDetail(job);
+                if (_selectedTransferId == job.Id) ShowTransfer(job);
+            }
+            else ShowTransfers();
             _status.Text = $"{job.Kind} {job.State} · "
                 + $"{job.AcknowledgedBytes / 1048576d:0.0} MiB";
         });

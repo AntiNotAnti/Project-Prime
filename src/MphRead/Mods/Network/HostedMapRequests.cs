@@ -314,8 +314,15 @@ internal sealed class HostedMapRequests : IDisposable
         if (installed != null && File.Exists(installed)
             && MapContentIdentity.FromPackage(installed).Matches(identity))
         {
-            AtomicFile.Write(path,
-                await File.ReadAllBytesAsync(installed, token).ConfigureAwait(false));
+            // An installed archive is private input, but potentially hundreds of
+            // MiB. Copy through a bounded buffer instead of a package-sized
+            // managed byte array, and verify the destination before exposing it.
+            await AtomicFile.CopyAsync(installed, path, token).ConfigureAwait(false);
+            if (!MapContentIdentity.FromPackage(path).Matches(identity))
+            {
+                File.Delete(path);
+                throw new InvalidDataException("Hosted map archive changed during staging.");
+            }
         }
         else
         {

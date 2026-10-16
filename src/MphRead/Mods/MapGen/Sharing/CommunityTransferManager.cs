@@ -873,9 +873,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     }
 
     private static void ValidateEndpoint(string endpoint)
-    {
-        using var client = new MapCommunityClient(endpoint);
-    }
+        => MapCommunityClient.ValidateBaseAddress(endpoint);
 
     private static void ValidateMap(CommunityMap map)
     {
