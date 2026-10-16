@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.IO;
-using System.Text;
 using MphRead.Mods.Chat;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
@@ -71,7 +70,7 @@ internal static class PlayerNameChatTests
         int[] fallbackWidths = new int[480], fallbackOffsets = new int[480];
         byte[] fallbackPixels = new byte[512 * 64];
         PlayerNameGlyphArt.Install(ref fallbackWidths, ref fallbackOffsets, ref fallbackPixels, 32);
-        foreach (int code in new[] { 0x1C2, 0x1C6, 0x1E3, 0x1E9, 0x1EA, 0x1F1, 0x1FF,
+        foreach (int code in new[] { 0x1C2, 0x1C6, 0x1E3, 0x1E9, 0x1EA, 0x1F1, 0x1FC, 0x1FF,
             0x200, 0x201, 0x202, 0x203, 0x204, 0x205, 0x206, 0x207 })
         {
             int index = code - 32;
@@ -83,6 +82,13 @@ internal static class PlayerNameChatTests
         Check(fallbackPixels[(0x204 - 32) * 64 + 6 * 8] == 1
             && fallbackPixels[(0x204 - 32) * 64 + 2 * 8] == 0,
             "dashed low line is below an ellipsis");
+        int asciiIndex = '(' - 32;
+        fallbackPixels[asciiIndex * 64] = 3;
+        fallbackWidths[asciiIndex] = 4;
+        PlayerNameGlyphArt.Install(ref fallbackWidths, ref fallbackOffsets, ref fallbackPixels, 32);
+        int fullWidthIndex = 0x1D9 - 32;
+        Check(fallbackWidths[fullWidthIndex] == 4 && fallbackPixels[fullWidthIndex * 64] == 3,
+            "blank fullwidth punctuation uses a visible ASCII fallback");
         int nativeIndex = 0x1E9 - 32;
         fallbackPixels[nativeIndex * 64] = 3;
         fallbackWidths[nativeIndex] = 5;
