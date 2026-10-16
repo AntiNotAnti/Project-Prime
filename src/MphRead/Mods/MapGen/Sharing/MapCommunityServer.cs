@@ -1588,6 +1588,10 @@ public static class MapCommunityServer
                             + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     }
                     context.Response.ContentType = "application/octet-stream";
+                    // Direct website downloads need a usable .ppmap filename;
+                    // the path is an immutable content SHA, not a file label.
+                    context.Response.Headers["Content-Disposition"] =
+                        "attachment; filename=\"" + hash + ".ppmap\"";
                     context.Response.ContentLength64 = total - start;
                     await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
                     if (start > 0) file.Position = start;
