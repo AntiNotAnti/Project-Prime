@@ -35,6 +35,27 @@ try
         Console.WriteLine(entry.Type + " " + id.ToString("x8") + ": " + resource.Length + " bytes decoded locally (not saved)");
         return 0;
     }
+    if (args.Length == 2 && args[0] == "--probe-arenas")
+    {
+        using var disc = GameCubeDiscReader.Open(args[1]);
+        if (disc.Game != ExternalGameKind.Echoes)
+            throw new InvalidDataException("Echoes GameCube source required.");
+        var requirement = ExternalSourceRequirements.For(disc.Game)
+            .Single(x => x.Path == "Metroid6.pak");
+        if (ExternalSourceRequirements.Verify(disc, requirement).Status != ExternalArchiveStatus.Verified)
+            throw new InvalidDataException("Echoes source does not match the pinned Metroid6.pak recipe.");
+        using var stream = disc.OpenRead(requirement.Path);
+        using var pak = new RetroPakReader(stream);
+        foreach (var arena in EchoesArenaSources.All)
+        {
+            var entry = pak.Entry(arena.ResourceId);
+            if (entry.Type != "MREA") throw new InvalidDataException("Arena source is not MREA: " + arena.Key);
+            var parsed = EchoesMreaSections.Parse(pak.ReadResource(arena.ResourceId));
+            Console.WriteLine(arena.Name + ": " + parsed.SectionCount + " sections, " +
+                parsed.ClusterCount + " clusters, " + parsed.ModelCount + " models (not saved)");
+        }
+        return 0;
+    }
     if (args.Length != 0)
     {
         Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
@@ -42,6 +63,7 @@ try
     }
     SelfTest();
     RetroPakFixtureTests.Run();
+    EchoesMreaFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
