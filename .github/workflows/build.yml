@@ -373,6 +373,8 @@ jobs:
         run: dotnet run --project tools/nettest -c Release -- --map-vote-ready
       - name: canonical animation frame-prediction and sample-isolation regressions
         run: dotnet run --project tools/nettest -c Release -- --animation-sampling
+      - name: authored firing vectors reject pathological magnitudes without a protocol change
+        run: dotnet run --project tools/nettest -c Release -- --shot-pose-bounds
       - name: retired live rules, archived wire state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-retirement
       - name: production waitlist admission and real UDP lifecycle

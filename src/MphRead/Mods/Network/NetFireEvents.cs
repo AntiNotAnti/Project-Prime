@@ -553,6 +553,11 @@ public static class NetFireEvents
                     || Math.Abs(e.Origin.Y) >= 100000 || Math.Abs(e.Origin.Z) >= 100000 || !Finite(e.Direction) || !Finite(e.Aim)
                     || !Finite(e.View) || e.Direction.LengthSquared < 0.000001f
                     || e.Aim.LengthSquared < 0.000001f || e.View.LengthSquared < 0.000001f
+                    // Fire-event rays are normalized before authoring. Bound
+                    // finite-but-oversized vectors, while allowing a generous
+                    // 2x tolerance for older packet quantization.
+                    || e.Direction.LengthSquared > 4f || e.Aim.LengthSquared > 4f
+                    || e.View.LengthSquared > 4f
                     || e.HasReticle && (!float.IsFinite(e.Reticle.X) || !float.IsFinite(e.Reticle.Y)
                         || e.Reticle.X is < 0 or > 1 || e.Reticle.Y is < 0 or > 1))) return false;
             previous = e.ShotId;
