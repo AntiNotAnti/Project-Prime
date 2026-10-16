@@ -22,7 +22,15 @@ public static class EchoesLocalMapDraft
 
     public static MapDefinition BuildSpires(EchoesCollisionData collision,
         IReadOnlyList<EchoesScriptObject> actors, string verifiedArchiveSha1)
+        => BuildArena(EchoesArenaSources.All.Single(x => x.Key == "M02_Spires"),
+            collision, actors, verifiedArchiveSha1);
+
+    public static MapDefinition BuildArena(EchoesArenaSources.Arena arena,
+        EchoesCollisionData collision, IReadOnlyList<EchoesScriptObject> actors,
+        string verifiedArchiveSha1)
     {
+        if (!EchoesArenaSources.All.Contains(arena))
+            throw new ArgumentException("Only six known Echoes multiplayer arenas are supported.", nameof(arena));
         if (verifiedArchiveSha1 is not { Length: 40 } ||
             !verifiedArchiveSha1.All(Uri.IsHexDigit))
             throw new ArgumentException("Locally verified source archive SHA-1 required.", nameof(verifiedArchiveSha1));
@@ -32,22 +40,23 @@ public static class EchoesLocalMapDraft
             collision.TriangleVertices.Length != collision.TriangleCount * 3 ||
             collision.SurfaceFlags.Length != collision.TriangleCount ||
             collision.Vertices.Length % 3 != 0)
-            throw new InvalidDataException("Invalid Spires collision source.");
+            throw new InvalidDataException("Invalid Echoes collision source.");
 
-        string key = "M02_Spires";
+        string key = arena.Key;
         string fingerprint = "project-prime/local/echoes/v1/" + key + "/" +
             verifiedArchiveSha1.ToLowerInvariant();
         var definition = new MapDefinition
         {
             FormatVersion = 3,
             MapId = StableId(fingerprint + "/map"),
-            Name = "LOCAL ECHOES SPIRES",
-            InGameName = "Spires (local blockout)",
+            Name = "LOCAL ECHOES " + arena.Name.ToUpperInvariant(),
+            InGameName = arena.Name + " (local blockout)",
             Version = "local-source-v1",
             Author = "Imported from local Echoes source",
             Description = "Local, nonredistributable visual/collision blockout derived from a user-provided Echoes GameCube image.",
             TextureSource = "MP3 PROVING GROUND",
             LocalSourceOnly = true,
+            Capabilities = new MapCapabilities { SupportedModes = new List<string> { "Battle" }, MinPlayers = 1, MaxPlayers = 1 },
             Partitioning = new MapPartitionSettings { Enabled = true, PortalCulling = false },
             Materials = new List<MapMaterial>
             {
@@ -141,7 +150,7 @@ public static class EchoesLocalMapDraft
             }
         }
         if (keptFaces == 0)
-            throw new InvalidDataException("Spires has no usable collision triangles.");
+            throw new InvalidDataException("Echoes arena has no usable collision triangles.");
 
         // The visual model and collision must share the same source coordinate
         // transform. Per-face surfacing is kept even for this graybox so ice
@@ -150,7 +159,7 @@ public static class EchoesLocalMapDraft
         int scaleFactor = 4;
         while (extent >= 8f * MathF.Pow(2, scaleFactor))
         {
-            if (++scaleFactor > 16) throw new InvalidDataException("Spires fixed-point scale exceeded.");
+            if (++scaleFactor > 16) throw new InvalidDataException("Echoes arena fixed-point scale exceeded.");
         }
         definition.ScaleFactor = scaleFactor;
         definition.KillHeight = min[1] - 5;
@@ -199,7 +208,7 @@ public static class EchoesLocalMapDraft
             }
         }
         if (definition.Spawns.Count < 2)
-            throw new InvalidDataException("Spires requires at least two imported player spawns.");
+            throw new InvalidDataException(arena.Name + " requires at least two imported player spawns.");
 
         return definition;
     }
