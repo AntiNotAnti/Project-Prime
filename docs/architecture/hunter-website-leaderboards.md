@@ -58,7 +58,7 @@ parameterized Postgres queries. Response metadata:
 The `?hunter=<opaque-id>` route returns only opted-in careers.
 
 API errors do not echo database details or include PII.
-Successful responses are cached for 60 seconds. No public write API
+The Edge function sends no-store responses. Public website catalog fetches may cache for at most 60 seconds; direct public profile lookups are uncached so a visibility opt-out prevents new profile reads immediately. No public write API
 exists, and the website does not receive database service credentials.
 
 ## Deployment sequence
