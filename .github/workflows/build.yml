@@ -53,6 +53,9 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
 
+      - name: validate local extra-character OBJ preview exporter
+        run: dotnet run --project tools/retro-character-preview-check -c Release
+
       - name: validate GameCube local source FST and archive receipts
         run: dotnet run --project tools/external-import-check -c Release
 
