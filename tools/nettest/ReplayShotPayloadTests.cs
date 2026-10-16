@@ -76,7 +76,12 @@ internal static class ReplayShotPayloadTests
                 Check(decoded.FireEvents[0].HasPose && decoded.FireEvents[0].HasReticle
                     && decoded.FireEvents[0].Origin == fire.Origin
                     && decoded.FireEvents[0].Direction == fire.Direction
-                    && decoded.FireEvents[0].Reticle == fire.Reticle,
+                    // Reticle coordinates are intentionally quantized to
+                    // ushort on the canonical wire (1/65535 resolution).
+                    // Compare within that defined wire precision instead
+                    // of exact binary-float equality.
+                    && MathF.Abs(decoded.FireEvents[0].Reticle.X - fire.Reticle.X) <= 1f / ushort.MaxValue
+                    && MathF.Abs(decoded.FireEvents[0].Reticle.Y - fire.Reticle.Y) <= 1f / ushort.MaxValue,
                     "authored ray, origin and reticle retained " + weapons[i]);
             }
             Check(records.Count == weapons.Length, "every owner and remote carrier recorded");
@@ -88,9 +93,13 @@ internal static class ReplayShotPayloadTests
                 LifeId = 1, Frame = 500
             };
             recorder.AcceptIntent(0, quiet, 500);
+            // HasFireEvents denotes that the canonical payload carries the
+            // fire-event section, not that a shot actually occurred. The
+            // zero count is the invariant preventing invented idle shots.
             Check(records.Count == weapons.Length + 1
-                && !IntentPacket.Read(records[^1].AsSpan(2)).HasFireEvents,
-                "idle source remains free of invented shots");
+                && IntentPacket.Read(records[^1].AsSpan(2)).HasFireEvents
+                && IntentPacket.Read(records[^1].AsSpan(2)).FireEventCount == 0,
+                "idle canonical carrier retains an empty fire-event section");
 
             // The existing compact-intent suite exercises older event
             // carriers, replica acceptance and held movement bootstraps.
