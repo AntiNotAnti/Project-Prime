@@ -67,6 +67,9 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Two independent opt-in audio experiments. Both default off. -->
+    <DefineConstants Condition="'$(AndroidNativeAudioRate)' == 'true'">$(DefineConstants);PROJECTPRIME_ANDROID_NATIVE_AUDIO_RATE</DefineConstants>
+    <DefineConstants Condition="'$(AndroidAudioDiagnostics)' == 'true'">$(DefineConstants);PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS</DefineConstants>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled
