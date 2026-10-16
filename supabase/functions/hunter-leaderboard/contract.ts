@@ -33,10 +33,12 @@ export function parseLeaderboardRequest(url: URL) {
   const onlyPublic = q.get("only_public") || "0";
   if (onlyPublic !== "0" && onlyPublic !== "1")
     throw new InvalidLeaderboardQuery("invalid_visibility_filter");
-  const search = (q.get("q") || "").normalize("NFC").trim();
-  if (Array.from(search).length > 40 ||
-      Array.from(search).some((c) => c.charCodeAt(0) < 32))
+  const rawSearch = (q.get("q") || "").normalize("NFC");
+  // Validate before trimming so hidden control characters cannot disappear.
+  if (Array.from(rawSearch).length > 40 ||
+      Array.from(rawSearch).some((c) => c.charCodeAt(0) < 32))
     throw new InvalidLeaderboardQuery("invalid_search");
+  const search = rawSearch.trim();
   const hunter = q.get("hunter");
   if (hunter !== null && !/^[a-f0-9]{32}$/.test(hunter))
     throw new InvalidLeaderboardQuery("invalid_public_hunter_id");
