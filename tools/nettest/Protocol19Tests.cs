@@ -29,7 +29,11 @@ internal static class Protocol19Tests
     }
     private static void Codecs()
     {
-        Check(NetConfig.ProtocolVersion == 56 && SnapshotFast.MaximumEncodedSize <= 1200, "current version and eight-player fast packet budget");
+        // This suite protects the protocol-56 combat/telemetry contracts across later wire
+        // versions. Exact current-version checks belong to NetArchitectureTests and the
+        // latest protocol-specific fixtures; do not pin historical coverage to 56.
+        Check(NetConfig.ProtocolVersion >= 56 && SnapshotFast.MaximumEncodedSize <= 1200,
+            "protocol 56+ retains the eight-player fast packet budget");
         Span<byte> bytes = stackalloc byte[PlayerState.Size];
         foreach (ushort health in new ushort[] { 0, 1, 37, 100, ushort.MaxValue })
         {
