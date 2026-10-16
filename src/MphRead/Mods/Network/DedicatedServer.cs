@@ -501,6 +501,7 @@ namespace MphRead.Mods.Network
                     // to the steps this pass owes, exactly as a client applies
                     // what arrived before it steps.
                     PumpLobbyMapPreparation(now);
+                    PumpPendingVoteMap(now);
                     CheckLoadBarrier(now);
                     PumpCampaignBot(now);
                     PumpSemanticDelivery();
@@ -829,6 +830,7 @@ namespace MphRead.Mods.Network
             // the authority, which is what a restarting server has to have
             // done before it starts another.
             ServerReplayRecorder.Stop();
+            CancelPendingVoteMap();
             _sim?.Stop();
             _sim = null;
             Mods.RoomPrewarm.Clear();
@@ -1704,12 +1706,43 @@ namespace MphRead.Mods.Network
             if (!_controlPlaneOnlyForTests && !Mods.Multiplayer.MapModeCapabilities.Supports(resolved,
                 ModeForRoom(resolved), LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers), out string incompatible))
             { Tell(peer, incompatible); return; }
+
+            GameMode requestedMode = ModeForRoom(resolved);
+            if (!_controlPlaneOnlyForTests && !Metadata.IsBuiltInRoom(resolved))
+            {
+                if (_pendingVoteMap != null)
+                {
+                    Tell(peer, "a map is still being prepared for a vote");
+                    return;
+                }
+                NetworkMapIdentity identity;
+                try { identity = NetworkMapIdentity.ForRoom(resolved); }
+                catch (Exception ex)
+                {
+                    Tell(peer, "map package is unavailable: " + ex.Message);
+                    return;
+                }
+                _pendingVoteMap = new PendingVoteMap(peer, resolved, requestedMode,
+                    identity, CurrentDefinition.RoomKey, _matchId, _authorityEpoch,
+                    finalCommit: false);
+                Tell(peer, "Preparing " + resolved + " before opening the vote...");
+                return;
+            }
+            BeginPreparedVote(peer, resolved, requestedMode, default, now);
+        }
+
+        private void BeginPreparedVote(Peer peer, string resolved, GameMode requestedMode,
+            NetworkMapIdentity verifiedMap, double now)
+        {
+            // The worker never calls this: only the authoritative packet-loop
+            // thread may mutate vote/rotation state.
+            _approvedVoteMap = verifiedMap;
             _voteRunning = true;
             _voteRoom = resolved;
             // The mode the rotation would play this map in if it lists it,
             // and this match's own mode otherwise. A vote is about the map;
             // silently changing the mode as well is not what was asked.
-            _voteMode = ModeForRoom(resolved);
+            _voteMode = requestedMode;
             _voteProposer = peer.Name.Length > 0 ? peer.Name : $"Player{peer.SlotIndex + 1}";
             _voteProposerSlot = peer.SlotIndex;
             _voteStartedAt = now;
@@ -1767,6 +1800,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void CancelMapVote(double now)
         {
+            CancelPendingVoteMap();
+            _approvedVoteMap = default;
             bool publish = _voteRunning || _voteResult != VoteStatePacket.StateIdle;
             _voteRunning = false;
             _voteRoom = "";
@@ -1818,6 +1853,19 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < _peers.Count; i++)
             {
                 _peers[i].Ballot = 0;
+            }
+            if (passed && _approvedVoteMap.IsCustom && !_controlPlaneOnlyForTests)
+            {
+                // A vote may sit open for 30 seconds. Re-validate the exact
+                // package and every runtime output off the network thread before
+                // committing rotation; do not trust the proposal-time proof.
+                _pendingVoteMap = new PendingVoteMap(null, room, mode, _approvedVoteMap,
+                    CurrentDefinition.RoomKey, _matchId, _authorityEpoch,
+                    finalCommit: true);
+                _voteResult = VoteStatePacket.StateIdle;
+                Announce($"vote passed ({count}) -- verifying {room} before changing maps");
+                BroadcastVoteState(now);
+                return;
             }
             if (passed)
             {
