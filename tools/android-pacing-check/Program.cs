@@ -110,4 +110,47 @@ Check(!AndroidFramePacer.PresentationOwnsCadence(displayPaced: false,
         modernPresentationBlocks: false),
     "nonblocking modern presentation may use the software deadline");
 
+Check(AndroidGcTelemetry.ParseCounter("98") == 98, "ART GC numeric runtime stat");
+Check(AndroidGcTelemetry.ParseCounter("missing") == null, "missing ART GC runtime stat");
+Check(AndroidGcTelemetry.CounterDelta(11, 7) == "4", "ART GC counter delta");
+Check(AndroidGcTelemetry.CounterDelta(null, 7) == "n/a", "unavailable ART GC delta");
+Check(AndroidGcTelemetry.CounterDelta(1, 5) == "n/a", "reset ART GC counter does not produce negative delta");
+
+{
+    var uploads = new MphRead.Mods.Render.ModernTexturePromotionPacer();
+    Check(uploads.BeginFrame(), "no Android HD promotion latency at baseline");
+    uploads.RecordPromotion(1.1);
+    Check(uploads.BeginFrame(), "small HD promotion does not delay next frame");
+    uploads.RecordPromotion(7);
+    Check(!uploads.BeginFrame() && !uploads.BeginFrame() && !uploads.BeginFrame()
+        && uploads.BeginFrame(), "7ms upload spaces later work by three frames");
+    uploads.RecordPromotion(double.PositiveInfinity);
+    Check(uploads.FramesToSkip == 0 && uploads.BeginFrame(), "invalid GPU duration never starves texture queue");
+    uploads.RecordPromotion(9999);
+    Check(uploads.FramesToSkip == 6, "excessive stalls have bounded recovery delay");
+}
+
+{
+    string a = MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Adreno X");
+    Check(a == MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Adreno X"),
+        "shader key is stable for same sources and driver");
+    Check(a != MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex changed", "fragment", "Adreno X")
+        && a != MphRead.Mods.Render.ShaderProgramCacheKey.Compute("vertex", "fragment", "Mali Y"),
+        "shader cache invalidates for source or driver changes");
+    Check(MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(1024)
+        && !MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(0)
+        && !MphRead.Mods.Render.ShaderProgramCacheKey.AcceptBinaryLength(int.MaxValue),
+        "cached shader binaries are strictly size bounded");
+}
+
+Check(AndroidAudioRatePolicy.Select(32728, 48000, true) == 48000,
+    "native Android sample rate experiment prefers valid device rate");
+Check(AndroidAudioRatePolicy.Select(32728, 48000, false) == 32728,
+    "disabled native rate experiment preserves original 32728 Hz");
+Check(AndroidAudioRatePolicy.Select(32728, 0, true) == 32728
+    && AndroidAudioRatePolicy.Select(32728, 999999, true) == 32728,
+    "invalid device properties preserve original playback rate");
+Check(AndroidAudioRatePolicy.BufferPeriodMs(192, 48000) == 4,
+    "192-frame device burst at 48 kHz is 4ms");
+
 return failures == 0 ? 0 : 1;
