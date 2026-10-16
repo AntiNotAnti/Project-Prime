@@ -29,3 +29,8 @@ jobs:
           node-version: '22'
       - name: Validate whitelist and public identifier contracts
         run: node --experimental-strip-types --test supabase/tests/hunter-leaderboard.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck public leaderboard Edge function
+        run: deno check supabase/functions/hunter-leaderboard/index.ts
