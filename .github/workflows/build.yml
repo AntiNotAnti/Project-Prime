@@ -53,6 +53,9 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
 
+      - name: validate GameCube local source FST and archive receipts
+        run: dotnet run --project tools/external-import-check -c Release
+
       - name: imported-content source manifest and asset-free policy
         run: python3 -m unittest discover -s tools/porting -p 'test_*.py' -v
 
