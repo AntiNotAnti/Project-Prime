@@ -7,9 +7,10 @@ authoritative match ingestion.
 
 ## Public visibility policy
 
-- New and previously created Hunter Licenses **without a preference row** are
-  public once the new migration and Edge Function are deployed. This affects
-  existing Hunters too, not only new registrations.
+- New and previously created Hunter Licenses **with a Supabase Auth owner**
+  and without a preference row are public after the migration and Edge update.
+  This affects existing Hunters too, not only new registrations. Legacy orphan
+  Licenses with no Auth identity remain hidden because nobody can opt them out.
 - An existing `is_public=false` remains private. The new migration never
   backfills, deletes, resets or silently changes a saved preference.
 - Signing into a Hunter License gives the owner a visibility control at

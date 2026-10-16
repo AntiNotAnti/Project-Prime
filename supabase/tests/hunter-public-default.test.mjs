@@ -33,8 +33,14 @@ test("public Hunter cards support newly-created Licenses without ranked matches"
 test("registered Hunter directory may show empty careers but ranked board still requires accepted results", () => {
   assert.match(api, /coalesce\(a\."Matches",0\)>0/);
   assert.match(api, /query\.onlyPublic[\s\S]*'career'/);
-  assert.match(api, /AND \(NOT \$\{query\.onlyPublic\}::boolean OR coalesce\(v\.is_public,true\)\)/);
-  assert.match(api, /coalesce\(v\.is_public,true\) AND p\."DisplayName" ILIKE/);
+  assert.match(api, /AND \(NOT \$\{query\.onlyPublic\}::boolean OR\s+\(identity\.id IS NOT NULL AND coalesce\(v\.is_public,true\)\)\)/);
+  assert.match(api, /identity\.id IS NOT NULL AND coalesce\(v\.is_public,true\)\s+AND p\."DisplayName" ILIKE/);
+});
+
+test("legacy Licenses with no authenticating owner are never discoverable by default", () => {
+  assert.match(api, /JOIN auth\.users identity ON identity\.id = l\."PlayerId"/);
+  assert.match(api, /LEFT JOIN auth\.users identity ON identity\.id=l\."PlayerId"/);
+  assert.match(api, /\(identity\.id IS NOT NULL AND coalesce\(v\.is_public,true\)\) AS is_public/);
 });
 
 test("explicit opt-outs are anonymous in leaderboards and never resolve as a public profile", () => {

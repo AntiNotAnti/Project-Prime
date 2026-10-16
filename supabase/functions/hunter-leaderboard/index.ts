@@ -57,6 +57,9 @@ Deno.serve(async (req: Request) => {
           round(100.0*coalesce(a."Wins",0)/greatest(coalesce(a."Matches",0),1),1)::double precision AS win_rate,
           round(coalesce(a."Kills",0)::numeric/greatest(coalesce(a."Deaths",0),1),2)::double precision AS kd
         FROM prime.hunter_licenses l
+        -- Legacy Licenses with no recoverable Auth identity must never be
+        -- made public: their owners cannot authenticate to opt out.
+        JOIN auth.users identity ON identity.id = l."PlayerId"
         JOIN prime.player_profiles p ON p."PlayerId" = l."PlayerId"
         LEFT JOIN prime.career_aggregates a ON a."PlayerId" = l."PlayerId"
           AND a."TrustClass"=-1 AND a."Dimension"='career' AND a."Key"='all'
@@ -84,7 +87,7 @@ Deno.serve(async (req: Request) => {
       WITH eligible AS (
         SELECT
           l."PlayerId" AS player_id,
-          coalesce(v.is_public,true) AS is_public,
+          (identity.id IS NOT NULL AND coalesce(v.is_public,true)) AS is_public,
           p."DisplayName" AS public_name,
           coalesce(a."Matches",0)::double precision AS matches,
           coalesce(a."Wins",0)::double precision AS wins,
@@ -97,6 +100,7 @@ Deno.serve(async (req: Request) => {
           round(100.0*coalesce(a."Wins",0)/greatest(coalesce(a."Matches",0),1),1)::double precision AS win_rate,
           round(coalesce(a."Kills",0)::numeric/greatest(coalesce(a."Deaths",0),1),2)::double precision AS kd
         FROM prime.hunter_licenses l
+        LEFT JOIN auth.users identity ON identity.id=l."PlayerId"
         JOIN prime.player_profiles p ON p."PlayerId"=l."PlayerId"
         LEFT JOIN prime.career_aggregates a
           ON a."PlayerId"=l."PlayerId"
@@ -105,9 +109,11 @@ Deno.serve(async (req: Request) => {
         LEFT JOIN prime.hunter_public_visibility v ON v.player_id=l."PlayerId"
         WHERE (coalesce(a."Matches",0)>0
           OR (${query.onlyPublic}::boolean AND ${dimension}::text='career'))
-          AND (NOT ${query.onlyPublic}::boolean OR coalesce(v.is_public,true))
+          AND (NOT ${query.onlyPublic}::boolean OR
+             (identity.id IS NOT NULL AND coalesce(v.is_public,true)))
           AND (${query.search}::text='' OR (
-             coalesce(v.is_public,true) AND p."DisplayName" ILIKE ${search}
+             identity.id IS NOT NULL AND coalesce(v.is_public,true)
+             AND p."DisplayName" ILIKE ${search}
           ))
       ),
       scored AS (
