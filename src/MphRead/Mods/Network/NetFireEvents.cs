@@ -507,6 +507,14 @@ public static class NetFireEvents
                 NetShotProof.Fired(key);
                 NetTimedShotProof.Complete(timedAttempt, timedEmission);
             }
+            else
+            {
+                // An admitted, validated shot can still fail native spawn
+                // (blocked muzzle, exhausted projectile slots or retired
+                // source). Do not leave its timed certificate unresolved.
+                // A failed emission never writes a shot spend or hit fact.
+                NetTimedShotProof.Abort(timedAttempt);
+            }
             return result;
         }
         catch { NetTimedShotProof.Abort(timedAttempt); throw; }
