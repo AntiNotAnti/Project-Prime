@@ -109,6 +109,11 @@ def evaluate(manifest: dict, baseline: Path, enabled: Path, root: Path):
         raise EvidenceError("missing real device, driver or display identity")
     if device["platform"] not in ("windows-opengl", "linux-opengl", "macos-opengl", "android-gles"):
         raise EvidenceError("unsupported GPU platform")
+    # OpenGlFrameProfiler is desktop-only (#if !ANDROID). Android OpenGL
+    # traces must never be mislabeled as physical GLES acceptance until
+    # Android itself can produce matching validated timing/gpu windows.
+    if device["platform"] == "android-gles":
+        raise EvidenceError("Android GLES profiler is not yet instrumented; device evidence NOT_VERIFIED")
     cases = manifest.get("visual_cases")
     if not isinstance(cases, dict) or not REQUIRED_SCENES <= cases.keys():
         raise EvidenceError("missing required Hunter/boss/map/replay captures")
