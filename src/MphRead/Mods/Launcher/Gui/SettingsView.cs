@@ -2623,17 +2623,17 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Heading(page, "Additional local arenas");
                 var importStatus = Explain(page,
-                    "Import a basic Spires collision-map preview from your own Metroid Prime 2: Echoes GameCube ISO/GCM. " +
+                    "Import six basic Echoes collision-map previews from your own Metroid Prime 2: Echoes GameCube ISO. " +
                     "This does not install the original HD visuals or make a distributable Community map.");
                 var importSpires = new HubNavButton(
-                    "IMPORT ECHOES: SPIRES (PREVIEW)",
+                    "IMPORT ECHOES ARENAS (PREVIEW)",
                     "Local ISO/GCM only · no game assets uploaded · restart required",
                     compact: true)
                 {
                     MinHeight = 48,
                     Margin = new Thickness(0, 5, 0, 5)
                 };
-                ControllerNav.Identify(importSpires, "settings.profile.import-echoes-spires");
+                ControllerNav.Identify(importSpires, "settings.profile.import-echoes-arenas");
                 importSpires.Click += async (_, _) =>
                 {
                     if (!NativeFilePicker.Available)
@@ -2647,21 +2647,21 @@ namespace MphRead.Mods.Launcher.Gui
                         "GameCube ISO", "iso");
                     if (selected == null) return;
                     importSpires.IsEnabled = false;
-                    importStatus.Text = "Reading and validating local disc data…";
+                    importStatus.Text = "Reading and validating six local arena sources…";
                     try
                     {
                         // The import may decode and compile many thousands of
                         // polygons. Never do that work on the Avalonia/GL thread.
-                        string installed = await Task.Run(() =>
-                            Import.EchoesPrivateMapImport.InstallSpires(
+                        var installed = await Task.Run(() =>
+                            Import.EchoesPrivateMapImport.InstallAllArenas(
                                 selected, MapGen.CustomRooms.UserMapDirectory));
-                        importStatus.Text = "Local Spires preview installed. Restart Project Prime " +
-                            "to load LOCAL ECHOES SPIRES. No copyrighted assets were shared. " +
-                            Path.GetFileName(installed);
+                        importStatus.Text = installed.Count +
+                            " local Echoes collision previews installed. Restart Project Prime " +
+                            "to load them. No copyrighted assets were shared.";
                     }
                     catch (Exception ex)
                     {
-                        importStatus.Text = "Spires import was not installed: " + ex.Message;
+                        importStatus.Text = "Echoes arena import was not installed: " + ex.Message;
                     }
                     finally
                     {

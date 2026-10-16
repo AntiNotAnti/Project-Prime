@@ -34,6 +34,22 @@ internal static class EchoesPrivateMapFixtureTests
                 && File.ReadAllText(installed) == original, "repeat import remains stable");
             Check(!Directory.EnumerateFiles(temp, "*.ppmap",
                 SearchOption.AllDirectories).Any(), "no game-derived Community archive");
+            // All six arena keys must have independent and deterministic
+            // local map identities, without ever producing .ppmap packages.
+            var all = EchoesArenaSources.All.Select(arena =>
+                EchoesLocalMapDraft.BuildArena(arena, collision,
+                    new[] { Spawn(1, 0), Spawn(2, 3) },
+                    "b8b92af37dc772ecd8234fb1ce664be0493188f6")).ToArray();
+            Check(all.Length == 6 && all.Select(x => x.MapId).Distinct().Count() == 6,
+                "six unique local arena identities");
+            Check(all.Single(x => x.Name == "LOCAL ECHOES SPIRES").MapId == map.MapId,
+                "Spires source identity remains backward-compatible");
+            Check(all.All(x => x.LocalSourceOnly && x.Capabilities?.MaxPlayers == 1),
+                "preview arenas cannot enter a full multiplayer lobby");
+            var paths = EchoesPrivateMapImport.InstallLocalDefinitions(all, temp);
+            Check(paths.Count == 6 && paths.All(File.Exists), "six private map recipes");
+            Check(!Directory.EnumerateFiles(temp, "*.ppmap",
+                SearchOption.AllDirectories).Any(), "no commercial game data packaged after bulk import");
             var notLocal = MapProjectSerializer.Clone(map);
             notLocal.LocalSourceOnly = false;
             Expect<InvalidDataException>(() =>
