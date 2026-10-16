@@ -27,7 +27,7 @@ Do not add arbitrary Vercel preview hosts or untrusted domains.
 Allowed preflight methods: GET, POST, PUT, DELETE, OPTIONS.
 Allowed request headers: Authorization, Content-Type, Accept, Range,
 If-None-Match. Exposed response headers: ETag, X-Total-Count, Accept-Ranges,
-Content-Range, Retry-After. No `Access-Control-Allow-Credentials` is emitted
+Content-Range, Retry-After, Content-Disposition. No `Access-Control-Allow-Credentials` is emitted
 because the website sends explicit short-lived Bearer tickets, not cookies.
 Responses include `Vary: Origin`; rejected origins are never reflected.
 
