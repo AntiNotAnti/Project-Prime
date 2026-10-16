@@ -326,7 +326,7 @@ export function createPk3UploadService({
                 parsed.roomName !== variantRoom ||
                 (parsed.levelName ?? null) !== variantLevel)
               return send(res, 400, { error: "invalid_source_metadata" });
-            return withAdmission(async () => {
+            return await withAdmission(async () => {
             let state = await getSession(owner, hash, variantRoom, variantLevel);
             if (state) {
               if (state.bytes !== parsed.bytes || state.roomName !== parsed.roomName ||
@@ -385,7 +385,7 @@ export function createPk3UploadService({
             return send(res, 200, statePublic(state));
           }
           if (req.method === "POST" && operation === "complete") {
-            return withAdmission(async () => {
+            return await withAdmission(async () => {
             if (state.jobId) return send(res, 202, { jobId: state.jobId });
             if (state.offset !== state.bytes) return send(res, 409,
               { error: "upload_incomplete", offset: state.offset });
