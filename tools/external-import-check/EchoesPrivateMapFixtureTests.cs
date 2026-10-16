@@ -50,6 +50,18 @@ internal static class EchoesPrivateMapFixtureTests
             Check(paths.Count == 6 && paths.All(File.Exists), "six private map recipes");
             Check(!Directory.EnumerateFiles(temp, "*.ppmap",
                 SearchOption.AllDirectories).Any(), "no commercial game data packaged after bulk import");
+            // An optional *separate* source render preview retains exact
+            // imported collision while producing distinct local map identity.
+            var world = new EchoesWorldGeometry(
+                new[] { 0f, 0f, 0f, 5f, 0f, 0f, 0f, 5f, 0f },
+                new[] { 0, 1, 2 });
+            MapDefinition visual = EchoesVisualLayer.CreatePreview(map, world);
+            string visualFile = EchoesPrivateMapImport.InstallLocalDefinition(visual, temp);
+            Check(visualFile.EndsWith("visual-spires.json") && File.Exists(visualFile),
+                "source-render preview coexists with collision-only Spires");
+            Check(visual.MapId != map.MapId &&
+                MapDefinition.Load(installed).MapId == map.MapId,
+                "existing Spires map and historical local identities remain unchanged");
             var notLocal = MapProjectSerializer.Clone(map);
             notLocal.LocalSourceOnly = false;
             Expect<InvalidDataException>(() =>
