@@ -33,7 +33,7 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
                 "", "", "", "", "", 8, Array.Empty<RmlUiLobbyPlayer>());
 
         var roster = NetSession.LobbyRoster();
-        var players = new RmlUiLobbyPlayer[Math.Clamp(roster.Count, 0, 8)];
+        var players = new RmlUiLobbyPlayer[Math.Clamp((int)roster.Count, 0, 8)];
         for (int i = 0; i < players.Length; i++)
         {
             byte slot = roster.Slots[i];
