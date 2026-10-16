@@ -64,6 +64,20 @@ try
     Check(valid != null && valid.AbsoluteUri.EndsWith(hash + ".ppmap")
         && objects.PublicLocation(hash, bytes, published: false) == null,
         "only verified public objects have CDN locations");
+    // Even when metadata queries reuse recently verified content, a changed
+    // object (including same-size tampering) must invalidate its public URL.
+    string mirrored = Path.Combine(serviceRoot, "objects-v3", "sha256",
+        hash[..2], hash + ".ppmap");
+    byte[] originalMirror = File.ReadAllBytes(mirrored);
+    File.WriteAllBytes(mirrored, new byte[originalMirror.Length]);
+    File.SetLastWriteTimeUtc(mirrored, DateTime.UtcNow.AddMinutes(-5));
+    Check(objects.PublicLocation(hash, bytes, published: true) == null,
+        "modified public mirror cannot be advertised from stale verification state");
+    File.WriteAllBytes(mirrored, originalMirror);
+    File.SetLastWriteTimeUtc(mirrored, DateTime.UtcNow);
+    Check(objects.PublicLocation(hash, bytes, published: true) != null
+        && objects.HasVerified(hash, bytes),
+        "repaired exact public mirror is strictly revalidated");
 
     var trusted = new CommunityCdnPolicy(new[] { "cdn.projectprime.example" });
     Check(trusted.CanRead(valid, hash)

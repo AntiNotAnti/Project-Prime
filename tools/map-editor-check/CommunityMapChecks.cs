@@ -280,6 +280,14 @@ internal static class CommunityMapChecks
             await creator.SetFavoriteAsync(id,true,default);await creator.SetFavoriteAsync(id,true,default);
             var favorites=await creator.BrowseAsync(default,favorites:true,sort:"favorites");
             check(favorites.Length==2&&favorites.All(m=>m.FavoriteCount==1&&m.Favorited),"favorites are idempotent and visible in personal filter");
+            await creator.SetFavoriteAsync(id,false,default);
+            check((await creator.BrowseAsync(default,favorites:true)).Length == 0
+                && (await anonymous.BrowseAsync(default)).All(m => m.FavoriteCount == 0),
+                "removing a favorite updates both membership and public counts");
+            await creator.SetFavoriteAsync(id,true,default);
+            check((await creator.BrowseAsync(default,favorites:true))
+                .All(m => m.FavoriteCount == 1 && m.Favorited),
+                "re-adding a favorite restores exact indexed counts");
             await creator.ReportAsync(id,new("1","Broken map","Fixture report"),default);
             check((await client.BrowseAsync(default)).Length==2,"reports never automatically delist packages");
             using(var request=new HttpRequestMessage(HttpMethod.Get,"reports"))

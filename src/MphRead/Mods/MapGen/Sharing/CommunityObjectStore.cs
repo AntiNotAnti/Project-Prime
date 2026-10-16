@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,6 +21,14 @@ public sealed class CommunityObjectStore
 {
     private readonly string _objects;
     private readonly string? _cdn;
+    // Immutable public objects are strictly hashed at promotion and whenever
+    // freshness is uncertain. Metadata requests can reuse that verification
+    // briefly if the file identity/size/timestamps have not changed.
+    private sealed record Verification(long Bytes, DateTime CreatedUtc,
+        DateTime ModifiedUtc, long VerifiedTick);
+    private readonly ConcurrentDictionary<string, Verification> _recentlyVerified =
+        new(StringComparer.Ordinal);
+    private const long VerificationTtlMilliseconds = 30_000;
 
     public CommunityObjectStore(string storage, string? cdnBase = null)
     {
@@ -44,11 +53,50 @@ public sealed class CommunityObjectStore
         return Path.Combine(_objects, hash[..2], hash + ".ppmap");
     }
 
+    private void RememberVerified(string hash, FileInfo info)
+        => _recentlyVerified[hash] = new Verification(
+            info.Length, info.CreationTimeUtc, info.LastWriteTimeUtc,
+            Environment.TickCount64);
+
+    // Mutations and operator reconciliation deliberately use a fresh full
+    // digest. Only the presentation-only CDN-location query has a fast path.
     public bool HasVerified(string hash, long expectedBytes)
     {
         string path = Key(hash);
-        return File.Exists(path) && new FileInfo(path).Length == expectedBytes
-            && MapBuildFingerprint.HashFile(path) == hash;
+        var before = new FileInfo(path);
+        if (!before.Exists || before.Length != expectedBytes)
+        {
+            _recentlyVerified.TryRemove(hash, out _);
+            return false;
+        }
+        string digest = MapBuildFingerprint.HashFile(path);
+        var after = new FileInfo(path);
+        if (digest != hash || !after.Exists || after.Length != expectedBytes
+            || after.CreationTimeUtc != before.CreationTimeUtc
+            || after.LastWriteTimeUtc != before.LastWriteTimeUtc)
+        {
+            _recentlyVerified.TryRemove(hash, out _);
+            return false;
+        }
+        RememberVerified(hash, after);
+        return true;
+    }
+
+    private bool RecentlyVerified(string hash, long expectedBytes)
+    {
+        if (!_recentlyVerified.TryGetValue(hash, out Verification? verified))
+            return false;
+        long elapsed = Environment.TickCount64 - verified.VerifiedTick;
+        if (elapsed < 0 || elapsed >= VerificationTtlMilliseconds
+            || verified.Bytes != expectedBytes)
+            return false;
+        var info = new FileInfo(Key(hash));
+        if (info.Exists && info.Length == expectedBytes
+            && info.CreationTimeUtc == verified.CreatedUtc
+            && info.LastWriteTimeUtc == verified.ModifiedUtc)
+            return true;
+        _recentlyVerified.TryRemove(hash, out _);
+        return false;
     }
 
     /// <summary>
@@ -86,6 +134,7 @@ public sealed class CommunityObjectStore
                 return HasVerified(hash, expectedBytes) ? false
                     : throw new InvalidDataException("Immutable mirror destination changed.");
             File.Move(temp, output);
+            RememberVerified(hash, new FileInfo(output));
             return true;
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
@@ -95,7 +144,9 @@ public sealed class CommunityObjectStore
     /// link to an unlisted/draft or deleted package.</summary>
     public Uri? PublicLocation(string hash, long bytes, bool published)
     {
-        if (!published || _cdn == null || !HasVerified(hash, bytes)) return null;
+        if (!published || _cdn == null
+            || !(RecentlyVerified(hash, bytes) || HasVerified(hash, bytes)))
+            return null;
         return new Uri(new Uri(_cdn), "sha256/" + hash[..2] + "/" + hash + ".ppmap");
     }
 
