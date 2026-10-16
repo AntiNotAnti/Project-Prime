@@ -9089,7 +9089,11 @@ localCenter *= _profileHudScale;
                 // system's -- there is nobody to aim.
                 CursorState = CursorState.Normal;
                 Mods.Input.PointerDevice.Reset();
-                Mods.Render.UiOverlay.DrawAlone(this, FramebufferSize.X, FramebufferSize.Y);
+                bool nativeHome = false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                nativeHome = Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeforeLauncherComposite(this);
+#endif
+                Mods.Render.UiOverlay.DrawAlone(this, FramebufferSize.X, FramebufferSize.Y, nativeHome);
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
                 Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Draw(this);
 #endif
