@@ -59,6 +59,43 @@ internal static class Q3MoverSourceTests
             "zero import scale rejected");
         Check(!Q3MoverSource.TryRead(data, model, 0, 0, 35, out _, out _),
             "world model cannot be borrowed as moving entity");
+        // Passenger and collision sweeps are immutable frame-based reference
+        // math; never advance physical player ownership from a draw callback.
+        var pose0 = Q3MoverPhysics.At(bob, 0);
+        var pose60 = Q3MoverPhysics.At(bob, 60);
+        var feet = new OpenTK.Mathematics.Vector3(0, bob.Maximum.Y, 0);
+        Check(Q3MoverPhysics.TryCarry(bob, pose0, pose60, feet, .25f, .10f, out var lifted)
+            && MathF.Abs(lifted.Y - feet.Y - 1f) < .0001f,
+            "biped and alt-form feet can follow exact 60Hz bobbing height");
+        Check(!Q3MoverPhysics.TryCarry(bob, pose0, pose60,
+            feet + OpenTK.Mathematics.Vector3.UnitY * 3, .25f, .1f, out _),
+            "mid-air passenger cannot attach to moving platform");
+        Check(!Q3MoverPhysics.TryCarry(bob, pose0, pose60,
+            feet + OpenTK.Mathematics.Vector3.UnitX * 500, .25f, .1f, out _),
+            "distant player cannot be carried");
+        Check(Q3MoverPhysics.SweptAabb(bob, pose0, pose60,
+            new OpenTK.Mathematics.Vector3(0, bob.Maximum.Y + 2, 0),
+            new OpenTK.Mathematics.Vector3(0, bob.Maximum.Y - 2, 0),
+            .2f, out float impact) && impact is >= 0 and <= 1,
+            "moving box collision broadphase uses swept relative motion");
+        Check(!Q3MoverPhysics.SweptAabb(bob, pose0, pose60,
+            new OpenTK.Mathematics.Vector3(100, 50, 100),
+            new OpenTK.Mathematics.Vector3(100, 40, 100),
+            .2f, out _), "nonintersecting moving hull fails closed");
+        Check(!Q3MoverPhysics.TryCarry(bob, pose0, pose60,
+            new OpenTK.Mathematics.Vector3(float.NaN), .25f, .1f, out _),
+            "nonfinite player pose is refused");
+        var pivot = (rot.Minimum + rot.Maximum) * 0.5f;
+        var rotatingFeet = new OpenTK.Mathematics.Vector3(pivot.X + .25f, rot.Maximum.Y, pivot.Z);
+        Check(Q3MoverPhysics.TryCarry(rot, Q3MoverPhysics.At(rot, 0),
+            Q3MoverPhysics.At(rot, 60), rotatingFeet, .2f, .1f, out var spun)
+            && MathF.Abs((spun - pivot).Length - (rotatingFeet - pivot).Length) < .0001f,
+            "rotating platform applies rigid motion without expanding body radius");
+        Check(!Q3MoverPhysics.SweptAabb(rot, Q3MoverPhysics.At(rot, 0),
+            Q3MoverPhysics.At(rot, 60), rotatingFeet, rotatingFeet, .2f, out _),
+            "rotating platform cannot use unsafe static-AABB authority approximation");
+        Check(Q3MoverPhysics.At(bob, 60) == Q3MoverPhysics.At(bob, 60),
+            "late join and replay frame replay yields identical deterministic pose");
         Console.WriteLine("Q3 MOVER SOURCE PASS " + checks + " checks");
         return 0;
     }
