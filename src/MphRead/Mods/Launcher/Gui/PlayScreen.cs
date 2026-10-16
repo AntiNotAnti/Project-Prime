@@ -1595,7 +1595,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
             GameMode mode = SelectedOfflineMode();
             bool supported = Multiplayer.MapModeCapabilities.Supports(roomKey, mode,
-                Multiplayer.MatchWorldProfile.Resolve(1 + _bots!.Index), out string reason, 1 + _bots.Index);
+                Multiplayer.MatchWorldProfile.Resolve(1 + _bots!.Index), out string reason,
+                1 + _bots.Index, allowLocalSource: true);
             string? unsupported = supported ? null : reason;
             if (unsupported != null)
             {
