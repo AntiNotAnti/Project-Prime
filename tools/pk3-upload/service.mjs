@@ -57,6 +57,17 @@ export function createPk3UploadService({
   const uploadRoot = path.join(root, "uploads");
   const jobRoot = path.join(root, "jobs");
   const locked = new Set();
+  // Serialize global reservations so different creator sessions cannot race
+  // past total disk/job quotas during concurrent POST admissions.
+  let admissionTail = Promise.resolve();
+  async function withAdmission(action) {
+    const previous = admissionTail;
+    let release;
+    admissionTail = new Promise(resolve => { release = resolve; });
+    await previous;
+    try { return await action(); }
+    finally { release(); }
+  }
   // Bound polling and admission traffic per verified creator, rather than
   // the reverse-proxy's shared loopback IP.
   const requestWindows = new Map();
@@ -315,6 +326,7 @@ export function createPk3UploadService({
                 parsed.roomName !== variantRoom ||
                 (parsed.levelName ?? null) !== variantLevel)
               return send(res, 400, { error: "invalid_source_metadata" });
+            return withAdmission(async () => {
             let state = await getSession(owner, hash, variantRoom, variantLevel);
             if (state) {
               if (state.bytes !== parsed.bytes || state.roomName !== parsed.roomName ||
@@ -334,6 +346,7 @@ export function createPk3UploadService({
             await handle.close();
             await atomicJson(path.join(dir, "session.json"), meta);
             return send(res, 201, statePublic(meta));
+            });
           }
           const state = await getSession(owner, hash, variantRoom, variantLevel);
           if (!state) return send(res, 404, { error: "source_not_found" });
@@ -372,6 +385,7 @@ export function createPk3UploadService({
             return send(res, 200, statePublic(state));
           }
           if (req.method === "POST" && operation === "complete") {
+            return withAdmission(async () => {
             if (state.jobId) return send(res, 202, { jobId: state.jobId });
             if (state.offset !== state.bytes) return send(res, 409,
               { error: "upload_incomplete", offset: state.offset });
@@ -394,6 +408,7 @@ export function createPk3UploadService({
             await atomicJson(path.join(dir, "session.json"), state);
             setImmediate(() => void startJobQueue().catch(console.error));
             return send(res, 202, { jobId: id });
+            });
           }
         } finally { locked.delete(key); }
       }
