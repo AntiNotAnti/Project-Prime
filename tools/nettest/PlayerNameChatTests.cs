@@ -20,6 +20,8 @@ internal static class PlayerNameChatTests
         int checks = 0;
         void Check(bool value, string name) { checks++; if (!value) throw new Exception(name); }
         byte[] bytes = new byte[PlayerNameCodec.MaxWireBytes];
+        Check(NetConfig.ProtocolVersion == 57, "new glyphs require a matching network protocol");
+        Check(ReplayIdentityCompatibility.Supports(56), "previous protocol replay remains supported");
         foreach (string name in new[] { "Player", "ABCDEFGHIJKLMNOPQRSTUVWX", new string('あ', 24),
             "JÄRRETT™", "ハンター", "メトロイド", "「PRIME」", "PRIME∞", "e\u0301" })
         {
