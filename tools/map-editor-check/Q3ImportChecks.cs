@@ -50,6 +50,26 @@ static class Q3ImportChecks
             && hdPath.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)
             && MapAssets.Read(texturedMap, hdPath).SequenceEqual(TestTga()),
             "Q3 import keeps portable source art beside the FPTX fallback");
+        string webBundle = Path.Combine(root, "q3-web-worker.ppmap");
+        var webResult = Q3WebConversion.Convert(texturedPk3, webBundle,
+            "Q3_WEB_IMPORT", mapName: "prime-fixture");
+        using (var verified = new MapPackageReader(webBundle))
+            check(verified.Manifest?.MapId == webResult.MapId
+                && verified.Manifest?.ContentHash == webResult.ContentHash
+                && MapBuildFingerprint.HashFile(webBundle) == webResult.PackageHash
+                && webResult.PackageBytes == new FileInfo(webBundle).Length,
+                "web worker produces a strict, portable package with exact immutable identities");
+
+        bool noBspRejected = false;
+        string emptyPk3 = Path.Combine(root, "web-empty.pk3");
+        using (var emptyZip = ZipFile.Open(emptyPk3, ZipArchiveMode.Create))
+            _ = emptyZip.CreateEntry("README.txt");
+        try { _ = Q3WebConversion.Convert(emptyPk3,
+            Path.Combine(root, "invalid-web.ppmap"), "Q3_REJECT_EMPTY"); }
+        catch (InvalidDataException) { noBspRejected = true; }
+        check(noBspRejected && !File.Exists(Path.Combine(root, "invalid-web.ppmap")),
+            "web worker rejects archives without playable BSP maps before package output");
+
         string texturedBundle = Path.Combine(root, "q3-textured.ppmap");
         MapPackageBuilder.Build(texturedMap, texturedBundle);
         var bundledTexturedMap = MapDefinition.Load(texturedBundle);
