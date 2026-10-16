@@ -389,6 +389,8 @@ jobs:
         run: dotnet run --project tools/nettest -c Release --no-build -- --transport-profile-json "$RUNNER_TEMP/transport-profile.json"
       - name: canonical own/remote shot event replay payload conformance
         run: dotnet run --project tools/nettest -c Release -- --replay-shot-payload
+      - name: deterministic Quake mover source parsing and trajectory bounds
+        run: dotnet run --project tools/nettest -c Release -- --q3-mover-source
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
