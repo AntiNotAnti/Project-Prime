@@ -35,6 +35,31 @@ public static class RetroCharacterPreviewExporter
     public static string DefaultRoot => Path.Combine(AppPaths.UserDataDirectory,
         "source-character-previews");
 
+    public static int RunCommand(string? sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath))
+        {
+            Console.Error.WriteLine("[retro-character] -retrocharacterexport requires a locally owned Prime or Echoes .iso/.gcm path.");
+            return 2;
+        }
+        try
+        {
+            IReadOnlyList<string> files = ExportFromOwnedGame(sourcePath);
+            Console.WriteLine("[retro-character] Wrote " + files.Count +
+                " non-animated private OBJ previews and CINF skeleton sidecars:");
+            foreach (string file in files) Console.WriteLine("[retro-character] " + file);
+            Console.WriteLine("[retro-character] Not installed as a playable Hunter; no files were uploaded.");
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException
+            or UnauthorizedAccessException or ArgumentException or NotSupportedException
+            or OverflowException or KeyNotFoundException)
+        {
+            Console.Error.WriteLine("[retro-character] Source preview not installed: " + ex.Message);
+            return 1;
+        }
+    }
+
     public static IReadOnlyList<string> ExportFromOwnedGame(string sourcePath,
         string? destinationRoot = null)
     {
