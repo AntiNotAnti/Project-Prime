@@ -1056,6 +1056,15 @@ jobs:
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
 
+      # Compile the native-rate audio experiment and callback telemetry without changing the default APK.
+      - name: compile opt-in native-rate audio and telemetry
+        run: >
+          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          -c Release -p:AndroidPackageFormat=apk
+          -p:AndroidNativeAudioRate=true -p:AndroidAudioDiagnostics=true
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
+
       # One APK, the one people install. An untrimmed Debug build was
       # collected beside it, as a way of telling a crash on a device apart
       # from the trimmer having removed something -- which is a thing to build

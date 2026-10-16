@@ -411,6 +411,9 @@ namespace MphRead.Droid
             _lastArtGcCount = artCountNow;
             _lastArtGcTimeMs = artTimeNow;
 
+#if PROJECTPRIME_ANDROID_AUDIO_DIAGNOSTICS
+            DebugLog.Line("androidaudio", MphRead.Mods.Sound.SfxMixer.ReadAndResetAudioCallbackMetrics());
+#endif
             DebugLog.Line("androidperf",
                 $"frame ms p50/p90/p95/p99 {p50:0.00}/{p90:0.00}/{p95:0.00}/{p99:0.00}; "
                 + $"stage p95 sim/render/ui/swap {sim95:0.00}/{render95:0.00}/{ui95:0.00}/{swap95:0.00}; "

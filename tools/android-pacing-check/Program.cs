@@ -143,4 +143,14 @@ Check(AndroidGcTelemetry.CounterDelta(1, 5) == "n/a", "reset ART GC counter does
         "cached shader binaries are strictly size bounded");
 }
 
+Check(AndroidAudioRatePolicy.Select(32728, 48000, true) == 48000,
+    "native Android sample rate experiment prefers valid device rate");
+Check(AndroidAudioRatePolicy.Select(32728, 48000, false) == 32728,
+    "disabled native rate experiment preserves original 32728 Hz");
+Check(AndroidAudioRatePolicy.Select(32728, 0, true) == 32728
+    && AndroidAudioRatePolicy.Select(32728, 999999, true) == 32728,
+    "invalid device properties preserve original playback rate");
+Check(AndroidAudioRatePolicy.BufferPeriodMs(192, 48000) == 4,
+    "192-frame device burst at 48 kHz is 4ms");
+
 return failures == 0 ? 0 : 1;
