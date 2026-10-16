@@ -7,6 +7,8 @@ namespace MphRead.Entities.Enemies
 {
     public class Enemy18Entity : EnemyInstanceEntity
     {
+        private static readonly bool TurretBlendEnabled =
+            MphRead.Mods.Render.AnimationRollout.Enabled("PROJECT_PRIME_BOSS_ANIMATION_BLEND");
         private readonly EnemySpawnEntity _spawner;
         private Enemy18Values _values;
         private PlayerEntity? _target = null;
@@ -325,8 +327,7 @@ namespace MphRead.Entities.Enemies
                 model.UpdateMatrixStack();
             }
             MphRead.Mods.Render.AnimationSamples.Sample sampled = default;
-            bool drawBlend = MphRead.Mods.Render.AnimationRollout.Enabled(
-                    "PROJECT_PRIME_BOSS_ANIMATION_BLEND")
+            bool drawBlend = TurretBlendEnabled
                 && MphRead.Mods.Render.FrameTiming.Active
                 && MphRead.Mods.Render.FrameTiming.HighRefreshPresentation
                 && !_scene.Services.IsReplica
