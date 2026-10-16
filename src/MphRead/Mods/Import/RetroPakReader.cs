@@ -155,7 +155,7 @@ public sealed class RetroPakReader : IDisposable
         return output;
     }
 
-    private static byte[] UnpackSegments(ReadOnlySpan<byte> bytes, int expected)
+    internal static byte[] UnpackSegments(ReadOnlySpan<byte> bytes, int expected)
     {
         var output = new byte[expected];
         int read = 0;
