@@ -530,9 +530,9 @@ namespace MphRead.Entities
         {
             float mouseSensitivity = Mods.InputSettings.MouseAimSensitivity(
                 EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist);
-            float mouseX = -pointerX / 4f * mouseSensitivity * Mods.InputSettings.HorizontalSensitivity
+            float mouseX = -pointerX / 4f * mouseSensitivity
                 * (Mods.InputSettings.InvertMouseX ? -1 : 1);
-            float mouseY = -pointerY / 4f * mouseSensitivity * Mods.InputSettings.VerticalSensitivity
+            float mouseY = -pointerY / 4f * mouseSensitivity
                 * (Mods.InputSettings.InvertMouseY ? -1 : 1);
             float scopeBlend = AimScopeBlend();
             float scopedX = 1 + (Mods.Input.GamepadOptions.ScopedX - 1) * scopeBlend;
