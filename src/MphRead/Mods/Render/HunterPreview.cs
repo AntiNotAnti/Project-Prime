@@ -388,6 +388,10 @@ namespace MphRead.Mods.Render
             return true;
         }
 
+        // Explicit opt-in until hardware cadence and shared model restoration are verified.
+        private static readonly bool PreviewBlendEnabled =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_PREVIEW_ANIMATION_BLEND") == "1";
+
         public override void GetDrawInfo()
         {
             if (_model == null)
@@ -429,6 +433,19 @@ namespace MphRead.Mods.Render
                 surface = Mods.Cosmetics.Death.DeathPresentationRuntime.Surface(_cosmetics, _cosmetics.Death, _cosmeticTime, progress);
             }
             UpdateTransforms(_model, pose, _recolor < 0 ? 0 : _recolor);
+            // The render-item writer snapshots the model palette. Restore the
+            // integer pose afterwards so no simulation or other model owner
+            // observes an interpolated transform from the preview pass.
+            bool blended = false;
+            if (PreviewBlendEnabled && FrameTiming.HighRefreshPresentation
+                && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Node.Slot,
+                    FrameTiming.TotalSteps + FrameTiming.PresentationAlpha, out var sample))
+            {
+                _model.Model.AnimateNodes(0, UseNodeTransform, pose,
+                    _model.Model.Scale, _model.AnimInfo, sample);
+                _model.Model.UpdateMatrixStack();
+                blended = true;
+            }
             var previous = _scene.CosmeticSubmission;
             _scene.CosmeticSubmission = surface;
             try
@@ -440,7 +457,19 @@ namespace MphRead.Mods.Render
                         GetDrawItems(_model, 0, _light);
                 }
             }
-            finally { _scene.CosmeticSubmission = previous; }
+            finally
+            {
+                try
+                {
+                    if (blended)
+                    {
+                        _model.Model.AnimateNodes(0, UseNodeTransform, pose,
+                            _model.Model.Scale, _model.AnimInfo);
+                        _model.Model.UpdateMatrixStack();
+                    }
+                }
+                finally { _scene.CosmeticSubmission = previous; }
+            }
             if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17, particlePose);
             else if (!presentingDeath && Mode != Mods.Cosmetics.SkinContext.ViewModel && Mods.RenderOptions.ShowCustomCosmetics)
                 Mods.Cosmetics.Armor.ArmorEffectParticles.Draw(_scene, _model.Model, Vector3.Zero, _cosmetics.Armor,
