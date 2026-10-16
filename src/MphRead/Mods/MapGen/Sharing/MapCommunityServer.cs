@@ -529,7 +529,7 @@ public static class MapCommunityServer
                     context.Response.Headers["Access-Control-Allow-Origin"] = browserOrigin!;
                     context.Response.Headers["Vary"] = "Origin";
                     context.Response.Headers["Access-Control-Expose-Headers"] =
-                        "ETag, X-Total-Count, Accept-Ranges, Content-Range, Retry-After";
+                        "ETag, X-Total-Count, Accept-Ranges, Content-Range, Retry-After, Content-Disposition";
                 }
                 if (context.Request.HttpMethod == "OPTIONS")
                 {
