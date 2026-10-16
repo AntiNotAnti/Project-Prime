@@ -30,9 +30,18 @@ namespace MphRead.Mods.MapGen
             Directory.CreateDirectory(entityDir);
             byte[] model; int vertices;
             var flipbooks = new Dictionary<string, MapFlipbookBinding>(StringComparer.Ordinal);
-            lock (MapCompiler.ContentReadLock) (model, vertices) = BuildModel(map, flipbooks);
+            IReadOnlyList<MapMaterial> animationMaterials = def.Materials;
+            lock (MapCompiler.ContentReadLock)
+            {
+                // Generate model and all animation tracks from the same
+                // imported source-pack material order in one compilation pass.
+                MapTexturePack? sourcePack = def.Import?.LoadTexturePack();
+                if (sourcePack != null)
+                    animationMaterials = Q3ShaderNativePlan.ForImport(def, sourcePack);
+                (model, vertices) = BuildModel(map, flipbooks, sourcePack, animationMaterials);
+            }
             cancellation.ThrowIfCancellationRequested();
-            byte[] animation = MapUvAnimation.Build(def.Materials, flipbooks);
+            byte[] animation = MapUvAnimation.Build(animationMaterials, flipbooks);
             byte[] collision = BuildCollision(map);
             MapRuntimePartitionPlan runtimePlan=MapRuntimePartitioner.Create(map.Faces,def.Partitioning);
             MapRuntimePartitioner.AssignEntityNodes(map.Entities,runtimePlan);
@@ -109,14 +118,12 @@ namespace MphRead.Mods.MapGen
         }
 
         private static (byte[], int) BuildModel(BuiltMap map,
-            Dictionary<string, MapFlipbookBinding> flipbooks)
+            Dictionary<string, MapFlipbookBinding> flipbooks,
+            MapTexturePack? own, IReadOnlyList<MapMaterial> animationMaterials)
         {
             MapDefinition def = map.Definition;
-            MapTexturePack? own = def.Import?.LoadTexturePack();
             if (own != null)
-            {
-                return BuildModel(map, own, flipbooks);
-            }
+                return BuildModel(map, own, flipbooks, animationMaterials);
             Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             // copy only the textures the map asks for, remapping the IDs as we
@@ -362,14 +369,16 @@ namespace MphRead.Mods.MapGen
         /// each one's image and palette straight out of the pack.
         /// </summary>
         private static (byte[], int) BuildModel(BuiltMap map, MapTexturePack pack,
-            Dictionary<string, MapFlipbookBinding> flipbooks)
+            Dictionary<string, MapFlipbookBinding> flipbooks,
+            IReadOnlyList<MapMaterial> animationMaterials)
         {
             MapDefinition def = map.Definition;
             var textures = new List<Repack.TextureInfo>();
             var palettes = new List<Repack.PaletteInfo>();
             var materials = new List<Material>();
-            foreach (MapTexturePack.Entry entry in pack.Entries)
+            for (int shaderIndex = 0; shaderIndex < pack.Entries.Count; shaderIndex++)
             {
+                MapTexturePack.Entry entry = pack.Entries[shaderIndex];
                 textures.Add(new Repack.TextureInfo(TextureFormat.Palette8Bit, opaque: true,
                     entry.Height, entry.Width, (IReadOnlyList<byte>)entry.Pixels));
                 palettes.Add(new Repack.PaletteInfo(entry.Palette));
@@ -378,7 +387,9 @@ namespace MphRead.Mods.MapGen
                 string name = entry.Name.Length <= 30 ? entry.Name : entry.Name[^30..];
                 materials.Add(RawStructs.MakeMaterial(name, textures.Count - 1, palettes.Count - 1,
                     RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
-                    diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
+                    diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0),
+                    animated: shaderIndex < animationMaterials.Count
+                        && MapUvAnimation.HasUvAnimation(animationMaterials[shaderIndex])));
             }
 
             // Imported architecture occupies [0, pack.Count). Authored hybrid
