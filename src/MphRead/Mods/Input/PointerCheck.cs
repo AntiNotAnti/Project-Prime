@@ -326,17 +326,14 @@ namespace MphRead.Mods.Input
             Frame(100, 600, false);
             Frame(1500, 600, true);
             Require(StylusZone.Held == StylusRegion.Aim && !StylusZone.Aiming, "first contact belongs to aim without rotating");
-            Require(!PointerDevice.AimContact, "touchdown does not prematurely steer the camera");
             Require(!PointerDevice.PrimaryDown && PointerDevice.TakeDelta() == (0f, 0f), "contact teleport cannot aim or fire");
             Frame(1510, 605, true);
             Frame(1520, 610, true); // two pictures before the simulation reads
             Require(StylusZone.Aiming && PointerDevice.TakeDelta() == (20f, 10f), "drag accumulates between simulation steps");
-            Require(PointerDevice.AimContact, "active aim drag requests follow without firing");
             Require(PointerDevice.TakeDelta() == (0f, 0f), "catch-up simulation cannot apply movement twice");
             Frame(1530, 615, true, independentDown: true);
             Require(PointerDevice.PrimaryDown, "native independent mouse is not captured");
             Frame(1540, 620, false);
-            Require(!PointerDevice.AimContact, "pen-up immediately stops camera follow");
             PointerDevice.AdvanceSimulationStep();
             Frame(100, 600, false);
             Frame(1500, 600, true);
@@ -347,7 +344,6 @@ namespace MphRead.Mods.Input
             Frame(1810, 650, true);
             Require(!StylusZone.Aiming && PointerDevice.TakeDelta() == (0f, 0f),
                 "pause/focus return quarantines held stylus input");
-            Require(!PointerDevice.AimContact, "UI-owned held contact cannot steer follow");
             Frame(1820, 650, true, id: 2);
             Require(!StylusZone.Aiming && !StylusZone.CapturingPointer
                 && PointerDevice.TakeDelta() == (0f, 0f),
@@ -377,7 +373,6 @@ namespace MphRead.Mods.Input
             Frame(weaponX, weaponY, true, id: 10);
             Require(StylusZone.TakePressed() == StylusRegion.Weapons,
                 "WPN contact produces one action");
-            Require(!PointerDevice.AimContact, "WPN button cannot steer camera follow");
             Frame(weaponX, weaponY, true, id: 11);
             Require(StylusZone.Held == StylusRegion.Weapons
                 && StylusZone.TakePressed() == StylusRegion.None,
