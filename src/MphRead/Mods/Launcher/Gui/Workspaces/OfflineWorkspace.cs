@@ -52,7 +52,8 @@ namespace MphRead.Mods.Launcher.Gui
                 var plan = OfflineLaunch.Create(settings, _room, SelectedMode(),
                     SelectedHunter(), _suit.Index, _bots.Index, _skill.Index);
                 if (!Multiplayer.MapModeCapabilities.Supports(_room, plan.Mode,
-                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1)
+                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1,
+                    allowLocalSource: true)
                     || !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out reason))
                 {
                     _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Text(reason, 14, PrimeTheme.DangerBrush),
@@ -430,7 +431,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             var picker = new MapCardPicker(_rooms, _room, room =>
                 Multiplayer.MapModeCapabilities.Supports(room, SelectedMode(),
-                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1) ? null : reason);
+                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1,
+                    allowLocalSource: true) ? null : reason);
             picker.Done += (_, room) => { _room = room; Refresh(); _overlays.Close(); };
             picker.Cancelled += (_, _) => _overlays.Close();
             _overlays.Show(picker);

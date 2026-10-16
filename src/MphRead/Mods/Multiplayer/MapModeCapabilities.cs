@@ -8,13 +8,31 @@ namespace MphRead.Mods.Multiplayer;
 /// <summary>Inspect the same entity layer and resource profile used by room construction.</summary>
 public static class MapModeCapabilities
 {
-    public static bool Supports(string roomKey, GameMode mode, MatchWorldProfile profile, out string reason, int? configuredPlayers = null)
+    /// <summary>Default online/dedicated callers always refuse locally extracted
+    /// commercial-source maps. Only explicit Offline menus may opt into those
+    /// single-player previews; old calls preserve their strict online default.</summary>
+    public static bool AllowsLocalSource(MapDefinition? map, bool offlinePreview, out string reason)
+    {
+        if (map?.LocalSourceOnly == true && !offlinePreview)
+        {
+            reason = "This arena was imported from local commercial game files. " +
+                "It is available only for offline play and cannot be hosted, voted, or transferred.";
+            return false;
+        }
+        reason = "";
+        return true;
+    }
+
+    public static bool Supports(string roomKey, GameMode mode, MatchWorldProfile profile,
+        out string reason, int? configuredPlayers = null, bool allowLocalSource = false)
     {
         if (mode == GameMode.InstaGib) mode = GameMode.Battle;
         if (!profile.IsValid) { reason = "Invalid multiplayer world profile."; return false; }
         if (!Metadata.RoomMetadata.TryGetValue(roomKey, out var room) || room.EntityPath == null || room.FirstHunt)
         { reason = $"{roomKey} has no supported multiplayer entity layer."; return false; }
         var custom = CustomRooms.Definitions.FirstOrDefault(d => String.Equals(d.Name, roomKey, StringComparison.OrdinalIgnoreCase));
+        if (!AllowsLocalSource(custom, allowLocalSource, out reason))
+            return false;
         if (custom != null && MapModeValidator.WhyUnsupported(custom, mode,
             configuredPlayers ?? custom.Capabilities?.MinPlayers ?? 1) is string unsupported)
         { reason = unsupported; return false; }
