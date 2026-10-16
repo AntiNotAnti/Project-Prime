@@ -33,6 +33,36 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler<LaunchPlan>? Done;
         public event EventHandler<LaunchPlan>? MatchRequested;
         internal PrimeShell Prime => _prime;
+        internal bool RmlUiCanPresent => _startup == null && !_prime.Overlays.IsOpen;
+
+        internal bool RmlUiNavigate(PrimeRoute route)
+            => _startup == null && !_prime.Overlays.IsOpen && _prime.Router.Navigate(route);
+
+        internal bool RmlUiOpenCreateLobby()
+        {
+            if (_startup != null || _prime.Overlays.IsOpen || NetSession.Active) return false;
+            if (!EnsureGameFiles()) return false;
+            OpenCreateServer();
+            return _prime.Overlays.IsOpen;
+        }
+
+        internal bool RmlUiAcceptJoin(LaunchPlan plan)
+        {
+            if (_startup != null || _prime.Overlays.IsOpen || !NetSession.Active)
+                return false;
+            ConnectedOrFinished(plan);
+            return true;
+        }
+
+        internal bool RmlUiLeaveLobby()
+        {
+            if (_lobby == null || !NetSession.Active) return false;
+            // Use exactly the existing lifecycle so coordinator/screens/host
+            // shut down once and the previous lobby route is retired.
+            _lobby.Leave("");
+            return true;
+        }
+
         public void ResumeLobby() { _lobby?.Resume(); _session.Start(); }
         public void SuspendLobby() { _lobby?.Suspend(); }
 
