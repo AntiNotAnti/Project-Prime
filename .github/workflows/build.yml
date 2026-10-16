@@ -56,6 +56,9 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
 
+      - name: validate source ANCS/ANIM animation decoding contracts
+        run: dotnet run --project tools/retro-animation-check -c Release
+
       - name: validate local extra-character OBJ preview exporter
         run: dotnet run --project tools/retro-character-preview-check -c Release
 
