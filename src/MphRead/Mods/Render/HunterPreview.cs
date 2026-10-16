@@ -59,6 +59,8 @@ namespace MphRead.Mods.Render
         private readonly Mods.Cosmetics.Death.DeathPresentationState _death = new();
         private float _cosmeticTime;
         private int _deathRequest;
+        private long _previewSteps;
+        private long _lastPreviewStepStamp;
         public void SetCosmetics(Mods.Cosmetics.CosmeticLoadout loadout, int deathRequest)
         {
             if (_cosmetics.Loadout != loadout || _cosmeticHunter != _hunter) { _cosmetics = new(_hunter, loadout); _cosmeticHunter = _hunter; _death.Reset(); }
@@ -171,6 +173,8 @@ namespace MphRead.Mods.Render
                     _models.Clear();
                     _models.Add(inst);
                     _model = inst;
+                    _previewSteps = 0;
+                    _lastPreviewStepStamp = 0;
                     _hunter = hunter;
                     Mode = mode;
                     _death.Reset(); _deathRequest = 0;
@@ -259,7 +263,19 @@ namespace MphRead.Mods.Render
         /// </summary>
         public void Step()
         {
-            _model?.UpdateAnimFrames();
+            if (_model != null)
+            {
+                _model.UpdateAnimFrames();
+                // The launcher drives this clock independently of a live
+                // FrameTiming simulation. Record after its owned 60-Hz update;
+                // a separate wall-clock phase is only for displaying the
+                // intermediate pose. It never advances the actual animation.
+                long step = ++_previewSteps;
+                _lastPreviewStepStamp = System.Diagnostics.Stopwatch.GetTimestamp();
+                var info = _model.AnimInfo;
+                _model.PresentationSamples.Record(info, 0, step);
+                _model.PresentationSamples.Record(info, 1, step);
+            }
             _cosmeticTime += 1f / 60;
             if (Mods.Cosmetics.CosmeticPreview.LoopDeath && _deathRequest != 0
                 && Mode == Mods.Cosmetics.SkinContext.Biped
@@ -271,6 +287,9 @@ namespace MphRead.Mods.Render
         {
             _death.Reset();
             _deathRequest = 0;
+            _previewSteps = 0;
+            _lastPreviewStepStamp = 0;
+            _model?.PresentationSamples.Reset();
         }
 
         protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
@@ -437,9 +456,12 @@ namespace MphRead.Mods.Render
             // integer pose afterwards so no simulation or other model owner
             // observes an interpolated transform from the preview pass.
             bool blended = false;
-            if (PreviewBlendEnabled && FrameTiming.HighRefreshPresentation
+            double phase = _lastPreviewStepStamp == 0 ? 0
+                : Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(_lastPreviewStepStamp)
+                    .TotalSeconds * 60.0, 0, 1);
+            if (PreviewBlendEnabled && _previewSteps > 0
                 && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Node.Slot,
-                    FrameTiming.TotalSteps + FrameTiming.PresentationAlpha, out var sample))
+                    _previewSteps + phase, out var sample))
             {
                 _model.Model.AnimateNodes(0, UseNodeTransform, pose,
                     _model.Model.Scale, _model.AnimInfo, sample);
