@@ -40,8 +40,12 @@ namespace MphRead.Mods.MapGen
                 "Fruity Prime legacy map:" + name.ToUpperInvariant())).AsSpan(0, 16));
 
         public static string Build(MapDefinition source, string outputPath)
-            => MapBuildScheduler.Shared.PackageAsync(
+        {
+            if (source.LocalSourceOnly)
+                throw new InvalidDataException("A local game-source import cannot be packaged or published.");
+            return MapBuildScheduler.Shared.PackageAsync(
                 MapBuildSnapshot.Capture(source), outputPath).GetAwaiter().GetResult();
+        }
 
         // Called by the bounded scheduler after compiler validation. Keep
         // output entry names, ordering, timestamp, compression settings and
@@ -51,6 +55,8 @@ namespace MphRead.Mods.MapGen
             string outputPath, CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
+            if (source.LocalSourceOnly)
+                throw new InvalidDataException("A local game-source import cannot be packaged or published.");
             MapDefinition definition = MapProjectSerializer.Clone(source);
             var entries = new SortedDictionary<string, Payload>(StringComparer.Ordinal);
             string scratch = Path.Combine(Path.GetTempPath(),

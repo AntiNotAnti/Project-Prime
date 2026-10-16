@@ -77,6 +77,26 @@ try
         }
         return 0;
     }
+    if (args.Length == 2 && args[0] == "--probe-spires-blockout")
+    {
+        using var disc = GameCubeDiscReader.Open(args[1]);
+        if (disc.Game != ExternalGameKind.Echoes)
+            throw new InvalidDataException("Echoes GameCube source required.");
+        var required = ExternalSourceRequirements.For(disc.Game).Single(x => x.Path == "Metroid6.pak");
+        if (ExternalSourceRequirements.Verify(disc, required).Status != ExternalArchiveStatus.Verified)
+            throw new InvalidDataException("Metroid6.pak does not match the pinned supported edition.");
+        using var image = disc.OpenRead(required.Path);
+        using var pak = new RetroPakReader(image);
+        var sections = EchoesMreaSections.Parse(pak.ReadResource(0x09749b2f));
+        var collision = EchoesCollisionSource.Read(sections);
+        var scripts = EchoesScriptSource.Read(sections);
+        var map = EchoesLocalMapDraft.BuildSpires(collision, scripts, required.ExpectedSha1);
+        var compiled = MphRead.Mods.MapGen.MapBuilder.Build(map);
+        Console.WriteLine("Spires (local only): " + map.Spawns.Count + " spawns, " +
+            map.Items.Count + " pickups, " + compiled.Solid.Count +
+            " collision triangles, " + compiled.Faces.Count + " visual proxy faces");
+        return 0; // Never write/package/upload derived commercial assets.
+    }
     if (args.Length != 0)
     {
         Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
@@ -86,6 +106,7 @@ try
     RetroPakFixtureTests.Run();
     EchoesMreaFixtureTests.Run();
     EchoesSurfaceFixtureTests.Run();
+    EchoesLocalMapFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
