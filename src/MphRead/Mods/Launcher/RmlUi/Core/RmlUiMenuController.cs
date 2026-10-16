@@ -45,6 +45,9 @@ public interface IRmlUiMenuServices
     bool NextHunter();
     bool NextSuit();
     bool OpenLobbyDetails();
+    RmlUiRuleDraft? ReadRules();
+    IReadOnlyList<string> BuiltInArenaKeys();
+    bool SubmitRules(RmlUiRuleDraft draft, out string error);
     void Quit();
 }
 
@@ -65,6 +68,10 @@ public sealed class RmlUiMenuController : IDisposable
     private readonly ConcurrentQueue<Completion> _completed = new();
     private readonly RmlUiServerCandidate[] _rows = new RmlUiServerCandidate[8];
     private CancellationTokenSource? _work;
+    private RmlUiRuleEditor? _rules;
+    private bool _rulesSubmitted;
+    private string _rulesStatus = "VIEWING SERVER RULES";
+    private long _joiningEpoch;
     private long _epoch, _revision;
     private long _nextPoll;
     private bool _disposed, _busy, _joining, _browsing, _dirty = true;
@@ -79,9 +86,11 @@ public sealed class RmlUiMenuController : IDisposable
     public RmlUiMenuSnapshot Snapshot => _snapshot;
     public bool Busy => _busy;
     public bool Joining => _joining;
+    public (string Time, string Goal)? RuleInputs =>
+        _rules is { } editor ? (editor.TimeInput(), editor.GoalInput()) : null;
 
     public bool Dispatch(RmlUiIntentKind kind, int argument = 0,
-        string address = "", string playerName = "")
+        string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "")
     {
         Owner();
         if (!RmlUiIntentRegistry.IsValid(kind, argument)) return false;
@@ -160,14 +169,37 @@ public sealed class RmlUiMenuController : IDisposable
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
             case RmlUiIntentKind.LobbyRulesOpen:
+                var original = _services.ReadRules();
+                if (!original.HasValue) return false;
+                _rules = new(original.Value);
+                _rulesStatus = _services.Lobby().Owner
+                    ? "EDIT LOCALLY // APPLY TO SUBMIT TO THE SERVER"
+                    : "VIEW ONLY // LOBBY OWNER CONTROLS SETTINGS";
+                _rulesSubmitted = false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.LobbyRulesClose:
+                CloseRules();
+                return true;
+            case RmlUiIntentKind.LobbyRulesToggle:
+                return ChangeRules(e => e.Toggle(argument));
+            case RmlUiIntentKind.LobbyRulesMap:
+                return ChangeRules(e => e.NextMap(_services.BuiltInArenaKeys()));
+            case RmlUiIntentKind.LobbyRulesMode:
+                return ChangeRules(e => e.NextMode());
+            case RmlUiIntentKind.LobbyRulesFormat:
+                return ChangeRules(e => e.NextFormat());
+            case RmlUiIntentKind.LobbyRulesApply:
+                return ApplyRules(ruleTime, ruleGoal);
             case RmlUiIntentKind.LobbyMapOpen:
             case RmlUiIntentKind.LobbyAdminOpen:
             case RmlUiIntentKind.LobbyClassic:
                 return LobbyAction(_services.OpenLobbyDetails,
-                    "Opened the full authoritative lobby controls.");
+                    "Opened the remaining authoritative lobby controls.");
             case RmlUiIntentKind.LobbyLeave:
                 if (_services.LeaveLobby())
                 {
+                    CloseRules();
                     Cancel();
                     _browsing = false;
                     Status("LEFT THE LOBBY");
@@ -195,7 +227,8 @@ public sealed class RmlUiMenuController : IDisposable
         Owner();
         while (_completed.TryDequeue(out Completion item))
         {
-            if (item.Kind == Job.Join) _joining = false;
+            // An older cancelled join must never end ownership of a newer one.
+            if (item.Kind == Job.Join && item.Epoch == _joiningEpoch) _joining = false;
             if (item.Epoch != _epoch || _disposed) continue;
             _busy = false;
             _work = null;
@@ -236,6 +269,31 @@ public sealed class RmlUiMenuController : IDisposable
             }
         }
 
+        // The result of UpdateMatch and the authoritative SessionState may arrive
+        // in different packets. Never show local rule edits as accepted until
+        // the same authority advances revision AND echoes the exact payload.
+        if (_rules is { } editor)
+        {
+            RmlUiRuleDraft? live = _services.ReadRules();
+            if (!live.HasValue || live.Value.MatchId != editor.Source.MatchId
+                || live.Value.AuthorityEpoch != editor.Source.AuthorityEpoch)
+                CloseRules();
+            else if (_rulesSubmitted && live.Value.SessionRevision != editor.Source.SessionRevision)
+            {
+                if (live.Value.Match == editor.Draft.Match && live.Value.Flags == editor.Draft.Flags)
+                {
+                    CloseRules();
+                    Status("RULE CHANGES CONFIRMED BY SERVER");
+                }
+                else
+                {
+                    _rulesSubmitted = false;
+                    _rulesStatus = "THE SERVER CHANGED RULES. CLOSE AND REOPEN.";
+                    Dirty();
+                }
+            }
+        }
+
         long now = Stopwatch.GetTimestamp();
         if (!_dirty && now < _nextPoll) return _snapshot;
         _nextPoll = now + Stopwatch.Frequency / 8;
@@ -244,6 +302,59 @@ public sealed class RmlUiMenuController : IDisposable
         if (!Same(_snapshot.Bindings, bindings))
             _snapshot = new(++_revision, new ReadOnlyDictionary<string, RmlUiBindingValue>(bindings));
         return _snapshot;
+    }
+
+    private void CloseRules()
+    {
+        _rules = null;
+        _rulesSubmitted = false;
+        _rulesStatus = "VIEWING SERVER RULES";
+        Dirty();
+    }
+
+    private bool ChangeRules(Func<RmlUiRuleEditor, bool> modify)
+    {
+        if (_rules is not { } editor || _rulesSubmitted || !_services.Lobby().Owner)
+            return false;
+        RmlUiRuleDraft? live = _services.ReadRules();
+        if (!live.HasValue || !editor.SameSession(live.Value))
+        {
+            _rulesStatus = "SESSION RULES CHANGED. CLOSE AND REOPEN.";
+            Dirty();
+            return false;
+        }
+        bool changed = modify(editor);
+        if (changed)
+        {
+            _rulesStatus = "PENDING LOCAL CHANGES // APPLY WHEN READY";
+            Dirty();
+        }
+        return changed;
+    }
+
+    private bool ApplyRules(string time, string goal)
+    {
+        if (_rules is not { } editor || _rulesSubmitted || !_services.Lobby().Owner)
+            return false;
+        RmlUiRuleDraft? live = _services.ReadRules();
+        if (!live.HasValue || !editor.SameSession(live.Value))
+        {
+            _rulesStatus = "SESSION CHANGED. CLOSE AND REOPEN THE RULE EDITOR.";
+            Dirty();
+            return false;
+        }
+        if (!editor.TrySetLimits(time, goal, out string error) || !editor.Validate(out error)
+            || !_services.SubmitRules(editor.Draft, out error))
+        {
+            _rulesStatus = String.IsNullOrEmpty(error)
+                ? "SERVER CANNOT ACCEPT THESE RULES RIGHT NOW." : error;
+            Dirty();
+            return false;
+        }
+        _rulesSubmitted = true;
+        _rulesStatus = "WAITING FOR SERVER RULE CONFIRMATION";
+        Dirty();
+        return true;
     }
 
     private bool LobbyAction(Func<bool> command, string message)
@@ -263,6 +374,7 @@ public sealed class RmlUiMenuController : IDisposable
         Begin(Job.Join, "CONNECTING TO " + endpoint,
             async token => await _services.Join(endpoint, playerName, token).ConfigureAwait(false));
         _joining = true;
+        _joiningEpoch = _epoch;
         return true;
     }
 
@@ -352,6 +464,23 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_require_ready", lobby.Active && lobby.RequireReady);
         Flag("lobby_local_ready", lobby.Active && lobby.LocalReady);
         Flag("lobby_starting", lobby.Active && lobby.Starting);
+        Flag("lobby_rules_open", lobby.Active && _rules != null);
+        Flag("rules_owner", lobby.Active && lobby.Owner);
+        Flag("rules_dirty", _rules?.Dirty ?? false);
+        Flag("rules_pending", _rulesSubmitted);
+        Text("rules_status", _rulesStatus);
+        if (_rules is { } rules)
+        {
+            Text("rules_map", rules.Draft.Match.RoomKey);
+            Text("rules_mode", MphRead.Mods.Network.MatchTypeCatalog.BaseLabel(rules.Draft.Match.Mode));
+            Text("rules_format", MphRead.Mods.Network.MatchTypeCatalog.MatchupLabel(
+                rules.Draft.Match.Mode, rules.Draft.Match.Format));
+            Text("rules_goal_label", MphRead.Mods.Network.MatchGoalRules.UsesLives(rules.Draft.Match.Mode)
+                ? "SPARE LIVES" : MphRead.Mods.Network.MatchGoalRules.UsesTimeTarget(rules.Draft.Match.Mode)
+                ? "CONTROL TIME" : "SCORE GOAL");
+            for (int i = 0; i < 16; i++)
+                Text("rules_toggle" + i, rules.IsOn(i) ? "ON" : "OFF");
+        }
         Text("lobby_name", lobby.Active ? lobby.Name : "");
         Text("lobby_map", lobby.Active ? lobby.Map : "");
         Text("lobby_mode_name", lobby.Active ? lobby.Mode : "");

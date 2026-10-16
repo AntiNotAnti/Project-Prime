@@ -79,7 +79,21 @@ internal static class RmlUiOpenGlSmoke
                     ? host.ReadField(host.HomeDocument, "play_join_address", 160) : "";
                 string player = intent.Kind is RmlUiIntentKind.PlayJoin or RmlUiIntentKind.PlayServer
                     ? host.ReadField(host.HomeDocument, "play_player_name", 128) : "";
-                controller.Dispatch(intent.Kind, intent.Argument, address, player);
+                string ruleTime = intent.Kind == RmlUiIntentKind.LobbyRulesApply
+                    ? host.ReadField(host.HomeDocument, "rules_time", 24) : "";
+                string ruleGoal = intent.Kind == RmlUiIntentKind.LobbyRulesApply
+                    ? host.ReadField(host.HomeDocument, "rules_goal", 24) : "";
+                bool handled = controller.Dispatch(intent.Kind, intent.Argument,
+                    address, player, ruleTime, ruleGoal);
+                if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
+                    or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesFormat)
+                {
+                    if (controller.RuleInputs is { } fields)
+                    {
+                        host.SetField(host.HomeDocument, "rules_time", fields.Time);
+                        host.SetField(host.HomeDocument, "rules_goal", fields.Goal);
+                    }
+                }
             }
             // A native navigation may have opened the existing setup/create
             // modal or legacy workspace within this very frame. Yield capture
