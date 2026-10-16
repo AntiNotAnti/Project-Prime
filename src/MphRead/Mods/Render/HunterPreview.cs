@@ -408,8 +408,14 @@ namespace MphRead.Mods.Render
         }
 
         // Explicit opt-in until hardware cadence and shared model restoration are verified.
-        private static readonly bool PreviewBlendEnabled =
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_PREVIEW_ANIMATION_BLEND") == "1";
+        // Enabled by default for supported preview paths. Environment
+        // overrides provide a fast reversible compatibility switch.
+        private static readonly bool PreviewBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_PREVIEW_ANIMATION_BLEND");
+        private static readonly bool MaterialBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_MATERIAL_ANIMATION_BLEND");
+        private static readonly bool TexcoordBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_TEXCOORD_ANIMATION_BLEND");
 
         public override void GetDrawInfo()
         {
@@ -455,24 +461,40 @@ namespace MphRead.Mods.Render
             // The render-item writer snapshots the model palette. Restore the
             // integer pose afterwards so no simulation or other model owner
             // observes an interpolated transform from the preview pass.
-            bool blended = false;
+            bool blended = false, materialBlended = false;
             var previous = _scene.CosmeticSubmission;
+            var previousUvOwner = _presentationTexcoordOwner;
+            var previousUvSample = _presentationTexcoordSample;
             try
             {
-                double phase = !PreviewBlendEnabled || _lastPreviewStepStamp == 0 ? 0
+                bool presentationEnabled = PreviewBlendEnabled || MaterialBlendEnabled || TexcoordBlendEnabled;
+                double phase = !presentationEnabled || _lastPreviewStepStamp == 0 ? 0
                     : Math.Clamp(System.Diagnostics.Stopwatch.GetElapsedTime(_lastPreviewStepStamp)
                         .TotalSeconds * 60.0, 0, 1);
+                double drawStep = _previewSteps + phase;
                 if (PreviewBlendEnabled && _previewSteps > 0
                     && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Node.Slot,
-                        _previewSteps + phase, out var sample))
+                        drawStep, out var sample))
                 {
-                    // Arm the restoration before writing a single node. Even a
-                    // draw/curve failure must not leak the visual pose into the
-                    // shared model's simulation-owned matrices.
                     blended = true;
                     _model.Model.AnimateNodes(0, UseNodeTransform, pose,
                         _model.Model.Scale, _model.AnimInfo, sample);
                     _model.Model.UpdateMatrixStack();
+                }
+                if (MaterialBlendEnabled && _previewSteps > 0
+                    && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Material.Slot,
+                        drawStep, out var materialSample))
+                {
+                    materialBlended = true;
+                    _model.Model.AnimateMaterials(_model.AnimInfo, materialSample);
+                    _scene.UpdateMaterials(_model.Model, _recolor < 0 ? 0 : _recolor);
+                }
+                if (TexcoordBlendEnabled && _previewSteps > 0
+                    && _model.PresentationSamples.TryGet(_model.AnimInfo, _model.AnimInfo.Texcoord.Slot,
+                        drawStep, out var uvSample))
+                {
+                    _presentationTexcoordOwner = _model;
+                    _presentationTexcoordSample = uvSample;
                 }
                 _scene.CosmeticSubmission = surface;
                 if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0
@@ -493,7 +515,26 @@ namespace MphRead.Mods.Render
                         _model.Model.UpdateMatrixStack();
                     }
                 }
-                finally { _scene.CosmeticSubmission = previous; }
+                finally
+                {
+                    try
+                    {
+                        if (materialBlended)
+                        {
+                            // Animated alpha is read by some game logic, so
+                            // restore the canonical channel even when drawing
+                            // fails after a partial render-item submission.
+                            _model.Model.AnimateMaterials(_model.AnimInfo);
+                            _scene.UpdateMaterials(_model.Model, _recolor < 0 ? 0 : _recolor);
+                        }
+                    }
+                    finally
+                    {
+                        _presentationTexcoordOwner = previousUvOwner;
+                        _presentationTexcoordSample = previousUvSample;
+                        _scene.CosmeticSubmission = previous;
+                    }
+                }
             }
             if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17, particlePose);
             else if (!presentingDeath && Mode != Mods.Cosmetics.SkinContext.ViewModel && Mods.RenderOptions.ShowCustomCosmetics)
