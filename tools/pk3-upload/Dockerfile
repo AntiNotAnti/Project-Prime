@@ -15,6 +15,6 @@ COPY tools/pk3-upload/index.mjs tools/pk3-upload/service.mjs tools/pk3-upload/va
 RUN chmod 755 /opt/pk3-converter/pk3-converter && mkdir -p /data && chown pk3:pk3 /data
 USER 10001:10001
 WORKDIR /opt/pk3-upload
-ENV PK3_HOST=0.0.0.0 PK3_PORT=8094 PK3_STORAGE_ROOT=/data PK3_CONVERTER_EXEC=/opt/pk3-converter/pk3-converter
+ENV PK3_CONTAINER_BIND=1 PK3_HOST=0.0.0.0 PK3_PORT=8094 PK3_STORAGE_ROOT=/data PK3_CONVERTER_EXEC=/opt/pk3-converter/pk3-converter
 EXPOSE 8094
 CMD ["node", "/opt/pk3-upload/index.mjs"]
