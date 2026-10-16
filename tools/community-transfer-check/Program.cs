@@ -161,11 +161,51 @@ try
             CommunityCutoverPolicy.NetRadiantDefaultVariable, priorNetRadiant);
     }
 
+    // The transfer journal reloads this endpoint policy frequently; it must
+    // agree with the networking constructor without opening an HTTP connection.
+    foreach (string invalidEndpoint in new[]
+    {
+        "http://example.com/", "https://example.com/?ticket=private",
+        "https://user@example.com/"
+    })
+    {
+        bool rejected = false;
+        try { using var invalid = new MapCommunityClient(invalidEndpoint); }
+        catch (ArgumentException) { rejected = true; }
+        Check(rejected, "invalid Community endpoint policy rejects " + invalidEndpoint);
+    }
+    using (var local = new MapCommunityClient("http://127.0.0.1:14567/")) { }
+    Check(true, "loopback HTTP remains supported for Community local acceptance");
+
     string package = MapPackageBuilder.Build(
         MapTemplates.Create("COMMUNITY_TRANSFER_CHECK", true).Definition,
         Path.Combine(root, "source.ppmap"));
     string hash = MapBuildFingerprint.HashFile(package);
     byte[] bytes = File.ReadAllBytes(package);
+
+    // Run the same bounded atomic async copy used for host-owned map staging.
+    // The previous host path materialized the entire package in a byte[].
+    var atomicCopy = typeof(MapBuildFingerprint).Assembly
+        .GetType("MphRead.Mods.MapGen.AtomicFile")!
+        .GetMethod("CopyAsync", System.Reflection.BindingFlags.Public
+            | System.Reflection.BindingFlags.Static)!;
+    var copyAsync = (Func<string, string, CancellationToken, Task<long>>)
+        atomicCopy.CreateDelegate(typeof(Func<string, string, CancellationToken, Task<long>>));
+    string clonedArchive = Path.Combine(root, "copied-source.ppmap");
+    Check(await copyAsync(package, clonedArchive, CancellationToken.None) == bytes.LongLength
+        && MapBuildFingerprint.HashFile(clonedArchive) == hash,
+        "bounded async atomic archive copy preserves exact package hash");
+    string interruptedCopy = Path.Combine(root, "cancelled-copy.ppmap");
+    using (var cancelCopy = new CancellationTokenSource())
+    {
+        cancelCopy.Cancel();
+        bool cancelled = false;
+        try { await copyAsync(package, interruptedCopy, cancelCopy.Token); }
+        catch (OperationCanceledException) { cancelled = true; }
+        Check(cancelled && !File.Exists(interruptedCopy),
+            "cancelled hosted archive copy never publishes an incomplete destination");
+    }
+
 
     using var probe = new TcpListener(IPAddress.Loopback, 0);
     probe.Start();

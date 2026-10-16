@@ -3,6 +3,8 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.MapGen
 {
@@ -99,6 +101,41 @@ namespace MphRead.Mods.MapGen
         /// atomically publish it. Avoid full-file allocations when copying
         /// potentially large mesh/node/texture runtime outputs.
         /// </summary>
+        /// <summary>
+        /// Bounded asynchronous copy for hosted map archives. Cancellation
+        /// never publishes a partially staged package at the destination.
+        /// </summary>
+        public static async Task<long> CopyAsync(string source, string destination,
+            CancellationToken cancellation = default)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            string full = Path.GetFullPath(destination);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            string temporary = full + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                long length;
+                await using (var input = new FileStream(source, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, 65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                {
+                    length = input.Length;
+                    await input.CopyToAsync(output, 65536, cancellation).ConfigureAwait(false);
+                    await output.FlushAsync(cancellation).ConfigureAwait(false);
+                    if (output.Length != length)
+                        throw new IOException("Build output changed length during atomic copy.");
+                }
+                cancellation.ThrowIfCancellationRequested();
+                File.Move(temporary, full, overwrite: true);
+                return length;
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+
         public static long Copy(string source, string destination)
         {
             string full = Path.GetFullPath(destination);
