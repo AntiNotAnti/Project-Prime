@@ -83,8 +83,8 @@ public static partial class NetSession
                 var sourceUri = new Uri(address, UriKind.Absolute);
                 if (sourceUri.IsLoopback && !localHost)
                     throw new InvalidDataException("A remote server cannot direct map downloads to this computer's loopback interface.");
-                using var client = new MapCommunityClient(address);
-                return await client.PrepareExactAsync(content, state.Cancellation.Token,
+                return await CommunityExactArchiveAcquisition.PrepareAsync(
+                    content, address, state.Cancellation.Token,
                     stage => { if (Enum.TryParse<MapAvailabilityState>(stage, out var value)) state.State = value; },
                     progress => state.Progress = progress).ConfigureAwait(false);
             }, state.Cancellation.Token);

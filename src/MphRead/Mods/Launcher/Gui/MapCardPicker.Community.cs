@@ -164,8 +164,8 @@ internal sealed partial class MapCardPicker
         if (!GameFiles.Ready) throw new IOException("Set up game files before installing Community maps.");
         MapRuntimeUsage.RequireInstallationAllowed(identity.RoomKey);
         GameFiles.ApplyPaths();
-        using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
-        using var prepared = await client.PrepareExactAsync(identity, token);
+        using var prepared = await CommunityExactArchiveAcquisition.PrepareAsync(
+            identity, NetworkMapIdentity.ConfiguredDownloadSource(), token);
         token.ThrowIfCancellationRequested();
         MapDefinition installed = prepared.Commit(CustomRooms.UserMapDirectory);
         Metadata.RegisterDownloadedMap(installed);

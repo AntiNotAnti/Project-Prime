@@ -35,8 +35,8 @@ public sealed partial class DedicatedServer
         _pendingLobbyMap = new(peer, command, cancel, Task.Run(async () =>
         {
             MapValidator.RequireRuntimeName(match.RoomKey);
-            using var client = new MapCommunityClient(source);
-            return await client.PrepareExactAsync(identity, cancel.Token).ConfigureAwait(false);
+            return await CommunityExactArchiveAcquisition.PrepareAsync(
+                identity, source, cancel.Token).ConfigureAwait(false);
         }));
         return true;
     }

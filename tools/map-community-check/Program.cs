@@ -30,6 +30,30 @@ try
     Check(published.Hash==MapBuildFingerprint.HashFile(package)&&published.Name==definition.Name,"upload identity");
     var duplicate=await client.UploadAsync(package,default);
     Check(duplicate.Hash==published.Hash&&(await client.BrowseAsync(default)).Length==1,"idempotent content-addressed upload");
+    // All non-editor consumers now share the same exact-archive acquisition.
+    // A warm cache hit must work without contacting a dead Community server.
+    var required = MapContentIdentity.FromPackage(package);
+    string acquisitionRoot = Path.Combine(root, "acquisition");
+    using (var cold = await CommunityExactArchiveAcquisition.AcquireAsync(
+        required, address, CancellationToken.None, cacheRoot: acquisitionRoot))
+        Check(cold.Identity.Matches(required)
+            && MapBuildFingerprint.HashFile(cold.Path) == published.Hash,
+            "cold archive acquisition validates exact bytes before leasing");
+    using (var warm = await CommunityExactArchiveAcquisition.AcquireAsync(
+        required, "http://127.0.0.1:1/unused/", CancellationToken.None,
+        cacheRoot: acquisitionRoot))
+        Check(warm.Identity.Matches(required)
+            && MapBuildFingerprint.HashFile(warm.Path) == published.Hash,
+            "warm archived map is usable without another network request");
+    bool wrongMapRefused = false;
+    try
+    {
+        using var wrong = await CommunityExactArchiveAcquisition.AcquireAsync(
+            required with { MapId = Guid.NewGuid() }, address, CancellationToken.None,
+            cacheRoot: acquisitionRoot);
+    }
+    catch (InvalidDataException) { wrongMapRefused = true; }
+    Check(wrongMapRefused, "cache never substitutes a different MapId for the same package hash");
     // The application facade must be callable by the game or Studio without
     // constructing an Avalonia screen. Verify anonymous browsing, short-lived
     // authenticated client ownership, one-time 401 refresh and cancellation.
