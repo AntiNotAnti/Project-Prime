@@ -247,7 +247,12 @@ internal static class CommunityMapChecks
                 "legacy flat catalog fallback groups revisions without losing current/latest state");
 
             var ownerProject = await client.GetProjectAsync(id, default);
-            var ownerRevisions = await client.GetRevisionsAsync(id, default);
+            var creatorFacade = new CommunityMapOperations(address,
+                new DelegateCommunityCredentialSource(
+                    _ => Task.FromResult(secret), _ => Task.FromResult(secret)));
+            var ownerRevisions = await creatorFacade.GetRevisionsAsync(id, default);
+            check((await creatorFacade.GetOwnedProjectAsync(id, default))?.MapId == id,
+                "creator facade reads owner-only current/latest revision state");
             check(ownerProject != null
                 && ownerProject.RevisionCount == 3
                 && ownerProject.CurrentHash == v2.Hash
@@ -258,10 +263,10 @@ internal static class CommunityMapChecks
                 && ownerRevisions[0].CreatedBy == MapCreatorCatalog.ServiceOwner,
                 "owners see draft/unlisted lineage without changing the public current revision");
 
-            await client.SetVisibilityAsync(hidden.Hash, "Published", default);
+            await creatorFacade.SetRevisionVisibilityAsync(hidden.Hash, "Published", default);
             check((await client.GetProjectAsync(id, default))?.CurrentHash == hidden.Hash,
                 "publishing an existing revision promotes the project current pointer");
-            await client.SetVisibilityAsync(hidden.Hash, "Unlisted", default);
+            await creatorFacade.SetRevisionVisibilityAsync(hidden.Hash, "Unlisted", default);
             check((await client.GetProjectAsync(id, default))?.CurrentHash == v2.Hash,
                 "unlisting the current revision falls back to the newest published revision");
             var search = JsonSerializer.Deserialize<CommunityMap[]>(await http.GetStringAsync("maps?query=community&author=Fixture&page=2&pageSize=1"), MapPackageReader.JsonOptions)!;
