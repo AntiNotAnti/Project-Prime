@@ -32,6 +32,10 @@ test("source metadata forbids path traversal, zip bombs by size, and missing con
   assert.equal(validStart({ bytes: 2, roomName: "ARENA" }), false);
   assert.notEqual(sessionKey(creator, "a".repeat(64)),
     sessionKey(alternate, "a".repeat(64)));
+  assert.notEqual(sessionKey(creator, "a".repeat(64), "Q3_MAP_ONE", "q3dm1"),
+    sessionKey(creator, "a".repeat(64), "Q3_MAP_TWO", "q3dm1"));
+  assert.notEqual(sessionKey(creator, "a".repeat(64), "Q3_MAP_ONE", "q3dm1"),
+    sessionKey(creator, "a".repeat(64), "Q3_MAP_ONE", "q3dm2"));
 });
 test("cross-origin allowlist accepts only exact HTTPS origins", () => {
   assert.equal(validOrigin("https://projectprime.gg"), true);
@@ -84,7 +88,8 @@ test("owner-only chunked upload, retry/resume, SHA validation and queued convers
   const env = await fixture();
   try {
     const input = Buffer.from("a valid-looking source archive fixture");
-    const hash = sum(input), uri = "/v1/sources/" + hash;
+    const hash = sum(input), uri = "/v1/sources/" + hash +
+      "?roomName=Q3_TEST_WEB&levelName=q3dm17";
     const meta = JSON.stringify({
       bytes: input.length, roomName: "Q3_TEST_WEB",
       levelName: "q3dm17", rightsConfirmed: true,
@@ -114,16 +119,16 @@ test("owner-only chunked upload, retry/resume, SHA validation and queued convers
     const differentOwner = await env.request(uri, "GET", undefined, other);
     assert.equal(differentOwner.status, 404);
 
-    const first = await env.request(uri + "?offset=0", "PUT", input.subarray(0, 10));
+    const first = await env.request(uri + "&offset=0", "PUT", input.subarray(0, 10));
     assert.equal(first.status, 200);
     assert.equal((await first.json()).offset, 10);
-    const outOfOrder = await env.request(uri + "?offset=0", "PUT", input.subarray(10, 12));
+    const outOfOrder = await env.request(uri + "&offset=0", "PUT", input.subarray(10, 12));
     assert.equal(outOfOrder.status, 409);
-    const resumed = await env.request(uri + "?offset=10", "PUT", input.subarray(10));
+    const resumed = await env.request(uri + "&offset=10", "PUT", input.subarray(10));
     assert.equal(resumed.status, 200);
     assert.equal((await resumed.json()).offset, input.length);
 
-    const submission = await env.request(uri + "/complete", "POST");
+    const submission = await env.request(uri.replace("?", "/complete?"), "POST");
     assert.equal(submission.status, 202);
     const { jobId } = await submission.json();
     assert.equal(jobId.length, 36);
@@ -154,13 +159,13 @@ test("incorrect SHA is rejected before conversion without moving source to a job
   try {
     const input = Buffer.from("test");
     const wrongHash = "a".repeat(64);
-    const uri = "/v1/sources/" + wrongHash;
+    const uri = "/v1/sources/" + wrongHash + "?roomName=Q3_WRONG_SHA";
     assert.equal((await env.request(uri, "POST", JSON.stringify({
       bytes: input.length, roomName: "Q3_WRONG_SHA",
       rightsConfirmed: true,
     }))).status, 201);
-    assert.equal((await env.request(uri + "?offset=0", "PUT", input)).status, 200);
-    assert.equal((await env.request(uri + "/complete", "POST")).status, 422);
+    assert.equal((await env.request(uri + "&offset=0", "PUT", input)).status, 200);
+    assert.equal((await env.request(uri.replace("?", "/complete?"), "POST")).status, 422);
     assert.equal(env.converted(), 0);
   } finally { await env.cleanup(); }
 });
@@ -169,7 +174,7 @@ test("identical source SHA does not share a conversion session across Hunters", 
   const env = await fixture();
   try {
     const data = Buffer.from("shared bytes"), hash = sum(data);
-    const uri = "/v1/sources/" + hash;
+    const uri = "/v1/sources/" + hash + "?roomName=Q3_OWNER_SCOPE";
     const metadata = JSON.stringify({
       bytes: data.length, roomName: "Q3_OWNER_SCOPE", rightsConfirmed: true,
     });
