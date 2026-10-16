@@ -19,12 +19,29 @@ try
             Console.WriteLine(check.Path + ": " + check.Status);
         return 0;
     }
+    if (args.Length == 4 && args[0] == "--probe-resource")
+    {
+        using var disc = GameCubeDiscReader.Open(args[1]);
+        var requirement = ExternalSourceRequirements.For(disc.Game)
+            .FirstOrDefault(x => x.Path.Equals(args[2], StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrEmpty(requirement.Path) ||
+            ExternalSourceRequirements.Verify(disc, requirement).Status != ExternalArchiveStatus.Verified)
+            throw new InvalidDataException("Source PAK does not match the pinned local recipe.");
+        using var stream = disc.OpenRead(args[2]);
+        using var pak = new RetroPakReader(stream);
+        uint id = Convert.ToUInt32(args[3], 16);
+        var entry = pak.Entry(id);
+        byte[] resource = pak.ReadResource(id);
+        Console.WriteLine(entry.Type + " " + id.ToString("x8") + ": " + resource.Length + " bytes decoded locally (not saved)");
+        return 0;
+    }
     if (args.Length != 0)
     {
         Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
         return 2;
     }
     SelfTest();
+    RetroPakFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
