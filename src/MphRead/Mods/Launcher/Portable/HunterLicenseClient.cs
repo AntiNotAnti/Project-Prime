@@ -28,6 +28,9 @@ namespace MphRead.Mods.Launcher
     internal static class HunterLicenseClient
     {
         private const string DefaultUrl = "https://hwcjaygoistufktorbmf.supabase.co";
+        // A public HTTPS landing page for email verification and identity linking.
+        // Never rely on GoTrue's Site URL, which may still be set to localhost.
+        private const string WebLicenseUrl = "https://projectprime.gg/license";
         private const string DefaultKey = "sb_publishable_EVT45OPl638kA_j8vZ0ebg_sw3aWaVz";
 
         private static readonly HttpClient Http = new()
@@ -374,9 +377,9 @@ namespace MphRead.Mods.Launcher
 
                 await UpdateUserAsync(session.AccessToken,
                     new Dictionary<string, object?> { ["email"] = email },
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken, emailRedirectTo: WebLicenseUrl).ConfigureAwait(false);
                 return HunterLicenseActionResult.Ok(
-                    $"Verification sent to {email}. Open the message, confirm the address, then return here.");
+                    $"Verification sent to {email}. Follow the link on projectprime.gg, then choose REFRESH LINK STATUS here. If you are changing an existing email, confirm both addresses if prompted.");
             }
             catch (Exception ex)
             {
@@ -506,7 +509,9 @@ namespace MphRead.Mods.Launcher
                 }
 
                 string path = "/auth/v1/user/identities/authorize?provider="
-                    + Uri.EscapeDataString(provider) + "&skip_http_redirect=true";
+                    + Uri.EscapeDataString(provider)
+                    + "&redirect_to=" + Uri.EscapeDataString(WebLicenseUrl)
+                    + "&skip_http_redirect=true";
                 OAuthAuthorizeResponse link = await GetAsync<OAuthAuthorizeResponse>(
                     path, session.AccessToken, cancellationToken).ConfigureAwait(false);
                 if (String.IsNullOrWhiteSpace(link.Url))
@@ -604,9 +609,13 @@ namespace MphRead.Mods.Launcher
         }
 
         private static async Task<AuthUser> UpdateUserAsync(
-            string accessToken, object body, CancellationToken cancellationToken)
+            string accessToken, object body, CancellationToken cancellationToken,
+            string? emailRedirectTo = null)
         {
-            using var request = Request(HttpMethod.Put, "/auth/v1/user", accessToken, body);
+            string path = "/auth/v1/user";
+            if (emailRedirectTo != null)
+                path += "?redirect_to=" + Uri.EscapeDataString(emailRedirectTo);
+            using var request = Request(HttpMethod.Put, path, accessToken, body);
             using HttpResponseMessage response = await Http.SendAsync(request, cancellationToken)
                 .ConfigureAwait(false);
             string text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
