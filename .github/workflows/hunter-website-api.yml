@@ -1,0 +1,31 @@
+name: Hunter website career API
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/hunter-leaderboard/**'
+      - 'supabase/tests/hunter-leaderboard.test.mjs'
+      - 'supabase/tests/hunter-website-visibility.sql'
+      - 'supabase/migrations/*hunter_website_visibility.sql'
+      - '.github/workflows/hunter-website-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/hunter-leaderboard/**'
+      - 'supabase/tests/hunter-leaderboard.test.mjs'
+      - 'supabase/tests/hunter-website-visibility.sql'
+      - 'supabase/migrations/*hunter_website_visibility.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate whitelist and public identifier contracts
+        run: node --experimental-strip-types --test supabase/tests/hunter-leaderboard.test.mjs
