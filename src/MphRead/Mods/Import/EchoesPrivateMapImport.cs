@@ -66,6 +66,23 @@ public static class EchoesPrivateMapImport
     public static IReadOnlyList<string> InstallVisualPreviews(string isoPath, string userMapDirectory) =>
         InstallLocalDefinitions(ReadAllArenas(isoPath, sourceVisuals: true), userMapDirectory);
 
+    /// <summary>Experimental four-arena, private-only kinetic cannon variants.
+    /// Other two Echoes arenas contain no upstream kinetic-cannon tuning.</summary>
+    public static IReadOnlyList<MapDefinition> ReadCannonPlaytests(string isoPath)
+    {
+        var maps = ReadSelectedArenas(isoPath, EchoesTunedCannons.ArenaKeys, sourceVisuals: true);
+        return maps.Select(map =>
+        {
+            EchoesArenaSources.Arena source = EchoesArenaSources.All.Single(arena =>
+                map.Name == "VISUAL ECHOES " + arena.Name.ToUpperInvariant());
+            return EchoesTunedCannons.CreateVariant(map, source.Key);
+        }).ToArray();
+    }
+
+    public static IReadOnlyList<string> InstallCannonPlaytests(string isoPath, string userMapDirectory) =>
+        InstallLocalDefinitions(ReadCannonPlaytests(isoPath), userMapDirectory);
+
+
     public static string InstallLocalDefinition(MapDefinition definition, string userMapDirectory) =>
         InstallLocalDefinitions(new[] { definition }, userMapDirectory)[0];
 
@@ -95,9 +112,16 @@ public static class EchoesPrivateMapImport
         foreach (MapDefinition map in requests)
         {
             ArgumentNullException.ThrowIfNull(map);
-            bool sourceVisuals = map.Name.StartsWith("VISUAL ECHOES ", StringComparison.Ordinal);
+            bool cannonPlaytest = map.Name.StartsWith("CANNON ECHOES ", StringComparison.Ordinal);
+            bool sourceVisuals = !cannonPlaytest &&
+                map.Name.StartsWith("VISUAL ECHOES ", StringComparison.Ordinal);
+            string prefix = cannonPlaytest ? "CANNON ECHOES " :
+                sourceVisuals ? "VISUAL ECHOES " : "LOCAL ECHOES ";
             EchoesArenaSources.Arena arena = EchoesArenaSources.All.FirstOrDefault(x =>
-                map.Name == (sourceVisuals ? "VISUAL ECHOES " : "LOCAL ECHOES ") + x.Name.ToUpperInvariant());
+                map.Name == prefix + x.Name.ToUpperInvariant());
+            if (cannonPlaytest && (EchoesTunedCannons.CountFor(arena.Key) == 0 ||
+                map.Capabilities?.MaxPlayers != 1))
+                throw new InvalidDataException("Tuned cannon maps require the original private solo-only arena.");
             if (string.IsNullOrEmpty(arena.Key) || !map.LocalSourceOnly ||
                 map.FormatVersion != 3 || map.MapId == Guid.Empty || !ids.Add(map.MapId))
                 throw new InvalidDataException("Only distinct local Echoes source maps can be installed.");
@@ -112,6 +136,7 @@ public static class EchoesPrivateMapImport
                 _ => throw new InvalidDataException("Unsupported local Echoes arena.")
             };
             if (sourceVisuals) filename = "visual-" + filename;
+            if (cannonPlaytest) filename = "cannon-" + filename;
             if (!filenames.Add(filename))
                 throw new InvalidDataException("Duplicate local Echoes filename.");
 
@@ -147,6 +172,26 @@ public static class EchoesPrivateMapImport
 
     public static int RunAllArenasCommand(string? isoPath) =>
         RunCommand(isoPath, single: false);
+
+    public static int RunCannonPlaytestsCommand(string? isoPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(isoPath))
+                throw new ArgumentException("Usage: -importechoescannons <path-to-owned-Echoes.iso-or-gcm>");
+            var installed = InstallCannonPlaytests(isoPath, CustomRooms.UserMapDirectory);
+            Console.WriteLine("[echoes] Installed " + installed.Count +
+                " experimental solo-only orb-cannon variants; restart to discover them.");
+            Console.WriteLine("[echoes] Source geometry stays local; no online match or Community transfer is enabled.");
+            return 0;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException
+            or ArgumentException or NotSupportedException or OverflowException or MapAuthoringException)
+        {
+            Console.Error.WriteLine("[echoes] Orb-cannon import refused: " + ex.Message);
+            return 1;
+        }
+    }
 
     public static int RunVisualPreviewsCommand(string? isoPath)
     {
