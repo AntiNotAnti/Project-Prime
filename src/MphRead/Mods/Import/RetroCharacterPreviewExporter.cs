@@ -46,7 +46,7 @@ public static class RetroCharacterPreviewExporter
         {
             IReadOnlyList<string> files = ExportFromOwnedGame(sourcePath);
             Console.WriteLine("[retro-character] Wrote " + files.Count +
-                " private OBJ, CINF skeleton and sparse animation-preview sidecars:");
+                " private OBJ, CINF skeleton, skin-weight and sparse motion sidecars:");
             foreach (string file in files) Console.WriteLine("[retro-character] " + file);
             Console.WriteLine("[retro-character] Not installed as a playable Hunter; no files were uploaded.");
             return 0;
@@ -143,6 +143,14 @@ public static class RetroCharacterPreviewExporter
                 staged.Add((stagedObj, Path.Combine(root, obj)));
                 staged.Add((stagedSkeleton, Path.Combine(root, json)));
                 staged.Add((stagedMotion, Path.Combine(root, motionName)));
+                string weightsName = spec.Id + ".weights.json";
+                string stagedWeights = Path.Combine(staging, weightsName);
+                using (FileStream weightsFile = new(stagedWeights, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 65536))
+                    RetroCharacterSkinWeights.Write(model, weightsFile);
+                if (new FileInfo(stagedWeights).Length > MaxOutputBytes)
+                    throw new InvalidDataException("Source skin weights exceed the private sidecar budget.");
+                staged.Add((stagedWeights, Path.Combine(root, weightsName)));
             }
             if (staged.Count == 0)
                 throw new InvalidDataException("No supported Retro characters in the supplied source.");
