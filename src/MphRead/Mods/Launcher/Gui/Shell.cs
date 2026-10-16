@@ -192,6 +192,9 @@ namespace MphRead.Mods.Launcher.Gui
         internal static bool RmlUiLeaveLobby()
             => Active && _window?.HasScene == false && _front?.RmlUiLeaveLobby() == true;
 
+        internal static IReadOnlyList<string> RmlUiBuiltInRooms()
+            => _rooms.Where(Metadata.IsBuiltInRoom).ToArray();
+
         internal static bool RmlUiShowLegacyLobby()
         {
             if (!Active || _front == null || _window?.HasScene != false

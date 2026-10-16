@@ -1,6 +1,7 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -122,9 +123,70 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
             && NetSession.SendLobbyCommand(LobbyCommandType.StartMatch);
     }
 
-    public bool NextHunter() => Shell.RmlUiShowLegacyLobby();
-    public bool NextSuit() => Shell.RmlUiShowLegacyLobby();
+    public bool NextHunter()
+    {
+        if (!NetSession.IsInLobby || NetSession.LobbyCommandPending
+            || NetSession.ServerSession is not { } session
+            || NetSession.LocalSlot < 0) return false;
+        var allowed = HunterRules.Pool(session.Match.LowTier);
+        int index = -1;
+        for (int i = 0; i < allowed.Count; i++)
+            if (allowed[i] == NetSession.LocalHunter) { index = i; break; }
+        NetSession.LocalHunter = allowed[(index + 1) % allowed.Count];
+        LauncherPrefs.LastHunter = NetSession.LocalHunter;
+        LauncherPrefs.Save();
+        NetSession.SendIdentify();
+        return true;
+    }
+
+    public bool NextSuit()
+    {
+        if (!NetSession.IsInLobby || NetSession.LobbyCommandPending
+            || NetSession.LocalSlot < 0) return false;
+        NetSession.LocalColor = (NetSession.LocalColor + 1) % 4;
+        LauncherPrefs.LastColor = NetSession.LocalColor;
+        LauncherPrefs.Save();
+        NetSession.SendIdentify();
+        return true;
+    }
+
     public bool OpenLobbyDetails() => Shell.RmlUiShowLegacyLobby();
+
+    public RmlUiRuleDraft? ReadRules()
+    {
+        if (!NetSession.Active || !NetSession.IsInLobby
+            || NetSession.ServerSession is not { } session) return null;
+        return new(session.MatchId, session.AuthorityEpoch, session.Revision,
+            session.Match, session.RuleFlags);
+    }
+
+    public IReadOnlyList<string> BuiltInArenaKeys() => Shell.RmlUiBuiltInRooms();
+
+    public bool SubmitRules(RmlUiRuleDraft draft, out string error)
+    {
+        error = "";
+        if (!NetSession.CanEditLobby || NetSession.LobbyCommandPending
+            || NetSession.ServerSession is not { } live
+            || live.MatchId != draft.MatchId || live.AuthorityEpoch != draft.AuthorityEpoch
+            || live.Revision != draft.SessionRevision)
+        {
+            error = "Server session changed or rule edit is unavailable.";
+            return false;
+        }
+        if (LobbyRules.ValidateDefinition(draft.Match, out error) != LobbyResultCode.Ok)
+            return false;
+        // Preserve authority-created map package identity and all other
+        // session fields. Only match/rules are updated by this command.
+        SessionStatePacket updated = live;
+        updated.Match = draft.Match;
+        updated.RuleFlags = draft.Flags;
+        if (!NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch, configuration: updated))
+        {
+            error = "Server cannot accept another command yet.";
+            return false;
+        }
+        return true;
+    }
 
     public void Quit() => Shell.RequestQuit();
 }
