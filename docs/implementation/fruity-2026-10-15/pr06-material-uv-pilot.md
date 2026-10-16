@@ -1,6 +1,6 @@
 # PR-06: Material/texture-coordinate blending, preview pilot
 
-**Rollout:** OFF by default. Independent diagnostic toggles:
+**Rollout (explicit user request):** ON by default for supported preview and safe Object paths. Global emergency rollback is `PROJECT_PRIME_ANIMATION_BLEND=0`, with independent overrides:
 `PROJECT_PRIME_MATERIAL_ANIMATION_BLEND=1` and `PROJECT_PRIME_TEXCOORD_ANIMATION_BLEND=1`.
 
 ## Implemented
@@ -25,3 +25,6 @@
 3. Capture translucent room materials, fog, portals, weapon energy and toon outlines with original OpenGL and Android GLES at fixed matching camera positions.
 4. Assert material.CurrentAlpha/CurrentDiffuse and model texture bindings after each draw exactly match the canonical no-blend state.
 5. Record p95/p99, CPU/GPU, allocations and GL error A/B in 4x240-frame windows, not synthetic claims.
+
+## October 16 activation
+The user requested enabling the implemented animation enhancements. Supported preview skeletal, material, UV and guarded Object paths are now default-ON with a global rollback switch. This does not mean player, boss, Quake fog or moving-platform enhancements have been implemented. Native hardware acceptance remains unverified.
