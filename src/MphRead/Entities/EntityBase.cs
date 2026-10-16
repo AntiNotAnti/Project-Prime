@@ -592,6 +592,8 @@ namespace MphRead.Entities
         // matrices. They are excluded until independent ownership tests pass.
         private static readonly bool WorldAnimationBlendEnabled = Mods.Render.AnimationRollout.Enabled(
             "PROJECT_PRIME_WORLD_ANIMATION_BLEND");
+        private static readonly bool BossAnimationBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_BOSS_ANIMATION_BLEND");
 
         public virtual void GetDrawInfo()
         {
@@ -614,8 +616,9 @@ namespace MphRead.Entities
                         // through this pilot. Do not touch weapons, collision
                         // platforms, animated room surfaces or arbitrary
                         // derived GetDrawInfo paths yet.
-                        if (WorldAnimationBlendEnabled && Type == EntityType.Object
-                            && Mods.Render.FrameTiming.Active
+                        if ((WorldAnimationBlendEnabled && Type == EntityType.Object
+                            || BossAnimationBlendEnabled && Type == EntityType.EnemyInstance)
+                            && !_scene.Services.IsReplica && Mods.Render.FrameTiming.Active
                             && Mods.Render.FrameTiming.HighRefreshPresentation
                             && inst.PresentationSamples.TryGet(inst.AnimInfo, inst.AnimInfo.Node.Slot,
                                 Mods.Render.FrameTiming.TotalSteps

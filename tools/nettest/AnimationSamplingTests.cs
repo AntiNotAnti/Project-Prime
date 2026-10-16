@@ -62,6 +62,17 @@ internal static class AnimationSamplingTests
         Check(!AnimationRollout.EnabledValues(null, "off"), "channel rollback switch");
         Check(!AnimationRollout.EnabledValues("FALSE", "1"), "case insensitive rollback");
         Check(AnimationRollout.EnabledValues("1", "1"), "explicit override");
+        var persistentModel = new ModelInstance(null!);
+        var persistent = persistentModel.AnimInfo;
+        persistent.Frame[0] = 2; persistent.FrameCount[0] = 10; persistent.Index[0] = 5;
+        persistentModel.PresentationSamples.Record(persistent, 0, 2);
+        persistentModel.PresentationSamples.Record(persistent, 0, 4);
+        Check(persistentModel.PresentationSamples.TryGet(persistent, 0, 5, out _),
+            "active Hunter animation sample established");
+        persistentModel.SetModel(persistentModel.Model);
+        Check(persistentModel.PresentationSamples.TryGet(persistent, 0, 5, out _),
+            "same LOD selection preserves Hunter interpolation clock");
+
         var sampler = new AnimationSamples();
         var state = new AnimationInfo();
         state.Frame[0] = 2; state.FrameCount[0] = 10; state.Step[0] = 1;
