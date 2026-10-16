@@ -267,6 +267,24 @@ namespace MphRead.Mods.Launcher.Gui
                     "offline account can refresh its connection");
                 Check(!Button("SIGN IN // RECOVER LICENSE").IsEnabled,
                     "offline career cannot authorize replacing the current guest identity");
+                Check(!Button("VISIBILITY UNAVAILABLE").IsEnabled,
+                    "offline profile does not invent a public/private visibility setting");
+                // A guest Hunter must be able to opt out directly in-game,
+                // without linking an email address or surrendering their ID.
+                var snapshot = (HunterLicenseSnapshot)typeof(LicenseWorkspace)
+                    .GetField("_snapshot", flags)!.GetValue(license)!;
+                snapshot.Connected = true;
+                snapshot.PublicVisible = true;
+                OpenAccount();
+                Check(Button("OPT OUT // HIDE PROFILE").IsEnabled,
+                    "default-public guest License exposes a real opt-out action");
+                snapshot.PublicVisible = false;
+                OpenAccount();
+                Check(Button("OPT IN // SHOW PROFILE").IsEnabled,
+                    "previously opted-out Hunter can become visible again");
+                snapshot.PublicVisible = null;
+                snapshot.Connected = false;
+                OpenAccount();
                 var send = Button("SEND VERIFICATION");
                 send.Focus(); FocusNavigator.Key(send, Key.Enter); Drain(window);
                 Check(license.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Enter a valid email address."),
