@@ -126,7 +126,7 @@ internal static class PickupProtocolTests
 
     private static void RegistryAndBudgets(PickupClaim claim, PickupVerdict verdict, PickupItemFact fact)
     {
-        Check(NetConfig.ProtocolVersion == 56 && (byte)PacketType.PickupClaim == 73
+        Check(NetConfig.ProtocolVersion == 57 && (byte)PacketType.PickupClaim == 73
             && (byte)PacketType.PickupVerdict == 74 && (byte)PacketType.PickupItem == 75
             && (byte)PacketType.PickupReady == 76,
             "protocol 53 introduction preserves pickup packet identities");
