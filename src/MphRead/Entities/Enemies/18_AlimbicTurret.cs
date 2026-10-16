@@ -7,6 +7,8 @@ namespace MphRead.Entities.Enemies
 {
     public class Enemy18Entity : EnemyInstanceEntity
     {
+        private static readonly bool TurretBlendEnabled =
+            MphRead.Mods.Render.AnimationRollout.Enabled("PROJECT_PRIME_BOSS_ANIMATION_BLEND");
         private readonly EnemySpawnEntity _spawner;
         private Enemy18Values _values;
         private PlayerEntity? _target = null;
@@ -311,22 +313,48 @@ namespace MphRead.Entities.Enemies
                 aimTransform *= transpose;
                 aimTransform.Row3.Xyz = Vector3.Zero;
             }
-            _rotNode.AfterTransform = aimTransform;
-            model.AnimateNodes2(index: 0, false, Matrix4.Identity, Vector3.One, animInfo);
-            _rotNode.AfterTransform = null;
-            for (int i = 0; i < model.Nodes.Count; i++)
+            void BuildPose(MphRead.Mods.Render.AnimationSamples.Sample? sample)
             {
-                Node node = model.Nodes[i];
-                node.Animation *= Transform; // todo?: could do this in the shader
+                _rotNode.AfterTransform = aimTransform;
+                try
+                {
+                    model.AnimateNodes2(index: 0, false, Matrix4.Identity,
+                        Vector3.One, animInfo, sample);
+                }
+                finally { _rotNode.AfterTransform = null; }
+                for (int i = 0; i < model.Nodes.Count; i++)
+                    model.Nodes[i].Animation *= Transform;
+                model.UpdateMatrixStack();
             }
-            model.UpdateMatrixStack();
-            UpdateMaterials(inst, Recolor);
-            if (IsVisible(NodeRef))
+            MphRead.Mods.Render.AnimationSamples.Sample sampled = default;
+            bool drawBlend = TurretBlendEnabled
+                && MphRead.Mods.Render.FrameTiming.Active
+                && MphRead.Mods.Render.FrameTiming.HighRefreshPresentation
+                && !_scene.Services.IsReplica
+                && inst.PresentationSamples.TryGet(animInfo, animInfo.Node.Slot,
+                    MphRead.Mods.Render.FrameTiming.TotalSteps
+                    + MphRead.Mods.Render.FrameTiming.PresentationAlpha, out sampled);
+            try
             {
-                GetDrawItems(inst, 0);
+                // The turret always computes its gameplay muzzle from the
+                // canonical pose; only submitted render-item matrices can
+                // contain the fractional pose for a display frame.
+                BuildPose(drawBlend ? sampled : null);
+                UpdateMaterials(inst, Recolor);
+                if (IsVisible(NodeRef))
+                    GetDrawItems(inst, 0);
             }
-            PaletteOverride = null;
-            _rotNodePos = _rotNode.Animation.Row3.Xyz;
+            finally
+            {
+                try
+                {
+                    if (drawBlend) BuildPose(null);
+                    // State3 later consumes _rotNodePos to spawn the next
+                    // authoritative shot. Never store a render-only position.
+                    _rotNodePos = _rotNode.Animation.Row3.Xyz;
+                }
+                finally { PaletteOverride = null; }
+            }
             return true;
         }
 
