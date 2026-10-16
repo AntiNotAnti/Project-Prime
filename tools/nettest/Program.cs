@@ -97,6 +97,9 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--scene-setup-ownership")
                 return SceneSetupOwnershipTests.Run(Array.IndexOf(args, "--baseline") >= 0);
             if (args.Length > 0 && args[0] == "--instagib-ion-fracture") return InstagibIonFractureTests.Run();
+            if (args.Length > 0 && args[0] == "--browser-join") return BrowserJoinTests.Run();
+            if (args.Length > 0 && args[0] == "--map-vote-ready") return MapVoteReadyTests.Run();
+            if (args.Length > 0 && args[0] == "--animation-sampling") return AnimationSamplingTests.Run();
             if (args.Length > 0 && args[0] == "--shot-pose-bounds") return ShotPoseBoundsTests.Run();
             if (args.Length > 0 && args[0] == "--outline-colors") return OutlineColorTests.Run();
             if (args.Length > 0 && args[0] == "--scene-lifetime") return SceneLifetimeTests.Run();
