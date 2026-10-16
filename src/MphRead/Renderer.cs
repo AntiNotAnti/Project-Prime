@@ -8898,6 +8898,9 @@ localCenter *= _profileHudScale;
             }
             finally
             {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Shutdown();
+#endif
                 if (_shell) Sound.AudioLifetime.Shutdown();
 #if MPHREAD_SHELL
                 Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer();
@@ -9087,6 +9090,9 @@ localCenter *= _profileHudScale;
                 CursorState = CursorState.Normal;
                 Mods.Input.PointerDevice.Reset();
                 Mods.Render.UiOverlay.DrawAlone(this, FramebufferSize.X, FramebufferSize.Y);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Draw(this);
+#endif
                 // Before the swap: the back buffer holds this frame and
                 // nothing else does. Only -shellshot asks.
                 Mods.Launcher.Gui.Shell.AfterDraw(this);
@@ -9280,6 +9286,9 @@ localCenter *= _profileHudScale;
             // texture is where the world's own pass would put it, and the
             // panel it goes in is opaque, so under is behind a card.
             Mods.Render.LauncherHunter.Draw(this, PixelSize.X, PixelSize.Y);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Draw(this);
+#endif
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
@@ -9449,6 +9458,13 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PointerButton(e.Button, MouseState.X, MouseState.Y, true))
+            {
+                base.OnMouseDown(e);
+                return;
+            }
+#endif
             Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
@@ -9523,6 +9539,13 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PointerButton(e.Button, MouseState.X, MouseState.Y, false))
+            {
+                base.OnMouseUp(e);
+                return;
+            }
+#endif
             _ = _scene?.HardwareInputReady;
             if (e.Button == MouseButton.Button1
                 && Mods.Replay.ReplayInput.PointerUp(MouseState.X / Math.Max(ClientSize.X, 1))) return;
@@ -9562,6 +9585,13 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseMove(MouseMoveEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PointerMoved(e.X, e.Y))
+            {
+                base.OnMouseMove(e);
+                return;
+            }
+#endif
             if (Math.Abs(e.DeltaX) + Math.Abs(e.DeltaY) > 2)
                 Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
@@ -9607,6 +9637,13 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Wheel(e.OffsetY))
+            {
+                base.OnMouseWheel(e);
+                return;
+            }
+#endif
             if (Mods.Chat.ChatBox.Composing)
             {
                 if (Mods.Chat.ChatBox.HistoryOpen)
@@ -9653,6 +9690,13 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnTextInput(TextInputEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TextInput(e.AsString))
+            {
+                base.OnTextInput(e);
+                return;
+            }
+#endif
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
             // the settings. It gets the whole of the input while it is, the
@@ -9676,6 +9720,13 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnKeyUp(KeyboardKeyEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.KeyUp(e))
+            {
+                base.OnKeyUp(e);
+                return;
+            }
+#endif
             _ = _scene?.HardwareInputReady;
 #if MPHREAD_SHELL
             if (Mods.Launcher.Gui.Shell.UiVisible)
@@ -9700,6 +9751,13 @@ localCenter *= _profileHudScale;
 
         protected override void OnKeyDown(KeyboardKeyEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.KeyDown(e))
+            {
+                base.OnKeyDown(e);
+                return;
+            }
+#endif
             Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
 #if MPHREAD_SHELL
             // F11 and Alt+Enter first, screen or no screen.

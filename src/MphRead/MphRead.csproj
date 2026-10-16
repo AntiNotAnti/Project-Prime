@@ -363,4 +363,16 @@
   <ItemGroup Condition="'$(MphReadServer)' == 'true'">
     <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
   </ItemGroup>
+  <!-- Phase 02 developer-only RmlUi GL2 smoke path. Shipping clients still use Avalonia. -->
+  <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <DefineConstants>$(DefineConstants);MPHREAD_RMLUI_GL_SMOKE;MPHREAD_RMLUI</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <None Update="Mods/Launcher/RmlUi/Assets/*.rml;Mods/Launcher/RmlUi/Assets/*.rcss"
+          Link="rmlui/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf"
+          Link="rmlui/fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

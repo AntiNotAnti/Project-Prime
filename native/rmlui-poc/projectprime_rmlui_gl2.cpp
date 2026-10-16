@@ -15,9 +15,27 @@ class PrimeGl2Renderer final : public PrimeRenderer {
 public:
     Rml::RenderInterface* Interface() override { return &renderer; }
     void SetViewport(int width, int height) override { renderer.SetViewport(width, height); }
+
     void BeginFrame() override
     {
-        // Overlay in the engine's frame: never clear its color buffer.
+        // The game and the RmlUi painter share one *compatibility* GL context.
+        // RmlUi's GL2 backend uses fixed-function matrices/client pointers,
+        // blending and stencil. Restore those exact states instead of assuming
+        // a particular "default" state at the next world/HUD draw.
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
+        glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+        glGetIntegerv(GL_MATRIX_MODE, &matrix_mode);
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glMatrixMode(GL_TEXTURE);
+        glPushMatrix();
+        glMatrixMode(matrix_mode);
+
+        // Only the final overlay pass uses this backend. The engine binds the
+        // default draw framebuffer first; color/depth belong to the completed
+        // world frame and must not be cleared here.
 #if !defined(_WIN32)
         glActiveTexture(GL_TEXTURE0);
 #endif
@@ -25,26 +43,33 @@ public:
         glDepthMask(GL_FALSE);
         glDisable(GL_CULL_FACE);
         glDisable(GL_ALPHA_TEST);
+        glDisable(GL_SCISSOR_TEST);
         renderer.BeginFrame();
+
+        // RmlUi GL2 uses stencil for nested rounded clipping. At terminal
+        // composition, only the stencil attachment may be cleared, never
+        // world color or depth. The next world pass initializes its own state.
+        glStencilMask(~0u);
         glClearStencil(0);
         glClear(GL_STENCIL_BUFFER_BIT);
     }
+
     void EndFrame() override
     {
         renderer.EndFrame();
-        glDepthMask(GL_TRUE);
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisable(GL_SCISSOR_TEST);
-        glDisable(GL_STENCIL_TEST);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_DEPTH_TEST);
+        glMatrixMode(GL_TEXTURE);
+        glPopMatrix();
         glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glPopClientAttrib();
+        glPopAttrib();
+        glMatrixMode(matrix_mode);
     }
+
 private:
+    GLint matrix_mode = GL_MODELVIEW;
     RenderInterface_GL2 renderer;
 };
 }

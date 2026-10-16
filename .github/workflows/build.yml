@@ -39,6 +39,14 @@ jobs:
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
+      - name: validate RmlUi native build script and pinned manifest tooling
+        run: |
+          bash -n tools/rmlui/build-native.sh
+          python3 -c "import ast; from pathlib import Path; ast.parse(Path('tools/rmlui/verify-runtime.py').read_text())"
+
+      - name: compile opt-in RmlUi OpenGL smoke bridge
+        run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
+
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
@@ -77,6 +85,39 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+
+  rmlui-native-opengl:
+    name: RmlUi native OpenGL software-frame acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: install OpenGL compatibility build and offscreen test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y cmake g++ pkg-config \
+            libgl1-mesa-dev libx11-dev libxinerama-dev libxcursor-dev libxi-dev \
+            xvfb xauth
+      - name: compile pinned RmlUi GL2 native bridge
+        run: PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh linux-x64 gl2
+      - name: compile current-engine GL frame fixture
+        run: dotnet build tools/rmlui-opengl-check -c Release
+      - name: validate native Home pixels and terminal OpenGL state
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rmlui/fonts"
+          cp src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.* "$RUNNER_TEMP/rmlui/"
+          cp src/MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf \
+             src/MphRead/Assets/Fonts/Rajdhani-Bold.ttf \
+             src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf "$RUNNER_TEMP/rmlui/fonts/"
+          cp artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+             tools/rmlui-opengl-check/bin/Release/net10.0/
+          xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+            dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
+            "$RUNNER_TEMP/rmlui"
 
   updater-regressions:
     name: Windows/Linux release updater and rollback
