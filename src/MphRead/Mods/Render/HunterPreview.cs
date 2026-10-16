@@ -408,12 +408,14 @@ namespace MphRead.Mods.Render
         }
 
         // Explicit opt-in until hardware cadence and shared model restoration are verified.
-        private static readonly bool PreviewBlendEnabled =
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_PREVIEW_ANIMATION_BLEND") == "1";
-        private static readonly bool MaterialBlendEnabled =
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_MATERIAL_ANIMATION_BLEND") == "1";
-        private static readonly bool TexcoordBlendEnabled =
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_TEXCOORD_ANIMATION_BLEND") == "1";
+        // Enabled by default for supported preview paths. Environment
+        // overrides provide a fast reversible compatibility switch.
+        private static readonly bool PreviewBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_PREVIEW_ANIMATION_BLEND");
+        private static readonly bool MaterialBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_MATERIAL_ANIMATION_BLEND");
+        private static readonly bool TexcoordBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_TEXCOORD_ANIMATION_BLEND");
 
         public override void GetDrawInfo()
         {
