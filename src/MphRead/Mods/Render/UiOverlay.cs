@@ -179,7 +179,7 @@ namespace MphRead.Mods.Render
         /// A frame with no match behind it: the front screen is the whole
         /// picture, so there is nothing to compose it over.
         /// </summary>
-        public static void DrawAlone(RenderWindow window, int width, int height)
+        public static void DrawAlone(RenderWindow window, int width, int height, bool nativeHome = false)
         {
             GL.Viewport(0, 0, Math.Max(width, 1), Math.Max(height, 1));
             GL.ClearColor(0f, 0f, 0f, 1f);
@@ -193,9 +193,15 @@ namespace MphRead.Mods.Render
             // applied when it owned both layers.
             LauncherPhoto.Draw(width, height);
 #if MPHREAD_SHELL
-            Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
+            // One toolkit owns the launcher chrome per frame. Keep the GL
+            // photograph and native Hunter stand, but never paint the old
+            // Avalonia bitmap behind active RmlUi buttons. The standalone
+            // editor viewport still belongs to the legacy workspace.
+            if (!nativeHome)
+                Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
 #endif
-            Draw(width, height);
+            if (!nativeHome)
+                Draw(width, height);
             // The real hunter, *over* the screens rather than under them.
             //
             // Under was the obvious place and it does not work: the drawer the

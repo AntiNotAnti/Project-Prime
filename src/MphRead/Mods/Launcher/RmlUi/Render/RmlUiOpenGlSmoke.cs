@@ -30,23 +30,29 @@ internal static class RmlUiOpenGlSmoke
 
     internal static bool CapturesInput => !_disabled && _shown && _host is { Active: true };
 
-    internal static void Draw(RenderWindow window)
+    /// <summary>
+    /// Called before compositing the shell on a scene-free window. A positive
+    /// result means RmlUi has initialized and will paint this frame; Avalonia's
+    /// chrome must NOT also be drawn underneath its translucent page.
+    /// </summary>
+    internal static bool BeforeLauncherComposite(RenderWindow window)
     {
-        if (!Requested || _disabled || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0)
-        {
-            _shown = false;
-            return;
-        }
-        // No overlay or input capture over setup/confirmation, editor workspaces
-        // or a running match. Returning to Home/Lobby automatically resumes it.
-        if (!Shell.RmlUiCanPresent)
+        if (!Requested || _disabled || window.HasScene
+            || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0
+            || !Shell.RmlUiCanPresent)
         {
             if (_shown && _host is { Active: true } current) current.ReleaseInput();
             _shown = false;
-            return;
+            return false;
         }
-        if (!TryStart(window)) { _shown = false; return; }
+        if (!TryStart(window)) { _shown = false; return false; }
         _shown = true;
+        return true;
+    }
+
+    internal static void Draw(RenderWindow window)
+    {
+        if (!BeforeLauncherComposite(window)) return;
         RmlUiHost host = _host!;
         try
         {
@@ -170,7 +176,14 @@ internal static class RmlUiOpenGlSmoke
         => Forward(host => host.Input.PointerWheel(delta));
 
     internal static bool KeyDown(KeyboardKeyEventArgs key)
-        => Forward(host => RmlUiDesktopInput.KeyDown(host, key));
+    {
+        // Window-level F11 and Alt+Enter must remain operational while the
+        // native menu has focus. The OpenTK window, not either UI toolkit,
+        // owns fullscreen changes.
+        if (key.Key == Keys.F11 || (key.Key == Keys.Enter && key.Alt))
+            return false;
+        return Forward(host => RmlUiDesktopInput.KeyDown(host, key));
+    }
 
     internal static bool KeyUp(KeyboardKeyEventArgs key)
         => Forward(host => RmlUiDesktopInput.KeyUp(host, key));
