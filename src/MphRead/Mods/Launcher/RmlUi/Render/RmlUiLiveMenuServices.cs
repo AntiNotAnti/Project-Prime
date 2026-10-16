@@ -89,6 +89,8 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public async Task<RmlUiJoinResult> Join(string endpoint, string playerName, CancellationToken token)
     {
+        if (!GameFiles.Ready)
+            return new(false, default, "Configure the required game files before joining.");
         if (!ServerBrowserService.TryParseEndpoint(endpoint, LauncherPrefs.ServerAddress,
             LauncherPrefs.ServerPort, out string host, out int port))
             return new(false, default, "Enter a valid server host or host:port.");
@@ -122,6 +124,7 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public bool NextHunter() => Shell.RmlUiShowLegacyLobby();
     public bool NextSuit() => Shell.RmlUiShowLegacyLobby();
+    public bool OpenLobbyDetails() => Shell.RmlUiShowLegacyLobby();
 
     public void Quit() => Shell.RequestQuit();
 }

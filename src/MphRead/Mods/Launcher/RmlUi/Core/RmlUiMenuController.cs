@@ -44,6 +44,7 @@ public interface IRmlUiMenuServices
     bool LeaveLobby();
     bool NextHunter();
     bool NextSuit();
+    bool OpenLobbyDetails();
     void Quit();
 }
 
@@ -153,9 +154,17 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.OpenStudio:
                 return _services.OpenStudio();
             case RmlUiIntentKind.LobbyReady:
+                if (!_services.Lobby().CanReady) return false;
                 return LobbyAction(_services.SetReady, "Ready request sent to server.");
             case RmlUiIntentKind.LobbyStart:
+                if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
+            case RmlUiIntentKind.LobbyRulesOpen:
+            case RmlUiIntentKind.LobbyMapOpen:
+            case RmlUiIntentKind.LobbyAdminOpen:
+            case RmlUiIntentKind.LobbyClassic:
+                return LobbyAction(_services.OpenLobbyDetails,
+                    "Opened the full authoritative lobby controls.");
             case RmlUiIntentKind.LobbyLeave:
                 if (_services.LeaveLobby())
                 {
@@ -290,7 +299,8 @@ public sealed class RmlUiMenuController : IDisposable
     private void Cancel()
     {
         _epoch++;
-        _work?.Cancel();
+        try { _work?.Cancel(); }
+        catch (ObjectDisposedException) { /* A completed worker retired its CTS. */ }
         _work = null;
         _busy = false;
         Dirty();
@@ -383,6 +393,7 @@ public sealed class RmlUiMenuController : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
         Owner();
         _disposed = true;
         Cancel();

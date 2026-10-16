@@ -134,5 +134,6 @@ sealed class Stub : IRmlUiMenuServices
     public bool LeaveLobby() { LeaveCalls++; LobbyView = EmptyLobby; return true; }
     public bool NextHunter() => true;
     public bool NextSuit() => true;
+    public bool OpenLobbyDetails() => true;
     public void Quit() { }
 }
