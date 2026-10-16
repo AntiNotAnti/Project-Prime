@@ -56,6 +56,27 @@ try
         }
         return 0;
     }
+    if (args.Length == 2 && args[0] == "--probe-surfaces")
+    {
+        using var disc = GameCubeDiscReader.Open(args[1]);
+        if (disc.Game != ExternalGameKind.Echoes)
+            throw new InvalidDataException("The Echoes source is required.");
+        var required = ExternalSourceRequirements.For(disc.Game).Single(x => x.Path == "Metroid6.pak");
+        if (ExternalSourceRequirements.Verify(disc, required).Status != ExternalArchiveStatus.Verified)
+            throw new InvalidDataException("The local Echoes archive does not match the pinned recipe.");
+        using var image = disc.OpenRead(required.Path);
+        using var pak = new RetroPakReader(image);
+        foreach (var arena in EchoesArenaSources.All)
+        {
+            var sections = EchoesMreaSections.Parse(pak.ReadResource(arena.ResourceId));
+            var surfaces = EchoesCollisionSource.Read(sections);
+            var objects = EchoesScriptSource.Read(sections);
+            int spawns = objects.Count(x => x.Type == "SPWN" && x.Active && x.HasTransform);
+            Console.WriteLine(arena.Name + ": triangles=" + surfaces.TriangleCount +
+                ", vertices=" + surfaces.VertexCount + ", spawns=" + spawns);
+        }
+        return 0;
+    }
     if (args.Length != 0)
     {
         Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
@@ -64,6 +85,7 @@ try
     SelfTest();
     RetroPakFixtureTests.Run();
     EchoesMreaFixtureTests.Run();
+    EchoesSurfaceFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
