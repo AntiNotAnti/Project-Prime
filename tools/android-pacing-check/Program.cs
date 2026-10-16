@@ -116,4 +116,18 @@ Check(AndroidGcTelemetry.CounterDelta(11, 7) == "4", "ART GC counter delta");
 Check(AndroidGcTelemetry.CounterDelta(null, 7) == "n/a", "unavailable ART GC delta");
 Check(AndroidGcTelemetry.CounterDelta(1, 5) == "n/a", "reset ART GC counter does not produce negative delta");
 
+{
+    var uploads = new MphRead.Mods.Render.ModernTexturePromotionPacer();
+    Check(uploads.BeginFrame(), "no Android HD promotion latency at baseline");
+    uploads.RecordPromotion(1.1);
+    Check(uploads.BeginFrame(), "small HD promotion does not delay next frame");
+    uploads.RecordPromotion(7);
+    Check(!uploads.BeginFrame() && !uploads.BeginFrame() && !uploads.BeginFrame()
+        && uploads.BeginFrame(), "7ms upload spaces later work by three frames");
+    uploads.RecordPromotion(double.PositiveInfinity);
+    Check(uploads.FramesToSkip == 0 && uploads.BeginFrame(), "invalid GPU duration never starves texture queue");
+    uploads.RecordPromotion(9999);
+    Check(uploads.FramesToSkip == 6, "excessive stalls have bounded recovery delay");
+}
+
 return failures == 0 ? 0 : 1;

@@ -1648,6 +1648,7 @@ namespace MphRead
         private readonly Dictionary<int, int> _streamingTextureVersions = new();
         private readonly Queue<StreamingTextureRequest> _streamingTextureQueue = new();
         private readonly List<StreamingTextureDecode> _streamingTextureDecodes = new();
+        private readonly Mods.Render.ModernTexturePromotionPacer _androidTexturePromotionPacer = new();
 
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
@@ -1974,6 +1975,11 @@ namespace MphRead
         {
             if (Mods.Headless.Active) return;
 
+            // A large glTexImage2D is indivisible. After an expensive Android
+            // promotion, leave some following frames clear of other promotions;
+            // existing native textures remain visible while replacements wait.
+            bool canPromote = !OperatingSystem.IsAndroid() || _androidTexturePromotionPacer.BeginFrame();
+
             // Promote no more than one large GPU image per frame. Desktop CPU
             // decode stays two-wide; Android deliberately runs one worker so
             // BitmapFactory I/O/decode leaves more CPU and memory headroom for
@@ -1993,10 +1999,32 @@ namespace MphRead
                     continue;
                 }
 
-                Mods.Render.PreparedTextureAsset? asset = pending.Task.GetAwaiter().GetResult();
+                if (!canPromote) { i++; continue; }
                 _streamingTextureDecodes.RemoveAt(i);
+                Mods.Render.PreparedTextureAsset? asset;
+                try { asset = pending.Task.GetAwaiter().GetResult(); }
+                catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+                {
+                    // A broken replacement must never take down the match or evict
+                    // its resident cartridge texture. This decode is now discarded.
+                    Mods.DebugLog.Line("render", "background HD decode ignored "
+                        + pending.Request.Image.Path + ": " + ex.GetBaseException().Message);
+                    continue;
+                }
                 if (asset == null) continue;
-                PromoteModernTextureStream(pending.Request, asset);
+                long uploadStart = Stopwatch.GetTimestamp();
+                try { PromoteModernTextureStream(pending.Request, asset); }
+                finally
+                {
+                    if (OperatingSystem.IsAndroid())
+                    {
+                        double uploadMs = Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
+                        _androidTexturePromotionPacer.RecordPromotion(uploadMs);
+                        if (uploadMs > Mods.Render.ModernTexturePromotionPacer.SoftBudgetMs)
+                            Mods.DebugLog.Line("render", $"Android HD promotion {uploadMs:0.00}ms "
+                                + $"(spacing {_androidTexturePromotionPacer.FramesToSkip} frames)");
+                    }
+                }
                 break;
             }
 
