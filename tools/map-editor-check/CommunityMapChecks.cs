@@ -511,8 +511,7 @@ internal static class CommunityMapChecks
                 "archived map remains available by exact immutable package hash");
 
             var restoredArchive = await client.RestoreMapAsync(lifecycleMapId, default);
-            check(restoredArchive?.ArchivedAt == null
-                && restoredArchive.DeletedAt == null,
+            check(restoredArchive is { ArchivedAt: null, DeletedAt: null },
                 "owner can restore an archived map");
 
             var afterRevisionDelete = await client.DeleteRevisionAsync(
@@ -555,10 +554,28 @@ internal static class CommunityMapChecks
                 "soft-deleted map exact hashes survive the restore window");
 
             var restoredMap = await client.RestoreMapAsync(lifecycleMapId, default);
-            check(restoredMap?.DeletedAt == null && restoredMap.ArchivedAt == null,
+            check(restoredMap is { DeletedAt: null, ArchivedAt: null },
                 "owner can restore a deleted map before permanent purge");
 
             await client.DeleteMapAsync(lifecycleMapId, default);
+            if (OperatingSystem.IsWindows())
+            {
+                // Simulate an external file scanner that does not share delete
+                // access. A partially deferred purge must not return HTTP 204.
+                using (var lockedArchive = new FileStream(
+                    Path.Combine(storage, lifecycleTwo.Package.Hash + ".ppmap"),
+                    FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    HttpRequestException? deferredPurge = null;
+                    try { await client.PurgeMapAsync(lifecycleMapId, default); }
+                    catch (HttpRequestException ex) { deferredPurge = ex; }
+                    check(deferredPurge?.StatusCode == HttpStatusCode.ServiceUnavailable,
+                        "Windows locked archive reports a retryable incomplete purge");
+                    check(File.Exists(Path.Combine(storage, lifecycleTwo.Package.Hash + ".ppmap"))
+                        && (await client.GetProjectAsync(lifecycleMapId, default)) is { DeletedAt: not null },
+                        "incomplete purge retains its locked archive and map tombstone");
+                }
+            }
             await client.PurgeMapAsync(lifecycleMapId, default);
             using (var purgedPackage = await http.GetAsync(
                 "packages/" + lifecycleOne.Package.Hash))
