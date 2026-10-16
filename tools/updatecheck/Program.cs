@@ -1,5 +1,9 @@
 using System;
 using System.Text.Json;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Threading;
 using MphRead.Mods.Update;
 
 if (InstallationChecks.RunChild(args) is int workerResult) return workerResult;
@@ -31,6 +35,20 @@ string Release(string tag) => JsonSerializer.Serialize(new
         }
     }
 });
+Check(UpdateCheck.TransportFailureReason(new HttpRequestException("sensitive URL", new AuthenticationException("x")))
+    == "could not reach GitHub (TLS certificate validation or handshake failed)",
+    "managed Android TLS failures are distinguished from no-update");
+Check(UpdateCheck.TransportFailureReason(new HttpRequestException("private host", new SocketException((int)SocketError.HostNotFound)))
+    == "could not reach GitHub (DNS/socket HostNotFound)",
+    "managed Android DNS failures are identified without leaking host names");
+Check(UpdateCheck.TransportFailureReason(new TaskCanceledException())
+    == "could not reach GitHub (request timed out or cancelled)",
+    "timeouts cannot be confused with a current installation");
+Check(UpdateCheck.TransportFailureReason(new NotSupportedException("sensitive"))
+    == "could not reach GitHub (platform HTTP handler unsupported)",
+    "unsupported platform HTTP handler has a real reason");
+Check(!UpdateCheck.TransportFailureReason(new InvalidOperationException("token=private"))
+    .Contains("private", StringComparison.Ordinal), "network reasons never include raw exception secrets");
 Check(BuildVersion.Parse("v1.0.0") == new Version(1, 0, 0), "1.0.0 is a valid release tag");
 Check(BuildVersion.Parse("v1.0.0-rc1") == null, "prerelease channel stays manual");
 Check(BuildVersion.Parse("local") == null, "explicit local stamp is not a release");
