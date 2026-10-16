@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -402,8 +403,11 @@ public sealed class MapCommunityClient : IDisposable
     /// </summary>
     public async Task<CommunityMapProjectPage> BrowseProjectsPageAsync(
         CancellationToken token, bool mine = false, bool favorites = false,
-        string? sort = null, string? query = null, int page = 1, int pageSize = 24)
+        string? sort = null, string? query = null, int page = 1, int pageSize = 24,
+        string? mode = null, int? players = null)
     {
+        if (mode?.Length > 40) throw new ArgumentException("Invalid mode filter.", nameof(mode));
+        if (players is < 1 or > 8) throw new ArgumentOutOfRangeException(nameof(players));
         page = Math.Clamp(page, 1, 2000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         query = query?.Trim();
@@ -415,6 +419,9 @@ public sealed class MapCommunityClient : IDisposable
             + "&page=" + page + "&pageSize=" + pageSize;
         if (!string.IsNullOrEmpty(query))
             resource += "&query=" + Uri.EscapeDataString(query);
+        if (!string.IsNullOrEmpty(mode))
+            resource += "&mode=" + Uri.EscapeDataString(mode);
+        if (players != null) resource += "&players=" + players.Value;
         using var response = await GetReadAsync(resource,
             HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
@@ -426,6 +433,16 @@ public sealed class MapCommunityClient : IDisposable
             if (!string.IsNullOrEmpty(query))
                 legacy = legacy.Where(p => (p.DisplayName + " " + p.Name + " " + p.Author)
                     .Contains(query, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(mode))
+                legacy = legacy.Where(p => (p.CurrentRevision?.Package ?? p.LatestRevision.Package)
+                    .SupportedModes is { Length: 0 }
+                    || (p.CurrentRevision?.Package ?? p.LatestRevision.Package).SupportedModes
+                        .Contains(mode, StringComparer.OrdinalIgnoreCase));
+            if (players is int requiredPlayers)
+                legacy = legacy.Where(p => {
+                    CommunityMap map = p.CurrentRevision?.Package ?? p.LatestRevision.Package;
+                    return map.MinPlayers <= requiredPlayers && map.MaxPlayers >= requiredPlayers;
+                });
             legacy = sort is "updated" or "new"
                 ? legacy.OrderByDescending(p => p.UpdatedAt).ThenBy(p => p.MapId)
                 : legacy.OrderBy(p => p.DisplayName ?? p.Name).ThenBy(p => p.MapId);
@@ -456,6 +473,38 @@ public sealed class MapCommunityClient : IDisposable
         if (items.Length > pageSize)
             throw new InvalidDataException("Community page exceeded the requested limit.");
         return new CommunityMapProjectPage(items, total, page, pageSize);
+    }
+
+    /// <summary>
+    /// Load a published screenshot independently from the .ppmap archive.
+    /// Screenshots never authorize installs and must be bounded before decode.
+    /// </summary>
+    public async Task<byte[]?> GetPreviewAsync(string packageHash, CancellationToken token)
+    {
+        if (!ValidHash(packageHash))
+            throw new InvalidDataException("Invalid Community preview identity.");
+        using var response = await GetReadAsync("packages/" + packageHash + "/preview",
+            HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed
+            or HttpStatusCode.RequestEntityTooLarge) return null;
+        EnsureSuccess(response);
+        if (response.Content.Headers.ContentType?.MediaType != "image/png"
+            || response.Content.Headers.ContentLength > 1024 * 1024)
+            throw new InvalidDataException("Invalid Community preview content type or size.");
+        using var output = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false),
+            output, 1024 * 1024, token).ConfigureAwait(false);
+        byte[] png = output.ToArray();
+        if (png.Length < 24 || !png.AsSpan(0, 8).SequenceEqual(
+                new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })
+            || !png.AsSpan(12, 4).SequenceEqual(new byte[] { 73, 72, 68, 82 }))
+            throw new InvalidDataException("Invalid Community PNG preview.");
+        int width = BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4));
+        int height = BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(20, 4));
+        if (width is < 1 or > 2048 || height is < 1 or > 2048
+            || (long)width * height > 4_194_304)
+            throw new InvalidDataException("Community screenshot exceeds preview dimensions.");
+        return png;
     }
 
     public async Task<CommunityMapProject?> GetProjectAsync(Guid mapId,
