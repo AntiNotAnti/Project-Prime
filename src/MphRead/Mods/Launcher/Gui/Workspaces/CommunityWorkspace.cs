@@ -37,6 +37,15 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private bool _historyRefreshing;
     private bool _historyRefreshRequested;
     private string? _transferInitializationError;
+    // CustomRooms.Installed lazily hashes local packages and loads definitions.
+    // Resolve it once on a worker, then read only immutable snapshots in UI.
+    private readonly Func<(IReadOnlyList<MapDefinition> Maps,
+        InstalledMapRegistry Installed)> _localLibraryReader;
+    private readonly bool _needsLocalLibrary;
+    private Task? _localLibraryLoad;
+    private MapDefinition[] _localDefinitions = Array.Empty<MapDefinition>();
+    private InstalledMapRegistry? _installedSnapshot;
+    private string? _localLibraryError;
     private Guid? _activeJobId;
     private readonly UiTabs _tabs = new(new[] { "DISCOVER", "INSTALLED", "FAVORITES", "DOWNLOADS" });
     private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
@@ -86,10 +95,15 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
 
     internal CommunityWorkspace(PrimeOverlayHost overlays,
         CommunityMapProject[]? fixture = null,
-        Func<CommunityTransferManager>? transferFactory = null)
+        Func<CommunityTransferManager>? transferFactory = null,
+        Func<(IReadOnlyList<MapDefinition> Maps,
+            InstalledMapRegistry Installed)>? localLibraryReader = null)
     {
         _overlays = overlays;
         _fixture = fixture;
+        _needsLocalLibrary = fixture == null || localLibraryReader != null;
+        _localLibraryReader = localLibraryReader
+            ?? (() => (CustomRooms.Definitions, CustomRooms.Installed));
         // Normally screenshot/fixture mode never touches a user's transfers.
         // A test may supply a deliberately stalled factory to prove that tab
         // activation does not wait for queue initialization on the UI thread.
@@ -200,11 +214,46 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (_disposed) return;
         _active = true;
-        // A new queue can spend seconds waiting on an OS index lock. Both its
-        // creation and StartPending are detached from this route transition.
+        // Both the queue journal and the lazy installed-map registry can
+        // block on filesystem locks or full SHA-256 scans. Start them off-UI.
         if (_needsTransferManager) _ = InitializeTransfersAsync();
+        if (_needsLocalLibrary) _ = EnsureLocalLibraryAsync();
         if (_fixture == null) _ = RefreshAsync();
         else RenderList();
+    }
+
+    private Task EnsureLocalLibraryAsync()
+    {
+        if (_disposed || !_needsLocalLibrary) return Task.CompletedTask;
+        if (_localLibraryLoad is { IsCompleted: false }) return _localLibraryLoad;
+        return _localLibraryLoad = LoadLocalLibraryAsync();
+    }
+
+    private async Task LoadLocalLibraryAsync()
+    {
+        try
+        {
+            (MapDefinition[] Maps, InstalledMapRegistry Installed) snapshot =
+                await Task.Run(() =>
+                {
+                    var source = _localLibraryReader();
+                    return (source.Maps.ToArray(), source.Installed);
+                });
+            if (_disposed) return;
+            _localDefinitions = snapshot.Maps;
+            _installedSnapshot = snapshot.Installed;
+            _localLibraryError = null;
+            if (!_active) return;
+            if (_tabs.Index == 1) RenderList();
+            else if (_selected != null) ShowProject(_selected);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or InvalidOperationException or ArgumentException)
+        {
+            if (_disposed) return;
+            _localLibraryError = ex.Message;
+            if (_active && _tabs.Index == 1) RenderList();
+        }
     }
 
     private async Task InitializeTransfersAsync()
@@ -476,6 +525,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             _refresh.IsEnabled = true;
             RenderList();
             if (_tabs.Index == 3) RequestHistoryRefresh();
+            if (_tabs.Index == 1 && _needsLocalLibrary)
+                _ = EnsureLocalLibraryAsync();
             return;
         }
         if (_fixture != null)
@@ -600,12 +651,26 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         int rows = 0;
         if (_tabs.Index == 1)
         {
-            // The local installed index is authoritative. No network fetch and
-            // no assumption that a map remains publicly listed.
-            foreach (MapDefinition map in CustomRooms.Definitions)
+            if (_installedSnapshot == null && _needsLocalLibrary)
+            {
+                _state.Set(_localLibraryError == null
+                        ? PrimeStateKind.Loading : PrimeStateKind.Error,
+                    _localLibraryError == null
+                        ? "CHECKING INSTALLED MAPS" : "INSTALLED MAPS UNAVAILABLE",
+                    _localLibraryError
+                        ?? "Indexing local arenas without blocking the game.",
+                    visible: true);
+                ShowEmptyDetails("INSTALLED MAPS",
+                    "Local maps will appear when their immutable index is ready.");
+                return;
+            }
+            // Read prebuilt snapshots only. Constructing the installed
+            // registry here used to hash every local .ppmap on the UI thread.
+            foreach (MapDefinition map in _localDefinitions)
             {
                 if (map.BundlePath == null
-                    || !CustomRooms.Installed.TryGet(map.MapId, out InstalledMapIdentity installed)
+                    || _installedSnapshot == null
+                    || !_installedSnapshot.TryGet(map.MapId, out InstalledMapIdentity installed)
                     || !Matches(map.InGameName ?? map.Name, map.Author ?? "")) continue;
                 MapDefinition captured = map;
                 InstalledMapIdentity exact = installed;
@@ -786,8 +851,10 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         _selected = project;
         CommunityMap map = project.CurrentRevision?.Package ?? project.LatestRevision.Package;
-        bool installed = CustomRooms.Installed.TryGet(project.MapId, out InstalledMapIdentity local);
-        bool exact = installed && local!.Identity.PackageHash.ToString() == map.Hash;
+        InstalledMapIdentity local = null!;
+        bool installed = _installedSnapshot != null
+            && _installedSnapshot.TryGet(project.MapId, out local);
+        bool exact = installed && local.Identity.PackageHash.ToString() == map.Hash;
         _details.Children.Clear();
         _details.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // MAP DETAILS"));
         _details.Children.Add(PrimeChrome.Title(project.DisplayName ?? project.Name));
@@ -797,7 +864,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _details.Children.Add(PrimeChrome.Text(
             $"By {project.Author ?? "Unknown author"} · {map.Bytes / 1048576.0:0.0} MiB · revision {project.CurrentRevision?.RevisionNumber ?? project.LatestRevision.RevisionNumber}",
             PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
-        _details.Children.Add(new PrimeBadge(exact ? "EXACT REVISION INSTALLED"
+        _details.Children.Add(new PrimeBadge(_installedSnapshot == null && _needsLocalLibrary
+            ? "CHECKING INSTALLED MAPS" : exact ? "EXACT REVISION INSTALLED"
             : installed ? "DIFFERENT REVISION INSTALLED" : "NOT INSTALLED"));
         _details.Children.Add(PrimeChrome.Text(
             $"Players: {map.MinPlayers}–{map.MaxPlayers} · Modes: {string.Join(", ", map.SupportedModes)}",
@@ -805,9 +873,13 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _details.Children.Add(PrimeChrome.Text(
             $"Requires protocol {map.MinimumProtocol} · Current protocol {NetConfig.ProtocolVersion}",
             PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush));
-        _install.Label = exact ? "INSTALLED" : installed ? "INSTALL THIS REVISION" : "DOWNLOAD & INSTALL";
-        _install.IsEnabled = _transfers != null && !exact
-            && map.MinimumProtocol <= NetConfig.ProtocolVersion && _transfer == null;
+        _install.Label = _installedSnapshot == null && _needsLocalLibrary
+            ? "CHECKING LOCAL MAPS" : exact ? "INSTALLED"
+            : installed ? "INSTALL THIS REVISION" : "DOWNLOAD & INSTALL";
+        _install.IsEnabled = _transfers != null
+            && (!_needsLocalLibrary || _installedSnapshot != null)
+            && !exact && map.MinimumProtocol <= NetConfig.ProtocolVersion
+            && _transfer == null;
         _favorite.Label = map.Favorited ? "REMOVE FAVORITE" : "FAVORITE";
         _details.Children.Add(_install);
         _details.Children.Add(_favorite);
@@ -885,6 +957,10 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             // Commit may finish just before navigation changes. Registration
             // must follow a completed installation to avoid stale map indices.
             Metadata.RegisterDownloadedMap(installed);
+            // Registration invalidates the process's installed-map index.
+            // Rebuild the snapshot away from UI before changing the button
+            // from DOWNLOAD to INSTALLED.
+            if (_needsLocalLibrary) await EnsureLocalLibraryAsync();
             if (!_disposed)
                 _status.Text = $"{project.DisplayName ?? project.Name} installed and registered.";
         }
