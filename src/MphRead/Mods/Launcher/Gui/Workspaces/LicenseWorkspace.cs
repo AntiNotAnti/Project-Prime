@@ -398,7 +398,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Name = "hunter-license-public-visibility",
                 Text = visible == true ? "CURRENT STATUS  //  PUBLIC"
-                    : visible == false ? "CURRENT STATUS  //  PRIVATE (OPTED OUT)"
+                    : visible == false ? "CURRENT STATUS  //  PRIVATE"
                     : "CURRENT STATUS  //  UNAVAILABLE: SYNC LICENSE",
                 FontFamily = HubTheme.DataBold,
                 FontSize = 9,
@@ -411,10 +411,9 @@ namespace MphRead.Mods.Launcher.Gui
                 : "VISIBILITY UNAVAILABLE",
                 compact: true, accent: visible == true ? HubTheme.Warm : HubTheme.Accent);
             changeVisibility.IsEnabled = _snapshot.Connected && visible.HasValue && !_visibilityBusy;
-            changeVisibility.Click += async (_, _) =>
+            async System.Threading.Tasks.Task SaveVisibilityAsync(bool target)
             {
                 if (!_snapshot.Connected || !_snapshot.PublicVisible.HasValue || _visibilityBusy) return;
-                bool target = !_snapshot.PublicVisible.Value;
                 _visibilityBusy = true;
                 Show(Face.Account);
                 HunterLicenseActionResult result = await HunterLicenseClient.SetPublicVisibilityAsync(
@@ -423,8 +422,24 @@ namespace MphRead.Mods.Launcher.Gui
                 if (result.Success) _snapshot.PublicVisible = target;
                 _visibilityMessage = result.Message;
                 Show(Face.Account);
+            }
+            changeVisibility.Click += async (_, _) =>
+            {
+                if (_snapshot.PublicVisible.HasValue)
+                    await SaveVisibilityAsync(!_snapshot.PublicVisible.Value);
             };
             publicProfile.Children.Add(changeVisibility);
+            if (visible == false)
+            {
+                // Before rollout a missing preference still reads false.
+                // Save an explicit false so this Hunter stays private after
+                // the new public-by-default backend goes live.
+                var persistOptOut = new HubNavButton("SAVE PRIVATE PREFERENCE",
+                    compact: true, accent: HubTheme.Warm);
+                persistOptOut.IsEnabled = _snapshot.Connected && !_visibilityBusy;
+                persistOptOut.Click += async (_, _) => await SaveVisibilityAsync(false);
+                publicProfile.Children.Add(persistOptOut);
+            }
             if (_visibilityBusy || _visibilityMessage.Length > 0)
                 publicProfile.Children.Add(new TextBlock
                 {
