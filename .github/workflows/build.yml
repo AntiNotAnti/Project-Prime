@@ -369,6 +369,8 @@ jobs:
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
         run: dotnet run --project tools/lobby-waitlist-check -c Release
+      - name: custom map vote output and immutable manifest regressions
+        run: dotnet run --project tools/nettest -c Release -- --map-vote-ready
       - name: canonical animation frame-prediction and sample-isolation regressions
         run: dotnet run --project tools/nettest -c Release -- --animation-sampling
       - name: retired live rules, archived wire state and maximum packet budgets
@@ -1048,6 +1050,24 @@ jobs:
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
           -o publish/android
+
+      # Compile the optional Android-only code paths as well as the default APK.
+      - name: compile opt-in GLES shader binary cache
+        run: >
+          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          -c Release -p:AndroidPackageFormat=apk
+          -p:AndroidShaderBinaryCache=true
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
+
+      # Compile the native-rate audio experiment and callback telemetry without changing the default APK.
+      - name: compile opt-in native-rate audio and telemetry
+        run: >
+          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          -c Release -p:AndroidPackageFormat=apk
+          -p:AndroidNativeAudioRate=true -p:AndroidAudioDiagnostics=true
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
 
       # One APK, the one people install. An untrimmed Debug build was
       # collected beside it, as a way of telling a crash on a device apart
