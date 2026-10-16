@@ -116,6 +116,11 @@ try
             .ReadResource(RetroCharacterSource.EchoesDarkSamusAncs);
         var refs = RetroCharacterSource.FindCharacter(ancs, "Dark_Samus");
         var skeleton = RetroCharacterSource.ReadSkeleton(Owner(refs.Cinf).ReadResource(refs.Cinf));
+        var mesh = MphRead.Mods.Import.Retro.Cmdl.Load(id => Owner(id).ReadResource(id), refs.Cmdl, refs.Cskr);
+        if (mesh.PositionCount == 0 || mesh.TriangleCount == 0)
+            throw new InvalidDataException("The imported Dark Samus model has no rendered geometry.");
+        Console.WriteLine("Locally decoded body: " + mesh.PositionCount + " vertices, " +
+            mesh.TriangleCount + " triangles, skin vertices=" + (mesh.Skin?.Count ?? 0));
         Console.WriteLine("Dark Samus (Echoes): CMDL " + refs.Cmdl.ToString("x8") +
             ", CSKR " + refs.Cskr.ToString("x8") + ", CINF " + refs.Cinf.ToString("x8") +
             ", bones=" + skeleton.Bones.Count + " (no assets exported)");
@@ -132,6 +137,7 @@ try
     EchoesSurfaceFixtureTests.Run();
     EchoesLocalMapFixtureTests.Run();
     DarkSamusSourceFixtureTests.Run();
+    RetroCharacterMeshFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
