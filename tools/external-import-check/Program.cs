@@ -137,6 +137,7 @@ try
     EchoesSurfaceFixtureTests.Run();
     EchoesLocalMapFixtureTests.Run();
     DarkSamusSourceFixtureTests.Run();
+    EchoesWorldSourceFixtureTests.Run();
     RetroCharacterMeshFixtureTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
