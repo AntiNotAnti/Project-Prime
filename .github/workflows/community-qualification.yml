@@ -33,6 +33,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: Verify creator publication and revision lifecycle
+        run: dotnet run --project tools/map-editor-check -c Release -- --community-only
       - name: Run original vs optimized catalog benchmarks and loopback measurements
         run: dotnet run --project tools/community-qualification -c Release -- --output artifacts/community-qualification/metrics.json
       - name: Verify isolated Community request lanes and catalog quotas
@@ -47,8 +49,6 @@ jobs:
         run: dotnet run --project tools/map-community-check -c Release
       - name: Verify multiplayer and historical archive contracts
         run: dotnet run --project tools/map-multiplayer-check -c Release
-      - name: Verify creator publication and revision lifecycle
-        run: dotnet run --project tools/map-editor-check -c Release -- --community-only
       - name: Measure archive copy allocations against the original algorithm
         run: dotnet run --project tools/map-install-io-benchmark -c Release -- --mib 32 --repeat 3 --output artifacts/community-qualification/archive-io.json
       - name: Preserve cross-platform qualification evidence
