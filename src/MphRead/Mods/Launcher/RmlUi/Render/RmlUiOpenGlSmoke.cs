@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using MphRead.Mods.Launcher.RmlUi.Host;
+using MphRead.Mods.Launcher.RmlUi.Core;
+using MphRead.Mods.Launcher.Gui;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -19,17 +21,32 @@ internal static class RmlUiOpenGlSmoke
             "1", StringComparison.Ordinal);
 
     private static RmlUiHost? _host;
+    private static RmlUiMenuController? _controller;
+    private static long _lastPresentedRevision;
+    private static bool _shown;
     private static bool _attempted, _disabled;
     private static int _width, _height;
     private static float _density;
 
-    internal static bool CapturesInput => !_disabled && _host is { Active: true };
+    internal static bool CapturesInput => !_disabled && _shown && _host is { Active: true };
 
     internal static void Draw(RenderWindow window)
     {
         if (!Requested || _disabled || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0)
+        {
+            _shown = false;
             return;
-        if (!TryStart(window)) return;
+        }
+        // No overlay or input capture over setup/confirmation, editor workspaces
+        // or a running match. Returning to Home/Lobby automatically resumes it.
+        if (!Shell.RmlUiCanPresent)
+        {
+            if (_shown && _host is { Active: true } current) current.ReleaseInput();
+            _shown = false;
+            return;
+        }
+        if (!TryStart(window)) { _shown = false; return; }
+        _shown = true;
         RmlUiHost host = _host!;
         try
         {
@@ -46,18 +63,27 @@ internal static class RmlUiOpenGlSmoke
             host.Input.SetFramebufferScale(
                 (float)width / Math.Max(1, window.ClientSize.X),
                 (float)height / Math.Max(1, window.ClientSize.Y));
-            host.Update();
-
-            RmlUiOpenGlFrame.Draw(host, width, height);
-
-            // Only Quit is wired for this isolated smoke. The shipping shell,
-            // match, and services own all other intents until their new
-            // presentation-neutral controllers are migrated.
+            // Native events are validated by the versioned ABI. Application
+            // commands go to one owner-thread controller, not native callbacks
+            // or a second matchmaking/network pump.
+            RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
-                if (intent.Kind == RmlUiIntentKind.Quit)
-                    window.Close();
+                string address = intent.Kind == RmlUiIntentKind.PlayJoin
+                    ? host.ReadField(host.HomeDocument, "play_join_address", 160) : "";
+                string player = intent.Kind is RmlUiIntentKind.PlayJoin or RmlUiIntentKind.PlayServer
+                    ? host.ReadField(host.HomeDocument, "play_player_name", 128) : "";
+                controller.Dispatch(intent.Kind, intent.Argument, address, player);
             }
+            RmlUiMenuSnapshot snapshot = controller.Tick();
+            if (snapshot.Revision > _lastPresentedRevision)
+            {
+                host.Present(new RmlUiBindingSnapshot(host.HomeDocument,
+                    snapshot.Revision, snapshot.Bindings));
+                _lastPresentedRevision = snapshot.Revision;
+            }
+            host.Update();
+            RmlUiOpenGlFrame.Draw(host, width, height);
         }
         catch (Exception error) when (Recoverable(error))
         {
@@ -92,7 +118,12 @@ internal static class RmlUiOpenGlSmoke
             _width = width;
             _height = height;
             _density = density;
-            Mods.DebugLog.Line("rmlui", "opt-in OpenGL smoke session active");
+            _controller = new RmlUiMenuController(new RmlUiLiveMenuServices());
+            _lastPresentedRevision = 0;
+            string player = HubState.Capture().PlayerName;
+            host.SetField(host.HomeDocument, "play_player_name", player);
+            host.SetField(host.HomeDocument, "play_create_player_name", player);
+            Mods.DebugLog.Line("rmlui", "opt-in native Home/Play/Lobby session active");
             return true;
         }
         catch (Exception error) when (Recoverable(error))
@@ -141,7 +172,7 @@ internal static class RmlUiOpenGlSmoke
     private static bool Forward(Action<RmlUiHost> action)
     {
         RmlUiHost? host = _host;
-        if (_disabled || host is not { Active: true }) return false;
+        if (_disabled || !_shown || host is not { Active: true }) return false;
         try
         {
             action(host);
@@ -170,6 +201,18 @@ internal static class RmlUiOpenGlSmoke
 
     internal static void Shutdown()
     {
+        _shown = false;
+        RmlUiMenuController? controller = _controller;
+        _controller = null;
+        if (controller != null)
+        {
+            try { controller.Dispose(); }
+            catch (Exception error) when (Recoverable(error))
+            {
+                try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
+                catch { }
+            }
+        }
         var old = _host;
         _host = null;
         if (old == null) return;
