@@ -86,8 +86,8 @@ internal static class Fixture
                 }
                 report["grantPacketRecords"] = grantRows; report["grantPacketRecordsInRange"] = grantRowsInRange;
                 report["grantBootstrapRecords"] = bootstraps;
-                report["a3GrantCoverage"] = reader.ProtocolVersion == 56 && grantRowsInRange > 0 ? "PACKET_POSITIVE_ONLY" : "NOT_VERIFIED";
-                if (requireA3) Check(reader.ProtocolVersion == 56 && grantRowsInRange > 0, "A3 positive grant packet denominator inside selected range");
+                report["a3GrantCoverage"] = reader.ProtocolVersion >= 56 && grantRowsInRange > 0 ? "PACKET_POSITIVE_ONLY" : "NOT_VERIFIED";
+                if (requireA3) Check(reader.ProtocolVersion >= 56 && grantRowsInRange > 0, "A3 positive grant packet denominator inside selected range");
             }
             var foreground = GameState.Current; var players = PlayerEntity.LegacyRegistry; var random = Rng.Current;
             string virtualClip = ReplayVirtualClips.Save(source, start, end, "Acceptance genuine source range");
