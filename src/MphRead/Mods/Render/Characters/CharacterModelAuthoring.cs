@@ -377,6 +377,9 @@ namespace MphRead.Mods.Render.Characters
 
         private static object Describe(CharacterModelPart part, int lod, Model model)
         {
+            // Compose engine rest transforms for this offline authoring kit.
+            // Node.Position alone is parent-local, not the calibrated bind point.
+            model.ComputeNodeMatrices(0);
             int[] paletteSlots = Enumerable.Repeat(-1, model.Nodes.Count).ToArray();
             for (int i = 0; i < model.NodeMatrixIds.Count; i++)
             {
@@ -409,6 +412,7 @@ namespace MphRead.Mods.Render.Characters
                     meshIds = node.GetMeshIds().ToArray(),
                     matrixPaletteSlot = paletteSlots[index],
                     position = Vec(node.Position),
+                    bindWorldPosition = new[] { node.Transform.M41, node.Transform.M42, node.Transform.M43 },
                     rotationRadians = Vec(node.Angle),
                     scale = Vec(node.Scale),
                     billboard = node.BillboardMode.ToString()
