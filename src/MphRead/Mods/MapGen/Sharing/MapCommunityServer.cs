@@ -529,7 +529,7 @@ public static class MapCommunityServer
                     context.Response.Headers["Access-Control-Allow-Origin"] = browserOrigin!;
                     context.Response.Headers["Vary"] = "Origin";
                     context.Response.Headers["Access-Control-Expose-Headers"] =
-                        "ETag, X-Total-Count, Accept-Ranges, Content-Range, Retry-After";
+                        "ETag, X-Total-Count, Accept-Ranges, Content-Range, Retry-After, Content-Disposition";
                 }
                 if (context.Request.HttpMethod == "OPTIONS")
                 {
@@ -1602,6 +1602,9 @@ public static class MapCommunityServer
                             + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     }
                     context.Response.ContentType = "application/octet-stream";
+                    // Make direct website map downloads save as valid .ppmap files.
+                    context.Response.Headers["Content-Disposition"] =
+                        "attachment; filename=\"" + hash + ".ppmap\"";
                     context.Response.ContentLength64 = total - start;
                     // Permit moderation/retention purge while a download is in
                     // flight on Windows. The already-open handle retains its
