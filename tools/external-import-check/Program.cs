@@ -136,6 +136,7 @@ try
     EchoesMreaFixtureTests.Run();
     EchoesSurfaceFixtureTests.Run();
     EchoesLocalMapFixtureTests.Run();
+    EchoesPrivateMapFixtureTests.Run();
     DarkSamusSourceFixtureTests.Run();
     EchoesWorldSourceFixtureTests.Run();
     EchoesVisualLayerFixtureTests.Run();

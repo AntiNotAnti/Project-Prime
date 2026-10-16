@@ -159,6 +159,12 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "mapdirectory") is { } mapDirectory)
                 MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
+            if (HasFlag(args, "importechoesspires"))
+            {
+                Environment.ExitCode = Import.EchoesPrivateMapImport.RunSpiresCommand(
+                    ValueAfter(args, "importechoesspires"));
+                return true;
+            }
             if (ValueAfter(args, "maphub") is { } hubPrefix)
             {
                 MapGen.MapCommunityServer.Run(hubPrefix, ValueAfter(args, "maphubstorage") ?? System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory, "community"));
