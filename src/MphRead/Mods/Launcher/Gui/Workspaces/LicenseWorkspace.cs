@@ -57,6 +57,8 @@ namespace MphRead.Mods.Launcher.Gui
         private string _pendingConfirmation = "";
         private string _securityMessage = "";
         private bool _securityBusy;
+        private string _visibilityMessage = "";
+        private bool _visibilityBusy;
 
         public event EventHandler? Closed;
 
@@ -374,6 +376,72 @@ namespace MphRead.Mods.Launcher.Gui
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(12, 10),
                 Child = statusCard
+            });
+
+            // Public name and lifetime career stats are visible by default,
+            // including for an unlinked/guest Hunter. Their email, real Auth
+            // UUID, recent match history and private credentials never are.
+            var publicProfile = new StackPanel { Spacing = 7 };
+            publicProfile.Children.Add(HubChrome.Kicker("PUBLIC HUNTER PROFILE"));
+            publicProfile.Children.Add(new TextBlock
+            {
+                Text = "Your Hunter name and lifetime career statistics appear on the public website by default. "
+                    + "Opt out here to hide your name and profile; leaderboard totals remain anonymous. "
+                    + "Email, sign-in credentials and private match history are never shared.",
+                FontFamily = HubTheme.Ui,
+                FontSize = 9.5,
+                Foreground = HubTheme.TextDimBrush,
+                TextWrapping = TextWrapping.Wrap
+            });
+            bool? visible = _snapshot.PublicVisible;
+            publicProfile.Children.Add(new TextBlock
+            {
+                Name = "hunter-license-public-visibility",
+                Text = visible == true ? "CURRENT STATUS  //  PUBLIC"
+                    : visible == false ? "CURRENT STATUS  //  PRIVATE (OPTED OUT)"
+                    : "CURRENT STATUS  //  UNAVAILABLE: SYNC LICENSE",
+                FontFamily = HubTheme.DataBold,
+                FontSize = 9,
+                Foreground = visible == true ? HubTheme.GoodBrush : HubTheme.WarmBrush,
+                TextWrapping = TextWrapping.Wrap
+            });
+            var changeVisibility = new HubNavButton(
+                visible == true ? "OPT OUT // HIDE PROFILE"
+                : visible == false ? "OPT IN // SHOW PROFILE"
+                : "VISIBILITY UNAVAILABLE",
+                compact: true, accent: visible == true ? HubTheme.Warm : HubTheme.Accent);
+            changeVisibility.IsEnabled = _snapshot.Connected && visible.HasValue && !_visibilityBusy;
+            changeVisibility.Click += async (_, _) =>
+            {
+                if (!_snapshot.Connected || !_snapshot.PublicVisible.HasValue || _visibilityBusy) return;
+                bool target = !_snapshot.PublicVisible.Value;
+                _visibilityBusy = true;
+                Show(Face.Account);
+                HunterLicenseActionResult result = await HunterLicenseClient.SetPublicVisibilityAsync(
+                    target, CancellationToken.None);
+                _visibilityBusy = false;
+                if (result.Success) _snapshot.PublicVisible = target;
+                _visibilityMessage = result.Message;
+                Show(Face.Account);
+            };
+            publicProfile.Children.Add(changeVisibility);
+            if (_visibilityBusy || _visibilityMessage.Length > 0)
+                publicProfile.Children.Add(new TextBlock
+                {
+                    Name = "hunter-license-visibility-feedback",
+                    Text = _visibilityBusy ? "Updating visibility…" : _visibilityMessage,
+                    FontFamily = HubTheme.Data,
+                    FontSize = 9,
+                    Foreground = HubTheme.TextDimBrush,
+                    TextWrapping = TextWrapping.Wrap
+                });
+            root.Children.Add(new Border
+            {
+                Background = HubTheme.PanelStrongBrush,
+                BorderBrush = HubTheme.EdgeBrush,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 10),
+                Child = publicProfile
             });
 
             string defaultEmail = _pendingEmail.Length > 0 ? _pendingEmail : account.Email;
