@@ -1,0 +1,72 @@
+using System;
+using MphRead;
+using MphRead.Mods.Render;
+
+namespace MphRead.NetTest;
+
+internal static class AnimationSamplingTests
+{
+    internal static int Run()
+    {
+        int checks = 0;
+        void Check(bool ok, string text)
+        {
+            checks++;
+            if (!ok) throw new InvalidOperationException("ANIMATION SAMPLING " + text);
+        }
+        // Independent canonical state machine is the oracle: the predictor
+        // must agree across every integer transition and both animation slots.
+        foreach (AnimFlags flags in new[]
+        {
+            AnimFlags.None, AnimFlags.Reverse, AnimFlags.PingPong,
+            AnimFlags.PingPong | AnimFlags.Reverse, AnimFlags.NoLoop,
+            AnimFlags.NoLoop | AnimFlags.Reverse, AnimFlags.Paused,
+            AnimFlags.Ended, AnimFlags.PingPong | AnimFlags.NoLoop
+        })
+        for (int count = 1; count <= 16; count++)
+        for (int step = 1; step <= 4; step++)
+        for (int frame = 0; frame < count; frame++)
+        {
+            var model = new ModelInstance(null!);
+            var info = model.AnimInfo;
+            info.Node.Slot = 0; info.Texture.Slot = 0;
+            info.Material.Slot = 1; info.Texcoord.Slot = 1;
+            for (int slot = 0; slot < 2; slot++)
+            {
+                info.Frame[slot] = frame; info.FrameCount[slot] = count;
+                info.Step[slot] = step; info.Flags[slot] = flags;
+            }
+            AnimationSampling.NextFrame predicted = AnimationSampling.Predict(frame, flags, step, count);
+            model.UpdateAnimFrames();
+            Check(info.Frame[0] == predicted.Frame && info.Flags[0] == predicted.Flags
+                && info.Frame[1] == predicted.Frame && info.Flags[1] == predicted.Flags,
+                "canonical transition parity count=" + count + " frame=" + frame + " flags=" + flags);
+        }
+
+        var sampler = new AnimationSamples();
+        var state = new AnimationInfo();
+        state.Frame[0] = 2; state.FrameCount[0] = 10; state.Step[0] = 1;
+        state.Index[0] = 4;
+        sampler.Record(state, 0, 2);
+        Check(!sampler.TryGet(state, 0, 2.5, out _), "one tick has no cadence");
+        sampler.Record(state, 0, 4);
+        Check(sampler.TryGet(state, 0, 5, out var midpoint) && midpoint.FromFrame == 2
+            && midpoint.ToFrame == 3 && Math.Abs(midpoint.Fraction - 0.5f) < 0.000001f,
+            "mid-tick sampling");
+        Check(!sampler.TryGet(state, 0, 6, out _), "no extrapolation after cadence ends");
+        state.Index[0] = 5;
+        Check(!sampler.TryGet(state, 0, 5, out _), "animation index change invalidates stale sample");
+        state.Index[0] = 4;
+        state.Flags[0] = AnimFlags.Paused;
+        Check(!sampler.TryGet(state, 0, 5, out _), "pause invalidates sample");
+        state.Flags[0] = AnimFlags.None;
+        sampler.Reset();
+        Check(!sampler.TryGet(state, 0, 5, out _), "reset invalidates sample");
+        sampler.Record(state, 0, 10);
+        sampler.Record(state, 0, 100);
+        Check(!sampler.TryGet(state, 0, 101, out _), "long stall disables interpolation");
+
+        Console.WriteLine("ANIMATION SAMPLING PASS " + checks + " checks");
+        return 0;
+    }
+}
