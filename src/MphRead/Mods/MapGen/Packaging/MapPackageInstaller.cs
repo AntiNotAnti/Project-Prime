@@ -26,6 +26,7 @@ public sealed class PreparedMapInstallation : IDisposable
     private readonly string _source;
     private readonly bool _ownsSource;
     private readonly MapBuildResult _build;
+    private IDisposable? _sourceLease;
     private bool _disposed;
 
     public MapContentIdentity Identity { get; }
@@ -124,13 +125,24 @@ public sealed class PreparedMapInstallation : IDisposable
         }
     }
 
+    // The source cache lease must survive detached build and owning-thread
+    // Commit. No other process may evict its immutable bytes in that window.
+    internal void RetainSourceLease(IDisposable lease)
+    {
+        if (_sourceLease != null) throw new InvalidOperationException("Prepared map already owns a source lease.");
+        _sourceLease = lease;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        // Caller-owned immutable CAS archives and installed archives must
-        // never be deleted just because a prepared installation is disposed.
-        if (_ownsSource && File.Exists(_source)) File.Delete(_source);
+        try
+        {
+            // Never delete a leased caller-owned cache archive on disposal.
+            if (_ownsSource && File.Exists(_source)) File.Delete(_source);
+        }
+        finally { _sourceLease?.Dispose(); }
     }
 }
 
@@ -197,6 +209,28 @@ public static class MapPackageInstaller
     /// and commit. This synchronous wrapper owns the lease lifetime and does
     /// not copy the source or permit MapPackageInstaller to delete it.
     /// </summary>
+    /// <summary>
+    /// Use verified CAS bytes without copying them again. Ownership of the
+    /// lease passes to the prepared installation until it is disposed.
+    /// </summary>
+    internal static async Task<PreparedMapInstallation> PrepareLeasedAsync(
+        CommunityArchiveCache.ArchiveLease lease, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        try
+        {
+            var prepared = await PrepareSourceAsync(lease.Path, lease.Identity,
+                ownsSource: false, preparationCopiedBytes: 0, token).ConfigureAwait(false);
+            prepared.RetainSourceLease(lease);
+            return prepared;
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
+    }
+
     public static MapDefinition InstallLeased(CommunityArchiveCache.ArchiveLease lease,
         Guid id, string contentHash, string archiveHash, string library)
     {

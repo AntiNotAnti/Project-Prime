@@ -102,10 +102,10 @@ namespace MphRead.Mods.Network
             string address = haveArchive || string.IsNullOrWhiteSpace(session.MapDownloadSource) ? configured : session.MapDownloadSource;
             if (new Uri(address).IsLoopback && new Uri(address) != new Uri(configured))
                 throw new InvalidDataException("The replay's local Community address differs from your configured service.");
-            using var client = new MapCommunityClient(address);
             using var prepared = haveArchive && CustomRooms.Installed.TryGet(identity.MapId,out var local)
                 ? MapPackageInstaller.PrepareAsync(local.PackagePath,identity).GetAwaiter().GetResult()
-                : client.PrepareExactAsync(identity, default).GetAwaiter().GetResult();
+                : CommunityExactArchiveAcquisition.PrepareAsync(identity, address, default)
+                    .GetAwaiter().GetResult();
             var installed = prepared.Commit(CustomRooms.UserMapDirectory);
             Metadata.RegisterDownloadedMap(installed);
         }
