@@ -1,5 +1,6 @@
 #if MPHREAD_AVALONIA
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Avalonia.Media.Imaging;
 using System.Net.Http;
@@ -24,7 +25,18 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
 {
     private readonly PrimeOverlayHost _overlays;
     private readonly CommunityMapProject[]? _fixture;
-    private readonly CommunityTransferManager? _transfers;
+    // The persistent transfer manager performs filesystem transactions and
+    // cross-process lock acquisition in its constructor. Never obtain it from
+    // a workspace constructor or the UI dispatcher.
+    private CommunityTransferManager? _transfers;
+    private readonly Func<CommunityTransferManager> _transferFactory;
+    private readonly bool _needsTransferManager;
+    private Task<CommunityTransferManager>? _transferBootstrap;
+    private CommunityTransferJob[] _historySnapshot = Array.Empty<CommunityTransferJob>();
+    private bool _historyLoaded;
+    private bool _historyRefreshing;
+    private bool _historyRefreshRequested;
+    private string? _transferInitializationError;
     private Guid? _activeJobId;
     private readonly UiTabs _tabs = new(new[] { "DISCOVER", "INSTALLED", "FAVORITES", "DOWNLOADS" });
     private readonly UiList _list = new() { AutoSelectFirst = true, SpacingEms = 0.25 };
@@ -73,13 +85,16 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     private bool _disposed;
 
     internal CommunityWorkspace(PrimeOverlayHost overlays,
-        CommunityMapProject[]? fixture = null)
+        CommunityMapProject[]? fixture = null,
+        Func<CommunityTransferManager>? transferFactory = null)
     {
         _overlays = overlays;
         _fixture = fixture;
-        // Screenshot/fixture mode never touches a user's transfer directory.
-        _transfers = fixture == null ? CommunityTransferSession.Shared : null;
-        if (_transfers != null) _transfers.Changed += QueueChanged;
+        // Normally screenshot/fixture mode never touches a user's transfers.
+        // A test may supply a deliberately stalled factory to prove that tab
+        // activation does not wait for queue initialization on the UI thread.
+        _needsTransferManager = fixture == null || transferFactory != null;
+        _transferFactory = transferFactory ?? (() => CommunityTransferSession.Shared);
         _refresh = new PrimeButton("REFRESH", () => _ = RefreshAsync(), compact: true);
         _sort = new PrimeButton("SORT: UPDATED", ToggleSort, compact: true);
         _filter = new PrimeButton("FILTER: ALL", CycleFilter, compact: true);
@@ -185,12 +200,106 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         if (_disposed) return;
         _active = true;
-        if (_fixture == null)
-        {
-            _transfers?.StartPending(); // User-paused transfers stay paused.
-            _ = RefreshAsync();
-        }
+        // A new queue can spend seconds waiting on an OS index lock. Both its
+        // creation and StartPending are detached from this route transition.
+        if (_needsTransferManager) _ = InitializeTransfersAsync();
+        if (_fixture == null) _ = RefreshAsync();
         else RenderList();
+    }
+
+    private async Task InitializeTransfersAsync()
+    {
+        if (_disposed || !_needsTransferManager) return;
+        try
+        {
+            if (_transfers is { } activeQueue)
+            {
+                // Re-entry keeps the historical retry behavior, still off-UI.
+                await Task.Run(activeQueue.StartPending);
+                return;
+            }
+
+            Task<CommunityTransferManager> bootstrap = _transferBootstrap ??=
+                Task.Run(() =>
+                {
+                    CommunityTransferManager queue = _transferFactory();
+                    queue.StartPending();
+                    return queue;
+                });
+            CommunityTransferManager manager = await bootstrap;
+            if (_disposed) return;
+            if (!ReferenceEquals(_transfers, manager))
+            {
+                _transfers = manager;
+                manager.Changed += QueueChanged;
+            }
+            _transferInitializationError = null;
+            if (!_active) return;
+            if (_tabs.Index == 3) RequestHistoryRefresh();
+            else if (_selected != null) ShowProject(_selected);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or InvalidOperationException or ArgumentException
+            or System.Text.Json.JsonException)
+        {
+            // Keep Discover available even if another Studio process has a
+            // busy/corrupt job index. A subsequent activation can retry.
+            _transferBootstrap = null;
+            _transferInitializationError = ex.Message;
+            if (_disposed || !_active) return;
+            _status.Text = "Transfer history unavailable: " + ex.Message;
+            if (_tabs.Index == 3) RenderList();
+        }
+    }
+
+    private void RequestHistoryRefresh()
+    {
+        if (_disposed || !_active || _tabs.Index != 3) return;
+        if (_transfers == null)
+        {
+            RenderList();
+            return;
+        }
+        if (_historyRefreshing)
+        {
+            _historyRefreshRequested = true;
+            return;
+        }
+        _ = RefreshHistoryAsync(_transfers);
+    }
+
+    private async Task RefreshHistoryAsync(CommunityTransferManager manager)
+    {
+        _historyRefreshing = true;
+        try
+        {
+            // ListJobs reloads jobs-v1.json under a blocking cross-process
+            // lock. Read it in a worker and publish one immutable UI snapshot.
+            CommunityTransferJob[] jobs = await Task.Run(
+                () => manager.ListJobs().ToArray());
+            if (_disposed) return;
+            _historySnapshot = jobs;
+            _historyLoaded = true;
+            if (_active && _tabs.Index == 3) RenderList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or InvalidOperationException
+            or System.Text.Json.JsonException)
+        {
+            if (_disposed) return;
+            _transferInitializationError = ex.Message;
+            if (_active && _tabs.Index == 3)
+                _status.Text = "Transfer history unavailable: " + ex.Message;
+        }
+        finally
+        {
+            _historyRefreshing = false;
+            if (_historyRefreshRequested)
+            {
+                _historyRefreshRequested = false;
+                RequestHistoryRefresh();
+            }
+        }
     }
 
     public void OnDeactivated()
@@ -277,7 +386,11 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
     {
         try
         {
-            byte[]? preview = await Operations().GetPreviewAsync(hash, cancellation);
+            // Resolving the configured service may read map-community.txt,
+            // and a fast HTTP response may deserialize synchronously. Both
+            // belong off the UI dispatcher, just like bitmap decoding.
+            byte[]? preview = await Task.Run(
+                () => Operations().GetPreviewAsync(hash, cancellation), cancellation);
             if (cancellation.IsCancellationRequested || !_active || _disposed
                 || _previewHash != hash) return;
             if (preview == null)
@@ -286,8 +399,14 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 _previewStatus.Text = "Creator has not added a compatible PNG preview.";
                 return;
             }
-            using var stream = new MemoryStream(preview, writable: false);
-            Bitmap decoded = Bitmap.DecodeToWidth(stream, 320);
+            // PNG decompress / Skia bitmap decode may take multiple frames on
+            // slower devices even for a bounded 1 MiB image. Never decode in
+            // the UI continuation that paints the selected map.
+            Bitmap decoded = await Task.Run(() =>
+            {
+                using var stream = new MemoryStream(preview, writable: false);
+                return Bitmap.DecodeToWidth(stream, 320);
+            }, cancellation);
             if (cancellation.IsCancellationRequested || !_active || _disposed
                 || _previewHash != hash)
             {
@@ -350,10 +469,13 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         _load?.Cancel();
         if (_tabs.Index is 1 or 3)
         {
-            // Installed archives and foreground transfers work offline.
+            // Local views remain available offline. Transfer receipts are
+            // loaded asynchronously because their cross-process index may
+            // be locked by a separate pop-out Studio process.
             _load = null;
             _refresh.IsEnabled = true;
             RenderList();
+            if (_tabs.Index == 3) RequestHistoryRefresh();
             return;
         }
         if (_fixture != null)
@@ -373,13 +495,21 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             "Contacting the configured Community catalog.", visible: true);
         try
         {
-            CommunityMapProjectPage page = await Operations().BrowseProjectsPageAsync(
-                mine: false, favorites: _tabs.Index == 2,
-                sort: _newestFirst ? "updated" : "name",
-                query: _search.Text, page: _page, pageSize: CatalogPageSize,
-                cancellation: cancel.Token,
-                mode: _filterIndex == 3 ? "BattleTeams" : null,
-                players: _filterIndex switch { 1 => 2, 2 => 8, _ => null });
+            // Capture UI state before dispatch. Config loading, HTTP
+            // setup, JSON parsing and legacy catalog grouping execute on
+            // a worker; only the final 24-row binding touches Avalonia.
+            bool favorites = _tabs.Index == 2;
+            string sort = _newestFirst ? "updated" : "name";
+            string? search = _search.Text;
+            int pageNumber = _page;
+            string? mode = _filterIndex == 3 ? "BattleTeams" : null;
+            int? players = _filterIndex switch { 1 => 2, 2 => 8, _ => null };
+            CommunityMapProjectPage page = await Task.Run(
+                () => Operations().BrowseProjectsPageAsync(
+                    mine: false, favorites: favorites, sort: sort,
+                    query: search, page: pageNumber, pageSize: CatalogPageSize,
+                    cancellation: cancel.Token, mode: mode, players: players),
+                cancel.Token);
             if (cancel.IsCancellationRequested || !_active || _disposed) return;
             _projects = page.Items;
             _totalProjects = page.Total;
@@ -427,12 +557,27 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
 
         if (_tabs.Index == 3)
         {
-            CommunityTransferJob[] receipts = _transfers?.ListJobs().ToArray()
-                ?? Array.Empty<CommunityTransferJob>();
+            if (_transfers == null || !_historyLoaded)
+            {
+                _state.Set(_transferInitializationError == null
+                        ? PrimeStateKind.Loading : PrimeStateKind.Error,
+                    _transferInitializationError == null
+                        ? "LOADING TRANSFERS" : "TRANSFERS UNAVAILABLE",
+                    _transferInitializationError
+                        ?? "Restoring saved transfers without blocking the game.",
+                    visible: true);
+                _details.Children.Clear();
+                _details.Children.Add(PrimeChrome.Text(
+                    "Transfer history is loading. Map browsing remains responsive.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                return;
+            }
+            CommunityTransferJob[] receipts = _historySnapshot;
             if (receipts.Length == 0)
             {
                 _state.Set(PrimeStateKind.Empty, "NO DOWNLOAD HISTORY",
-                    "Downloads and creator uploads will appear here and survive a restart.");
+                    "Downloads and creator uploads will appear here and survive a restart.",
+                    visible: true);
                 ShowEmptyDetails("TRANSFERS",
                     "No transfer jobs have been queued on this device.");
                 return;
@@ -522,17 +667,37 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
                 _cancel.IsVisible = job.State is CommunityTransferState.Downloading
                     or CommunityTransferState.Queued or CommunityTransferState.Retryable;
             }
-            if (_tabs.Index == 3) RenderList();
+            if (_tabs.Index == 3) RequestHistoryRefresh();
         });
     }
 
     private void PauseCurrent()
     {
         if (_activeJobId is not Guid id || _transfers == null) return;
-        _transfers.Pause(id);
         _transfer?.Cancel();
-        _status.Text = "Download paused. Resume it from the Downloads tab.";
+        _status.Text = "Pausing download. Resume it from the Downloads tab.";
         _cancel.IsVisible = false;
+        _ = ChangeTransferAsync(id, (queue, job) => queue.Pause(job));
+    }
+
+    private async Task ChangeTransferAsync(Guid id,
+        Action<CommunityTransferManager, Guid> operation)
+    {
+        CommunityTransferManager? queue = _transfers;
+        if (queue == null || _disposed) return;
+        try
+        {
+            // Pause/Resume/Cancel/Forget also write jobs-v1.json under the
+            // same OS lock. Never let a control click stall the UI.
+            await Task.Run(() => operation(queue, id));
+            if (_active && _tabs.Index == 3) RequestHistoryRefresh();
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException
+            or UnauthorizedAccessException or KeyNotFoundException)
+        {
+            if (_active && !_disposed)
+                _status.Text = "Could not update transfer: " + ex.Message;
+        }
     }
 
     private void ShowTransfer(CommunityTransferJob job)
@@ -553,7 +718,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             or CommunityTransferState.Uploading or CommunityTransferState.Queued
             or CommunityTransferState.Preparing or CommunityTransferState.Retryable)
         {
-            var pause = new PrimeButton("PAUSE", () => _transfers?.Pause(job.Id),
+            var pause = new PrimeButton("PAUSE",
+                () => _ = ChangeTransferAsync(job.Id, (queue, id) => queue.Pause(id)),
                 compact: true);
             ControllerNav.Identify(pause, "community.transfer.pause");
             _details.Children.Add(pause);
@@ -561,14 +727,16 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
         if (job.State is CommunityTransferState.Paused
             or CommunityTransferState.Failed or CommunityTransferState.Retryable)
         {
-            var resume = new PrimeButton("RESUME", () => _transfers?.Resume(job.Id),
+            var resume = new PrimeButton("RESUME",
+                () => _ = ChangeTransferAsync(job.Id, (queue, id) => queue.Resume(id)),
                 compact: true, primary: true);
             ControllerNav.Identify(resume, "community.transfer.resume");
             _details.Children.Add(resume);
         }
         if (job.State is not (CommunityTransferState.Completed or CommunityTransferState.Cancelled))
         {
-            var cancel = new PrimeButton("CANCEL JOB", () => _transfers?.Cancel(job.Id),
+            var cancel = new PrimeButton("CANCEL JOB",
+                () => _ = ChangeTransferAsync(job.Id, (queue, id) => queue.Cancel(id)),
                 compact: true, danger: true);
             ControllerNav.Identify(cancel, "community.transfer.cancel");
             _details.Children.Add(cancel);
@@ -582,14 +750,9 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             or CommunityTransferState.Cancelled or CommunityTransferState.Failed
             or CommunityTransferState.Paused or CommunityTransferState.NeedsReview)
         {
-            var forget = new PrimeButton("REMOVE FROM HISTORY", () =>
-            {
-                try { _transfers?.Forget(job.Id); RenderList(); }
-                catch (InvalidOperationException)
-                {
-                    _status.Text = "This transfer is still finishing. Retry after it stops.";
-                }
-            }, compact: true);
+            var forget = new PrimeButton("REMOVE FROM HISTORY",
+                () => _ = ChangeTransferAsync(job.Id, (queue, id) => queue.Forget(id)),
+                compact: true);
             ControllerNav.Identify(forget, "community.transfer.forget");
             _details.Children.Add(forget);
         }
@@ -643,7 +806,8 @@ internal sealed class CommunityWorkspace : UserControl, IPrimeWorkspace, IDispos
             $"Requires protocol {map.MinimumProtocol} · Current protocol {NetConfig.ProtocolVersion}",
             PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush));
         _install.Label = exact ? "INSTALLED" : installed ? "INSTALL THIS REVISION" : "DOWNLOAD & INSTALL";
-        _install.IsEnabled = !exact && map.MinimumProtocol <= NetConfig.ProtocolVersion && _transfer == null;
+        _install.IsEnabled = _transfers != null && !exact
+            && map.MinimumProtocol <= NetConfig.ProtocolVersion && _transfer == null;
         _favorite.Label = map.Favorited ? "REMOVE FAVORITE" : "FAVORITE";
         _details.Children.Add(_install);
         _details.Children.Add(_favorite);
