@@ -103,6 +103,13 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return new(admitted.Joined, admitted.Plan, admitted.Error);
     }
 
+    public async Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken token)
+    {
+        LobbyCreationOutcome outcome = await LobbyCreationService.CreateAsync(request, token)
+            .ConfigureAwait(false);
+        return new(outcome.Joined, outcome.Plan, outcome.Error);
+    }
+
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
     public bool OpenCreateLobby() => Shell.RmlUiOpenCreateLobby();
     public bool NavigateTo(RmlUiRouteArgument route) => Shell.RmlUiNavigate(route);

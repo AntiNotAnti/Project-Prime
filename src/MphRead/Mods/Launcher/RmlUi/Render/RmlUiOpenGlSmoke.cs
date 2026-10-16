@@ -83,8 +83,12 @@ internal static class RmlUiOpenGlSmoke
                     ? host.ReadField(host.HomeDocument, "rules_time", 24) : "";
                 string ruleGoal = intent.Kind == RmlUiIntentKind.LobbyRulesApply
                     ? host.ReadField(host.HomeDocument, "rules_goal", 24) : "";
+                string createName = intent.Kind == RmlUiIntentKind.PlayCreate
+                    ? host.ReadField(host.HomeDocument, "play_create_name", 128) : "";
+                if (intent.Kind == RmlUiIntentKind.PlayCreate)
+                    player = host.ReadField(host.HomeDocument, "play_create_player_name", 128);
                 bool handled = controller.Dispatch(intent.Kind, intent.Argument,
-                    address, player, ruleTime, ruleGoal);
+                    address, player, ruleTime, ruleGoal, createName);
                 if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
                     or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesFormat)
                 {

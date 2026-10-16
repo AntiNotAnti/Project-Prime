@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher.RmlUi.Host;
+using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
@@ -35,6 +36,7 @@ public interface IRmlUiMenuServices
     Task<RmlUiDirectory> Browse(CancellationToken token);
     Task<RmlUiServerCandidate?> QuickMatch(CancellationToken token);
     Task<RmlUiJoinResult> Join(string endpoint, string playerName, CancellationToken token);
+    Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken token);
     bool AcceptJoin(LaunchPlan plan);
     bool OpenCreateLobby();
     bool NavigateTo(RmlUiRouteArgument destination);
@@ -61,7 +63,7 @@ public sealed record RmlUiMenuSnapshot(long Revision,
 /// </summary>
 public sealed class RmlUiMenuController : IDisposable
 {
-    private enum Job { Browse, Quick, Join }
+    private enum Job { Browse, Quick, Join, Create }
     private readonly record struct Completion(long Epoch, Job Kind, object? Data, string? Error);
     private readonly IRmlUiMenuServices _services;
     private readonly int _owner = Environment.CurrentManagedThreadId;
@@ -74,7 +76,10 @@ public sealed class RmlUiMenuController : IDisposable
     private long _joiningEpoch;
     private long _epoch, _revision;
     private long _nextPoll;
-    private bool _disposed, _busy, _joining, _browsing, _dirty = true;
+    private bool _disposed, _busy, _joining, _creating, _browsing, _createOpen, _createDedicated, _dirty = true;
+    private string _createMap = "";
+    private GameMode _createMode = GameMode.Battle;
+    private MatchFormat _createFormat = MatchFormat.FreeForAll;
     private string _status = "READY TO DEPLOY";
     private int _rowCount;
     private RmlUiMenuSnapshot _snapshot =
@@ -86,11 +91,13 @@ public sealed class RmlUiMenuController : IDisposable
     public RmlUiMenuSnapshot Snapshot => _snapshot;
     public bool Busy => _busy;
     public bool Joining => _joining;
+    public bool Creating => _creating;
     public (string Time, string Goal)? RuleInputs =>
         _rules is { } editor ? (editor.TimeInput(), editor.GoalInput()) : null;
 
     public bool Dispatch(RmlUiIntentKind kind, int argument = 0,
-        string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "")
+        string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "",
+        string lobbyName = "")
     {
         Owner();
         if (!RmlUiIntentRegistry.IsValid(kind, argument)) return false;
@@ -114,12 +121,14 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty();
                 return true;
             case RmlUiIntentKind.PlayQuick:
+                _createOpen = false;
                 _browsing = true;
                 Begin(Job.Quick, "FINDING A COMPATIBLE SERVER",
                     token => _services.QuickMatch(token).ContinueWith<object?>(
                         task => task.GetAwaiter().GetResult(), token));
                 return true;
             case RmlUiIntentKind.PlayBrowse:
+                _createOpen = false;
                 _browsing = true;
                 Begin(Job.Browse, "CONTACTING THE SERVER DIRECTORY",
                     async token => await _services.Browse(token).ConfigureAwait(false));
@@ -130,20 +139,69 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.PlayJoin:
                 return Connect(address, playerName);
             case RmlUiIntentKind.PlayCancel:
+                if (_creating)
+                {
+                    Status("The authoritative server allocation is in progress.");
+                    return false;
+                }
                 Cancel();
                 _browsing = false;
+                _createOpen = false;
                 Status("READY TO DEPLOY");
                 return true;
             case RmlUiIntentKind.PlayCreateOpen:
-                if (_services.OpenCreateLobby())
+                if (!_services.Hub().GameFilesReady)
+                    return _services.OpenCreateLobby();
+                string[] maps = _services.BuiltInArenaKeys().ToArray();
+                if (maps.Length == 0)
+                    return _services.OpenCreateLobby();
+                _createMap = maps.Contains(_createMap) ? _createMap : maps[0];
+                _createOpen = true;
+                _browsing = true;
+                Status("CHOOSE A MAP, GAME TYPE AND HOST");
+                return true;
+            case RmlUiIntentKind.PlayNextMap:
+                string[] available = _services.BuiltInArenaKeys().ToArray();
+                if (available.Length == 0) { Status("NO BUILT-IN ARENAS AVAILABLE"); return false; }
+                int at = Array.IndexOf(available, _createMap);
+                _createMap = available[(at + 1) % available.Length];
+                Dirty();
+                return true;
+            case RmlUiIntentKind.PlayNextMode:
+                int currentType = MatchTypeCatalog.BaseModeIndex(_createMode);
+                MatchTypeDefinition nextType = MatchTypeCatalog.GameTypes[
+                    (currentType + 1) % MatchTypeCatalog.GameTypes.Length];
+                _createFormat = MatchTypeCatalog.NormalizeFormat(nextType, _createFormat);
+                _createMode = nextType.Resolve(_createFormat);
+                Dirty();
+                return true;
+            case RmlUiIntentKind.PlayToggleHost:
+                if (OperatingSystem.IsAndroid())
                 {
-                    Cancel();
-                    _browsing = false;
-                    Status("OPENING LOBBY CREATION");
-                    return true;
+                    Status("ANDROID REQUIRES A REMOTE HOST");
+                    return false;
                 }
-                Status("Lobby creation is unavailable until setup is complete.");
-                return false;
+                _createDedicated = !_createDedicated;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.PlayCreate:
+                if (!_createOpen || _creating || _joining) return false;
+                HubSnapshot hub = _services.Hub();
+                var request = new LobbyCreationRequest(
+                    String.IsNullOrWhiteSpace(lobbyName) ? "Project Prime lobby" : lobbyName.Trim(),
+                    String.IsNullOrWhiteSpace(playerName) ? hub.PlayerName : playerName.Trim(),
+                    _createMap, _createMode, _createFormat, hub.DisplayHunter, _createDedicated);
+                if (!request.Validate(out string failure))
+                {
+                    Status(failure);
+                    return false;
+                }
+                Begin(Job.Create, "ALLOCATING AUTHORITATIVE LOBBY",
+                    async token => await _services.CreateLobby(request, token).ConfigureAwait(false));
+                _creating = true;
+                _joining = true;
+                _joiningEpoch = _epoch;
+                return true;
             case RmlUiIntentKind.Navigate:
                 if (argument == (int)RmlUiRouteArgument.Play)
                 {
@@ -228,7 +286,11 @@ public sealed class RmlUiMenuController : IDisposable
         while (_completed.TryDequeue(out Completion item))
         {
             // An older cancelled join must never end ownership of a newer one.
-            if (item.Kind == Job.Join && item.Epoch == _joiningEpoch) _joining = false;
+            if (item.Kind is Job.Join or Job.Create && item.Epoch == _joiningEpoch)
+            {
+                _joining = false;
+                _creating = false;
+            }
             if (item.Epoch != _epoch || _disposed) continue;
             _busy = false;
             _work = null;
@@ -256,12 +318,14 @@ public sealed class RmlUiMenuController : IDisposable
                     else Status("No compatible public lobby is available.");
                     break;
                 case Job.Join:
+                case Job.Create:
                     var joined = (RmlUiJoinResult)item.Data!;
                     if (!joined.Joined)
                         Status(string.IsNullOrEmpty(joined.Error) ? "The server refused this connection." : joined.Error);
                     else if (_services.AcceptJoin(joined.Plan))
                     {
                         _browsing = false;
+                        _createOpen = false;
                         Status("JOINED. WAITING FOR AUTHORITATIVE LOBBY STATE.");
                     }
                     else Status("Unable to complete the current client handoff.");
@@ -444,8 +508,11 @@ public sealed class RmlUiMenuController : IDisposable
         Text("renderer_name", "OPENGL // RMLUI 6.3");
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
-        Flag("play_browser_mode", _browsing && !lobby.Active);
-        Flag("play_create_mode", false);
+        Flag("play_browser_mode", _browsing && !_createOpen && !lobby.Active);
+        Flag("play_create_mode", _createOpen && !lobby.Active);
+        Text("play_create_map", _createMap);
+        Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
+        Text("play_create_host", _createDedicated ? "LOCAL // DEDICATED" : "HOSTED // ONLINE");
         Flag("play_busy", _busy);
         Flag("play_no_servers", _rowCount == 0);
         Text("play_status", lobby.Active ? lobby.Status : _status);
