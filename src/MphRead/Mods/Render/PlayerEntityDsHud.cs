@@ -13,19 +13,12 @@ namespace MphRead.Entities;
 // native coordinates and stay on the lower screen. No extracted asset imports.
 public partial class PlayerEntity
 {
-    // Resolved once when a HUD profile is published, not per draw. The
-    // renderer deliberately never reads or parses the editable profile.
-    private static HudThemeRuntime DsPalette => HudProfiles.Runtime.Theme;
-    private static Vector4 DsNavy => DsPalette.Background;
-    private static Vector4 DsPanel => DsPalette.Panel;
-    private static Vector4 DsInk => DsPalette.Accent;
-    private static Vector4 DsMuted => DsPalette.Muted;
-    private static ColorRgba DsText => ToTextColor(DsPalette.Text);
-    private static ColorRgba DsWarning => ToTextColor(DsPalette.Warning);
-    private static ColorRgba ToTextColor(Vector4 color) => new(
-        (byte)Math.Clamp((int)MathF.Round(color.X * 255), 0, 255),
-        (byte)Math.Clamp((int)MathF.Round(color.Y * 255), 0, 255),
-        (byte)Math.Clamp((int)MathF.Round(color.Z * 255), 0, 255), 255);
+    private static readonly Vector4 DsNavy = new(.015f, .035f, .075f, 1);
+    private static readonly Vector4 DsPanel = new(.026f, .077f, .138f, 1);
+    private static readonly Vector4 DsInk = new(.61f, .86f, .98f, .81f);
+    private static readonly Vector4 DsMuted = new(.23f, .47f, .66f, .44f);
+    private static readonly ColorRgba DsText = new(215, 235, 250, 255);
+    private static readonly ColorRgba DsWarning = new(255, 116, 112, 255);
 
     private void DsBox(float x, float y, float width, float height, Vector4 color) =>
         _scene.DrawHudFlatBox(x, y, x + width, y + height, color);
@@ -110,9 +103,9 @@ public partial class PlayerEntity
             int hp = ModHudHealth;
             float fraction = Math.Clamp(hp / (float)Math.Max(1, HealthMax), 0f, 1f);
             float blink = DsLayout.HealthBlink(hp, _scene.GlobalElapsedTime);
-            Vector4 health = hp <= 99 ? DsPalette.Warning : DsInk;
-            if (hp <= 99) health.W *= blink;
-            DsBox(74, 14, 99, 4, DsPalette.HealthTrack);
+            Vector4 health = hp <= 99
+                ? new Vector4(1f, .36f, .34f, .92f * blink) : DsInk;
+            DsBox(74, 14, 99, 4, new Vector4(.13f, .20f, .28f, .76f));
             if (fraction > 0) DsBox(74, 14, 99 * fraction, 4, health);
             DsLabel(175, 11, hp.ToString(), .65f, hp <= 99 ? DsWarning : DsText);
         }
@@ -167,7 +160,7 @@ public partial class PlayerEntity
         for (int i = 0; i < 7; i++)
         {
             float y = 24 + i * 20;
-            DsLine(18, y, 238, y, DsPalette.Decoration, .4f);
+            DsLine(18, y, 238, y, new Vector4(.24f, .47f, .65f, .065f), .4f);
         }
         DsLine(18, 18, 18, 174, DsMuted);
         DsLine(238, 18, 238, 174, DsMuted);
@@ -180,19 +173,17 @@ public partial class PlayerEntity
             float halfWidth = b.Round ? b.Width / 2f / DsLayout.HorizontalStretch : b.Width / 2f;
             float halfHeight = b.Height / 2f;
             bool active = StylusZone.Contact && StylusZone.Region == b.Region;
-            Vector4 accent = active ? DsPalette.Pressed : DsInk;
+            Vector4 accent = active ? new Vector4(.92f, .95f, 1, 1) : DsInk;
             if (b.Round)
             {
                 DsRing(b.X, b.Y, halfHeight, accent, .9f);
-                Vector4 fill = DsPalette.Panel;
-                fill.W *= active ? .8f : .28f;
-                DsDot(b.X, b.Y, halfHeight * .78f, fill);
+                DsDot(b.X, b.Y, halfHeight * .78f,
+                    new Vector4(.065f, .20f, .32f, active ? .8f : .28f));
             }
             else
             {
-                Vector4 fill = DsPalette.Panel;
-                fill.W *= active ? .72f : .4f;
-                DsBox(b.X - halfWidth, b.Y - halfHeight, halfWidth * 2, halfHeight * 2, fill);
+                DsBox(b.X - halfWidth, b.Y - halfHeight, halfWidth * 2, halfHeight * 2,
+                    new Vector4(.08f, .19f, .31f, active ? .72f : .4f));
                 DsLine(b.X - halfWidth, b.Y - halfHeight,
                     b.X + halfWidth, b.Y - halfHeight, accent, .9f);
                 DsLine(b.X - halfWidth, b.Y + halfHeight,

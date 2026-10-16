@@ -66,7 +66,6 @@ public sealed class HudProfile
     public HudHitMarkerProfile HitMarker { get; set; } = new();
     public HudInventoryProfile Inventory { get; set; } = new();
     public HudNotificationProfile Notifications { get; set; } = new();
-    public HudThemeProfile Theme { get; set; } = new();
     public HudKillFeedProfile KillFeed { get; set; } = new();
     public CrosshairProfile Crosshair { get; set; } = new();
     public CrosshairProfile?[] WeaponCrosshairs { get; set; } = new CrosshairProfile?[9];
@@ -128,7 +127,6 @@ public sealed class HudProfile
         GlobalOpacity = Clamp(GlobalOpacity, 0, 1, 1);
         TextScale = Clamp(TextScale,.5f,3,1); IconScale = Clamp(IconScale,.5f,3,1);
         Notifications ??= new(); Notifications.Validate();
-        Theme ??= new(); Theme.Validate();
         SafeArea = Clamp(SafeArea, 0, .2f, 0);
         NativeReticleOpacity = Clamp(NativeReticleOpacity, 0, 1, 1);
         Health ??= new(); Health.Validate();
