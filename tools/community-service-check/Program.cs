@@ -204,6 +204,9 @@ try
                 && (await full.Content.ReadAsByteArrayAsync())
                     .SequenceEqual(File.ReadAllBytes(package)),
                 "immutable package download remains byte-identical with ETag");
+            Check(full.Content.Headers.ContentDisposition?.FileName
+                    ?.Contains(published.Hash + ".ppmap", StringComparison.Ordinal) == true,
+                "browser download includes exact package hash and .ppmap extension");
             using var conditional = new HttpRequestMessage(HttpMethod.Get,
                 "packages/" + published.Hash);
             conditional.Headers.IfNoneMatch.Add(full.Headers.ETag!);
