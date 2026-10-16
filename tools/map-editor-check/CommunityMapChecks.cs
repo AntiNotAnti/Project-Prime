@@ -183,52 +183,65 @@ internal static class CommunityMapChecks
             byte[] bytes = await http.GetByteArrayAsync("packages/" + v1.Hash);
             check(bytes.SequenceEqual(File.ReadAllBytes(one)), "historical exact-package endpoint returns immutable bytes");
 
-            string storedV1 = Path.Combine(storage, v1.Hash + ".ppmap");
-            byte[] storedBytes = File.ReadAllBytes(storedV1);
-            byte[] corruptBytes = (byte[])storedBytes.Clone();
+            // Corrupt the wire response, never the published immutable archive.
+            // A just-completed download may still hold a Windows read handle;
+            // writing or renaming that package races the actual server.
+            byte[] corruptBytes = (byte[])bytes.Clone();
             corruptBytes[corruptBytes.Length / 2] ^= 0x5A;
-
-            // A response can finish at the client before the server has closed
-            // its read handle. Overwriting the immutable archive in place fails
-            // on Windows and could corrupt an in-flight download. Stage the
-            // fixture on the same volume and replace the directory entry.
-            void ReplaceStoredFixture(byte[] replacement)
+            using var portProbe = new TcpListener(IPAddress.Loopback, 0);
+            portProbe.Start();
+            int corruptPort = ((IPEndPoint)portProbe.LocalEndpoint).Port;
+            portProbe.Stop();
+            string corruptAddress = "http://127.0.0.1:" + corruptPort + "/";
+            using var corruptListener = new HttpListener();
+            corruptListener.Prefixes.Add(corruptAddress);
+            corruptListener.Start();
+            int corruptResponses = 0;
+            async Task ServeCorruptDownloadsAsync()
             {
-                string staged = Path.Combine(storage,
-                    "fixture-replacement-" + Guid.NewGuid().ToString("N") + ".tmp");
-                try
+                while (corruptListener.IsListening)
                 {
-                    File.WriteAllBytes(staged, replacement);
-                    File.Move(staged, storedV1, overwrite: true);
-                }
-                finally
-                {
-                    if (File.Exists(staged)) File.Delete(staged);
+                    HttpListenerContext request;
+                    try { request = await corruptListener.GetContextAsync(); }
+                    catch (HttpListenerException) when (!corruptListener.IsListening) { return; }
+                    catch (ObjectDisposedException) when (!corruptListener.IsListening) { return; }
+                    try
+                    {
+                        if (request.Request.HttpMethod != HttpMethod.Get.Method
+                            || request.Request.Url?.AbsolutePath != "/packages/" + v1.Hash)
+                        {
+                            request.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                            continue;
+                        }
+                        request.Response.ContentType = "application/octet-stream";
+                        request.Response.ContentLength64 = corruptBytes.LongLength;
+                        await request.Response.OutputStream.WriteAsync(corruptBytes.AsMemory());
+                        corruptResponses++;
+                    }
+                    finally { request.Response.Close(); }
                 }
             }
-
-            // An existing reader keeps the original immutable bytes, while
-            // subsequent opens observe the replacement archive.
-            using (var activeReader = new FileStream(storedV1, FileMode.Open,
-                FileAccess.Read, FileShare.Read | FileShare.Delete))
-            {
-                ReplaceStoredFixture(corruptBytes);
-                activeReader.Position = storedBytes.Length / 2;
-                check(activeReader.ReadByte() == storedBytes[storedBytes.Length / 2]
-                    && File.ReadAllBytes(storedV1)[storedBytes.Length / 2]
-                        == corruptBytes[corruptBytes.Length / 2],
-                    "corruption fixture replacement preserves active archive readers");
-            }
+            Task corruptServer = ServeCorruptDownloadsAsync();
             bool rejectedCorruptDownload = false;
-            try { await client.InstallAsync(v1, Path.Combine(root, "corrupt-install"), default); }
-            catch (InvalidDataException ex)
+            try
             {
-                rejectedCorruptDownload = ex.Message.Contains("SHA-256", StringComparison.Ordinal)
-                    && ex.Message.Contains("discarded after a retry", StringComparison.OrdinalIgnoreCase);
+                using var corruptClient = new MapCommunityClient(corruptAddress, secret);
+                try { await corruptClient.InstallAsync(v1, Path.Combine(root, "corrupt-install"), default); }
+                catch (InvalidDataException ex)
+                {
+                    rejectedCorruptDownload = ex.Message.Contains("SHA-256", StringComparison.Ordinal)
+                        && ex.Message.Contains("discarded after a retry", StringComparison.OrdinalIgnoreCase);
+                }
             }
-            finally { ReplaceStoredFixture(storedBytes); }
-            check(rejectedCorruptDownload,
-                "same-length corrupted community download is rejected by package hash before ZIP parsing");
+            finally
+            {
+                corruptListener.Stop();
+                await corruptServer;
+            }
+            check(rejectedCorruptDownload && corruptResponses == 2,
+                "same-length corrupted community response is retried and rejected by SHA-256 before ZIP parsing");
+            check((await http.GetByteArrayAsync("packages/" + v1.Hash)).SequenceEqual(bytes),
+                "corruption injection leaves the published immutable package unchanged");
 
             long rangeStart = Math.Max(1, bytes.LongLength / 2);
             using (var request = new HttpRequestMessage(HttpMethod.Get, "packages/" + v1.Hash))
