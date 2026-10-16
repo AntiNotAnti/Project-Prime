@@ -105,5 +105,46 @@ class MotionContract(unittest.TestCase):
             motion_bake.validate_motion_inventory(skeleton, inventory)
 
 
+    def test_cli_validation_never_requires_blender_or_game_files(self):
+        import json
+        import subprocess
+        import tempfile
+        skeleton, inventory = fixture()
+        with tempfile.TemporaryDirectory(prefix="prime-asset-free-motion-") as root:
+            root = Path(root)
+            ident = "darksamus-echoes"
+            (root / (ident + ".obj")).write_text(
+                "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+            (root / (ident + ".skeleton.json")).write_text(json.dumps(skeleton), encoding="utf-8")
+            (root / (ident + ".motions.json")).write_text(json.dumps(inventory), encoding="utf-8")
+            weights = {"format": 1, "vertexCount": 3,
+                       "groups": [[{"boneId": 10, "weight": 1.0}]],
+                       "vertexGroupIds": [0, 0, 0]}
+            (root / (ident + ".weights.json")).write_text(json.dumps(weights), encoding="utf-8")
+
+            def check(extra, successful):
+                result = subprocess.run([
+                    sys.executable, str(PATH.with_name("build_glb.py")),
+                    "--root", str(root), "--character", ident, "--validate", *extra
+                ], capture_output=True, text=True, check=False, timeout=15)
+                self.assertEqual(result.returncode == 0, successful, result.stdout + result.stderr)
+
+            check([], True)  # Original static preview contract remains untouched.
+            check(["--animate-source"], True)
+            check(["--animate-source", "--clip", "idle"], True)
+            check(["--animate-source", "--clip", "blend"], False)
+            check(["--clip", "idle"], False)
+
+    def test_quaternion_delta_uses_initial_orientation(self):
+        skeleton, inventory = fixture()
+        for i, sample in enumerate(inventory["Clips"][0]["Samples"]):
+            angle = math.pi / 4 + math.pi * i / 8
+            sample["Bones"][1]["Rotation"] = [0, 0, math.sin(angle), math.cos(angle)]
+        clip = motion_bake.validate_motion_inventory(skeleton, inventory)[0]
+        poses = motion_bake.pose_deltas(clip)
+        self.assertAlmostEqual(poses[0][1][11][0][3], 1)
+        self.assertAlmostEqual(abs(poses[-1][1][11][0][2]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
