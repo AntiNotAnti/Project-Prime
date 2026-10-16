@@ -28,6 +28,9 @@ namespace MphRead.Entities
                 && active && spawned && health > 0;
         }
 
+        private static readonly bool HunterAnimationBlendEnabled =
+            AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
+
         // 15 frames at 60 FPS gives a readable 2 Hz white flash without turning the
         // three-second protection window into a high-frequency strobe.
         private const int SpawnProtectionFlashHalfPeriodFrames = 15;
@@ -196,7 +199,8 @@ namespace MphRead.Entities
                 {
                     // we want to animate first up to the spine with _bipedModel1's animation info, then the rest with _bipedModel2's info
                     Node spineNode = _spineNodes[lod]!;
-                    spineNode.AnimIgnoreChild = true;
+                    // Preserve the original split-lower/upper animation
+                    // semantics and spine look offset at any display rate.
                     // todo: we can just figure out the angle directly from the facing vector
                     Vector3 facing = drawFacing;
                     float limit = Fixed.ToFloat(2896);
@@ -208,12 +212,7 @@ namespace MphRead.Entities
                         sin = facing.Y <= 0 ? -limit : limit;
                     }
                     float angle = MathF.Atan2(sin, cos);
-                    spineNode.AfterTransform = Matrix4.CreateRotationZ(angle);
                     Model model = _bipedModel1.Model;
-                    model.AnimateNodes(index: 0, false, Matrix4.Identity, Vector3.One, _bipedModel1.AnimInfo);
-                    spineNode.AnimIgnoreChild = false;
-                    model.AnimateNodes(spineNode.ChildIndex, false, Matrix4.Identity, Vector3.One, _bipedModel2.AnimInfo);
-                    spineNode.AfterTransform = null;
                     float scale = Metadata.HunterScales[Hunter];
                     float bottom = Fixed.ToFloat(Values.MinPickupHeight);
                     // Build the render-only body basis from the same facing
@@ -240,12 +239,24 @@ namespace MphRead.Entities
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
                         transform = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(CosmeticDeathDefinition,
                             _cosmeticDeath.Progress(_scene.ElapsedTime, CosmeticDeathDefinition)) * transform;
-                    for (int i = 0; i < model.Nodes.Count; i++)
+                    AnimationSamples.Sample? lowerSample = null, upperSample = null;
+                    if (HunterAnimationBlendEnabled && FrameTiming.Active
+                        && FrameTiming.HighRefreshPresentation && !_scene.Services.IsReplica
+                        && _frozenTimer == 0)
                     {
-                        Node node = model.Nodes[i];
-                        node.Animation *= transform; // todo?: could do this in the shader
+                        double presentation = FrameTiming.TotalSteps + FrameTiming.PresentationAlpha;
+                        if (_bipedModel1.PresentationSamples.TryGet(_bipedModel1.AnimInfo,
+                            _bipedModel1.AnimInfo.Node.Slot, presentation, out var lower))
+                            lowerSample = lower;
+                        if (_bipedModel2.PresentationSamples.TryGet(_bipedModel2.AnimInfo,
+                            _bipedModel2.AnimInfo.Node.Slot, presentation, out var upper))
+                            upperSample = upper;
                     }
-                    model.UpdateMatrixStack();
+                    bool interpolatedPose = lowerSample.HasValue || upperSample.HasValue;
+                    UpdateHunterBipedPresentation(model, spineNode, transform, angle,
+                        lowerSample, upperSample);
+                    try
+                    {
                     if (drawAlive)
                     {
                         if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -303,6 +314,16 @@ namespace MphRead.Entities
                         if (!DrawCosmeticDeath()) DrawDeathParticles();
                     }
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
+                    }
+                    finally
+                    {
+                        // The world still reads canonical model nodes for muzzle
+                        // and effect ownership. Render sampling must leave only
+                        // the integer pose even when a material/LOD draw fails.
+                        if (interpolatedPose)
+                            UpdateHunterBipedPresentation(model, spineNode, transform, angle,
+                                null, null);
+                    }
                 }
                 else if (AttachedEnemy == null && !_field6D0 && Hunter != Hunter.Guardian)
                 {
@@ -374,6 +395,35 @@ namespace MphRead.Entities
                 GetDrawItems(_octolithSimpleModel, _octolithSimpleModel.Model.Nodes[0], alpha: 1, recolor: 0);
             }
             DrawVolumes();
+        }
+
+        /// <summary>
+        /// Compose a two-channel Hunter pose from original animation curves.
+        /// All seven Hunters use the same lower/upper split. This method is
+        /// called again with null samples in finally to restore the current
+        /// canonical pose, not the pose from a previous presentation frame.
+        /// </summary>
+        private void UpdateHunterBipedPresentation(Model model, Node spineNode,
+            Matrix4 world, float pitch,
+            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper)
+        {
+            spineNode.AnimIgnoreChild = true;
+            spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
+            try
+            {
+                model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One,
+                    _bipedModel1.AnimInfo, lower);
+            }
+            finally
+            {
+                spineNode.AnimIgnoreChild = false;
+                spineNode.AfterTransform = null;
+            }
+            model.AnimateNodes(spineNode.ChildIndex, false, Matrix4.Identity, Vector3.One,
+                _bipedModel2.AnimInfo, upper);
+            foreach (Node node in model.Nodes)
+                node.Animation *= world;
+            model.UpdateMatrixStack();
         }
 
         private void DrawKandenAlt(Vector4? brightSkin, Vector4? outlineColor)
