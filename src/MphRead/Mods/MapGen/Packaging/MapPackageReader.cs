@@ -230,9 +230,12 @@ namespace MphRead.Mods.MapGen
                 ? new JsonSerializerOptions(JsonOptions)
                     { ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }
                 : JsonOptions;
-            return JsonSerializer.Deserialize<MapDefinition>(bytes, options)
+            MapDefinition parsed = JsonSerializer.Deserialize<MapDefinition>(bytes, options)
                 ?? throw new InvalidDataException(legacy
                     ? "Invalid legacy recipe." : "Invalid package project.");
+            if (parsed.LocalSourceOnly)
+                throw new InvalidDataException("Packages cannot contain locally imported commercial game assets.");
+            return parsed;
         }
 
         private static void ValidateManifestProject(

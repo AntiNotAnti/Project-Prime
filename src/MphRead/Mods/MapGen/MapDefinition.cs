@@ -24,6 +24,10 @@ namespace MphRead.Mods.MapGen
     {
         public int FormatVersion { get; set; } = 1;
         public Guid MapId { get; set; }
+        /// <summary>Marks local content derived from a separate, user-owned commercial game.
+        /// It must never enter a shareable Community map package.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool LocalSourceOnly { get; set; }
         public string? Author { get; set; }
         public string? Version { get; set; }
         public string? Description { get; set; }
