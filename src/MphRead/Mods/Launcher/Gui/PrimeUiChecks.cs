@@ -282,6 +282,8 @@ namespace MphRead.Mods.Launcher.Gui
                 OpenAccount();
                 Check(Button("OPT IN // SHOW PROFILE").IsEnabled,
                     "previously opted-out Hunter can become visible again");
+                Check(Button("SAVE PRIVATE PREFERENCE").IsEnabled,
+                    "guest can preemptively persist explicit privacy before public-default migration");
                 snapshot.PublicVisible = null;
                 snapshot.Connected = false;
                 OpenAccount();
