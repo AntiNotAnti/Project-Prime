@@ -172,10 +172,21 @@ namespace MphRead.Entities
                     else
                     {
                         UpdateTransforms(_altModel, _modelTransform, Recolor);
-                        if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
-                            _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
-                            GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
-                                overrideColor: brightSkin, outlineColor: outlineColor);
+                        bool altSample = TryHunterNodeSample(_altModel, out var altPresentation);
+                        try
+                        {
+                            if (altSample)
+                                ApplyHunterNodePose(_altModel, _modelTransform, altPresentation);
+                            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                                _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
+                                GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
+                                    overrideColor: brightSkin, outlineColor: outlineColor);
+                        }
+                        finally
+                        {
+                            if (altSample)
+                                ApplyHunterNodePose(_altModel, _modelTransform, null);
+                        }
                     }
                     PaletteOverride = null;
                     if (_frozenGfxTimer > 0)
@@ -343,8 +354,22 @@ namespace MphRead.Entities
                             ? renderTransform
                             : GetTransformMatrix(_aimVec, _upVector, _gunDrawPos);
                         UpdateTransforms(_gunModel, transform, Recolor);
-                        if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
-                            GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
+                        bool gunSample = TryHunterNodeSample(_gunModel, out var gunPresentation);
+                        try
+                        {
+                            if (gunSample)
+                                ApplyHunterNodePose(_gunModel, transform, gunPresentation);
+                            if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
+                                GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
+                        }
+                        finally
+                        {
+                            // The original muzzle and charge effects are
+                            // simulation owned. Never leave a sampled cannon
+                            // pose behind after submitting draw geometry.
+                            if (gunSample)
+                                ApplyHunterNodePose(_gunModel, transform, null);
+                        }
                         if (Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
                             var drawPos = new Vector3(0, 0, Fixed.ToFloat(Values.MuzzleOffset));
@@ -403,6 +428,31 @@ namespace MphRead.Entities
         /// called again with null samples in finally to restore the current
         /// canonical pose, not the pose from a previous presentation frame.
         /// </summary>
+        /// <summary>
+        /// Native viewmodels and ordinary alt forms share the same immutable
+        /// per-tick sampling cadence as the two-part body. Specialized Kanden
+        /// segments and Spire attack collision nodes are not sampled here.
+        /// </summary>
+        private bool TryHunterNodeSample(ModelInstance instance,
+            out AnimationSamples.Sample sampled)
+        {
+            sampled = default;
+            return HunterAnimationBlendEnabled && FrameTiming.Active
+                && FrameTiming.HighRefreshPresentation && !_scene.Services.IsReplica
+                && _frozenTimer == 0
+                && instance.PresentationSamples.TryGet(instance.AnimInfo,
+                    instance.AnimInfo.Node.Slot,
+                    FrameTiming.TotalSteps + FrameTiming.PresentationAlpha, out sampled);
+        }
+
+        private void ApplyHunterNodePose(ModelInstance instance, Matrix4 transform,
+            AnimationSamples.Sample? sample)
+        {
+            Model model = instance.Model;
+            model.AnimateNodes(0, UseNodeTransform, transform, model.Scale, instance.AnimInfo, sample);
+            model.UpdateMatrixStack();
+        }
+
         private void UpdateHunterBipedPresentation(Model model, Node spineNode,
             Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper)
