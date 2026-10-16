@@ -64,3 +64,12 @@ switches the source does not alter shipping behavior.
 Next: RML-03 authoritative, presentation-neutral service adapters and
 an opt-in true native launcher. Keep the existing game defaults and
 Studio runtime until real functional and device parity is demonstrated.
+
+## Real native Linux acceptance
+
+PR CI has an additional job, "RmlUi native OpenGL software-frame acceptance",
+which builds the exact pinned native bridge and runs tools/rmlui-opengl-check
+in Xvfb/llvmpipe. It verifies that the Home changes real pixels and that the
+terminal GL pass restores read/draw FBOs, active texture/binding, program,
+viewport, matrix mode, scissor, depth/cull/blend and writemask state. This is
+an automated software-rendered check, not physical GPU/mobile acceptance.

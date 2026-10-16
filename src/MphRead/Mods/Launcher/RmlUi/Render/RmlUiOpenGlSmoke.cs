@@ -2,7 +2,6 @@
 using System;
 using System.IO;
 using MphRead.Mods.Launcher.RmlUi.Host;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -49,28 +48,7 @@ internal static class RmlUiOpenGlSmoke
                 (float)height / Math.Max(1, window.ClientSize.Y));
             host.Update();
 
-            // The GL2 backend modifies the fixed-function state and stencil.
-            // Its native adapter scopes that state; this owner-thread guard
-            // also restores the GLSL program, active texture and BOTH FBO
-            // bindings, which fixed-function glPushAttrib does not cover.
-            int drawFramebuffer = GL.GetInteger(GetPName.DrawFramebufferBinding);
-            int readFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
-            int program = GL.GetInteger(GetPName.CurrentProgram);
-            int activeTexture = GL.GetInteger(GetPName.ActiveTexture);
-            try
-            {
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-                GL.UseProgram(0);
-                GL.ActiveTexture(TextureUnit.Texture0);
-                host.Render(width, height);
-            }
-            finally
-            {
-                GL.ActiveTexture((TextureUnit)activeTexture);
-                GL.UseProgram(program);
-                GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, drawFramebuffer);
-                GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, readFramebuffer);
-            }
+            RmlUiOpenGlFrame.Draw(host, width, height);
 
             // Only Quit is wired for this isolated smoke. The shipping shell,
             // match, and services own all other intents until their new
