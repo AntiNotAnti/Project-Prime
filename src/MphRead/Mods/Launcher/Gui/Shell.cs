@@ -127,18 +127,25 @@ namespace MphRead.Mods.Launcher.Gui
         // Display is suppressed for setup, modal confirmation, legacy workspace
         // handoff and gameplay. It must never create a second NetSession owner.
         private static bool _rmlUiPreferLegacyLobby;
+        private static bool _rmlUiPreferLegacyNews;
         internal static bool RmlUiCanPresent
         {
             get
             {
                 if (!Active || _window == null || _window.HasScene || _front == null
                     || !_front.RmlUiCanPresent) return false;
+                PrimeRoute route = _front.Prime.Router.Current;
                 if (_rmlUiPreferLegacyLobby)
                 {
-                    if (_front.Prime.Router.Current == PrimeRoute.Lobby) return false;
+                    if (route == PrimeRoute.Lobby) return false;
                     _rmlUiPreferLegacyLobby = false;
                 }
-                return _front.Prime.Router.Current is PrimeRoute.News or PrimeRoute.Lobby;
+                if (_rmlUiPreferLegacyNews)
+                {
+                    if (route == PrimeRoute.News) return false;
+                    _rmlUiPreferLegacyNews = false;
+                }
+                return route is PrimeRoute.News or PrimeRoute.Lobby;
             }
         }
 
@@ -170,7 +177,9 @@ namespace MphRead.Mods.Launcher.Gui
                 MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Settings => PrimeRoute.Settings,
                 _ => null
             };
-            return route.HasValue && _front.RmlUiNavigate(route.Value);
+            if (!route.HasValue || !_front.RmlUiNavigate(route.Value)) return false;
+            _rmlUiPreferLegacyNews = destination == MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.News;
+            return true;
         }
 
         internal static bool RmlUiNavigateStudio()
