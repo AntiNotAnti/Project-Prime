@@ -164,6 +164,37 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
 controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
 services.LobbyView = Stub.EmptyLobby;
 
+
+// The native Create Lobby form uses the same authoritative backend as legacy
+// hosting. It has no local-simulation fallback and cannot be double-submitted.
+services.CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.PlayCreateOpen)
+    && Flag(controller.Tick(), "play_create_mode"),
+    "native lobby form opens from current supported map choices");
+Check(controller.Dispatch(RmlUiIntentKind.PlayNextMode)
+    && Text(controller.Tick(), "play_create_mode_name") == "Survival",
+    "native game mode cycles through canonical MatchTypeCatalog");
+Check(controller.Dispatch(RmlUiIntentKind.PlayToggleHost)
+    && Text(controller.Tick(), "play_create_host") == "LOCAL // DEDICATED",
+    "authoritative host selection preserves explicit dedicated choice");
+Check(controller.Dispatch(RmlUiIntentKind.PlayCreate, playerName: "Pilot", lobbyName: "Test Lobby")
+    && controller.Creating && services.CreateCalls == 1,
+    "native create uses one explicit authoritative allocation");
+Check(!controller.Dispatch(RmlUiIntentKind.PlayCreate, playerName: "Pilot", lobbyName: "Duplicate")
+    && !controller.Dispatch(RmlUiIntentKind.PlayCancel),
+    "pending host allocation cannot double-start or disappear under a cancelled UI");
+Check(services.CreatedRequest.Name == "Test Lobby"
+    && services.CreatedRequest.RoomKey == "MP1 SANCTORUS"
+    && services.CreatedRequest.Dedicated,
+    "requested map/name/server topology reach the reusable backend unchanged");
+services.CreatePending.SetResult(new(true,
+    new LaunchPlan { Kind = LaunchKind.Host, PlayerName = "Pilot", Hunter = Hunter.Samus },
+    ""));
+Wait(controller, _ => services.Accepted == 2);
+Check(!controller.Creating && !Flag(controller.Tick(), "play_create_mode")
+    && services.Accepted == 2,
+    "accepted native host handoff occurs once and closes the form");
+
 Exception? wrongThread = null;
 Task.Run(() =>
 {
@@ -180,6 +211,9 @@ sealed class Stub : IRmlUiMenuServices
         false, false, false, "", "", "", "", "", 8, Array.Empty<RmlUiLobbyPlayer>());
     public TaskCompletionSource<RmlUiDirectory> BrowsePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<RmlUiJoinResult> JoinPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<RmlUiJoinResult> CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public LobbyCreationRequest CreatedRequest;
+    public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
     public RmlUiRuleDraft? AuthorityRules;
@@ -191,6 +225,12 @@ sealed class Stub : IRmlUiMenuServices
     public Task<RmlUiServerCandidate?> QuickMatch(CancellationToken _) =>
         Task.FromResult<RmlUiServerCandidate?>(null);
     public Task<RmlUiJoinResult> Join(string _, string __, CancellationToken ___) => JoinPending.Task;
+    public Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken _)
+    {
+        CreatedRequest = request;
+        CreateCalls++;
+        return CreatePending.Task;
+    }
     public bool AcceptJoin(LaunchPlan _) { Accepted++; return true; }
     public bool OpenCreateLobby() => true;
     public bool NavigateTo(RmlUiRouteArgument _) => true;
