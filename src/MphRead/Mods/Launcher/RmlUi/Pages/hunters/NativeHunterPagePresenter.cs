@@ -110,9 +110,15 @@ internal sealed class LauncherHunterChoiceStore : ILauncherHunterChoiceStore
 
     public void Save(LauncherHunterChoice choice)
     {
+        LauncherHunterChoice before = Capture();
         LauncherPrefs.LastHunter = choice.Hunter;
         LauncherPrefs.LastColor = choice.Suit;
-        LauncherPrefs.Save();
+        if (!LauncherPrefs.TrySave())
+        {
+            LauncherPrefs.LastHunter = before.Hunter;
+            LauncherPrefs.LastColor = before.Suit;
+            throw new InvalidOperationException("Hunter profile could not be saved.");
+        }
     }
 }
 #endif

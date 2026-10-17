@@ -16,7 +16,6 @@ internal sealed class QuickSettingsPagePresenter : IDisposable
 
     public bool OpenFullSettingsRequested { get; private set; }
     public bool Closed { get; private set; }
-    public bool CanNavigateAway => !_controller.Current().Dirty;
     public QuickSettingsPagePresenter(RmlUiPageManager pages, IQuickLauncherPreferenceStore store)
     {
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
@@ -97,12 +96,20 @@ internal sealed class LauncherQuickPreferenceStore : IQuickLauncherPreferenceSto
 
     public void Save(QuickLauncherPreferences value)
     {
-        // The store is owner-thread-only. Persist the full LauncherPrefs
-        // schema so no currently unrelated value is reset to an old default.
+        // Do not leave in-memory flags changed if a locked or inaccessible
+        // launcher.txt refused persistence. Other subsystems read these
+        // static settings immediately, even without a restart.
+        QuickLauncherPreferences before = Capture();
         LauncherPrefs.ReduceMotion = value.ReduceMotion;
         LauncherPrefs.AutoUpdate = value.AutoUpdate;
         LauncherPrefs.DebugLogs = value.DebugLogs;
-        LauncherPrefs.Save();
+        if (!LauncherPrefs.TrySave())
+        {
+            LauncherPrefs.ReduceMotion = before.ReduceMotion;
+            LauncherPrefs.AutoUpdate = before.AutoUpdate;
+            LauncherPrefs.DebugLogs = before.DebugLogs;
+            throw new InvalidOperationException("Launcher preferences could not be written.");
+        }
     }
 }
 #endif
