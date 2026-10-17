@@ -165,6 +165,35 @@ public sealed class RmlUiRuleEditor
         return false;
     }
 
+    /// <summary>
+    /// Stage an installed map inside the same optimistic rules draft. Server
+    /// session identity/revision and immutable package hash are checked again
+    /// by SubmitRules and the authoritative server before any change takes effect.
+    /// </summary>
+    public bool TrySelectMap(string room, out string reason)
+    {
+        reason = "";
+        if (String.IsNullOrWhiteSpace(room))
+        {
+            reason = "Choose an installed map.";
+            return false;
+        }
+        try
+        {
+            NetworkMapIdentity identity = NetworkMapIdentity.ForRoom(room);
+            var candidate = Draft.Match with { RoomKey = room, MapIdentity = identity };
+            if (LobbyRules.ValidateDefinition(candidate, out reason) != LobbyResultCode.Ok)
+                return false;
+            Draft = Draft with { Match = candidate };
+            return true;
+        }
+        catch (Exception error) when (error is ArgumentException or System.IO.InvalidDataException)
+        {
+            reason = error.Message;
+            return false;
+        }
+    }
+
     public bool TrySetLimits(string time, string goal, out string reason)
     {
         reason = "";
