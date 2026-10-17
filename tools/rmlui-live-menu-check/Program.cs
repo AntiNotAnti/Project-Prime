@@ -327,7 +327,7 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 1)
     && services.AdminCalls == 3,
     "non-owner cannot request a kick or transfer");
 services.AdminState = services.AdminState with { AuthorityEpoch = 1000 };
-Check(!Flag(controller.Tick(), "lobby_admin_open"),
+Check(!Flag(Wait(controller, s => !Flag(s, "lobby_admin_open")), "lobby_admin_open"),
     "retired authority automatically closes native admin and its confirmations");
 Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminCalls == 3,
     "retired admin never dispatches an old confirmed action");
