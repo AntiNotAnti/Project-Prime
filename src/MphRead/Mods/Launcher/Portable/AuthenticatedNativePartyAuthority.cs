@@ -31,7 +31,8 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
     public async Task<bool> ExecuteAsync(NativePartyCommand command, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (command.ExpectedRevision < 0 || command.PartyId.Length > 128
+        if (command.ExpectedRevision < 0 || command.PartyId == null || command.InviteId == null
+            || command.TargetPrimeId == null || command.PartyId.Length > 128
             || command.InviteId.Length > 128 || command.TargetPrimeId.Length > 27)
             return false;
         if (command.TargetPrimeId.Length != 0 &&
@@ -71,6 +72,7 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
             || value.Incoming == null || value.Outgoing == null
             || value.Members.Count > 8 || value.Incoming.Count > 256
             || value.Outgoing.Count > 256
+            || value.PartyId == null || value.LeaderPrimeId == null
             || value.PartyId.Length > 128 || value.LeaderPrimeId.Length > 27)
             throw new InvalidOperationException("Party service returned an invalid snapshot.");
         if (value.PartyId.Length > 0 &&
@@ -78,7 +80,7 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
             throw new InvalidOperationException("Party leader identity is invalid.");
         NativePartyMember[] members = value.Members.Select(m =>
         {
-            if (!NativeSocialFriendsController.ValidPrimeId(m.PrimeId)
+            if (m == null || !NativeSocialFriendsController.ValidPrimeId(m.PrimeId)
                 || String.IsNullOrWhiteSpace(m.DisplayName) || m.DisplayName.Length > 128)
                 throw new InvalidOperationException("Party member identity is invalid.");
             return new NativePartyMember(m.PrimeId.ToUpperInvariant(), m.DisplayName,
@@ -96,7 +98,7 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
             throw new InvalidOperationException("Party service returned duplicate members.");
         NativePartyInvite[] Convert(List<PartyWireInvite> invites) => invites.Select(i =>
         {
-            if (String.IsNullOrWhiteSpace(i.InviteId) || i.InviteId.Length > 128
+            if (i == null || String.IsNullOrWhiteSpace(i.InviteId) || i.InviteId.Length > 128
                 || String.IsNullOrWhiteSpace(i.PartyId) || i.PartyId.Length > 128
                 || !NativeSocialFriendsController.ValidPrimeId(i.FromPrimeId)
                 || !NativeSocialFriendsController.ValidPrimeId(i.ToPrimeId))
