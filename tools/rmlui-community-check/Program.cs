@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.MapGen;
 
 static void Check(bool pass, string label)
 {
@@ -69,7 +70,72 @@ Task.Run(() =>
 }).GetAwaiter().GetResult();
 Check(crossThread is InvalidOperationException,
     "native Community presenter alone applies completed HTTP work");
+provider.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+community.Refresh();
+provider.Pending.SetException(new InvalidOperationException("sensitive service payload and ticket"));
+var redacted = Wait(community, view => !view.Busy
+    && view.Status.Contains("UNAVAILABLE", StringComparison.Ordinal));
+Check(redacted.Rows.Count == 0
+    && !redacted.Status.Contains("sensitive", StringComparison.OrdinalIgnoreCase),
+    "catalog network failures never publish untrusted private service details");
 Console.WriteLine("RML Community discovery ownership and read-only contracts complete.");
+
+static NativeCommunityInstallView WaitInstall(NativeCommunityInstallController c,
+    Func<NativeCommunityInstallView, bool> ready)
+{
+    for (int i = 0; i < 100; ++i)
+    {
+        var view = c.Tick();
+        if (ready(view)) return view;
+        Thread.Sleep(10);
+    }
+    throw new TimeoutException("Community install fixture did not complete.");
+}
+var installation = new InstallStub();
+using var flow = new NativeCommunityInstallController(installation);
+var selectedMap = Row("EXACT PACKAGE", 'c');
+Check(!NativeCommunityInstallController.IsVerifiedSelection(
+        selectedMap with { LatestHash = new string('g', 64) })
+    && !flow.Begin(selectedMap with { MapId = Guid.Empty }),
+    "install rejects malformed hashes and missing immutable map IDs");
+Check(flow.Begin(selectedMap) && !flow.Begin(Row("OTHER", 'd')),
+    "only one exact published selection can own the install handoff");
+var wrong = new NativeCommunityInstalled(Guid.NewGuid(), selectedMap.LatestHash,
+    new MapDefinition { MapId = Guid.NewGuid(), Name = "UNTRUSTED" });
+installation.Pending.SetResult(wrong);
+Check(WaitInstall(flow, v => !v.Busy).CompletedMapId == null
+    && installation.RegisterCalls == 0,
+    "download results with mismatched selected map identity cannot register");
+
+installation.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(flow.Begin(selectedMap), "validated map may retry installation");
+var exact = new NativeCommunityInstalled(selectedMap.MapId, selectedMap.LatestHash,
+    new MapDefinition { MapId = selectedMap.MapId, Name = "VERIFIED" });
+installation.Pending.SetResult(exact);
+var installedView = WaitInstall(flow, v => !v.Busy && v.CompletedMapId != null);
+Check(installedView.CompletedMapId == selectedMap.MapId
+    && installedView.CompletedHash == selectedMap.LatestHash
+    && installation.RegisterCalls == 1 && installation.Last == exact,
+    "matching package registers only on the UI owner");
+
+installation.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(flow.Begin(Row("CANCELLED", 'e')), "new install starts asynchronously");
+flow.Cancel();
+installation.Pending.SetResult(new NativeCommunityInstalled(selectedMap.MapId,
+    selectedMap.LatestHash, new MapDefinition()));
+Thread.Sleep(20);
+Check(!flow.Tick().Busy && flow.Tick().CompletedMapId == null
+    && installation.RegisterCalls == 1,
+    "cancelled install handoff drops stale completion without stopping durable queue");
+Exception? installCrossThread = null;
+Task.Run(() =>
+{
+    try { flow.Tick(); }
+    catch (Exception ex) { installCrossThread = ex; }
+}).GetAwaiter().GetResult();
+Check(installCrossThread is InvalidOperationException,
+    "installed-map registration is restricted to UI owner thread");
+Console.WriteLine("RML-37 COMMUNITY INSTALL ACCEPTANCE COMPLETE");
 
 sealed class Stub : INativeCommunityReader
 {
@@ -86,5 +152,20 @@ sealed class Stub : INativeCommunityReader
         if (Pending.Task.IsCompleted)
             Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
         return Pending.Task;
+    }
+}
+
+sealed class InstallStub : INativeCommunityInstaller
+{
+    public TaskCompletionSource<NativeCommunityInstalled> Pending =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public int RegisterCalls;
+    public NativeCommunityInstalled? Last;
+    public Task<NativeCommunityInstalled> InstallAsync(NativeCommunityEntry entry,
+        CancellationToken cancellation) => Pending.Task;
+    public void Register(NativeCommunityInstalled result)
+    {
+        RegisterCalls++;
+        Last = result;
     }
 }
