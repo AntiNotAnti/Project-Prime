@@ -191,7 +191,7 @@ public sealed class RmlUiMenuController : IDisposable
                     String.IsNullOrWhiteSpace(lobbyName) ? "Project Prime lobby" : lobbyName.Trim(),
                     String.IsNullOrWhiteSpace(playerName) ? hub.PlayerName : playerName.Trim(),
                     _createMap, _createMode, _createFormat, hub.DisplayHunter, _createDedicated);
-                if (!request.Validate(out string failure))
+                if (!request.ValidateForm(out string failure))
                 {
                     Status(failure);
                     return false;
