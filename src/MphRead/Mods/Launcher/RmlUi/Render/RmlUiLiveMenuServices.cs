@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher.RmlUi.Core;
@@ -163,6 +164,77 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         RmlUiAdventureSlot[] now = ReadAdventureSlots();
         if (now[expected.Slot - 1] != expected) return false;
         return Shell.RmlUiLaunchAdventure(expected, newGame, hunter);
+    }
+
+    public Task<RmlUiReplayEntry[]> ReadTheatreAsync(CancellationToken token)
+        => ReplayStorageJobs.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            return DemoLibrary.List().Select(demo =>
+            {
+                var info = new FileInfo(demo.Path);
+                bool interrupted = demo.Path.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
+                bool playable = !interrupted && demo.Compatibility == ReplayOpenResult.Success;
+                return new RmlUiReplayEntry(
+                    demo.Path, demo.DisplayName, DemoLibrary.Describe(demo),
+                    demo.Room, demo.Recorded.Ticks, demo.Bytes,
+                    info.Exists ? info.LastWriteTimeUtc.Ticks : 0,
+                    demo.Favorite, demo.Metadata?.Type == ReplayType.Clip,
+                    interrupted || demo.Compatibility == ReplayOpenResult.Truncated,
+                    playable);
+            }).ToArray();
+        }, token);
+
+    private static bool ExactReplay(RmlUiReplayEntry entry)
+    {
+        if (String.IsNullOrWhiteSpace(entry.Path)) return false;
+        string file, folder, library;
+        try
+        {
+            file = Path.GetFullPath(entry.Path);
+            folder = Path.GetDirectoryName(file) ?? "";
+            library = Path.GetFullPath(DemoLibrary.Directory);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException
+            or PathTooLongException) { return false; }
+
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (!String.Equals(folder, library, comparison)
+            || (!file.EndsWith(DemoFile.Extension, comparison)
+                && !file.EndsWith(DemoFile.LegacyExtension, comparison)))
+            return false;
+        var info = new FileInfo(file);
+        return info.Exists && info.Length == entry.Bytes
+            && info.LastWriteTimeUtc.Ticks == entry.LastWriteTicks;
+    }
+
+    public Task<string> ValidateReplayAsync(RmlUiReplayEntry entry, CancellationToken token)
+        => ReplayStorageJobs.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (!entry.Playable || !ExactReplay(entry))
+                return "REPLAY CHANGED, IS INTERRUPTED, OR IS OUTSIDE THE LOCAL LIBRARY";
+            ReplayLaunchValidator.Result result = ReplayLaunchValidator.Probe(entry.Path);
+            token.ThrowIfCancellationRequested();
+            return result.Ok ? "" : result.Error ?? "REPLAY FAILED VALIDATION";
+        }, token);
+
+    public bool LaunchReplay(RmlUiReplayEntry entry)
+        => entry.Playable && ExactReplay(entry) && Shell.RmlUiLaunchReplay(entry);
+
+    public bool ToggleReplayFavorite(RmlUiReplayEntry entry)
+    {
+        if (!ExactReplay(entry) || !entry.Playable) return false;
+        try
+        {
+            DemoLibrary.ToggleFavorite(entry.Path);
+            return true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
