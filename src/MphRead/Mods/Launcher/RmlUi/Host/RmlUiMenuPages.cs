@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin }
 
     public static class RmlUiMenuPages
     {
@@ -15,12 +15,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
         public static readonly RmlUiPageSpec Hunters = new("hunters", "pages/hunters/identity.rml", "hunter_cancel");
+        public static readonly RmlUiPageSpec Admin = new("admin", "pages/lobby/admin.rml", "admin_close");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
             RmlUiMenuPage.Home => Home, RmlUiMenuPage.Play => Play,
             RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules, RmlUiMenuPage.Maps => Maps,
-            RmlUiMenuPage.Hunters => Hunters,
+            RmlUiMenuPage.Hunters => Hunters, RmlUiMenuPage.Admin => Admin,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -499,17 +500,77 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return bindings.ToArray();
         }
 
+        private static readonly Binding[] AdminBindings = BuildAdminBindings();
+
+        private static Binding[] BuildAdminBindings()
+        {
+            var values = new List<Binding>();
+            foreach (string id in new[]
+            {
+                "admin_title", "admin_status", "admin_selected_name",
+                "admin_selected_details", "admin_handicap", "admin_bot_hunter",
+                "admin_bot_suit", "admin_bot_level", "admin_teams", "admin_team_lock",
+                "admin_map_status", "admin_rotation_state", "admin_permission_reason",
+                "admin_chat_history", "admin_chat_hint", "admin_confirmation_text"
+            })
+                values.Add(new(RmlUiBindingKind.Text, id, "{{" + id + "}}"));
+
+            values.Add(new(RmlUiBindingKind.Boolean,
+                "visible:admin_confirmation", "admin_confirmation_open"));
+            foreach (string name in new[]
+            {
+                "team", "handicap", "kick", "transfer", "bot_add", "bot_apply",
+                "bot_remove", "bot_hunter", "bot_suit", "bot_level", "team_auto",
+                "team_lock", "map_retry", "start", "close_lobby", "chat_send"
+            })
+            {
+                string key = name is "bot_hunter" or "bot_suit" or "bot_level"
+                    ? "admin_bot_options_enabled"
+                    : name == "team_auto" ? "admin_team_enabled"
+                    : "admin_" + name + "_enabled";
+                values.Add(new(RmlUiBindingKind.Boolean, "disabled:admin_" + name, "!" + key));
+            }
+            values.Add(new(RmlUiBindingKind.Boolean, "disabled:admin_close", "admin_confirmation_open"));
+            values.Add(new(RmlUiBindingKind.Boolean, "disabled:admin_chat_input", "admin_confirmation_open"));
+            for (int i = 0; i < 8; i++)
+            {
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"visible:admin_slot{i}", $"admin_slot{i}_present"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"disabled:admin_slot{i}", $"!admin_slot{i}_present"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"class:admin_slot{i}:selected", $"admin_slot{i}_selected"));
+                values.Add(new(RmlUiBindingKind.Text,
+                    $"admin_player{i}_name", $"{{{{admin_player{i}_name}}}}"));
+                values.Add(new(RmlUiBindingKind.Text,
+                    $"admin_player{i}_details", $"{{{{admin_player{i}_details}}}}"));
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                values.Add(new(RmlUiBindingKind.Text,
+                    $"admin_team{i}", $"{{{{admin_team{i}_label}}}}"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"visible:admin_team{i}", $"admin_team{i}_present"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"disabled:admin_team{i}", $"!admin_team{i}_enabled"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    $"class:admin_team{i}:selected", $"admin_team{i}_selected"));
+            }
+            return values.ToArray();
+        }
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
+                RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))
             });
             return new ReadOnlyDictionary<string, RmlUiBindingValue>(output);
