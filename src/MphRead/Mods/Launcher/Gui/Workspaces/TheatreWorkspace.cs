@@ -1387,31 +1387,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static ReplayLaunchProbe ProbeReplayLaunch(string source)
         {
-            using DemoReader? reader = DemoReader.Open(source,
-                out ReplayOpenResult result, metadataOnly: true);
-            if (reader == null)
-                return new(result, $"Cannot open replay: {result}.");
-
-            if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion))
-            {
-                return new(ReplayOpenResult.ProtocolMismatch,
-                    $"This replay uses network protocol {reader.ProtocolVersion}. "
-                    + $"This build can replay archived protocols "
-                    + $"{ReplayIdentityCompatibility.OldestReplayProtocol}-{NetConfig.ProtocolVersion}.");
-            }
-
-            if (reader.Metadata is ReplayMetadata metadata)
-            {
-                result = ReplayMapIdentity.Validate(metadata);
-                if (result == ReplayOpenResult.MapHashMismatch
-                    && metadata.CustomMapIdentity == null
-                    && reader.ProtocolVersion < NetConfig.ProtocolVersion)
-                    result = ReplayOpenResult.Success;
-                if (result != ReplayOpenResult.Success)
-                    return new(result, $"Cannot load replay map: {result}.");
-            }
-
-            return new(ReplayOpenResult.Success, null);
+            ReplayLaunchValidator.Result probe = ReplayLaunchValidator.Probe(source);
+            return new(probe.Code, probe.Error);
         }
 
         private async Task WatchAsync()
