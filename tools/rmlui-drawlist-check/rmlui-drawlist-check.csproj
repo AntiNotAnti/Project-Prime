@@ -10,5 +10,7 @@
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawList.cs"
              Link="RmlUiDrawList.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiGlesPlan.cs"
+             Link="RmlUiGlesPlan.cs" />
   </ItemGroup>
 </Project>
