@@ -150,12 +150,13 @@ internal static class RmlUiOpenGlSmoke
                     }
                     continue;
                 }
-                // Native Community is read-only until the authenticated
-                // install/creator APIs are separately migrated.
+                // Native Community installs immutable packages through the shared
+                // verified queue; creator actions still belong to Studio.
                 if (_community != null && intent.Kind is
                     (RmlUiIntentKind.CommunityRefresh or RmlUiIntentKind.CommunitySearch
                      or RmlUiIntentKind.CommunitySort or RmlUiIntentKind.CommunityPage
-                     or RmlUiIntentKind.CommunitySelect or RmlUiIntentKind.CommunityImport))
+                     or RmlUiIntentKind.CommunitySelect or RmlUiIntentKind.CommunityImport
+                     or RmlUiIntentKind.CommunityDetailAction or RmlUiIntentKind.CommunityCancelWork))
                 {
                     NativeCommunityDiscoverPage page = _community;
                     page.Handle(intent);
@@ -617,7 +618,8 @@ internal static class RmlUiOpenGlSmoke
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Community browser is not packaged.", path);
         _launcherPages?.Suspend();
-        var next = new NativeCommunityDiscoverPage(host, _pages, new NativeCommunityReader());
+        var next = new NativeCommunityDiscoverPage(host, _pages,
+            new NativeCommunityReader(), new NativeCommunityInstaller());
         try
         {
             next.Open();
