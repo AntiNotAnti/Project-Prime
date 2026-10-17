@@ -43,7 +43,7 @@ Check(!controller.Apply() && controller.Current().Dirty
     "persistence failure never pretends to have saved data");
 fake.ThrowOnSave = false;
 Exception? wrong = null;
-await Task.Run(() => { try { controller.Current(); } catch (Exception e) { wrong = e; } });
+Task.Run(() => { try { controller.Current(); } catch (Exception e) { wrong = e; } }).GetAwaiter().GetResult();
 Check(wrong is InvalidOperationException,
     "current UI thread owns preference snapshots and actions");
 Console.WriteLine("RML quick settings contract complete.");
