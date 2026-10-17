@@ -17,7 +17,10 @@ namespace MphRead.Mods.Launcher;
 public readonly record struct LobbyCreationRequest(string Name, string Player,
     string RoomKey, GameMode Mode, MatchFormat Format, Hunter Hunter, bool Dedicated)
 {
-    public bool Validate(out string error)
+    // Safe on the render/owner thread: field and metadata checks only.
+    // A full entity-layer map inspection does IO and may decode large world
+    // packages. That expensive validation belongs in CreateAsync's worker.
+    public bool ValidateForm(out string error)
     {
         error = "";
         if (String.IsNullOrWhiteSpace(RoomKey) || !Metadata.IsBuiltInRoom(RoomKey))
@@ -28,23 +31,33 @@ public readonly record struct LobbyCreationRequest(string Name, string Player,
             error = "Enter your Hunter name.";
         else if (Dedicated && OperatingSystem.IsAndroid())
             error = "Android requires a remote authoritative host.";
-        else if (!Multiplayer.MapModeCapabilities.Supports(RoomKey, Mode,
-            LobbyRules.ResolveWorldProfile(new MatchDefinition
-            { RoomKey = RoomKey, Mode = Mode, Format = Format }, PlayerEntity.SlotCapacity),
-            out error, PlayerEntity.SlotCapacity))
-        {
-            if (error.Length == 0) error = "That arena does not support this match type.";
-        }
+        else if (!Enum.IsDefined(Mode) || Mode is GameMode.None or GameMode.SinglePlayer
+            || !Enum.IsDefined(Format))
+            error = "Choose a valid multiplayer game type.";
         else if (LobbyRules.ValidateDefinition(new MatchDefinition
             {
-                RoomKey = RoomKey,
-                MapIdentity = NetworkMapIdentity.ForRoom(RoomKey),
+                RoomKey = RoomKey, MapIdentity = NetworkMapIdentity.ForRoom(RoomKey),
                 Mode = Mode, Format = Format
             }, out error) != LobbyResultCode.Ok)
         {
             if (error.Length == 0) error = "That lobby format is invalid.";
         }
         return error.Length == 0;
+    }
+
+    public bool Validate(out string error)
+    {
+        if (!ValidateForm(out error)) return false;
+        var match = new MatchDefinition
+        { RoomKey = RoomKey, Mode = Mode, Format = Format };
+        if (!Multiplayer.MapModeCapabilities.Supports(RoomKey, Mode,
+            LobbyRules.ResolveWorldProfile(match, PlayerEntity.SlotCapacity),
+            out error, PlayerEntity.SlotCapacity))
+        {
+            if (error.Length == 0) error = "That arena does not support this match type.";
+            return false;
+        }
+        return true;
     }
 }
 
@@ -75,8 +88,17 @@ public static class LobbyCreationService
     {
         if (!GameFiles.Ready)
             return new(false, default, "Configure the game files before hosting.");
-        if (!request.Validate(out string error))
+        if (!request.ValidateForm(out string error))
             return new(false, default, error);
+        cancellation.ThrowIfCancellationRequested();
+        // The real map-capability gate reads entity data. Never perform it on
+        // the render thread that dispatched the native Create Lobby action.
+        string capabilityError = await Task.Run(() =>
+        {
+            return request.Validate(out string reason) ? "" : reason;
+        }, cancellation).ConfigureAwait(false);
+        if (capabilityError.Length != 0)
+            return new(false, default, capabilityError);
         cancellation.ThrowIfCancellationRequested();
 
         (int seconds, ushort goal) = InitialLimits(request.Mode);
