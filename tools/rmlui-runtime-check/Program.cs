@@ -402,6 +402,22 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     composed.Flush();
     Require(composedManager.ModalCount == 0 && !host.IsAlive(arenaPage),
         "Closing native arena picker must retire document and input lifetime");
+    composed.SetBool("offline_training_open", true);
+    composed.Flush();
+    var trainingPage = composedManager.Top;
+    Require(composedManager.ModalCount == 1 && trainingPage != offlinePage,
+        "Native advanced Aim Lab options must use one owned foreground modal");
+    var staleDrill = new RmlUiIntent(RmlUiIntentKind.OfflineLaunchTraining, 0, offlinePage, 55);
+    Require(composed.HandleIntent(staleDrill, out var ignoredDrill) && ignoredDrill == default,
+        "Underlying Aim Lab Start cannot dispatch through an options modal");
+    var closeTraining = new RmlUiIntent(RmlUiIntentKind.OfflineCloseTrainingOptions, 0, trainingPage, 56);
+    Require(composed.HandleIntent(closeTraining, out var forwardedTraining)
+        && forwardedTraining == closeTraining,
+        "Native Aim Lab advanced options close forwards the active document event");
+    composed.SetBool("offline_training_open", false);
+    composed.Flush();
+    Require(composedManager.ModalCount == 0 && !host.IsAlive(trainingPage),
+        "Retired training options cannot retain input or old focus state");
 }
 Require(native.Documents.Count == 1, "Composed page teardown leaked native documents");
 
