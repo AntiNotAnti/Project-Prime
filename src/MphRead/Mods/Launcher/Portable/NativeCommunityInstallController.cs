@@ -125,6 +125,7 @@ public sealed class NativeCommunityInstallController : IDisposable
             var result = finish.Result;
             if (result != null && result.Definition != null
                 && result.MapId == _expected.MapId
+                && result.Definition.MapId == _expected.MapId
                 && result.PackageHash.Equals(_expected.LatestHash,
                     StringComparison.OrdinalIgnoreCase))
             {
