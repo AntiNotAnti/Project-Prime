@@ -835,8 +835,9 @@ public sealed class RmlUiMenuController : IDisposable
                 Begin(Job.TheatreRead, "REFRESHING FAVORITE STATE",
                     async token => await _services.ReadTheatreAsync(token).ConfigureAwait(false));
                 return true;
-            case 18:
-            case 19:
+            case 17: // OPEN FULL REPLAY STUDIO
+            case 18: // IMPORT
+            case 19: // IMPORT PATH
                 // The full Theatre still owns virtual clips, batch tools, file
                 // management and the rich video editor. Never fake an edit.
                 if (!_services.NavigateTo(RmlUiRouteArgument.Theatre)) return false;
