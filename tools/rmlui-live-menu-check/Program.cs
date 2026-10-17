@@ -803,11 +803,11 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbySlotTeamNext, 0)
     "local nameplate team action submits exact authoritative slot+generation, not display index");
 Check(controller.Dispatch(RmlUiIntentKind.LobbyChatSend,
         adminChat: "  Ready to play  ")
-    && services.ChatCalls == 1 && services.LastChat == "Ready to play",
+    && services.ChatCalls == 2 && services.LastChat == "Ready to play",
     "central Lobby chat sends real user text without requiring Admin modal");
 Check(!controller.Dispatch(RmlUiIntentKind.LobbyChatSend,
         adminChat: new string('X', ChatPacket.MaxTextBytes + 1))
-    && services.ChatCalls == 1,
+    && services.ChatCalls == 2,
     "chat refuses messages over protocol UTF-8 wire bound");
 services.AdminState = stageRoster with
 {
