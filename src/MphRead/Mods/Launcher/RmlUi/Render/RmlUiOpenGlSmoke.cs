@@ -7,6 +7,7 @@ using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Pages.News;
 using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
+using MphRead.Mods.Launcher.RmlUi.Pages.Hunters;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -29,6 +30,7 @@ internal static class RmlUiOpenGlSmoke
     private static NewsPagePresenter? _news;
     private static NewsController? _newsController;
     private static QuickSettingsPagePresenter? _quickSettings;
+    private static NativeHunterPagePresenter? _hunterChoice;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -82,8 +84,24 @@ internal static class RmlUiOpenGlSmoke
             RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
-                // The page manager enforces top document, sequence and
-                // generation lifetime, rejecting background page clicks.
+                // Foreground document, sequence and generation fences reject
+                // stale input from pages hidden by the native router.
+                if (_hunterChoice != null && intent.Kind is
+                    (RmlUiIntentKind.HunterSelect or RmlUiIntentKind.HunterSuit
+                     or RmlUiIntentKind.HunterApply or RmlUiIntentKind.HunterCancel
+                     or RmlUiIntentKind.HunterResetPreview or RmlUiIntentKind.HunterOpen))
+                {
+                    NativeHunterPagePresenter hunter = _hunterChoice;
+                    hunter.Handle(intent);
+                    if (hunter.Closed) CloseNativeHunter();
+                    else if (hunter.OpenFullLicenseRequested)
+                    {
+                        CloseNativeHunter();
+                        controller.Dispatch(RmlUiIntentKind.Navigate,
+                            (int)RmlUiRouteArgument.HunterLicense);
+                    }
+                    continue;
+                }
                 if (_quickSettings != null && intent.Kind is
                     (RmlUiIntentKind.SettingsAction or RmlUiIntentKind.SettingsApply
                         or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose))
@@ -106,27 +124,47 @@ internal static class RmlUiOpenGlSmoke
                 }
                 if (intent.Kind == RmlUiIntentKind.Navigate)
                 {
+                    if (_pages != null && _pages.Page != default
+                        && !_pages.Accept(intent)) continue;
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
                         CloseNativeQuickSettings();
+                        CloseNativeHunter();
                         OpenNativeNews(host);
                         continue;
                     }
                     if (intent.Argument == (int)RmlUiRouteArgument.Settings && _quickSettings == null)
                     {
                         CloseNativeNews();
+                        CloseNativeHunter();
                         OpenNativeQuickSettings();
                         continue;
                     }
-                    if (intent.Argument == (int)RmlUiRouteArgument.Home
-                        && (_news != null || _quickSettings != null))
+                    if (intent.Argument == (int)RmlUiRouteArgument.HunterLicense
+                        && _hunterChoice == null)
                     {
+                        CloseNativeNews();
+                        CloseNativeQuickSettings();
+                        OpenNativeHunter();
+                        continue;
+                    }
+                    if (intent.Argument == (int)RmlUiRouteArgument.Home
+                        && (_news != null || _quickSettings != null || _hunterChoice != null))
+                    {
+                        CloseNativeHunter();
                         CloseNativeQuickSettings();
                         CloseNativeNews();
                         continue;
                     }
                 }
-                if (_quickSettings != null) CloseNativeQuickSettings();
+                // Page-specific actions never fall through to the Home model.
+                if (_hunterChoice != null || _quickSettings != null || _news != null)
+                {
+                    if (intent.Kind != RmlUiIntentKind.Navigate) continue;
+                    CloseNativeHunter();
+                    CloseNativeQuickSettings();
+                    CloseNativeNews();
+                }
                 if (_news != null)
                 {
                     // Native navigation to an existing, nonmigrated workspace
@@ -290,6 +328,33 @@ internal static class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
+    private static void OpenNativeHunter()
+    {
+        if (_pages == null || _hunterChoice != null) return;
+        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "hunters", "native-picker.rml");
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Native Hunter picker is not packaged.", path);
+        var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore());
+        try
+        {
+            next.Open();
+            _hunterChoice = next;
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeHunter()
+    {
+        var old = _hunterChoice;
+        _hunterChoice = null;
+        old?.Dispose();
+    }
+
     private static float Density(RenderWindow window)
     {
         float value = (float)window.FramebufferSize.X / Math.Max(1, window.ClientSize.X);
@@ -376,6 +441,12 @@ internal static class RmlUiOpenGlSmoke
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
                 catch { }
             }
+        }
+        try { CloseNativeHunter(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "hunter picker teardown: " + error.Message); }
+            catch { }
         }
         try { CloseNativeQuickSettings(); }
         catch (Exception error) when (Recoverable(error))
