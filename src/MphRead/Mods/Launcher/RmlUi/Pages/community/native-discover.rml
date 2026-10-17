@@ -39,7 +39,7 @@
       <p id="native_community_description">Published revisions are immutable. Select a map to install its exact package.</p>
       <p id="native_community_hash"></p>
       <button id="native_community_install" data-action="community:detail:0">INSTALL VERIFIED MAP</button>
-      <button id="native_community_cancel_install" data-action="community:cancel-work" data-prime-visible="false">CANCEL HANDOFF</button>
+      <button id="native_community_cancel_install" data-action="community:cancel-work">CANCEL HANDOFF</button>
       <button id="native_community_full" data-action="community:import">FULL COMMUNITY</button>
       <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
     </div>
