@@ -750,7 +750,7 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_rules_open", lobby.Active && _rules != null);
         Flag("lobby_map_open", lobby.Active && _mapPicker != null);
         Flag("lobby_hunter_open", lobby.Active && _hunterDraft.HasValue);
-        Text("hunter_name", _hunterDraft.HasValue
+        Text("hunter_identity_name", _hunterDraft.HasValue
             ? _hunterChoice.ToString().ToUpperInvariant() + " // SUIT " + (_hunterSuit + 1) : "");
         Text("hunter_status", _hunterStatus);
         Text("hunter_restriction", _hunterDraft is { } selection && selection.Allowed.Length < 7
