@@ -131,7 +131,8 @@ public sealed class NativeCommunityDiscoverController : IDisposable
         }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
-            _done.Enqueue(new(epoch, null, "COMMUNITY UNAVAILABLE: " + error.Message));
+            // Never project untrusted service/HTTP error text into native RmlUi.
+            _done.Enqueue(new(epoch, null, "COMMUNITY UNAVAILABLE // CHECK CONNECTION OR SERVICE"));
         }
         finally { cts.Dispose(); }
     }
