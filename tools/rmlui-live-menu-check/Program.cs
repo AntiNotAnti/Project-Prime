@@ -336,6 +336,16 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminC
 services.LobbyView = Stub.EmptyLobby;
 
 
+// Preview is a read-only launch candidate; rejected match rules cannot
+// persist a changed map or previous Hunter loadout.
+var previewSettings = new MenuSettings { RoomKey = "UNCHANGED MAP" };
+var previewPlan = OfflineLaunch.Preview(previewSettings, "MP1 SANCTORUS",
+    GameMode.Battle, Hunter.Kanden, 2, 3, 1);
+Check(previewSettings.RoomKey == "UNCHANGED MAP"
+    && previewPlan.RoomKey == "MP1 SANCTORUS" && previewPlan.Bots == 3
+    && previewPlan.BotLevel == 1,
+    "offline preview remains side-effect-free before local launch admission");
+
 // RML-25: a native local match draft is distinct from a server admission,
 // never persists global preferences, and may only hand off after a worker
 // validates the current map and mode against the existing engine contract.
@@ -411,8 +421,8 @@ Check(Flag(Wait(controller, _ => services.OfflineLaunches == 1), "offline_mode")
     && services.LastOffline.Mode == GameMode.Battle,
     "successful map validation hands one immutable request to existing local launcher");
 Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
-    || services.OfflineLaunches == 1,
-    "an unconfirmed newer local attempt cannot launch optimistically");
+    && services.OfflineLaunches == 1,
+    "accepted offline launch is one-shot until a fresh route creates a draft");
 controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
 // RML-26: the existing AimTrainerDefinition is authoritative. Its native
