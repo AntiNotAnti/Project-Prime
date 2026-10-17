@@ -39,6 +39,9 @@ jobs:
       - name: verify authored RmlUi page and font assets
         run: python3 tools/rmlui/check-pages.py
 
+      - name: RmlUi native News provider and modal lifecycle contracts
+        run: dotnet run --project tools/rmlui-news-check -c Release
+
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
