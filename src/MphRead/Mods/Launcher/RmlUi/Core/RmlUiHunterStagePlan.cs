@@ -28,8 +28,11 @@ public sealed record RmlUiHunterStagePlan(
         bool files = hub.GameFilesReady;
         Hunter hero = (uint)hub.DisplayHunter < 7 ? hub.DisplayHunter : Hunter.Samus;
         int suit = Math.Clamp(hub.Suit, 0, 3);
-        if (!files || !lobby.Active)
+        if (!lobby.Active)
             return new(files, false, false, hero, suit, Array.Empty<RmlUiStageHunter>());
+        if (!files)
+            return new(false, true, lobby.Starting, hero, suit,
+                Array.Empty<RmlUiStageHunter>());
 
         // Never synthesize lobby model identities from display names. If the
         // versioned roster is absent or invalid, use empty pads until it arrives.
