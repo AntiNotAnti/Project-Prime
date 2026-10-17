@@ -245,6 +245,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
             case RmlUiIntentKind.LobbyRulesOpen:
+                if (_hunterDraft.HasValue) return false;
                 var original = _services.ReadRules();
                 if (!original.HasValue) return false;
                 _rules = new(original.Value);
@@ -515,7 +516,7 @@ public sealed class RmlUiMenuController : IDisposable
     private bool OpenMapPicker()
     {
         RmlUiLobbyView lobby = _services.Lobby();
-        if (!lobby.Active || lobby.Starting || _rulesSubmitted) return false;
+        if (!lobby.Active || lobby.Starting || _rulesSubmitted || _hunterDraft.HasValue) return false;
         bool created = _rules == null;
         if (created)
         {
