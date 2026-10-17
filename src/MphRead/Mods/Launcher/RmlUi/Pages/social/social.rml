@@ -7,8 +7,9 @@
 <body template="prime-shell">
 <div id="social_page">
     <div class="eyebrow">HUNTERS ONLINE // SOCIAL</div>
-    <div id="social_header" class="social_header"><h1>YOUR HUNTING PARTY</h1><input id="social_self_id" type="text" readonly="readonly" value="" /></div>
+    <div id="social_header" class="social_header"><h1>FRIENDS &amp; REQUESTS</h1><p id="social_self_id">NOT CONNECTED</p></div>
     <p id="social_counts" />
+    <p class="social_notice">Friends, friend requests and blocks use your authenticated Hunter License. Online presence, lobby invitations, party actions and privacy controls are not yet connected; these controls are deliberately unavailable.</p>
     <div id="social_tabs" class="social_tabs">
         <button id="social_friends" data-action="social:friends">FRIENDS</button>
         <button id="social_players" data-action="social:players">PLAYERS</button>
@@ -64,7 +65,7 @@
         </div>
     </div>
     <div class="social_panel social_party_status">
-        <h2>PARTY TRAVEL AND RESERVED SEATS</h2>
+        <h2>PARTY TRAVEL AND RESERVED SEATS // COMING NEXT</h2>
         <p id="social_party_summary" /><p id="social_travel_summary" class="social_notice" /><p id="social_travel_members" class="social_notice" />
         <p id="social_reservation_summary" class="social_notice" /><p id="social_reserved_members" class="social_notice" />
         <div class="social_commands">
@@ -86,7 +87,7 @@
             <button id="social_invites_privacy" data-action="social:invites-next">INVITES // <span id="social_invites_value" /></button>
             <button id="social_dnd" data-action="social:dnd">DO NOT DISTURB // <span id="social_dnd_value" /></button>
         </div>
-        <p>Privacy changes save immediately. Do Not Disturb refuses game and party invitations while keeping your presence choice.</p>
+        <p>Privacy controls are disabled until authenticated presence and party services are restored. No privacy preference will be changed here.</p>
     </div>
     <div id="social_status" class="social_notice social_status" /><div id="social_error" class="social_notice social_error" />
     <div class="social_commands"><button id="social_refresh" data-action="social:refresh">REFRESH SOCIAL</button><button id="social_cancel_refresh" data-action="social:cancel">CANCEL REQUEST</button><button id="social_back" data-action="social:back">BACK</button></div>
