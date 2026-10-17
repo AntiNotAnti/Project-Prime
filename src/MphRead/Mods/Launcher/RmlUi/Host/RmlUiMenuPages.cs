@@ -87,6 +87,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "text_hunter_name_1", "{{hunter_name}} // READY"),
             new(RmlUiBindingKind.Text, "home_party_state", "{{home_party_state}}"),
             new(RmlUiBindingKind.Text, "home_social_summary", "{{home_social_summary}}"),
+            new(RmlUiBindingKind.Boolean, "disabled:home_social", "!home_social_ready"),
 
 
 
@@ -165,6 +166,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private static readonly Binding[] LobbyBindings =
         {
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_social_access", "!home_social_ready"),
             new(RmlUiBindingKind.Text, "lobby_brief_title", "{{lobby_brief_title}}"),
             new(RmlUiBindingKind.Text, "lobby_brief_count", "{{lobby_brief_count}}"),
             new(RmlUiBindingKind.Text, "lobby_brief_detail", "{{lobby_brief_detail}}"),
