@@ -9,6 +9,7 @@ using MphRead.Mods.Launcher.RmlUi.Pages.News;
 using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using MphRead.Mods.Launcher.RmlUi.Pages.Hunters;
 using MphRead.Mods.Launcher.RmlUi.Pages.Community;
+using MphRead.Mods.Launcher.RmlUi.Pages.License;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -33,6 +34,7 @@ internal static class RmlUiOpenGlSmoke
     private static QuickSettingsPagePresenter? _quickSettings;
     private static NativeHunterPagePresenter? _hunterChoice;
     private static NativeCommunityDiscoverPage? _community;
+    private static NativeLicenseOverviewPage? _license;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -86,6 +88,19 @@ internal static class RmlUiOpenGlSmoke
             RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
+                if (_license != null && intent.Kind == RmlUiIntentKind.LicenseAction)
+                {
+                    NativeLicenseOverviewPage license = _license;
+                    license.Handle(intent);
+                    if (license.Closed) CloseNativeLicense();
+                    else if (license.OpenFullLicenseRequested)
+                    {
+                        CloseNativeLicense();
+                        controller.Dispatch(RmlUiIntentKind.Navigate,
+                            (int)RmlUiRouteArgument.HunterLicense);
+                    }
+                    continue;
+                }
                 // Native Community is read-only until the authenticated
                 // install/creator APIs are separately migrated.
                 if (_community != null && intent.Kind is
@@ -116,8 +131,7 @@ internal static class RmlUiOpenGlSmoke
                     else if (hunter.OpenFullLicenseRequested)
                     {
                         CloseNativeHunter();
-                        controller.Dispatch(RmlUiIntentKind.Navigate,
-                            (int)RmlUiRouteArgument.HunterLicense);
+                        OpenNativeLicense();
                     }
                     continue;
                 }
@@ -151,6 +165,7 @@ internal static class RmlUiOpenGlSmoke
                         && !_pages.Accept(intent)) continue;
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
+                        CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeQuickSettings();
                         CloseNativeHunter();
@@ -159,6 +174,7 @@ internal static class RmlUiOpenGlSmoke
                     }
                     if (intent.Argument == (int)RmlUiRouteArgument.Settings && _quickSettings == null)
                     {
+                        CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeNews();
                         CloseNativeHunter();
@@ -168,6 +184,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.HunterLicense
                         && _hunterChoice == null)
                     {
+                        CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeNews();
                         CloseNativeQuickSettings();
@@ -177,6 +194,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.Community
                         && _community == null)
                     {
+                        CloseNativeLicense();
                         CloseNativeNews();
                         CloseNativeHunter();
                         CloseNativeQuickSettings();
@@ -185,8 +203,10 @@ internal static class RmlUiOpenGlSmoke
                     }
                     if (intent.Argument == (int)RmlUiRouteArgument.Home
                         && (_news != null || _quickSettings != null
-                            || _hunterChoice != null || _community != null))
+                            || _hunterChoice != null || _community != null
+                            || _license != null))
                     {
+                        CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeHunter();
                         CloseNativeQuickSettings();
@@ -196,9 +216,10 @@ internal static class RmlUiOpenGlSmoke
                 }
                 // Page-specific actions never fall through to the Home model.
                 if (_hunterChoice != null || _quickSettings != null
-                    || _news != null || _community != null)
+                    || _news != null || _community != null || _license != null)
                 {
                     if (intent.Kind != RmlUiIntentKind.Navigate) continue;
+                    CloseNativeLicense();
                     CloseNativeCommunity();
                     CloseNativeHunter();
                     CloseNativeQuickSettings();
@@ -245,6 +266,7 @@ internal static class RmlUiOpenGlSmoke
                 return;
             }
             _community?.Refresh();
+            _license?.Refresh();
             RmlUiMenuSnapshot snapshot = controller.Tick();
             if (snapshot.Revision > _lastPresentedRevision)
             {
@@ -422,6 +444,34 @@ internal static class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
+    private static void OpenNativeLicense()
+    {
+        if (_pages == null || _license != null) return;
+        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "license", "native-overview.rml");
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Native Hunter License overview is not packaged.", path);
+        var next = new NativeLicenseOverviewPage(_pages,
+            new CurrentHunterLicenseOverviewReader());
+        try
+        {
+            next.Open();
+            _license = next;
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeLicense()
+    {
+        var old = _license;
+        _license = null;
+        old?.Dispose();
+    }
+
     private static float Density(RenderWindow window)
     {
         float value = (float)window.FramebufferSize.X / Math.Max(1, window.ClientSize.X);
@@ -508,6 +558,12 @@ internal static class RmlUiOpenGlSmoke
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
                 catch { }
             }
+        }
+        try { CloseNativeLicense(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "license teardown: " + error.Message); }
+            catch { }
         }
         try { CloseNativeCommunity(); }
         catch (Exception error) when (Recoverable(error))
