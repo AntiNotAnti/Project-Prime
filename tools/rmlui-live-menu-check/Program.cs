@@ -236,7 +236,7 @@ Check(hunterBindings.TryGetValue("disabled:hunter_choice2", out var disabledTrac
 Check(!controller.Dispatch(RmlUiIntentKind.HunterSelect, (int)Hunter.Trace)
     && controller.Dispatch(RmlUiIntentKind.HunterSelect, (int)Hunter.Kanden)
     && controller.Dispatch(RmlUiIntentKind.HunterSuit, 2)
-    && Text(controller.Tick(), "hunter_name").Contains("KANDEN")
+    && Text(controller.Tick(), "hunter_identity_name").Contains("KANDEN")
     && services.HunterApplyCalls == 0,
     "Hunter and suit changes remain local until Apply");
 Check(controller.Dispatch(RmlUiIntentKind.HunterApply)
