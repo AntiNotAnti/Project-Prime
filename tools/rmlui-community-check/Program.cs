@@ -30,6 +30,7 @@ community.Refresh();
 Check(community.Current().Busy && community.Current().Rows.Count == 0,
     "remote catalog work is pending without blocking the owner thread");
 var old = provider.Pending;
+provider.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(community.Search("  arena ") && provider.Search == "arena" && provider.Page == 1
     && provider.Sort == "updated", "search trims user text and restarts from page one");
 old.SetResult(new(new[] { Row("STALE") }, 1, 1, 8));
