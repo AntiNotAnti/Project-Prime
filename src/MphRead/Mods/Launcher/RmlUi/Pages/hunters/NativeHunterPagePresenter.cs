@@ -23,6 +23,16 @@ internal sealed class NativeHunterPagePresenter : IDisposable
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
+    public RmlUiDocumentToken PreviewDocument => _disposed ? default : _page;
+    public (Hunter Hunter, int Suit, CosmeticLoadout Cosmetics) PreviewSelection
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var selected = _controller.Current().Choice;
+            return (selected.Hunter, selected.Suit, _cosmetics.Current().Draft);
+        }
+    }
     public bool CanNavigateAway => !_controller.Current().Dirty
         && !_cosmetics.Current().Dirty && !_cosmetics.Current().Busy;
 
