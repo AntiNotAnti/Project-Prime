@@ -377,6 +377,9 @@ namespace MphRead.Mods.Render.Characters
 
         private static object Describe(CharacterModelPart part, int lod, Model model)
         {
+            // Compose engine rest transforms for this offline authoring kit.
+            // Node.Position alone is parent-local, not the calibrated bind point.
+            model.ComputeNodeMatrices(0);
             int[] paletteSlots = Enumerable.Repeat(-1, model.Nodes.Count).ToArray();
             for (int i = 0; i < model.NodeMatrixIds.Count; i++)
             {
@@ -409,6 +412,15 @@ namespace MphRead.Mods.Render.Characters
                     meshIds = node.GetMeshIds().ToArray(),
                     matrixPaletteSlot = paletteSlots[index],
                     position = Vec(node.Position),
+                    bindWorldPosition = new[] { node.Transform.M41, node.Transform.M42, node.Transform.M43 },
+                    // Rows of the column-vector convention expected by Blender:
+                    // native OpenTK matrices compose in row-vector order.
+                    bindWorldMatrix = new[] {
+                        new[] { node.Transform.M11, node.Transform.M21, node.Transform.M31, node.Transform.M41 },
+                        new[] { node.Transform.M12, node.Transform.M22, node.Transform.M32, node.Transform.M42 },
+                        new[] { node.Transform.M13, node.Transform.M23, node.Transform.M33, node.Transform.M43 },
+                        new[] { node.Transform.M14, node.Transform.M24, node.Transform.M34, node.Transform.M44 }
+                    },
                     rotationRadians = Vec(node.Angle),
                     scale = Vec(node.Scale),
                     billboard = node.BillboardMode.ToString()

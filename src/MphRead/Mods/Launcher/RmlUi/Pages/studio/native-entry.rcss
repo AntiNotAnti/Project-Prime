@@ -1,0 +1,12 @@
+#native_studio_entry { width:92vw; height:90vh; padding:20dp; overflow-y:auto; }
+#native_studio_entry h1 { font-size:32dp; color:#edfaff; margin:12dp 0; }
+#native_studio_entry p { font-size:16dp; line-height:23dp; color:#b9d3e3; }
+.native_studio_sections { display:flex; flex-wrap:wrap; margin:18dp 0; gap:16dp; }
+.native_studio_panel { width:40vw; min-height:220dp; padding:22dp; border:1dp #48738d; background-color:#10273a; }
+.native_studio_panel h2 { font-size:23dp; color:#7ad6ff; }
+#native_studio_entry button { min-height:44dp; padding:12dp; color:#e5f7ff; border:1dp #6ca3c3; background-color:#132d44; margin-top:12dp; }
+#native_studio_status { min-height:25dp; color:#7ddfff; }
+@media(max-width:800dp) {
+  .native_studio_panel { width:85vw; }
+  #native_studio_entry { width:96vw; padding:10dp; }
+}
