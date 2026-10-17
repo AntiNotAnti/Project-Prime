@@ -39,7 +39,7 @@ public sealed class NativeSocialFriendsController : IDisposable
     private readonly int _ownerThread = Environment.CurrentManagedThreadId;
     private readonly INativeSocialFriendsService _service;
     private readonly ConcurrentQueue<(int Generation, NativeSocialDirectory? Data,
-        NativeSocialPerson? Found, string? Error)> _completed = new();
+        NativeSocialPerson? Found, bool LookupCompleted, string? Error)> _completed = new();
     private CancellationTokenSource? _active;
     private int _generation;
     private long _revision = 1, _dataEpoch = 1;
@@ -107,7 +107,7 @@ public sealed class NativeSocialFriendsController : IDisposable
     }
 
     private void Begin(string status, Func<CancellationToken,
-        Task<(NativeSocialDirectory?, NativeSocialPerson?)>> work)
+        Task<(NativeSocialDirectory?, NativeSocialPerson?)>> work, bool lookup = false)
     {
         CheckOwner();
         CancelCore();
@@ -122,12 +122,17 @@ public sealed class NativeSocialFriendsController : IDisposable
             try
             {
                 var data = await work(cancel.Token).ConfigureAwait(false);
-                _completed.Enqueue((gen, data.Item1, data.Item2, null));
+                _completed.Enqueue((gen, data.Item1, data.Item2, lookup, null));
             }
             catch (OperationCanceledException) when (cancel.IsCancellationRequested)
             { /* cancelled work never publishes */ }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
-            { _completed.Enqueue((gen, null, null, "SOCIAL UNAVAILABLE: " + ex.Message)); }
+            {
+                // Service errors may contain private HTTP response context.
+                // The UI displays no untrusted response body or account token.
+                _completed.Enqueue((gen, null, null, lookup,
+                    "SOCIAL UNAVAILABLE // CHECK ACCOUNT OR SERVICE CONNECTION"));
+            }
             finally { cancel.Dispose(); }
         });
     }
@@ -177,7 +182,7 @@ public sealed class NativeSocialFriendsController : IDisposable
         if (_busy || !ValidPrimeId(primeId)) return false;
         string id = primeId.Trim().ToUpperInvariant();
         Begin("LOOKING UP ACCOUNT ID", async token =>
-            (null, await _service.LookupAsync(id, token).ConfigureAwait(false)));
+            (null, await _service.LookupAsync(id, token).ConfigureAwait(false)), lookup: true);
         return true;
     }
 
@@ -264,7 +269,8 @@ public sealed class NativeSocialFriendsController : IDisposable
         {
             NativeSocialMutation outcome = await _service.ExecuteAsync(action, id, token)
                 .ConfigureAwait(false);
-            if (!outcome.Accepted) throw new InvalidOperationException(outcome.Status);
+            if (!outcome.Accepted)
+                throw new InvalidOperationException("Social action was not accepted.");
             return (await _service.ReadAsync(token).ConfigureAwait(false), null);
         });
         return true;
@@ -310,6 +316,11 @@ public sealed class NativeSocialFriendsController : IDisposable
                 if (!_people.Any(x => x.PrimeId.Equals(_selectedId,
                     StringComparison.OrdinalIgnoreCase))) _selectedId = "";
                 _status = "SERVER-VERIFIED SOCIAL DIRECTORY // " + _people.Length + " ENTRIES";
+            }
+            if (item.LookupCompleted && item.Found == null)
+            {
+                _lookup = null; _selectedId = ""; _tab = "PLAYERS";
+                _status = "ACCOUNT ID NOT FOUND";
             }
             if (item.Found is { } found)
             {
