@@ -883,15 +883,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         internal static (int TimeLimit, ushort PointGoal) InitialMatchLimits(GameMode mode)
-        {
-            if (mode == GameMode.OneInTheChamber) return (0, 2);
-            int timeLimit = mode is (GameMode.Relic or GameMode.Hardpoint or GameMode.HardpointTeams or GameMode.GunGame) && mode != LauncherPrefs.LastLobbyMode ? 600
-                : Math.Clamp(LauncherPrefs.LastLobbyTimeLimitSeconds, 0, UInt16.MaxValue);
-            ushort pointGoal = mode == LauncherPrefs.LastLobbyMode
-                ? (ushort)Math.Clamp(LauncherPrefs.LastLobbyGoal, 0, UInt16.MaxValue)
-                : MatchGoalRules.DefaultValue(mode);
-            return (timeLimit, pointGoal);
-        }
+            => MphRead.Mods.Launcher.LobbyCreationService.InitialLimits(mode);
 
         /// <summary>
         /// Start a server on this machine and join it over the loopback.
