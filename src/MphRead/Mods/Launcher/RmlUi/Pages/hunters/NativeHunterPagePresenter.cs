@@ -23,6 +23,16 @@ internal sealed class NativeHunterPagePresenter : IDisposable
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
+    public RmlUiDocumentToken PreviewDocument => _disposed ? default : _page;
+    public (Hunter Hunter, int Suit, CosmeticLoadout Cosmetics) PreviewSelection
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var selected = _controller.Current().Choice;
+            return (selected.Hunter, selected.Suit, _cosmetics.Current().Draft);
+        }
+    }
     public bool CanNavigateAway => !_controller.Current().Dirty
         && !_cosmetics.Current().Dirty && !_cosmetics.Current().Busy;
 
@@ -113,7 +123,9 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(state.Status),
             ["native_hunter_hint"] = RmlUiBindingValue.FromText(
-                "SUIT " + (state.Choice.Suit + 1) + " // YOUR NEXT DEPLOYMENT"),
+                (GameFiles.Ready ? "LIVE ENGINE 3D PREVIEW" :
+                    "3D PREVIEW REQUIRES CONFIGURED GAME FILES") +
+                " // SUIT " + (state.Choice.Suit + 1) + " // YOUR NEXT DEPLOYMENT"),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
             ["hunter_skin"] = RmlUiBindingValue.FromText("SKIN // " + cosmetic.SkinName),
             ["hunter_armor"] = RmlUiBindingValue.FromText("ARMOR EFFECT // " + cosmetic.ArmorName),

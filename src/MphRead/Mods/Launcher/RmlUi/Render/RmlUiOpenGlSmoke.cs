@@ -380,6 +380,25 @@ internal static class RmlUiOpenGlSmoke
                 }
             }
             RmlUiOpenGlFrame.Draw(host, width, height);
+            // The full native Hunter picker owns its own model rectangle.
+            // Unlike the page's opaque chrome, its isolated viewport is drawn
+            // last so the actual model cannot disappear behind a UI card.
+            if (_hunterChoice is { } picker && HubState.Capture().GameFilesReady)
+            {
+                try
+                {
+                    var selected = picker.PreviewSelection;
+                    RmlUiHunterStageRenderer.DrawPicker(window, host,
+                        picker.PreviewDocument, selected.Hunter, selected.Suit,
+                        selected.Cosmetics, width, height);
+                }
+                catch (Exception previewError) when (Recoverable(previewError))
+                {
+                    Mods.DebugLog.Line("rmlui",
+                        "native Hunter preview failed; controls remain active: "
+                        + previewError.Message);
+                }
+            }
         }
         catch (Exception error) when (Recoverable(error))
         {

@@ -1,0 +1,36 @@
+using System;
+
+namespace MphRead.Mods.Launcher.RmlUi.Core;
+
+/// <summary>
+/// Bounds returned from the active native RmlUi document, clipped to the
+/// framebuffer before the game's isolated Hunter preview uses its scissor.
+/// One coordinate system (top-left framebuffer pixels), no DPI multiplication.
+/// </summary>
+public readonly record struct RmlUiPreviewViewport(
+    float Left, float Top, float Right, float Bottom)
+{
+    public float Width => Right - Left;
+    public float Height => Bottom - Top;
+
+    public static bool TryCreate(float x, float y, float width, float height,
+        int framebufferWidth, int framebufferHeight, out RmlUiPreviewViewport result)
+    {
+        result = default;
+        if (!float.IsFinite(x) || !float.IsFinite(y)
+            || !float.IsFinite(width) || !float.IsFinite(height)
+            || framebufferWidth <= 0 || framebufferHeight <= 0
+            || width <= 0 || height <= 0)
+            return false;
+
+        float left = Math.Clamp(x, 0f, framebufferWidth);
+        float top = Math.Clamp(y, 0f, framebufferHeight);
+        float right = Math.Clamp(x + width, 0f, framebufferWidth);
+        float bottom = Math.Clamp(y + height, 0f, framebufferHeight);
+        if (right - left < 64f || bottom - top < 64f)
+            return false;
+        result = new(left / framebufferWidth, top / framebufferHeight,
+            right / framebufferWidth, bottom / framebufferHeight);
+        return true;
+    }
+}
