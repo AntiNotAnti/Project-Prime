@@ -334,6 +334,16 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminC
 services.LobbyView = Stub.EmptyLobby;
 
 
+// Preview is a read-only launch candidate, so rejected match rules cannot
+// persist the map or the previous Hunter's loadout.
+var previewSettings = new MenuSettings { RoomKey = "UNCHANGED MAP" };
+var previewPlan = OfflineLaunch.Preview(previewSettings, "MP1 SANCTORUS",
+    GameMode.Battle, Hunter.Kanden, 2, 3, 1);
+Check(previewSettings.RoomKey == "UNCHANGED MAP"
+    && previewPlan.RoomKey == "MP1 SANCTORUS" && previewPlan.Bots == 3
+    && previewPlan.BotLevel == 1,
+    "offline preview is side-effect-free before local launch acceptance");
+
 // RML-25: a native local match draft is distinct from a server admission,
 // never persists global preferences, and may only hand off after a worker
 // validates the current map and mode against the existing engine contract.
@@ -409,8 +419,8 @@ Check(Flag(Wait(controller, _ => services.OfflineLaunches == 1), "offline_mode")
     && services.LastOffline.Mode == GameMode.Battle,
     "successful map validation hands one immutable request to existing local launcher");
 Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
-    || services.OfflineLaunches == 1,
-    "an unconfirmed newer local attempt cannot launch optimistically");
+    && services.OfflineLaunches == 1,
+    "an accepted offline launch is one-shot until a fresh route creates a new draft");
 controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
 // The native Create Lobby form uses the same authoritative backend as legacy
