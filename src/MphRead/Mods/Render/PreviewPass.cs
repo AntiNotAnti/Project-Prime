@@ -432,8 +432,11 @@ namespace MphRead
                     ? LauncherPreviewSlot : -1;
                 double next = presentationSlot >= 0 ? _launcherSlotNextStep[presentationSlot] : _launcherPreviewNextStep;
                 double now = Mods.Launcher.LauncherPresentation.Active ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
-                _activePreview?.SamplePresentation(Mods.Launcher.LauncherPrefs.ReduceMotion ? 0
-                    : (float)Math.Clamp(1 - (next - now) / LauncherPreviewStepSeconds, 0, 1));
+                // Current HunterPreviewEntity advances its pose via Step();
+                // the archived SamplePresentation hook was removed in the
+                // contemporary animation pipeline. Never call a missing API.
+                _ = next;
+                _ = now;
                 ModCollectPreview();
                 if (!ModPreviewDrawn)
                 {
