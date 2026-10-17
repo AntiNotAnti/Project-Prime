@@ -14,7 +14,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Lobby = new("lobby", "pages/lobby/lobby.rml", "lobby_ready");
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
-        public static readonly RmlUiPageSpec Hunters = new("hunters", "pages/hunters/identity.rml", "hunter_choice0");
+        public static readonly RmlUiPageSpec Hunters = new("hunters", "pages/hunters/identity.rml", "hunter_cancel");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
