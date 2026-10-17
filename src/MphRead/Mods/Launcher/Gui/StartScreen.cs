@@ -54,6 +54,22 @@ namespace MphRead.Mods.Launcher.Gui
             return true;
         }
 
+        internal bool RmlUiLaunchReplay(MphRead.Mods.Launcher.RmlUi.Core.RmlUiReplayEntry entry)
+        {
+            if (_finished || _startup != null || _prime.Overlays.IsOpen
+                || NetSession.Active || !entry.Playable || !CanLaunchLocal())
+                return false;
+            // A bounded worker performed the same replay protocol/map preflight
+            // used by the existing Theatre. The service rechecks the file stamp
+            // just before entering this already-established Finish path.
+            Finish(new LaunchPlan
+            {
+                Kind = LaunchKind.Demo, DemoPath = entry.Path,
+                Hunter = Hunter.Samus, PlayerName = "", RoomKey = ""
+            });
+            return _finished;
+        }
+
         internal bool RmlUiLaunchAdventure(
             MphRead.Mods.Launcher.RmlUi.Core.RmlUiAdventureSlot expected,
             bool newGame, Hunter hunter)
