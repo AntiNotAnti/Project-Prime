@@ -153,7 +153,7 @@ public sealed class NativeCommunityDiscoverController : IDisposable
                 _total = Math.Max(0, result.Total);
                 foreach (var candidate in result.Rows.Take(8))
                 {
-                    if (candidate.MapId == Guid.Empty || candidate.LatestHash.Length != 64)
+                    if (candidate.MapId == Guid.Empty || candidate.LatestHash is not { Length: 64 })
                         continue;
                     _visible[_count++] = candidate;
                 }
