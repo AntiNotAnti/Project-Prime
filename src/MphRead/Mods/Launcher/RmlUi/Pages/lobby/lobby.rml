@@ -68,7 +68,7 @@
                     <div class="eyebrow">CONNECTED HUNTERS</div>
                     <div class="lobby_roster_count" data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_2" />
                 </div>
-                <button id="lobby_social_access" class="lobby_roster_social" data-action="route:social"><span>INVITE FRIENDS / PARTY</span><span>&gt;</span></button>
+                <button id="lobby_social_access" class="lobby_roster_social" data-action="route:social"><span>FRIENDS / REQUESTS &gt;</span><span>&gt;</span></button>
                 <div class="lobby_roster_row" id="visible_slot0_occupied_1" data-prime-class-ready="slot0_ready" data-prime-class-local="slot0_local">
                     <span class="lobby_roster_index">1</span>
                     <button id="lobby_player0" class="lobby_roster_copy" data-action="lobby:player:0">
