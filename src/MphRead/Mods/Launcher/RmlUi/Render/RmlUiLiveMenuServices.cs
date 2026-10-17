@@ -139,6 +139,32 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
     public bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit)
         => Shell.RmlUiLaunchTraining(drill, hunter, suit);
 
+    public RmlUiAdventureSlot[] ReadAdventureSlots()
+    {
+        var result = new RmlUiAdventureSlot[AdventureSave.SlotCount];
+        for (byte slot = 1; slot <= AdventureSave.SlotCount; slot++)
+        {
+            AdventureSave.SlotInfo info = AdventureSave.Read(slot);
+            string fingerprint = AdventureSave.ContentFingerprint(slot);
+            result[slot - 1] = new(slot, info.Used,
+                info.Unreadable || fingerprint == "UNAVAILABLE",
+                info.Area ?? "", info.Octoliths, info.Health,
+                info.HealthMax, fingerprint);
+        }
+        return result;
+    }
+
+    public bool LaunchAdventure(RmlUiAdventureSlot expected, bool newGame, Hunter hunter)
+    {
+        if (expected.Slot is < 1 or > AdventureSave.SlotCount || expected.Unreadable
+            || (!newGame && !expected.Used)) return false;
+        // A confirmation binds to exact bytes, not only a reused slot number
+        // or an old displayed area/health string.
+        RmlUiAdventureSlot[] now = ReadAdventureSlots();
+        if (now[expected.Slot - 1] != expected) return false;
+        return Shell.RmlUiLaunchAdventure(expected, newGame, hunter);
+    }
+
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
     public bool OpenCreateLobby() => Shell.RmlUiOpenCreateLobby();
     public bool NavigateTo(RmlUiRouteArgument route) => Shell.RmlUiNavigate(route);
