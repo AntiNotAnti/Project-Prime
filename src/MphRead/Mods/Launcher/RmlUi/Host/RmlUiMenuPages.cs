@@ -591,9 +591,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             for (int i = 0; i < 16; i++)
             {
                 bindings.Add(new(RmlUiBindingKind.Text,
-                    $"offline_arena_name_{i}", $"{{{{offline_arena_name{i}}}}"));
+                    $"offline_arena_name_{i}", "{{offline_arena_name" + i + "}}"));
                 bindings.Add(new(RmlUiBindingKind.Text,
-                    $"offline_arena_reason_{i}", $"{{{{offline_arena_reason{i}}}}"));
+                    $"offline_arena_reason_{i}", "{{offline_arena_reason" + i + "}}"));
                 bindings.Add(new(RmlUiBindingKind.Boolean,
                     $"visible:offline_arena_row_{i}", $"offline_arena_row{i}_present"));
                 bindings.Add(new(RmlUiBindingKind.Boolean,
