@@ -1,0 +1,18 @@
+body { background-color: rgba(1, 7, 15, 90%); color: #d8edff; font-family: Rajdhani; }
+#identity_modal { position: absolute; left: 16%; top: 10%; width: 68%; height: 80%; padding: 24dp; background-color: #071b2a; border: 1dp #3d779a; }
+#identity_header { display: flex; justify-content: space-between; align-items: center; }
+#identity_header h1 { font-size: 26dp; margin: 0dp 16dp; }
+#hunter_status { margin: 12dp 0dp; min-height: 30dp; color: #a8d5f2; }
+#identity_modal .section-title { margin: 14dp 0dp 10dp; }
+#identity_modal .hunter-choices { display: flex; flex-wrap: wrap; }
+#identity_modal .hunter-choices button { min-width: 25%; margin: 4dp; min-height: 46dp; }
+#identity_modal .hunter-suits { display: flex; flex-wrap: wrap; }
+#identity_modal .hunter-suits button { min-width: 20%; margin: 4dp; }
+#identity_modal button { tab-index: auto; padding: 10dp 14dp; border: 1dp #457e9a; color: #d8edff; background-color: #113149; }
+#identity_modal button:focus, #identity_modal button:hover, #identity_modal button.selected { background-color: #26648a; border-color: #c0eaff; }
+#identity_modal button:disabled { opacity: 0.35; }
+#hunter_restriction { color: #92afbf; font-size: 13dp; margin: 10dp 0dp; }
+#identity_hint { color: #7398af; font-size: 13dp; margin: 16dp 0dp; }
+#identity_footer { display: flex; justify-content: flex-end; position: absolute; bottom: 18dp; right: 24dp; }
+#identity_footer button { margin-left: 12dp; }
+#hunter_apply { background-color: #195b81; }
