@@ -187,7 +187,7 @@ def check_sidecars(character, skeleton, weights, motions, vertex_count):
     return len(bones), len(groups), len(motions["Clips"])
 
 
-def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, output):
+def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, output, motion_clips=None):
     try:
         import bpy
     except ImportError as exc:
@@ -253,16 +253,29 @@ def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, 
                 vertex_group = mesh_object.vertex_groups.new(name=name)
             vertex_group.add(positions, float(influence["weight"]), "REPLACE")
 
+    if motion_clips:
+        from motion_bake import apply_blender_motion
+        apply_blender_motion(armature, mapping, motion_clips)
+
     output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
     mesh_object.select_set(True)
     armature.select_set(True)
     bpy.context.view_layer.objects.active = armature
-    bpy.ops.export_scene.gltf(
+    export_options = dict(
         filepath=str(output), export_format="GLB", use_selection=True,
-        export_skins=True, export_animations=False,
+        export_skins=True, export_animations=bool(motion_clips),
         export_influence_nb=4, export_all_influences=False,
     )
+    if motion_clips:
+        properties = bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
+        if "export_animation_mode" in properties:
+            export_options["export_animation_mode"] = "NLA_TRACKS"
+        elif "export_nla_strips" in properties:
+            export_options["export_nla_strips"] = True
+        else:
+            raise RuntimeError("Blender glTF exporter does not support separate NLA animations")
+    bpy.ops.export_scene.gltf(**export_options)
     if not output.is_file() or output.stat().st_size <= 0:
         raise RuntimeError("Blender did not produce a skinned GLB preview")
     print("Local-only rig preview:", output)
@@ -276,20 +289,32 @@ def main():
     parser.add_argument("--character", choices=sorted(CHARACTERS), required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--validate", action="store_true")
+    parser.add_argument("--animate-source", action="store_true",
+                        help="Bake five-pose source-local diagnostic animation clips; never a gameplay rig")
+    parser.add_argument("--clip", help="Limit source-motion preview to an exact sampled primitive name")
     args = parser.parse_args(userargs)
+    if args.clip and not args.animate_source:
+        parser.error("--clip requires --animate-source")
     vertices, uvs, faces, face_uvs, skeleton, weights, motions = load_inputs(
         args.root, args.character
     )
+    clips = None
+    if args.animate_source:
+        from motion_bake import validate_motion_inventory
+        clips = validate_motion_inventory(skeleton, motions, args.clip)
+        print("Validated", len(clips), "safe sparse source-motion diagnostic clips")
     print(
         "Validated local source: ", args.character,
         "vertices", len(vertices), "triangles", len(faces),
         "bones", len(skeleton["Bones"]), "motions indexed", len(motions["Clips"])
     )
     if not args.validate:
-        target = args.output or (args.root / (args.character + ".preview.glb"))
+        suffix = ".source-motion.preview.glb" if args.animate_source else ".preview.glb"
+        target = args.output or (args.root / (args.character + suffix))
         if target.is_symlink():
             raise ValueError("The preview output cannot be a symbolic link")
-        build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, args.character, target)
+        build_blender(vertices, uvs, faces, face_uvs, skeleton, weights,
+                      args.character, target, motion_clips=clips)
 
 
 if __name__ == "__main__":
