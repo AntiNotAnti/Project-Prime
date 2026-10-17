@@ -1130,8 +1130,7 @@ public sealed class RmlUiMenuController : IDisposable
             : "SOCIAL SERVICE UNAVAILABLE");
         Text("home_social_count", social.Connected
             ? social.Friends.Length + " FRIENDS" : "ACCOUNT UNAVAILABLE");
-        Text("home_friends_online", social.Connected
-            ? social.Friends.Length.ToString() : "NOT SYNCED");
+        Text("home_friends_online", "UNKNOWN");
         Text("home_invites_count", "UNAVAILABLE");
         Text("home_requests_count", social.Connected
             ? social.IncomingRequests.ToString() : "NOT SYNCED");
