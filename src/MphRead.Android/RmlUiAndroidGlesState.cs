@@ -11,6 +11,8 @@ internal sealed class RmlUiAndroidGlesState
     private const int DrawFramebufferBinding = 0x8CA6;
     private const int ReadFramebufferBinding = 0x8CAA;
     private const int VertexArrayBinding = 0x85B5;
+    private const int RenderbufferBinding = 0x8CA7;
+    private const int Viewport = 0x0BA2;
     private const int CurrentProgram = 0x8B8D;
     private const int ActiveTexture = 0x84E0;
     private const int TextureBinding2d = 0x8069;
@@ -36,7 +38,7 @@ internal sealed class RmlUiAndroidGlesState
     private const int UnpackAlignment = 0x0CF5;
 
     internal int DrawFramebuffer { get; }
-    private readonly int _readFramebuffer, _vao, _program, _activeTexture;
+    private readonly int _readFramebuffer, _renderbuffer, _vao, _program, _activeTexture;
     private readonly int _texture0, _arrayBuffer, _elementBuffer;
     private readonly int _clearStencil, _writeStencil, _stencilFunc, _stencilRef, _stencilMask;
     private readonly int _stencilFail, _stencilZFail, _stencilZPass, _unpackAlignment;
@@ -59,6 +61,7 @@ internal sealed class RmlUiAndroidGlesState
     {
         DrawFramebuffer = Read(DrawFramebufferBinding);
         _readFramebuffer = Read(ReadFramebufferBinding);
+        _renderbuffer = Read(RenderbufferBinding);
         _vao = Read(VertexArrayBinding);
         _program = Read(CurrentProgram);
         _activeTexture = Read(ActiveTexture);
@@ -80,7 +83,7 @@ internal sealed class RmlUiAndroidGlesState
         _srcAlpha = Read(BlendSrcAlpha); _dstAlpha = Read(BlendDstAlpha);
         _equationRgb = Read(BlendEquationRgb); _equationAlpha = Read(BlendEquationAlpha);
         _depthWrite = Read(DepthWriteMask);
-        GLES30.GlGetIntegerv(GLES30.GlViewport, _viewport, 0);
+        GLES30.GlGetIntegerv(Viewport, _viewport, 0);
         GLES30.GlGetIntegerv(GLES30.GlScissorBox, _scissorRect, 0);
         GLES30.GlGetIntegerv(ColorWriteMask, _colorMask, 0);
         GLES30.GlGetFloatv(ColorClearValue, _clearColor, 0);
@@ -102,6 +105,7 @@ internal sealed class RmlUiAndroidGlesState
         GLES30.GlBindFramebuffer(GLES30.GlDrawFramebuffer, DrawFramebuffer);
         GLES30.GlBindFramebuffer(GLES30.GlReadFramebuffer, _readFramebuffer);
         GLES30.GlUseProgram(_program);
+        GLES30.GlBindRenderbuffer(GLES30.GlRenderbuffer, _renderbuffer);
         GLES30.GlBindVertexArray(_vao);
         GLES30.GlBindBuffer(GLES30.GlArrayBuffer, _arrayBuffer);
         GLES30.GlBindBuffer(GLES30.GlElementArrayBuffer, _elementBuffer);
