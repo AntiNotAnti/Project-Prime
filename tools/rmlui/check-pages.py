@@ -26,7 +26,18 @@ for file in files:
         target = (file.parent / relative).resolve()
         if root.resolve() not in target.parents and target != root.resolve():
             errors.append(f"{file.relative_to(root)}: link escapes root: {relative}")
-        elif not target.is_file():
+            continue
+        # Authored links use the lower-case published paths (pages/,
+        # components/, themes/). Source control retains the historical
+        # capitalized folders on case-sensitive Linux. Validate each link
+        # against the exact path that MSBuild will publish, not the source
+        # folder's spelling.
+        parts = target.relative_to(root.resolve()).parts
+        source_root = {"pages": "Pages", "components": "Components",
+                       "themes": "Themes"}
+        if parts:
+            target = root / source_root.get(parts[0].lower(), parts[0]) / Path(*parts[1:])
+        if not target.is_file():
             errors.append(f"{file.relative_to(root)}: missing referenced asset: {relative}")
 if len(files) < 70:
     errors.append(f"Only {len(files)} sourced RmlUi files available; expected 70+")
