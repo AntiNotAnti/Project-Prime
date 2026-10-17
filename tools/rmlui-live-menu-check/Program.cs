@@ -258,6 +258,79 @@ Check(!controller.Dispatch(RmlUiIntentKind.HunterApply)
     "stale authority epoch cannot submit Hunter changes");
 Check(!Flag(controller.Tick(), "lobby_hunter_open"),
     "render-thread snapshot retires invalidated Hunter modal");
+
+// RML-23: restored admin screen retains server-authored slot generations and
+// only publishes a destructive command after explicit confirmation.
+services.LobbyView = services.LobbyView with { Active = true, Owner = true };
+services.AdminState = new RmlUiAdminSnapshot(5, 999, 17, true, 0, 0, false, false,
+    2, 8, false, "MAP READY", "", new[] { Hunter.Samus, Hunter.Kanden },
+    new[]
+    {
+        new RmlUiAdminPlayer(0, 5, "Pilot", Hunter.Samus, 0, 0, true, false, 0, 0, 20),
+        new RmlUiAdminPlayer(1, 6, "Opponent", Hunter.Trace, 1, 1, false, false, 0, 0, 45),
+        new RmlUiAdminPlayer(2, 8, "Practice", Hunter.Kanden, 2, 0, false, true, 3, 10, 0)
+    }, new[] { "Pilot: hello" });
+Check(controller.Dispatch(RmlUiIntentKind.LobbyAdminOpen) && controller.AdminOpen
+    && Flag(controller.Tick(), "lobby_admin_open"),
+    "native roster admin opens on live authoritative lobby");
+var adminBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Admin, controller.Tick().Bindings);
+Check(adminBindings.TryGetValue("admin_player1_name", out var otherName)
+    && otherName.Text == "Opponent"
+    && adminBindings.TryGetValue("disabled:admin_kick", out var ownerKick)
+    && ownerKick.Boolean,
+    "native lobby admin binds roster rows but cannot kick selected owner");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 1)
+    && controller.Dispatch(RmlUiIntentKind.LobbyKick)
+    && Flag(controller.Tick(), "admin_confirmation_open")
+    && services.AdminCalls == 0,
+    "kick requires user confirmation and never sends on first click");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyAdminCancel)
+    && services.AdminCalls == 0
+    && !Flag(controller.Tick(), "admin_confirmation_open"),
+    "admin Cancel safely discards destructive request");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyKick)
+    && controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm)
+    && services.AdminCalls == 1
+    && services.LastAdmin.Operation == RmlUiAdminOperation.Kick
+    && services.LastAdmin.TargetSlot == 1 && services.LastAdmin.TargetGeneration == 6,
+    "confirmed kick targets exact roster generation with one submission");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 2)
+    && controller.Dispatch(RmlUiIntentKind.LobbyBotRemove)
+    && services.AdminCalls == 1,
+    "bot removal is also staged behind confirmation");
+services.AdminState = services.AdminState with
+{
+    Players = services.AdminState.Players.Select(p =>
+        p.Slot == 2 ? p with { Generation = 9 } : p).ToArray()
+};
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm)
+    && services.AdminCalls == 1
+    && !Flag(controller.Tick(), "admin_confirmation_open"),
+    "stale bot slot generation cancels pending removal instead of deleting replacement");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 2)
+    && controller.Dispatch(RmlUiIntentKind.LobbyBotHunterNext)
+    && controller.Dispatch(RmlUiIntentKind.LobbyBotSuitNext)
+    && controller.Dispatch(RmlUiIntentKind.LobbyBotAdd)
+    && services.AdminCalls == 2
+    && services.LastAdmin.Operation == RmlUiAdminOperation.AddBot,
+    "bot configuration uses existing server command path");
+services.AdminState = services.AdminState with { CommandPending = true };
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyBotAdd) && services.AdminCalls == 2,
+    "one outstanding authoritative command blocks duplicate administration");
+services.AdminState = services.AdminState with { CommandPending = false };
+Check(controller.Dispatch(RmlUiIntentKind.LobbyChatSend, adminChat: "A message")
+    && services.AdminCalls == 3 && services.LastAdmin.Text == "A message",
+    "native chat sends the entered field through existing service");
+services.AdminState = services.AdminState with { Owner = false };
+Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 1)
+    && !controller.Dispatch(RmlUiIntentKind.LobbyKick)
+    && services.AdminCalls == 3,
+    "non-owner cannot request a kick or transfer");
+services.AdminState = services.AdminState with { AuthorityEpoch = 1000 };
+Check(!Flag(Wait(controller, s => !Flag(s, "lobby_admin_open")), "lobby_admin_open"),
+    "retired authority automatically closes native admin and its confirmations");
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminCalls == 3,
+    "retired admin never dispatches an old confirmed action");
 services.LobbyView = Stub.EmptyLobby;
 
 
@@ -316,6 +389,9 @@ sealed class Stub : IRmlUiMenuServices
     public Hunter SentHunter;
     public byte SentSuit;
     public ulong SentEpoch;
+    public int AdminCalls;
+    public RmlUiAdminRequest LastAdmin;
+    public RmlUiAdminSnapshot? AdminState;
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -353,6 +429,22 @@ sealed class Stub : IRmlUiMenuServices
         SentHunter = hunter;
         SentSuit = suit;
         SentEpoch = authorityEpoch;
+        return true;
+    }
+    public RmlUiAdminSnapshot? ReadAdmin() => LobbyView.Active ? AdminState : null;
+    public bool SubmitAdmin(RmlUiAdminRequest request)
+    {
+        if (AdminState == null || request.MatchId != AdminState.MatchId
+            || request.AuthorityEpoch != AdminState.AuthorityEpoch
+            || request.SessionRevision != AdminState.SessionRevision
+            || AdminState.CommandPending) return false;
+        if (request.TargetSlot != byte.MaxValue && !AdminState.Players.Any(p =>
+            p.Slot == request.TargetSlot && p.Generation == request.TargetGeneration))
+            return false;
+        if (!AdminState.Owner && request.Operation != RmlUiAdminOperation.SendChat)
+            return false;
+        AdminCalls++;
+        LastAdmin = request;
         return true;
     }
     public bool OpenLobbyDetails() => true;

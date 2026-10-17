@@ -53,6 +53,8 @@ public interface IRmlUiMenuServices
     bool NextSuit();
     RmlUiHunterDraft? ReadHunterDraft() => null;
     bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch) => false;
+    RmlUiAdminSnapshot? ReadAdmin() => null;
+    bool SubmitAdmin(RmlUiAdminRequest request) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -81,6 +83,7 @@ public sealed class RmlUiMenuController : IDisposable
     private readonly RmlUiServerCandidate[] _rows = new RmlUiServerCandidate[8];
     private CancellationTokenSource? _work;
     private RmlUiRuleEditor? _rules;
+    private RmlUiLobbyAdminController? _admin;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
     private Hunter _hunterChoice;
@@ -89,6 +92,7 @@ public sealed class RmlUiMenuController : IDisposable
     private bool _mapOpenedRules;
     public bool MapPickerOpen => _mapPicker != null;
     public bool HunterOpen => _hunterDraft.HasValue;
+    public bool AdminOpen => _admin is { Closed: false };
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -115,7 +119,7 @@ public sealed class RmlUiMenuController : IDisposable
 
     public bool Dispatch(RmlUiIntentKind kind, int argument = 0,
         string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "",
-        string lobbyName = "")
+        string lobbyName = "", string adminChat = "")
     {
         Owner();
         if (!RmlUiIntentRegistry.IsValid(kind, argument)) return false;
@@ -245,7 +249,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
             case RmlUiIntentKind.LobbyRulesOpen:
-                if (_hunterDraft.HasValue) return false;
+                if (_hunterDraft.HasValue || _admin is { Closed: false }) return false;
                 var original = _services.ReadRules();
                 if (!original.HasValue) return false;
                 _rules = new(original.Value);
@@ -305,6 +309,33 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty();
                 return true;
             case RmlUiIntentKind.LobbyAdminOpen:
+                return OpenAdmin();
+            case RmlUiIntentKind.LobbyPlayerSelect:
+                return _admin != null
+                    ? AdminAction(kind, argument, adminChat)
+                    : OpenAdmin(argument);
+            case RmlUiIntentKind.LobbyAdminClose:
+                if (_admin == null) return false;
+                _admin.Close(); _admin = null; Dirty(); return true;
+            case RmlUiIntentKind.LobbyAdminCancel:
+            case RmlUiIntentKind.LobbyAdminConfirm:
+            case RmlUiIntentKind.LobbyKick:
+            case RmlUiIntentKind.LobbyTransferOwner:
+            case RmlUiIntentKind.LobbyClose:
+            case RmlUiIntentKind.LobbyBotAdd:
+            case RmlUiIntentKind.LobbyBotConfigure:
+            case RmlUiIntentKind.LobbyBotRemove:
+            case RmlUiIntentKind.LobbyBotHunterNext:
+            case RmlUiIntentKind.LobbyBotSuitNext:
+            case RmlUiIntentKind.LobbyBotLevelNext:
+            case RmlUiIntentKind.LobbyHandicapNext:
+            case RmlUiIntentKind.LobbyTeamNext:
+            case RmlUiIntentKind.LobbyTeamSelect:
+            case RmlUiIntentKind.LobbyTeamsAuto:
+            case RmlUiIntentKind.LobbyTeamLockToggle:
+            case RmlUiIntentKind.LobbyMapRetry:
+            case RmlUiIntentKind.LobbyChatSend:
+                return AdminAction(kind, argument, adminChat);
             case RmlUiIntentKind.LobbyClassic:
                 return LobbyAction(_services.OpenLobbyDetails,
                     "Opened the remaining authoritative lobby controls.");
@@ -312,6 +343,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (_services.LeaveLobby())
                 {
                     _hunterDraft = null;
+                    _admin?.Close(); _admin = null;
                     CloseRules();
                     Cancel();
                     _browsing = false;
@@ -449,11 +481,15 @@ public sealed class RmlUiMenuController : IDisposable
             }
         }
 
+        if (_admin is { Closed: true }) { _admin = null; Dirty(); }
         long now = Stopwatch.GetTimestamp();
         if (!_dirty && now < _nextPoll) return _snapshot;
         _nextPoll = now + Stopwatch.Frequency / 8;
         _dirty = false;
         var bindings = Project(_services.Hub(), _services.BuildVersion(), _services.Lobby());
+        bindings["lobby_admin_open"] = RmlUiBindingValue.FromBoolean(false);
+        bindings["admin_confirmation_open"] = RmlUiBindingValue.FromBoolean(false);
+        _admin?.Project(bindings);
         if (!Same(_snapshot.Bindings, bindings))
             _snapshot = new(++_revision, new ReadOnlyDictionary<string, RmlUiBindingValue>(bindings));
         return _snapshot;
@@ -473,7 +509,7 @@ public sealed class RmlUiMenuController : IDisposable
     {
         RmlUiLobbyView lobby = _services.Lobby();
         if (!lobby.Active || lobby.Starting || _mapPicker != null || _rules != null
-            || _hunterDraft.HasValue) return false;
+            || _hunterDraft.HasValue || _admin is { Closed: false }) return false;
         RmlUiHunterDraft? live = _services.ReadHunterDraft();
         if (!live.HasValue || live.Value.MatchId == 0 || live.Value.AuthorityEpoch == 0
             || live.Value.Allowed == null || live.Value.Allowed.Length == 0) return false;
@@ -513,10 +549,33 @@ public sealed class RmlUiMenuController : IDisposable
         return true;
     }
 
+    private bool OpenAdmin(int selectedSlot = -1)
+    {
+        RmlUiLobbyView lobby = _services.Lobby();
+        if (!lobby.Active || lobby.Starting || _hunterDraft.HasValue || _mapPicker != null)
+            return false;
+        RmlUiAdminSnapshot? snapshot = _services.ReadAdmin();
+        if (snapshot == null) return false;
+        if (_admin is { Closed: false }) return true;
+        _admin = new RmlUiLobbyAdminController(_services, snapshot,
+            selectedSlot >= 0 ? selectedSlot : snapshot.LocalSlot);
+        Dirty();
+        return true;
+    }
+
+    private bool AdminAction(RmlUiIntentKind kind, int argument, string chat)
+    {
+        if (_admin == null) return false;
+        bool handled = _admin.Dispatch(kind, argument, chat);
+        Dirty();
+        return handled;
+    }
+
     private bool OpenMapPicker()
     {
         RmlUiLobbyView lobby = _services.Lobby();
-        if (!lobby.Active || lobby.Starting || _rulesSubmitted || _hunterDraft.HasValue) return false;
+        if (!lobby.Active || lobby.Starting || _rulesSubmitted || _hunterDraft.HasValue
+            || _admin is { Closed: false }) return false;
         bool created = _rules == null;
         if (created)
         {
@@ -788,6 +847,8 @@ public sealed class RmlUiMenuController : IDisposable
         if (_disposed) return;
         Owner();
         _disposed = true;
+        _admin?.Close();
+        _admin = null;
         Cancel();
         while (_completed.TryDequeue(out _)) { }
     }
