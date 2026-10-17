@@ -362,8 +362,20 @@ internal static class RmlUiOpenGlSmoke
                 RmlUiLobbyView lobby = services.Lobby();
                 RmlUiAdminSnapshot? roster = launcher.Page == RmlUiMenuPage.Lobby && lobby.Active
                     ? services.ReadAdmin() : null;
-                RmlUiHunterStageRenderer.Draw(window, host, launcher.Page,
-                    launcher.Suspended, services.Hub(), lobby, roster, width, height);
+                // A visual-only preview must never take the entire launcher
+                // down. Retire its state and keep navigation/controls usable.
+                try
+                {
+                    RmlUiHunterStageRenderer.Draw(window, host, launcher.Page,
+                        launcher.Suspended, services.Hub(), lobby, roster, width, height);
+                }
+                catch (Exception stageError) when (Recoverable(stageError))
+                {
+                    RmlUiHunterStageRenderer.Hide();
+                    Mods.DebugLog.Line("rmlui",
+                        "3D stage unavailable; retaining native page controls: "
+                        + stageError.Message);
+                }
             }
             RmlUiOpenGlFrame.Draw(host, width, height);
         }
