@@ -70,6 +70,14 @@ Task.Run(() =>
 }).GetAwaiter().GetResult();
 Check(crossThread is InvalidOperationException,
     "native Community presenter alone applies completed HTTP work");
+provider.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+community.Refresh();
+provider.Pending.SetException(new InvalidOperationException("sensitive service payload and ticket"));
+var redacted = Wait(community, view => !view.Busy
+    && view.Status.Contains("UNAVAILABLE", StringComparison.Ordinal));
+Check(redacted.Rows.Count == 0
+    && !redacted.Status.Contains("sensitive", StringComparison.OrdinalIgnoreCase),
+    "catalog network failures never publish untrusted private service details");
 Console.WriteLine("RML Community discovery ownership and read-only contracts complete.");
 
 static NativeCommunityInstallView WaitInstall(NativeCommunityInstallController c,
