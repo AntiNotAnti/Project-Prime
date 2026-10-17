@@ -62,11 +62,11 @@ Thread.Sleep(30);
 Check(community.Tick().Rows.FirstOrDefault().Name == "ALPHA",
     "late cancelled refresh cannot replace visible Community state");
 Exception? crossThread = null;
-await Task.Run(() =>
+Task.Run(() =>
 {
     try { community.Tick(); }
     catch (Exception ex) { crossThread = ex; }
-});
+}).GetAwaiter().GetResult();
 Check(crossThread is InvalidOperationException,
     "native Community presenter alone applies completed HTTP work");
 Console.WriteLine("RML Community discovery ownership and read-only contracts complete.");
