@@ -28,7 +28,7 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
 public sealed class RmlUiOfflineDraft
 {
     private readonly string[] _rooms;
-    private readonly GameMode[] _modes;
+    private readonly MatchTypeDefinition[] _types;
     private string[] _filtered = Array.Empty<string>();
     private int _arenaPage;
     private bool _arenaOpen;
@@ -47,7 +47,7 @@ public sealed class RmlUiOfflineDraft
         _rooms = rooms.Where(x => !String.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
-        _modes = OfflineLaunch.Modes.Select(x => x.Mode).ToArray();
+        _types = MatchTypeCatalog.GameTypes;
         Current = new(_rooms.FirstOrDefault() ?? "", GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
@@ -118,15 +118,25 @@ public sealed class RmlUiOfflineDraft
         {
             case 0: return Step(_rooms, Current.RoomKey,
                 value => Current = Current with { RoomKey = value });
-            case 1: return Step(_modes, Current.Mode,
-                value => Current = Current with { Mode = value });
+            case 1:
+            {
+                MatchTypeDefinition current = _types[MatchTypeCatalog.BaseModeIndex(Current.Mode)];
+                MatchFormat format = MatchTypeCatalog.FormatForMode(Current.Mode);
+                return Step(_types, current, next =>
+                {
+                    format = MatchTypeCatalog.NormalizeFormat(next, format);
+                    Current = Current with { Mode = next.Resolve(format) };
+                });
+            }
             case 2:
-                // The canonical mode catalog includes Team variants. Use the
-                // matching base label instead of inventing a game mode.
-                string label = MatchTypeCatalog.BaseLabel(Current.Mode);
-                var related = _modes.Where(x => MatchTypeCatalog.BaseLabel(x) == label).ToArray();
-                return Step(related, Current.Mode,
-                    value => Current = Current with { Mode = value });
+            {
+                MatchTypeDefinition type = _types[MatchTypeCatalog.BaseModeIndex(Current.Mode)];
+                if (type.FfaOnly || type.TeamOnly) return false;
+                MatchFormat next = MatchTypeCatalog.FormatForMode(Current.Mode) == MatchFormat.FreeForAll
+                    ? MatchFormat.Auto : MatchFormat.FreeForAll;
+                Current = Current with { Mode = type.Resolve(next) };
+                return true;
+            }
             case 3: Current = Current with { Bots = (Current.Bots + 1) % 8 }; return true;
             case 4: Current = Current with { BotLevel = (Current.BotLevel + 1) % 4 }; return true;
             case 5: Current = Current with { Hunter = (Hunter)(((int)Current.Hunter + 1) % 7) }; return true;
@@ -137,9 +147,9 @@ public sealed class RmlUiOfflineDraft
 
     public bool Valid => Current.ValidateForm(_rooms);
     public string Map => Current.RoomKey;
-    public string Mode => OfflineLaunch.Modes.FirstOrDefault(x => x.Mode == Current.Mode).Label ?? Current.Mode.ToString();
-    public string Matchup => Current.Mode.ToString().EndsWith("Teams", StringComparison.Ordinal)
-        ? "TEAM BATTLE" : "FREE FOR ALL / SPECIAL";
+    public string Mode => MatchTypeCatalog.BaseLabel(Current.Mode);
+    public string Matchup => MatchTypeCatalog.IsInternalTeamMode(Current.Mode)
+        ? "TEAMS" : "FREE FOR ALL";
     public string Bots => Current.Bots + " BOTS";
     public string Difficulty => new[] { "EASY", "NORMAL", "HARD", "INSANE" }[Current.BotLevel];
     public string HunterName => Current.Hunter.ToString().ToUpperInvariant();
