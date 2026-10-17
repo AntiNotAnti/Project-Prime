@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
+using MphRead.Mods.Training;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
@@ -58,6 +59,8 @@ public interface IRmlUiMenuServices
     Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
         => Task.FromResult("Offline Battle is unavailable on this platform.");
     bool LaunchOffline(RmlUiOfflineRequest request) => false;
+    AimTrainerDefinition TrainingDefaults() => AimTrainerDefinition.Default;
+    bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -88,6 +91,8 @@ public sealed class RmlUiMenuController : IDisposable
     private RmlUiRuleEditor? _rules;
     private RmlUiLobbyAdminController? _admin;
     private RmlUiOfflineDraft? _offline;
+    private RmlUiTrainingDraft? _training;
+    private bool _trainingOptionsOpen, _trainingRoute, _trainingLaunched;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
     private Hunter _hunterChoice;
@@ -98,6 +103,7 @@ public sealed class RmlUiMenuController : IDisposable
     public bool HunterOpen => _hunterDraft.HasValue;
     public bool AdminOpen => _admin is { Closed: false };
     public bool OfflineOpen => _offline != null;
+    public bool TrainingOptionsOpen => _trainingOptionsOpen;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -231,10 +237,15 @@ public sealed class RmlUiMenuController : IDisposable
                 return true;
             case RmlUiIntentKind.Navigate:
                 if (argument == (int)RmlUiRouteArgument.Offline)
-                    return OpenOffline();
+                    return OpenOffline(training: false);
+                if (argument == (int)RmlUiRouteArgument.Training)
+                    return OpenOffline(training: true);
                 if (argument == (int)RmlUiRouteArgument.Home && _offline != null)
                 {
                     _offline = null;
+                    _training = null;
+                    _trainingOptionsOpen = false;
+                    _trainingLaunched = false;
                     Cancel();
                     Dirty();
                     return true;
@@ -242,6 +253,8 @@ public sealed class RmlUiMenuController : IDisposable
                 if (argument == (int)RmlUiRouteArgument.Play)
                 {
                     _offline = null;
+                    _training = null;
+                    _trainingOptionsOpen = false;
                     _browsing = true;
                     Dirty();
                     return true;
@@ -268,14 +281,16 @@ public sealed class RmlUiMenuController : IDisposable
                     return false;
                 if (argument >= 7)
                 {
-                    if (!_services.NavigateTo(RmlUiRouteArgument.Offline)) return false;
-                    _offline = null; Cancel(); Dirty(); return true;
+                    if (_training == null || (argument >= 13 && !_trainingOptionsOpen)) return false;
+                    bool changed = _training.Choice(argument);
+                    if (changed) Dirty();
+                    return changed;
                 }
                 bool offlineChanged = _offline.Change(argument);
                 if (offlineChanged) Dirty();
                 return offlineChanged;
             case RmlUiIntentKind.OfflineOpenArena:
-                if (_offline == null || _busy || !_offline.OpenArena()) return false;
+                if (_offline == null || _busy || _trainingOptionsOpen || !_offline.OpenArena()) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineCancelArena:
                 if (_offline == null || !_offline.CloseArena()) return false;
@@ -290,19 +305,45 @@ public sealed class RmlUiMenuController : IDisposable
                 if (_offline == null || !_offline.SelectArena(argument)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
-                if (_offline == null || _busy || !_offline.Valid) return false;
+                if (_offline == null || _busy || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
                 RmlUiOfflineRequest offlineRequest = _offline.Current;
                 Begin(Job.Offline, "VALIDATING LOCAL MATCH AND MAP CAPABILITIES",
                     async token => await _services.ValidateOfflineAsync(offlineRequest, token)
                         .ConfigureAwait(false));
                 return true;
-            case RmlUiIntentKind.OfflineOpenRules:
             case RmlUiIntentKind.OfflineOpenTrainingOptions:
+                if (_training == null || _offline == null || _offline.ArenaOpen || _trainingOptionsOpen) return false;
+                _trainingOptionsOpen = true;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.OfflineCloseTrainingOptions:
+                if (!_trainingOptionsOpen) return false;
+                _trainingOptionsOpen = false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.OfflineTrainingToggle:
+                if (!_trainingOptionsOpen || _training == null
+                    || !_training.Toggle(argument)) return false;
+                Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchTraining:
-                // Preserve complete legacy training/rule semantics until those
-                // screens have independent, validated native controllers.
+                if (_training == null || _offline == null || _busy || _offline.ArenaOpen
+                    || _trainingOptionsOpen || _trainingLaunched || _services.Lobby().Active) return false;
+                if (!_services.LaunchTraining(_training.BuildForLaunch(),
+                        _training.Hunter, _offline.Current.Suit))
+                {
+                    Status("TRAINING LAUNCH REFUSED // CHECK GAME FILES OR ACTIVE SESSION");
+                    return false;
+                }
+                _trainingLaunched = true;
+                Status("AIM LAB LAUNCH ACCEPTED");
+                return true;
+            case RmlUiIntentKind.OfflineOpenRules:
+                // Full advanced offline rules still use their established
+                // transactional workspace until rules are migrated separately.
                 if (!_services.NavigateTo(RmlUiRouteArgument.Offline)) return false;
                 _offline = null;
+                _training = null;
+                _trainingOptionsOpen = false;
                 Cancel();
                 Dirty();
                 return true;
@@ -618,15 +659,24 @@ public sealed class RmlUiMenuController : IDisposable
         return true;
     }
 
-    private bool OpenOffline()
+    private bool OpenOffline(bool training)
     {
         if (_services.Lobby().Active || _joining || _creating) return false;
         if (!_services.Hub().GameFilesReady)
             return _services.NavigateTo(RmlUiRouteArgument.Offline);
-        if (_offline != null) return true;
+        if (_offline != null)
+        {
+            _trainingRoute = training;
+            Dirty();
+            return true;
+        }
         var hub = _services.Hub();
         _offline = new RmlUiOfflineDraft(_services.BuiltInArenaKeys(),
             hub.DisplayHunter, hub.Suit, 1, 1);
+        _training = new RmlUiTrainingDraft(_services.TrainingDefaults(), hub.DisplayHunter);
+        _trainingOptionsOpen = false;
+        _trainingRoute = training;
+        _trainingLaunched = false;
         Cancel();
         _browsing = false;
         Dirty();
@@ -809,6 +859,8 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
         Flag("offline_mode", _offline != null && !lobby.Active);
+        Flag("offline_training_mode", _offline != null && _trainingRoute && !lobby.Active);
+        Flag("offline_training_open", _offline != null && _trainingOptionsOpen && !lobby.Active);
         Flag("offline_arena_open", _offline?.ArenaOpen == true);
         Flag("play_browser_mode", _browsing && !_createOpen && !lobby.Active);
         Flag("play_create_mode", _createOpen && !lobby.Active);
@@ -840,6 +892,22 @@ public sealed class RmlUiMenuController : IDisposable
         Text("offline_availability", _offline?.Valid == true
             ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
         Flag("offline_can_start", _offline?.Valid == true && !_busy);
+        Flag("offline_training_can_start", _training != null && !_trainingLaunched
+            && !lobby.Active && !_busy);
+        Text("offline_training_hunter_value", _training?.HunterLabel ?? "");
+        Text("offline_drill_value", _training?.DrillLabel ?? "");
+        Text("offline_weapon_value", _training?.WeaponLabel ?? "");
+        Text("offline_duration_value", _training?.DurationLabel ?? "");
+        Text("offline_targets_value", _training?.TargetLabel ?? "");
+        Text("offline_movement_value", _training?.MovementLabel ?? "");
+        Text("offline_training_difficulty_value", _training?.DifficultyLabel ?? "");
+        Text("offline_training_distance_value", _training?.DistanceLabel ?? "");
+        Text("offline_training_scope_value", _training?.ScopeLabel ?? "");
+        Flag("offline_training_can_targets", _training?.CanChangeTargets == true);
+        Flag("offline_training_can_weapon", _training?.CanChangeWeapon == true);
+        Flag("offline_training_can_headshots", _training?.CanChangeHeadshots == true);
+        for (int i = 0; i < 5; i++)
+            Text("offline_training_toggle" + i, _training?.ToggleLabel(i) ?? "");
         Text("play_create_map", _createMap);
         Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
         Text("play_create_host", _createDedicated ? "LOCAL // DEDICATED" : "HOSTED // ONLINE");

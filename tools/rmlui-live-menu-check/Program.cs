@@ -7,6 +7,8 @@ using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
+using MphRead.Mods.Training;
+using MphRead.Entities;
 
 static void Check(bool pass, string name)
 {
@@ -413,6 +415,80 @@ Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
     "an unconfirmed newer local attempt cannot launch optimistically");
 controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
+// RML-26: the existing AimTrainerDefinition is authoritative. Its native
+// editor cannot create a mode/target count that the engine would reject.
+var imperialist = new RmlUiTrainingDraft(AimTrainerDefinition.Default with
+{
+    Drill = AimTrainerDrill.ImperialistPrecision,
+    Weapon = BeamType.PowerBeam,
+    FixedSeed = true,
+    Seed = 27
+}, Hunter.Trace);
+Check(imperialist.Current.Weapon == BeamType.Imperialist
+    && !imperialist.Choice(9) && imperialist.Current.TargetCount == 1,
+    "Imperialist Precision forces Imperialist and locks its weapon picker");
+Check(imperialist.Choice(8) && imperialist.Current.Drill == AimTrainerDrill.WeaponMastery,
+    "drill cycle uses the authoritative training drill enum");
+Check(imperialist.Toggle(4) && !imperialist.Current.FixedSeed,
+    "training fixed-seed option updates only the local drill draft");
+var headshots = new RmlUiTrainingDraft(AimTrainerDefinition.Default with
+{ Drill = AimTrainerDrill.HeadshotPrecision }, Hunter.Samus);
+Check(headshots.Current.HeadshotsOnly && !headshots.Toggle(0)
+    && !headshots.CanChangeHeadshots, "precision mode cannot disable required headshots");
+var timed = new RmlUiTrainingDraft(AimTrainerDefinition.Default with
+{ Drill = AimTrainerDrill.TimedFlick, TargetCount = 7 }, Hunter.Samus);
+Check(timed.Current.TargetCount == 1 && !timed.Choice(11),
+    "Timed Flick is always a single-target drill");
+var multiple = new RmlUiTrainingDraft(AimTrainerDefinition.Default with
+{ Drill = AimTrainerDrill.MultiTargetFlick, TargetCount = 7 }, Hunter.Samus);
+Check(multiple.Current.TargetCount == 5
+    && multiple.Choice(11) && multiple.Current.TargetCount == 4
+    && multiple.Choice(11) && multiple.Current.TargetCount == 5,
+    "Multi Target Flick remains within four or five targets");
+Check(!multiple.Choice(16) && !multiple.Toggle(5),
+    "out-of-range training choices and flags are rejected");
+
+services.TrainingDefault = AimTrainerDefinition.Default with { FixedSeed = true, Seed = 23 };
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Training)
+    && controller.OfflineOpen && Flag(controller.Tick(), "offline_training_mode")
+    && !Flag(controller.Tick(), "lobby_mode"),
+    "Aim Lab opens the native Offline workspace with training focus");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 8)
+    && Text(controller.Tick(), "offline_drill_value") == "Flick",
+    "the native drill control changes current training draft only");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
+    && controller.TrainingOptionsOpen
+    && Flag(controller.Tick(), "offline_training_open"),
+    "advanced training opens the original native options modal");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 13)
+    && Text(controller.Tick(), "offline_training_difficulty_value") == "Advanced",
+    "advanced training difficulty changes only the draft");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineTrainingToggle, 1)
+    && Text(controller.Tick(), "offline_training_toggle1").Contains("OFF"),
+    "native Infinite Ammo toggle uses the actual AimTrainerDefinition field");
+var trainingBindings = RmlUiMenuPageBindings.Project(
+    RmlUiMenuPage.OfflineTraining, controller.Tick().Bindings);
+Check(trainingBindings.TryGetValue("offline_training_difficulty_value", out var difficultyBinding)
+    && difficultyBinding.Text == "Advanced"
+    && trainingBindings.TryGetValue("offline_training_toggle_1", out var ammoBinding)
+    && ammoBinding.Text.Contains("OFF"),
+    "advanced RML modal binds live labels rather than legacy fake values");
+Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining)
+    && services.TrainingLaunches == 0,
+    "training cannot launch from beneath the advanced modal");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineCloseTrainingOptions)
+    && !controller.TrainingOptionsOpen
+    && controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining)
+    && services.TrainingLaunches == 1
+    && services.LastTraining.Drill.Drill == AimTrainerDrill.Flick
+    && services.LastTraining.Drill.Seed == 23
+    && services.LastTraining.Hunter == Hunter.Samus,
+    "native Aim Lab submits exactly one sanitized drill to existing launcher");
+Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining)
+    && services.TrainingLaunches == 1,
+    "accepted Aim Lab launch rejects duplicate clicks");
+controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
+
 // The native Create Lobby form uses the same authoritative backend as legacy
 // hosting. It has no local-simulation fallback and cannot be double-submitted.
 services.CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -471,6 +547,9 @@ sealed class Stub : IRmlUiMenuServices
     public int AdminCalls;
     public RmlUiAdminRequest LastAdmin;
     public RmlUiAdminSnapshot? AdminState;
+    public AimTrainerDefinition TrainingDefault = AimTrainerDefinition.Default;
+    public int TrainingLaunches;
+    public (AimTrainerDefinition Drill, Hunter Hunter, int Suit) LastTraining;
     public TaskCompletionSource<string> OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RmlUiOfflineRequest LastOffline;
     public int OfflineValidations, OfflineLaunches;
@@ -496,6 +575,13 @@ sealed class Stub : IRmlUiMenuServices
     {
         OfflineValidations++;
         return OfflineValidationPending.Task.WaitAsync(token);
+    }
+    public AimTrainerDefinition TrainingDefaults() => TrainingDefault;
+    public bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit)
+    {
+        TrainingLaunches++;
+        LastTraining = (drill, hunter, suit);
+        return true;
     }
     public bool LaunchOffline(RmlUiOfflineRequest request)
     {

@@ -54,6 +54,19 @@ namespace MphRead.Mods.Launcher.Gui
             return true;
         }
 
+        internal bool RmlUiLaunchTraining(MphRead.Mods.Training.AimTrainerDefinition definition,
+            Hunter hunter, int suit)
+        {
+            if (_finished || _startup != null || _prime.Overlays.IsOpen || NetSession.Active
+                || (uint)hunter >= 7 || suit is < 0 or > 3 || !CanLaunchLocal()) return false;
+            // The shared AimTrainerLaunch validates/sanitizes the native
+            // definition, persists preferences and launches the actual local
+            // target simulation through the existing StartScreen.Finish flow.
+            LaunchPlan plan = AimTrainerLaunch.Create(definition.Sanitize(), hunter, suit);
+            Finish(plan);
+            return _finished;
+        }
+
         internal bool RmlUiLaunchOffline(MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRequest request)
         {
             if (_finished || _startup != null || _prime.Overlays.IsOpen
