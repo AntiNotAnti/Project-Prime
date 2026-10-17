@@ -16,6 +16,8 @@ internal sealed class QuickSettingsPagePresenter : IDisposable
 
     public bool OpenFullSettingsRequested { get; private set; }
     public bool Closed { get; private set; }
+    // Prevent header navigation from silently dropping a staged Settings edit.
+    public bool CanNavigateAway => !_controller.Current().Dirty;
     public QuickSettingsPagePresenter(RmlUiPageManager pages, IQuickLauncherPreferenceStore store)
     {
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
