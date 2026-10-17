@@ -156,7 +156,9 @@ internal static class RmlUiOpenGlSmoke
                     (RmlUiIntentKind.CommunityRefresh or RmlUiIntentKind.CommunitySearch
                      or RmlUiIntentKind.CommunitySort or RmlUiIntentKind.CommunityPage
                      or RmlUiIntentKind.CommunitySelect or RmlUiIntentKind.CommunityImport
-                     or RmlUiIntentKind.CommunityDetailAction or RmlUiIntentKind.CommunityCancelWork))
+                     or RmlUiIntentKind.CommunityDetailAction or RmlUiIntentKind.CommunityCancelWork
+                     or RmlUiIntentKind.CommunityTab or RmlUiIntentKind.CommunityCreatorAction
+                     or RmlUiIntentKind.CommunityConfirm or RmlUiIntentKind.CommunityCancel))
                 {
                     NativeCommunityDiscoverPage page = _community;
                     page.Handle(intent);
@@ -619,7 +621,8 @@ internal static class RmlUiOpenGlSmoke
             throw new FileNotFoundException("Native Community browser is not packaged.", path);
         _launcherPages?.Suspend();
         var next = new NativeCommunityDiscoverPage(host, _pages,
-            new NativeCommunityReader(), new NativeCommunityInstaller());
+            new NativeCommunityReader(), new NativeCommunityInstaller(),
+            new NativeCommunityCreatorService());
         try
         {
             next.Open();
