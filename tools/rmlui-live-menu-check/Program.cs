@@ -575,6 +575,103 @@ Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Adve
     "empty Adventure slot launches a new run with no misleading overwrite prompt");
 controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
+// RML-28: the replay archive is a presentation of indexed library metadata,
+// never an independent replay decoder, renderer, or user-supplied filesystem path.
+RmlUiReplayEntry[] replayRows = Enumerable.Range(0, 18).Select(i =>
+    new RmlUiReplayEntry($"/_demos/replay_{i:00}.ppdemo", $"Replay {i:00}",
+        $"Arena {i % 3}", $"Map {i % 3}", i + 1, 100 + i,
+        1000 + i, i % 5 == 0, i % 2 == 0, false, true)).ToArray();
+var archive = new RmlUiTheatreIndex();
+archive.Refresh(replayRows);
+Check(archive.TotalCount == 18 && archive.Count == 18 && archive.Pages == 3
+    && archive.Entry(0)?.Title == "Replay 17" && archive.Entry(7)?.Title == "Replay 10"
+    && archive.Turn(1) && archive.Entry(0)?.Title == "Replay 09"
+    && archive.Turn(1) && archive.Entry(0)?.Title == "Replay 01"
+    && !archive.Turn(1),
+    "native replay archive sorts newest-first and pages eight bounded rows");
+Check(archive.SearchFor("rEpLaY 06") && archive.Count == 1
+    && archive.Entry(0)?.Title == "Replay 06"
+    && archive.Page == 0 && !archive.Turn(-1)
+    && !archive.SearchFor(new string('X',513)),
+    "case-insensitive replay search resets pagination and rejects oversized query");
+Check(archive.Select(0) && archive.Selected?.Title == "Replay 06"
+    && archive.SelectedUnchanged(replayRows[6])
+    && !archive.SelectedUnchanged(replayRows[6] with { Bytes = 99 }),
+    "replay actions bind the exact indexed file size and write timestamp");
+archive.MarkLaunched();
+Check(!archive.Select(0) && !archive.SelectedUnchanged(replayRows[6]),
+    "native playback handoff cannot be re-entered after a confirmed launch");
+
+services.TheatreRows = replayRows.Take(3).ToArray();
+services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre)
+    && controller.TheatreOpen && controller.Busy
+    && Flag(controller.Tick(), "theatre_mode")
+    && services.TheatreReadCalls == 1,
+    "native Theatre opens its own page and queues replay metadata work off the owner thread");
+services.TheatreReadPending.SetResult(services.TheatreRows);
+Check(Text(Wait(controller, s => Flag(s,"theatre_entry0_present")), "theatre_entry0_title")
+    == "Replay 02", "native replay list displays the indexed library result");
+var theatreBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Theatre, controller.Tick().Bindings);
+Check(theatreBindings.TryGetValue("theatre_entry0_title", out var theatreTitle)
+    && theatreTitle.Text == "Replay 02"
+    && theatreBindings.TryGetValue("disabled:theatre_watch", out var theatreWatchDisabled)
+    && theatreWatchDisabled.Boolean,
+    "native Theatre bindings show metadata and disable Watch until a selection is made");
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 0, theatreSearch: "replay 01")
+    && Text(controller.Tick(), "theatre_entry0_title") == "Replay 01"
+    && controller.Dispatch(RmlUiIntentKind.TheatreEntry, 0)
+    && Text(controller.Tick(), "theatre_selected_title") == "Replay 01",
+    "native replay search and selection use immutable eight-row result slots");
+services.TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 6) && controller.Busy
+    && services.TheatreValidations == 1 && services.ReplayLaunches == 0
+    && !controller.Dispatch(RmlUiIntentKind.TheatreAction, 6),
+    "Watch performs one async protocol/map preflight, without optimistic scene startup");
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home)
+    && !controller.TheatreOpen,
+    "leaving Theatre cancels pending native replay playback");
+services.TheatreValidationPending.SetResult("");
+Thread.Sleep(30);
+Check(services.ReplayLaunches == 0,
+    "stale replay validation completion cannot launch after document retirement");
+
+services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre),
+    "reopening Theatre starts a new generation of library data");
+services.TheatreReadPending.SetResult(services.TheatreRows);
+Wait(controller,s=>Flag(s,"theatre_entry0_present"));
+Check(controller.Dispatch(RmlUiIntentKind.TheatreEntry, 0), "new foreground replay can be selected");
+services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 7)
+    && services.TheatreFavorites == 1 && controller.Busy,
+    "toggle Favorite delegates to an exact on-disk entry then rereads authoritative library");
+services.TheatreReadPending.SetResult(services.TheatreRows);
+Wait(controller,s=>!controller.Busy);
+Check(services.TheatreRows[2].Favorite && services.ReplayLaunches == 0,
+    "favorite mutation changes only its existing replay marker, not playback");
+services.TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 6),
+    "selected replay can begin a second checked playback attempt");
+services.TheatreValidationPending.SetResult("");
+Wait(controller, _ => services.ReplayLaunches == 1);
+Check(services.ReplayLaunches == 1
+    && services.LastReplay.Path == replayRows[2].Path
+    && !controller.Dispatch(RmlUiIntentKind.TheatreAction, 6),
+    "validated Theatre Watch hands off once to the existing playback launcher");
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home)
+    && !Flag(controller.Tick(), "theatre_mode"),
+    "Theatre route exits without retaining playable selection");
+
+services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre),
+    "full Studio fallback fixture opens native archive");
+services.TheatreReadPending.SetResult(services.TheatreRows);
+Wait(controller,s=>Flag(s,"theatre_entry0_present"));
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 18)
+    && services.LegacyTheatreHandoffs == 1 && !controller.TheatreOpen,
+    "Import and advanced replay editing route to full existing Replay Studio");
+
 // The native Create Lobby form uses the same authoritative backend as legacy
 // hosting. It has no local-simulation fallback and cannot be double-submitted.
 services.CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -642,6 +739,11 @@ sealed class Stub : IRmlUiMenuServices
     public TaskCompletionSource<string> OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RmlUiOfflineRequest LastOffline;
     public int OfflineValidations, OfflineLaunches;
+    public TaskCompletionSource<RmlUiReplayEntry[]> TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<string> TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public RmlUiReplayEntry[] TheatreRows = Array.Empty<RmlUiReplayEntry>();
+    public RmlUiReplayEntry LastReplay;
+    public int TheatreReadCalls, TheatreValidations, TheatreFavorites, ReplayLaunches, LegacyTheatreHandoffs;
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -692,7 +794,39 @@ sealed class Stub : IRmlUiMenuServices
     }
     public bool AcceptJoin(LaunchPlan _) { Accepted++; return true; }
     public bool OpenCreateLobby() => true;
-    public bool NavigateTo(RmlUiRouteArgument _) => true;
+    public bool NavigateTo(RmlUiRouteArgument route)
+    {
+        if (route == RmlUiRouteArgument.Theatre) LegacyTheatreHandoffs++;
+        return true;
+    }
+    public Task<RmlUiReplayEntry[]> ReadTheatreAsync(CancellationToken token)
+    {
+        TheatreReadCalls++;
+        return TheatreReadPending.Task.WaitAsync(token);
+    }
+    public Task<string> ValidateReplayAsync(RmlUiReplayEntry entry, CancellationToken token)
+    {
+        TheatreValidations++;
+        return TheatreValidationPending.Task.WaitAsync(token);
+    }
+    public bool LaunchReplay(RmlUiReplayEntry entry)
+    {
+        if (!TheatreRows.Any(r => r.Path == entry.Path
+            && r.Bytes == entry.Bytes && r.LastWriteTicks == entry.LastWriteTicks
+            && r.Playable)) return false;
+        ReplayLaunches++;
+        LastReplay = entry;
+        return true;
+    }
+    public bool ToggleReplayFavorite(RmlUiReplayEntry entry)
+    {
+        int index = Array.FindIndex(TheatreRows, x => x.Path == entry.Path
+            && x.Bytes == entry.Bytes && x.LastWriteTicks == entry.LastWriteTicks);
+        if (index < 0) return false;
+        TheatreRows[index] = TheatreRows[index] with { Favorite = !TheatreRows[index].Favorite };
+        TheatreFavorites++;
+        return true;
+    }
     public bool OpenStudio() => true;
     public bool SetReady() { ReadyCalls++; return true; }
     public bool StartMatch() { StartCalls++; return true; }
