@@ -4,6 +4,7 @@ using System.Threading;
 using MphRead.Mods.Cosmetics;
 using MphRead;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.RmlUi.Core;
 
 static void Check(bool pass, string label)
 {
@@ -109,6 +110,29 @@ using (var canceled = new LauncherCosmeticDraftController(canceledStore, Hunter.
     canceledStore.Finish("IGNORED STALE RESULT");
     Check(canceledStore.Cancelled, "retiring native page cancels in-flight account synchronization");
 }
+// RML-31: the actual native Hunter preview bounds are in framebuffer pixels.
+// Clamping is performed once here, not once in RmlUi and again in OpenTK.
+Check(RmlUiPreviewViewport.TryCreate(100, 60, 600, 480, 1200, 800, out var viewport)
+    && Math.Abs(viewport.Left - 1f / 12f) < 0.0001f
+    && Math.Abs(viewport.Right - 7f / 12f) < 0.0001f
+    && Math.Abs(viewport.Top - 0.075f) < 0.0001f
+    && Math.Abs(viewport.Bottom - 0.675f) < 0.0001f,
+    "native Hunter viewport transforms framebuffer top-left coordinates exactly once");
+Check(RmlUiPreviewViewport.TryCreate(-80, -30, 160, 140, 1000, 600,
+        out var clippedViewport) && clippedViewport.Left == 0f
+    && clippedViewport.Top == 0f && clippedViewport.Width > 0f,
+    "partially visible 3D Hunter viewport is clipped to framebuffer");
+Check(!RmlUiPreviewViewport.TryCreate(float.NaN, 0, 640, 320, 1000, 600, out _)
+    && !RmlUiPreviewViewport.TryCreate(0, 0, float.PositiveInfinity, 100, 1000, 600, out _)
+    && !RmlUiPreviewViewport.TryCreate(40, 40, 8, 8, 1000, 600, out _)
+    && !RmlUiPreviewViewport.TryCreate(1200, 1000, 400, 300, 1000, 600, out _)
+    && !RmlUiPreviewViewport.TryCreate(0, 0, 400, 300, 0, 600, out _),
+    "nonfinite, invisible, undersized and dimensionless viewports never touch native GL");
+Check(RmlUiPreviewViewport.TryCreate(780, 340, 460, 460, 1200, 800,
+        out var edgeViewport)
+    && edgeViewport.Right == 1f && edgeViewport.Bottom == 1f,
+    "oversized native Hunter viewport remains bounded to active framebuffer");
+
 Console.WriteLine("RML local Hunter identity and cosmetic contracts complete.");
 
 sealed class Fake : ILauncherHunterChoiceStore
