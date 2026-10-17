@@ -205,7 +205,7 @@ public sealed class RmlUiLobbyAdminController
                 => Request(state, RmlUiAdminOperation.SetTeam, selected, -1),
             RmlUiIntentKind.LobbyTeamNext when selected.HasValue && state.TeamCount > 0
                 => Request(state, RmlUiAdminOperation.SetTeam, selected,
-                    (sbyte)((Math.Max(-1, selected.Value.Team) + 1) % state.TeamCount)),
+                    (sbyte)((Math.Max(-1, (int)selected.Value.Team) + 1) % state.TeamCount)),
             RmlUiIntentKind.LobbyHandicapNext when selected.HasValue
                 => Request(state, RmlUiAdminOperation.SetHandicap, selected,
                     handicap: (byte)((selected.Value.Handicap + 10) % 60)),
