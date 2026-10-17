@@ -279,7 +279,7 @@ void main() { o_color = texture(u_image, v_uv); }";
                 GLES30.GlBufferData(GLES30.GlArrayBuffer, vertexBytes.Length, vertices, GLES30.GlStaticDraw);
             GLES30.GlBindBuffer(GLES30.GlElementArrayBuffer, gpu.IndexBuffer);
             byte[] indexBytes = new byte[checked(source.Indices.Length * sizeof(int))];
-            Buffer.BlockCopy(source.Indices, 0, indexBytes, 0, indexBytes.Length);
+            System.Buffer.BlockCopy(source.Indices, 0, indexBytes, 0, indexBytes.Length);
             using (ByteBuffer indices = Direct(indexBytes))
                 GLES30.GlBufferData(GLES30.GlElementArrayBuffer, indexBytes.Length, indices, GLES30.GlStaticDraw);
             GLES30.GlEnableVertexAttribArray(0);
