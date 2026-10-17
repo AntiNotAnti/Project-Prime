@@ -952,6 +952,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("adventure_save_detail", _adventure == null ? ""
             : _adventure.Describe(_adventure.Selected));
         Text("adventure_launch_status", _adventure?.Status ?? "");
+        Flag("adventure_error_visible", _adventure?.Selected.Unreadable == true);
         Text("adventure_error_text", _adventure?.Selected.Unreadable == true
             ? "THIS SAVE IS UNREADABLE. ARCHIVE IT IN THE EXISTING SAVE MANAGER." : "");
         Text("adventure_file_problem", "");
