@@ -418,6 +418,38 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     composed.Flush();
     Require(composedManager.ModalCount == 0 && !host.IsAlive(trainingPage),
         "Retired training options cannot retain input or old focus state");
+    composed.SetBool("offline_mode", false);
+    composed.SetBool("adventure_mode", true);
+    composed.Flush();
+    var adventurePage = composedManager.Page;
+    Require(composed.Page == RmlUiMenuPage.Adventure && adventurePage != offlinePage,
+        "Native Adventure saves did not replace the Offline Battle route");
+    composed.SetBool("adventure_confirmation_open", true);
+    composed.Flush();
+    var confirmSavePage = composedManager.Top;
+    Require(composedManager.ModalCount == 1 && confirmSavePage != adventurePage
+        && host.IsAlive(confirmSavePage),
+        "Save overwrite confirmation must own the active native modal");
+    var coveredSave = new RmlUiIntent(RmlUiIntentKind.AdventureContinue, 0, adventurePage, 57);
+    Require(composed.HandleIntent(coveredSave, out var ignoredSave) && ignoredSave == default,
+        "A covered Adventure page cannot resume while confirmation is foreground");
+    var userCancel = new RmlUiIntent(RmlUiIntentKind.AdventureCancelNewRun, 0, confirmSavePage, 58);
+    Require(composed.HandleIntent(userCancel, out var forwardedCancel)
+        && forwardedCancel == userCancel,
+        "Only the active save confirmation can dispatch its Cancel");
+    composed.SetBool("adventure_confirmation_open", false);
+    composed.Flush();
+    Require(composedManager.ModalCount == 0 && !host.IsAlive(confirmSavePage),
+        "Retiring an overwrite confirmation must release its document and events");
+    composed.SetBool("adventure_confirmation_open", true);
+    composed.Flush();
+    Require(composed.Back(out var backSave) && backSave.Kind == RmlUiIntentKind.AdventureCancelNewRun,
+        "Back cancels an Adventure overwrite instead of silently closing the save page");
+    composed.SetBool("adventure_confirmation_open", false);
+    composed.Flush();
+    Require(composed.Back(out var backAdventure) && backAdventure.Kind == RmlUiIntentKind.Navigate
+        && backAdventure.Argument == (int)RmlUiRouteArgument.Offline,
+        "Back from Adventure returns to Offline activities after confirmation dismissal");
 }
 Require(native.Documents.Count == 1, "Composed page teardown leaked native documents");
 
