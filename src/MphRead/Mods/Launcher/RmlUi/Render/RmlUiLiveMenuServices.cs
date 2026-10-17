@@ -36,17 +36,19 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
                 "", "", "", "", "", 8, Array.Empty<RmlUiLobbyPlayer>());
 
         var roster = NetSession.LobbyRoster();
-        var players = new RmlUiLobbyPlayer[Math.Clamp((int)roster.Count, 0, 8)];
-        for (int i = 0; i < players.Length; i++)
-        {
-            byte slot = roster.Slots[i];
-            players[i] = new(
+        // Both the native nameplates and real engine-preview formation use
+        // one presentation order: local/front, then other network slots.
+        // Never infer roster identity from a visible display name.
+        int rosterCount = Math.Clamp((int)roster.Count, 0, 8);
+        var players = Enumerable.Range(0, rosterCount)
+            .OrderByDescending(i => roster.Slots[i] == NetSession.LocalSlot)
+            .ThenBy(i => roster.Slots[i])
+            .Select(i => new RmlUiLobbyPlayer(
                 roster.Names[i] ?? "",
                 ((Hunter)roster.Hunters[i]).ToString().ToUpperInvariant(),
                 roster.LobbyReady[i],
-                slot == NetSession.LocalSlot,
-                roster.IsBot(i));
-        }
+                roster.Slots[i] == NetSession.LocalSlot,
+                roster.IsBot(i))).ToArray();
         bool inLobby = NetSession.IsInLobby;
         bool owner = NetSession.LocalIsLobbyOwner;
         bool localReady = NetSession.LocalSlot >= 0 && NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
