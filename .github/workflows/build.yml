@@ -54,6 +54,9 @@ jobs:
       - name: RmlUi authenticated Social Friends, cancellation and privacy contracts
         run: dotnet run --project tools/rmlui-social-check -c Release
 
+      - name: RmlUi authoritative Party lifecycle and revision contracts
+        run: dotnet run --project tools/rmlui-party-check -c Release
+
       - name: RmlUi authenticated Hunter License read-model and cancellation contracts
         run: dotnet run --project tools/rmlui-license-check -c Release
 
