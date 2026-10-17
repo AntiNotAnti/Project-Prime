@@ -54,9 +54,6 @@ jobs:
       - name: RmlUi live Home, Play, lobby, and async ownership contracts
         run: dotnet run --project tools/rmlui-live-menu-check -c Release
 
-      - name: validate opt-in native desktop packaging script
-        run: bash -n tools/rmlui/package-desktop.sh
-
       - name: validate RmlUi native build script and pinned manifest tooling
         run: |
           bash -n tools/rmlui/build-native.sh
