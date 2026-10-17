@@ -24,7 +24,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private readonly bool _ownsManager;
         private readonly Dictionary<string, RmlUiBindingValue> _model = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _fields = new(StringComparer.Ordinal);
-        private RmlUiDocumentToken _pageDocument, _rulesDocument;
+        private RmlUiDocumentToken _pageDocument, _rulesDocument, _mapDocument;
         private RmlUiMenuPage _page = RmlUiMenuPage.Home;
         private long _revision;
         private ulong _lastSequence;
@@ -115,7 +115,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             _suspended = false;
             _resumeRequested = true;
-            if (page is RmlUiMenuPage.Rules) throw new ArgumentException("Rules is a modal, not a route.", nameof(page));
+            if (page is RmlUiMenuPage.Rules or RmlUiMenuPage.Maps) throw new ArgumentException("Rules and Maps are modals, not routes.", nameof(page));
             if (page is { } selected) SwitchMode(selected);
             Flush();
             Manager.SetVisible(true);
@@ -171,7 +171,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (!_host.IsAlive(_pageDocument) || _page != desired)
             {
                 CaptureFields();
-                _rulesDocument = default;
+                _rulesDocument = _mapDocument = default;
                 _pageDocument = Manager.OpenPage(RmlUiMenuPages.Spec(desired));
                 _page = desired;
                 SeedFields(desired == RmlUiMenuPage.Play ? PlayFields : Array.Empty<string>(), _pageDocument);
@@ -180,6 +180,14 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     ? "lobby_hunter" : RmlUiMenuPages.Spec(desired).InitialFocus;
             }
             bool rules = _page == RmlUiMenuPage.Lobby && Bool("lobby_rules_open");
+            bool maps = rules && Bool("lobby_map_open");
+            // The map picker is stacked *above* the rules modal. Always
+            // retire it first so CloseModal never dismisses the wrong page.
+            if (!maps && _host.IsAlive(_mapDocument))
+            {
+                Manager.CloseModal();
+                _mapDocument = default;
+            }
             if (rules && !_host.IsAlive(_rulesDocument))
             {
                 _rulesDocument = Manager.OpenModal(RmlUiMenuPages.Rules);
@@ -193,12 +201,20 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Manager.CloseModal();
                 _rulesDocument = default;
             }
+            if (maps && !_host.IsAlive(_mapDocument))
+            {
+                _mapDocument = Manager.OpenModal(RmlUiMenuPages.Maps);
+                _pendingFocus = "map_close";
+                _dirty = true;
+            }
             if (!_dirty) return;
             _dirty = false;
             long revision = ++_revision;
             Manager.Present(_pageDocument, revision, RmlUiMenuPageBindings.Project(_page, _model));
             if (_host.IsAlive(_rulesDocument))
                 Manager.Present(_rulesDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.Rules, _model));
+            if (_host.IsAlive(_mapDocument))
+                Manager.Present(_mapDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.Maps, _model));
         }
 
         /// <summary>Conditional display changes must be laid out before focus is restored.</summary>
@@ -206,7 +222,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             Verify();
             if (_suspended || String.IsNullOrEmpty(_pendingFocus)) return;
-            var target = _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
+            var target = _host.IsAlive(_mapDocument) ? _mapDocument
+                : _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
             if (_host.FocusDocument(target, _pendingFocus)) _pendingFocus = "";
         }
 
@@ -215,7 +232,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             Verify();
             forwarded = default;
-            if (_suspended || (intent.Document != _pageDocument && intent.Document != _rulesDocument)) return false;
+            if (_suspended || (intent.Document != _pageDocument && intent.Document != _rulesDocument
+                && intent.Document != _mapDocument)) return false;
             if (!Manager.Accept(intent)) return true;
             _lastSequence = Math.Max(_lastSequence, intent.Sequence);
             string action = RmlUiIntentRegistry.ToLegacy(intent);
@@ -275,7 +293,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _pendingFocus = "activity_selector";
                 Flush();
             }
-            forwarded = intent with { Document = _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument };
+            forwarded = intent;
             return true;
         }
 
@@ -284,6 +302,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             forwarded = default;
             if (_suspended) return false;
+            if (_host.IsAlive(_mapDocument))
+            {
+                forwarded = Forward("lobby:map-close", ++_lastSequence);
+                return true;
+            }
             if (_host.IsAlive(_rulesDocument))
             {
                 Put("lobby_rules_open", false);
@@ -344,7 +367,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private RmlUiIntent Forward(string action, ulong sequence)
         {
-            var target = _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
+            var target = _host.IsAlive(_mapDocument) ? _mapDocument
+                : _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
             if (!RmlUiIntentRegistry.TryParseLegacy(action, target, sequence, out var intent))
                 throw new InvalidOperationException($"The action registry is missing '{action}'.");
             return intent;
