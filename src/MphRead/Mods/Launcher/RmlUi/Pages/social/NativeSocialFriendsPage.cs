@@ -19,7 +19,7 @@ internal sealed class NativeSocialFriendsPage : IDisposable
     private readonly RmlUiHost _host;
     private readonly NativeSocialFriendsController _controller;
     private RmlUiDocumentToken _page, _confirmation;
-    private long _revision;
+    private long _revision, _lastDataRevision;
     private bool _closed, _disposed;
     public bool Closed => _closed;
     public NativeSocialFriendsPage(RmlUiHost host, RmlUiPageManager pages,
@@ -84,6 +84,9 @@ internal sealed class NativeSocialFriendsPage : IDisposable
     {
         if (_disposed || _closed || _page == default) return;
         NativeSocialView snapshot = _controller.Tick();
+        // No RML binding churn when a network operation has not changed.
+        if (snapshot.Revision == _lastDataRevision) return;
+        _lastDataRevision = snapshot.Revision;
         if (snapshot.Confirmation.Length > 0 && !_host.IsAlive(_confirmation))
             _confirmation = _pages.OpenModal(new("social-friends-confirm",
                 "pages/social/confirm.rml", "social_confirm_cancel"));
