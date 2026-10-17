@@ -598,10 +598,16 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        public static void Save()
+        // Existing callers intentionally ignore persistence failures.
+        // Native Apply flows need a checked result so they do not display a
+        // saved state after a denied write, missing user directory, or
+        // overlapping settings transaction.
+        public static void Save() => _ = TrySave();
+
+        public static bool TrySave()
         {
             using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
-            if (settingsWrite == null) return;
+            if (settingsWrite == null) return false;
             try
             {
                 File.WriteAllLines(Path, new[]
@@ -668,10 +674,12 @@ namespace MphRead.Mods.Launcher
                         + WindowY.ToString(CultureInfo.InvariantCulture),
                     $"window_maximized={WindowMaximized.ToString().ToLowerInvariant()}"
                 });
+                return true;
             }
             catch (Exception)
             {
                 // Same rationale as Load: never block launching over this.
+                return false;
             }
         }
     }
