@@ -210,7 +210,7 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
             NetSession.LocalIsLobbyOwner, session.OwnerSlot,
             NetSession.LocalSlot >= 0 ? (byte)NetSession.LocalSlot : byte.MaxValue,
             NetSession.LobbyCommandPending, session.LockTeams,
-            (byte)Math.Clamp(teams, 0, 4), session.MaxPlayers,
+            (byte)Math.Clamp((int)teams, 0, 4), session.MaxPlayers,
             NetSession.MapPreparation?.State == MapAvailabilityState.Failed,
             NetSession.MapPreparationMessage, NetSession.LobbyMessage,
             HunterRules.Pool(session.Match.LowTier).ToArray(), players,
