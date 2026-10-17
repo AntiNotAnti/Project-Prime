@@ -1,0 +1,10 @@
+<rml><head><title>Project Prime News</title><link type="text/template" href="../../components/app-shell.rml"/><link type="text/rcss" href="news.rcss"/></head>
+<body template="prime-shell"><div id="news_page"><div class="eyebrow">HOME // TRANSMISSION FEED</div><h1>LATEST DISPATCHES</h1>
+<div class="news_commands"><button id="news_filter_0" class="play_action" data-action="news:action:0">ALL</button><button id="news_filter_1" class="play_action" data-action="news:action:1">NEWS</button><button id="news_filter_2" class="play_action" data-action="news:action:2">PATCH NOTES</button><button id="news_filter_3" class="play_action" data-action="news:action:3">ANNOUNCEMENTS</button><button id="news_discord" class="play_action" data-action="news:action:10">JOIN THE DISCORD</button></div>
+<div class="news_columns"><div id="news_hero"><div id="news_category" class="eyebrow"/><h2 id="news_headline"/><p id="news_summary"/><button id="news_read" class="play_action" data-action="news:action:8">OPEN TRANSMISSION</button></div>
+<div id="news_feed"><p>Select a transmission to feature it on the command deck.</p>
+<button id="news_article_0" class="news_article" data-action="news:action:4"><span id="news_article_title_0" class="news_title"/><span id="news_article_summary_0" class="news_summary"/></button>
+<button id="news_article_1" class="news_article" data-action="news:action:5"><span id="news_article_title_1" class="news_title"/><span id="news_article_summary_1" class="news_summary"/></button>
+<button id="news_article_2" class="news_article" data-action="news:action:6"><span id="news_article_title_2" class="news_title"/><span id="news_article_summary_2" class="news_summary"/></button>
+<button id="news_article_3" class="news_article" data-action="news:action:7"><span id="news_article_title_3" class="news_title"/><span id="news_article_summary_3" class="news_summary"/></button>
+</div></div><p id="news_error" role="status"/><button id="news_back" class="play_action" data-action="route:home">BACK</button></div></body></rml>

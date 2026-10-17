@@ -358,6 +358,22 @@
           Link="fidelity-baselines/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <!-- Only authored resources, not historical service presenters, are restored. -->
+    <None Update="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss"
+          Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss"
+          Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Mods/Launcher/RmlUi/Themes/**/*.rcss"
+          Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets/Fonts/NotoSansJP-Regular.ttf;Assets/Fonts/NotoSansJP-OFL.txt;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt"
+          Link="rmlui/fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- RML-01: the restored managed native host compiles in desktop clients,
        but dedicated servers retain no RmlUi UI host or P/Invoke surface. -->
   <ItemGroup Condition="'$(MphReadServer)' == 'true'">

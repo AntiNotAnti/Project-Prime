@@ -1,0 +1,11 @@
+body { background-color: rgba(0,8,16,65%); color: #e7f4ff; font-family: Rajdhani; font-size: 18dp; }
+.match-panel { width: 90%; max-width: 820dp; max-height: 92%; margin: 2% auto; padding: 22dp; overflow: auto; background-color: rgba(5,20,34,93%); border: 1dp #315674; }
+h1 { font-size: 36dp; margin: 5dp 0 12dp; } h2 { font-size: 26dp; } p { color: #a5bdcf; white-space: pre-wrap; }
+.match-panel > div, .match-panel > h1, .match-panel > h2, .match-panel > p { display: block; width: 80vw; max-width: 770dp; }
+#ingame_pause > p, #ingame_vote > p, #ingame_vote > h2, #ingame_bots_panel > p, #ingame_bots_panel > h2 { display: block; width: 80vw; max-width: 770dp; }
+button { tab-index: auto; min-height: 44dp; margin: 4dp; padding: 9dp 13dp; color: #e7f4ff; background-color: #15344e; border: 1dp #3b6989; font-size: 17dp; }
+button:hover,button:focus { background-color: #245778; border-color: #83d1ff; } button:disabled,button.unavailable { color: #647d91; background-color: #102435; border-color: #253c4f; }
+button.primary { background-color: #1765a0; min-width: 220dp; } button.danger { border-color: #ae6370; } .error { color: #ffb9aa; }
+.match-actions { display: flex; flex-wrap: wrap; width: 80vw; max-width: 770dp; } .match-actions button { width: 46%; }
+.confirmation .match-panel { margin-top: 16%; } .bot-state { display: block; margin: 12dp 0; color: #a5dbff; }
+@media (max-width: 700dp) { .match-actions button { width: 95%; } .match-panel { padding: 12dp; } }

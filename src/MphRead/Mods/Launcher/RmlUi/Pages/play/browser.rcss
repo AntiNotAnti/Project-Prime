@@ -1,0 +1,229 @@
+/* Shared authored play rules, extracted from prime_home.rcss. */
+#multiplayer_stage {
+position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#play_header {
+position: absolute;
+    left: 52dp;
+    top: 25dp;
+    width: 570dp;
+}
+
+.play_title {
+font-size: 31dp;
+    line-height: 34dp;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 0.8dp;
+}
+
+.play_status {
+margin-top: 4dp;
+    color: #78caff;
+    font-family: "JetBrains Mono";
+    font-size: 10dp;
+    line-height: 14dp;
+}
+
+#play_browser {
+position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 57%;
+}
+
+.play_panel {
+width: 100%;
+    max-height: 446dp;
+    padding: 10dp;
+    overflow-y: auto;
+    background-color: rgba(2,11,21,84%);
+    border: 1dp rgba(97,182,246,18%);
+    border-left: 2dp rgba(114,199,255,50%);
+}
+
+.play_panel_head {
+display: flex;
+    justify-content: space-between;
+    padding: 2dp 5dp 8dp;
+    color: #72c7ff;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+    letter-spacing: 0.8dp;
+}
+
+.play_server {
+display: block;
+    width: 100%;
+    min-height: 49dp;
+    margin-bottom: 4dp;
+    padding: 7dp 11dp;
+    text-align: left;
+    color: #d6e7f4;
+    background-color: rgba(8,31,52,72%);
+    border-left: 2dp rgba(72,154,234,60%);
+    border-top: 1dp rgba(114,199,255,12%);
+}
+
+.play_server:hover,
+.play_server:focus {
+color: #ffffff;
+    border-left-color: #72c7ff;
+    background-color: rgba(24,81,132,88%);
+}
+
+.play_server b {
+display: block;
+    font-size: 13dp;
+    line-height: 16dp;
+    font-weight: bold;
+}
+
+.play_server span {
+display: block;
+    margin-top: 2dp;
+    color: #80a2bc;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 11dp;
+}
+
+.play_empty {
+padding: 20dp 8dp;
+    color: #7892a9;
+    font-size: 11dp;
+    line-height: 15dp;
+}
+
+#play_connect {
+position: absolute;
+    right: 52dp;
+    top: 128dp;
+    width: 270dp;
+    padding: 14dp;
+    background-color: rgba(3,13,23,78%);
+    border: 1dp rgba(97,182,246,17%);
+    border-left: 2dp rgba(114,199,255,40%);
+}
+
+#play_create {
+position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 450dp;
+    padding: 18dp;
+    background-color: rgba(3,13,23,86%);
+    border: 1dp rgba(97,182,246,19%);
+    border-left: 3dp #2b9ef7;
+}
+
+#play_create .play_toolbar {
+margin-top: 14dp;
+    margin-bottom: 0;
+}
+
+#play_quick {
+nav-up: #nav_play; nav-right: #play_create_open; nav-down: #play_entry0;
+}
+
+#play_create_open {
+nav-left: #play_quick; nav-right: #play_refresh;
+}
+
+#play_refresh {
+nav-left: #play_create_open; nav-right: #play_back;
+}
+
+#play_back {
+nav-left: #play_refresh;
+}
+
+#play_join {
+nav-up: #play_join_address;
+}
+
+#play_next_map {
+nav-down: #play_next_mode;
+}
+
+#play_next_mode {
+nav-up: #play_next_map; nav-down: #play_toggle_host;
+}
+
+#play_toggle_host {
+nav-up: #play_next_mode; nav-down: #play_create_submit;
+}
+
+#play_create_submit {
+nav-up: #play_toggle_host; nav-right: #play_create_cancel;
+}
+
+#play_create_cancel {
+nav-left: #play_create_submit;
+}
+
+@media (max-width: 1500dp) {
+#play_header,
+#play_browser,
+#play_create {
+left: 28dp;
+}
+#play_connect {
+right: 28dp; width: 240dp;
+}
+#play_browser {
+width: 55%;
+}
+#play_create {
+width: 415dp;
+}
+}
+
+@media (max-width: 900dp) {
+#play_header,
+#play_browser,
+#play_create {
+left: 18dp;
+}
+#play_header {
+top: 15dp; width: 430dp;
+}
+.play_title {
+font-size: 24dp; line-height: 27dp;
+}
+#play_browser,
+#play_create {
+top: 92dp;
+}
+#play_browser {
+width: 56%;
+}
+#play_connect {
+top: 92dp; right: 15dp; width: 210dp; padding: 10dp;
+}
+#play_create {
+width: 380dp;
+}
+.play_panel {
+max-height: 300dp;
+}
+}
+
+@media (max-height: 760dp) {
+#play_browser,
+#play_connect,
+#play_create {
+top: 98dp;
+}
+.play_panel {
+max-height: 260dp;
+}
+.play_server {
+min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
+}
+}

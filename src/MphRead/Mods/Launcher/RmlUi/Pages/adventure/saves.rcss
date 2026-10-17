@@ -1,0 +1,67 @@
+#adventure_page {
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    top: 6%;
+    bottom: 4%;
+    overflow-y: auto;
+    padding: 14dp 18dp;
+    background-color: rgba(2, 9, 16, 88%);
+}
+.adventure_header { margin-bottom: 18dp; }
+.adventure_header h1, .adventure_header p, .adventure_panel p, #adventure_confirmation h2 { display: block; }
+.adventure_header h1, .adventure_header p { width: 86vw; }
+.adventure_details p, #adventure_save_detail { width: 34vw; }
+#adventure_confirmation h2, #adventure_confirmation p { display: block; width: 480dp; }
+.adventure_header h1 { margin: 0 0 6dp; color: #ffffff; font-size: 32dp; line-height: 36dp; }
+.adventure_header p, .adventure_panel p { margin: 6dp 0 12dp; line-height: 22dp; color: #b2cadc; }
+.adventure_columns { display: flex; align-items: stretch; }
+.adventure_panel {
+    padding: 18dp;
+    border: 1dp rgba(114, 199, 255, 25%);
+    background-color: rgba(4, 19, 33, 92%);
+}
+.adventure_slots { width: 44%; margin-right: 16dp; }
+.adventure_details { flex: 1; }
+.adventure_slot {
+    display: block;
+    width: 100%;
+    min-height: 58dp;
+    padding: 13dp 14dp;
+    margin: 9dp 0;
+    border: 1dp rgba(114, 199, 255, 26%);
+    background-color: rgba(10, 35, 59, 83%);
+    color: #d5eaff;
+    font-size: 16dp;
+    font-weight: bold;
+    text-align: left;
+}
+.adventure_slot.selected { border-left: 4dp #55e18c; background-color: rgba(13, 58, 62, 88%); }
+.adventure_slot:hover, .adventure_slot:focus { border-color: #72c7ff; color: #ffffff; }
+#adventure_save_detail { min-height: 90dp; white-space: pre-wrap; line-height: 24dp; color: #d5eaff; }
+.adventure_hint { font-size: 14dp; }
+.adventure_actions { display: flex; flex-wrap: wrap; margin-top: 16dp; }
+.adventure_actions .play_action { min-height: 44dp; margin-bottom: 6dp; font-size: 14dp; }
+.adventure_notice { padding: 12dp; margin-top: 12dp; color: #b2cadc; border: 1dp rgba(114, 199, 255, 25%); }
+.adventure_error { color: #ffb7bf; border-color: rgba(255, 120, 138, 55%); white-space: pre-wrap; }
+.adventure_error .play_action { margin-top: 10dp; }
+.adventure_navigation { display: flex; flex-wrap: wrap; margin-top: 16dp; }
+#adventure_confirmation { position: absolute; width: 520dp; max-width: 92%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+#adventure_confirmation h2 { margin: 0 0 12dp; font-size: 28dp; line-height: 32dp; color: #ffffff; }
+.adventure_danger { color: #ffffff; background-color: rgba(112, 28, 42, 90%); border-color: #ff788a; }
+.adventure_danger:hover, .adventure_danger:focus { background-color: rgba(151, 38, 56, 95%); border-color: #ffb7bf; }
+@media (max-width: 780dp) {
+    #adventure_page { left: 2%; right: 2%; top: 3%; bottom: 2%; padding: 12dp; }
+    .adventure_columns { display: block; }
+    .adventure_slots, .adventure_details { width: 100%; margin: 0 0 12dp; }
+    .adventure_header h1 { font-size: 26dp; line-height: 29dp; }
+    .adventure_panel { padding: 14dp; }
+    .adventure_details p, #adventure_save_detail { width: 82vw; }
+    #adventure_confirmation h2, #adventure_confirmation p { width: 82vw; }
+}
+@media (max-height: 620dp) {
+    #adventure_page { top: 2%; bottom: 2%; }
+    .adventure_header { margin-bottom: 10dp; }
+    .adventure_slot { min-height: 44dp; padding: 9dp 12dp; }
+    #adventure_save_detail { min-height: 72dp; line-height: 22dp; }
+}
