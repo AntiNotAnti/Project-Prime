@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
-using MphRead.Mods.Launcher.RmlUi.Core;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
@@ -693,7 +692,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 ("theatre_cancel_job", "!theatre_busy")
             })
                 bindings.Add(new(RmlUiBindingKind.Boolean, "disabled:" + target, expr));
-            for (int i = 0; i < RmlUiTheatreIndex.PageSize; i++)
+            for (int i = 0; i < 8; i++)
             {
                 bindings.Add(new(RmlUiBindingKind.Text, $"theatre_entry{i}_title",
                     $"{{{{theatre_entry{i}_title}}}}"));
