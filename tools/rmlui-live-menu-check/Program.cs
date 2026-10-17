@@ -334,6 +334,85 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminC
 services.LobbyView = Stub.EmptyLobby;
 
 
+// RML-25: a native local match draft is distinct from a server admission,
+// never persists global preferences, and may only hand off after a worker
+// validates the current map and mode against the existing engine contract.
+var offlinePager = new RmlUiOfflineDraft(
+    Enumerable.Range(0, 36).Select(i => $"Arena {i:00}"),
+    Hunter.Kanden, 3, 7, 2);
+Check(offlinePager.Current.Hunter == Hunter.Kanden
+    && offlinePager.Current.Suit == 3 && offlinePager.Current.Bots == 7
+    && offlinePager.Change(3) && offlinePager.Current.Bots == 0,
+    "native offline local match choices remain bounded and wrap safely");
+Check(offlinePager.OpenArena()
+    && offlinePager.ArenaPageCount == 3 && offlinePager.ArenaChoice(0) == "Arena 00"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 16"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 32"
+    && !offlinePager.ArenaTurn(1),
+    "original sixteen-map native picker pages through installed map names");
+Check(offlinePager.SearchArena("arena 04")
+    && offlinePager.ArenaPageCount == 1
+    && offlinePager.ArenaChoice(0) == "Arena 04"
+    && offlinePager.SelectArena(0)
+    && offlinePager.Current.RoomKey == "Arena 04" && !offlinePager.ArenaOpen,
+    "native arena search resets page cursor and selects exact verified item");
+Check(offlinePager.OpenArena() && !offlinePager.SearchArena(new string('x',81))
+    && !offlinePager.SelectArena(-1) && offlinePager.CloseArena(),
+    "invalid search length and forged map slot do not change the offline request");
+
+services.OfflineValidationPending =
+    new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+    && controller.OfflineOpen && Flag(controller.Tick(), "offline_mode")
+    && !Flag(controller.Tick(), "lobby_mode"),
+    "native Offline Battle opens without requesting the legacy workspace");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 5)
+    && Text(controller.Tick(), "offline_hunter_value") == "KANDEN",
+    "Hunter choice updates native offline draft, not launcher preferences");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
+    && Flag(controller.Tick(), "offline_arena_open"),
+    "offline arena launches an owned native modal");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineArenaSearch, arenaSearch: "sanctorus")
+    && Text(controller.Tick(), "offline_arena_name0") == "MP1 SANCTORUS",
+    "authored arena modal receives case-insensitive installed map search results");
+var offlineBindings = RmlUiMenuPageBindings.Project(
+    RmlUiMenuPage.OfflineArena, controller.Tick().Bindings);
+Check(offlineBindings.TryGetValue("offline_arena_name_0", out var firstArena)
+    && firstArena.Text == "MP1 SANCTORUS"
+    && offlineBindings.TryGetValue("disabled:offline_arena_pick_0", out var firstArenaDisabled)
+    && !firstArenaDisabled.Boolean,
+    "native sixteen-row arena bindings show and enable a valid map");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineSelectArena, 0)
+    && !Flag(controller.Tick(), "offline_arena_open")
+    && Text(controller.Tick(), "offline_arena_value") == "MP1 SANCTORUS",
+    "choosing an arena retires only the selector modal");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
+    && controller.Busy && services.OfflineValidations == 1
+    && services.OfflineLaunches == 0
+    && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),
+    "native offline launch is single-flight while map capabilities validate");
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home)
+    && !controller.OfflineOpen && !Flag(controller.Tick(), "offline_mode"),
+    "leaving native Offline invalidates pending validation");
+services.OfflineValidationPending.SetResult("");
+Thread.Sleep(40);
+Check(services.OfflineLaunches == 0,
+    "cancelled validation never creates an old offline session");
+services.OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+    && controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),
+    "second validated offline attempt creates a new epoch");
+services.OfflineValidationPending.SetResult("");
+Check(Flag(Wait(controller, _ => services.OfflineLaunches == 1), "offline_mode")
+    && services.OfflineLaunches == 1
+    && services.LastOffline.RoomKey == "MP1 SANCTORUS"
+    && services.LastOffline.Mode == GameMode.Battle,
+    "successful map validation hands one immutable request to existing local launcher");
+Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
+    || services.OfflineLaunches == 1,
+    "an unconfirmed newer local attempt cannot launch optimistically");
+controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
+
 // The native Create Lobby form uses the same authoritative backend as legacy
 // hosting. It has no local-simulation fallback and cannot be double-submitted.
 services.CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -392,6 +471,9 @@ sealed class Stub : IRmlUiMenuServices
     public int AdminCalls;
     public RmlUiAdminRequest LastAdmin;
     public RmlUiAdminSnapshot? AdminState;
+    public TaskCompletionSource<string> OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public RmlUiOfflineRequest LastOffline;
+    public int OfflineValidations, OfflineLaunches;
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -409,6 +491,18 @@ sealed class Stub : IRmlUiMenuServices
         CreatedRequest = request;
         CreateCalls++;
         return CreatePending.Task;
+    }
+    public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
+    {
+        OfflineValidations++;
+        return OfflineValidationPending.Task.WaitAsync(token);
+    }
+    public bool LaunchOffline(RmlUiOfflineRequest request)
+    {
+        if (!request.ValidateForm(BuiltInMaps)) return false;
+        LastOffline = request;
+        OfflineLaunches++;
+        return true;
     }
     public bool AcceptJoin(LaunchPlan _) { Accepted++; return true; }
     public bool OpenCreateLobby() => true;

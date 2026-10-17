@@ -33,9 +33,44 @@ namespace MphRead.Mods.Launcher
                 new("Prime hunter", GameMode.PrimeHunter)
             };
 
+        // Pure validation candidate for native and legacy launchers. Call this
+        // before mutating preferences, then Create only after accepting the map
+        // and match modifier rules.
+        public static LaunchPlan Preview(MenuSettings settings, string roomKey,
+            GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
+        {
+            return new LaunchPlan
+            {
+                Kind = LaunchKind.Offline,
+                Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
+                MatchRules = new Network.MatchDefinition
+                {
+                    Mode = mode,
+                    FriendlyFire = settings.FriendlyFire == "on",
+                    AffinityWeapons = settings.AffinityWeapons == "on",
+                    Fiesta = settings.Fiesta == "on",
+                    InstaGib = settings.InstaGib == "on" || mode == GameMode.InstaGib,
+                    LowTier = settings.LowTier == "on",
+                    OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
+                    NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
+                    BalancedMode = settings.BalancedMode == "on",
+                    ShadowFreeze = settings.ShadowFreeze == "on",
+                    SpawnProtection = settings.SpawnProtection == "on"
+                },
+                PlayerName = LauncherPrefs.PlayerName,
+                RoomKey = roomKey,
+                Mode = mode == GameMode.InstaGib ? GameMode.Battle : mode,
+                Bots = Math.Clamp(bots, 0, PlayerEntity.SlotCapacity - 1),
+                BotLevel = Math.Clamp(botLevel, 0, 3)
+            };
+        }
+
         public static LaunchPlan Create(MenuSettings settings, string roomKey,
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
         {
+            // Persist only after a caller has validated Preview. Keep the
+            // historical Create contract for existing legacy callers.
+            LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel);
             settings.RoomKey = roomKey;
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastColor = Math.Clamp(suit, 0, 3);
@@ -43,25 +78,7 @@ namespace MphRead.Mods.Launcher
             LauncherPrefs.BotLevel = Math.Clamp(botLevel, 0, 3);
             LauncherPrefs.LastKind = (int)LaunchKind.Offline;
             LauncherPrefs.Save();
-            return new LaunchPlan
-            {
-                Kind = LaunchKind.Offline,
-                Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
-                MatchRules = new Network.MatchDefinition { Mode = mode,
-                    FriendlyFire = settings.FriendlyFire == "on", AffinityWeapons = settings.AffinityWeapons == "on",
-                    Fiesta = settings.Fiesta == "on",
-                    InstaGib = settings.InstaGib == "on" || mode == GameMode.InstaGib,
-                    LowTier = settings.LowTier == "on",
-                    OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
-                    NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
-                    BalancedMode = settings.BalancedMode == "on",
-                    ShadowFreeze = settings.ShadowFreeze == "on", SpawnProtection = settings.SpawnProtection == "on" },
-                PlayerName = LauncherPrefs.PlayerName,
-                RoomKey = roomKey,
-                Mode = mode == GameMode.InstaGib ? GameMode.Battle : mode,
-                Bots = LauncherPrefs.Bots,
-                BotLevel = LauncherPrefs.BotLevel
-            };
+            return plan;
         }
     }
 }

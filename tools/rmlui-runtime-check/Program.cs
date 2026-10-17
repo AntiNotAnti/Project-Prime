@@ -377,6 +377,31 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     composed.Resume();
     Require(composedManager.Page != foreign && composed.Page == RmlUiMenuPage.Lobby,
         "Composed launcher could not resume the current Lobby after standalone page close");
+    composed.SetBool("lobby_mode", false);
+    composed.SetBool("offline_mode", true);
+    composed.Flush();
+    var offlinePage = composedManager.Page;
+    Require(composed.Page == RmlUiMenuPage.Offline && offlinePage != foreign,
+        "Native Offline Battle did not replace the current launcher page");
+    composed.SetBool("offline_arena_open", true);
+    composed.Flush();
+    var arenaPage = composedManager.Top;
+    Require(composedManager.ModalCount == 1 && arenaPage != offlinePage,
+        "Native sixteen-card Offline arena picker did not open a modal");
+    composed.SetField("offline_arena_search", "arena");
+    Require(composed.ReadField("offline_arena_search") == "arena",
+        "Search text must remain scoped to the active Offline arena document");
+    var staleOffline = new RmlUiIntent(RmlUiIntentKind.OfflineLaunchMatch, 0, offlinePage, 50);
+    Require(composed.HandleIntent(staleOffline, out var ignoredOffline) && ignoredOffline == default,
+        "Background Offline start cannot bypass foreground arena picker");
+    var closeArena = new RmlUiIntent(RmlUiIntentKind.OfflineCancelArena, 0, arenaPage, 51);
+    Require(composed.HandleIntent(closeArena, out var forwardedArena)
+        && forwardedArena == closeArena,
+        "Native modal close routes the exact typed Offline arena event");
+    composed.SetBool("offline_arena_open", false);
+    composed.Flush();
+    Require(composedManager.ModalCount == 0 && !host.IsAlive(arenaPage),
+        "Closing native arena picker must retire document and input lifetime");
 }
 Require(native.Documents.Count == 1, "Composed page teardown leaked native documents");
 

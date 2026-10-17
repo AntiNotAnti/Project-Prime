@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena }
 
     public static class RmlUiMenuPages
     {
@@ -16,12 +16,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
         public static readonly RmlUiPageSpec Hunters = new("hunters", "pages/hunters/identity.rml", "hunter_cancel");
         public static readonly RmlUiPageSpec Admin = new("admin", "pages/lobby/admin.rml", "admin_close");
+        public static readonly RmlUiPageSpec Offline = new("offline", "pages/offline/setup.rml", "offline_arena");
+        public static readonly RmlUiPageSpec OfflineArena = new("offline-arena", "pages/offline/arena.rml", "offline_arena_search");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
             RmlUiMenuPage.Home => Home, RmlUiMenuPage.Play => Play,
             RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules, RmlUiMenuPage.Maps => Maps,
             RmlUiMenuPage.Hunters => Hunters, RmlUiMenuPage.Admin => Admin,
+            RmlUiMenuPage.Offline => Offline, RmlUiMenuPage.OfflineArena => OfflineArena,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -559,16 +562,57 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return values.ToArray();
         }
 
+        private static readonly Binding[] OfflineBindings =
+        {
+            new(RmlUiBindingKind.Text, "offline_arena_value", "{{offline_arena_value}}"),
+            new(RmlUiBindingKind.Text, "offline_mode_value", "{{offline_mode_value}}"),
+            new(RmlUiBindingKind.Text, "offline_matchup_value", "{{offline_matchup_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bots_value", "{{offline_bots_value}}"),
+            new(RmlUiBindingKind.Text, "offline_skill_value", "{{offline_skill_value}}"),
+            new(RmlUiBindingKind.Text, "offline_hunter_value", "{{offline_hunter_value}}"),
+            new(RmlUiBindingKind.Text, "offline_suit_value", "{{offline_suit_value}}"),
+            new(RmlUiBindingKind.Text, "offline_summary", "{{offline_summary}}"),
+            new(RmlUiBindingKind.Text, "offline_error", "{{offline_error}}"),
+            new(RmlUiBindingKind.Text, "offline_availability", "{{offline_availability}}"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_start", "!offline_can_start")
+        };
+
+        private static readonly Binding[] OfflineArenaBindings = BuildOfflineArenaBindings();
+
+        private static Binding[] BuildOfflineArenaBindings()
+        {
+            var bindings = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "offline_arena_page", "{{offline_arena_page}}"),
+                new(RmlUiBindingKind.Text, "offline_arena_picker_error", "{{offline_arena_picker_error}}"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_arena_previous", "!offline_arena_can_previous"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_arena_next", "!offline_arena_can_next")
+            };
+            for (int i = 0; i < 16; i++)
+            {
+                bindings.Add(new(RmlUiBindingKind.Text,
+                    $"offline_arena_name_{i}", $"{{{{offline_arena_name{i}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text,
+                    $"offline_arena_reason_{i}", $"{{{{offline_arena_reason{i}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean,
+                    $"visible:offline_arena_row_{i}", $"offline_arena_row{i}_present"));
+                bindings.Add(new(RmlUiBindingKind.Boolean,
+                    $"disabled:offline_arena_pick_{i}", $"!offline_arena_row{i}_present"));
+            }
+            return bindings.ToArray();
+        }
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
+                RmlUiMenuPage.Offline => OfflineBindings, RmlUiMenuPage.OfflineArena => OfflineArenaBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))

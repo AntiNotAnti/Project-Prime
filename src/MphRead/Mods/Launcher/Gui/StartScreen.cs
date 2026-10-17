@@ -54,6 +54,24 @@ namespace MphRead.Mods.Launcher.Gui
             return true;
         }
 
+        internal bool RmlUiLaunchOffline(MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRequest request)
+        {
+            if (_finished || _startup != null || _prime.Overlays.IsOpen
+                || NetSession.Active || !_rooms.Contains(request.RoomKey)
+                || !CanLaunchLocal() || !request.ValidateForm(_rooms)) return false;
+            // The expensive map capability probe ran on a worker before the
+            // owner-thread handoff. Validate modifiers before persisting any
+            // preferences so a refused launch is genuinely side-effect-free.
+            LaunchPlan candidate = OfflineLaunch.Preview(_settings, request.RoomKey,
+                request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
+            if (!Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out _))
+                return false;
+            LaunchPlan plan = OfflineLaunch.Create(_settings, request.RoomKey,
+                request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
+            Finish(plan);
+            return _finished;
+        }
+
         internal bool RmlUiLeaveLobby()
         {
             if (_lobby == null || !NetSession.Active) return false;

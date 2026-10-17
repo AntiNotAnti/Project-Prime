@@ -24,7 +24,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private readonly bool _ownsManager;
         private readonly Dictionary<string, RmlUiBindingValue> _model = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _fields = new(StringComparer.Ordinal);
-        private RmlUiDocumentToken _pageDocument, _rulesDocument, _mapDocument, _hunterDocument, _adminDocument;
+        private RmlUiDocumentToken _pageDocument, _rulesDocument, _mapDocument, _hunterDocument, _adminDocument, _offlineArenaDocument;
         private RmlUiMenuPage _page = RmlUiMenuPage.Home;
         private long _revision;
         private ulong _lastSequence;
@@ -167,17 +167,24 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             _resumeRequested = false;
             if (_suspended) return;
             RmlUiMenuPage desired = Bool("lobby_mode") ? RmlUiMenuPage.Lobby
+                : Bool("offline_mode") ? RmlUiMenuPage.Offline
                 : Bool("multiplayer_mode") ? RmlUiMenuPage.Play : RmlUiMenuPage.Home;
             if (!_host.IsAlive(_pageDocument) || _page != desired)
             {
                 CaptureFields();
-                _rulesDocument = _mapDocument = _hunterDocument = _adminDocument = default;
+                _rulesDocument = _mapDocument = _hunterDocument = _adminDocument = _offlineArenaDocument = default;
                 _pageDocument = Manager.OpenPage(RmlUiMenuPages.Spec(desired));
                 _page = desired;
                 SeedFields(desired == RmlUiMenuPage.Play ? PlayFields : Array.Empty<string>(), _pageDocument);
                 _dirty = true;
                 _pendingFocus = desired == RmlUiMenuPage.Lobby && !Bool("lobby_require_ready")
                     ? "lobby_hunter" : RmlUiMenuPages.Spec(desired).InitialFocus;
+            }
+            bool offlineArena = _page == RmlUiMenuPage.Offline && Bool("offline_arena_open");
+            if (!offlineArena && _host.IsAlive(_offlineArenaDocument))
+            {
+                Manager.CloseModal();
+                _offlineArenaDocument = default;
             }
             bool admin = _page == RmlUiMenuPage.Lobby && Bool("lobby_admin_open");
             if (!admin && _host.IsAlive(_adminDocument))
@@ -233,6 +240,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _pendingFocus = "admin_close";
                 _dirty = true;
             }
+            if (offlineArena && !_host.IsAlive(_offlineArenaDocument))
+            {
+                _offlineArenaDocument = Manager.OpenModal(RmlUiMenuPages.OfflineArena);
+                _pendingFocus = "offline_arena_search";
+                _dirty = true;
+            }
             if (!_dirty) return;
             _dirty = false;
             long revision = ++_revision;
@@ -245,6 +258,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Manager.Present(_hunterDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.Hunters, _model));
             if (_host.IsAlive(_adminDocument))
                 Manager.Present(_adminDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.Admin, _model));
+            if (_host.IsAlive(_offlineArenaDocument))
+                Manager.Present(_offlineArenaDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.OfflineArena, _model));
         }
 
         /// <summary>Conditional display changes must be laid out before focus is restored.</summary>
@@ -252,7 +267,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             Verify();
             if (_suspended || String.IsNullOrEmpty(_pendingFocus)) return;
-            var target = _host.IsAlive(_adminDocument) ? _adminDocument
+            var target = _host.IsAlive(_offlineArenaDocument) ? _offlineArenaDocument
+                : _host.IsAlive(_adminDocument) ? _adminDocument
                 : _host.IsAlive(_mapDocument) ? _mapDocument
                 : _host.IsAlive(_hunterDocument) ? _hunterDocument
                 : _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
@@ -266,7 +282,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             forwarded = default;
             if (_suspended || (intent.Document != _pageDocument && intent.Document != _rulesDocument
                 && intent.Document != _mapDocument && intent.Document != _hunterDocument
-                && intent.Document != _adminDocument)) return false;
+                && intent.Document != _adminDocument && intent.Document != _offlineArenaDocument)) return false;
             if (!Manager.Accept(intent)) return true;
             _lastSequence = Math.Max(_lastSequence, intent.Sequence);
             string action = RmlUiIntentRegistry.ToLegacy(intent);
@@ -335,6 +351,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             forwarded = default;
             if (_suspended) return false;
+            if (_host.IsAlive(_offlineArenaDocument))
+            {
+                forwarded = Forward("offline:cancel-arena", ++_lastSequence);
+                return true;
+            }
             if (_host.IsAlive(_adminDocument))
             {
                 forwarded = Forward(Bool("admin_confirmation_open")
@@ -356,6 +377,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Put("lobby_rules_open", false);
                 Flush();
                 forwarded = Forward("lobby:rules-close", ++_lastSequence);
+                return true;
+            }
+            if (_page == RmlUiMenuPage.Offline)
+            {
+                forwarded = Forward("route:home", ++_lastSequence);
                 return true;
             }
             if (_page == RmlUiMenuPage.Lobby)
@@ -405,13 +431,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("home_mode", page == RmlUiMenuPage.Home);
             Put("multiplayer_mode", page == RmlUiMenuPage.Play);
             Put("lobby_mode", page == RmlUiMenuPage.Lobby);
+            Put("offline_mode", page == RmlUiMenuPage.Offline);
             if (page != RmlUiMenuPage.Lobby) Put("lobby_rules_open", false);
             if (page != RmlUiMenuPage.Home) Put("activity_selector_open", false);
         }
 
         private RmlUiIntent Forward(string action, ulong sequence)
         {
-            var target = _host.IsAlive(_adminDocument) ? _adminDocument
+            var target = _host.IsAlive(_offlineArenaDocument) ? _offlineArenaDocument
+                : _host.IsAlive(_adminDocument) ? _adminDocument
                 : _host.IsAlive(_mapDocument) ? _mapDocument
                 : _host.IsAlive(_hunterDocument) ? _hunterDocument
                 : _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
@@ -420,7 +448,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return intent;
         }
 
-        private RmlUiDocumentToken FieldDocument(string id) => id.StartsWith("admin_", StringComparison.Ordinal)
+        private RmlUiDocumentToken FieldDocument(string id) => id == "offline_arena_search"
+            ? _offlineArenaDocument : id.StartsWith("admin_", StringComparison.Ordinal)
             ? _adminDocument : id.StartsWith("rules_", StringComparison.Ordinal)
             ? _rulesDocument : _page == RmlUiMenuPage.Play && !_suspended ? _pageDocument : default;
 

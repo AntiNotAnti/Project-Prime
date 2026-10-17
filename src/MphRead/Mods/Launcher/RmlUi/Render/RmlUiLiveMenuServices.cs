@@ -110,6 +110,29 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return new(outcome.Joined, outcome.Plan, outcome.Error);
     }
 
+    public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
+    {
+        string[] rooms = Shell.RmlUiBuiltInRooms().ToArray();
+        if (!GameFiles.Ready) return Task.FromResult("CONFIGURE GAME FILES BEFORE OFFLINE PLAY");
+        if (!request.ValidateForm(rooms)) return Task.FromResult("INVALID OFFLINE MAP OR MATCH CHOICE");
+        // Entity/room capability checks can touch the map registry and must
+        // never block the native compositor's GL owner thread.
+        return Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (!MapModeCapabilities.Supports(request.RoomKey, request.Mode,
+                    MatchWorldProfile.Resolve(request.Bots + 1), out string reason,
+                    request.Bots + 1, allowLocalSource: true))
+                return String.IsNullOrWhiteSpace(reason)
+                    ? "THAT ARENA CANNOT RUN THE SELECTED MATCH" : reason;
+            token.ThrowIfCancellationRequested();
+            return "";
+        }, token);
+    }
+
+    public bool LaunchOffline(RmlUiOfflineRequest request)
+        => Shell.RmlUiLaunchOffline(request);
+
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
     public bool OpenCreateLobby() => Shell.RmlUiOpenCreateLobby();
     public bool NavigateTo(RmlUiRouteArgument route) => Shell.RmlUiNavigate(route);

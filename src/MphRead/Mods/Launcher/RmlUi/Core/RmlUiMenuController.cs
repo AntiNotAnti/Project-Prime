@@ -55,6 +55,9 @@ public interface IRmlUiMenuServices
     bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch) => false;
     RmlUiAdminSnapshot? ReadAdmin() => null;
     bool SubmitAdmin(RmlUiAdminRequest request) => false;
+    Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
+        => Task.FromResult("Offline Battle is unavailable on this platform.");
+    bool LaunchOffline(RmlUiOfflineRequest request) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -75,7 +78,7 @@ public sealed record RmlUiMenuSnapshot(long Revision,
 /// </summary>
 public sealed class RmlUiMenuController : IDisposable
 {
-    private enum Job { Browse, Quick, Join, Create }
+    private enum Job { Browse, Quick, Join, Create, Offline }
     private readonly record struct Completion(long Epoch, Job Kind, object? Data, string? Error);
     private readonly IRmlUiMenuServices _services;
     private readonly int _owner = Environment.CurrentManagedThreadId;
@@ -84,6 +87,7 @@ public sealed class RmlUiMenuController : IDisposable
     private CancellationTokenSource? _work;
     private RmlUiRuleEditor? _rules;
     private RmlUiLobbyAdminController? _admin;
+    private RmlUiOfflineDraft? _offline;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
     private Hunter _hunterChoice;
@@ -93,6 +97,7 @@ public sealed class RmlUiMenuController : IDisposable
     public bool MapPickerOpen => _mapPicker != null;
     public bool HunterOpen => _hunterDraft.HasValue;
     public bool AdminOpen => _admin is { Closed: false };
+    public bool OfflineOpen => _offline != null;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -119,7 +124,7 @@ public sealed class RmlUiMenuController : IDisposable
 
     public bool Dispatch(RmlUiIntentKind kind, int argument = 0,
         string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "",
-        string lobbyName = "", string adminChat = "")
+        string lobbyName = "", string adminChat = "", string arenaSearch = "")
     {
         Owner();
         if (!RmlUiIntentRegistry.IsValid(kind, argument)) return false;
@@ -225,8 +230,18 @@ public sealed class RmlUiMenuController : IDisposable
                 _joiningEpoch = _epoch;
                 return true;
             case RmlUiIntentKind.Navigate:
+                if (argument == (int)RmlUiRouteArgument.Offline)
+                    return OpenOffline();
+                if (argument == (int)RmlUiRouteArgument.Home && _offline != null)
+                {
+                    _offline = null;
+                    Cancel();
+                    Dirty();
+                    return true;
+                }
                 if (argument == (int)RmlUiRouteArgument.Play)
                 {
+                    _offline = null;
                     _browsing = true;
                     Dirty();
                     return true;
@@ -248,6 +263,49 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyStart:
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
+            case RmlUiIntentKind.OfflineChoice:
+                if (_offline == null || _busy || !RmlUiIntentRegistry.IsValid(kind, argument))
+                    return false;
+                if (argument >= 7)
+                {
+                    if (!_services.NavigateTo(RmlUiRouteArgument.Offline)) return false;
+                    _offline = null; Cancel(); Dirty(); return true;
+                }
+                bool offlineChanged = _offline.Change(argument);
+                if (offlineChanged) Dirty();
+                return offlineChanged;
+            case RmlUiIntentKind.OfflineOpenArena:
+                if (_offline == null || _busy || !_offline.OpenArena()) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.OfflineCancelArena:
+                if (_offline == null || !_offline.CloseArena()) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.OfflineArenaSearch:
+                if (_offline == null || !_offline.SearchArena(arenaSearch)) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.OfflineArenaPage:
+                if (_offline == null || !_offline.ArenaTurn(argument)) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.OfflineSelectArena:
+                if (_offline == null || !_offline.SelectArena(argument)) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.OfflineLaunchMatch:
+                if (_offline == null || _busy || !_offline.Valid) return false;
+                RmlUiOfflineRequest offlineRequest = _offline.Current;
+                Begin(Job.Offline, "VALIDATING LOCAL MATCH AND MAP CAPABILITIES",
+                    async token => await _services.ValidateOfflineAsync(offlineRequest, token)
+                        .ConfigureAwait(false));
+                return true;
+            case RmlUiIntentKind.OfflineOpenRules:
+            case RmlUiIntentKind.OfflineOpenTrainingOptions:
+            case RmlUiIntentKind.OfflineLaunchTraining:
+                // Preserve complete legacy training/rule semantics until those
+                // screens have independent, validated native controllers.
+                if (!_services.NavigateTo(RmlUiRouteArgument.Offline)) return false;
+                _offline = null;
+                Cancel();
+                Dirty();
+                return true;
             case RmlUiIntentKind.LobbyRulesOpen:
                 if (_hunterDraft.HasValue || _admin is { Closed: false }) return false;
                 var original = _services.ReadRules();
@@ -343,6 +401,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (_services.LeaveLobby())
                 {
                     _hunterDraft = null;
+                    _offline = null;
                     _admin?.Close(); _admin = null;
                     CloseRules();
                     Cancel();
@@ -407,6 +466,16 @@ public sealed class RmlUiMenuController : IDisposable
             }
             switch (item.Kind)
             {
+                case Job.Offline:
+                    string? validation = (string?)item.Data;
+                    if (!String.IsNullOrEmpty(validation))
+                        Status(validation);
+                    else if (_offline is { } available
+                        && _services.LaunchOffline(available.Current))
+                        Status("OFFLINE MATCH SUBMITTED TO GAME LAUNCHER");
+                    else
+                        Status("OFFLINE MATCH LAUNCH REFUSED // CHECK CURRENT SESSION");
+                    break;
                 case Job.Browse:
                     var result = (RmlUiDirectory)item.Data!;
                     _rowCount = 0;
@@ -546,6 +615,21 @@ public sealed class RmlUiMenuController : IDisposable
         }
         _hunterDraft = null;
         Status("HUNTER AND SUIT REQUEST SENT // SERVER VALIDATES");
+        return true;
+    }
+
+    private bool OpenOffline()
+    {
+        if (_services.Lobby().Active || _joining || _creating) return false;
+        if (!_services.Hub().GameFilesReady)
+            return _services.NavigateTo(RmlUiRouteArgument.Offline);
+        if (_offline != null) return true;
+        var hub = _services.Hub();
+        _offline = new RmlUiOfflineDraft(_services.BuiltInArenaKeys(),
+            hub.DisplayHunter, hub.Suit, 1, 1);
+        Cancel();
+        _browsing = false;
+        Dirty();
         return true;
     }
 
@@ -724,8 +808,38 @@ public sealed class RmlUiMenuController : IDisposable
         Text("renderer_name", "OPENGL // RMLUI 6.3");
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
+        Flag("offline_mode", _offline != null && !lobby.Active);
+        Flag("offline_arena_open", _offline?.ArenaOpen == true);
         Flag("play_browser_mode", _browsing && !_createOpen && !lobby.Active);
         Flag("play_create_mode", _createOpen && !lobby.Active);
+        Text("offline_arena_value", _offline?.Map ?? "");
+        Text("offline_arena_page", _offline == null ? "" :
+            $"{_offline.ArenaPage + 1} / {_offline.ArenaPageCount}");
+        Flag("offline_arena_can_previous", _offline?.ArenaHasPrevious == true);
+        Flag("offline_arena_can_next", _offline?.ArenaHasNext == true);
+        Text("offline_arena_picker_error", _offline?.ArenaCount == 0
+            ? "NO MATCHING INSTALLED ARENAS" : "");
+        for (int i = 0; i < RmlUiOfflineDraft.ArenaPageSize; i++)
+        {
+            string? room = _offline?.ArenaChoice(i);
+            Flag("offline_arena_row" + i + "_present", room != null);
+            Text("offline_arena_name" + i, room ?? "");
+            Text("offline_arena_reason" + i, room == null ? ""
+                : room.Equals(_offline?.Map, StringComparison.OrdinalIgnoreCase)
+                    ? "CURRENT ARENA" : "BUILT-IN INSTALLED MAP");
+        }
+        Text("offline_mode_value", _offline?.Mode ?? "");
+        Text("offline_matchup_value", _offline?.Matchup ?? "");
+        Text("offline_bots_value", _offline?.Bots ?? "");
+        Text("offline_skill_value", _offline?.Difficulty ?? "");
+        Text("offline_hunter_value", _offline?.HunterName ?? "");
+        Text("offline_suit_value", _offline?.SuitName ?? "");
+        Text("offline_summary", _offline == null ? "" :
+            _offline.Mode + " // " + _offline.Bots + " // " + _offline.Difficulty);
+        Text("offline_error", _offline == null ? "" : _status);
+        Text("offline_availability", _offline?.Valid == true
+            ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
+        Flag("offline_can_start", _offline?.Valid == true && !_busy);
         Text("play_create_map", _createMap);
         Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
         Text("play_create_host", _createDedicated ? "LOCAL // DEDICATED" : "HOSTED // ONLINE");
