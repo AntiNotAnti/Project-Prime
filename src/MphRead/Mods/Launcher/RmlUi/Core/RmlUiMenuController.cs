@@ -53,6 +53,8 @@ public interface IRmlUiMenuServices
     bool NextSuit();
     RmlUiHunterDraft? ReadHunterDraft() => null;
     bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch) => false;
+    RmlUiAdminSnapshot? ReadAdmin() => null;
+    bool SubmitAdmin(RmlUiAdminRequest request) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
