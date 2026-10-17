@@ -45,6 +45,9 @@ jobs:
       - name: RmlUi transactional quick settings and conflict contracts
         run: dotnet run --project tools/rmlui-quick-settings-check -c Release
 
+      - name: RmlUi local Hunter and suit draft contracts
+        run: dotnet run --project tools/rmlui-hunter-check -c Release
+
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 

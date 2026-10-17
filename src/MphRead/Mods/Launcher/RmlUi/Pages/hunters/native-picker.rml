@@ -1,0 +1,47 @@
+<rml>
+<head>
+    <title>Project Prime Hunter Selection</title>
+    <link type="text/template" href="../../components/app-shell.rml"/>
+    <link type="text/rcss" href="selection.rcss"/>
+    <link type="text/rcss" href="page.rcss"/>
+</head>
+<body template="prime-shell">
+<div class="hunter-panel">
+    <div class="eyebrow">HUNTER SELECTION // NEXT DEPLOYMENT</div>
+    <h1 id="native_hunter_name">SELECT YOUR HUNTER</h1>
+    <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
+    <div class="hunter-grid">
+        <div class="hunter-picker">
+            <div class="section-title">PLAYABLE HUNTERS</div>
+            <div class="hunter-choices">
+                <button id="hunter_choice0" data-action="hunter:select:0">SAMUS</button>
+                <button id="hunter_choice1" data-action="hunter:select:1">KANDEN</button>
+                <button id="hunter_choice2" data-action="hunter:select:2">TRACE</button>
+                <button id="hunter_choice3" data-action="hunter:select:3">SYLUX</button>
+                <button id="hunter_choice4" data-action="hunter:select:4">NOXUS</button>
+                <button id="hunter_choice5" data-action="hunter:select:5">SPIRE</button>
+                <button id="hunter_choice6" data-action="hunter:select:6">WEAVEL</button>
+            </div>
+            <div class="section-title">SUIT COLOR</div>
+            <div class="hunter-suits">
+                <button id="hunter_suit0" data-action="hunter:suit:0">SUIT 1</button>
+                <button id="hunter_suit1" data-action="hunter:suit:1">SUIT 2</button>
+                <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
+                <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
+            </div>
+            <div class="hunter-actions">
+                <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP HUNTER / SUIT</button>
+                <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD</button>
+                <button id="hunter_full" data-action="hunter:open">FULL HUNTER LICENSE</button>
+                <button id="hunter_cancel" data-action="hunter:cancel">BACK</button>
+            </div>
+        </div>
+        <div class="hunter-preview">
+            <div class="section-title">ACTIVE LOADOUT</div>
+            <div id="native_hunter_preview" class="hunter-preview-space"></div>
+            <div id="native_hunter_hint" class="hint">CHANGES APPLY TO YOUR NEXT SESSION. AUTHORITY REMAINS WITH THE ACTIVE LOBBY.</div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>
