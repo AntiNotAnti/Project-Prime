@@ -165,6 +165,10 @@ namespace MphRead.Mods.Launcher.Gui
             => Active && _window?.HasScene == false
                 && _front?.RmlUiLaunchTraining(drill, hunter, suit) == true;
 
+        internal static bool RmlUiLaunchReplay(MphRead.Mods.Launcher.RmlUi.Core.RmlUiReplayEntry entry)
+            => Active && _window?.HasScene == false
+                && _front?.RmlUiLaunchReplay(entry) == true;
+
         internal static bool RmlUiLaunchAdventure(
             MphRead.Mods.Launcher.RmlUi.Core.RmlUiAdventureSlot expected,
             bool newGame, Hunter hunter)
