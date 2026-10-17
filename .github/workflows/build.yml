@@ -199,6 +199,65 @@ jobs:
           set -euo pipefail
           codesign --verify --verbose=2 \
             "artifacts/rmlui-publish/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib"
+  rmlui-native-android-drawlist:
+    name: RmlUi ${{ matrix.target }} draw-list ABI and 16 KB alignment
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: android-arm64
+            abi: arm64-v8a
+          - target: android-x64
+            abi: x86_64
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - name: find runner SDK command-line tools without deprecated SDK tools package
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          if [[ ! -d "$sdk" ]]; then
+            echo "error: no Android SDK at $sdk" >&2
+            exit 1
+          fi
+          manager=$(find "$sdk/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)
+          if [[ -z "$manager" || ! -x "$manager" ]]; then
+            echo "error: runner SDK command-line tools are missing" >&2
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          echo "$(dirname "$manager")" >> "$GITHUB_PATH"
+          "$manager" --version
+      - name: accept Android SDK licenses and install pinned NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GNU yes can receive SIGPIPE when sdkmanager closes stdin.
+          # Check sdkmanager's exit code, never ignore a failed license step.
+          set +o pipefail
+          yes | sdkmanager --licenses > /dev/null
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          sdkmanager --install 'ndk;27.2.12479018'
+      - name: build pinned RmlUi draw-list native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          test -f "$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake"
+          PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh \
+            '${{ matrix.target }}' draw-list
+      - name: validate bridge ABI, pinned dependencies and 16 KB ELF load alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/rmlui/verify-runtime.py \
+            'artifacts/rmlui-native-android/lib/${{ matrix.abi }}/libProjectPrime.RmlUi.Native.so' \
+            '${{ matrix.target }}'
   updater-regressions:
     name: Windows/Linux release updater and rollback
     strategy:
