@@ -92,9 +92,13 @@ class AcceptanceMatrixTests(unittest.TestCase):
             self.assertTrue(partial_report["strictCompleteSetRequested"])
             self.assertFalse(partial_report["allFiveVariantsProvidedAndValid"])
             self.assertEqual(len(partial_report["missingVariants"]),4)
-            candidates=[]
+            # The partial-set fixture above has already staged Dark Samus.
+            # Reuse that exact, verified pack; staging it twice is correctly
+            # forbidden by the private output-path safety contract.
+            candidates=[partial]
             for ident in accept.SOURCE_HUNTERS:
-                candidates.append(stage(root,ident))
+                if ident != "darksamus-echoes":
+                    candidates.append(stage(root,ident))
             complete=accept.evaluate(candidates,require_all=True)
             self.assertTrue(complete["allFiveVariantsProvidedAndValid"])
             self.assertEqual(complete["missingVariants"],[])
