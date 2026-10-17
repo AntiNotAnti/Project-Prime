@@ -244,7 +244,7 @@
                   Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" />
     <AndroidAsset Include="../MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf;../MphRead/Assets/Fonts/Rajdhani-Bold.ttf;../MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../MphRead/Assets/Fonts/NotoSansJP-Regular.ttf;../MphRead/Assets/Fonts/Rajdhani-OFL.txt;../MphRead/Assets/Fonts/JetBrainsMono-OFL.txt;../MphRead/Assets/Fonts/NotoSansJP-OFL.txt"
                   Link="rmlui/fonts/%(Filename)%(Extension)" />
-    <AndroidAsset Include="../../artifacts/rmlui-native-android/licenses/*"
+    <AndroidAsset Include="../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/*"
                   Link="rmlui/licenses/%(Filename)%(Extension)" />
     <AndroidNativeLibrary Include="../../artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so"
                           Link="lib/arm64-v8a/libProjectPrime.RmlUi.Native.so" />
@@ -257,7 +257,7 @@
            Text="Opt-in RmlUi Android package requires pinned ARM64 draw-list library." />
     <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so')"
            Text="Opt-in RmlUi Android package requires pinned x64 draw-list library." />
-    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/licenses/RmlUi-LICENSE.txt')"
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/RmlUi-LICENSE.txt')"
            Text="Opt-in RmlUi Android package requires bundled native license texts." />
   </Target>
 
