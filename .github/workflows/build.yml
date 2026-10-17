@@ -48,6 +48,9 @@ jobs:
       - name: RmlUi local Hunter and suit draft contracts
         run: dotnet run --project tools/rmlui-hunter-check -c Release
 
+      - name: RmlUi native Community async discovery and cancellation contracts
+        run: dotnet run --project tools/rmlui-community-check -c Release
+
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
