@@ -154,6 +154,51 @@ jobs:
             -m:1 -p:BuildInParallel=false -o artifacts/rmlui-publish/linux-x64
           bash tools/rmlui/package-desktop.sh linux-x64 artifacts/rmlui-publish/linux-x64
 
+  rmlui-native-desktop-packages:
+    name: RmlUi native ${{ matrix.rid }} package integrity
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+          - os: windows-latest
+            rid: win-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: build pinned RmlUi GL2 native library for the runner architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh "${{ matrix.rid }}" gl2
+      - name: publish opt-in RmlUi desktop client with current game services
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
+            -p:MphReadRmlUiGlSmoke=true --self-contained false \
+            -m:1 -p:BuildInParallel=false \
+            -o "artifacts/rmlui-publish/${{ matrix.rid }}"
+      - name: verify native ABI, source fingerprint, RML resources, fonts and licenses
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/rmlui/package-desktop.sh "${{ matrix.rid }}" \
+            "artifacts/rmlui-publish/${{ matrix.rid }}"
+      - name: verify ad-hoc macOS development-library signature
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --verify --verbose=2 \
+            "artifacts/rmlui-publish/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib"
   updater-regressions:
     name: Windows/Linux release updater and rollback
     strategy:
