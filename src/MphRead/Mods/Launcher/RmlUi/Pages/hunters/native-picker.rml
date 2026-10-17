@@ -50,7 +50,7 @@
         <div class="hunter-preview">
             <div class="section-title">ACTIVE LOADOUT</div>
             <div id="native_hunter_preview" class="hunter-preview-space"></div>
-            <div id="native_hunter_hint" class="hint">Cosmetic choices save to your local Hunter profile and sync through Hunter License when available. 3D model previews remain in the existing License workspace.</div>
+            <div id="native_hunter_hint" class="hint">Live 3D Hunter preview uses the current engine character model and your unsaved cosmetic draft. Equipping and account sync happen only when you select Save.</div>
         </div>
     </div>
 </div>
