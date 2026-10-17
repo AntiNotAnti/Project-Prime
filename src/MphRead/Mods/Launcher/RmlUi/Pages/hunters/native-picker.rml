@@ -29,6 +29,17 @@
                 <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
                 <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
             </div>
+            <div class="section-title">EQUIPPED LOADOUT // COSMETICS</div>
+            <div class="hunter-cosmetic-actions">
+                <button id="hunter_skin" data-action="hunter:skin-next">SKIN // DEFAULT</button>
+                <button id="hunter_armor" data-action="hunter:armor-next">ARMOR EFFECT // NONE</button>
+                <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
+            </div>
+            <div id="hunter_cosmetics_state" class="hint">UNSAVED COSMETIC DRAFT</div>
+            <div class="hunter-actions">
+                <button id="hunter_cosmetics_save" data-action="hunter:cosmetics-save">EQUIP COSMETICS</button>
+                <button id="hunter_cosmetics_reset" data-action="hunter:cosmetics-reset">DISCARD COSMETIC DRAFT</button>
+            </div>
             <div class="hunter-actions">
                 <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP HUNTER / SUIT</button>
                 <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD</button>
@@ -39,7 +50,7 @@
         <div class="hunter-preview">
             <div class="section-title">ACTIVE LOADOUT</div>
             <div id="native_hunter_preview" class="hunter-preview-space"></div>
-            <div id="native_hunter_hint" class="hint">CHANGES APPLY TO YOUR NEXT SESSION. AUTHORITY REMAINS WITH THE ACTIVE LOBBY.</div>
+            <div id="native_hunter_hint" class="hint">Cosmetic choices save to your local Hunter profile and sync through Hunter License when available. 3D model previews remain in the existing License workspace.</div>
         </div>
     </div>
 </div>

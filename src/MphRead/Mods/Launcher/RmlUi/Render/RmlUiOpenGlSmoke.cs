@@ -159,7 +159,10 @@ internal static class RmlUiOpenGlSmoke
                 if (_hunterChoice != null && intent.Kind is
                     (RmlUiIntentKind.HunterSelect or RmlUiIntentKind.HunterSuit
                      or RmlUiIntentKind.HunterApply or RmlUiIntentKind.HunterCancel
-                     or RmlUiIntentKind.HunterResetPreview or RmlUiIntentKind.HunterOpen))
+                     or RmlUiIntentKind.HunterResetPreview or RmlUiIntentKind.HunterOpen
+                     or RmlUiIntentKind.HunterSkinNext or RmlUiIntentKind.HunterArmorNext
+                     or RmlUiIntentKind.HunterDeathNext or RmlUiIntentKind.HunterCosmeticsReset
+                     or RmlUiIntentKind.HunterCosmeticsSave))
                 {
                     NativeHunterPagePresenter hunter = _hunterChoice;
                     hunter.Handle(intent);
@@ -316,6 +319,7 @@ internal static class RmlUiOpenGlSmoke
             }
             _community?.Refresh();
             _license?.Refresh();
+            _hunterChoice?.Pump();
             RmlUiMenuSnapshot snapshot = controller.Tick();
             RmlUiLauncherPages? launcher = _launcherPages;
             if (launcher != null)
