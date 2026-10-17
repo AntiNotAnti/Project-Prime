@@ -119,7 +119,7 @@
                 <span class="home_rail_tag" id="home_social_count">0 ONLINE</span>
             </div>
             <div class="home_social_stats">
-                <div class="home_social_stat"><b id="home_friends_online">0</b><span>FRIENDS</span></div>
+                <div class="home_social_stat"><b id="home_friends_online">UNKNOWN</b><span>ONLINE</span></div>
                 <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
                 <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
             </div>
