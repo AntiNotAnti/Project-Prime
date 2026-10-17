@@ -210,8 +210,13 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
-      - name: prepare Android command-line tools and licenses
-        uses: android-actions/setup-android@v3
+      - name: verify runner Android SDK command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_SDK_ROOT:?}"
+          command -v sdkmanager
+          sdkmanager --version
       - name: install pinned Android NDK
         shell: bash
         run: |
