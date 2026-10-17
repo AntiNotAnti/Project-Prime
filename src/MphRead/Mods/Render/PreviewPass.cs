@@ -420,13 +420,16 @@ namespace MphRead
                 return false;
             }
             _targetSize = windowSize;
-                // Preserve post-October shader selection on the shared Scene before drawing.
-                SelectWorldShaderVariant();
             try
             {
+                // Preserve the current retained-renderer shader variant when
+                // stepping the original multi-Hunter preview path.
+                SelectWorldShaderVariant();
                 RefreshTextureQuality();
                 ModStepLauncherPreview();
-                int presentationSlot = LauncherPreviewSlot;
+                int presentationSlot = LauncherPreviewSlot >= 0
+                    && LauncherPreviewSlot < _launcherSlotNextStep.Length
+                    ? LauncherPreviewSlot : -1;
                 double next = presentationSlot >= 0 ? _launcherSlotNextStep[presentationSlot] : _launcherPreviewNextStep;
                 double now = Mods.Launcher.LauncherPresentation.Active ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
                 _activePreview?.SamplePresentation(Mods.Launcher.LauncherPrefs.ReduceMotion ? 0
