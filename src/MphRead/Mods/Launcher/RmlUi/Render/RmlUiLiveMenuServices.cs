@@ -169,6 +169,13 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public IReadOnlyList<string> BuiltInArenaKeys() => Shell.RmlUiBuiltInRooms();
 
+    public IReadOnlyList<string> InstalledCommunityArenaKeys()
+        => MphRead.Mods.MapGen.CustomRooms.Definitions
+            .Where(map => MphRead.Mods.MapGen.CustomRooms.Installed.TryGet(map.Name, out var installed)
+                && MphRead.Mods.MapGen.CustomRooms.Installed.HasExact(installed.Identity))
+            .Select(map => map.Name).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+
     public bool SubmitRules(RmlUiRuleDraft draft, out string error)
     {
         error = "";

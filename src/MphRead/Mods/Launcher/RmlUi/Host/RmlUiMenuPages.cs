@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps }
 
     public static class RmlUiMenuPages
     {
@@ -13,11 +13,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Play = new("play", "pages/play/browser.rml", "play_quick");
         public static readonly RmlUiPageSpec Lobby = new("lobby", "pages/lobby/lobby.rml", "lobby_ready");
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
+        public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
             RmlUiMenuPage.Home => Home, RmlUiMenuPage.Play => Play,
-            RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules,
+            RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules, RmlUiMenuPage.Maps => Maps,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -447,16 +448,42 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "disabled:rules_apply", "!rules_owner"),
         };
 
+        private static readonly Binding[] MapBindings = BuildMapBindings();
+
+        private static Binding[] BuildMapBindings()
+        {
+            var bindings = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "map_status", "{{map_status}}"),
+                new(RmlUiBindingKind.Text, "map_page", "{{map_page}}"),
+                new(RmlUiBindingKind.Text, "map_empty", "{{map_empty_text}}"),
+                new(RmlUiBindingKind.Boolean, "visible:map_empty", "map_empty"),
+                new(RmlUiBindingKind.Boolean, "class:map_vanilla:selected", "map_vanilla_selected"),
+                new(RmlUiBindingKind.Boolean, "class:map_community:selected", "map_community_selected"),
+                new(RmlUiBindingKind.Boolean, "disabled:map_previous", "!map_can_previous"),
+                new(RmlUiBindingKind.Boolean, "disabled:map_next", "!map_can_next")
+            };
+            for (int i = 0; i < 6; i++)
+            {
+                bindings.Add(new(RmlUiBindingKind.Text, $"map_name{i}", $"{{{{map_choice{i}_name}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"map_hint{i}", $"{{{{map_choice{i}_hint}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"visible:map_choice{i}", $"map_choice{i}_visible"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:map_choice{i}", $"!map_choice{i}_enabled"));
+            }
+            return bindings.ToArray();
+        }
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page != RmlUiMenuPage.Rules) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
+                RmlUiMenuPage.Maps => MapBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))
             });
             return new ReadOnlyDictionary<string, RmlUiBindingValue>(output);

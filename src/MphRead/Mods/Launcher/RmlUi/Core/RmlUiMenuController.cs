@@ -49,6 +49,9 @@ public interface IRmlUiMenuServices
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
+    // Default for other frontends and offline fixtures; only a verified installed
+    // package catalog should override this with mutable community choices.
+    IReadOnlyList<string> InstalledCommunityArenaKeys() => Array.Empty<string>();
     bool SubmitRules(RmlUiRuleDraft draft, out string error);
     void Quit();
 }
@@ -71,6 +74,9 @@ public sealed class RmlUiMenuController : IDisposable
     private readonly RmlUiServerCandidate[] _rows = new RmlUiServerCandidate[8];
     private CancellationTokenSource? _work;
     private RmlUiRuleEditor? _rules;
+    private RmlUiMapPickerModel? _mapPicker;
+    private bool _mapOpenedRules;
+    public bool MapPickerOpen => _mapPicker != null;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -250,6 +256,41 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyRulesApply:
                 return ApplyRules(ruleTime, ruleGoal);
             case RmlUiIntentKind.LobbyMapOpen:
+                return OpenMapPicker();
+            case RmlUiIntentKind.LobbyMapCategory:
+                if (_mapPicker == null || !_mapPicker.SelectCategory(argument)) return false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.LobbyMapPrevious:
+                if (_mapPicker == null || !_mapPicker.PreviousPage()) return false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.LobbyMapNext:
+                if (_mapPicker == null || !_mapPicker.NextPage()) return false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.LobbyMapClose:
+                if (_mapPicker == null) return false;
+                _mapPicker = null;
+                if (_mapOpenedRules) CloseRules();
+                _mapOpenedRules = false;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.LobbyMapSelect:
+                if (_mapPicker == null || _rules == null) return false;
+                string? room = _mapPicker.Choice(argument);
+                if (room == null) return false;
+                string mapError = "";
+                bool chosen = ChangeRules(editor => editor.TrySelectMap(room, out mapError));
+                if (!chosen)
+                {
+                    if (mapError.Length > 0) { _rulesStatus = mapError; Dirty(); }
+                    return false;
+                }
+                _mapPicker = null;
+                _mapOpenedRules = false;
+                Dirty();
+                return true;
             case RmlUiIntentKind.LobbyAdminOpen:
             case RmlUiIntentKind.LobbyClassic:
                 return LobbyAction(_services.OpenLobbyDetails,
@@ -370,10 +411,32 @@ public sealed class RmlUiMenuController : IDisposable
 
     private void CloseRules()
     {
+        _mapPicker = null;
+        _mapOpenedRules = false;
         _rules = null;
         _rulesSubmitted = false;
         _rulesStatus = "VIEWING SERVER RULES";
         Dirty();
+    }
+
+    private bool OpenMapPicker()
+    {
+        RmlUiLobbyView lobby = _services.Lobby();
+        if (!lobby.Active || lobby.Starting || _rulesSubmitted) return false;
+        bool created = _rules == null;
+        if (created)
+        {
+            RmlUiRuleDraft? live = _services.ReadRules();
+            if (!live.HasValue) return false;
+            _rules = new(live.Value);
+            _rulesStatus = lobby.Owner
+                ? "SELECT A MAP // APPLY RULES TO SUBMIT TO SERVER"
+                : "VIEW ONLY // THE LOBBY OWNER CONTROLS MAP SELECTION";
+        }
+        _mapPicker = new(_services.BuiltInArenaKeys(), _services.InstalledCommunityArenaKeys());
+        _mapOpenedRules = created;
+        Dirty();
+        return true;
     }
 
     private bool ChangeRules(Func<RmlUiRuleEditor, bool> modify)
@@ -532,10 +595,34 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_local_ready", lobby.Active && lobby.LocalReady);
         Flag("lobby_starting", lobby.Active && lobby.Starting);
         Flag("lobby_rules_open", lobby.Active && _rules != null);
+        Flag("lobby_map_open", lobby.Active && _mapPicker != null);
         Flag("rules_owner", lobby.Active && lobby.Owner);
         Flag("rules_dirty", _rules?.Dirty ?? false);
         Flag("rules_pending", _rulesSubmitted);
         Text("rules_status", _rulesStatus);
+        Flag("map_vanilla_selected", _mapPicker?.Category == 0);
+        Flag("map_community_selected", _mapPicker?.Category == 1);
+        Flag("map_empty", _mapPicker == null || _mapPicker.Count == 0);
+        Flag("map_can_previous", _mapPicker?.HasPrevious == true);
+        Flag("map_can_next", _mapPicker?.HasNext == true);
+        Text("map_page", _mapPicker == null ? "" : $"{_mapPicker.Page + 1} / {_mapPicker.Pages}");
+        Text("map_status", !lobby.Owner ? "VIEW ONLY // THE LOBBY OWNER SELECTS MAPS"
+            : _rulesSubmitted ? "WAITING FOR SERVER CONFIRMATION"
+            : "CHOOSE AN INSTALLED MAP // APPLY IN THE RULES PANEL");
+        Text("map_empty_text", _mapPicker?.Category == 1
+            ? "NO VERIFIED COMMUNITY MAPS INSTALLED // DOWNLOAD FROM COMMUNITY"
+            : "NO BUILT-IN MAPS AVAILABLE");
+        for (int i = 0; i < RmlUiMapPickerModel.PageSize; i++)
+        {
+            string? room = _mapPicker?.Choice(i);
+            Flag("map_choice" + i + "_visible", room != null);
+            Flag("map_choice" + i + "_enabled", room != null && lobby.Owner && !_rulesSubmitted);
+            Text("map_choice" + i + "_name", room ?? "");
+            Text("map_choice" + i + "_hint", room == null ? ""
+                : room.Equals(_rules?.Draft.Match.RoomKey, StringComparison.OrdinalIgnoreCase)
+                    ? "SELECTED // CURRENT DRAFT"
+                : _mapPicker?.Category == 1 ? "INSTALLED PACKAGE" : "BUILT-IN ARENA");
+        }
         if (_rules is { } rules)
         {
             Text("rules_map", rules.Draft.Match.RoomKey);
