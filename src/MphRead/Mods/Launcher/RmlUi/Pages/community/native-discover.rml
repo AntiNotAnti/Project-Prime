@@ -9,6 +9,10 @@
 <div id="native_community" class="native_community">
   <div class="eyebrow">COMMUNITY // MAP DISCOVERY</div>
   <h1>COMMUNITY MAPS</h1>
+  <div class="native_community_tools">
+    <button id="native_community_public" data-action="community:tab:0">DISCOVER</button>
+    <button id="native_community_owned" data-action="community:tab:1">MY UPLOADS</button>
+  </div>
   <p>Browse published immutable map projects and install exact verified packages. Creator management remains in Full Community.</p>
   <div class="native_community_tools">
     <input id="native_community_search" placeholder="Search maps or creators" maxlength="128" type="text"/>
@@ -40,7 +44,11 @@
       <p id="native_community_hash"></p>
       <button id="native_community_install" data-action="community:detail:0">INSTALL VERIFIED MAP</button>
       <button id="native_community_cancel_install" data-action="community:cancel-work">CANCEL HANDOFF</button>
-      <button id="native_community_full" data-action="community:import">FULL COMMUNITY</button>
+      <button id="native_community_archive" data-action="community:creator:0">ARCHIVE OWNED MAP</button>
+      <button id="native_community_restore" data-action="community:creator:1">RESTORE OWNED MAP</button>
+      <button id="native_community_creator_confirm" data-action="community:confirm">CONFIRM CHANGE</button>
+      <button id="native_community_creator_cancel" data-action="community:cancel">CANCEL CHANGE</button>
+      <button id="native_community_full" data-action="community:import">FULL COMMUNITY / STUDIO</button>
       <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
     </div>
   </div>
