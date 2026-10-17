@@ -139,7 +139,15 @@ public sealed class NativeSocialFriendsController : IDisposable
 
     public void Refresh()
     {
+        CheckOwner();
+        // A refresh can follow an account change. Retire old private rows
+        // immediately rather than showing a previous identity until HTTPS ends.
         _confirm = null;
+        _people = Array.Empty<NativeSocialPerson>();
+        _lookup = null;
+        _selectedId = _selfId = "";
+        _connected = false;
+        _dataEpoch++;
         Begin("SYNCING VERIFIED FRIENDS AND REQUESTS",
             async token => (await _service.ReadAsync(token).ConfigureAwait(false), null));
     }
