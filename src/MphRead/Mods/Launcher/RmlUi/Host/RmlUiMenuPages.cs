@@ -71,7 +71,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:visible_activity_index____2_1", "activity_index == 2"),
             new(RmlUiBindingKind.Boolean, "class:drawer_adventure:selected", "activity_index == 3"),
             new(RmlUiBindingKind.Boolean, "visible:visible_activity_index____3_1", "activity_index == 3"),
-            new(RmlUiBindingKind.Text, "hunter_name", "{{hunter_name}}"),
+            new(RmlUiBindingKind.Text, "hunter_name", "{{hunter_identity_name}}"),
             new(RmlUiBindingKind.Text, "text_player_name_2", "{{player_name}}"),
             new(RmlUiBindingKind.Text, "text_hunter_name_1", "{{hunter_name}} // READY"),
             new(RmlUiBindingKind.Text, "home_party_state", "{{home_party_state}}"),
