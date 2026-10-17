@@ -12,6 +12,7 @@ using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Training;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
 
@@ -22,6 +23,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Render;
 /// </summary>
 internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 {
+    private static readonly NewsDispatch? HomeDispatch =
+        new BundledNewsProvider().Read().FirstOrDefault();
+    public NewsDispatch? FeaturedNews() => HomeDispatch;
     public HubSnapshot Hub() => HubState.Capture();
 
     public string BuildVersion()
