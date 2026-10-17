@@ -450,6 +450,31 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     Require(composed.Back(out var backAdventure) && backAdventure.Kind == RmlUiIntentKind.Navigate
         && backAdventure.Argument == (int)RmlUiRouteArgument.Offline,
         "Back from Adventure returns to Offline activities after confirmation dismissal");
+    composed.SetBool("adventure_mode", false);
+    composed.SetBool("theatre_mode", true);
+    composed.Flush();
+    var archivePage = composedManager.Page;
+    Require(composed.Page == RmlUiMenuPage.Theatre
+        && archivePage != adventurePage && host.IsAlive(archivePage),
+        "Native Theatre archive opens an independent owned page");
+    composed.SetField("theatre_search", "Tournament Match");
+    Require(composed.ReadField("theatre_search") == "Tournament Match",
+        "Theatre search input is owned by its foreground document, not Home");
+    var selectedRecording = new RmlUiIntent(RmlUiIntentKind.TheatreEntry, 2, archivePage, 61);
+    Require(composed.HandleIntent(selectedRecording, out var selectedForwarded)
+        && selectedForwarded == selectedRecording,
+        "Theatre replay selection forwards its authenticated native document");
+    var outdatedRecording = new RmlUiIntent(RmlUiIntentKind.TheatreEntry, 2, adventurePage, 62);
+    Require(!composed.HandleIntent(outdatedRecording, out _),
+        "Retired Adventure events cannot alter current Theatre selection");
+    Require(composed.Back(out var backTheatre)
+        && backTheatre.Kind == RmlUiIntentKind.Navigate
+        && backTheatre.Argument == (int)RmlUiRouteArgument.Home,
+        "Back from Theatre returns to native Home without launching playback");
+    composed.SetBool("theatre_mode", false);
+    composed.Flush();
+    Require(!host.IsAlive(archivePage) && composed.Page == RmlUiMenuPage.Home,
+        "Retired Theatre route releases native event and document ownership");
 }
 Require(native.Documents.Count == 1, "Composed page teardown leaked native documents");
 
