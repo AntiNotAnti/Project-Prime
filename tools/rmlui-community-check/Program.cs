@@ -135,7 +135,79 @@ Task.Run(() =>
 }).GetAwaiter().GetResult();
 Check(installCrossThread is InvalidOperationException,
     "installed-map registration is restricted to UI owner thread");
+
 Console.WriteLine("RML-37 COMMUNITY INSTALL ACCEPTANCE COMPLETE");
+
+static NativeCreatorView WaitCreator(NativeCommunityCreatorController c,
+    Func<NativeCreatorView, bool> ready)
+{
+    for (int i = 0; i < 160; ++i)
+    {
+        var view = c.Tick();
+        if (ready(view)) return view;
+        Thread.Sleep(10);
+    }
+    throw new TimeoutException("Creator fixture failed to settle.");
+}
+var creatorService = new CreatorStub();
+using var creator = new NativeCommunityCreatorController(creatorService);
+var ownedId = Guid.NewGuid();
+var owned = new NativeCreatorEntry(ownedId, "Owned Arena", new string('a',64),
+    "", 2, false, false, true);
+creator.Refresh();
+WaitCreator(creator, v => creatorService.BrowseCount == 1 && v.Busy);
+var creatorOld = creatorService.BrowseResponse;
+creatorService.BrowseResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+creator.Refresh();
+WaitCreator(creator, v => creatorService.BrowseCount == 2 && v.Busy);
+creatorOld.SetResult(new(new[] { owned with { Name = "Stale" } }, 1, 1));
+creatorService.BrowseResponse.SetResult(new(new[] { owned }, 1, 1));
+var ownView = WaitCreator(creator, v => !v.Busy && v.Connected);
+Check(ownView.Selected == owned && ownView.Rows.Length == 1
+    && ownView.Total == 1,
+    "My Uploads ignores stale generations and displays only authenticated rows");
+Check(creator.Can(NativeCreatorAction.Archive) && creator.Propose(NativeCreatorAction.Archive)
+    && creator.Tick().Confirmation.Contains("ARCHIVE")
+    && creatorService.ChangeCount == 0,
+    "owned map archive requires a visible confirmation before mutation");
+Check(creator.Dismiss() && creatorService.ChangeCount == 0,
+    "dismissing creator confirmation never changes server state");
+Check(creator.Propose(NativeCreatorAction.Archive) && creator.Confirm(),
+    "confirmed owner-only lifecycle command enters authoritative preflight");
+WaitCreator(creator, v => creatorService.ReadCount == 1 && v.Busy);
+creatorService.ReadResponse.SetResult(owned);
+WaitCreator(creator, v => creatorService.ChangeCount == 1 && v.Busy);
+Check(creatorService.LastAction == NativeCreatorAction.Archive
+    && creatorService.LastMapId == ownedId,
+    "creator action is scoped to the exact owned project");
+creatorService.BrowseResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+creatorService.ChangeResponse.SetResult(true);
+WaitCreator(creator, v => creatorService.BrowseCount == 3 && v.Busy);
+creatorService.BrowseResponse.SetResult(new(new[] { owned with { Archived = true } }, 1, 1));
+var archived = WaitCreator(creator, v => !v.Busy && v.Connected && v.Selected?.Archived == true);
+Check(!creator.Can(NativeCreatorAction.Archive)
+    && creator.Can(NativeCreatorAction.Restore)
+    && archived.Selected!.Archived,
+    "archive state changes only after a fresh authenticated catalog read");
+creatorService.ReadResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(creator.Propose(NativeCreatorAction.Restore) && creator.Confirm(),
+    "restore also requires explicit confirmation");
+WaitCreator(creator, v => creatorService.ReadCount == 2 && v.Busy);
+creatorService.ReadResponse.SetResult(owned with { LatestHash = new string('b',64) });
+var staleOwner = WaitCreator(creator, v => !v.Busy);
+Check(!staleOwner.Connected && staleOwner.Rows.Length == 0
+    && creatorService.ChangeCount == 1
+    && !staleOwner.Status.Contains("changed after confirmation", StringComparison.OrdinalIgnoreCase),
+    "changed owned project rejects stale destructive confirmation without exposing service details");
+Exception? creatorThread = null;
+Task.Run(() =>
+{
+    try { creator.Tick(); }
+    catch (Exception ex) { creatorThread = ex; }
+}).GetAwaiter().GetResult();
+Check(creatorThread is InvalidOperationException,
+    "creator service completions may only mutate the UI owner");
+Console.WriteLine("RML-38 CREATOR ACCEPTANCE COMPLETE");
 
 sealed class Stub : INativeCommunityReader
 {
@@ -167,5 +239,37 @@ sealed class InstallStub : INativeCommunityInstaller
     {
         RegisterCalls++;
         Last = result;
+    }
+}
+
+sealed class CreatorStub : INativeCommunityCreatorAuthority
+{
+    public TaskCompletionSource<NativeCreatorPage> BrowseResponse =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<NativeCreatorEntry?> ReadResponse =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<bool> ChangeResponse =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public int BrowseCount, ReadCount, ChangeCount;
+    public NativeCreatorAction LastAction;
+    public Guid LastMapId;
+
+    public Task<NativeCreatorPage> BrowseMineAsync(int page, CancellationToken token)
+    {
+        Interlocked.Increment(ref BrowseCount);
+        var response = BrowseResponse;
+        return response.Task.WaitAsync(token);
+    }
+    public Task<NativeCreatorEntry?> ReadOwnedAsync(Guid id, CancellationToken token)
+    {
+        Interlocked.Increment(ref ReadCount);
+        return ReadResponse.Task.WaitAsync(token);
+    }
+    public Task<bool> ExecuteAsync(NativeCreatorAction action, Guid id, CancellationToken token)
+    {
+        LastAction = action;
+        LastMapId = id;
+        Interlocked.Increment(ref ChangeCount);
+        return ChangeResponse.Task.WaitAsync(token);
     }
 }
