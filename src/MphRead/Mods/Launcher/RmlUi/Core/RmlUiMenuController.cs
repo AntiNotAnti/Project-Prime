@@ -56,6 +56,9 @@ public interface IRmlUiMenuServices
     bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch) => false;
     RmlUiAdminSnapshot? ReadAdmin() => null;
     bool SubmitAdmin(RmlUiAdminRequest request) => false;
+    RmlUiLobbyChrome ReadLobbyChrome() => RmlUiLobbyChrome.Empty;
+    bool SendLobbyChat(string message) => false;
+    bool CycleLobbyTeam(int presentationIndex) => false;
     Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
         => Task.FromResult("Offline Battle is unavailable on this platform.");
     bool LaunchOffline(RmlUiOfflineRequest request) => false;
@@ -500,9 +503,10 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyAdminOpen:
                 return OpenAdmin();
             case RmlUiIntentKind.LobbyPlayerSelect:
-                return _admin != null
-                    ? AdminAction(kind, argument, adminChat)
-                    : OpenAdmin(argument);
+                if (_admin != null) return AdminAction(kind, argument, adminChat);
+                RmlUiAdminSnapshot? roster = _services.ReadAdmin();
+                RmlUiAdminPlayer? selection = RmlUiLobbyDisplayOrder.Resolve(roster, argument);
+                return selection.HasValue && OpenAdmin(selection.Value.Slot);
             case RmlUiIntentKind.LobbyAdminClose:
                 if (_admin == null) return false;
                 _admin.Close(); _admin = null; Dirty(); return true;
@@ -523,8 +527,15 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyTeamsAuto:
             case RmlUiIntentKind.LobbyTeamLockToggle:
             case RmlUiIntentKind.LobbyMapRetry:
-            case RmlUiIntentKind.LobbyChatSend:
                 return AdminAction(kind, argument, adminChat);
+            case RmlUiIntentKind.LobbyChatSend:
+                if (!_services.Lobby().Active || !_services.SendLobbyChat(adminChat)) return false;
+                Status("CHAT REQUEST SENT // SERVER CONTROLS DELIVERY");
+                return true;
+            case RmlUiIntentKind.LobbySlotTeamNext:
+                if (!_services.Lobby().Active || !_services.CycleLobbyTeam(argument)) return false;
+                Status("TEAM CHANGE REQUEST SENT // AWAITING SERVER STATE");
+                return true;
             case RmlUiIntentKind.LobbyClassic:
                 return LobbyAction(_services.OpenLobbyDetails,
                     "Opened the remaining authoritative lobby controls.");
@@ -1272,6 +1283,25 @@ public sealed class RmlUiMenuController : IDisposable
             for (int i = 0; i < 16; i++)
                 Text("rules_toggle" + i, rules.IsOn(i) ? "ON" : "OFF");
         }
+        // Fill the authored Lobby's actual fields rather than leaving empty
+        // placeholders. Every value here comes from server/session state.
+        RmlUiLobbyChrome chrome = lobby.Active ? _services.ReadLobbyChrome()
+            : RmlUiLobbyChrome.Empty;
+        Text("lobby_time", chrome.Time);
+        Text("lobby_score", chrome.Score);
+        Text("lobby_chat_history", chrome.ChatHistory);
+        Text("lobby_chat_status", chrome.ChatStatus);
+        Text("lobby_map_preview_status", chrome.MapPreviewStatus);
+        Flag("lobby_map_image_ready", false); // No guessed thumbnail URI.
+        Text("lobby_field_caption", chrome.FieldCaption);
+        Text("lobby_countdown_number", chrome.CountdownNumber);
+        Text("lobby_countdown_detail", chrome.CountdownDetail);
+        Text("lobby_brief_title", lobby.Active ? lobby.Name : "");
+        Text("lobby_brief_count", lobby.Active
+            ? (lobby.Players?.Length ?? 0) + "/" + lobby.MaxPlayers : "");
+        Text("lobby_brief_detail", lobby.Active ? lobby.Map + " // " + lobby.Mode : "");
+        RmlUiAdminSnapshot? chromeRoster = lobby.Active ? _services.ReadAdmin() : null;
+        RmlUiAdminPlayer[] orderedRoster = RmlUiLobbyDisplayOrder.Ordered(chromeRoster);
         Text("lobby_name", lobby.Active ? lobby.Name : "");
         Text("lobby_map", lobby.Active ? lobby.Map : "");
         Text("lobby_mode_name", lobby.Active ? lobby.Mode : "");
@@ -1290,6 +1320,18 @@ public sealed class RmlUiMenuController : IDisposable
             Text("slot" + i + "_name", row.Name ?? "");
             Text("slot" + i + "_hunter", row.Hunter ?? "");
             Text("slot" + i + "_state", row.Bot ? "BOT" : row.Ready ? "READY" : "WAITING");
+            RmlUiAdminPlayer? authoritativeRow = i < orderedRoster.Length
+                ? orderedRoster[i] : null;
+            bool hasTeam = chromeRoster != null && chromeRoster.TeamCount > 0;
+            int team = authoritativeRow?.Team ?? -1;
+            Flag("slot" + i + "_can_select", authoritativeRow.HasValue);
+            Flag("slot" + i + "_has_team", authoritativeRow.HasValue && hasTeam);
+            Flag("slot" + i + "_can_team",
+                RmlUiLobbyDisplayOrder.CanChangeTeam(chromeRoster, authoritativeRow));
+            Text("slot" + i + "_team", RmlUiLobbyDisplayOrder.TeamLabel(team, hasTeam));
+            for (int t = 0; t < 4; t++)
+                Flag("slot" + i + "_team" + t, authoritativeRow.HasValue
+                    && hasTeam && team == t);
         }
         return model;
     }

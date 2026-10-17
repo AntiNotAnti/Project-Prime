@@ -294,8 +294,10 @@ internal static class RmlUiOpenGlSmoke
                     ? layout?.ReadField("play_create_name") ?? "" : "";
                 if (intent.Kind == RmlUiIntentKind.PlayCreate)
                     player = layout?.ReadField("play_create_player_name") ?? "";
+                string chatField = controller.AdminOpen ? "admin_chat_input"
+                    : "lobby_chat_input";
                 string adminChat = intent.Kind == RmlUiIntentKind.LobbyChatSend
-                    ? layout?.ReadField("admin_chat_input") ?? "" : "";
+                    ? layout?.ReadField(chatField) ?? "" : "";
                 string arenaSearch = intent.Kind == RmlUiIntentKind.OfflineArenaSearch
                     ? layout?.ReadField("offline_arena_search") ?? "" : "";
                 string theatreSearch = intent.Kind == RmlUiIntentKind.TheatreAction
@@ -306,7 +308,7 @@ internal static class RmlUiOpenGlSmoke
                 if (handled && intent.Kind == RmlUiIntentKind.TheatreAction
                     && intent.Argument == 23) layout?.SetField("theatre_search", "");
                 if (handled && intent.Kind == RmlUiIntentKind.LobbyChatSend)
-                    layout?.SetField("admin_chat_input", "");
+                    layout?.SetField(chatField, "");
                 if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
                     or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesFormat)
                 {

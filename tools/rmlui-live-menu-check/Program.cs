@@ -321,17 +321,19 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbyBotAdd) && services.AdminCalls =
     "one outstanding authoritative command blocks duplicate administration");
 services.AdminState = services.AdminState with { CommandPending = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyChatSend, adminChat: "A message")
-    && services.AdminCalls == 3 && services.LastAdmin.Text == "A message",
-    "native chat sends the entered field through existing service");
+    && services.AdminCalls == 2 && services.ChatCalls == 1
+    && services.LastChat == "A message",
+    "native chat uses its dedicated existing NetChat service, not an owner-only admin command");
 services.AdminState = services.AdminState with { Owner = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 1)
     && !controller.Dispatch(RmlUiIntentKind.LobbyKick)
-    && services.AdminCalls == 3,
+    && services.AdminCalls == 2 && services.ChatCalls == 1,
     "non-owner cannot request a kick or transfer");
 services.AdminState = services.AdminState with { AuthorityEpoch = 1000 };
 Check(!Flag(Wait(controller, s => !Flag(s, "lobby_admin_open")), "lobby_admin_open"),
     "retired authority automatically closes native admin and its confirmations");
-Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminCalls == 3,
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm)
+    && services.AdminCalls == 2 && services.ChatCalls == 1,
     "retired admin never dispatches an old confirmed action");
 services.LobbyView = Stub.EmptyLobby;
 
@@ -760,6 +762,64 @@ Check(RmlUiHunterStagePlan.Build(stageHub, stageLobby, badStage).Count == 3,
 Check(RmlUiHunterStagePlan.Build(stageHub with { GameFilesReady = false },
     stageLobby, stageRoster) is { Lobby: true, GameFilesReady: false, Count: 0 },
     "when game assets are missing, the lobby keeps its stage but never touches model GL");
+// RML-30: chat, match conditions and slot actions displayed on the central
+// Lobby must use the same authoritative local-front order as the 3D stage.
+services.LobbyView = stageLobby with
+{
+    Players = new[]
+    {
+        new RmlUiLobbyPlayer("Pilot", "KANDEN", true, true, false),
+        new RmlUiLobbyPlayer("Guest", "SAMUS", true, false, false),
+        new RmlUiLobbyPlayer("Remote", "TRACE", false, false, false)
+    }
+};
+services.AdminState = stageRoster;
+services.Chrome = new RmlUiLobbyChrome("7:00", "7 POINT GOAL",
+    "Pilot: Hello world", "CHAT AVAILABLE", "MAP READY",
+    "MAP: SANCTORUS // PREVIEW PENDING", "", "");
+var lobbyChrome = Wait(controller, snap =>
+    Text(snap, "lobby_time") == "7:00");
+Check(Text(lobbyChrome, "lobby_score") == "7 POINT GOAL"
+    && Text(lobbyChrome, "lobby_chat_history") == "Pilot: Hello world"
+    && Text(lobbyChrome, "lobby_field_caption") == "MAP READY"
+    && Text(lobbyChrome, "lobby_map_preview_status").Contains("SANCTORUS"),
+    "native Lobby maps real authoritative match clock, score, map and chat history");
+Check(Flag(lobbyChrome, "slot0_can_team")
+    && Text(lobbyChrome, "slot0_team") == "TEAM A"
+    && Flag(lobbyChrome, "slot0_team0")
+    && !Flag(lobbyChrome, "slot7_can_select"),
+    "team controls use actual verified occupant and disable empty slots");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 0)
+    && controller.AdminOpen
+    && Text(controller.Tick(), "admin_selected_name") == "Pilot",
+    "clicking a local-first podium/nameplate maps display index to actual network slot 3");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyAdminClose),
+    "native Lobby player modal closes before direct-team action");
+Check(controller.Dispatch(RmlUiIntentKind.LobbySlotTeamNext, 0)
+    && services.LastAdmin.Operation == RmlUiAdminOperation.SetTeam
+    && services.LastAdmin.TargetSlot == 3
+    && services.LastAdmin.TargetGeneration == 12
+    && services.LastAdmin.Team == 1,
+    "local nameplate team action submits exact authoritative slot+generation, not display index");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyChatSend,
+        adminChat: "  Ready to play  ")
+    && services.ChatCalls == 2 && services.LastChat == "Ready to play",
+    "central Lobby chat sends real user text without requiring Admin modal");
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyChatSend,
+        adminChat: new string('X', ChatPacket.MaxTextBytes + 1))
+    && services.ChatCalls == 2,
+    "chat refuses messages over protocol UTF-8 wire bound");
+services.AdminState = stageRoster with
+{
+    Owner = false,
+    TeamsLocked = true
+};
+Check(!controller.Dispatch(RmlUiIntentKind.LobbySlotTeamNext, 1),
+    "non-owner cannot modify a locked remote Hunter team");
+Check(!controller.Dispatch(RmlUiIntentKind.LobbySlotTeamNext, 7),
+    "blank nameplate never submits a team change to a synthetic player");
+services.LobbyView = Stub.EmptyLobby;
+services.AdminState = null;
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices
@@ -794,6 +854,9 @@ sealed class Stub : IRmlUiMenuServices
     public RmlUiReplayEntry[] TheatreRows = Array.Empty<RmlUiReplayEntry>();
     public RmlUiReplayEntry LastReplay;
     public int TheatreReadCalls, TheatreValidations, TheatreFavorites, ReplayLaunches, LegacyTheatreHandoffs;
+    public RmlUiLobbyChrome Chrome = RmlUiLobbyChrome.Empty;
+    public int ChatCalls;
+    public string LastChat = "";
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -896,6 +959,28 @@ sealed class Stub : IRmlUiMenuServices
         return true;
     }
     public RmlUiAdminSnapshot? ReadAdmin() => LobbyView.Active ? AdminState : null;
+    public RmlUiLobbyChrome ReadLobbyChrome() => LobbyView.Active ? Chrome
+        : RmlUiLobbyChrome.Empty;
+    public bool SendLobbyChat(string message)
+    {
+        if (!LobbyView.Active || String.IsNullOrWhiteSpace(message)
+            || System.Text.Encoding.UTF8.GetByteCount(message.Trim()) > ChatPacket.MaxTextBytes)
+            return false;
+        ChatCalls++;
+        LastChat = message.Trim();
+        return true;
+    }
+    public bool CycleLobbyTeam(int index)
+    {
+        RmlUiAdminSnapshot? now = ReadAdmin();
+        var actor = RmlUiLobbyDisplayOrder.Resolve(now, index);
+        if (now == null || !RmlUiLobbyDisplayOrder.CanChangeTeam(now, actor))
+            return false;
+        return SubmitAdmin(new RmlUiAdminRequest(RmlUiAdminOperation.SetTeam,
+            now.MatchId, now.AuthorityEpoch, now.SessionRevision, actor!.Value.Slot,
+            actor.Value.Generation, Team: RmlUiLobbyDisplayOrder.NextTeam(now, actor.Value)));
+    }
+
     public bool SubmitAdmin(RmlUiAdminRequest request)
     {
         if (AdminState == null || request.MatchId != AdminState.MatchId

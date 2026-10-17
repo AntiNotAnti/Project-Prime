@@ -316,6 +316,58 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return true;
     }
 
+    public RmlUiLobbyChrome ReadLobbyChrome()
+    {
+        if (!NetSession.IsInLobby || NetSession.ServerSession is not { } session)
+            return RmlUiLobbyChrome.Empty;
+        MatchDefinition match = session.Match;
+        string time = match.TimeLimitSeconds == 0 ? "NO TIME LIMIT"
+            : (match.TimeLimitSeconds / 60) + ":" + (match.TimeLimitSeconds % 60).ToString("00");
+        string score = match.PointGoal.ToString() +
+            (MatchGoalRules.UsesLives(match.Mode) ? " SPARE LIVES"
+                : MatchGoalRules.UsesTimeTarget(match.Mode) ? " SEC TO CONTROL"
+                : " POINT GOAL");
+        string history = String.Join("\n", MphRead.Mods.Chat.NetChat.History.TakeLast(12));
+        if (history.Length == 0) history = "NO MESSAGES";
+        string status = NetSession.LobbyCommandPending ? "WAITING FOR SERVER"
+            : "CHAT SENDS THROUGH THE CURRENT LOBBY";
+        string field = !NetSession.RequiredMapReady ? NetSession.MapPreparationMessage
+            : session.Phase == SessionPhase.Starting ? "STARTING MATCH" : "MAP READY";
+        return new(time, score, history, status, field,
+            String.IsNullOrWhiteSpace(NetSession.MapPreparationMessage)
+                ? "MAP: " + match.RoomKey + " // PREVIEW NOT AVAILABLE"
+                : NetSession.MapPreparationMessage,
+            session.Phase == SessionPhase.Starting ? "STARTING" : "",
+            session.Phase == SessionPhase.Starting
+                ? NetSession.LobbyMessage : "");
+    }
+
+    public bool SendLobbyChat(string message)
+    {
+        if (!NetSession.Active || !NetSession.IsInLobby
+            || NetSession.LocalSlot < 0 || NetSession.LobbyCommandPending
+            || String.IsNullOrWhiteSpace(message))
+            return false;
+        string trimmed = message.Trim();
+        if (System.Text.Encoding.UTF8.GetByteCount(trimmed) > ChatPacket.MaxTextBytes)
+            return false;
+        MphRead.Mods.Chat.NetChat.Send(trimmed);
+        // A send is a request; authoritative receipt arrives in NetChat.History.
+        return true;
+    }
+
+    public bool CycleLobbyTeam(int presentationIndex)
+    {
+        RmlUiAdminSnapshot? roster = ReadAdmin();
+        RmlUiAdminPlayer? player = RmlUiLobbyDisplayOrder.Resolve(roster, presentationIndex);
+        if (roster == null || !RmlUiLobbyDisplayOrder.CanChangeTeam(roster, player))
+            return false;
+        RmlUiAdminPlayer actor = player!.Value;
+        return SubmitAdmin(new RmlUiAdminRequest(RmlUiAdminOperation.SetTeam,
+            roster.MatchId, roster.AuthorityEpoch, roster.SessionRevision,
+            actor.Slot, actor.Generation, Team: RmlUiLobbyDisplayOrder.NextTeam(roster, actor)));
+    }
+
     public RmlUiAdminSnapshot? ReadAdmin()
     {
         if (!NetSession.Active || !NetSession.IsInLobby

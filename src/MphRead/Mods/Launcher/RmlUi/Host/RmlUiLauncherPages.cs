@@ -507,7 +507,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         }
 
         private RmlUiDocumentToken FieldDocument(string id)
-            => id == "theatre_search" && _page == RmlUiMenuPage.Theatre && !_suspended
+            => id == "lobby_chat_input" && _page == RmlUiMenuPage.Lobby && !_suspended
+                ? _pageDocument : id == "theatre_search" && _page == RmlUiMenuPage.Theatre && !_suspended
                 ? _pageDocument : id == "offline_arena_search"
             ? _offlineArenaDocument : id.StartsWith("admin_", StringComparison.Ordinal)
             ? _adminDocument : id.StartsWith("rules_", StringComparison.Ordinal)
