@@ -24,7 +24,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private readonly bool _ownsManager;
         private readonly Dictionary<string, RmlUiBindingValue> _model = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _fields = new(StringComparer.Ordinal);
-        private RmlUiDocumentToken _pageDocument, _rulesDocument, _mapDocument, _hunterDocument, _adminDocument, _offlineArenaDocument, _trainingDocument;
+        private RmlUiDocumentToken _pageDocument, _rulesDocument, _mapDocument, _hunterDocument, _adminDocument, _offlineArenaDocument, _trainingDocument, _adventureConfirmDocument;
         private RmlUiMenuPage _page = RmlUiMenuPage.Home;
         private long _revision;
         private ulong _lastSequence;
@@ -115,7 +115,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             _suspended = false;
             _resumeRequested = true;
-            if (page is RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin) throw new ArgumentException("Rules, Maps and Hunters are modals, not routes.", nameof(page));
+            if (page is RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining or RmlUiMenuPage.AdventureConfirm) throw new ArgumentException("A modal is not a launcher route.", nameof(page));
             if (page is { } selected) SwitchMode(selected);
             Flush();
             Manager.SetVisible(true);
@@ -167,12 +167,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             _resumeRequested = false;
             if (_suspended) return;
             RmlUiMenuPage desired = Bool("lobby_mode") ? RmlUiMenuPage.Lobby
+                : Bool("adventure_mode") ? RmlUiMenuPage.Adventure
                 : Bool("offline_mode") ? RmlUiMenuPage.Offline
                 : Bool("multiplayer_mode") ? RmlUiMenuPage.Play : RmlUiMenuPage.Home;
             if (!_host.IsAlive(_pageDocument) || _page != desired)
             {
                 CaptureFields();
-                _rulesDocument = _mapDocument = _hunterDocument = _adminDocument = _offlineArenaDocument = _trainingDocument = default;
+                _rulesDocument = _mapDocument = _hunterDocument = _adminDocument = _offlineArenaDocument = _trainingDocument = _adventureConfirmDocument = default;
                 _pageDocument = Manager.OpenPage(RmlUiMenuPages.Spec(desired));
                 _page = desired;
                 SeedFields(desired == RmlUiMenuPage.Play ? PlayFields : Array.Empty<string>(), _pageDocument);
@@ -180,6 +181,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _pendingFocus = desired == RmlUiMenuPage.Lobby && !Bool("lobby_require_ready")
                     ? "lobby_hunter" : desired == RmlUiMenuPage.Offline && Bool("offline_training_mode")
                         ? "offline_training_start" : RmlUiMenuPages.Spec(desired).InitialFocus;
+            }
+            bool adventureConfirm = _page == RmlUiMenuPage.Adventure && Bool("adventure_confirmation_open");
+            if (!adventureConfirm && _host.IsAlive(_adventureConfirmDocument))
+            {
+                Manager.CloseModal();
+                _adventureConfirmDocument = default;
             }
             bool training = _page == RmlUiMenuPage.Offline && Bool("offline_training_open");
             if (!training && _host.IsAlive(_trainingDocument))
@@ -247,6 +254,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _pendingFocus = "admin_close";
                 _dirty = true;
             }
+            if (adventureConfirm && !_host.IsAlive(_adventureConfirmDocument))
+            {
+                _adventureConfirmDocument = Manager.OpenModal(RmlUiMenuPages.AdventureConfirm);
+                _pendingFocus = "adventure_cancel_new_run";
+                _dirty = true;
+            }
             if (training && !_host.IsAlive(_trainingDocument))
             {
                 _trainingDocument = Manager.OpenModal(RmlUiMenuPages.OfflineTraining);
@@ -275,6 +288,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Manager.Present(_offlineArenaDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.OfflineArena, _model));
             if (_host.IsAlive(_trainingDocument))
                 Manager.Present(_trainingDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.OfflineTraining, _model));
+            if (_host.IsAlive(_adventureConfirmDocument))
+                Manager.Present(_adventureConfirmDocument, revision, RmlUiMenuPageBindings.Project(RmlUiMenuPage.AdventureConfirm, _model));
         }
 
         /// <summary>Conditional display changes must be laid out before focus is restored.</summary>
@@ -282,7 +297,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             Verify();
             if (_suspended || String.IsNullOrEmpty(_pendingFocus)) return;
-            var target = _host.IsAlive(_trainingDocument) ? _trainingDocument
+            var target = _host.IsAlive(_adventureConfirmDocument) ? _adventureConfirmDocument
+                : _host.IsAlive(_trainingDocument) ? _trainingDocument
                 : _host.IsAlive(_offlineArenaDocument) ? _offlineArenaDocument
                 : _host.IsAlive(_adminDocument) ? _adminDocument
                 : _host.IsAlive(_mapDocument) ? _mapDocument
@@ -299,7 +315,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (_suspended || (intent.Document != _pageDocument && intent.Document != _rulesDocument
                 && intent.Document != _mapDocument && intent.Document != _hunterDocument
                 && intent.Document != _adminDocument && intent.Document != _offlineArenaDocument
-                && intent.Document != _trainingDocument)) return false;
+                && intent.Document != _trainingDocument && intent.Document != _adventureConfirmDocument)) return false;
             if (!Manager.Accept(intent)) return true;
             _lastSequence = Math.Max(_lastSequence, intent.Sequence);
             string action = RmlUiIntentRegistry.ToLegacy(intent);
@@ -368,6 +384,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             forwarded = default;
             if (_suspended) return false;
+            if (_host.IsAlive(_adventureConfirmDocument))
+            {
+                forwarded = Forward("adventure:cancel-new-run", ++_lastSequence);
+                return true;
+            }
             if (_host.IsAlive(_trainingDocument))
             {
                 forwarded = Forward("offline:close-training-options", ++_lastSequence);
@@ -399,6 +420,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Put("lobby_rules_open", false);
                 Flush();
                 forwarded = Forward("lobby:rules-close", ++_lastSequence);
+                return true;
+            }
+            if (_page == RmlUiMenuPage.Adventure)
+            {
+                forwarded = Forward("route:offline", ++_lastSequence);
                 return true;
             }
             if (_page == RmlUiMenuPage.Offline)
@@ -454,13 +480,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("multiplayer_mode", page == RmlUiMenuPage.Play);
             Put("lobby_mode", page == RmlUiMenuPage.Lobby);
             Put("offline_mode", page == RmlUiMenuPage.Offline);
+            Put("adventure_mode", page == RmlUiMenuPage.Adventure);
             if (page != RmlUiMenuPage.Lobby) Put("lobby_rules_open", false);
             if (page != RmlUiMenuPage.Home) Put("activity_selector_open", false);
         }
 
         private RmlUiIntent Forward(string action, ulong sequence)
         {
-            var target = _host.IsAlive(_trainingDocument) ? _trainingDocument
+            var target = _host.IsAlive(_adventureConfirmDocument) ? _adventureConfirmDocument
+                : _host.IsAlive(_trainingDocument) ? _trainingDocument
                 : _host.IsAlive(_offlineArenaDocument) ? _offlineArenaDocument
                 : _host.IsAlive(_adminDocument) ? _adminDocument
                 : _host.IsAlive(_mapDocument) ? _mapDocument
