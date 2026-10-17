@@ -294,6 +294,11 @@ internal static class RmlUiOpenGlSmoke
                     || _studio != null || _social != null)
                 {
                     if (intent.Kind != RmlUiIntentKind.Navigate) continue;
+                    // A native page never remains alive underneath a legacy
+                    // destination. Cancel Social/Studio and retire their
+                    // documents before forwarding to the existing router.
+                    CloseNativeSocial();
+                    CloseNativeStudio();
                     CloseNativeLicense();
                     CloseNativeCommunity();
                     CloseNativeHunter();
