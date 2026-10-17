@@ -84,6 +84,31 @@ class AcceptanceMatrixTests(unittest.TestCase):
             self.assertEqual(failed["runtimeBipedCandidatesPassed"],0)
             self.assertEqual(failed["results"][0]["runtimeExitCode"],12)
 
+    def test_strict_matrix_requires_all_five_private_variants(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root=Path(scratch)
+            partial=stage(root)
+            partial_report=accept.evaluate([partial],require_all=True)
+            self.assertTrue(partial_report["strictCompleteSetRequested"])
+            self.assertFalse(partial_report["allFiveVariantsProvidedAndValid"])
+            self.assertEqual(len(partial_report["missingVariants"]),4)
+            # The partial-set fixture above has already staged Dark Samus.
+            # Reuse that exact, verified pack; staging it twice is correctly
+            # forbidden by the private output-path safety contract.
+            candidates=[partial]
+            for ident in accept.SOURCE_HUNTERS:
+                if ident != "darksamus-echoes":
+                    candidates.append(stage(root,ident))
+            complete=accept.evaluate(candidates,require_all=True)
+            self.assertTrue(complete["allFiveVariantsProvidedAndValid"])
+            self.assertEqual(complete["missingVariants"],[])
+            self.assertFalse(complete["fullPortReady"])
+            self.assertFalse(complete["onlineMultiplayerEnabled"])
+            candidates[0].joinpath("validation-receipt.json").write_text("{}",encoding="utf-8")
+            tampered=accept.evaluate(candidates,require_all=True)
+            self.assertFalse(tampered["allFiveVariantsProvidedAndValid"])
+            self.assertEqual(len(tampered["missingVariants"]),1)
+
     def test_rejects_duplicate_source_variant(self):
         with tempfile.TemporaryDirectory() as scratch:
             root=Path(scratch)

@@ -107,7 +107,7 @@ def validate_runtime(executable, path):
             "diagnostic":(result.stdout+"\n"+result.stderr)[-4096:]}
 
 
-def evaluate(packs, runtime=None):
+def evaluate(packs, runtime=None, require_all=False):
     if not isinstance(packs, list) or not packs:
         raise ValueError("Specify one or more previously staged private test packs")
     if len(packs) > len(SOURCE_HUNTERS):
@@ -131,9 +131,14 @@ def evaluate(packs, runtime=None):
         except (OSError,ValueError,TypeError,KeyError,IndexError) as exc:
             row["error"]=str(exc)[:1000]
         result.append(row)
+    verified = {x.get("sourceCharacter") for x in result if x["assetPreflight"] == "pass"}
+    missing = sorted(set(SOURCE_HUNTERS) - verified)
     good=sum(x["assetPreflight"]=="pass" and x["runtimeValidation"]=="pass" for x in result)
     return {
         "schemaVersion":1,
+        "strictCompleteSetRequested":bool(require_all),
+        "allFiveVariantsProvidedAndValid":len(missing)==0 and len(result)==len(SOURCE_HUNTERS),
+        "missingVariants":missing,
         "scope":"offline-native-biped-visual-test-only",
         "assetPreflightPassed":sum(x["assetPreflight"]=="pass" for x in result),
         "runtimeBipedCandidatesPassed":good,
@@ -153,18 +158,22 @@ def main():
                         help="Repeat for each staged Dark Samus / Trooper visual-test pack")
     parser.add_argument("--project-prime",type=Path,
                         help="Explicit local binary to run its existing -charactermodelvalidate command")
+    parser.add_argument("--require-all",action="store_true",
+                        help="Fail unless all five distinct source variants pass preflight and the native validator")
     parser.add_argument("--report",type=Path,required=True)
     args=parser.parse_args()
     if args.report.is_symlink() or args.report.suffix.lower()!=".json":
         raise ValueError("Acceptance output must be a local JSON report, not a symlink")
     if not args.report.parent.is_dir():
         raise ValueError("Acceptance report parent directory must exist")
-    output=evaluate(args.pack,args.project_prime)
+    output=evaluate(args.pack,args.project_prime,args.require_all)
     args.report.write_text(json.dumps(output,indent=2)+"\n",encoding="utf-8")
     print("Asset preflight:",output["assetPreflightPassed"],"/",output["inputPacks"])
     print("Project Prime renderer validator:",output["runtimeBipedCandidatesPassed"],"/",output["inputPacks"])
     print("Visual/device/gameplay/manual acceptance remains required; fullPortReady=false")
     print("Local evidence:",args.report)
+    if args.require_all and not output["allFiveVariantsProvidedAndValid"]:
+        return 1
     if output["runtimeBipedCandidatesPassed"]!=output["inputPacks"]:
         return 1
     return 0
