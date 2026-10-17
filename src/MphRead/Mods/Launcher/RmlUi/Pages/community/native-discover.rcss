@@ -1,0 +1,20 @@
+#native_community { width: 94vw; height: 90vh; padding: 20dp; overflow-y: auto; }
+#native_community h1 { display: block; font-size: 30dp; margin: 8dp 0 12dp; color: #e9f5ff; }
+#native_community p { font-size: 15dp; color: #b5c9dd; }
+.native_community_tools { display:flex; flex-wrap:wrap; gap:8dp; margin:16dp 0; }
+.native_community_tools input { width: 38vw; height: 44dp; background-color:#091b2b; color:#e9f5ff; }
+.native_community_tools button,.native_community_paging button,.native_community_detail button { min-height:44dp; padding:10dp; margin-right:6dp; border:1dp #5383a3; background-color:#132a40; color:#d7f0ff; }
+.native_community_status { min-height:30dp; color: #70d4ff; }
+.native_community_columns { display:flex; flex-wrap:wrap; gap:16dp; }
+.native_community_list { width:47vw; min-width:320dp; }
+.native_community_list > button { display:block; width:100%; text-align:left; min-height:55dp; margin-bottom:5dp; background-color:#0b2336; border:1dp #395d79; padding:8dp; }
+.native_community_list > button.selected { border-color:#83d7ff; background-color:#19435f; }
+.native_community_list button b,.native_community_list button span { display:block; color:#edf8ff; }
+.native_community_list button span { font-size:13dp; color:#98b9d1; }
+.native_community_detail { width:38vw; padding:16dp; background-color:#0a2030; border:1dp #416c86; }
+.native_community_detail h2 { color:#f0faff; font-size:22dp; }
+#native_community_hash { font-family: monospace; font-size:12dp; overflow-wrap:break-word; }
+@media (max-width:800dp) {
+  .native_community_list,.native_community_detail { width:89vw; }
+  .native_community_tools input { width:84vw; }
+}
