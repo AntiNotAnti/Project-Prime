@@ -1,0 +1,47 @@
+<rml>
+<head>
+  <title>Project Prime Community Discover</title>
+  <link type="text/template" href="../../components/app-shell.rml"/>
+  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="native-discover.rcss"/>
+</head>
+<body template="prime-shell">
+<div id="native_community" class="native_community">
+  <div class="eyebrow">COMMUNITY // MAP DISCOVERY</div>
+  <h1>COMMUNITY MAPS</h1>
+  <p>Browse published immutable map projects. Installing and managing revisions remains in Full Community.</p>
+  <div class="native_community_tools">
+    <input id="native_community_search" placeholder="Search maps or creators" maxlength="128" type="text"/>
+    <button id="native_community_find" data-action="community:search">SEARCH</button>
+    <button id="native_community_refresh" data-action="community:refresh">REFRESH</button>
+    <button id="native_community_name_sort" data-action="community:sort:0">NAME</button>
+    <button id="native_community_new_sort" data-action="community:sort:1">UPDATED</button>
+    <button id="native_community_popular_sort" data-action="community:sort:2">POPULAR</button>
+  </div>
+  <p id="native_community_status" class="native_community_status"></p>
+  <div class="native_community_columns">
+    <div class="native_community_list">
+      <button id="native_community_row0" data-action="community:select:0"><b id="native_community_name0"/><span id="native_community_meta0"/></button>
+      <button id="native_community_row1" data-action="community:select:1"><b id="native_community_name1"/><span id="native_community_meta1"/></button>
+      <button id="native_community_row2" data-action="community:select:2"><b id="native_community_name2"/><span id="native_community_meta2"/></button>
+      <button id="native_community_row3" data-action="community:select:3"><b id="native_community_name3"/><span id="native_community_meta3"/></button>
+      <button id="native_community_row4" data-action="community:select:4"><b id="native_community_name4"/><span id="native_community_meta4"/></button>
+      <button id="native_community_row5" data-action="community:select:5"><b id="native_community_name5"/><span id="native_community_meta5"/></button>
+      <button id="native_community_row6" data-action="community:select:6"><b id="native_community_name6"/><span id="native_community_meta6"/></button>
+      <button id="native_community_row7" data-action="community:select:7"><b id="native_community_name7"/><span id="native_community_meta7"/></button>
+      <div class="native_community_paging">
+        <button id="native_community_previous" data-action="community:page:previous">PREVIOUS</button>
+        <button id="native_community_next" data-action="community:page:next">NEXT</button>
+      </div>
+    </div>
+    <div class="native_community_detail">
+      <h2 id="native_community_title">SELECT A MAP</h2>
+      <p id="native_community_description">Published revisions are immutable. Choose Full Community to install or manage a specific revision.</p>
+      <p id="native_community_hash"></p>
+      <button id="native_community_full" data-action="community:import">FULL COMMUNITY</button>
+      <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
+    </div>
+  </div>
+</div>
+</body>
+</rml>
