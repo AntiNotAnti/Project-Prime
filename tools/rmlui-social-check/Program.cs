@@ -92,7 +92,8 @@ service.ReadReply = new(TaskCreationOptions.RunContinuationsAsynchronously);
 service.MutateReply.SetResult(new(true, "OK"));
 // Mutation worker now waits for a fresh authenticated read.
 Wait(controller, _ => service.ReadCalls == 3);
-service.ReadReply.SetResult(Directory(10));
+service.ReadReply.SetResult(new NativeSocialDirectory(Id(999),
+    Directory(11).People.Where(p => p.PrimeId != Id(1)).ToArray()));
 NativeSocialView updated = Wait(controller, s => !s.Busy && s.Connected && s.Total == 10);
 Check(updated.Confirmation == "" && service.MutationCalls == 1,
     "server reread, not optimistic mutation, defines visible friendship state");
