@@ -284,6 +284,11 @@ public sealed class RmlUiMenuController : IDisposable
                 }
                 if (_services.NavigateTo((RmlUiRouteArgument)argument))
                 {
+                    _offline = null;
+                    _offlineLaunched = false;
+                    _training = null;
+                    _trainingOptionsOpen = false;
+                    _adventure = null;
                     Cancel();
                     _browsing = false;
                     Dirty();
