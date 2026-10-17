@@ -251,6 +251,8 @@ public sealed class RmlUiMenuController : IDisposable
                 }
                 if (_services.NavigateTo((RmlUiRouteArgument)argument))
                 {
+                    _offline = null;
+                    _offlineLaunched = false;
                     Cancel();
                     _browsing = false;
                     Dirty();
