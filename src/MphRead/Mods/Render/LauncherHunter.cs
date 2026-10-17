@@ -59,6 +59,14 @@ namespace MphRead.Mods.Render
 
         public static int Suit { get; set; }
 
+        // Optional native stage controls; the normal Avalonía preview still
+        // paints its own opaque background unless explicitly overridden.
+        public static bool TransparentBackground { get; set; }
+        public static float DistanceScale { get; set; } = 1f;
+        public static bool CinematicLighting { get; set; }
+        public static int PreviewSlot { get; set; } = -1;
+        public static bool Formation { get; set; }
+
         /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
         /// bottom, measured down from the top the way a screen's own
@@ -127,6 +135,16 @@ namespace MphRead.Mods.Render
             Wanted = false;
             CanPresent = null;
             Drawn = false;
+            TransparentBackground = false;
+            CinematicLighting = false;
+            Formation = false;
+            DistanceScale = 1f;
+            PreviewSlot = -1;
+            Scene.LauncherPreviewTransparent = false;
+            Scene.LauncherPreviewDistanceScale = 1f;
+            Scene.LauncherPreviewCinematicLighting = false;
+            Scene.LauncherPreviewSlot = -1;
+            Scene.LauncherPreviewFormation = false;
             _failureCount = 0;
             _retryAfter = 0;
             Scene.LauncherPreview = false;
@@ -187,6 +205,11 @@ namespace MphRead.Mods.Render
                 Scene.LauncherPreview = true;
                 Scene.LauncherHunter = Hunter;
                 Scene.LauncherSuit = Math.Clamp(Suit, 0, 3);
+                Scene.LauncherPreviewTransparent = TransparentBackground;
+                Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
+                Scene.LauncherPreviewCinematicLighting = CinematicLighting;
+                Scene.LauncherPreviewSlot = PreviewSlot;
+                Scene.LauncherPreviewFormation = Formation;
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;

@@ -710,6 +710,56 @@ Task.Run(() =>
 }).GetAwaiter().GetResult();
 Check(wrongThread is InvalidOperationException,
     "native state projection rejects worker-thread writes");
+// RML-29: the original eight-pad lobby and single Home Hunter stage are
+// projections of verified live roster data, not hypothetical UI silhouettes.
+var stageHub = new HubSnapshot("Pilot", Hunter.Samus, Hunter.Kanden, 2, true, "Desktop");
+var stageEmptyLobby = Stub.EmptyLobby;
+var stageHome = RmlUiHunterStagePlan.Build(stageHub, stageEmptyLobby, null);
+Check(!stageHome.Lobby && stageHome.Count == 0 && stageHome.HomeHunter == Hunter.Kanden
+    && stageHome.HomeSuit == 2 && stageHome.GameFilesReady,
+    "native Home stages the actual selected Hunter and suit");
+Check(LauncherLobbyFormation.Validate(),
+    "archived eight-player platform centers and preview rectangles remain valid");
+var stageLobby = new RmlUiLobbyView(true, false, true, false, false,
+    true, true, "Stage lobby", "MP1 SANCTORUS", "Battle", "FreeForAll",
+    "Ready", 8, Array.Empty<RmlUiLobbyPlayer>());
+var stageRoster = new RmlUiAdminSnapshot(9, 888, 3, true, 0, 3, false,
+    false, 2, 8, false, "READY", "", new[] { Hunter.Samus, Hunter.Trace },
+    new[]
+    {
+        new RmlUiAdminPlayer(4, 10, "Remote", Hunter.Trace, 1, 1,
+            false, false, 0, 0, 85),
+        new RmlUiAdminPlayer(3, 12, "Pilot", Hunter.Kanden, 2, 0,
+            true, false, 0, 0, 20),
+        new RmlUiAdminPlayer(0, 15, "Guest", Hunter.Samus, 0, 1,
+            true, false, 0, 0, 34)
+    }, Array.Empty<string>());
+var stage = RmlUiHunterStagePlan.Build(stageHub, stageLobby, stageRoster);
+Check(stage.Lobby && stage.Count == 3 && stage.Formation[0].Local
+    && stage.Formation[0].Name == "Pilot" && stage.Formation[0].Hunter == Hunter.Kanden
+    && stage.Formation[0].Suit == 2 && stage.Formation[0].Ready
+    && stage.Formation[1].NetSlot == 0 && stage.Formation[2].NetSlot == 4,
+    "native lobby local player uses front platform and remaining models stable network-slot order");
+Check(stage.Formation.Select(x => x.Identity).Distinct().Count() == 3
+    && stage.Formation[1].Identity != stage.Formation[0].Identity,
+    "each preview pad carries exact server slot + occupant generation identity");
+var staleStage = RmlUiHunterStagePlan.Build(stageHub, stageLobby, null);
+Check(staleStage.Lobby && staleStage.Count == 0,
+    "absent authoritative roster cannot invent remote character previews");
+var badStage = stageRoster with
+{
+    Players = stageRoster.Players.Concat(new[]
+    {
+        stageRoster.Players[0] with { Hunter = Hunter.Sylux },
+        stageRoster.Players[0] with { Slot = 7, Generation = 0 },
+        stageRoster.Players[0] with { Slot = 6, Suit = 8 }
+    }).ToArray()
+};
+Check(RmlUiHunterStagePlan.Build(stageHub, stageLobby, badStage).Count == 3,
+    "duplicate slots, invalid suit and generation are rejected before rendering");
+Check(RmlUiHunterStagePlan.Build(stageHub with { GameFilesReady = false },
+    stageLobby, stageRoster) is { Lobby: true, GameFilesReady: false, Count: 0 },
+    "when game assets are missing, the lobby keeps its stage but never touches model GL");
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices

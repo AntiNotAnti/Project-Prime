@@ -214,12 +214,23 @@ namespace MphRead.Mods.Render
             //
             // Only on this frame. With a match up, the results screen's own
             // pass owns the preview and draws it inside the world's target.
-            LauncherHunter.Draw(window, width, height);
+            // The opt-in native route draws its own live chamber + Hunter
+            // before the final RmlUi pass. Avoid reusing the opaque Avalonia
+            // HunterStand preview or drawing the model twice in that frame.
+            if (!nativeHome)
+                LauncherHunter.Draw(window, width, height);
         }
 
         /// <summary>Give the texture back. The context has to be current.</summary>
         public static void Release()
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            // The GL context is still current here. Release stage-owned shader
+            // programs/textures alongside the legacy overlay instead of
+            // carrying stale context IDs into another window.
+            LauncherStageFx.Release();
+            LauncherBackdropComposer.Release();
+#endif
             if (_texture != 0)
             {
                 GL.DeleteTexture(_texture);
