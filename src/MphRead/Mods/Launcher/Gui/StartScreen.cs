@@ -54,6 +54,25 @@ namespace MphRead.Mods.Launcher.Gui
             return true;
         }
 
+        internal bool RmlUiLaunchAdventure(
+            MphRead.Mods.Launcher.RmlUi.Core.RmlUiAdventureSlot expected,
+            bool newGame, Hunter hunter)
+        {
+            if (_finished || _startup != null || _prime.Overlays.IsOpen || NetSession.Active
+                || (uint)hunter >= 7 || expected.Slot is < 1 or > AdventureSave.SlotCount
+                || expected.Unreadable || (!newGame && !expected.Used)
+                || !CanLaunchLocal()) return false;
+            AdventureSave.SlotInfo latest = AdventureSave.Read(expected.Slot);
+            if (latest.Used != expected.Used || latest.Unreadable != expected.Unreadable
+                || latest.Area != expected.Area || latest.Octoliths != expected.Octoliths
+                || latest.Health != expected.Health || latest.HealthMax != expected.HealthMax
+                || AdventureSave.ContentFingerprint(expected.Slot) != expected.Fingerprint)
+                return false;
+            LaunchPlan plan = AdventureLaunch.Create(expected.Slot, newGame, hunter);
+            Finish(plan);
+            return _finished;
+        }
+
         internal bool RmlUiLaunchTraining(MphRead.Mods.Training.AimTrainerDefinition definition,
             Hunter hunter, int suit)
         {
