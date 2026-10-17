@@ -188,6 +188,14 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
     && Flag(controller.Tick(), "lobby_rules_open")
     && Text(controller.Tick(), "map_choice0_name") == "MP1 SANCTORUS",
     "lobby opens a native map picker bound to current authoritative rule draft");
+var mapBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Maps, controller.Tick().Bindings);
+Check(mapBindings.TryGetValue("map_name0", out var mapText)
+    && mapText.Text == "MP1 SANCTORUS"
+    && mapBindings.TryGetValue("disabled:map_choice0", out var mapEnabled)
+    && !mapEnabled.Boolean
+    && mapBindings.TryGetValue("disabled:map_previous", out var mapPrevious)
+    && mapPrevious.Boolean,
+    "authored map modal receives native name/enable/page bindings");
 Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 1)
     && Flag(controller.Tick(), "map_empty")
     && !controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0),
