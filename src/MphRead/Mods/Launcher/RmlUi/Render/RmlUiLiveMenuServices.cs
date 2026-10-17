@@ -196,7 +196,7 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         if (roster.MatchId != session.MatchId
             || roster.AuthorityEpoch != session.AuthorityEpoch)
             return null;
-        int count = Math.Clamp(roster.Count, 0, 8);
+        int count = Math.Clamp((int)roster.Count, 0, 8);
         var players = new RmlUiAdminPlayer[count];
         for (int i = 0; i < count; i++)
             players[i] = new(roster.Slots[i], roster.Generations[i],
