@@ -6,6 +6,7 @@ using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Pages.News;
+using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -27,6 +28,7 @@ internal static class RmlUiOpenGlSmoke
     private static RmlUiPageManager? _pages;
     private static NewsPagePresenter? _news;
     private static NewsController? _newsController;
+    private static QuickSettingsPagePresenter? _quickSettings;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -80,9 +82,23 @@ internal static class RmlUiOpenGlSmoke
             RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
-                // Only the foreground News document or its modal may handle
-                // NewsAction. RmlUiPageManager validates generation, document,
-                // sequence and top-most page before dispatch.
+                // The page manager enforces top document, sequence and
+                // generation lifetime, rejecting background page clicks.
+                if (_quickSettings != null && intent.Kind is
+                    (RmlUiIntentKind.SettingsAction or RmlUiIntentKind.SettingsApply
+                        or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose))
+                {
+                    QuickSettingsPagePresenter quick = _quickSettings;
+                    quick.Handle(intent);
+                    if (quick.Closed) CloseNativeQuickSettings();
+                    else if (quick.OpenFullSettingsRequested)
+                    {
+                        CloseNativeQuickSettings();
+                        controller.Dispatch(RmlUiIntentKind.Navigate,
+                            (int)RmlUiRouteArgument.Settings);
+                    }
+                    continue;
+                }
                 if (intent.Kind == RmlUiIntentKind.NewsAction)
                 {
                     _news?.HandleAction(intent);
@@ -92,15 +108,25 @@ internal static class RmlUiOpenGlSmoke
                 {
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
+                        CloseNativeQuickSettings();
                         OpenNativeNews(host);
                         continue;
                     }
-                    if (intent.Argument == (int)RmlUiRouteArgument.Home && _news != null)
+                    if (intent.Argument == (int)RmlUiRouteArgument.Settings && _quickSettings == null)
                     {
+                        CloseNativeNews();
+                        OpenNativeQuickSettings();
+                        continue;
+                    }
+                    if (intent.Argument == (int)RmlUiRouteArgument.Home
+                        && (_news != null || _quickSettings != null))
+                    {
+                        CloseNativeQuickSettings();
                         CloseNativeNews();
                         continue;
                     }
                 }
+                if (_quickSettings != null) CloseNativeQuickSettings();
                 if (_news != null)
                 {
                     // Native navigation to an existing, nonmigrated workspace
@@ -237,6 +263,33 @@ internal static class RmlUiOpenGlSmoke
         finally { controller?.Dispose(); }
     }
 
+    private static void OpenNativeQuickSettings()
+    {
+        if (_pages == null || _quickSettings != null) return;
+        string page = Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "settings", "quick.rml");
+        if (!File.Exists(page))
+            throw new FileNotFoundException("Native quick settings page missing.", page);
+        var next = new QuickSettingsPagePresenter(_pages, new LauncherQuickPreferenceStore());
+        try
+        {
+            next.Open();
+            _quickSettings = next;
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeQuickSettings()
+    {
+        var old = _quickSettings;
+        _quickSettings = null;
+        old?.Dispose();
+    }
+
     private static float Density(RenderWindow window)
     {
         float value = (float)window.FramebufferSize.X / Math.Max(1, window.ClientSize.X);
@@ -323,6 +376,12 @@ internal static class RmlUiOpenGlSmoke
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
                 catch { }
             }
+        }
+        try { CloseNativeQuickSettings(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "quick settings teardown: " + error.Message); }
+            catch { }
         }
         try { CloseNativeNews(); }
         catch (Exception error) when (Recoverable(error))
