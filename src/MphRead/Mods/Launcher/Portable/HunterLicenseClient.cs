@@ -687,6 +687,32 @@ namespace MphRead.Mods.Launcher
             return parsed;
         }
 
+        /// <summary>
+        /// Call a first-party authenticated Edge function with the existing
+        /// Hunter License guest or linked identity. No access/refresh token
+        /// crosses the UI/controller API or is written by the caller.
+        /// </summary>
+        internal static async Task<T> InvokeAuthenticatedFunctionAsync<T>(
+            string function, object body, CancellationToken cancellationToken = default)
+        {
+            if (String.IsNullOrWhiteSpace(function)
+                || function.Length > 64
+                || !function.All(c => Char.IsAsciiLetterOrDigit(c) || c == '-' || c == '_'))
+                throw new ArgumentException("Invalid authenticated function name.", nameof(function));
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return await FunctionAsync<T>(session.AccessToken, function, body,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
+
         private static async Task<T> FunctionAsync<T>(
             string accessToken, string function, object body, CancellationToken cancellationToken)
         {
