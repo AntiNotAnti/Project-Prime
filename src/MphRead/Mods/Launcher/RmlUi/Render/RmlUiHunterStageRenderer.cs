@@ -3,6 +3,7 @@ using System;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Render;
+using MphRead.Mods.Cosmetics;
 using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
@@ -123,6 +124,84 @@ internal static class RmlUiHunterStageRenderer
             LauncherStageFx.Enabled = false;
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.UseProgram(0);
+        }
+    }
+
+    /// <summary>
+    /// Render the separately-owned native Hunter picker into its actual RML
+    /// preview rectangle. It is a terminal isolated preview drawn after RmlUi
+    /// chrome, because the picker card itself is translucent and would otherwise
+    /// conceal the actual model. The viewport/scissor prevent touching buttons.
+    /// Never re-use the Home/lobby formation entity or take over a match Scene.
+    /// </summary>
+    public static bool DrawPicker(RenderWindow window, RmlUiHost host,
+        RmlUiDocumentToken document, Hunter hunter, int suit,
+        CosmeticLoadout draft, int width, int height)
+    {
+        if (window.HasScene || !host.Active || !host.IsVisible(document)
+            || width <= 0 || height <= 0
+            || (uint)hunter >= 7 || suit is < 0 or > 3
+            || !host.TryGetElementBounds(document, "native_hunter_preview",
+                out float x, out float y, out float w, out float h)
+            || !RmlUiPreviewViewport.TryCreate(x, y, w, h, width, height,
+                out var viewport))
+            return false;
+
+        CosmeticLoadout? previousLoadout = CosmeticPreview.Loadout;
+        SkinContext previousMode = CosmeticPreview.Mode;
+        float previousYaw = CosmeticPreview.Yaw;
+        float previousZoom = CosmeticPreview.Zoom;
+        bool previousLoop = CosmeticPreview.LoopDeath;
+        int previousDeath = CosmeticPreview.DeathRequest;
+        try
+        {
+            CosmeticPreview.Loadout = draft;
+            CosmeticPreview.Mode = SkinContext.Biped;
+            CosmeticPreview.Yaw = 0f;
+            CosmeticPreview.Zoom = 1f;
+            CosmeticPreview.LoopDeath = false;
+            CosmeticPreview.DeathRequest = 0;
+
+            LauncherHunter.Wanted = true;
+            LauncherHunter.CanPresent = () => host.IsVisible(document) && !window.HasScene;
+            LauncherHunter.Hunter = hunter;
+            LauncherHunter.Suit = suit;
+            LauncherHunter.TransparentBackground = true;
+            LauncherHunter.CinematicLighting = true;
+            LauncherHunter.DistanceScale = .86f;
+            LauncherHunter.PreviewSlot = -1;
+            LauncherHunter.Formation = false;
+            LauncherHunter.Left = viewport.Left;
+            LauncherHunter.Top = viewport.Top;
+            LauncherHunter.Right = viewport.Right;
+            LauncherHunter.Bottom = viewport.Bottom;
+            LauncherHunter.Draw(window, width, height);
+            return LauncherHunter.Drawn;
+        }
+        finally
+        {
+            LauncherHunter.Wanted = false;
+            LauncherHunter.CanPresent = null;
+            LauncherHunter.TransparentBackground = false;
+            LauncherHunter.CinematicLighting = false;
+            LauncherHunter.DistanceScale = 1f;
+            LauncherHunter.PreviewSlot = -1;
+            LauncherHunter.Formation = false;
+            Scene.LauncherPreview = false;
+            Scene.LauncherPreviewTransparent = false;
+            Scene.LauncherPreviewCinematicLighting = false;
+            Scene.LauncherPreviewDistanceScale = 1f;
+            Scene.LauncherPreviewSlot = -1;
+            Scene.LauncherPreviewFormation = false;
+
+            CosmeticPreview.Loadout = previousLoadout;
+            CosmeticPreview.Mode = previousMode;
+            CosmeticPreview.Yaw = previousYaw;
+            CosmeticPreview.Zoom = previousZoom;
+            CosmeticPreview.LoopDeath = previousLoop;
+            CosmeticPreview.DeathRequest = previousDeath;
+            GL.UseProgram(0);
+            GL.ActiveTexture(TextureUnit.Texture0);
         }
     }
 
