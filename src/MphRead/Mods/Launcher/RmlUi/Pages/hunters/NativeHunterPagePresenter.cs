@@ -123,7 +123,9 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(state.Status),
             ["native_hunter_hint"] = RmlUiBindingValue.FromText(
-                "SUIT " + (state.Choice.Suit + 1) + " // YOUR NEXT DEPLOYMENT"),
+                (GameFiles.Ready ? "LIVE ENGINE 3D PREVIEW" :
+                    "3D PREVIEW REQUIRES CONFIGURED GAME FILES") +
+                " // SUIT " + (state.Choice.Suit + 1) + " // YOUR NEXT DEPLOYMENT"),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
             ["hunter_skin"] = RmlUiBindingValue.FromText("SKIN // " + cosmetic.SkinName),
             ["hunter_armor"] = RmlUiBindingValue.FromText("ARMOR EFFECT // " + cosmetic.ArmorName),
