@@ -4,6 +4,8 @@ using System.IO;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Core;
+using MphRead.Mods.Launcher.RmlUi.Pages.News;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -22,6 +24,9 @@ internal static class RmlUiOpenGlSmoke
 
     private static RmlUiHost? _host;
     private static RmlUiMenuController? _controller;
+    private static RmlUiPageManager? _pages;
+    private static NewsPagePresenter? _news;
+    private static NewsController? _newsController;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -75,6 +80,34 @@ internal static class RmlUiOpenGlSmoke
             RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
+                // Only the foreground News document or its modal may handle
+                // NewsAction. RmlUiPageManager validates generation, document,
+                // sequence and top-most page before dispatch.
+                if (intent.Kind == RmlUiIntentKind.NewsAction)
+                {
+                    _news?.HandleAction(intent);
+                    continue;
+                }
+                if (intent.Kind == RmlUiIntentKind.Navigate)
+                {
+                    if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
+                    {
+                        OpenNativeNews(host);
+                        continue;
+                    }
+                    if (intent.Argument == (int)RmlUiRouteArgument.Home && _news != null)
+                    {
+                        CloseNativeNews();
+                        continue;
+                    }
+                }
+                if (_news != null)
+                {
+                    // Native navigation to an existing, nonmigrated workspace
+                    // retires this page before passing its intent to the
+                    // existing application router.
+                    CloseNativeNews();
+                }
                 string address = intent.Kind == RmlUiIntentKind.PlayJoin
                     ? host.ReadField(host.HomeDocument, "play_join_address", 160) : "";
                 string player = intent.Kind is RmlUiIntentKind.PlayJoin or RmlUiIntentKind.PlayServer
@@ -152,6 +185,7 @@ internal static class RmlUiOpenGlSmoke
             _height = height;
             _density = density;
             _controller = new RmlUiMenuController(new RmlUiLiveMenuServices());
+            _pages = new RmlUiPageManager(host);
             _lastPresentedRevision = 0;
             string player = HubState.Capture().PlayerName;
             host.SetField(host.HomeDocument, "play_player_name", player);
@@ -164,6 +198,43 @@ internal static class RmlUiOpenGlSmoke
             Fail(error);
             return false;
         }
+    }
+
+    private sealed class NativeNewsLinks : INewsLinkLauncher
+    {
+        public bool Open(string uri) => Mods.Update.Updater.OpenLink(uri);
+    }
+
+    private static void OpenNativeNews(RmlUiHost host)
+    {
+        if (_pages == null || _news != null) return;
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "news", "news.rml")))
+            throw new FileNotFoundException("The native News page is not packaged.");
+        var controller = new NewsController(new BundledNewsProvider(), new NativeNewsLinks());
+        var presenter = new NewsPagePresenter(host, _pages, controller);
+        try
+        {
+            presenter.Open();
+            _newsController = controller;
+            _news = presenter;
+        }
+        catch
+        {
+            presenter.Dispose();
+            controller.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeNews()
+    {
+        var presenter = _news;
+        var controller = _newsController;
+        _news = null;
+        _newsController = null;
+        try { presenter?.Dispose(); }
+        finally { controller?.Dispose(); }
     }
 
     private static float Density(RenderWindow window)
@@ -250,6 +321,23 @@ internal static class RmlUiOpenGlSmoke
             catch (Exception error) when (Recoverable(error))
             {
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
+                catch { }
+            }
+        }
+        try { CloseNativeNews(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "news teardown: " + error.Message); }
+            catch { }
+        }
+        var pages = _pages;
+        _pages = null;
+        if (pages != null)
+        {
+            try { pages.Dispose(); }
+            catch (Exception error) when (Recoverable(error))
+            {
+                try { Mods.DebugLog.Line("rmlui", "page teardown: " + error.Message); }
                 catch { }
             }
         }
