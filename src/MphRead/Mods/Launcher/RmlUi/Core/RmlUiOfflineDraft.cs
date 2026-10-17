@@ -11,11 +11,14 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
     Hunter Hunter, int Suit, int Bots, int BotLevel)
 {
     public bool ValidateForm(IReadOnlyList<string> availableRooms)
-        => !String.IsNullOrWhiteSpace(RoomKey)
+    {
+        GameMode requestedMode = Mode; // A struct method cannot capture this in a lambda.
+        return !String.IsNullOrWhiteSpace(RoomKey)
             && availableRooms.Contains(RoomKey, StringComparer.OrdinalIgnoreCase)
-            && OfflineLaunch.Modes.Any(x => x.Mode == Mode)
+            && OfflineLaunch.Modes.Any(x => x.Mode == requestedMode)
             && (uint)Hunter < 7 && Suit is >= 0 and <= 3
             && Bots is >= 0 and <= 7 && BotLevel is >= 0 and <= 3;
+    }
 }
 
 /// <summary>
