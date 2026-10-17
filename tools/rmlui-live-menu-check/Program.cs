@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead;
@@ -216,6 +217,47 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
     && services.Submissions == beforeMap,
     "non-owner can preview but never select or submit server map updates");
 controller.Dispatch(RmlUiIntentKind.LobbyMapClose);
+
+// Native Hunter/suit selection shares the live lobby identity epoch and only
+// issues one existing Identify request. No client-side admission is invented.
+services.LobbyView = services.LobbyView with { Active = true, Owner = true };
+services.HunterDraft = new RmlUiHunterDraft(5, 999, Hunter.Samus, 0,
+    new[] { Hunter.Samus, Hunter.Kanden }, false);
+Check(controller.Dispatch(RmlUiIntentKind.HunterOpen)
+    && controller.HunterOpen && Flag(controller.Tick(), "lobby_hunter_open"),
+    "Hunter picker opens from a live lobby identity");
+var hunterBindings = RmlUiMenuPageBindings.Project(
+    RmlUiMenuPage.Hunters, controller.Tick().Bindings);
+Check(hunterBindings.TryGetValue("disabled:hunter_choice2", out var disabledTrace)
+    && disabledTrace.Boolean
+    && hunterBindings.TryGetValue("class:hunter_choice0:selected", out var selectedSamus)
+    && selectedSamus.Boolean,
+    "native Hunter modal disables restricted hunters and highlights current selection");
+Check(!controller.Dispatch(RmlUiIntentKind.HunterSelect, (int)Hunter.Trace)
+    && controller.Dispatch(RmlUiIntentKind.HunterSelect, (int)Hunter.Kanden)
+    && controller.Dispatch(RmlUiIntentKind.HunterSuit, 2)
+    && Text(controller.Tick(), "hunter_identity_name").Contains("KANDEN")
+    && services.HunterApplyCalls == 0,
+    "Hunter and suit changes remain local until Apply");
+Check(controller.Dispatch(RmlUiIntentKind.HunterApply)
+    && !controller.HunterOpen && services.HunterApplyCalls == 1
+    && services.SentHunter == Hunter.Kanden && services.SentSuit == 2
+    && services.SentEpoch == 999,
+    "Apply emits precisely one current-authority identity request");
+Check(!controller.Dispatch(RmlUiIntentKind.HunterApply)
+    && services.HunterApplyCalls == 1,
+    "closed identity picker cannot double-send");
+Check(controller.Dispatch(RmlUiIntentKind.HunterOpen)
+    && controller.Dispatch(RmlUiIntentKind.HunterCancel)
+    && services.HunterApplyCalls == 1,
+    "Hunter selection cancellation never persists a draft");
+Check(controller.Dispatch(RmlUiIntentKind.HunterOpen), "stale-session test opens");
+services.HunterDraft = services.HunterDraft.Value with { AuthorityEpoch = 1000 };
+Check(!controller.Dispatch(RmlUiIntentKind.HunterApply)
+    && services.HunterApplyCalls == 1,
+    "stale authority epoch cannot submit Hunter changes");
+Check(!Flag(controller.Tick(), "lobby_hunter_open"),
+    "render-thread snapshot retires invalidated Hunter modal");
 services.LobbyView = Stub.EmptyLobby;
 
 
@@ -269,6 +311,11 @@ sealed class Stub : IRmlUiMenuServices
     public LobbyCreationRequest CreatedRequest;
     public string[] BuiltInMaps = { "MP1 SANCTORUS" };
     public string[] CommunityMaps = Array.Empty<string>();
+    public RmlUiHunterDraft? HunterDraft;
+    public int HunterApplyCalls;
+    public Hunter SentHunter;
+    public byte SentSuit;
+    public ulong SentEpoch;
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -296,6 +343,18 @@ sealed class Stub : IRmlUiMenuServices
     public bool LeaveLobby() { LeaveCalls++; LobbyView = EmptyLobby; return true; }
     public bool NextHunter() => true;
     public bool NextSuit() => true;
+    public RmlUiHunterDraft? ReadHunterDraft() => LobbyView.Active ? HunterDraft : null;
+    public bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch)
+    {
+        if (HunterDraft is not { } current || current.CommandPending
+            || current.MatchId != matchId || current.AuthorityEpoch != authorityEpoch
+            || !current.Allowed.Contains(hunter) || suit > 3) return false;
+        HunterApplyCalls++;
+        SentHunter = hunter;
+        SentSuit = suit;
+        SentEpoch = authorityEpoch;
+        return true;
+    }
     public bool OpenLobbyDetails() => true;
     public RmlUiRuleDraft? ReadRules() => LobbyView.Active ? AuthorityRules : null;
     public IReadOnlyList<string> BuiltInArenaKeys() => BuiltInMaps;

@@ -157,6 +157,36 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return true;
     }
 
+    public RmlUiHunterDraft? ReadHunterDraft()
+    {
+        if (!NetSession.Active || !NetSession.IsInLobby
+            || NetSession.ServerSession is not { } session || NetSession.LocalSlot < 0)
+            return null;
+        return new RmlUiHunterDraft(
+            session.MatchId, session.AuthorityEpoch,
+            NetSession.LocalHunter, (byte)NetSession.LocalColor,
+            HunterRules.Pool(session.Match.LowTier).ToArray(), NetSession.LobbyCommandPending);
+    }
+
+    public bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch)
+    {
+        RmlUiHunterDraft? current = ReadHunterDraft();
+        if (!current.HasValue || current.Value.CommandPending
+            || current.Value.MatchId != matchId
+            || current.Value.AuthorityEpoch != authorityEpoch
+            || suit > 3 || !current.Value.Allowed.Contains(hunter))
+            return false;
+
+        NetSession.LocalHunter = hunter;
+        NetSession.LocalColor = suit;
+        LauncherPrefs.LastHunter = hunter;
+        LauncherPrefs.LastColor = suit;
+        LauncherPrefs.Save();
+        NetSession.SendIdentify();
+        // SendIdentify requests the identity; it does not prove server admission.
+        return true;
+    }
+
     public bool OpenLobbyDetails() => Shell.RmlUiShowLegacyLobby();
 
     public RmlUiRuleDraft? ReadRules()

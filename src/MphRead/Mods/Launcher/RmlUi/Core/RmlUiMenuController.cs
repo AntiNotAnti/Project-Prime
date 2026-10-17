@@ -19,6 +19,11 @@ public readonly record struct RmlUiDirectory(bool Answered, string Message,
 public readonly record struct RmlUiJoinResult(bool Joined, LaunchPlan Plan, string Error);
 public readonly record struct RmlUiLobbyPlayer(string Name, string Hunter, bool Ready,
     bool Local, bool Bot);
+/// <summary>Verified lobby identity snapshot. Never fabricate a locally accepted hunter.</summary>
+public readonly record struct RmlUiHunterDraft(
+    ushort MatchId, ulong AuthorityEpoch, Hunter Hunter, byte Suit,
+    Hunter[] Allowed, bool CommandPending);
+
 public readonly record struct RmlUiLobbyView(
     bool Active, bool Starting, bool Owner, bool RequireReady, bool LocalReady,
     bool CanReady, bool CanStart, string Name, string Map, string Mode, string Format,
@@ -46,6 +51,8 @@ public interface IRmlUiMenuServices
     bool LeaveLobby();
     bool NextHunter();
     bool NextSuit();
+    RmlUiHunterDraft? ReadHunterDraft() => null;
+    bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -75,8 +82,13 @@ public sealed class RmlUiMenuController : IDisposable
     private CancellationTokenSource? _work;
     private RmlUiRuleEditor? _rules;
     private RmlUiMapPickerModel? _mapPicker;
+    private RmlUiHunterDraft? _hunterDraft;
+    private Hunter _hunterChoice;
+    private byte _hunterSuit;
+    private string _hunterStatus = "";
     private bool _mapOpenedRules;
     public bool MapPickerOpen => _mapPicker != null;
+    public bool HunterOpen => _hunterDraft.HasValue;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -233,6 +245,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
             case RmlUiIntentKind.LobbyRulesOpen:
+                if (_hunterDraft.HasValue) return false;
                 var original = _services.ReadRules();
                 if (!original.HasValue) return false;
                 _rules = new(original.Value);
@@ -298,6 +311,7 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyLeave:
                 if (_services.LeaveLobby())
                 {
+                    _hunterDraft = null;
                     CloseRules();
                     Cancel();
                     _browsing = false;
@@ -305,6 +319,25 @@ public sealed class RmlUiMenuController : IDisposable
                     return true;
                 }
                 return false;
+            case RmlUiIntentKind.HunterOpen:
+                return OpenHunterIdentity();
+            case RmlUiIntentKind.HunterSelect:
+                if (!_hunterDraft.HasValue || !CanPickHunter((Hunter)argument)) return false;
+                _hunterChoice = (Hunter)argument;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.HunterSuit:
+                if (!_hunterDraft.HasValue || argument is < 0 or > 3) return false;
+                _hunterSuit = (byte)argument;
+                Dirty();
+                return true;
+            case RmlUiIntentKind.HunterApply:
+                return SubmitHunterIdentity();
+            case RmlUiIntentKind.HunterCancel:
+                if (!_hunterDraft.HasValue) return false;
+                _hunterDraft = null;
+                Dirty();
+                return true;
             case RmlUiIntentKind.LobbyNextHunter:
                 return LobbyAction(_services.NextHunter, "Hunter choice submitted.");
             case RmlUiIntentKind.LobbyNextSuit:
@@ -377,6 +410,23 @@ public sealed class RmlUiMenuController : IDisposable
         // The result of UpdateMatch and the authoritative SessionState may arrive
         // in different packets. Never show local rule edits as accepted until
         // the same authority advances revision AND echoes the exact payload.
+        if (_hunterDraft is { } hunter)
+        {
+            RmlUiHunterDraft? live = _services.ReadHunterDraft();
+            if (!live.HasValue || live.Value.MatchId != hunter.MatchId
+                || live.Value.AuthorityEpoch != hunter.AuthorityEpoch
+                || !_services.Lobby().Active)
+            {
+                _hunterDraft = null;
+                Status("HUNTER SELECTION EXPIRED // REOPEN FROM LOBBY");
+            }
+            else if (live.Value.CommandPending != hunter.CommandPending
+                || !live.Value.Allowed.SequenceEqual(hunter.Allowed))
+            {
+                _hunterDraft = live;
+                Dirty();
+            }
+        }
         if (_rules is { } editor)
         {
             RmlUiRuleDraft? live = _services.ReadRules();
@@ -419,10 +469,54 @@ public sealed class RmlUiMenuController : IDisposable
         Dirty();
     }
 
+    private bool OpenHunterIdentity()
+    {
+        RmlUiLobbyView lobby = _services.Lobby();
+        if (!lobby.Active || lobby.Starting || _mapPicker != null || _rules != null
+            || _hunterDraft.HasValue) return false;
+        RmlUiHunterDraft? live = _services.ReadHunterDraft();
+        if (!live.HasValue || live.Value.MatchId == 0 || live.Value.AuthorityEpoch == 0
+            || live.Value.Allowed == null || live.Value.Allowed.Length == 0) return false;
+        _hunterDraft = live;
+        _hunterChoice = live.Value.Hunter;
+        _hunterSuit = live.Value.Suit;
+        _hunterStatus = "SELECT A HUNTER AND SUIT // APPLY TO SEND YOUR IDENTITY";
+        Dirty();
+        return true;
+    }
+
+    private bool CanPickHunter(Hunter candidate) =>
+        _hunterDraft is { } draft && draft.Allowed.Contains(candidate);
+
+    private bool SubmitHunterIdentity()
+    {
+        if (_hunterDraft is not { } draft || !CanPickHunter(_hunterChoice)
+            || _hunterSuit > 3) return false;
+        RmlUiHunterDraft? current = _services.ReadHunterDraft();
+        if (!current.HasValue || current.Value.CommandPending || current.Value.MatchId != draft.MatchId
+            || current.Value.AuthorityEpoch != draft.AuthorityEpoch
+            || !current.Value.Allowed.Contains(_hunterChoice))
+        {
+            _hunterStatus = "LOBBY IDENTITY CHANGED // REOPEN THE HUNTER SELECTOR";
+            Dirty();
+            return false;
+        }
+        if (!_services.ApplyHunterDraft(_hunterChoice, _hunterSuit,
+                draft.MatchId, draft.AuthorityEpoch))
+        {
+            _hunterStatus = "THE SERVER IS NOT ACCEPTING IDENTITY CHANGES";
+            Dirty();
+            return false;
+        }
+        _hunterDraft = null;
+        Status("HUNTER AND SUIT REQUEST SENT // SERVER VALIDATES");
+        return true;
+    }
+
     private bool OpenMapPicker()
     {
         RmlUiLobbyView lobby = _services.Lobby();
-        if (!lobby.Active || lobby.Starting || _rulesSubmitted) return false;
+        if (!lobby.Active || lobby.Starting || _rulesSubmitted || _hunterDraft.HasValue) return false;
         bool created = _rules == null;
         if (created)
         {
@@ -596,6 +690,21 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_starting", lobby.Active && lobby.Starting);
         Flag("lobby_rules_open", lobby.Active && _rules != null);
         Flag("lobby_map_open", lobby.Active && _mapPicker != null);
+        Flag("lobby_hunter_open", lobby.Active && _hunterDraft.HasValue);
+        Text("hunter_identity_name", _hunterDraft.HasValue
+            ? _hunterChoice.ToString().ToUpperInvariant() + " // SUIT " + (_hunterSuit + 1) : "");
+        Text("hunter_status", _hunterStatus);
+        Text("hunter_restriction", _hunterDraft is { } selection && selection.Allowed.Length < 7
+            ? "SERVER RESTRICTS AVAILABLE HUNTERS FOR THIS MATCH" : "CHOOSE YOUR HUNTER");
+        Flag("hunter_apply_enabled", _hunterDraft is { CommandPending: false }
+            && CanPickHunter(_hunterChoice));
+        for (int i = 0; i < 7; i++)
+        {
+            Flag("hunter_choice" + i + "_selected", _hunterDraft.HasValue && (int)_hunterChoice == i);
+            Flag("hunter_choice" + i + "_allowed", CanPickHunter((Hunter)i));
+        }
+        for (int i = 0; i < 4; i++)
+            Flag("hunter_suit" + i + "_selected", _hunterDraft.HasValue && _hunterSuit == i);
         Flag("rules_owner", lobby.Active && lobby.Owner);
         Flag("rules_dirty", _rules?.Dirty ?? false);
         Flag("rules_pending", _rulesSubmitted);
