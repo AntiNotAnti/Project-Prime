@@ -1221,7 +1221,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("hunter_identity_name", _hunterDraft.HasValue
             ? _hunterChoice.ToString().ToUpperInvariant() + " // SUIT " + (_hunterSuit + 1) : "");
         Text("hunter_status", _hunterStatus);
-        Text("hunter_restriction", _hunterDraft is { } selection && selection.Allowed.Length < 7
+        Text("hunter_restriction", _hunterDraft is { } hunterSelection && hunterSelection.Allowed.Length < 7
             ? "SERVER RESTRICTS AVAILABLE HUNTERS FOR THIS MATCH" : "CHOOSE YOUR HUNTER");
         Flag("hunter_apply_enabled", _hunterDraft is { CommandPending: false }
             && CanPickHunter(_hunterChoice));
