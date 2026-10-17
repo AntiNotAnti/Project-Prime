@@ -156,6 +156,10 @@ namespace MphRead.Mods.Launcher.Gui
             return _front.RmlUiAcceptJoin(plan);
         }
 
+        internal static bool RmlUiLaunchOffline(MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRequest request)
+            => Active && _window?.HasScene == false
+                && _front?.RmlUiLaunchOffline(request) == true;
+
         internal static bool RmlUiOpenCreateLobby()
             => Active && _window?.HasScene == false
                 && _front?.RmlUiOpenCreateLobby() == true;
