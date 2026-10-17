@@ -29,6 +29,7 @@ internal static class RmlUiOpenGlSmoke
 
     private static RmlUiHost? _host;
     private static RmlUiMenuController? _controller;
+    private static RmlUiLiveMenuServices? _services;
     private static RmlUiPageManager? _pages;
     private static RmlUiLauncherPages? _launcherPages;
     private static NewsPagePresenter? _news;
@@ -58,6 +59,7 @@ internal static class RmlUiOpenGlSmoke
             || !Shell.RmlUiCanPresent)
         {
             if (_shown && _host is { Active: true } current) current.ReleaseInput();
+            RmlUiHunterStageRenderer.Hide();
             _shown = false;
             return false;
         }
@@ -352,6 +354,17 @@ internal static class RmlUiOpenGlSmoke
             }
             host.Update();
             launcher?.AfterUpdate();
+            // Preserve the original composition order: one procedural chamber,
+            // real engine Hunter meshes and atmosphere, then RmlUi UI. Never
+            // invent remote Hunter poses or launch another simulation.
+            if (_services is { } services && launcher != null)
+            {
+                RmlUiLobbyView lobby = services.Lobby();
+                RmlUiAdminSnapshot? roster = launcher.Page == RmlUiMenuPage.Lobby && lobby.Active
+                    ? services.ReadAdmin() : null;
+                RmlUiHunterStageRenderer.Draw(window, host, launcher.Page,
+                    launcher.Suspended, services.Hub(), lobby, roster, width, height);
+            }
             RmlUiOpenGlFrame.Draw(host, width, height);
         }
         catch (Exception error) when (Recoverable(error))
@@ -387,7 +400,9 @@ internal static class RmlUiOpenGlSmoke
             _width = width;
             _height = height;
             _density = density;
-            _controller = new RmlUiMenuController(new RmlUiLiveMenuServices());
+            var services = new RmlUiLiveMenuServices();
+            _services = services;
+            _controller = new RmlUiMenuController(services);
             _pages = new RmlUiPageManager(host);
             _launcherPages = new RmlUiLauncherPages(host, _pages);
             _launcherPages.ShowBaseline();
@@ -660,6 +675,8 @@ internal static class RmlUiOpenGlSmoke
     internal static void Shutdown()
     {
         _shown = false;
+        RmlUiHunterStageRenderer.Hide();
+        _services = null;
         RmlUiMenuController? controller = _controller;
         _controller = null;
         if (controller != null)
