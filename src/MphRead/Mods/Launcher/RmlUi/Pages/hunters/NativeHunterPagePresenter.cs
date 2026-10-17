@@ -19,6 +19,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
+    public bool CanNavigateAway => !_controller.Current().Dirty;
 
     public NativeHunterPagePresenter(RmlUiPageManager pages, ILauncherHunterChoiceStore store)
     {

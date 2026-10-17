@@ -124,6 +124,10 @@ internal static class RmlUiOpenGlSmoke
                 }
                 if (intent.Kind == RmlUiIntentKind.Navigate)
                 {
+                    // Treat unsaved native drafts like the current legacy route
+                    // guard. A header/tab click must not discard silently.
+                    if ((_quickSettings is { CanNavigateAway: false })
+                        || (_hunterChoice is { CanNavigateAway: false })) continue;
                     if (_pages != null && _pages.Page != default
                         && !_pages.Accept(intent)) continue;
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
