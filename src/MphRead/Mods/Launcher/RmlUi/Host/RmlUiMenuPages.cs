@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining, Adventure, AdventureConfirm }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining, Adventure, AdventureConfirm, Theatre }
 
     public static class RmlUiMenuPages
     {
@@ -21,6 +21,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec OfflineTraining = new("offline-training", "pages/offline/training.rml", "offline_training_done");
         public static readonly RmlUiPageSpec Adventure = new("adventure", "pages/adventure/saves.rml", "adventure_slot1");
         public static readonly RmlUiPageSpec AdventureConfirm = new("adventure-confirm", "pages/adventure/confirm.rml", "adventure_cancel_new_run");
+        public static readonly RmlUiPageSpec Theatre = new("theatre", "pages/theatre/library.rml", "theatre_search");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
@@ -30,6 +31,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiMenuPage.Offline => Offline, RmlUiMenuPage.OfflineArena => OfflineArena,
             RmlUiMenuPage.OfflineTraining => OfflineTraining,
             RmlUiMenuPage.Adventure => Adventure, RmlUiMenuPage.AdventureConfirm => AdventureConfirm,
+            RmlUiMenuPage.Theatre => Theatre,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -668,6 +670,44 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 "{{adventure_confirmation_error_text}}")
         };
 
+        private static readonly Binding[] TheatreBindings = BuildTheatreBindings();
+
+        private static Binding[] BuildTheatreBindings()
+        {
+            var bindings = new List<Binding>();
+            foreach (string field in new[]
+            {
+                "theatre_summary", "theatre_empty", "theatre_filter_label",
+                "theatre_sort_label", "theatre_page_number", "theatre_status",
+                "theatre_error", "theatre_selected_title", "theatre_metadata",
+                "theatre_hero", "theatre_no_preview", "theatre_launch_problem"
+            })
+                bindings.Add(new(RmlUiBindingKind.Text, field, "{{" + field + "}}"));
+            foreach (var (target, expr) in new[]
+            {
+                ("theatre_watch", "!theatre_watch_enabled"),
+                ("theatre_favorite", "!theatre_favorite_enabled"),
+                ("theatre_previous_page", "!theatre_can_previous"),
+                ("theatre_next_page", "!theatre_can_next"),
+                ("theatre_cancel_job", "!theatre_busy")
+            })
+                bindings.Add(new(RmlUiBindingKind.Boolean, "disabled:" + target, expr));
+            for (int i = 0; i < 8; i++)
+            {
+                bindings.Add(new(RmlUiBindingKind.Text, $"theatre_entry{i}_title",
+                    $"{{{{theatre_entry{i}_title}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"theatre_entry{i}_detail",
+                    $"{{{{theatre_entry{i}_detail}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"visible:theatre_entry{i}",
+                    $"theatre_entry{i}_present"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:theatre_entry{i}",
+                    $"!theatre_entry{i}_present"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:theatre_entry{i}:selected",
+                    $"theatre_entry{i}_selected"));
+            }
+            return bindings.ToArray();
+        }
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
@@ -682,6 +722,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiMenuPage.OfflineTraining => OfflineTrainingBindings,
                 RmlUiMenuPage.Adventure => AdventureBindings,
                 RmlUiMenuPage.AdventureConfirm => AdventureConfirmBindings,
+                RmlUiMenuPage.Theatre => TheatreBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))

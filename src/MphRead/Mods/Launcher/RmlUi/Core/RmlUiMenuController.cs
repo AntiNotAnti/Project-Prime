@@ -63,6 +63,12 @@ public interface IRmlUiMenuServices
     bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit) => false;
     RmlUiAdventureSlot[] ReadAdventureSlots() => Array.Empty<RmlUiAdventureSlot>();
     bool LaunchAdventure(RmlUiAdventureSlot slot, bool newGame, Hunter hunter) => false;
+    Task<RmlUiReplayEntry[]> ReadTheatreAsync(CancellationToken token)
+        => Task.FromResult(Array.Empty<RmlUiReplayEntry>());
+    Task<string> ValidateReplayAsync(RmlUiReplayEntry entry, CancellationToken token)
+        => Task.FromResult("Replay verification is unavailable.");
+    bool LaunchReplay(RmlUiReplayEntry entry) => false;
+    bool ToggleReplayFavorite(RmlUiReplayEntry entry) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -83,7 +89,7 @@ public sealed record RmlUiMenuSnapshot(long Revision,
 /// </summary>
 public sealed class RmlUiMenuController : IDisposable
 {
-    private enum Job { Browse, Quick, Join, Create, Offline }
+    private enum Job { Browse, Quick, Join, Create, Offline, TheatreRead, TheatreWatch }
     private readonly record struct Completion(long Epoch, Job Kind, object? Data, string? Error);
     private readonly IRmlUiMenuServices _services;
     private readonly int _owner = Environment.CurrentManagedThreadId;
@@ -97,6 +103,8 @@ public sealed class RmlUiMenuController : IDisposable
     private bool _offlineLaunched;
     private RmlUiTrainingDraft? _training;
     private RmlUiAdventureDraft? _adventure;
+    private RmlUiTheatreIndex? _theatre;
+    private RmlUiReplayEntry? _watchInFlight;
     private bool _trainingOptionsOpen, _trainingRoute, _trainingLaunched;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
@@ -110,6 +118,7 @@ public sealed class RmlUiMenuController : IDisposable
     public bool OfflineOpen => _offline != null;
     public bool TrainingOptionsOpen => _trainingOptionsOpen;
     public bool AdventureOpen => _adventure != null;
+    public bool TheatreOpen => _theatre != null;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -136,7 +145,7 @@ public sealed class RmlUiMenuController : IDisposable
 
     public bool Dispatch(RmlUiIntentKind kind, int argument = 0,
         string address = "", string playerName = "", string ruleTime = "", string ruleGoal = "",
-        string lobbyName = "", string adminChat = "", string arenaSearch = "")
+        string lobbyName = "", string adminChat = "", string arenaSearch = "", string theatreSearch = "")
     {
         Owner();
         if (!RmlUiIntentRegistry.IsValid(kind, argument)) return false;
@@ -242,15 +251,29 @@ public sealed class RmlUiMenuController : IDisposable
                 _joiningEpoch = _epoch;
                 return true;
             case RmlUiIntentKind.Navigate:
+                if (argument == (int)RmlUiRouteArgument.Theatre)
+                    return OpenTheatre();
+                if (argument == (int)RmlUiRouteArgument.Home && _theatre != null)
+                {
+                    _theatre = null;
+                    Cancel();
+                    Dirty();
+                    return true;
+                }
                 if (argument == (int)RmlUiRouteArgument.Adventure)
+                {
+                    _theatre = null;
                     return OpenAdventure();
+                }
                 if (argument == (int)RmlUiRouteArgument.Offline)
                 {
+                    _theatre = null;
                     _adventure = null;
                     return OpenOffline(training: false);
                 }
                 if (argument == (int)RmlUiRouteArgument.Training)
                 {
+                    _theatre = null;
                     _adventure = null;
                     return OpenOffline(training: true);
                 }
@@ -274,6 +297,7 @@ public sealed class RmlUiMenuController : IDisposable
                 }
                 if (argument == (int)RmlUiRouteArgument.Play)
                 {
+                    _theatre = null;
                     _adventure = null;
                     _offline = null;
                     _training = null;
@@ -289,6 +313,7 @@ public sealed class RmlUiMenuController : IDisposable
                     _training = null;
                     _trainingOptionsOpen = false;
                     _adventure = null;
+                    _theatre = null;
                     Cancel();
                     _browsing = false;
                     Dirty();
@@ -298,6 +323,11 @@ public sealed class RmlUiMenuController : IDisposable
                 return false;
             case RmlUiIntentKind.OpenStudio:
                 return _services.OpenStudio();
+            case RmlUiIntentKind.TheatreEntry:
+                if (_theatre == null || _busy || !_theatre.Select(argument)) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.TheatreAction:
+                return DispatchTheatreAction(argument, theatreSearch);
             case RmlUiIntentKind.LobbyReady:
                 if (!_services.Lobby().CanReady) return false;
                 return LobbyAction(_services.SetReady, "Ready request sent to server.");
@@ -567,6 +597,27 @@ public sealed class RmlUiMenuController : IDisposable
             }
             switch (item.Kind)
             {
+                case Job.TheatreRead:
+                    if (_theatre != null && item.Data is RmlUiReplayEntry[] entries)
+                    {
+                        _theatre.Refresh(entries);
+                        Status("REPLAY LIBRARY LOADED // " + _theatre.TotalCount + " RECORDINGS");
+                    }
+                    break;
+                case Job.TheatreWatch:
+                    string? replayError = (string?)item.Data;
+                    RmlUiReplayEntry? checkedReplay = _watchInFlight;
+                    _watchInFlight = null;
+                    if (!String.IsNullOrEmpty(replayError))
+                        Status(replayError);
+                    else if (checkedReplay is { } confirmed && _theatre is { } library
+                        && library.SelectedUnchanged(confirmed) && _services.LaunchReplay(confirmed))
+                    {
+                        library.MarkLaunched();
+                        Status("REPLAY HANDED OFF TO EXISTING CINEMATIC PLAYBACK");
+                    }
+                    else Status("REPLAY CHANGED OR GAME LAUNCH REFUSED");
+                    break;
                 case Job.Offline:
                     string? validation = (string?)item.Data;
                     RmlUiOfflineRequest? completedRequest = _offlineInFlight;
@@ -723,6 +774,81 @@ public sealed class RmlUiMenuController : IDisposable
         _hunterDraft = null;
         Status("HUNTER AND SUIT REQUEST SENT // SERVER VALIDATES");
         return true;
+    }
+
+    private bool OpenTheatre()
+    {
+        if (_services.Lobby().Active || _joining || _creating) return false;
+        if (_theatre != null) return true;
+        _offline = null; _training = null; _adventure = null;
+        _theatre = new RmlUiTheatreIndex();
+        _browsing = false;
+        Begin(Job.TheatreRead, "SCANNING CURRENT REPLAY LIBRARY",
+            async token => await _services.ReadTheatreAsync(token).ConfigureAwait(false));
+        Dirty();
+        return true;
+    }
+
+    private bool DispatchTheatreAction(int action, string search)
+    {
+        if (_theatre is not { } library) return false;
+        if (action == 10)
+        {
+            if (!_busy) return false;
+            Cancel();
+            Status("REPLAY OPERATION CANCELLED");
+            return true;
+        }
+        if (_busy || library.Launched) return false;
+        bool changed = action switch
+        {
+            0 => library.SearchFor(search),
+            23 => library.SearchFor(""),
+            1 => library.NextFilter(),
+            2 => library.NextSort(),
+            3 => library.Turn(-1),
+            4 => library.Turn(1),
+            _ => false
+        };
+        if (changed) { Dirty(); return true; }
+
+        switch (action)
+        {
+            case 5:
+                Begin(Job.TheatreRead, "REFRESHING REPLAY LIBRARY",
+                    async token => await _services.ReadTheatreAsync(token).ConfigureAwait(false));
+                return true;
+            case 6:
+                if (library.Selected is not { Playable: true } selected) return false;
+                Begin(Job.TheatreWatch, "CHECKING REPLAY PROTOCOL AND MAP IDENTITY",
+                    async token => await _services.ValidateReplayAsync(selected, token)
+                        .ConfigureAwait(false));
+                _watchInFlight = selected;
+                return true;
+            case 7:
+                if (library.Selected is not { Playable: true } favorite
+                    || !_services.ToggleReplayFavorite(favorite))
+                {
+                    Status("REPLAY CHANGED OR FAVORITE MARKER CANNOT BE SAVED");
+                    return false;
+                }
+                Begin(Job.TheatreRead, "REFRESHING FAVORITE STATE",
+                    async token => await _services.ReadTheatreAsync(token).ConfigureAwait(false));
+                return true;
+            case 17: // OPEN FULL REPLAY STUDIO
+            case 18: // IMPORT
+            case 19: // IMPORT PATH
+                // The full Theatre still owns virtual clips, batch tools, file
+                // management and the rich video editor. Never fake an edit.
+                if (!_services.NavigateTo(RmlUiRouteArgument.Theatre)) return false;
+                _theatre = null;
+                Cancel();
+                Dirty();
+                return true;
+            default:
+                Status("OPEN FULL REPLAY STUDIO FOR THIS LIBRARY OPERATION");
+                return false;
+        }
     }
 
     private bool OpenAdventure()
@@ -925,6 +1051,7 @@ public sealed class RmlUiMenuController : IDisposable
     private void Cancel()
     {
         _offlineInFlight = null;
+        _watchInFlight = null;
         _epoch++;
         try { _work?.Cancel(); }
         catch (ObjectDisposedException) { /* A completed worker retired its CTS. */ }
@@ -959,6 +1086,41 @@ public sealed class RmlUiMenuController : IDisposable
         Text("renderer_name", "OPENGL // RMLUI 6.3");
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
+        Flag("theatre_mode", _theatre != null && !lobby.Active);
+        Flag("theatre_busy", _theatre != null && _busy);
+        Flag("theatre_can_previous", _theatre?.CanPrevious == true);
+        Flag("theatre_can_next", _theatre?.CanNext == true);
+        Text("theatre_summary", _theatre == null ? "" :
+            _theatre.Count + " MATCHING // " + _theatre.TotalCount + " RECORDINGS");
+        Text("theatre_page_number", _theatre == null ? "" :
+            $"{_theatre.Page + 1} / {_theatre.Pages}");
+        Text("theatre_filter_label", _theatre?.FilterLabel ?? "ALL REPLAYS");
+        Text("theatre_sort_label", _theatre?.SortLabel ?? "NEWEST FIRST");
+        Text("theatre_empty", _theatre?.Count == 0 ? "NO RECORDINGS MATCH THIS FILTER" : "");
+        Text("theatre_status", _theatre == null ? "" : _status);
+        Text("theatre_error", "");
+        Text("theatre_launch_problem", "");
+        RmlUiReplayEntry? selectedReplay = _theatre?.Selected;
+        Text("theatre_selected_title", selectedReplay?.Title ?? "SELECT A REPLAY");
+        Text("theatre_metadata", selectedReplay is { } selection
+            ? selection.Detail + "\n" + selection.Room : "CHOOSE A RECORDING FROM THE LIBRARY");
+        Text("theatre_hero", selectedReplay is { } hero
+            ? (hero.Clip ? "CLIP" : "FULL REPLAY") + " // " + hero.Room : "ARCHIVE STANDBY");
+        Text("theatre_no_preview", "REPLAY PREVIEW AVAILABLE IN FULL REPLAY STUDIO");
+        Flag("theatre_watch_enabled", selectedReplay is { Playable: true }
+            && _theatre?.Launched == false && !_busy);
+        Flag("theatre_favorite_enabled", selectedReplay is { Playable: true }
+            && !_busy);
+        for (int row = 0; row < RmlUiTheatreIndex.PageSize; row++)
+        {
+            RmlUiReplayEntry? replay = _theatre?.Entry(row);
+            Flag("theatre_entry" + row + "_present", replay.HasValue);
+            Flag("theatre_entry" + row + "_selected",
+                replay is { } candidate && selectedReplay is { } chosen
+                && String.Equals(candidate.Path, chosen.Path, StringComparison.OrdinalIgnoreCase));
+            Text("theatre_entry" + row + "_title", replay?.Title ?? "");
+            Text("theatre_entry" + row + "_detail", replay?.Detail ?? "");
+        }
         Flag("adventure_mode", _adventure != null && !lobby.Active);
         Flag("adventure_confirmation_open", _adventure?.Confirming == true);
         Flag("adventure_can_resume", _adventure?.CanResume == true);
@@ -1060,7 +1222,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("hunter_identity_name", _hunterDraft.HasValue
             ? _hunterChoice.ToString().ToUpperInvariant() + " // SUIT " + (_hunterSuit + 1) : "");
         Text("hunter_status", _hunterStatus);
-        Text("hunter_restriction", _hunterDraft is { } selection && selection.Allowed.Length < 7
+        Text("hunter_restriction", _hunterDraft is { } hunterSelection && hunterSelection.Allowed.Length < 7
             ? "SERVER RESTRICTS AVAILABLE HUNTERS FOR THIS MATCH" : "CHOOSE YOUR HUNTER");
         Flag("hunter_apply_enabled", _hunterDraft is { CommandPending: false }
             && CanPickHunter(_hunterChoice));
