@@ -138,7 +138,7 @@
             </button>
             <div id="home_social_empty" class="home_social_empty_hint" data-prime-visible="home_social_empty_visible">FRIENDS STATUS UNAVAILABLE</div>
             <div id="home_friend_section" data-prime-visible="home_friends_visible">
-                <div class="home_friends_header">ONLINE FRIENDS <span id="home_friend_count"></span></div>
+                <div class="home_friends_header">FRIENDS <span id="home_friend_count"></span></div>
                 <button id="home_friend0" class="home_friend_row" data-prime-visible="home_friend0_visible" data-prime-class-joinable="home_friend0_joinable" data-action="route:social">
                     <span class="home_friend_dot"></span>
                     <span class="home_friend_copy"><span id="home_friend0_name" class="home_friend_name"></span><span id="home_friend0_activity" class="home_friend_activity"></span></span>
