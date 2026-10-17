@@ -45,7 +45,7 @@ Check(Text(home, "home_feature_category") == "NEWS"
 Check(Text(home, "home_session_state") == "SOLO"
     && !Flag(home, "home_social_ready")
     && !Flag(home, "home_social_rail_visible")
-    && Text(home, "home_social_summary").Contains("NOT CONNECTED"),
+    && Text(home, "home_social_summary").Contains("OPEN SOCIAL"),
     "Home never fabricates Social presence, notifications, friends or online counts");
 var homeBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Home, home.Bindings);
 Check(homeBindings.TryGetValue("home_feature_title", out var newsTitle)
@@ -55,6 +55,22 @@ Check(homeBindings.TryGetValue("home_feature_title", out var newsTitle)
     "native Home feature rail is populated and unavailable Social action cannot mislead");
 Check(controller.Tick().Revision == home.Revision,
     "unchanged native snapshots retain revision");
+
+services.SocialOverride = new(true, true, new[] { "Pilot", "Fellow Hunter" }, 1);
+var linkedSocial = Wait(controller, s => Flag(s, "home_social_ready") &&
+    Flag(s, "home_social_rail_visible"));
+Check(Text(linkedSocial, "home_social_summary").Contains("2 FRIEND PROFILES")
+    && Text(linkedSocial, "home_friends_online") == "2"
+    && Text(linkedSocial, "home_requests_count") == "1"
+    && Flag(linkedSocial, "home_social_alert_visible")
+    && Text(linkedSocial, "home_invites_count") == "UNAVAILABLE",
+    "Home uses actual authenticated social counts, never fabricated online/invite activity");
+var socialBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Home, linkedSocial.Bindings);
+Check(socialBindings.TryGetValue("disabled:home_social", out var activeSocial)
+    && !activeSocial.Boolean,
+    "native Social route becomes actionable only after its authenticated client is installed");
+services.SocialOverride = new(false, false, Array.Empty<string>(), 0);
+Wait(controller, s => !Flag(s, "home_social_ready"));
 
 services.BrowsePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(controller.Dispatch(RmlUiIntentKind.PlayBrowse), "browser starts");
@@ -878,6 +894,9 @@ sealed class Stub : IRmlUiMenuServices
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
     public RmlUiRuleDraft? AuthorityRules;
     public RmlUiRuleDraft SubmittedRule;
+    public RmlUiSocialHomeState SocialOverride =
+        new(false, false, Array.Empty<string>(), 0);
+    public RmlUiSocialHomeState SocialHome() => SocialOverride;
     public NewsDispatch? FeaturedNews() => new BundledNewsProvider().Read()[0];
     public HubSnapshot Hub() => new("Pilot", Hunter.Samus, Hunter.Samus, 0, true, "Desktop");
     public string BuildVersion() => "0.1.99";

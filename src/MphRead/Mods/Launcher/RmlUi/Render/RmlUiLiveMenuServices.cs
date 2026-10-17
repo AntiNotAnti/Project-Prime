@@ -27,6 +27,19 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         new BundledNewsProvider().Read().FirstOrDefault();
     public NewsDispatch? FeaturedNews() => HomeDispatch;
     public HubSnapshot Hub() => HubState.Capture();
+    public RmlUiSocialHomeState SocialHome()
+    {
+        SocialSnapshot? state = SocialClient.Current;
+        if (state == null)
+            return new(true, false, Array.Empty<string>(), 0);
+        return new(true, NativeSocialFriendsController.ValidPrimeId(state.Self.PrimeId),
+            state.Friends.Where(p => p != null && NativeSocialFriendsController.ValidPrimeId(p.PrimeId))
+                .Select(p => p.DisplayName ?? "Player")
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .Take(100).ToArray(), state.IncomingRequests.Count);
+    }
+
+
 
     public string BuildVersion()
         => MphRead.Mods.Update.BuildVersion.Current?.ToString(3) ?? "LOCAL";

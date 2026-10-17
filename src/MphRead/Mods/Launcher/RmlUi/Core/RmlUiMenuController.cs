@@ -18,6 +18,8 @@ public readonly record struct RmlUiServerCandidate(string Name, string Endpoint,
     int Players, int Capacity, int Ping, bool Compatible);
 public readonly record struct RmlUiDirectory(bool Answered, string Message,
     RmlUiServerCandidate[] Servers);
+public sealed record RmlUiSocialHomeState(bool Available, bool Connected,
+    string[] Friends, int IncomingRequests);
 public readonly record struct RmlUiJoinResult(bool Joined, LaunchPlan Plan, string Error);
 public readonly record struct RmlUiLobbyPlayer(string Name, string Hunter, bool Ready,
     bool Local, bool Bot);
@@ -39,6 +41,7 @@ public interface IRmlUiMenuServices
 {
     HubSnapshot Hub();
     string BuildVersion();
+    RmlUiSocialHomeState SocialHome() => new(false, false, Array.Empty<string>(), 0);
     RmlUiLobbyView Lobby();
     NewsDispatch? FeaturedNews() => null;
     Task<RmlUiDirectory> Browse(CancellationToken token);
@@ -1108,16 +1111,41 @@ public sealed class RmlUiMenuController : IDisposable
         Text("home_session_state", !lobby.Active ? "SOLO"
             : lobby.Starting ? "MATCH STARTING"
             : lobby.Owner ? "LOBBY OWNER" : "IN LOBBY");
-        Text("home_party_state", "FRIENDS / PARTY UNAVAILABLE");
-        Text("home_social_summary",
-            "FRIENDS AND PARTY ARE NOT CONNECTED IN THIS BUILD");
-        Flag("home_social_ready", false);
-        Flag("home_social_rail_visible", false);
-        Flag("home_social_alert_visible", false);
-        Flag("home_party_preview_visible", false);
-        Flag("home_friends_visible", false);
-        Flag("home_social_empty_visible", true);
-        Text("home_social_empty_text", "SOCIAL SERVICE IS NOT AVAILABLE");
+        RmlUiSocialHomeState social = _services.SocialHome();
+        Flag("home_social_ready", social.Available);
+        Flag("home_social_rail_visible", social.Connected);
+        Flag("home_social_alert_visible", social.Connected && social.IncomingRequests > 0);
+        Flag("home_party_preview_visible", false); // Party service still unavailable
+        Flag("home_friends_visible", social.Connected && social.Friends.Length > 0);
+        Flag("home_social_empty_visible", !social.Connected);
+        Text("home_party_state", social.Connected ? "FRIENDS CONNECTED // PARTY PENDING"
+            : "CONNECT FRIENDS AND REQUESTS");
+        Text("home_social_summary", social.Connected
+            ? social.Friends.Length + " FRIEND PROFILES // "
+                + social.IncomingRequests + " PENDING REQUESTS"
+                + " // PRESENCE / PARTY UNAVAILABLE"
+            : "OPEN SOCIAL TO CONNECT YOUR VERIFIED HUNTER ACCOUNT");
+        Text("home_social_empty_text", social.Available
+            ? "CONNECT THROUGH SOCIAL // INVITES / PARTY NOT YET MIGRATED"
+            : "SOCIAL SERVICE UNAVAILABLE");
+        Text("home_social_count", social.Connected
+            ? social.Friends.Length + " FRIENDS" : "ACCOUNT UNAVAILABLE");
+        Text("home_friends_online", social.Connected
+            ? social.Friends.Length.ToString() : "NOT SYNCED");
+        Text("home_invites_count", "UNAVAILABLE");
+        Text("home_requests_count", social.Connected
+            ? social.IncomingRequests.ToString() : "NOT SYNCED");
+        Text("home_social_alert_text", "PENDING FRIEND REQUESTS");
+        Text("home_friend_count", social.Connected ? social.Friends.Length.ToString() : "0");
+        for (int friend = 0; friend < 3; friend++)
+        {
+            bool shown = social.Connected && friend < social.Friends.Length;
+            Flag("home_friend" + friend + "_visible", shown);
+            Flag("home_friend" + friend + "_joinable", false);
+            Text("home_friend" + friend + "_name", shown ? social.Friends[friend] : "");
+            Text("home_friend" + friend + "_activity", shown ? "PRESENCE NOT SYNCED" : "");
+            Text("home_friend" + friend + "_status", shown ? "FRIEND" : "");
+        }
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
         Flag("theatre_mode", _theatre != null && !lobby.Active);

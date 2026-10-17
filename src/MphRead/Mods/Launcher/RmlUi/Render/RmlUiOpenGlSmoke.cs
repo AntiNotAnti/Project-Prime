@@ -11,6 +11,7 @@ using MphRead.Mods.Launcher.RmlUi.Pages.Hunters;
 using MphRead.Mods.Launcher.RmlUi.Pages.Community;
 using MphRead.Mods.Launcher.RmlUi.Pages.License;
 using MphRead.Mods.Launcher.RmlUi.Pages.Studio;
+using MphRead.Mods.Launcher.RmlUi.Pages.Social;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -39,6 +40,7 @@ internal static class RmlUiOpenGlSmoke
     private static NativeCommunityDiscoverPage? _community;
     private static NativeLicenseOverviewPage? _license;
     private static NativeStudioEntryPage? _studio;
+    private static NativeSocialFriendsPage? _social;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -97,13 +99,21 @@ internal static class RmlUiOpenGlSmoke
                 // admission. Historical home-only events no longer bypass it.
                 bool baselineIntent = _launcherPages is { Suspended: false }
                     && _news == null && _quickSettings == null && _hunterChoice == null
-                    && _community == null && _license == null && _studio == null;
+                    && _community == null && _license == null && _studio == null
+                    && _social == null;
                 if (baselineIntent)
                 {
                     if (!_launcherPages!.HandleIntent(intent, out RmlUiIntent forwarded))
                         continue;
                     if (forwarded.Kind == 0) continue;
                     intent = forwarded;
+                }
+                if (_social != null && intent.Kind == RmlUiIntentKind.SocialAction)
+                {
+                    NativeSocialFriendsPage page = _social;
+                    page.Handle(intent);
+                    if (page.Closed) CloseNativeSocial();
+                    continue;
                 }
                 if (_studio != null && intent.Kind == RmlUiIntentKind.StudioAction)
                 {
@@ -117,6 +127,7 @@ internal static class RmlUiOpenGlSmoke
                     // Baseline intents were admitted by the composed page manager.
                     // Background controls from a suspended page cannot launch Studio.
                     if (!baselineIntent && _pages?.Page != default) continue;
+                    CloseNativeSocial();
                     CloseNativeStudio();
                     CloseNativeLicense();
                     CloseNativeCommunity();
@@ -204,8 +215,21 @@ internal static class RmlUiOpenGlSmoke
                         || (_hunterChoice is { CanNavigateAway: false })) continue;
                     if (!baselineIntent && _pages != null && _pages.Page != default
                         && !_pages.Accept(intent)) continue;
+                    if (intent.Argument == (int)RmlUiRouteArgument.Social && _social == null)
+                    {
+                        CloseNativeSocial();
+                        CloseNativeStudio();
+                        CloseNativeLicense();
+                        CloseNativeCommunity();
+                        CloseNativeHunter();
+                        CloseNativeQuickSettings();
+                        CloseNativeNews();
+                        OpenNativeSocial(host);
+                        continue;
+                    }
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
+                        CloseNativeSocial();
                         CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
@@ -216,6 +240,7 @@ internal static class RmlUiOpenGlSmoke
                     }
                     if (intent.Argument == (int)RmlUiRouteArgument.Settings && _quickSettings == null)
                     {
+                        CloseNativeSocial();
                         CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
@@ -227,6 +252,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.HunterLicense
                         && _hunterChoice == null)
                     {
+                        CloseNativeSocial();
                         CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
@@ -238,6 +264,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.Community
                         && _community == null)
                     {
+                        CloseNativeSocial();
                         CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeNews();
@@ -249,8 +276,9 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.Home
                         && (_news != null || _quickSettings != null
                             || _hunterChoice != null || _community != null
-                            || _license != null || _studio != null))
+                            || _license != null || _studio != null || _social != null))
                     {
+                        CloseNativeSocial();
                         CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
@@ -263,9 +291,14 @@ internal static class RmlUiOpenGlSmoke
                 // Page-specific actions never fall through to the Home model.
                 if (_hunterChoice != null || _quickSettings != null
                     || _news != null || _community != null || _license != null
-                    || _studio != null)
+                    || _studio != null || _social != null)
                 {
                     if (intent.Kind != RmlUiIntentKind.Navigate) continue;
+                    // A native page never remains alive underneath a legacy
+                    // destination. Cancel Social/Studio and retire their
+                    // documents before forwarding to the existing router.
+                    CloseNativeSocial();
+                    CloseNativeStudio();
                     CloseNativeLicense();
                     CloseNativeCommunity();
                     CloseNativeHunter();
@@ -329,6 +362,7 @@ internal static class RmlUiOpenGlSmoke
                 return;
             }
             _community?.Refresh();
+            _social?.Refresh();
             _license?.Refresh();
             _hunterChoice?.Pump();
             RmlUiMenuSnapshot snapshot = controller.Tick();
@@ -337,7 +371,7 @@ internal static class RmlUiOpenGlSmoke
             {
                 bool routeOwned = _news != null || _quickSettings != null
                     || _hunterChoice != null || _community != null || _license != null
-                    || _studio != null;
+                    || _studio != null || _social != null;
                 if (routeOwned && !launcher.Suspended) launcher.Suspend();
                 else if (!routeOwned && launcher.Suspended) launcher.Resume();
 
@@ -547,6 +581,34 @@ internal static class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
+    private static void OpenNativeSocial(RmlUiHost host)
+    {
+        if (_pages == null || _social != null) return;
+        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "social", "social.rml");
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Native Social page is not packaged.", path);
+        _launcherPages?.Suspend();
+        var next = new NativeSocialFriendsPage(host, _pages, new CurrentSocialFriendsService());
+        try
+        {
+            next.Open();
+            _social = next;
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeSocial()
+    {
+        NativeSocialFriendsPage? page = _social;
+        _social = null;
+        page?.Dispose();
+    }
+
     private static void OpenNativeCommunity(RmlUiHost host)
     {
         if (_pages == null || _community != null) return;
@@ -720,6 +782,12 @@ internal static class RmlUiOpenGlSmoke
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
                 catch { }
             }
+        }
+        try { CloseNativeSocial(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "social teardown: " + error.Message); }
+            catch { }
         }
         try { CloseNativeStudio(); }
         catch (Exception error) when (Recoverable(error))
