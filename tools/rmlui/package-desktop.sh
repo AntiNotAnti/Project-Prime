@@ -24,8 +24,14 @@ native="$root/artifacts/rmlui-native/$rid"
 }
 # Match the current source fingerprint, signed manifest values, SHA256, ABI,
 # native exports, pinned dependency revisions, and license contents.
-python3 "$root/tools/rmlui/verify-runtime.py" "$native/$library" "$rid"
-python3 - "$native/PRIME-RMLUI.json" <<'PY'
+# Git Bash on Windows exposes the CPython executable as "python" while
+# POSIX runner images expose "python3". Use the same interpreter for every
+# stage so the verified source hash cannot depend on PATH aliases.
+py=python3
+if [[ "$rid" == "win-x64" ]]; then py=python; fi
+command -v "$py" >/dev/null || { echo "error: $py not found" >&2; exit 1; }
+"$py" "$root/tools/rmlui/verify-runtime.py" "$native/$library" "$rid"
+"$py" - "$native/PRIME-RMLUI.json" <<'PY'
 import json,sys
 with open(sys.argv[1],encoding="utf-8") as stream:
     metadata=json.load(stream)
@@ -38,5 +44,5 @@ mkdir -p "$output/licenses"
 for license in RmlUi-LICENSE.txt FreeType-LICENSE.txt FreeType-FTL.txt FreeType-GPLv2.txt; do
     cp "$native/licenses/$license" "$output/licenses/$license"
 done
-python3 "$root/tools/rmlui/verify-runtime.py" --package "$output" "$rid"
+"$py" "$root/tools/rmlui/verify-runtime.py" --package "$output" "$rid"
 echo "Verified opt-in RmlUi desktop package at $output ($rid)"
