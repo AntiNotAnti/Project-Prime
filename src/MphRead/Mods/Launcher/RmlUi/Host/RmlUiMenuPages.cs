@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining, Adventure, AdventureConfirm }
 
     public static class RmlUiMenuPages
     {
@@ -19,6 +19,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Offline = new("offline", "pages/offline/setup.rml", "offline_arena");
         public static readonly RmlUiPageSpec OfflineArena = new("offline-arena", "pages/offline/arena.rml", "offline_arena_search");
         public static readonly RmlUiPageSpec OfflineTraining = new("offline-training", "pages/offline/training.rml", "offline_training_done");
+        public static readonly RmlUiPageSpec Adventure = new("adventure", "pages/adventure/saves.rml", "adventure_slot1");
+        public static readonly RmlUiPageSpec AdventureConfirm = new("adventure-confirm", "pages/adventure/confirm.rml", "adventure_cancel_new_run");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
@@ -27,6 +29,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiMenuPage.Hunters => Hunters, RmlUiMenuPage.Admin => Admin,
             RmlUiMenuPage.Offline => Offline, RmlUiMenuPage.OfflineArena => OfflineArena,
             RmlUiMenuPage.OfflineTraining => OfflineTraining,
+            RmlUiMenuPage.Adventure => Adventure, RmlUiMenuPage.AdventureConfirm => AdventureConfirm,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -630,18 +633,55 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return bindings.ToArray();
         }
 
+        private static readonly Binding[] AdventureBindings = BuildAdventureBindings();
+
+        private static Binding[] BuildAdventureBindings()
+        {
+            var values = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "adventure_selected_slot", "{{adventure_selected_slot}}"),
+                new(RmlUiBindingKind.Text, "adventure_save_detail", "{{adventure_save_detail}}"),
+                new(RmlUiBindingKind.Text, "adventure_hunter", "{{adventure_hunter}}"),
+                new(RmlUiBindingKind.Text, "adventure_launch_status", "{{adventure_launch_status}}"),
+                new(RmlUiBindingKind.Text, "adventure_error_text", "{{adventure_error_text}}"),
+                new(RmlUiBindingKind.Text, "adventure_file_problem", "{{adventure_file_problem}}"),
+                new(RmlUiBindingKind.Boolean, "visible:adventure_files_error", "false"),
+                new(RmlUiBindingKind.Boolean, "visible:adventure_error", "adventure_error_visible"),
+                new(RmlUiBindingKind.Boolean, "disabled:adventure_continue", "!adventure_can_resume"),
+                new(RmlUiBindingKind.Boolean, "disabled:adventure_new_run", "!adventure_can_new_run")
+            };
+            for (int i = 1; i <= 3; i++)
+            {
+                values.Add(new(RmlUiBindingKind.Text, "adventure_slot" + i + "_label",
+                    "{{adventure_slot" + i + "_label}}"));
+                values.Add(new(RmlUiBindingKind.Boolean,
+                    "class:adventure_slot" + i + ":selected",
+                    "adventure_slot" + i + "_selected"));
+            }
+            return values.ToArray();
+        }
+
+        private static readonly Binding[] AdventureConfirmBindings =
+        {
+            new(RmlUiBindingKind.Text, "adventure_overwrite_title", "{{adventure_overwrite_title}}"),
+            new(RmlUiBindingKind.Text, "adventure_confirmation_error_text",
+                "{{adventure_confirmation_error_text}}")
+        };
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining or RmlUiMenuPage.AdventureConfirm)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
                 RmlUiMenuPage.Offline => OfflineBindings, RmlUiMenuPage.OfflineArena => OfflineArenaBindings,
                 RmlUiMenuPage.OfflineTraining => OfflineTrainingBindings,
+                RmlUiMenuPage.Adventure => AdventureBindings,
+                RmlUiMenuPage.AdventureConfirm => AdventureConfirmBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))

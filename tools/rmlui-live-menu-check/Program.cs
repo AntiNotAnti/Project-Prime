@@ -499,6 +499,82 @@ Check(!controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining)
     "accepted Aim Lab launch rejects duplicate clicks");
 controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
+// RML-27: only the existing AdventureSave / AdventureLaunch is allowed to
+// interpret save state. No native controller edits/loads save JSON.
+services.AdventureSlots = new[]
+{
+    new RmlUiAdventureSlot(1, false, false, "", 0, 0, 0, "EMPTY"),
+    new RmlUiAdventureSlot(2, true, false, "Celestial Archives", 3, 79, 99, "SHA-ORIGINAL"),
+    new RmlUiAdventureSlot(3, false, true, "", 0, 0, 0, "UNAVAILABLE")
+};
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Adventure)
+    && controller.AdventureOpen
+    && Flag(controller.Tick(), "adventure_mode")
+    && !Flag(controller.Tick(), "offline_mode"),
+    "authoritative Adventure saves open native page without legacy fallback");
+Check(Text(controller.Tick(), "adventure_slot2_label").Contains("OCTOLITHS 3/8")
+    && Text(controller.Tick(), "adventure_slot3_label").Contains("UNREADABLE"),
+    "native save labels show only verified slot data and distinguish corrupt saves");
+var adventureBindings = RmlUiMenuPageBindings.Project(
+    RmlUiMenuPage.Adventure, controller.Tick().Bindings);
+Check(adventureBindings.TryGetValue("adventure_slot2_label", out var slot2Text)
+    && slot2Text.Text.Contains("CELESTIAL ARCHIVES", StringComparison.Ordinal)
+    && adventureBindings.TryGetValue("disabled:adventure_continue", out var continueDisabled)
+    && continueDisabled.Boolean,
+    "authored Adventure RML slots and action permissions project from portable snapshot");
+Check(controller.Dispatch(RmlUiIntentKind.AdventureSelectSlot, 3)
+    && !controller.Dispatch(RmlUiIntentKind.AdventureNewRun)
+    && !controller.Dispatch(RmlUiIntentKind.AdventureContinue)
+    && services.AdventureLaunches == 0,
+    "unreadable save is protected from resume and unconfirmed overwrite");
+Check(controller.Dispatch(RmlUiIntentKind.AdventureSelectSlot, 2)
+    && controller.Dispatch(RmlUiIntentKind.AdventureNewRun)
+    && Flag(controller.Tick(), "adventure_confirmation_open")
+    && services.AdventureLaunches == 0,
+    "occupied Adventure slot requires an explicit destructive confirmation");
+var overwriteBindings = RmlUiMenuPageBindings.Project(
+    RmlUiMenuPage.AdventureConfirm, controller.Tick().Bindings);
+Check(overwriteBindings.TryGetValue("adventure_overwrite_title", out var overwriteTitle)
+    && overwriteTitle.Text.Contains("02"),
+    "native confirmation displays the exact slot about to be replaced");
+Check(controller.Dispatch(RmlUiIntentKind.AdventureCancelNewRun)
+    && !Flag(controller.Tick(), "adventure_confirmation_open")
+    && services.AdventureLaunches == 0,
+    "Cancel preserves the existing campaign save without touching persistence");
+Check(controller.Dispatch(RmlUiIntentKind.AdventureNewRun),
+    "re-opening confirmation captures immutable save identity");
+services.AdventureSlots[1] = services.AdventureSlots[1] with { Fingerprint = "SHA-CHANGED" };
+Check(!controller.Dispatch(RmlUiIntentKind.AdventureConfirmNewRun)
+    && services.AdventureLaunches == 0
+    && !Flag(controller.Tick(), "adventure_confirmation_open"),
+    "same slot whose file bytes changed cannot be overwritten by stale confirmation");
+Check(controller.Dispatch(RmlUiIntentKind.AdventureRefresh)
+    && controller.Dispatch(RmlUiIntentKind.AdventureNewRun)
+    && controller.Dispatch(RmlUiIntentKind.AdventureConfirmNewRun)
+    && services.AdventureLaunches == 1
+    && services.LastAdventure.NewGame
+    && services.LastAdventure.Expected.Fingerprint == "SHA-CHANGED",
+    "refreshed confirmation submits exactly one current-save new run");
+Check(!controller.Dispatch(RmlUiIntentKind.AdventureConfirmNewRun)
+    && services.AdventureLaunches == 1,
+    "confirmed Adventure cannot be launched twice from retired modal");
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home),
+    "return Home discards local Adventure page state");
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Adventure)
+    && controller.Dispatch(RmlUiIntentKind.AdventureSelectSlot, 2)
+    && controller.Dispatch(RmlUiIntentKind.AdventureContinue)
+    && services.AdventureLaunches == 2
+    && !services.LastAdventure.NewGame,
+    "resume calls one existing Adventure launch without an overwrite confirmation");
+controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
+Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Adventure)
+    && controller.Dispatch(RmlUiIntentKind.AdventureNewRun)
+    && services.AdventureLaunches == 3
+    && services.LastAdventure.Expected.Slot == 1
+    && services.LastAdventure.NewGame,
+    "empty Adventure slot launches a new run with no misleading overwrite prompt");
+controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
+
 // The native Create Lobby form uses the same authoritative backend as legacy
 // hosting. It has no local-simulation fallback and cannot be double-submitted.
 services.CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -558,6 +634,9 @@ sealed class Stub : IRmlUiMenuServices
     public RmlUiAdminRequest LastAdmin;
     public RmlUiAdminSnapshot? AdminState;
     public AimTrainerDefinition TrainingDefault = AimTrainerDefinition.Default;
+    public RmlUiAdventureSlot[] AdventureSlots = Array.Empty<RmlUiAdventureSlot>();
+    public int AdventureLaunches;
+    public (RmlUiAdventureSlot Expected, bool NewGame, Hunter Hunter) LastAdventure;
     public int TrainingLaunches;
     public (AimTrainerDefinition Drill, Hunter Hunter, int Suit) LastTraining;
     public TaskCompletionSource<string> OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -585,6 +664,17 @@ sealed class Stub : IRmlUiMenuServices
     {
         OfflineValidations++;
         return OfflineValidationPending.Task.WaitAsync(token);
+    }
+    public RmlUiAdventureSlot[] ReadAdventureSlots() => AdventureSlots.ToArray();
+    public bool LaunchAdventure(RmlUiAdventureSlot expected, bool newGame, Hunter hunter)
+    {
+        if (expected.Slot is < 1 or > 3) return false;
+        RmlUiAdventureSlot current = AdventureSlots[expected.Slot - 1];
+        if (current != expected || current.Unreadable
+            || (!newGame && !current.Used)) return false;
+        AdventureLaunches++;
+        LastAdventure = (expected, newGame, hunter);
+        return true;
     }
     public AimTrainerDefinition TrainingDefaults() => TrainingDefault;
     public bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit)

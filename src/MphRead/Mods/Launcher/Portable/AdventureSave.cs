@@ -108,6 +108,29 @@ namespace MphRead.Mods.Launcher
         /// <summary>Whether the slot has bytes, even if the JSON is unreadable.</summary>
         public static bool HasFile(byte slot) => File.Exists(SlotPath(slot));
 
+        /// <summary>
+        /// Exact, read-only byte identity for a native overwrite confirmation.
+        /// The existing StorySave serializer and backup behavior stay unchanged.
+        /// </summary>
+        public static string ContentFingerprint(byte slot)
+        {
+            string path = SlotPath(slot);
+            if (!File.Exists(path)) return "EMPTY";
+            try
+            {
+                using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                byte[] hash = System.Security.Cryptography.SHA256.HashData(source);
+                return Convert.ToHexString(hash);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                // A locked/changed/unreadable save is never treated as empty.
+                return "UNAVAILABLE";
+            }
+        }
+
+
+
         // Never clobber an earlier backup. Every archive remains recoverable
         // even if the player copies or deletes the same slot repeatedly.
         private static string NextBackup(string slotPath)

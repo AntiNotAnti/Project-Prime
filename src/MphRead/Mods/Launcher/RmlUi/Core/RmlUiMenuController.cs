@@ -61,6 +61,8 @@ public interface IRmlUiMenuServices
     bool LaunchOffline(RmlUiOfflineRequest request) => false;
     AimTrainerDefinition TrainingDefaults() => AimTrainerDefinition.Default;
     bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit) => false;
+    RmlUiAdventureSlot[] ReadAdventureSlots() => Array.Empty<RmlUiAdventureSlot>();
+    bool LaunchAdventure(RmlUiAdventureSlot slot, bool newGame, Hunter hunter) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
@@ -94,6 +96,7 @@ public sealed class RmlUiMenuController : IDisposable
     private RmlUiOfflineRequest? _offlineInFlight;
     private bool _offlineLaunched;
     private RmlUiTrainingDraft? _training;
+    private RmlUiAdventureDraft? _adventure;
     private bool _trainingOptionsOpen, _trainingRoute, _trainingLaunched;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
@@ -106,6 +109,7 @@ public sealed class RmlUiMenuController : IDisposable
     public bool AdminOpen => _admin is { Closed: false };
     public bool OfflineOpen => _offline != null;
     public bool TrainingOptionsOpen => _trainingOptionsOpen;
+    public bool AdventureOpen => _adventure != null;
     private bool _rulesSubmitted;
     private string _rulesStatus = "VIEWING SERVER RULES";
     private long _joiningEpoch;
@@ -238,10 +242,25 @@ public sealed class RmlUiMenuController : IDisposable
                 _joiningEpoch = _epoch;
                 return true;
             case RmlUiIntentKind.Navigate:
+                if (argument == (int)RmlUiRouteArgument.Adventure)
+                    return OpenAdventure();
                 if (argument == (int)RmlUiRouteArgument.Offline)
+                {
+                    _adventure = null;
                     return OpenOffline(training: false);
+                }
                 if (argument == (int)RmlUiRouteArgument.Training)
+                {
+                    _adventure = null;
                     return OpenOffline(training: true);
+                }
+                if (argument == (int)RmlUiRouteArgument.Home && _adventure != null)
+                {
+                    _adventure = null;
+                    Cancel();
+                    Dirty();
+                    return true;
+                }
                 if (argument == (int)RmlUiRouteArgument.Home && _offline != null)
                 {
                     _offline = null;
@@ -255,6 +274,7 @@ public sealed class RmlUiMenuController : IDisposable
                 }
                 if (argument == (int)RmlUiRouteArgument.Play)
                 {
+                    _adventure = null;
                     _offline = null;
                     _training = null;
                     _trainingOptionsOpen = false;
@@ -268,6 +288,7 @@ public sealed class RmlUiMenuController : IDisposable
                     _offlineLaunched = false;
                     _training = null;
                     _trainingOptionsOpen = false;
+                    _adventure = null;
                     Cancel();
                     _browsing = false;
                     Dirty();
@@ -283,6 +304,37 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.LobbyStart:
                 if (!_services.Lobby().CanStart) return false;
                 return LobbyAction(_services.StartMatch, "Start request sent to server.");
+            case RmlUiIntentKind.AdventureSelectSlot:
+                if (_adventure == null || !_adventure.Select(argument)) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.AdventureNextHunter:
+                if (_adventure == null || !_adventure.NextHunter()) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.AdventureRefresh:
+                if (_adventure == null || !_adventure.Refresh(_services.ReadAdventureSlots()))
+                    return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.AdventureContinue:
+                return StartAdventure(newGame: false);
+            case RmlUiIntentKind.AdventureNewRun:
+                if (_adventure == null) return false;
+                switch (_adventure.RequestNew())
+                {
+                    case RmlUiAdventureNewRun.Refused: return false;
+                    case RmlUiAdventureNewRun.NeedsConfirmation:
+                        Dirty(); return true;
+                    default: return StartAdventure(newGame: true);
+                }
+            case RmlUiIntentKind.AdventureCancelNewRun:
+                if (_adventure == null || !_adventure.CancelConfirmation()) return false;
+                Dirty(); return true;
+            case RmlUiIntentKind.AdventureConfirmNewRun:
+                if (_adventure?.Confirm() is not { } expected) return false;
+                bool acceptedNew = _services.LaunchAdventure(expected, true, _adventure.Hunter);
+                if (acceptedNew) _adventure.LaunchedSuccessfully();
+                else Status("SAVE FILE CHANGED OR LAUNCH REFUSED // REFRESH SAVES");
+                Dirty();
+                return acceptedNew;
             case RmlUiIntentKind.OfflineChoice:
                 if (_offline == null || _busy || !RmlUiIntentRegistry.IsValid(kind, argument))
                     return false;
@@ -673,6 +725,39 @@ public sealed class RmlUiMenuController : IDisposable
         return true;
     }
 
+    private bool OpenAdventure()
+    {
+        if (_services.Lobby().Active || _joining || _creating) return false;
+        if (!_services.Hub().GameFilesReady)
+            return _services.NavigateTo(RmlUiRouteArgument.Adventure);
+        if (_adventure != null) return true;
+        _offline = null;
+        _training = null;
+        _trainingOptionsOpen = false;
+        _adventure = new RmlUiAdventureDraft(_services.ReadAdventureSlots(),
+            _services.Hub().DisplayHunter);
+        Cancel();
+        _browsing = false;
+        Dirty();
+        return true;
+    }
+
+    private bool StartAdventure(bool newGame)
+    {
+        if (_adventure is not { } draft || draft.Launched) return false;
+        RmlUiAdventureSlot expected = draft.Selected;
+        if (expected.Unreadable || (!newGame && !expected.Used)
+            || (newGame && expected.Used)) return false;
+        if (!_services.LaunchAdventure(expected, newGame, draft.Hunter))
+        {
+            Status("SAVE FILE CHANGED OR LAUNCH REFUSED // REFRESH SAVES");
+            return false;
+        }
+        draft.LaunchedSuccessfully();
+        Status("ADVENTURE HANDOFF ACCEPTED");
+        return true;
+    }
+
     private bool OpenOffline(bool training)
     {
         if (_services.Lobby().Active || _joining || _creating) return false;
@@ -874,6 +959,30 @@ public sealed class RmlUiMenuController : IDisposable
         Text("renderer_name", "OPENGL // RMLUI 6.3");
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
+        Flag("adventure_mode", _adventure != null && !lobby.Active);
+        Flag("adventure_confirmation_open", _adventure?.Confirming == true);
+        Flag("adventure_can_resume", _adventure?.CanResume == true);
+        Flag("adventure_can_new_run", _adventure?.CanStart == true);
+        Text("adventure_hunter", _adventure?.Hunter.ToString().ToUpperInvariant() ?? "");
+        Text("adventure_selected_slot", _adventure == null ? ""
+            : $"SAVE SLOT {_adventure.SelectedSlot:00}");
+        Text("adventure_save_detail", _adventure == null ? ""
+            : _adventure.Describe(_adventure.Selected));
+        Text("adventure_launch_status", _adventure?.Status ?? "");
+        Flag("adventure_error_visible", _adventure?.Selected.Unreadable == true);
+        Text("adventure_error_text", _adventure?.Selected.Unreadable == true
+            ? "THIS SAVE IS UNREADABLE. ARCHIVE IT IN THE EXISTING SAVE MANAGER." : "");
+        Text("adventure_file_problem", "");
+        Text("adventure_overwrite_title", _adventure?.PendingOverwrite is { } pending
+            ? $"REPLACE SAVE SLOT {pending.Slot:00}?" : "");
+        Text("adventure_confirmation_error_text", "");
+        for (int slot = 1; slot <= AdventureSave.SlotCount; slot++)
+        {
+            RmlUiAdventureSlot info = _adventure?.Slot(slot) ?? default;
+            Text("adventure_slot" + slot + "_label", "SLOT " + slot.ToString("00")
+                + " // " + (_adventure?.Describe(info) ?? "UNAVAILABLE"));
+            Flag("adventure_slot" + slot + "_selected", _adventure?.SelectedSlot == slot);
+        }
         Flag("offline_mode", _offline != null && !lobby.Active);
         Flag("offline_training_mode", _offline != null && _trainingRoute && !lobby.Active);
         Flag("offline_training_open", _offline != null && _trainingOptionsOpen && !lobby.Active);
