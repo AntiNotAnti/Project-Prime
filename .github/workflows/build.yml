@@ -48,6 +48,9 @@ jobs:
       - name: RmlUi live Home, Play, lobby, and async ownership contracts
         run: dotnet run --project tools/rmlui-live-menu-check -c Release
 
+      - name: validate opt-in native desktop packaging script
+        run: bash -n tools/rmlui/package-desktop.sh
+
       - name: validate RmlUi native build script and pinned manifest tooling
         run: |
           bash -n tools/rmlui/build-native.sh
@@ -130,6 +133,14 @@ jobs:
           xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
             dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
             "$RUNNER_TEMP/rmlui"
+
+      - name: publish and verify opt-in RmlUi Linux desktop client package
+        run: |
+          set -euo pipefail
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
+            -p:MphReadRmlUiGlSmoke=true --self-contained false \
+            -m:1 -p:BuildInParallel=false -o artifacts/rmlui-publish/linux-x64
+          bash tools/rmlui/package-desktop.sh linux-x64 artifacts/rmlui-publish/linux-x64
 
   updater-regressions:
     name: Windows/Linux release updater and rollback
