@@ -218,7 +218,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (hunters && !_host.IsAlive(_hunterDocument))
             {
                 _hunterDocument = Manager.OpenModal(RmlUiMenuPages.Hunters);
-                _pendingFocus = "hunter_choice0";
+                _pendingFocus = "hunter_cancel";
                 _dirty = true;
             }
             if (!_dirty) return;
