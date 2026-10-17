@@ -127,12 +127,12 @@ public sealed class NativeCommunityCreatorController : IDisposable
         if (_busy || !_connected || _selected < 0 || _selected >= _rows.Length)
             return false;
         NativeCreatorEntry value = _rows[_selected];
-        return value.CanManage && action switch
+        return value.CanManage && (action switch
         {
             NativeCreatorAction.Archive => !value.Archived && !value.Deleted,
             NativeCreatorAction.Restore => value.Archived || value.Deleted,
             _ => false
-        };
+        });
     }
 
     public bool Propose(NativeCreatorAction action)
@@ -176,7 +176,7 @@ public sealed class NativeCommunityCreatorController : IDisposable
         {
             NativeCreatorEntry? current = await _service.ReadOwnedAsync(expected.MapId, token)
                 .ConfigureAwait(false);
-            if (current != expected || !current.CanManage)
+            if (current == null || current != expected || !current.CanManage)
                 throw new InvalidOperationException("Owned project changed after confirmation.");
             if (!await _service.ExecuteAsync(kind, expected.MapId, token).ConfigureAwait(false))
                 throw new InvalidOperationException("Creator lifecycle action rejected.");
