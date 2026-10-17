@@ -13,6 +13,7 @@ internal sealed class RmlUiAndroidGlesState
     private const int VertexArrayBinding = 0x85B5;
     private const int RenderbufferBinding = 0x8CA7;
     private const int Viewport = 0x0BA2;
+    private const int CullFaceEnable = 0x0B44; // GL_CULL_FACE; GlCullFace is a method in Android bindings.
     private const int CurrentProgram = 0x8B8D;
     private const int ActiveTexture = 0x84E0;
     private const int TextureBinding2d = 0x8069;
@@ -91,7 +92,7 @@ internal sealed class RmlUiAndroidGlesState
         _stencil = GLES30.GlIsEnabled(GLES30.GlStencilTest);
         _blend = GLES30.GlIsEnabled(GLES30.GlBlend);
         _scissor = GLES30.GlIsEnabled(GLES30.GlScissorTest);
-        _cull = GLES30.GlIsEnabled(GLES30.GlCullFace);
+        _cull = GLES30.GlIsEnabled(CullFaceEnable);
     }
 
     private static void Toggle(int capability, bool enabled)
@@ -129,7 +130,7 @@ internal sealed class RmlUiAndroidGlesState
         Toggle(GLES30.GlStencilTest, _stencil);
         Toggle(GLES30.GlBlend, _blend);
         Toggle(GLES30.GlScissorTest, _scissor);
-        Toggle(GLES30.GlCullFace, _cull);
+        Toggle(CullFaceEnable, _cull);
     }
 }
 #endif
