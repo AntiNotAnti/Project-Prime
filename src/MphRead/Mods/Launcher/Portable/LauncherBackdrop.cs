@@ -14,7 +14,10 @@ namespace MphRead.Mods.Launcher
         MapEditor,
         CreateLobby,
         Lobby,
-        Setup
+        Setup,
+        // Native Aim Lab stage was part of the original presentation table.
+        // Append this value to preserve existing enum identities.
+        Training
     }
 
     /// <summary>
