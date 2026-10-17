@@ -59,9 +59,9 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         Verify();
         return new(_hunter, _draft, _original, _draft != _original, _save != null,
             _service.PendingSync(_hunter),
-            CosmeticCatalog.ResolveSkin(_draft.SkinKey, _hunter).Name,
-            CosmeticCatalog.ResolveArmor(_draft.ArmorEffectKey).Name,
-            CosmeticCatalog.ResolveDeath(_draft.DeathEffectKey).Name,
+            CosmeticCatalog.ResolveSkin(_draft.SkinKey, _hunter).DisplayName,
+            CosmeticCatalog.ResolveArmor(_draft.ArmorEffectKey).DisplayName,
+            CosmeticCatalog.ResolveDeath(_draft.DeathEffectKey).DisplayName,
             _status);
     }
 
