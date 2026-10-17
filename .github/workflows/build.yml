@@ -131,6 +131,14 @@ jobs:
             dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
             "$RUNNER_TEMP/rmlui"
 
+      - name: publish and verify opt-in RmlUi Linux desktop client package
+        run: |
+          set -euo pipefail
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
+            -p:MphReadRmlUiGlSmoke=true --self-contained false \
+            -m:1 -p:BuildInParallel=false -o artifacts/rmlui-publish/linux-x64
+          bash tools/rmlui/package-desktop.sh linux-x64 artifacts/rmlui-publish/linux-x64
+
   updater-regressions:
     name: Windows/Linux release updater and rollback
     strategy:

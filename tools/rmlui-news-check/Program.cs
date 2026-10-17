@@ -40,11 +40,11 @@ Check(controller.CloseDialog()
     && controller.Snapshot().Rows.Length == 4,
     "fallback closes without losing the complete feed");
 Exception? crossThread = null;
-await Task.Run(() =>
+Task.Run(() =>
 {
     try { controller.Filter(NewsFilter.News); }
     catch (Exception ex) { crossThread = ex; }
-});
+}).GetAwaiter().GetResult();
 Check(crossThread is InvalidOperationException,
     "news actions are restricted to native owner thread");
 Console.WriteLine("RML NEWS complete.");
