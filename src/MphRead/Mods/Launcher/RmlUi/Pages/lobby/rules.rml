@@ -19,7 +19,7 @@
                     <div class="rules_main">
                         <div class="eyebrow">MATCH CONFIGURATION</div>
                         <div class="play_form_label">NEXT ARENA</div>
-                        <button id="rules_map_next" class="rules_choice" data-action="lobby:rules-map" data-prime-disabled="!rules_owner">
+                        <button id="rules_map_next" class="rules_choice" data-action="lobby:map-open" data-prime-disabled="!rules_owner">
                             <span data-prime-text="{{rules_map}}" id="text_rules_map_1" />
                             <span class="rules_change">&gt;</span>
                         </button>
