@@ -19,12 +19,22 @@ namespace MphRead.Mods.Launcher
         public static async Task<SocialSnapshot> LoadAsync(
             CancellationToken cancellationToken = default)
         {
-            SocialEnvelope envelope = await InvokeAsync(
-                "snapshot", targetPrimeId: null, cancellationToken).ConfigureAwait(false);
-            SocialSnapshot snapshot = envelope.Snapshot
-                ?? throw new InvalidOperationException("Social service returned no snapshot.");
-            Volatile.Write(ref _current, snapshot);
-            return snapshot;
+            try
+            {
+                SocialEnvelope envelope = await InvokeAsync(
+                    "snapshot", targetPrimeId: null, cancellationToken).ConfigureAwait(false);
+                SocialSnapshot snapshot = envelope.Snapshot
+                    ?? throw new InvalidOperationException("Social service returned no snapshot.");
+                Volatile.Write(ref _current, snapshot);
+                return snapshot;
+            }
+            catch
+            {
+                // Never render a different account's cached friends after
+                // credential refresh or loss of the verified connection.
+                Volatile.Write(ref _current, null);
+                throw;
+            }
         }
 
         public static async Task<SocialLookupResult> LookupAsync(
