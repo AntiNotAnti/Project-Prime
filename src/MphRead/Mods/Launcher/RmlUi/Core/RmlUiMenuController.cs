@@ -88,6 +88,8 @@ public sealed class RmlUiMenuController : IDisposable
     private RmlUiRuleEditor? _rules;
     private RmlUiLobbyAdminController? _admin;
     private RmlUiOfflineDraft? _offline;
+    private RmlUiOfflineRequest? _offlineInFlight;
+    private bool _offlineLaunched;
     private RmlUiMapPickerModel? _mapPicker;
     private RmlUiHunterDraft? _hunterDraft;
     private Hunter _hunterChoice;
@@ -235,6 +237,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (argument == (int)RmlUiRouteArgument.Home && _offline != null)
                 {
                     _offline = null;
+                    _offlineLaunched = false;
                     Cancel();
                     Dirty();
                     return true;
@@ -290,11 +293,12 @@ public sealed class RmlUiMenuController : IDisposable
                 if (_offline == null || !_offline.SelectArena(argument)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
-                if (_offline == null || _busy || !_offline.Valid) return false;
+                if (_offline == null || _busy || _offlineLaunched || !_offline.Valid) return false;
                 RmlUiOfflineRequest offlineRequest = _offline.Current;
                 Begin(Job.Offline, "VALIDATING LOCAL MATCH AND MAP CAPABILITIES",
                     async token => await _services.ValidateOfflineAsync(offlineRequest, token)
                         .ConfigureAwait(false));
+                _offlineInFlight = offlineRequest;
                 return true;
             case RmlUiIntentKind.OfflineOpenRules:
             case RmlUiIntentKind.OfflineOpenTrainingOptions:
@@ -468,11 +472,17 @@ public sealed class RmlUiMenuController : IDisposable
             {
                 case Job.Offline:
                     string? validation = (string?)item.Data;
+                    RmlUiOfflineRequest? completedRequest = _offlineInFlight;
+                    _offlineInFlight = null;
                     if (!String.IsNullOrEmpty(validation))
                         Status(validation);
-                    else if (_offline is { } available
-                        && _services.LaunchOffline(available.Current))
+                    else if (completedRequest is { } validated
+                        && _offline is { } available && available.Current == validated
+                        && !_offlineLaunched && _services.LaunchOffline(validated))
+                    {
+                        _offlineLaunched = true;
                         Status("OFFLINE MATCH SUBMITTED TO GAME LAUNCHER");
+                    }
                     else
                         Status("OFFLINE MATCH LAUNCH REFUSED // CHECK CURRENT SESSION");
                     break;
@@ -627,6 +637,7 @@ public sealed class RmlUiMenuController : IDisposable
         var hub = _services.Hub();
         _offline = new RmlUiOfflineDraft(_services.BuiltInArenaKeys(),
             hub.DisplayHunter, hub.Suit, 1, 1);
+        _offlineLaunched = false;
         Cancel();
         _browsing = false;
         Dirty();
@@ -774,6 +785,7 @@ public sealed class RmlUiMenuController : IDisposable
 
     private void Cancel()
     {
+        _offlineInFlight = null;
         _epoch++;
         try { _work?.Cancel(); }
         catch (ObjectDisposedException) { /* A completed worker retired its CTS. */ }
@@ -839,7 +851,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("offline_error", _offline == null ? "" : _status);
         Text("offline_availability", _offline?.Valid == true
             ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
-        Flag("offline_can_start", _offline?.Valid == true && !_busy);
+        Flag("offline_can_start", _offline?.Valid == true && !_busy && !_offlineLaunched);
         Text("play_create_map", _createMap);
         Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
         Text("play_create_host", _createDedicated ? "LOCAL // DEDICATED" : "HOSTED // ONLINE");
