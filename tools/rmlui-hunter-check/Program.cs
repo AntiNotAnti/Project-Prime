@@ -41,11 +41,11 @@ store.ThrowOnSave = true;
 Check(!model.Apply() && model.Current().Dirty && store.Writes == 1,
     "failed disk save leaves draft unapplied");
 Exception? crossThread = null;
-await Task.Run(() =>
+Task.Run(() =>
 {
     try { model.SelectHunter(0); }
     catch (Exception e) { crossThread = e; }
-});
+}).GetAwaiter().GetResult();
 Check(crossThread is InvalidOperationException,
     "Hunter actions are confined to UI owner thread");
 Console.WriteLine("RML local Hunter selection contracts complete.");
