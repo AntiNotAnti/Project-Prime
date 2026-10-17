@@ -160,6 +160,11 @@ namespace MphRead.Mods.Launcher.Gui
             => Active && _window?.HasScene == false
                 && _front?.RmlUiLaunchOffline(request) == true;
 
+        internal static bool RmlUiLaunchTraining(MphRead.Mods.Training.AimTrainerDefinition drill,
+            Hunter hunter, int suit)
+            => Active && _window?.HasScene == false
+                && _front?.RmlUiLaunchTraining(drill, hunter, suit) == true;
+
         internal static bool RmlUiOpenCreateLobby()
             => Active && _window?.HasScene == false
                 && _front?.RmlUiOpenCreateLobby() == true;

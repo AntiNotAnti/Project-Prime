@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining }
 
     public static class RmlUiMenuPages
     {
@@ -18,6 +18,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Admin = new("admin", "pages/lobby/admin.rml", "admin_close");
         public static readonly RmlUiPageSpec Offline = new("offline", "pages/offline/setup.rml", "offline_arena");
         public static readonly RmlUiPageSpec OfflineArena = new("offline-arena", "pages/offline/arena.rml", "offline_arena_search");
+        public static readonly RmlUiPageSpec OfflineTraining = new("offline-training", "pages/offline/training.rml", "offline_training_done");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
@@ -25,6 +26,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules, RmlUiMenuPage.Maps => Maps,
             RmlUiMenuPage.Hunters => Hunters, RmlUiMenuPage.Admin => Admin,
             RmlUiMenuPage.Offline => Offline, RmlUiMenuPage.OfflineArena => OfflineArena,
+            RmlUiMenuPage.OfflineTraining => OfflineTraining,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -574,8 +576,34 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_summary", "{{offline_summary}}"),
             new(RmlUiBindingKind.Text, "offline_error", "{{offline_error}}"),
             new(RmlUiBindingKind.Text, "offline_availability", "{{offline_availability}}"),
-            new(RmlUiBindingKind.Boolean, "disabled:offline_start", "!offline_can_start")
+            new(RmlUiBindingKind.Boolean, "disabled:offline_start", "!offline_can_start"),
+            new(RmlUiBindingKind.Text, "offline_training_hunter_value", "{{offline_training_hunter_value}}"),
+            new(RmlUiBindingKind.Text, "offline_drill_value", "{{offline_drill_value}}"),
+            new(RmlUiBindingKind.Text, "offline_weapon_value", "{{offline_weapon_value}}"),
+            new(RmlUiBindingKind.Text, "offline_duration_value", "{{offline_duration_value}}"),
+            new(RmlUiBindingKind.Text, "offline_targets_value", "{{offline_targets_value}}"),
+            new(RmlUiBindingKind.Text, "offline_movement_value", "{{offline_movement_value}}"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_training_start", "!offline_training_can_start"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_targets", "!offline_training_can_targets"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_weapon", "!offline_training_can_weapon")
         };
+
+        private static readonly Binding[] OfflineTrainingBindings = BuildOfflineTrainingBindings();
+
+        private static Binding[] BuildOfflineTrainingBindings()
+        {
+            var bindings = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "offline_training_difficulty_value", "{{offline_training_difficulty_value}}"),
+                new(RmlUiBindingKind.Text, "offline_training_distance_value", "{{offline_training_distance_value}}"),
+                new(RmlUiBindingKind.Text, "offline_training_scope_value", "{{offline_training_scope_value}}"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_training_toggle_0", "!offline_training_can_headshots")
+            };
+            for (int i = 0; i < 5; i++)
+                bindings.Add(new(RmlUiBindingKind.Text,
+                    $"offline_training_toggle_{i}", "{{offline_training_toggle" + i + "}}"));
+            return bindings.ToArray();
+        }
 
         private static readonly Binding[] OfflineArenaBindings = BuildOfflineArenaBindings();
 
@@ -607,12 +635,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
                 RmlUiMenuPage.Offline => OfflineBindings, RmlUiMenuPage.OfflineArena => OfflineArenaBindings,
+                RmlUiMenuPage.OfflineTraining => OfflineTrainingBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))

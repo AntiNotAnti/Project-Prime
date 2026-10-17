@@ -9,6 +9,7 @@ using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Training;
 using MphRead.Mods.Launcher.Gui;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
@@ -132,6 +133,11 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public bool LaunchOffline(RmlUiOfflineRequest request)
         => Shell.RmlUiLaunchOffline(request);
+
+    public AimTrainerDefinition TrainingDefaults() => LauncherPrefs.Training.Sanitize();
+
+    public bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit)
+        => Shell.RmlUiLaunchTraining(drill, hunter, suit);
 
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
     public bool OpenCreateLobby() => Shell.RmlUiOpenCreateLobby();
