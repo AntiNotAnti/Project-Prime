@@ -61,6 +61,8 @@ public interface IRmlUiMenuServices
     bool LaunchOffline(RmlUiOfflineRequest request) => false;
     AimTrainerDefinition TrainingDefaults() => AimTrainerDefinition.Default;
     bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit) => false;
+    RmlUiAdventureSlot[] ReadAdventureSlots() => Array.Empty<RmlUiAdventureSlot>();
+    bool LaunchAdventure(RmlUiAdventureSlot slot, bool newGame, Hunter hunter) => false;
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
