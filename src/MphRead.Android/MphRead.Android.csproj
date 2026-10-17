@@ -231,6 +231,42 @@
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <!-- RML-17: opt-in RESOURCE PACKAGE ONLY. Android startup and renderer
+       continue using Avalonia. Never link desktop GL2 into an ES process. -->
+  <ItemGroup Condition="'$(MphReadRmlUiAndroidPackage)' == 'true'">
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Assets/*.rml;../MphRead/Mods/Launcher/RmlUi/Assets/*.rcss"
+                  Link="rmlui/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Pages/**/*.rml;../MphRead/Mods/Launcher/RmlUi/Pages/**/*.rcss"
+                  Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Components/**/*.rml;../MphRead/Mods/Launcher/RmlUi/Components/**/*.rcss"
+                  Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Themes/**/*.rcss"
+                  Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf;../MphRead/Assets/Fonts/Rajdhani-Bold.ttf;../MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../MphRead/Assets/Fonts/NotoSansJP-Regular.ttf;../MphRead/Assets/Fonts/Rajdhani-OFL.txt;../MphRead/Assets/Fonts/JetBrainsMono-OFL.txt;../MphRead/Assets/Fonts/NotoSansJP-OFL.txt"
+                  Link="rmlui/fonts/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/*"
+                  Link="rmlui/licenses/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../../artifacts/rmlui-native-android/lib/arm64-v8a/PRIME-RMLUI.json"
+                  Link="rmlui/native-manifests/arm64-v8a/PRIME-RMLUI.json" />
+    <AndroidAsset Include="../../artifacts/rmlui-native-android/lib/x86_64/PRIME-RMLUI.json"
+                  Link="rmlui/native-manifests/x86_64/PRIME-RMLUI.json" />
+    <AndroidNativeLibrary Include="../../artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so"
+                          Link="lib/arm64-v8a/libProjectPrime.RmlUi.Native.so" />
+    <AndroidNativeLibrary Include="../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so"
+                          Link="lib/x86_64/libProjectPrime.RmlUi.Native.so" />
+  </ItemGroup>
+  <Target Name="ValidateRmlUiAndroidPackage" BeforeTargets="Build"
+          Condition="'$(MphReadRmlUiAndroidPackage)' == 'true'">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so')"
+           Text="Opt-in RmlUi Android package requires pinned ARM64 draw-list library." />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so')"
+           Text="Opt-in RmlUi Android package requires pinned x64 draw-list library." />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/PRIME-RMLUI.json') or !Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/PRIME-RMLUI.json')"
+           Text="Opt-in RmlUi Android package requires both verified per-ABI manifests." />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/RmlUi-LICENSE.txt')"
+           Text="Opt-in RmlUi Android package requires bundled native license texts." />
+  </Target>
+
   <Target Name="ValidateAndroidGcNurserySize" BeforeTargets="Build" Condition="'$(AndroidGcNurserySize)' != ''">
     <Error Condition="'$(AndroidGcNurserySize)' != '16m' and '$(AndroidGcNurserySize)' != '32m' and '$(AndroidGcNurserySize)' != '64m'"
            Text="AndroidGcNurserySize must be empty, 16m, 32m or 64m." />

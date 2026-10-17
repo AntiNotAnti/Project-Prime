@@ -1259,6 +1259,31 @@ jobs:
           -p:JavaSdkDirectory="$JAVA_HOME"
           -o publish/android
 
+      # RML-17 is an opt-in *packaging* acceptance. It does not switch Android
+      # runtime presentation from Avalonia or enable an RmlUi ES compositor.
+      - name: build pinned Android RmlUi draw-list libraries for both supported ABIs
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.2.12479018'
+          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/27.2.12479018"
+          test -f "$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake"
+          PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh android-arm64 draw-list
+          PRIME_RMLUI_BUILD_JOBS=2 bash tools/rmlui/build-native.sh android-x64 draw-list
+
+      - name: build and verify opt-in Android RmlUi resource APK
+        run: |
+          set -euo pipefail
+          dotnet publish src/MphRead.Android/MphRead.Android.csproj -c Release \
+            -p:AndroidPackageFormat=apk -p:MphReadRmlUiAndroidPackage=true \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+            -m:1 -p:BuildInParallel=false -o publish/android-rmlui
+          mapfile -t packages < <(find publish/android-rmlui -type f -name '*-Signed.apk' | sort)
+          if (( ${#packages[@]} != 1 )); then
+            echo "Expected one signed opt-in RmlUi Android APK, found ${#packages[@]}" >&2
+            exit 1
+          fi
+          python3 tools/rmlui/verify-runtime.py --apk "${packages[0]}"
+
       # Compile the optional Android-only code paths as well as the default APK.
       - name: compile opt-in GLES shader binary cache
         run: >
