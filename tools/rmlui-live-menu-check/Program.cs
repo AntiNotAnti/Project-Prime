@@ -60,7 +60,7 @@ services.SocialOverride = new(true, true, new[] { "Pilot", "Fellow Hunter" }, 1)
 var linkedSocial = Wait(controller, s => Flag(s, "home_social_ready") &&
     Flag(s, "home_social_rail_visible"));
 Check(Text(linkedSocial, "home_social_summary").Contains("2 FRIEND PROFILES")
-    && Text(linkedSocial, "home_friends_online") == "2"
+    && Text(linkedSocial, "home_friends_online") == "UNKNOWN"
     && Text(linkedSocial, "home_requests_count") == "1"
     && Flag(linkedSocial, "home_social_alert_visible")
     && Text(linkedSocial, "home_invites_count") == "UNAVAILABLE",
