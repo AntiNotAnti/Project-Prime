@@ -49,6 +49,9 @@ public interface IRmlUiMenuServices
     bool OpenLobbyDetails();
     RmlUiRuleDraft? ReadRules();
     IReadOnlyList<string> BuiltInArenaKeys();
+    // Default for other frontends and offline fixtures; only a verified installed
+    // package catalog should override this with mutable community choices.
+    IReadOnlyList<string> InstalledCommunityArenaKeys() => Array.Empty<string>();
     bool SubmitRules(RmlUiRuleDraft draft, out string error);
     void Quit();
 }
