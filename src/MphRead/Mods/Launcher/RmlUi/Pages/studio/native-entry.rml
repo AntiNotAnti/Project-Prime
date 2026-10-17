@@ -1,0 +1,29 @@
+<rml>
+<head>
+  <title>Project Prime Studio</title>
+  <link type="text/template" href="../../components/app-shell.rml"/>
+  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="native-entry.rcss"/>
+</head>
+<body template="prime-shell">
+  <div id="native_studio_entry">
+    <div class="eyebrow">CREATION // PROJECT PRIME STUDIO</div>
+    <h1>BUILD YOUR NEXT HUNT</h1>
+    <p>Launch the current Map Studio or open your replay library. These use the same files and game sessions as the existing client.</p>
+    <div class="native_studio_sections">
+      <div class="native_studio_panel">
+        <h2>MAP STUDIO</h2>
+        <p>Edit maps, build packages, and preview them using the existing Project Prime Studio workflow.</p>
+        <button id="native_studio_launch" class="play_action primary" data-action="studio:launch">OPEN MAP STUDIO</button>
+      </div>
+      <div class="native_studio_panel">
+        <h2>REPLAY THEATRE</h2>
+        <p>Find and play your recordings. Replay editing remains available through the current Studio workflow.</p>
+        <button id="native_studio_theatre" class="play_action" data-action="route:theatre">OPEN REPLAY LIBRARY</button>
+      </div>
+    </div>
+    <p id="native_studio_status" role="status">STUDIO READY</p>
+    <button id="native_studio_back" class="play_action" data-action="studio:cancel">BACK TO HOME</button>
+  </div>
+</body>
+</rml>

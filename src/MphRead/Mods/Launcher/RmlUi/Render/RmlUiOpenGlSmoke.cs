@@ -10,6 +10,7 @@ using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using MphRead.Mods.Launcher.RmlUi.Pages.Hunters;
 using MphRead.Mods.Launcher.RmlUi.Pages.Community;
 using MphRead.Mods.Launcher.RmlUi.Pages.License;
+using MphRead.Mods.Launcher.RmlUi.Pages.Studio;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -36,6 +37,7 @@ internal static class RmlUiOpenGlSmoke
     private static NativeHunterPagePresenter? _hunterChoice;
     private static NativeCommunityDiscoverPage? _community;
     private static NativeLicenseOverviewPage? _license;
+    private static NativeStudioEntryPage? _studio;
     private static long _lastPresentedRevision;
     private static bool _shown;
     private static bool _attempted, _disabled;
@@ -93,13 +95,34 @@ internal static class RmlUiOpenGlSmoke
                 // admission. Historical home-only events no longer bypass it.
                 bool baselineIntent = _launcherPages is { Suspended: false }
                     && _news == null && _quickSettings == null && _hunterChoice == null
-                    && _community == null && _license == null;
+                    && _community == null && _license == null && _studio == null;
                 if (baselineIntent)
                 {
                     if (!_launcherPages!.HandleIntent(intent, out RmlUiIntent forwarded))
                         continue;
                     if (forwarded.Kind == 0) continue;
                     intent = forwarded;
+                }
+                if (_studio != null && intent.Kind == RmlUiIntentKind.StudioAction)
+                {
+                    NativeStudioEntryPage studio = _studio;
+                    studio.Handle(intent);
+                    if (studio.Closed) CloseNativeStudio();
+                    continue;
+                }
+                if (intent.Kind == RmlUiIntentKind.OpenStudio)
+                {
+                    // Baseline intents were admitted by the composed page manager.
+                    // Background controls from a suspended page cannot launch Studio.
+                    if (!baselineIntent && _pages?.Page != default) continue;
+                    CloseNativeStudio();
+                    CloseNativeLicense();
+                    CloseNativeCommunity();
+                    CloseNativeHunter();
+                    CloseNativeQuickSettings();
+                    CloseNativeNews();
+                    OpenNativeStudio();
+                    continue;
                 }
                 if (_license != null && intent.Kind == RmlUiIntentKind.LicenseAction)
                 {
@@ -178,6 +201,7 @@ internal static class RmlUiOpenGlSmoke
                         && !_pages.Accept(intent)) continue;
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
+                        CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeQuickSettings();
@@ -187,6 +211,7 @@ internal static class RmlUiOpenGlSmoke
                     }
                     if (intent.Argument == (int)RmlUiRouteArgument.Settings && _quickSettings == null)
                     {
+                        CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeNews();
@@ -197,6 +222,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.HunterLicense
                         && _hunterChoice == null)
                     {
+                        CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeNews();
@@ -207,6 +233,7 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.Community
                         && _community == null)
                     {
+                        CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeNews();
                         CloseNativeHunter();
@@ -217,8 +244,9 @@ internal static class RmlUiOpenGlSmoke
                     if (intent.Argument == (int)RmlUiRouteArgument.Home
                         && (_news != null || _quickSettings != null
                             || _hunterChoice != null || _community != null
-                            || _license != null))
+                            || _license != null || _studio != null))
                     {
+                        CloseNativeStudio();
                         CloseNativeLicense();
                         CloseNativeCommunity();
                         CloseNativeHunter();
@@ -229,7 +257,8 @@ internal static class RmlUiOpenGlSmoke
                 }
                 // Page-specific actions never fall through to the Home model.
                 if (_hunterChoice != null || _quickSettings != null
-                    || _news != null || _community != null || _license != null)
+                    || _news != null || _community != null || _license != null
+                    || _studio != null)
                 {
                     if (intent.Kind != RmlUiIntentKind.Navigate) continue;
                     CloseNativeLicense();
@@ -288,7 +317,8 @@ internal static class RmlUiOpenGlSmoke
             if (launcher != null)
             {
                 bool routeOwned = _news != null || _quickSettings != null
-                    || _hunterChoice != null || _community != null || _license != null;
+                    || _hunterChoice != null || _community != null || _license != null
+                    || _studio != null;
                 if (routeOwned && !launcher.Suspended) launcher.Suspend();
                 else if (!routeOwned && launcher.Suspended) launcher.Resume();
 
@@ -511,6 +541,34 @@ internal static class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
+    private static void OpenNativeStudio()
+    {
+        if (_pages == null || _studio != null) return;
+        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+            "pages", "studio", "native-entry.rml");
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Native Studio entry is not packaged.", path);
+        _launcherPages?.Suspend();
+        var next = new NativeStudioEntryPage(_pages, new CurrentStudioLauncher());
+        try
+        {
+            next.Open();
+            _studio = next;
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+    }
+
+    private static void CloseNativeStudio()
+    {
+        var old = _studio;
+        _studio = null;
+        old?.Dispose();
+    }
+
     private static float Density(RenderWindow window)
     {
         float value = (float)window.FramebufferSize.X / Math.Max(1, window.ClientSize.X);
@@ -597,6 +655,12 @@ internal static class RmlUiOpenGlSmoke
                 try { Mods.DebugLog.Line("rmlui", "controller teardown: " + error.Message); }
                 catch { }
             }
+        }
+        try { CloseNativeStudio(); }
+        catch (Exception error) when (Recoverable(error))
+        {
+            try { Mods.DebugLog.Line("rmlui", "studio teardown: " + error.Message); }
+            catch { }
         }
         try { CloseNativeLicense(); }
         catch (Exception error) when (Recoverable(error))

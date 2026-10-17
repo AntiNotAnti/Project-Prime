@@ -16,6 +16,7 @@ namespace MphRead.Droid;
 /// </summary>
 internal sealed class RmlUiAndroidGlesCompositor : IDisposable
 {
+    private const int CullFaceEnable = 0x0B44; // GL_CULL_FACE; Android GlCullFace is a method.
     private const string VertexShader = @"#version 300 es
 layout(location=0) in vec2 a_position;
 layout(location=1) in vec4 a_color;
@@ -313,7 +314,7 @@ void main() { o_color = texture(u_image, v_uv); }";
         GLES30.GlBindFramebuffer(GLES30.GlFramebuffer, _framebuffer);
         GLES30.GlViewport(0, 0, width, height);
         GLES30.GlDisable(GLES30.GlDepthTest);
-        GLES30.GlDisable(GLES30.GlCullFace);
+        GLES30.GlDisable(CullFaceEnable);
         GLES30.GlDisable(GLES30.GlScissorTest);
         GLES30.GlDepthMask(false);
         GLES30.GlColorMask(true, true, true, true);
@@ -381,7 +382,7 @@ void main() { o_color = texture(u_image, v_uv); }";
         GLES30.GlDisable(GLES30.GlScissorTest);
         GLES30.GlDisable(GLES30.GlStencilTest);
         GLES30.GlDisable(GLES30.GlDepthTest);
-        GLES30.GlDisable(GLES30.GlCullFace);
+        GLES30.GlDisable(CullFaceEnable);
         GLES30.GlDepthMask(false);
         GLES30.GlColorMask(true, true, true, true);
         GLES30.GlEnable(GLES30.GlBlend);
