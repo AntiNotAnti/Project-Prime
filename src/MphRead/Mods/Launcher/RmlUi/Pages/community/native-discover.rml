@@ -9,7 +9,7 @@
 <div id="native_community" class="native_community">
   <div class="eyebrow">COMMUNITY // MAP DISCOVERY</div>
   <h1>COMMUNITY MAPS</h1>
-  <p>Browse published immutable map projects. Installing and managing revisions remains in Full Community.</p>
+  <p>Browse published immutable map projects and install exact verified packages. Creator management remains in Full Community.</p>
   <div class="native_community_tools">
     <input id="native_community_search" placeholder="Search maps or creators" maxlength="128" type="text"/>
     <button id="native_community_find" data-action="community:search">SEARCH</button>
@@ -36,8 +36,10 @@
     </div>
     <div class="native_community_detail">
       <h2 id="native_community_title">SELECT A MAP</h2>
-      <p id="native_community_description">Published revisions are immutable. Choose Full Community to install or manage a specific revision.</p>
+      <p id="native_community_description">Published revisions are immutable. Select a map to install its exact package.</p>
       <p id="native_community_hash"></p>
+      <button id="native_community_install" data-action="community:detail:0">INSTALL VERIFIED MAP</button>
+      <button id="native_community_cancel_install" data-action="community:cancel-work" data-prime-visible="false">CANCEL HANDOFF</button>
       <button id="native_community_full" data-action="community:import">FULL COMMUNITY</button>
       <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
     </div>
