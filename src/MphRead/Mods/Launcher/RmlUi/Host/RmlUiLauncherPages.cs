@@ -18,7 +18,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new[] { "TRAINING", "AIM LAB", "Practice your aim with dedicated drills.", "PERSONAL TRAINING", "CHOOSE DRILL" }
         };
         private static readonly string[] PlayFields =
-            { "play_player_name", "play_join_address", "play_create_name" };
+            { "play_player_name", "play_join_address", "play_create_name", "play_create_player_name" };
         private static readonly string[] RulesFields = { "rules_time", "rules_goal" };
         private readonly RmlUiHost _host;
         private readonly bool _ownsManager;

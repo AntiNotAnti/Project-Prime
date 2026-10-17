@@ -318,6 +318,68 @@ Require(!host.Active && native.Documents.Count == 0, "Device-loss teardown retai
 host.Shutdown();
 Require(host.Initialize(640, 360, 1, "."), "Device-loss recovery failed");
 
+// RML-22: verify the actual composed documents, rather than testing only
+// Home bindings. This exercises the production page manager on the fake ABI.
+using (var composedManager = new RmlUiPageManager(host))
+using (var composed = new RmlUiLauncherPages(host, composedManager))
+{
+    RmlUiDocumentToken homePage = composed.ShowBaseline();
+    Require(composedManager.Page == homePage && native.Documents.Count == 2
+        && !composed.Suspended, "Composed launcher did not open the native Home page");
+    composed.SetField("play_player_name", "Hunter λ");
+    composed.SetBool("multiplayer_mode", true);
+    composed.Flush();
+    var playPage = composedManager.Page;
+    Require(playPage != homePage && composed.Page == RmlUiMenuPage.Play
+        && !host.IsAlive(homePage)
+        && composed.ReadField("play_player_name") == "Hunter λ",
+        "Composed Play page lost the entered player or leaked Home");
+    composed.SetField("play_create_player_name", "Cosmic Pilot");
+    composed.SetBool("lobby_mode", true);
+    composed.Flush();
+    var lobbyPage = composedManager.Page;
+    Require(lobbyPage != playPage && composed.Page == RmlUiMenuPage.Lobby,
+        "Composed Lobby did not replace the Play document");
+    composed.SetBool("lobby_rules_open", true);
+    composed.Flush();
+    Require(composedManager.ModalCount == 1
+        && composedManager.Top != lobbyPage, "Rules were not opened as an owned modal");
+    RmlUiDocumentToken rulesPage = composedManager.Top;
+    composed.SetBool("lobby_map_open", true);
+    composed.Flush();
+    var mapPage = composedManager.Top;
+    Require(composedManager.ModalCount == 2 && mapPage != rulesPage,
+        "Map picker was not stacked over the rules sheet");
+    var forgedBackground = new RmlUiIntent(RmlUiIntentKind.LobbyRulesClose, 0, rulesPage, 1);
+    Require(composed.HandleIntent(forgedBackground, out var ignored) && ignored == default,
+        "Background modal dispatched an action above the current map picker");
+    var liveMap = new RmlUiIntent(RmlUiIntentKind.LobbyMapClose, 0, mapPage, 2);
+    Require(composed.HandleIntent(liveMap, out var forwarded) && forwarded == liveMap,
+        "Current map picker event did not survive document/sequence gating");
+    composed.SetBool("lobby_map_open", false);
+    composed.Flush();
+    Require(composedManager.Top == rulesPage && !host.IsAlive(mapPage),
+        "Closing map picker failed to restore Rules focus/ownership");
+    composed.SetBool("lobby_rules_open", false);
+    composed.Flush();
+    composed.SetBool("lobby_hunter_open", true);
+    composed.Flush();
+    Require(composedManager.ModalCount == 1 && composedManager.Top != rulesPage,
+        "Hunter identity picker failed to open independently of Rules");
+    composed.SetBool("lobby_hunter_open", false);
+    composed.Flush();
+    Require(composedManager.ModalCount == 0, "Hunter modal retained stale document ownership");
+    composed.Suspend();
+    var foreign = composedManager.OpenPage(new("news", "pages/news/news.rml", "news_close"));
+    Require(composed.Suspended && foreign == composedManager.Page,
+        "Standalone native workspace failed to replace the suspended baseline");
+    Require(composedManager.ClosePage(), "Standalone page failed to retire before resume");
+    composed.Resume();
+    Require(composedManager.Page != foreign && composed.Page == RmlUiMenuPage.Lobby,
+        "Composed launcher could not resume the current Lobby after standalone page close");
+}
+Require(native.Documents.Count == 1, "Composed page teardown leaked native documents");
+
 using var legacy = new RmlUiHost(new FakeBridge { Legacy = true });
 Require(legacy.Initialize(640, 360, 1, "."), "Legacy bridge compatibility initialization failed");
 Require(legacy.ProtocolVersion == 0, "Legacy ABI negotiation failed");

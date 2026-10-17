@@ -17,9 +17,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace MphRead.Mods.Launcher.RmlUi.Render;
 
 /// <summary>
-/// Explicit developer smoke of the historical native RmlUi GL2 renderer on the
-/// *current* RenderWindow. The existing Avalonia shell remains authoritative.
-/// This does not accept lobby, account, gameplay, or Community actions.
+/// Opt-in native OpenGL launcher on the existing RenderWindow. The composed
+/// Home/Play/Lobby documents share one page manager and the current game's
+/// authoritative services. Unmigrated workspaces still route to Avalonia.
 /// </summary>
 internal static class RmlUiOpenGlSmoke
 {
@@ -30,6 +30,7 @@ internal static class RmlUiOpenGlSmoke
     private static RmlUiHost? _host;
     private static RmlUiMenuController? _controller;
     private static RmlUiPageManager? _pages;
+    private static RmlUiLauncherPages? _launcherPages;
     private static NewsPagePresenter? _news;
     private static NewsController? _newsController;
     private static QuickSettingsPagePresenter? _quickSettings;
@@ -90,6 +91,18 @@ internal static class RmlUiOpenGlSmoke
             RmlUiMenuController controller = _controller!;
             for (int i = 0; i < 64 && host.TryTakeIntent(out RmlUiIntent intent); i++)
             {
+                // The composed page manager owns foreground document/sequence
+                // admission. Historical home-only events no longer bypass it.
+                bool baselineIntent = _launcherPages is { Suspended: false }
+                    && _news == null && _quickSettings == null && _hunterChoice == null
+                    && _community == null && _license == null && _studio == null;
+                if (baselineIntent)
+                {
+                    if (!_launcherPages!.HandleIntent(intent, out RmlUiIntent forwarded))
+                        continue;
+                    if (forwarded.Kind == 0) continue;
+                    intent = forwarded;
+                }
                 if (_studio != null && intent.Kind == RmlUiIntentKind.StudioAction)
                 {
                     NativeStudioEntryPage studio = _studio;
@@ -99,8 +112,10 @@ internal static class RmlUiOpenGlSmoke
                 }
                 if (intent.Kind == RmlUiIntentKind.OpenStudio)
                 {
-                    // Never let a background Home button open another page.
-                    if (_pages?.Page != default) continue;
+                    // Baseline intents were admitted by the composed page manager.
+                    // Background controls from a suspended page cannot launch Studio.
+                    if (!baselineIntent && _pages?.Page != default) continue;
+                    CloseNativeStudio();
                     CloseNativeLicense();
                     CloseNativeCommunity();
                     CloseNativeHunter();
@@ -182,7 +197,7 @@ internal static class RmlUiOpenGlSmoke
                     // guard. A header/tab click must not discard silently.
                     if ((_quickSettings is { CanNavigateAway: false })
                         || (_hunterChoice is { CanNavigateAway: false })) continue;
-                    if (_pages != null && _pages.Page != default
+                    if (!baselineIntent && _pages != null && _pages.Page != default
                         && !_pages.Accept(intent)) continue;
                     if (intent.Argument == (int)RmlUiRouteArgument.News && _news == null)
                     {
@@ -246,7 +261,6 @@ internal static class RmlUiOpenGlSmoke
                     || _studio != null)
                 {
                     if (intent.Kind != RmlUiIntentKind.Navigate) continue;
-                    CloseNativeStudio();
                     CloseNativeLicense();
                     CloseNativeCommunity();
                     CloseNativeHunter();
@@ -260,18 +274,21 @@ internal static class RmlUiOpenGlSmoke
                     // existing application router.
                     CloseNativeNews();
                 }
+                // Fields belong to their composed page or modal. Reading the
+                // hidden native Home document loses typed names/rule edits.
+                RmlUiLauncherPages? layout = _launcherPages;
                 string address = intent.Kind == RmlUiIntentKind.PlayJoin
-                    ? host.ReadField(host.HomeDocument, "play_join_address", 160) : "";
+                    ? layout?.ReadField("play_join_address") ?? "" : "";
                 string player = intent.Kind is RmlUiIntentKind.PlayJoin or RmlUiIntentKind.PlayServer
-                    ? host.ReadField(host.HomeDocument, "play_player_name", 128) : "";
+                    ? layout?.ReadField("play_player_name") ?? "" : "";
                 string ruleTime = intent.Kind == RmlUiIntentKind.LobbyRulesApply
-                    ? host.ReadField(host.HomeDocument, "rules_time", 24) : "";
+                    ? layout?.ReadField("rules_time") ?? "" : "";
                 string ruleGoal = intent.Kind == RmlUiIntentKind.LobbyRulesApply
-                    ? host.ReadField(host.HomeDocument, "rules_goal", 24) : "";
+                    ? layout?.ReadField("rules_goal") ?? "" : "";
                 string createName = intent.Kind == RmlUiIntentKind.PlayCreate
-                    ? host.ReadField(host.HomeDocument, "play_create_name", 128) : "";
+                    ? layout?.ReadField("play_create_name") ?? "" : "";
                 if (intent.Kind == RmlUiIntentKind.PlayCreate)
-                    player = host.ReadField(host.HomeDocument, "play_create_player_name", 128);
+                    player = layout?.ReadField("play_create_player_name") ?? "";
                 bool handled = controller.Dispatch(intent.Kind, intent.Argument,
                     address, player, ruleTime, ruleGoal, createName);
                 if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
@@ -279,8 +296,8 @@ internal static class RmlUiOpenGlSmoke
                 {
                     if (controller.RuleInputs is { } fields)
                     {
-                        host.SetField(host.HomeDocument, "rules_time", fields.Time);
-                        host.SetField(host.HomeDocument, "rules_goal", fields.Goal);
+                        _launcherPages?.SetField("rules_time", fields.Time);
+                        _launcherPages?.SetField("rules_goal", fields.Goal);
                     }
                 }
             }
@@ -296,13 +313,30 @@ internal static class RmlUiOpenGlSmoke
             _community?.Refresh();
             _license?.Refresh();
             RmlUiMenuSnapshot snapshot = controller.Tick();
-            if (snapshot.Revision > _lastPresentedRevision)
+            RmlUiLauncherPages? launcher = _launcherPages;
+            if (launcher != null)
             {
-                host.Present(new RmlUiBindingSnapshot(host.HomeDocument,
-                    snapshot.Revision, snapshot.Bindings));
-                _lastPresentedRevision = snapshot.Revision;
+                bool routeOwned = _news != null || _quickSettings != null
+                    || _hunterChoice != null || _community != null || _license != null
+                    || _studio != null;
+                if (routeOwned && !launcher.Suspended) launcher.Suspend();
+                else if (!routeOwned && launcher.Suspended) launcher.Resume();
+
+                if (snapshot.Revision > _lastPresentedRevision)
+                {
+                    foreach (var item in snapshot.Bindings)
+                    {
+                        if (item.Value.Kind == RmlUiBindingKind.Text)
+                            launcher.SetText(item.Key, item.Value.Text);
+                        else
+                            launcher.SetBool(item.Key, item.Value.Boolean);
+                    }
+                    _lastPresentedRevision = snapshot.Revision;
+                }
+                launcher.Flush();
             }
             host.Update();
+            launcher?.AfterUpdate();
             RmlUiOpenGlFrame.Draw(host, width, height);
         }
         catch (Exception error) when (Recoverable(error))
@@ -340,10 +374,12 @@ internal static class RmlUiOpenGlSmoke
             _density = density;
             _controller = new RmlUiMenuController(new RmlUiLiveMenuServices());
             _pages = new RmlUiPageManager(host);
+            _launcherPages = new RmlUiLauncherPages(host, _pages);
+            _launcherPages.ShowBaseline();
             _lastPresentedRevision = 0;
             string player = HubState.Capture().PlayerName;
-            host.SetField(host.HomeDocument, "play_player_name", player);
-            host.SetField(host.HomeDocument, "play_create_player_name", player);
+            _launcherPages.SetField("play_player_name", player);
+            _launcherPages.SetField("play_create_player_name", player);
             Mods.DebugLog.Line("rmlui", "opt-in native Home/Play/Lobby session active");
             return true;
         }
@@ -365,6 +401,7 @@ internal static class RmlUiOpenGlSmoke
         if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "rmlui",
             "pages", "news", "news.rml")))
             throw new FileNotFoundException("The native News page is not packaged.");
+        _launcherPages?.Suspend();
         var controller = new NewsController(new BundledNewsProvider(), new NativeNewsLinks());
         var presenter = new NewsPagePresenter(host, _pages, controller);
         try
@@ -398,6 +435,7 @@ internal static class RmlUiOpenGlSmoke
             "pages", "settings", "quick.rml");
         if (!File.Exists(page))
             throw new FileNotFoundException("Native quick settings page missing.", page);
+        _launcherPages?.Suspend();
         var next = new QuickSettingsPagePresenter(_pages, new LauncherQuickPreferenceStore());
         try
         {
@@ -425,6 +463,7 @@ internal static class RmlUiOpenGlSmoke
             "pages", "hunters", "native-picker.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter picker is not packaged.", path);
+        _launcherPages?.Suspend();
         var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore());
         try
         {
@@ -452,6 +491,7 @@ internal static class RmlUiOpenGlSmoke
             "pages", "community", "native-discover.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Community browser is not packaged.", path);
+        _launcherPages?.Suspend();
         var next = new NativeCommunityDiscoverPage(host, _pages, new NativeCommunityReader());
         try
         {
@@ -479,6 +519,7 @@ internal static class RmlUiOpenGlSmoke
             "pages", "license", "native-overview.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter License overview is not packaged.", path);
+        _launcherPages?.Suspend();
         var next = new NativeLicenseOverviewPage(_pages,
             new CurrentHunterLicenseOverviewReader());
         try
@@ -507,6 +548,7 @@ internal static class RmlUiOpenGlSmoke
             "pages", "studio", "native-entry.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Studio entry is not packaged.", path);
+        _launcherPages?.Suspend();
         var next = new NativeStudioEntryPage(_pages, new CurrentStudioLauncher());
         try
         {
@@ -649,6 +691,17 @@ internal static class RmlUiOpenGlSmoke
         {
             try { Mods.DebugLog.Line("rmlui", "news teardown: " + error.Message); }
             catch { }
+        }
+        var launcher = _launcherPages;
+        _launcherPages = null;
+        if (launcher != null)
+        {
+            try { launcher.Dispose(); }
+            catch (Exception error) when (Recoverable(error))
+            {
+                try { Mods.DebugLog.Line("rmlui", "launcher document teardown: " + error.Message); }
+                catch { }
+            }
         }
         var pages = _pages;
         _pages = null;
