@@ -75,9 +75,9 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     private bool Discard()
     {
         if (_cosmetics.Current().Busy) return false;
+        _cosmetics.Reset();
         _controller.Discard();
         _cosmetics.SwitchHunter(_controller.Current().Choice.Hunter);
-        _cosmetics.Reset();
         return true;
     }
 
