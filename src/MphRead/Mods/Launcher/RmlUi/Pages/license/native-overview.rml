@@ -1,0 +1,36 @@
+<rml>
+<head>
+  <title>Project Prime Hunter License</title>
+  <link type="text/template" href="../../components/app-shell.rml"/>
+  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="native-overview.rcss"/>
+</head>
+<body template="prime-shell">
+<div id="native_license" class="native_license">
+  <div class="eyebrow">HUNTER LICENSE // CAREER</div>
+  <h1>YOUR PROFILE. YOUR LEGACY.</h1>
+  <p id="native_license_status" role="status">SYNC TO LOAD SERVER ACCEPTED CAREER DATA</p>
+  <div class="native_license_summary">
+    <h2 id="native_license_name">LOCAL HUNTER</h2>
+    <p id="native_license_hunter">FAVORITE HUNTER // UNKNOWN</p>
+    <p id="native_license_visibility">PUBLIC VISIBILITY // UNKNOWN</p>
+    <p id="native_license_rank">RANK // UNVERIFIED</p>
+  </div>
+  <div class="native_license_stats">
+    <div><span>MATCHES</span><strong id="native_license_matches">NOT VERIFIED</strong></div>
+    <div><span>WINS</span><strong id="native_license_wins">NOT VERIFIED</strong></div>
+    <div><span>LOSSES</span><strong id="native_license_losses">NOT VERIFIED</strong></div>
+    <div><span>KILLS</span><strong id="native_license_kills">NOT VERIFIED</strong></div>
+    <div><span>DEATHS</span><strong id="native_license_deaths">NOT VERIFIED</strong></div>
+    <div><span>ASSISTS</span><strong id="native_license_assists">NOT VERIFIED</strong></div>
+  </div>
+  <p id="native_license_recent">RECENT MATCHES // UNKNOWN</p>
+  <p class="native_license_note">Only server-accepted eligible career records are counted. The native overview never shows private account tokens, passwords or email.</p>
+  <div class="native_license_footer">
+    <button id="native_license_refresh" data-action="license:refresh">SYNC LICENSE</button>
+    <button id="native_license_account" data-action="license:account">FULL HUNTER LICENSE</button>
+    <button id="native_license_close" data-action="license:back">BACK</button>
+  </div>
+</div>
+</body>
+</rml>

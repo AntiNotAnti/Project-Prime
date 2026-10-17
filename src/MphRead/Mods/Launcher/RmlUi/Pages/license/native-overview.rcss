@@ -1,0 +1,17 @@
+#native_license { width:94vw; min-height:80vh; padding:20dp; overflow-y:auto; }
+#native_license h1 { color:#f0faff; font-size:29dp; margin:8dp 0 16dp; }
+#native_license h2 { color:#76cfff; font-size:22dp; }
+#native_license p { color:#bed4e5; font-size:15dp; line-height:22dp; }
+.native_license_summary { margin:14dp 0; padding:16dp; border:1dp #4e7998; background-color:#0c2031; }
+.native_license_stats { display:flex; flex-wrap:wrap; gap:10dp; margin:16dp 0; }
+.native_license_stats > div { width:27vw; min-height:84dp; padding:12dp; border:1dp #426983; background-color:#0a1c2d; }
+.native_license_stats span,.native_license_stats strong { display:block; }
+.native_license_stats span { color:#91bdd3; font-size:13dp; }
+.native_license_stats strong { color:#effaff; font-size:24dp; }
+.native_license_footer { display:flex; flex-wrap:wrap; gap:10dp; }
+.native_license_footer button { min-height:44dp; padding:12dp; background-color:#142c42; border:1dp #64a7cc; color:#e1f6ff; }
+.native_license_note { padding-top:10dp; }
+@media(max-width:800dp) {
+  .native_license_stats > div { width:42vw; }
+  #native_license { padding:12dp; }
+}
