@@ -390,6 +390,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private RmlUiIntent Forward(string action, ulong sequence)
         {
             var target = _host.IsAlive(_mapDocument) ? _mapDocument
+                : _host.IsAlive(_hunterDocument) ? _hunterDocument
                 : _host.IsAlive(_rulesDocument) ? _rulesDocument : _pageDocument;
             if (!RmlUiIntentRegistry.TryParseLegacy(action, target, sequence, out var intent))
                 throw new InvalidOperationException($"The action registry is missing '{action}'.");
