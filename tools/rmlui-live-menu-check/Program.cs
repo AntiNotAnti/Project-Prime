@@ -221,7 +221,7 @@ controller.Dispatch(RmlUiIntentKind.LobbyMapClose);
 // Native Hunter/suit selection shares the live lobby identity epoch and only
 // issues one existing Identify request. No client-side admission is invented.
 services.LobbyView = services.LobbyView with { Active = true, Owner = true };
-services.HunterDraft = new(5, 999, Hunter.Samus, 0,
+services.HunterDraft = new RmlUiHunterDraft(5, 999, Hunter.Samus, 0,
     new[] { Hunter.Samus, Hunter.Kanden }, false);
 Check(controller.Dispatch(RmlUiIntentKind.HunterOpen)
     && controller.HunterOpen && Flag(controller.Tick(), "lobby_hunter_open"),
