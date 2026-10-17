@@ -57,6 +57,9 @@ jobs:
       - name: RmlUi native Studio launch and owner-thread route contracts
         run: dotnet run --project tools/rmlui-studio-check -c Release
 
+      - name: RmlUi draw-list native ABI geometry and texture contracts
+        run: dotnet run --project tools/rmlui-drawlist-check -c Release
+
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
@@ -1283,6 +1286,13 @@ jobs:
             exit 1
           fi
           python3 tools/rmlui/verify-runtime.py --apk "${packages[0]}"
+
+      - name: compile opt-in Android draw-list reader (no runtime cutover)
+        run: >
+          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          -c Release -p:MphReadRmlUiAndroidExperiment=true
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
 
       # Compile the optional Android-only code paths as well as the default APK.
       - name: compile opt-in GLES shader binary cache

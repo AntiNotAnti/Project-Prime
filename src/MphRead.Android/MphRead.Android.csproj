@@ -231,6 +231,12 @@
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <!-- RML-18: compile native draw-list reader without enabling a renderer.
+       The Android game continues to use its existing Avalonia surface. -->
+  <PropertyGroup Condition="'$(MphReadRmlUiAndroidExperiment)' == 'true'">
+    <DefineConstants>$(DefineConstants);PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT</DefineConstants>
+  </PropertyGroup>
+
   <!-- RML-17: opt-in RESOURCE PACKAGE ONLY. Android startup and renderer
        continue using Avalonia. Never link desktop GL2 into an ES process. -->
   <ItemGroup Condition="'$(MphReadRmlUiAndroidPackage)' == 'true'">
