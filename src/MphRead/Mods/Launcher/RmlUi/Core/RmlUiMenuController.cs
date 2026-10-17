@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Training;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
@@ -39,6 +40,7 @@ public interface IRmlUiMenuServices
     HubSnapshot Hub();
     string BuildVersion();
     RmlUiLobbyView Lobby();
+    NewsDispatch? FeaturedNews() => null;
     Task<RmlUiDirectory> Browse(CancellationToken token);
     Task<RmlUiServerCandidate?> QuickMatch(CancellationToken token);
     Task<RmlUiJoinResult> Join(string endpoint, string playerName, CancellationToken token);
@@ -1095,6 +1097,27 @@ public sealed class RmlUiMenuController : IDisposable
         Text("game_data_state", hub.GameFilesReady ? "READY" : "NOT CONFIGURED");
         Text("build_version", version);
         Text("renderer_name", "OPENGL // RMLUI 6.3");
+        // Project the actual bundled News source, rather than leaving the
+        // historical Home feature rail permanently blank. Social data is not
+        // available in the current runtime and must not be fabricated.
+        NewsDispatch? feature = _services.FeaturedNews();
+        Flag("home_feature_available", feature != null);
+        Text("home_feature_category", feature?.Category ?? "");
+        Text("home_feature_title", feature?.Title ?? "");
+        Text("home_feature_summary", feature?.Summary ?? "");
+        Text("home_session_state", !lobby.Active ? "SOLO"
+            : lobby.Starting ? "MATCH STARTING"
+            : lobby.Owner ? "LOBBY OWNER" : "IN LOBBY");
+        Text("home_party_state", "FRIENDS / PARTY UNAVAILABLE");
+        Text("home_social_summary",
+            "FRIENDS AND PARTY ARE NOT CONNECTED IN THIS BUILD");
+        Flag("home_social_ready", false);
+        Flag("home_social_rail_visible", false);
+        Flag("home_social_alert_visible", false);
+        Flag("home_party_preview_visible", false);
+        Flag("home_friends_visible", false);
+        Flag("home_social_empty_visible", true);
+        Text("home_social_empty_text", "SOCIAL SERVICE IS NOT AVAILABLE");
         Flag("lobby_mode", lobby.Active);
         Flag("multiplayer_mode", _browsing && !lobby.Active);
         Flag("theatre_mode", _theatre != null && !lobby.Active);

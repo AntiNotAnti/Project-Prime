@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
@@ -37,6 +38,21 @@ var home = controller.Tick();
 Check(Text(home, "player_name") == "Pilot" && Text(home, "hunter_name") == "SAMUS"
     && !Flag(home, "lobby_mode") && !Flag(home, "multiplayer_mode"),
     "Home uses presentation-neutral current player and no fabricated session");
+Check(Text(home, "home_feature_category") == "NEWS"
+    && Text(home, "home_feature_title") == "PROJECT PRIME COMMUNITY UPDATE"
+    && Flag(home, "home_feature_available"),
+    "Home news rail projects the actual shared bundled dispatch source");
+Check(Text(home, "home_session_state") == "SOLO"
+    && !Flag(home, "home_social_ready")
+    && !Flag(home, "home_social_rail_visible")
+    && Text(home, "home_social_summary").Contains("NOT CONNECTED"),
+    "Home never fabricates Social presence, notifications, friends or online counts");
+var homeBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Home, home.Bindings);
+Check(homeBindings.TryGetValue("home_feature_title", out var newsTitle)
+    && newsTitle.Text == "PROJECT PRIME COMMUNITY UPDATE"
+    && homeBindings.TryGetValue("disabled:home_social", out var socialButton)
+    && socialButton.Boolean,
+    "native Home feature rail is populated and unavailable Social action cannot mislead");
 Check(controller.Tick().Revision == home.Revision,
     "unchanged native snapshots retain revision");
 
@@ -862,6 +878,7 @@ sealed class Stub : IRmlUiMenuServices
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
     public RmlUiRuleDraft? AuthorityRules;
     public RmlUiRuleDraft SubmittedRule;
+    public NewsDispatch? FeaturedNews() => new BundledNewsProvider().Read()[0];
     public HubSnapshot Hub() => new("Pilot", Hunter.Samus, Hunter.Samus, 0, true, "Desktop");
     public string BuildVersion() => "0.1.99";
     public RmlUiLobbyView Lobby() => LobbyView;

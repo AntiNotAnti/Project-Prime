@@ -59,6 +59,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("home_feature_category", RmlUiBindingValue.FromText(""));
             Put("home_feature_title", RmlUiBindingValue.FromText(""));
             Put("home_feature_summary", RmlUiBindingValue.FromText(""));
+            Put("home_social_ready", false);
             Put("home_social_rail_visible", false);
             Put("home_social_alert_visible", false);
             Put("home_social_count", RmlUiBindingValue.FromText("0 ONLINE"));
