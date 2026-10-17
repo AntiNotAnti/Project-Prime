@@ -321,17 +321,19 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbyBotAdd) && services.AdminCalls =
     "one outstanding authoritative command blocks duplicate administration");
 services.AdminState = services.AdminState with { CommandPending = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyChatSend, adminChat: "A message")
-    && services.AdminCalls == 3 && services.LastAdmin.Text == "A message",
-    "native chat sends the entered field through existing service");
+    && services.AdminCalls == 2 && services.ChatCalls == 1
+    && services.LastChat == "A message",
+    "native chat uses its dedicated existing NetChat service, not an owner-only admin command");
 services.AdminState = services.AdminState with { Owner = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyPlayerSelect, 1)
     && !controller.Dispatch(RmlUiIntentKind.LobbyKick)
-    && services.AdminCalls == 3,
+    && services.AdminCalls == 2 && services.ChatCalls == 1,
     "non-owner cannot request a kick or transfer");
 services.AdminState = services.AdminState with { AuthorityEpoch = 1000 };
 Check(!Flag(Wait(controller, s => !Flag(s, "lobby_admin_open")), "lobby_admin_open"),
     "retired authority automatically closes native admin and its confirmations");
-Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm) && services.AdminCalls == 3,
+Check(!controller.Dispatch(RmlUiIntentKind.LobbyAdminConfirm)
+    && services.AdminCalls == 2 && services.ChatCalls == 1,
     "retired admin never dispatches an old confirmed action");
 services.LobbyView = Stub.EmptyLobby;
 
