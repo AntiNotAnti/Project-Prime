@@ -260,8 +260,12 @@ internal static class RmlUiOpenGlSmoke
                     ? layout?.ReadField("play_create_name") ?? "" : "";
                 if (intent.Kind == RmlUiIntentKind.PlayCreate)
                     player = layout?.ReadField("play_create_player_name") ?? "";
+                string adminChat = intent.Kind == RmlUiIntentKind.LobbyChatSend
+                    ? layout?.ReadField("admin_chat_input") ?? "" : "";
                 bool handled = controller.Dispatch(intent.Kind, intent.Argument,
-                    address, player, ruleTime, ruleGoal, createName);
+                    address, player, ruleTime, ruleGoal, createName, adminChat);
+                if (handled && intent.Kind == RmlUiIntentKind.LobbyChatSend)
+                    layout?.SetField("admin_chat_input", "");
                 if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
                     or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesFormat)
                 {
