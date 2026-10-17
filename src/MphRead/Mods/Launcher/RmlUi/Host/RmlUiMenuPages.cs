@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters }
 
     public static class RmlUiMenuPages
     {
@@ -14,11 +14,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Lobby = new("lobby", "pages/lobby/lobby.rml", "lobby_ready");
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
+        public static readonly RmlUiPageSpec Hunters = new("hunters", "pages/hunters/identity.rml", "hunter_choice0");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
             RmlUiMenuPage.Home => Home, RmlUiMenuPage.Play => Play,
             RmlUiMenuPage.Lobby => Lobby, RmlUiMenuPage.Rules => Rules, RmlUiMenuPage.Maps => Maps,
+            RmlUiMenuPage.Hunters => Hunters,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -473,17 +475,41 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return bindings.ToArray();
         }
 
+        private static readonly Binding[] HunterIdentityBindings = BuildHunterIdentityBindings();
+
+        private static Binding[] BuildHunterIdentityBindings()
+        {
+            var bindings = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "hunter_name", "{{hunter_name}}"),
+                new(RmlUiBindingKind.Text, "hunter_status", "{{hunter_status}}"),
+                new(RmlUiBindingKind.Text, "hunter_restriction", "{{hunter_restriction}}"),
+                new(RmlUiBindingKind.Boolean, "disabled:hunter_apply", "!hunter_apply_enabled")
+            };
+            for (int i = 0; i < 7; i++)
+            {
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:hunter_choice{i}:selected",
+                    $"hunter_choice{i}_selected"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:hunter_choice{i}",
+                    $"!hunter_choice{i}_allowed"));
+            }
+            for (int i = 0; i < 4; i++)
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:hunter_suit{i}:selected",
+                    $"hunter_suit{i}_selected"));
+            return bindings.ToArray();
+        }
+
         public static IReadOnlyDictionary<string, RmlUiBindingValue> Project(RmlUiMenuPage page,
             IReadOnlyDictionary<string, RmlUiBindingValue> model)
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
-                RmlUiMenuPage.Maps => MapBindings,
+                RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))
             });
             return new ReadOnlyDictionary<string, RmlUiBindingValue>(output);
