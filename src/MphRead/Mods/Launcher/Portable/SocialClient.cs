@@ -23,6 +23,8 @@ namespace MphRead.Mods.Launcher
             {
                 SocialEnvelope envelope = await InvokeAsync(
                     "snapshot", targetPrimeId: null, cancellationToken).ConfigureAwait(false);
+                if (!envelope.Ok)
+                    throw new InvalidOperationException("Social service did not authorize this directory read.");
                 SocialSnapshot snapshot = envelope.Snapshot
                     ?? throw new InvalidOperationException("Social service returned no snapshot.");
                 Volatile.Write(ref _current, snapshot);
@@ -43,7 +45,7 @@ namespace MphRead.Mods.Launcher
             SocialEnvelope envelope = await InvokeAsync(
                 "lookup", primeId, cancellationToken).ConfigureAwait(false);
             return new SocialLookupResult(
-                envelope.Status.Equals("found", StringComparison.Ordinal),
+                envelope.Ok && envelope.Status.Equals("found", StringComparison.Ordinal),
                 envelope.Player);
         }
 
