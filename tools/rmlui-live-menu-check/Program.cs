@@ -162,6 +162,52 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
     && !controller.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "8:20", ruleGoal: "10"),
     "non-owner cannot mutate rule state");
 controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
+var mapPages = new RmlUiMapPickerModel(
+    new[] { "G", "F", "E", "D", "C", "B", "A", "a" },
+    new[] { "U", "V", "A", "v" });
+Check(mapPages.Count == 7 && mapPages.Pages == 2
+    && mapPages.Choice(0) == "A" && mapPages.Choice(5) == "F"
+    && mapPages.Choice(-1) == null && mapPages.NextPage()
+    && mapPages.Choice(0) == "G" && mapPages.Choice(1) == null,
+    "native map picker deduplicates and caps pages to six stable choices");
+Check(mapPages.SelectCategory(1) && mapPages.Count == 2
+    && mapPages.Page == 0 && mapPages.Choice(0) == "U"
+    && !mapPages.NextPage() && !mapPages.SelectCategory(2),
+    "category change resets cursor and rejects out-of-range indices");
+Check(mapPages.SelectCategory(0) && !mapPages.PreviousPage(),
+    "first map page cannot move behind zero");
+
+services.LobbyView = services.LobbyView with { Owner = true, Active = true };
+services.AuthorityRules = sourceRules;
+services.BuiltInMaps = new[] { "MP1 SANCTORUS" };
+services.CommunityMaps = Array.Empty<string>();
+int beforeMap = services.Submissions;
+Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
+    && controller.MapPickerOpen
+    && Flag(controller.Tick(), "lobby_map_open")
+    && Flag(controller.Tick(), "lobby_rules_open")
+    && Text(controller.Tick(), "map_choice0_name") == "MP1 SANCTORUS",
+    "lobby opens a native map picker bound to current authoritative rule draft");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 1)
+    && Flag(controller.Tick(), "map_empty")
+    && !controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0),
+    "empty community map category cannot stage missing packages");
+Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 0)
+    && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
+    && !controller.MapPickerOpen && Flag(controller.Tick(), "lobby_rules_open")
+    && services.Submissions == beforeMap,
+    "staging a built-in map opens rules editor without submitting UpdateMatch");
+controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
+Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
+    && controller.Dispatch(RmlUiIntentKind.LobbyMapClose)
+    && !Flag(controller.Tick(), "lobby_rules_open"),
+    "cancelled direct map picker does not leave hidden rule editor state");
+services.LobbyView = services.LobbyView with { Owner = false };
+Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
+    && !controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
+    && services.Submissions == beforeMap,
+    "non-owner can preview but never select or submit server map updates");
+controller.Dispatch(RmlUiIntentKind.LobbyMapClose);
 services.LobbyView = Stub.EmptyLobby;
 
 
@@ -213,6 +259,8 @@ sealed class Stub : IRmlUiMenuServices
     public TaskCompletionSource<RmlUiJoinResult> JoinPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<RmlUiJoinResult> CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public LobbyCreationRequest CreatedRequest;
+    public string[] BuiltInMaps = { "MP1 SANCTORUS" };
+    public string[] CommunityMaps = Array.Empty<string>();
     public int CreateCalls;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
@@ -242,7 +290,8 @@ sealed class Stub : IRmlUiMenuServices
     public bool NextSuit() => true;
     public bool OpenLobbyDetails() => true;
     public RmlUiRuleDraft? ReadRules() => LobbyView.Active ? AuthorityRules : null;
-    public IReadOnlyList<string> BuiltInArenaKeys() => new[] { "MP1 SANCTORUS" };
+    public IReadOnlyList<string> BuiltInArenaKeys() => BuiltInMaps;
+    public IReadOnlyList<string> InstalledCommunityArenaKeys() => CommunityMaps;
     public bool SubmitRules(RmlUiRuleDraft draft, out string error)
     {
         error = "";
