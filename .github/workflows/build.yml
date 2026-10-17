@@ -88,6 +88,9 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_android_startup_check.py' -v
 
 
+      - name: validate bounded retro source-rig preview contracts
+        run: python3 -m unittest discover -s tools/retro-character-preview -p 'test_*.py' -v
+
       - name: validate source ANCS/ANIM animation decoding contracts
         run: dotnet run --project tools/retro-animation-check -c Release
 
