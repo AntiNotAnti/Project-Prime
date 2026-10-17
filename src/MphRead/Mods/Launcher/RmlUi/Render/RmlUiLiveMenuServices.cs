@@ -187,6 +187,112 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return true;
     }
 
+    public RmlUiAdminSnapshot? ReadAdmin()
+    {
+        if (!NetSession.Active || !NetSession.IsInLobby
+            || NetSession.ServerSession is not { } session)
+            return null;
+        RosterPacket roster = NetSession.LobbyRoster();
+        if (roster.MatchId != session.MatchId
+            || roster.AuthorityEpoch != session.AuthorityEpoch)
+            return null;
+        int count = Math.Clamp(roster.Count, 0, 8);
+        var players = new RmlUiAdminPlayer[count];
+        for (int i = 0; i < count; i++)
+            players[i] = new(roster.Slots[i], roster.Generations[i],
+                roster.Names[i] ?? "", (Hunter)roster.Hunters[i],
+                roster.Colors[i], roster.Teams[i], roster.LobbyReady[i],
+                roster.IsBot(i), roster.BotLevels[i],
+                roster.DamageReductions[i], roster.Pings[i]);
+        int teams = GameState.IsTeamMode(session.Match.Mode)
+            ? LobbyRules.ResolveTeamLayout(session.Match).TeamCount : 0;
+        return new(session.MatchId, session.AuthorityEpoch, session.Revision,
+            NetSession.LocalIsLobbyOwner, session.OwnerSlot,
+            NetSession.LocalSlot >= 0 ? (byte)NetSession.LocalSlot : byte.MaxValue,
+            NetSession.LobbyCommandPending, session.LockTeams,
+            (byte)Math.Clamp(teams, 0, 4), session.MaxPlayers,
+            NetSession.MapPreparation?.State == MapAvailabilityState.Failed,
+            NetSession.MapPreparationMessage, NetSession.LobbyMessage,
+            HunterRules.Pool(session.Match.LowTier).ToArray(), players,
+            MphRead.Mods.Chat.NetChat.History.TakeLast(32).ToArray());
+    }
+
+    public bool SubmitAdmin(RmlUiAdminRequest request)
+    {
+        RmlUiAdminSnapshot? current = ReadAdmin();
+        if (current == null || request.MatchId != current.MatchId
+            || request.AuthorityEpoch != current.AuthorityEpoch
+            || request.SessionRevision != current.SessionRevision
+            || current.CommandPending) return false;
+        RmlUiAdminPlayer? target = current.Players.FirstOrDefault(p =>
+            p.Slot == request.TargetSlot && p.Generation == request.TargetGeneration);
+        bool found = request.TargetSlot != byte.MaxValue
+            && target.HasValue && target.Value.Generation != 0;
+        if (request.TargetSlot != byte.MaxValue && !found) return false;
+        bool owner = current.Owner && NetSession.CanEditLobby;
+        bool teamMember = found && target!.Value.Slot == current.LocalSlot;
+        bool teamAllowed = found && current.TeamCount > 0
+            && (owner || (teamMember && !current.TeamsLocked));
+        bool bot = found && target!.Value.Bot;
+        bool validBotOptions = request.Suit < 4 && request.BotLevel < 4
+            && (request.Hunter == Hunter.Random
+                || current.AllowedHunters.Contains(request.Hunter));
+        switch (request.Operation)
+        {
+            case RmlUiAdminOperation.SendChat:
+                if (String.IsNullOrWhiteSpace(request.Text)
+                    || System.Text.Encoding.UTF8.GetByteCount(request.Text)
+                        > ChatPacket.MaxTextBytes) return false;
+                MphRead.Mods.Chat.NetChat.Send(request.Text);
+                return true;
+            case RmlUiAdminOperation.RetryMap:
+                if (!current.CanRetryMap) return false;
+                NetSession.RetryMapPreparation();
+                return true;
+            case RmlUiAdminOperation.SetTeam:
+                return teamAllowed && request.Team >= -1 && request.Team < current.TeamCount
+                    && NetSession.SendLobbyCommand(LobbyCommandType.SetTeam,
+                        request.TargetSlot, request.Team);
+            case RmlUiAdminOperation.SetHandicap:
+                return owner && found && PlayerHandicap.IsValid(request.Handicap)
+                    && NetSession.SendLobbyCommand(LobbyCommandType.SetHandicap,
+                        request.TargetSlot, damageReduction: request.Handicap);
+            case RmlUiAdminOperation.Kick:
+                return owner && found && !bot
+                    && target!.Value.Slot != current.OwnerSlot
+                    && NetSession.SendLobbyCommand(LobbyCommandType.KickPlayer,
+                        request.TargetSlot);
+            case RmlUiAdminOperation.TransferOwner:
+                return owner && found && !bot
+                    && target!.Value.Slot != current.OwnerSlot
+                    && NetSession.SendLobbyCommand(LobbyCommandType.TransferOwner,
+                        request.TargetSlot);
+            case RmlUiAdminOperation.CloseLobby:
+                return owner && NetSession.SendLobbyCommand(LobbyCommandType.CloseLobby);
+            case RmlUiAdminOperation.AddBot:
+                return owner && validBotOptions && current.Players.Length < current.MaxPlayers
+                    && NetSession.SendLobbyCommand(LobbyCommandType.AddBot,
+                        hunter: (byte)request.Hunter, color: request.Suit,
+                        botLevel: request.BotLevel);
+            case RmlUiAdminOperation.UpdateBot:
+                return owner && bot && validBotOptions
+                    && NetSession.SendLobbyCommand(LobbyCommandType.UpdateBot,
+                        request.TargetSlot, hunter: (byte)request.Hunter,
+                        color: request.Suit, botLevel: request.BotLevel);
+            case RmlUiAdminOperation.RemoveBot:
+                return owner && bot && NetSession.SendLobbyCommand(
+                    LobbyCommandType.RemoveBot, request.TargetSlot);
+            case RmlUiAdminOperation.ToggleTeamLock:
+                if (!owner || current.TeamCount == 0 || NetSession.ServerSession is not { } state)
+                    return false;
+                state.RuleFlags ^= LobbyRuleFlags.LockTeams;
+                return NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch,
+                    configuration: state);
+            default:
+                return false;
+        }
+    }
+
     public bool OpenLobbyDetails() => Shell.RmlUiShowLegacyLobby();
 
     public RmlUiRuleDraft? ReadRules()
