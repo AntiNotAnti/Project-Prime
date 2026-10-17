@@ -167,6 +167,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             _resumeRequested = false;
             if (_suspended) return;
             RmlUiMenuPage desired = Bool("lobby_mode") ? RmlUiMenuPage.Lobby
+                : Bool("theatre_mode") ? RmlUiMenuPage.Theatre
                 : Bool("adventure_mode") ? RmlUiMenuPage.Adventure
                 : Bool("offline_mode") ? RmlUiMenuPage.Offline
                 : Bool("multiplayer_mode") ? RmlUiMenuPage.Play : RmlUiMenuPage.Home;
@@ -422,6 +423,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 forwarded = Forward("lobby:rules-close", ++_lastSequence);
                 return true;
             }
+            if (_page == RmlUiMenuPage.Theatre)
+            {
+                forwarded = Forward("route:home", ++_lastSequence);
+                return true;
+            }
             if (_page == RmlUiMenuPage.Adventure)
             {
                 forwarded = Forward("route:offline", ++_lastSequence);
@@ -481,6 +487,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("lobby_mode", page == RmlUiMenuPage.Lobby);
             Put("offline_mode", page == RmlUiMenuPage.Offline);
             Put("adventure_mode", page == RmlUiMenuPage.Adventure);
+            Put("theatre_mode", page == RmlUiMenuPage.Theatre);
             if (page != RmlUiMenuPage.Lobby) Put("lobby_rules_open", false);
             if (page != RmlUiMenuPage.Home) Put("activity_selector_open", false);
         }
@@ -499,7 +506,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return intent;
         }
 
-        private RmlUiDocumentToken FieldDocument(string id) => id == "offline_arena_search"
+        private RmlUiDocumentToken FieldDocument(string id)
+            => id == "theatre_search" && _page == RmlUiMenuPage.Theatre && !_suspended
+                ? _pageDocument : id == "offline_arena_search"
             ? _offlineArenaDocument : id.StartsWith("admin_", StringComparison.Ordinal)
             ? _adminDocument : id.StartsWith("rules_", StringComparison.Ordinal)
             ? _rulesDocument : _page == RmlUiMenuPage.Play && !_suspended ? _pageDocument : default;
