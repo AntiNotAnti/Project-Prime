@@ -19,6 +19,17 @@ validation tools remain a separate slice; hosted CI and release gates are open.
 
 ## Completed scoped evidence
 
+- The fresh **current46 Native/Momentum DefenderTeams pair passes**: two genuine
+  human-owner processes plus two accepted level-three server bots, real balanced
+  teams, 45 seconds per model on Proving Ground at 200:20. All six processes exit 0;
+  both clients in each model adopt exact native objective facts and independently
+  receive positive team time. Native solver steps are 0/0; Momentum 2,238/2,168.
+  Current-source Windows gold56, rewind18,489, replay rules82 and frame timing
+  also pass. This is representative team/objective coverage, not physical LAN or
+  all-mode acceptance. The separate Native Nodes control has contact but no
+  completed ten-second capture and remains unverified. See
+  [PR-09d results](pr09d-results.md) and
+  [source/binary leases and numeric witnesses](evidence/pr09-team-objective-draft.json).
 - The additional **eight-human-owner fault combat arms pass** on the preserved
   Windows `3de8887a` production baseline with the current test-only overlay.
   Each model uses eight independent human-owner client processes (all seven

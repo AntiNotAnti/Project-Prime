@@ -27,9 +27,10 @@ internal static class MomentumCombatOnlineTests
     { _checks++; if (!value) throw new InvalidOperationException(message); }
     private static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
     internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 60, uint seed = 1729, string latency = "200:20", string loss = "0",
-        string reorder = "0", string duplicate = "0", int faultSeed = 1, Hunter hunter = Hunter.Samus, int minimumHumanOwners = 2)
+        string reorder = "0", string duplicate = "0", int faultSeed = 1, Hunter hunter = Hunter.Samus, int minimumHumanOwners = 2, MomentumTeamObjectiveOptions? teamObjective = null)
     {
         Scene? scene = null; string output = Path.GetFullPath(outputPath);
+        using var team = teamObjective == null ? null : new MomentumTeamObjectiveTests(teamObjective, latency, loss, reorder, duplicate, faultSeed);
         try
         {
             _checks = 0;
@@ -42,8 +43,9 @@ internal static class MomentumCombatOnlineTests
                 && NetLag.ConfigureDuplicate(duplicate) && NetLag.ConfigureSeed(faultSeed.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 "explicit actual transport fault queues configured before Connect");
             Check(NetAiClient.Configure(true, "3", seed.ToString(System.Globalization.CultureInfo.InvariantCulture), out reason), reason);
-            Check(NetLaunch.Connect("127.0.0.1", port, "CombatOwner-" + Environment.ProcessId, hunter, timeoutMs: 30000),
+            Check(NetLaunch.Connect("127.0.0.1", port, (teamObjective == null ? "CombatOwner-" : "MomentumCPU-") + Environment.ProcessId, hunter, timeoutMs: 30000),
                 "actual UDP join: " + NetLaunch.LastJoinError);
+            team?.PrepareLobby();
             var timer = Stopwatch.StartNew();
             void Connected() => Check(NetSession.IsClient && !NetSession.IsAuthority && NetSession.Active
                 && !NetSession.ConnectionLost && !NetSession.SessionTimedOut && !NetSession.Refused, "actual connected nonauthority client");
@@ -87,12 +89,14 @@ internal static class MomentumCombatOnlineTests
                 && arrivals.Elapsed.TotalSeconds < 60) Step();
             Check(ActiveHumanCount() >= minimumHumanOwners && NetSession.WorldIsReady && !NetSession.FreezeGameplay,
                 "actual required human cohort arrived and real baseline reopened before measured encounter interval");
+            team?.Validate(scene, definition);
             double cohortArrivalWaitSeconds = arrivals.Elapsed.TotalSeconds; int humansAtStart = ActiveHumanCount();
             long initialSteps = scene.DeveloperMomentumSteps; int ticks = 0, shooting = 0, remoteAlive = 0, healthChanges = 0;
             var previousHealth = new Dictionary<int, int>(); var humans = new HashSet<int>(); timer.Restart();
             while (timer.Elapsed.TotalSeconds < seconds)
             {
                 Step(); ticks++;
+                team?.Observe(scene);
                 Check(NetSession.AuthorityEpoch == epoch && NetSession.CurrentMatchId == match && scene.GameState.MovementModel == expected, "same actual match and immutable movement rule");
                 Check(Finite(owner.Position) && Finite(owner.Speed), "finite native owner body");
                 if (minimumHumanOwners == 8)
@@ -110,12 +114,14 @@ internal static class MomentumCombatOnlineTests
                 }
             }
             var report = new { scope = "real UDP; production NetAiClient drives native human-owner controls/aim; CPU Roam/All native intro skip; no physical player, bot identity, grants, placements or direct damage",
+                teamObjective = team?.Report,
                 model = expected.ToString(), hunter = owner.Hunter.ToString(), minimumHumanOwners, cohortArrivalWaitSeconds, humansAtStart, localSlot = slot, epoch, match, seconds, seed, ticks, shooting, remoteAlive, healthChanges,
                 humanSlots = humans.OrderBy(value => value).ToArray(), solverSteps = scene.DeveloperMomentumSteps - initialSteps,
                 clientClaimsDeclared = NetHitClaims.Declared, clientClaimsApplied = NetHitClaims.Applied, ai = NetAiClient.Capture(),
                 latency = new { NetLag.RoundTripMs, NetLag.JitterMs, NetLag.LossPercent, NetLag.ReorderRate, NetLag.DuplicateRate, NetLag.Seed },
                 proofScope = "Worker activity alone is not authority payment/rewind acceptance. Verify requires completed authority evidence plus authoritative rewind metrics." };
             Directory.CreateDirectory(Path.GetDirectoryName(output)!); File.WriteAllText(output, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+            team?.Complete();
             Check(NetAiClient.HasLocalActivity && shooting > 0 && remoteAlive > 0 && humans.Count >= minimumHumanOwners - 1, "native encounter produces real owner fire and observes every required active human opponent");
             Check(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == initialSteps : scene.DeveloperMomentumSteps > initialSteps, "selected movement solver exercised by actual owner input");
             Console.WriteLine($"MOMENTUM COMBAT OWNER PASS {_checks} activity assertions; claims={NetHitClaims.Declared}; authority proof still required"); return 0;

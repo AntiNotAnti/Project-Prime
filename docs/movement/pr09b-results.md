@@ -48,11 +48,13 @@ For an asset-backed run, each process needs its own user-data directory containi
 only the operator's `paths.txt`. Set `PROJECT_PRIME_USER_DATA` accordingly and use
 a distinct `PRIME_NET2_EVIDENCE` output per server/client. The recorded
 eight-owner campaign sets `PRIME_NET2_EVIDENCE_ROW_LIMIT=262144`. Start
-`--momentum-online-server <assets> <port> <model> <stop-file> 8 continuous 120`,
+`--momentum-test-server <assets> <port> <model> 180 8 continuous 120`,
 wait for actual authority readiness, then start the required independent
 `--momentum-combat-online` workers; the CLI help lists duration, Hunter and fault
-arguments. Wait for every worker's exit code, create the server stop file, and
-allow up to 60 seconds for orderly evidence flush. Use `--momentum-combat-proof`
+arguments. Wait for every worker's exit code, create the file named by the server's
+`PRIME_NET2_EVIDENCE` path plus `.stop`, and allow up to 60 seconds for orderly
+evidence flush. The server's positional 180 is its lifetime in seconds, not a
+stop-file path. Use `--momentum-combat-proof`
 for two reports or `--momentum-combat-proof-many` with a JSON array of all eight
 report paths. A positive worker activity report alone is not combat acceptance.
 

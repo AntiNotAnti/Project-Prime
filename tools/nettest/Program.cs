@@ -103,6 +103,8 @@ namespace MphRead.NetTest
                     + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-combat-online <assets> <port> <model> <json> [seconds] [seed] [latency] [loss] [reorder] [duplicate] [fault-seed] [hunter] [human-min] Run genuine owner combat.\n"
+                    + "  --momentum-team-objective-map <assets> <json> [NodesTeams|DefenderTeams] Validate the fixed native four-player arena.\n"
+                    + "  --momentum-team-objective-online <assets> <port> <model> <json> <seconds> <seed> <latency> <loss> <reorder> <duplicate> <fault-seed> <hunter> 2 <lobby-owner|member> [NodesTeams|DefenderTeams] Test genuine 2v2 objective adoption.\n"
                     + "  --momentum-combat-proof-many <server-evidence> <all-eight-workers.json> <json> Verify full mixed-Hunter owner cohort.\n"
                     + "  --momentum-combat-proof <server-evidence> <first-worker> <second-worker> <json> Verify real owner payment/rewind joins.\n"
                     + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
@@ -118,6 +120,7 @@ namespace MphRead.NetTest
                     + "  --momentum-touch-gl <assets> [json] Test native alternate-form touch and boost parity with GL.\n"
                     + "  --momentum-bot-navigation <assets> [json] Test actual bot geometry probes and stopping margin.\n"
                     + "  --momentum-match-scene <assets> [json] Test actual rule-selected native scene movement.\n"
+                    + "  --momentum-test-server <assets> <port> <model> [lifetime] [capacity] [lobby|continuous] [match-seconds] [second-room|-] [game-mode] [first-room] Run local authority.\n"
                     + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] [replay] Run a real UDP owner world.\n"
                     + "  --momentum-touch-online <assets> <port> <Native|Momentum> <json> [seconds] Run actual touch-model movement over 200 ms UDP impairment.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
@@ -455,7 +458,7 @@ namespace MphRead.NetTest
                 return MomentumCombatOnlineTests.VerifyMany(args[1], args[2], args[3]);
             if (args.Length >= 5 && args[0] == "--momentum-combat-proof")
                 return MomentumCombatOnlineTests.Verify(args[1], args[2], args[3], args[4]);
-            if (args.Length >= 5 && args[0] == "--momentum-combat-online")
+            if (args.Length >= 5 && (args[0] == "--momentum-combat-online" || args[0] == "--momentum-team-objective-online"))
             {
                 if (!Int32.TryParse(args[2], out int combatPort) || combatPort is < 1 or > 65535
                     || !Mods.Movement.MovementModelRules.TryParse(args[3], out var combatModel)) return 2;
@@ -470,9 +473,30 @@ namespace MphRead.NetTest
                 int faultSeed = args.Length > 11 && Int32.TryParse(args[11], out int parsedFaultSeed) ? parsedFaultSeed : 1;
                 Hunter hunter = args.Length > 12 && Enum.TryParse<Hunter>(args[12], true, out var parsedHunter) ? parsedHunter : Hunter.Samus;
                 int humanMin = args.Length > 13 && Int32.TryParse(args[13], out int parsedHumanMin) ? parsedHumanMin : 2;
+                bool teamObjective = args[0] == "--momentum-team-objective-online";
+                if (teamObjective && (args.Length is not (15 or 16) || humanMin != 2 || args[14] is not ("lobby-owner" or "member")
+                    || !Int32.TryParse(args[5], out _) || !UInt32.TryParse(args[6], out _))) return 2;
+                GameMode objectiveMode = GameMode.NodesTeams;
+                if (teamObjective && args.Length == 16 && (!Enum.TryParse(args[15], true, out objectiveMode)
+                    || objectiveMode is not (GameMode.NodesTeams or GameMode.DefenderTeams))) return 2;
                 return MomentumCombatOnlineTests.Run(combatPort, combatModel, output, seconds, seed,
                     args.Length > 7 ? args[7] : "200:20", args.Length > 8 ? args[8] : "0",
-                    args.Length > 9 ? args[9] : "0", args.Length > 10 ? args[10] : "0", faultSeed, hunter, humanMin);
+                    args.Length > 9 ? args[9] : "0", args.Length > 10 ? args[10] : "0", faultSeed, hunter, humanMin,
+                    teamObjective ? new MomentumTeamObjectiveOptions(args[14] == "lobby-owner", objectiveMode) : null);
+            }
+            if (args.Length is 3 or 4 && args[0] == "--momentum-team-objective-map")
+            {
+                string output = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                GameMode objectiveMode = GameMode.NodesTeams;
+                if (args.Length == 4 && (!Enum.TryParse(args[3], true, out objectiveMode)
+                    || objectiveMode is not (GameMode.NodesTeams or GameMode.DefenderTeams))) return 2;
+                string room = MomentumTeamObjectiveTests.SelectRoom(objectiveMode);
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(output)!);
+                System.IO.File.WriteAllText(output, System.Text.Json.JsonSerializer.Serialize(new { room, mode = objectiveMode.ToString(), players = 4 }));
+                Console.WriteLine("MOMENTUM TEAM OBJECTIVE ROOM " + room);
+                return 0;
             }
             if (args.Length > 1 && args[0] == "--momentum-input-cadence-gl")
             {
@@ -530,10 +554,13 @@ namespace MphRead.NetTest
                 int capacity = args.Length > 5 && Int32.TryParse(args[5], out int requestedCapacity) ? Math.Clamp(requestedCapacity, 2, 8) : 2;
                 int movementMatchSeconds = args.Length > 7 && Int32.TryParse(args[7], out int movementRequestedSeconds)
                     ? Math.Clamp(movementRequestedSeconds, 10, 120) : 120;
-                var movementTestRotation = args.Length > 8
+                GameMode movementGameMode = GameMode.Battle;
+                if (args.Length > 9 && (!Enum.TryParse<GameMode>(args[9], true, out movementGameMode) || !Enum.IsDefined(movementGameMode))) return 2;
+                string movementFirstRoom = args.Length > 10 ? args[10] : "MP3 PROVING GROUND";
+                var movementTestRotation = args.Length > 8 && args[8] != "-"
                     ? MapRotation.FromList(new (string RoomKey, GameMode Mode)[]
-                        { ("MP3 PROVING GROUND", GameMode.Battle), (args[8], GameMode.Battle) }, movementMatchSeconds, 999)
-                    : MapRotation.SingleMatch("MP3 PROVING GROUND", GameMode.Battle, movementMatchSeconds, 999);
+                        { (movementFirstRoom, movementGameMode), (args[8], movementGameMode) }, movementMatchSeconds, 999)
+                    : MapRotation.SingleMatch(movementFirstRoom, movementGameMode, movementMatchSeconds, 999);
                 var server = new DedicatedServer(movementPort, capacity, movementTestRotation)
                 {
                     MovementModel = model, ServerName = "movement acceptance", AutoUpdate = false,
