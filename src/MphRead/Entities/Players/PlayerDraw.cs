@@ -193,6 +193,7 @@ namespace MphRead.Entities
             if (IsMainPlayer || forceNetworkVisibility || ModNodeUnresolved || IsVisible(NodeRef))
             {
                 drawBiped = customDeathVisible || !IsMainPlayer || CameraType != CameraType.First
+                    || (IsMainPlayer && _scene.ModThirdPersonCameraActive)
                     || _scene.CameraSequences.Current != null
                     || _camSwitchTimer < Values.CamSwitchTime * 2; // todo: FPS stuff
                 if (drawAltForm && !drawAlive && _cosmeticDeath.Active
@@ -915,7 +916,7 @@ namespace MphRead.Entities
 
         private void DrawShadow(Vector3 drawPosition)
         {
-            if (IsMainPlayer && CameraType == CameraType.First)
+            if (IsMainPlayer && CameraType == CameraType.First && !_scene.ModThirdPersonCameraActive)
             {
                 return;
             }
