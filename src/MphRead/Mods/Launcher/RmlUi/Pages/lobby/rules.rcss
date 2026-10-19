@@ -219,7 +219,7 @@ nav-up: #rules_mode_next; nav-down: #rules_time;
 }
 
 #rules_apply {
-nav-left: #rules_cancel; nav-up: #rules_toggle15;
+nav-left: #rules_cancel; nav-up: #rules_toggle16;
 }
 
 #rules_cancel {

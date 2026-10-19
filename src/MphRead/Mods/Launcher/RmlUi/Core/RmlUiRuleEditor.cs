@@ -14,7 +14,7 @@ public readonly record struct RmlUiRuleDraft(ushort MatchId, ulong AuthorityEpoc
     ushort SessionRevision, MatchDefinition Match, LobbyRuleFlags Flags);
 
 /// <summary>
-/// A bounded local draft for the existing native 16-toggle rule sheet.
+/// A bounded local draft for the existing native 17-toggle rule sheet.
 /// The authoritative session only changes after UpdateMatch is validated
 /// and accepted by the server. No direct network, toolkit or scene calls.
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class RmlUiRuleEditor
 
     public bool Toggle(int index)
     {
-        if (index is < 0 or > 15) return false;
+        if (index is < 0 or > 16) return false;
         var match = Draft.Match;
         var flags = Draft.Flags;
         switch (index)
@@ -58,6 +58,7 @@ public sealed class RmlUiRuleEditor
             case 13: match = match with { VanillaDuelResources = !match.VanillaDuelResources }; break;
             case 14: match = match with { ShadowFreeze = !match.ShadowFreeze }; break;
             case 15: match = match with { OctolithAutoReset = !match.OctolithAutoReset }; break;
+            case 16: match = match with { ThirdPersonCamera = !match.ThirdPersonCamera }; break;
         }
         Draft = Draft with { Match = match, Flags = flags };
         return true;
@@ -85,6 +86,7 @@ public sealed class RmlUiRuleEditor
             13 => match.VanillaDuelResources,
             14 => match.ShadowFreeze,
             15 => match.OctolithAutoReset,
+            16 => match.ThirdPersonCamera,
             _ => false
         };
     }

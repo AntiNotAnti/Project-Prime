@@ -77,6 +77,11 @@ namespace MphRead.Mods.Network
             // late SessionState cannot leave a client on the wrong rule for
             // the first life of a round.
             GameState.SpawnProtection = state.SpawnProtection;
+            // A join-in-progress player receives this through SessionState;
+            // MatchState is also an authoritative fallback for late/reordered
+            // session packets. Never read local camera preferences in online play.
+            GameState.Current.ThirdPersonCamera = NetSession.ActiveMatchDefinition?.ThirdPersonCamera
+                ?? (((MatchModifierFlags)state.RuleBits & MatchModifierFlags.ThirdPersonCamera) != 0);
             GameState.EnhancedHunters = state.EnhancedHunters;
             // And whether weapon pickups are the picking hunter's affinity
             // variant, which is a different row of the damage table -- an

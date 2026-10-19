@@ -2537,7 +2537,10 @@ namespace MphRead.Mods.Network
         // Protocol 57 expands the accepted native player-name glyph repertoire.
         // Packet layouts are unchanged, but older clients reject the new glyph IDs;
         // reject mixed builds at Hello rather than corrupting names or replay facts.
-        public const int ProtocolVersion = 57;
+        // Protocol 58 adds the authoritative third-person presentation rule.
+        // Require all participants to understand the same host-enforced view
+        // instead of silently mixing competitive first- and third-person clients.
+        public const int ProtocolVersion = 58;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

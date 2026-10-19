@@ -3731,6 +3731,7 @@ namespace MphRead
             _viewMatrix = Matrix4.Identity;
             _viewInvRotMatrix = Matrix4.Identity;
             _viewInvRotYMatrix = Matrix4.Identity;
+            ModResetThirdPersonCameraFrame();
             if (_cameraMode == CameraMode.Pivot)
             {
                 _viewMatrix.Row3.Xyz = new Vector3(0, 0, _pivotDistance * -1);
@@ -3797,6 +3798,7 @@ namespace MphRead
                     // where tan(FOV / 2) is the quantity that scales linearly.
                     fov = Mods.RenderOptions.ScaleCameraFov(fov);
                     _cameraFov = MathHelper.DegreesToRadians(fov);
+                    ModApplyThirdPersonCamera(ref _viewMatrix);
                 }
                 else
                 {
@@ -3859,6 +3861,9 @@ namespace MphRead
                         ? camera.ModGetDrawPosition(Services.IsReplica ? ReplayRenderAlpha : Mods.Render.FrameTiming.PresentationAlpha)
                         : camera.Position;
                 }
+                // Frustum, lighting, billboards and the world draw use the
+                // same camera origin; only gameplay CameraInfo stays put.
+                _cameraPosition += _thirdPersonCameraOffset;
             }
         }
 

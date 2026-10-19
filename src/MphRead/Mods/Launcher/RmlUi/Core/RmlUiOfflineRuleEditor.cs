@@ -9,12 +9,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Core;
 public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLimit,
     string TimeGoal, string DamageLevel, ushort Flags)
 {
-    public bool Enabled(int index) => index is >= 0 and < 12 && (Flags & (1 << index)) != 0;
+    public bool Enabled(int index) => index is >= 0 and < 13 && (Flags & (1 << index)) != 0;
     public static RmlUiOfflineRules Capture(MenuSettings s)
     {
         string[] values = { s.AutoReset, s.FriendlyFire, s.AffinityWeapons, s.ShadowFreeze,
             s.SpawnProtection, s.OneInTheChamber, s.Fiesta, s.InstaGib, s.LowTier,
-            s.NoImperialist, s.BalancedMode, s.HunterRadar };
+            s.NoImperialist, s.BalancedMode, s.HunterRadar, s.ThirdPersonCamera };
         ushort flags = 0;
         for (int i = 0; i < values.Length; i++) if (values[i] == "on") flags |= (ushort)(1 << i);
         return new(s.PointGoal, s.TimeLimit, s.TimeGoal, s.DamageLevel, flags);
@@ -28,7 +28,7 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
         s.AutoReset = On(0); s.FriendlyFire = On(1); s.AffinityWeapons = On(2);
         s.ShadowFreeze = On(3); s.SpawnProtection = On(4); s.OneInTheChamber = On(5);
         s.Fiesta = On(6); s.InstaGib = On(7); s.LowTier = On(8); s.NoImperialist = On(9);
-        s.BalancedMode = On(10); s.HunterRadar = On(11);
+        s.BalancedMode = On(10); s.HunterRadar = On(11); s.ThirdPersonCamera = On(12);
     }
 
     // The caller holds the existing settings-write lease. Roll back the exact
@@ -48,7 +48,7 @@ public sealed class RmlUiOfflineRuleEditor
 {
     public static readonly string[] Labels = { "OCTOLITH AUTO RESET", "FRIENDLY FIRE", "AFFINITY WEAPONS",
         "SHADOW FREEZE", "SPAWN PROTECTION (3s)", "ONE IN THE CHAMBER", "FIESTA", "INSTA-GIB",
-        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR" };
+        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR", "THIRD PERSON CAMERA" };
     public RmlUiOfflineRules Original { get; }
     public RmlUiOfflineRules Draft { get; private set; }
     public GameMode Mode { get; }
@@ -68,7 +68,7 @@ public sealed class RmlUiOfflineRuleEditor
 
     public bool Toggle(int index)
     {
-        if (index is < 0 or >= 12 or 5 || index == 0 && !AutoResetVisible || index == 1 && !FireVisible) return false;
+        if (index is < 0 or >= 13 or 5 || index == 0 && !AutoResetVisible || index == 1 && !FireVisible) return false;
         ushort flags = (ushort)(Draft.Flags ^ (1 << index));
         // Match the legacy mutually exclusive loadout controls.
         if ((flags & (1 << index)) != 0 && index is 7 or 9)

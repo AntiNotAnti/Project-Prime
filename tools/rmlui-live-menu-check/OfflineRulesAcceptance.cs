@@ -8,12 +8,20 @@ internal static class OfflineRulesAcceptance
 {
     internal static void Run()
     {
+        var saved = new MenuSettings { ThirdPersonCamera = "on" };
+        var cameraRules = RmlUiOfflineRules.Capture(saved);
+        Check(cameraRules.Enabled(12), "saved third-person camera setting restores as a local rule");
+        (cameraRules with { Flags = (ushort)(cameraRules.Flags & ~(1 << 12)) }).CopyTo(saved);
+        Check(saved.ThirdPersonCamera == "off", "camera rule off is persisted independently");
         var services = new Stub();
         using var controller = new RmlUiMenuController(services);
         Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
             && controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
             && Flag("offline_rules_open") && controller.OfflineRuleInputs == services.OfflineRules,
             "native local rules open from the existing settings snapshot");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 12)
+            && controller.OfflineRuleInputs?.Enabled(12) == true,
+            "third-person camera is an independent local match rule");
         Check(controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 6)
             && controller.Dispatch(RmlUiIntentKind.OfflineDamage)
             && controller.OfflineRuleInputs?.Enabled(6) == true

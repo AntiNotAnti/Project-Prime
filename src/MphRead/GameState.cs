@@ -53,7 +53,7 @@ namespace MphRead
                 FriendlyFire = FriendlyFire, PointGoal = PointGoal, TimeGoal = TimeGoal,
                 OctolithReset = OctolithReset, RadarPlayers = RadarPlayers,
                 EnhancedHunters = EnhancedHunters, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
-                SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist, BalancedMode = BalancedMode
+                SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist, BalancedMode = BalancedMode, ThirdPersonCamera = ThirdPersonCamera
             };
             Nicknames.CopyTo(state.Nicknames, 0);
             return state;
@@ -175,6 +175,8 @@ namespace MphRead
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
         public bool BalancedMode { get; set; }
+        /// <summary>Host-selected visual match camera. Never changes aim, muzzle or authority.</summary>
+        public bool ThirdPersonCamera { get; set; }
 
         /// <summary>
         /// Whether the Judicator's ice wave keeps the cartridge's own reach.

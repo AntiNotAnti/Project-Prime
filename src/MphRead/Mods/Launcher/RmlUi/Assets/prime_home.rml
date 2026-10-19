@@ -362,6 +362,7 @@
                                         <button id="rules_toggle13" class="rules_toggle" data-event-click="lobby_rules_toggle13">VANILLA 1V1 PICKUPS <span>{{rules_toggle13}}</span></button>
                                         <button id="rules_toggle14" class="rules_toggle" data-event-click="lobby_rules_toggle14">SHADOW FREEZE <span>{{rules_toggle14}}</span></button>
                                         <button id="rules_toggle15" class="rules_toggle" data-event-click="lobby_rules_toggle15">OCTOLITH RESET <span>{{rules_toggle15}}</span></button>
+                                        <button id="rules_toggle16" class="rules_toggle" data-event-click="lobby_rules_toggle16">THIRD-PERSON CAMERA <span>{{rules_toggle16}}</span></button>
                                     </div>
                                 </div>
                             </div>
