@@ -135,7 +135,7 @@ public partial class Scene
                         GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _read);
                         GL.UseProgram(_program);
                         GL.ActiveTexture((TextureUnit)_activeTexture);
-                        GL.ClientActiveTexture((TextureUnit)_clientTexture);
+                        OpenTK.Graphics.OpenGL.GL.ClientActiveTexture((TextureUnit)_clientTexture);
                         GL.Viewport(_viewport[0], _viewport[1], _viewport[2], _viewport[3]);
                     }
                 }
