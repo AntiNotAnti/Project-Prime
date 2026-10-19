@@ -207,7 +207,13 @@ public partial class Scene
         {
             ReplayPreviewSize = framebuffer;
             int leftWidth = bounds.Z / 2, topHeight = bounds.W / 2;
-            for (int index = 0; index < 4; index++)
+            // The host already rendered the primary camera this frame.
+            // Blit the actual presented composite to the first tile instead of
+            // rendering its geometry/HUD a second time. The other three cameras
+            // remain separate, read-only draws on this same replay clock.
+            if (!BlitNativeReplayPrimaryTile(new Vector4i(bounds.X, bounds.Y,
+                    leftWidth, topHeight), framebuffer)) return false;
+            for (int index = 1; index < 4; index++)
             {
                 scope.RestoreCamera();
                 pass.Index = index;
