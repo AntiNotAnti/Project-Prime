@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "slice": "NCX-02",
-  "status": "IN_PROGRESS_UDP_ACCEPTANCE",
+  "status": "COMPLETE",
   "sourceCommit": "4284731bdde88f67c8832d2dfd4334b3d0e0fcf2",
   "integrationMain": "64894cd4558f5869a7968e02e9594c897d338c3e",
   "codeInputsSha256": "7070d503e94228384a9446eb93bfc6820f93ac361fdd12af2fe54d5007fd55e6",
@@ -85,5 +85,266 @@
   "noNewGameplayDefaults": true,
   "movementOwnership": "Owner reported; unchanged",
   "performanceOrSuperiorityClaim": false,
-  "rawArtifacts": "Ignored artifacts/ncx/NCX-02; retained failures not overwritten"
+  "rawArtifacts": "Ignored artifacts/ncx/NCX-02; retained failures not overwritten",
+  "finalIntegrationMain": "747676025be44a70a833fcda60cc3a5fed1fd4fe",
+  "buildSourceCommit": "4284731bdde88f67c8832d2dfd4334b3d0e0fcf2",
+  "finalIntegrationNote": "Main747676025 adds UI test/notes only outside the compiled-input closure. Every source05 compiled input and running assembly remains identical; no relabeling of captured source.",
+  "udp": {
+    "aggregate": "udp-results-05.json",
+    "aggregateSha256": "156389c4856addae20dd016760beb29d88fc80801770867e9921160f72ba806e",
+    "source": "4284731bdde88f67c8832d2dfd4334b3d0e0fcf2",
+    "cases": [
+      {
+        "profile": "lan",
+        "status": "PASS",
+        "receiptStatus": "PASS",
+        "boundedDrain": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "receipts": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 48,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 48,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 48,
+            "keyedRetirements": 48,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 49,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 49,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 49,
+            "keyedRetirements": 49,
+            "unresolved": 0
+          },
+          {
+            "process": "client-2",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "timelineCounts": {
+          "uniqueSourceKeys": 106,
+          "uniqueObservedShotKeys": 106,
+          "unknownStageRows": 0,
+          "claimReceivedRows": 97,
+          "uniqueReceivedClaims": 97,
+          "claimRetryObservations": 0,
+          "claimOfferedRows": 97,
+          "uniqueOfferedClaims": 97,
+          "claimResendOffers": 0,
+          "uniqueCommittedPayments": 103,
+          "committedPaymentRows": 103,
+          "deliveredTerminals": 97,
+          "retiredReceipts": 97
+        },
+        "authorityAppliedClaimDecisions": 0,
+        "manifestSha256": "ac6361a1483a4297dddd5af78357a22b973ca0c32542c1d933e192a15bc0ae92",
+        "receiptAuditSha256": "f842d2cb0049faa739b82f283dc59e54bfbf4811b83b7851a155bab9c03ddfdc",
+        "summarySha256": "17d0fc3b9083584ec1de37ca5a921680442e486f312209e07303a437e6a3cc76"
+      },
+      {
+        "profile": "moderate",
+        "status": "PASS",
+        "receiptStatus": "PASS",
+        "boundedDrain": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "receipts": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 45,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 45,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 45,
+            "keyedRetirements": 45,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 45,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 45,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 45,
+            "keyedRetirements": 45,
+            "unresolved": 0
+          },
+          {
+            "process": "client-2",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "timelineCounts": {
+          "uniqueSourceKeys": 92,
+          "uniqueObservedShotKeys": 92,
+          "unknownStageRows": 0,
+          "claimReceivedRows": 92,
+          "uniqueReceivedClaims": 90,
+          "claimRetryObservations": 2,
+          "claimOfferedRows": 93,
+          "uniqueOfferedClaims": 90,
+          "claimResendOffers": 3,
+          "uniqueCommittedPayments": 90,
+          "committedPaymentRows": 90,
+          "deliveredTerminals": 90,
+          "retiredReceipts": 90
+        },
+        "authorityAppliedClaimDecisions": 0,
+        "manifestSha256": "abc32b8d50c2e5efe65980efb2d09aa0cb483efbcdac2eeb83e04256702c2d79",
+        "receiptAuditSha256": "625d4a096ec854c4171946fc5d4c2d5401786d452737bcdf3e3da33b62b5db16",
+        "summarySha256": "a0c4f9e98b487ea9c6075ccc012b17ec7b6806eb5c633625d8c38a56b907c5ed"
+      },
+      {
+        "profile": "poor",
+        "status": "PASS",
+        "receiptStatus": "PASS",
+        "boundedDrain": "PASS",
+        "failures": [],
+        "incomplete": [],
+        "receipts": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 64,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 64,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 64,
+            "keyedRetirements": 64,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 64,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 64,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 64,
+            "keyedRetirements": 64,
+            "unresolved": 0
+          },
+          {
+            "process": "client-2",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "timelineCounts": {
+          "uniqueSourceKeys": 136,
+          "uniqueObservedShotKeys": 136,
+          "unknownStageRows": 0,
+          "claimReceivedRows": 135,
+          "uniqueReceivedClaims": 128,
+          "claimRetryObservations": 7,
+          "claimOfferedRows": 137,
+          "uniqueOfferedClaims": 128,
+          "claimResendOffers": 9,
+          "uniqueCommittedPayments": 129,
+          "committedPaymentRows": 129,
+          "deliveredTerminals": 128,
+          "retiredReceipts": 128
+        },
+        "authorityAppliedClaimDecisions": 2,
+        "manifestSha256": "59504cd3604dc4c7afa598ab8d31de42da72d71f4448fe5f837ef28fe31a7b49",
+        "receiptAuditSha256": "e6f88bc0783619f62cb6022ebc1642fefc1404497d0127b5ff0751e054729ef8",
+        "summarySha256": "390d30893106ba50339c52fe8a6e32c366a395a36fa5676deb2d77facd9e07e8"
+      }
+    ],
+    "totalDeclarations": 315,
+    "totalDelivered": 315,
+    "finalOutstanding": 0,
+    "scope": "Three serial3peer headless UDP controls;configured LAN/moderate/poor faultprofiles, not performance, actual drop-rate or full resilience qualification"
+  },
+  "acceptance": {
+    "onePaymentPerKey": "PASS:native/claim ordering,direct/splash/child,phase,life tests;315live receipts and322component payments across3controls with no duplicate committed row",
+    "terminalAccounting": "PASS:all seven retirement paths in constructed production-outbox tests;315exact live deliveries,0outstanding",
+    "priorArbitrationParity": "PASS:1157arbitration+667continuous assertions eachoff/on,698receipt checks eachoff/on;46unchanged native goldens+knownprior1unit divergence",
+    "latestSource": "PASS:build05zero warnings/errors;main747676025integrated with identical compiled inputs",
+    "wireCompatibility": "Protocol59unchanged;protocol17/transport/replayarch checks pass;Phase is internal canonical identity only"
+  }
 }

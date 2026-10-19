@@ -1,6 +1,6 @@
 # NCX-02 canonical claim identity and terminal receipts
 
-Status: implementation under acceptance; NCX-01 merged in PR #754 at `33cb131a3`.
+Status: complete scoped NCX-02 acceptance; NCX-01 merged in PR #754 at `33cb131a3`.
 This slice extends the existing payment ledger, claim cache and prediction outbox. It
 introduces no combat controller, client-owned damage, movement enforcement or fast path.
 
@@ -68,3 +68,28 @@ live accepted-source/claim/payment/receipt workload demonstrates its required ac
 
 Rollback is a matched-source revert of this slice. No new rollout flag or gameplay default
 is enabled. Retained failure artifacts and old evidence remain source-qualified.
+
+Final qualified build source is `4284731bd`, engine SHA256
+`1852fd39e31080781f4d3fc7b45461bc207b200174e63259cc4f7781503c95c5`.
+Build05 has zero warnings/errors. The preceding unchanged combat implementation passes
+41 off/on routes; final affected off/on checks pass 698 receipt, 1157 arbitration and
+667 continuous assertions per mode, plus protocol and custom-isolation controls. Native
+fidelity retains 46 identical passing hashes and the known missile tick-177 Z divergence;
+raw exit 1 remains and no golden is regenerated. Python exporter tests51 and comparator
+tests23 pass. Failed compile, malformed-shape allocation and headless-observer attempts
+remain in the manifest; none is retroactively promoted.
+
+All three serial three-peer UDP controls pass gameplay, bounded drain and keyed receipt
+accounting: LAN97, moderate90 and poor128 declarations, exactly315 deliveries in total,
+zero outstanding or duplicate retirement identities. Authority component-payment rows
+are103/90/129, each unique; these are separate denominators from declarations. The poor
+control also observes two claim-rescue decisions. Fault profiles are configured simulator
+settings; this does not certify an actual loss rate, performance or full fault matrix.
+The initial headless observer failure used a firing requirement; the corrected harness
+uses the same existing no-fire lifecycle/source evidence guard as rendered clients.
+
+Main `747676025` is integrated after qualification. Its latest UI-test/notes changes are
+outside the compiled closure: `code-stability-05.json` verifies every captured source,
+project and shader input remains identical. Earlier measurements keep their original
+build/source identity. Full records and retained limitations are in the
+[validation manifest](../../tools/nettest/baselines/ncx-receipts.json).

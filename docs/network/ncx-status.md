@@ -13,8 +13,8 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | --- | --- | --- |
 | NCX-00 | Exact-source baseline, ownership and capability audit | Complete; 23 reference routes pass, characterized fidelity failure retained |
 | NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Complete scoped measurement; 31 routes, positive keyed pixels, three Prime controls, seven requested cadence observations and 18 A/A cases; native failures/unsupported comparisons retained |
-| NCX-02 | Canonical causal payment identity and definitive terminal results | Ready after NCX-01 merge |
-| NCX-03 | Bounded shadow fast-decision layer | Pending NCX-02 |
+| NCX-02 | Canonical causal payment identity and definitive terminal results | Complete; pinned causal receipts, typed retirement, native parity and315exact UDP deliveries |
+| NCX-03 | Bounded shadow fast-decision layer | Ready after NCX-02 merge |
 | NCX-04 | Certified narrow-family fast settlement | Pending NCX-03 evidence |
 | NCX-05 | Independently certified family extensions and explicit fallbacks | Pending NCX-04 |
 | NCX-06 | Prediction retirement and confirmation presentation | Pending NCX-05 |
@@ -35,3 +35,7 @@ Local raw artifacts live under `artifacts/ncx/NCX-NN/`; committed manifests live
 `tools/nettest/baselines/`. Never commit game assets, player/account identifiers, credentials
 or private packet/video captures. Release and superiority claims require the full evidence
 defined in the plan, including rendered pixels, paired statistics and physical devices.
+
+NCX-01 merged as [PR #754](https://github.com/AntiNotAnti/Project-Prime/pull/754),
+`33cb131a3f616bd61cb341b3688c7c2a825c0257`. CI was queued/running at the explicit immediate
+merge request; those checks are not reported as PASS.
