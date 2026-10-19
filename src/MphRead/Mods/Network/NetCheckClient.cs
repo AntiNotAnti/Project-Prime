@@ -989,7 +989,10 @@ namespace MphRead.Mods.Network
             string? shotDirectory, int width, int height, bool recordDemo = false,
             double spectateAt = -1, double rejoinAt = -1, int color = -1, bool simulationOnly = false)
         {
-            if (!NetLaunch.Join(host, port, name, hunter, color: color))
+            bool joined = HitRig.NcxFixtureActive && NetCampaignEvidence.Enabled
+                ? NcxFixtureLobbyJoin.Join(host, port, name, hunter, color: color)
+                : NetLaunch.Join(host, port, name, hunter, color: color);
+            if (!joined)
             {
                 Console.WriteLine($"[netcheck] {name} could not join");
                 NetSession.Stop();

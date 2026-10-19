@@ -90,7 +90,7 @@ namespace MphRead
         internal NcxDrawScope NcxBeamItems(BeamProjectileEntity beam) => NcxSourceItems(
             // Narrow flight proof: native Power Beam Draw00 consists of its direct
             // trail and a deferred SingleParticle. Persistent effects are unsupported.
-            beam.Beam == BeamType.PowerBeam && beam.DrawFuncId == 0
+            beam.Beam == BeamType.PowerBeam && beam.DrawFuncId == 0 && beam.ModCustomDefinition == null
                 ? new(beam.ModLaunchKey, beam.ModComponentId, 0, 0, Weapon: (byte)beam.Beam) : default);
         internal NcxDrawScope NcxSourceItems(Mods.Network.NcxDrawIdentity identity)
         {

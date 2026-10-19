@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import fruity_comparator as native
 
@@ -50,6 +51,22 @@ class FruityComparatorTests(unittest.TestCase):
         self.assertEqual(argv[argv.index('-hitrig') + 1], 'wells:powerbeam')
         self.assertNotIn('-servershots', argv)
 
+    def test_native_fixture_registration_precedes_process_start_in_private_resource_maps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / 'private/FruityPrime.app/Contents/MacOS/FruityPrime'
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(b'qualified binary')
+            definitions = root / 'declared'
+            definitions.mkdir()
+            recipe = definitions / 'fixture.json'
+            recipe.write_text('{"name":"DECLARED"}')
+            destination = native.stage_fixture_maps(binary, definitions)
+            self.assertEqual(destination, binary.parent.parent / 'Resources/maps')
+            self.assertEqual(native.digest(destination / 'fixture.json'), native.digest(recipe))
+            self.assertEqual(binary.read_bytes(), b'qualified binary')
+            with self.assertRaises(FileExistsError): native.stage_fixture_maps(binary, definitions)
+
     def test_emulated_fixture_contract_and_roles_match_existing_native_route(self):
         maps = Path(__file__).parent / 'fixtures/ncx-emulated'
         for scenario, (room, rig) in native.NCX_FIXTURES.items():
@@ -81,6 +98,9 @@ class FruityComparatorTests(unittest.TestCase):
         text = '[netcheck] peer-0 joined slot 0, loading ROOM (Battle)\n  packets: snapshots sent=0 received=187 late=0\n  RESULT: FAIL -- coverage\n'
         self.assertEqual(native.observe_client(text), {'joinedSlots': [0], 'snapshotsReceived': 187, 'nativeResult': 'FAIL'})
         self.assertEqual(native.observe_client('anything')['nativeResult'], 'UNAVAILABLE')
+        self.assertFalse(native.scene_started('[server] listening on UDP 28193'))
+        self.assertFalse(native.scene_started('[sim] could not load declared room'))
+        self.assertTrue(native.scene_started('[17:00:00] [server] this server runs the match itself'))
 
     def test_native_failures_are_preserved_even_with_successful_udp(self):
         records = [dict(name='server', expectedClients=2, exit=-15, timedOut=False)] + [
@@ -161,6 +181,102 @@ class FruityComparatorTests(unittest.TestCase):
             runner.parse_args([v for v in base if v != '--rendered'] + ['--presentation-hz', '60'])
         with self.assertRaises(SystemExit):
             runner.parse_args([v for v in base if v != '--shot-timeline'] + ['--presentation-hz', '60'])
+
+    def test_prime_fixture_player_count_is_explicit_and_client_only(self):
+        base = ['--build', '.', '--paths', 'paths.txt', '--source', 'fixture', '--out', '/private/fresh']
+        args = runner.parse_args(base)
+        inherited = {'PRIME_NCX_FIXTURE_PLAYERS': '8'}
+        self.assertNotIn('PRIME_NCX_FIXTURE_PLAYERS', runner.child_environment(args, 'peer-0', Path('/private/peer'), inherited))
+        args.scenario, args.players = 'ncx-static', 3
+        for name in ('peer-0', 'peer-1', 'peer-2'):
+            self.assertEqual(runner.child_environment(args, name, Path('/private/peer'), inherited)['PRIME_NCX_FIXTURE_PLAYERS'], '3')
+        for name in ('server', 'fixture-preparation'):
+            self.assertNotIn('PRIME_NCX_FIXTURE_PLAYERS', runner.child_environment(args, name, Path('/private/peer'), inherited))
+
+    def test_prime_fixture_admission_requires_exact_authenticated_receipt_and_slot(self):
+        for text in ('joined slot 2', '[net] connected in Match, slot 2',
+                     'diagnostic [net] connected in Lobby, slot 2',
+                     '[net] connected in Lobby, slot 2 trailing text'):
+            self.assertEqual(runner.prime_fixture_admission(text, 2)['status'], 'WAIT')
+        self.assertEqual(runner.prime_fixture_admission('[net] connected in Lobby, slot 2\n', 2)['status'], 'PASS')
+        self.assertEqual(runner.prime_fixture_admission('[net] connected in Lobby, slot 1\n', 2)['status'], 'FAIL')
+        self.assertEqual(runner.prime_fixture_admission('[net] connected in Lobby, slot 2\n[net] connected in Lobby, slot 1', 2)['status'], 'FAIL')
+
+    def test_prime_fixture_admission_records_success_and_preserves_wrong_role_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = SimpleNamespace(out=root)
+            live = SimpleNamespace(poll=lambda: None)
+            log = root / 'peer-2.log'
+            log.write_text('[net] connected in Lobby, slot 2\n')
+            manifest = {}
+            runner.wait_prime_fixture_admission(args, 'peer-2', 2, live, live, manifest)
+            self.assertEqual(manifest['fixtureAdmissions']['peer-2']['status'], 'PASS')
+            log.write_text('[net] connected in Lobby, slot 1\n')
+            with self.assertRaises(RuntimeError):
+                runner.wait_prime_fixture_admission(args, 'peer-2', 2, live, live, manifest)
+            saved = json.loads((root / 'manifest.json').read_text())['fixtureAdmissions']['peer-2']
+            self.assertEqual(saved['assignedSlots'], [1])
+            self.assertEqual(saved['status'], 'FAIL')
+            self.assertTrue(log.is_file())
+
+    def test_prime_fixture_admission_fails_on_exit_or_bounded_timeout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = SimpleNamespace(out=Path(directory))
+            live, exited = SimpleNamespace(poll=lambda: None), SimpleNamespace(poll=lambda: 1)
+            for peer, server, reason in ((exited, live, 'peer exited'), (live, exited, 'server exited')):
+                with self.assertRaisesRegex(RuntimeError, reason):
+                    runner.wait_prime_fixture_admission(args, 'peer-0', 0, peer, server, {})
+            with patch.object(runner.time, 'monotonic', side_effect=[0, 36]):
+                with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                    runner.wait_prime_fixture_admission(args, 'peer-0', 0, live, live, {})
+            saved = json.loads((args.out / 'manifest.json').read_text())['fixtureAdmissions']['peer-0']
+            self.assertEqual(saved['timeoutSeconds'], 35)
+            self.assertEqual(saved['status'], 'FAIL')
+
+    def test_prime_fixture_packages_are_cooked_once_then_identical_for_all_roles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self.args()
+            args.scenario, args.rooms = 'ncx-static', 'NCX EMULATED STATIC'
+            args.fixture_maps, args.out = Path(__file__).parent / 'fixtures/ncx-emulated', root
+            stage = root / 'bin'
+            stage.mkdir()
+            def cook(command, **options):
+                self.assertEqual(options['cwd'], stage)
+                self.assertNotIn('PRIME_NCX_FIXTURE_PLAYERS', options['env'])
+                output = Path(command[command.index('-out') + 1])
+                output.write_bytes(('cooked ' + command[command.index('-mapbundle') + 1]).encode())
+                return SimpleNamespace(returncode=0)
+            manifest = {}
+            with patch.object(runner.subprocess, 'run', side_effect=cook) as execute:
+                packages = runner.prepare_prime_fixture_packages(args, 'dotnet', stage / 'ProjectPrime.dll', stage,
+                    '0.35.1.0\nAMHE1=/private/copied-assets\nExport=/old\n', manifest)
+            self.assertEqual(execute.call_count, 3)
+            self.assertEqual(len(manifest['fixturePreparation']['rawRecipes']), 3)
+            for role in ('server', 'peer-0', 'peer-1', 'peer-2'):
+                maps = root / (role + '-maps')
+                copied = runner.stage_prime_fixture_packages(packages, maps)
+                self.assertEqual([p['sha256'] for p in copied], [p['sha256'] for p in packages])
+                self.assertEqual({p.suffix for p in maps.iterdir()}, {'.ppmap'})
+            Path(packages[0]['path']).write_bytes(b'changed package')
+            with self.assertRaises(RuntimeError): runner.stage_prime_fixture_packages(packages, root / 'changed-maps')
+
+    def test_prime_fixture_package_failure_preserves_exact_command_log_and_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = self.args()
+            args.scenario, args.rooms = 'ncx-static', 'NCX EMULATED STATIC'
+            args.fixture_maps, args.out = Path(__file__).parent / 'fixtures/ncx-emulated', root
+            manifest = {}
+            with patch.object(runner.subprocess, 'run', return_value=SimpleNamespace(returncode=2)):
+                with self.assertRaises(RuntimeError):
+                    runner.prepare_prime_fixture_packages(args, 'dotnet', root / 'ProjectPrime.dll', root, '', manifest)
+            saved = json.loads((root / 'manifest.json').read_text())['fixturePreparation']
+            self.assertEqual(saved['commands'][0]['exit'], 2)
+            self.assertIn('-mapbundle', saved['commands'][0]['argv'])
+            self.assertTrue(Path(saved['commands'][0]['log']).is_file())
+            self.assertFalse(saved['packages'])
 
     def test_native_options_reject_unsupported_or_unqualified_controls(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -131,6 +131,8 @@ namespace MphRead.NetTest
                 return ShotTimelineTests.Run(args[1] == "on");
             if (args.Length == 1 && args[0] == "--ncx-fixtures")
                 return NcxFixtureTests.Run();
+            if (args.Length == 1 && args[0] == "--ncx-fixture-lobby")
+                return NcxFixtureLobbyJoinTests.Run();
             if (args.Length == 1 && args[0] == "--ncx-visibility")
                 return ShotVisibilityTests.Run();
             if (args.Length == 1 && args[0] == "--ncx-hit-oracle")

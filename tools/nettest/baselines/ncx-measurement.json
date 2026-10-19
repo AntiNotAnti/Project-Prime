@@ -1,0 +1,390 @@
+{
+  "schema": 1,
+  "slice": "NCX-01",
+  "status": "IN_PROGRESS",
+  "sourceCommit": "062f868fdda0fc9b302616cc13745c0bfde98b3b",
+  "integrationMain": "2e3eeef10",
+  "protocol": 59,
+  "engineSha256": "e4246365b873f117b0b0c05ca268203beb3d9c665f66c8ac6c5308f349ea689b",
+  "runnerSha256": "bda7c811dba3e35492515fb8566ad21014afca4231b13a36b5c33d00df5f3757",
+  "runtime": {
+    "sdk": "10.0.401",
+    "framework": ".NET10.0.12",
+    "platform": "macOS27.0.1 arm64",
+    "simulationHz": 60
+  },
+  "build": {
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0,
+    "log": "integrated-build-06.log",
+    "logSha256": "7f33fe987399de6690808e9ec173a31f3b773a59f8e559a4307652053a674adc"
+  },
+  "checks": {
+    "status": "PASS",
+    "routes": [
+      {
+        "route": "--ncx-timeline",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-timeline-off-06.log",
+        "logSha256": "df0149183a9e2806af0ae7cc82a29f9ecba82a1517f3242fc72503b46c96327b"
+      },
+      {
+        "route": "--ncx-visibility",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-visibility-off-06.log",
+        "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
+      },
+      {
+        "route": "--ncx-hit-oracle",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-hit-oracle-off-06.log",
+        "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
+      },
+      {
+        "route": "--ncx-fixtures",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-fixtures-off-06.log",
+        "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
+      },
+      {
+        "route": "--architecture",
+        "mode": "off",
+        "exit": 0,
+        "log": "architecture-off-06.log",
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      },
+      {
+        "route": "--protocol58-replay",
+        "mode": "off",
+        "exit": 0,
+        "log": "protocol58-replay-off-06.log",
+        "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
+      },
+      {
+        "route": "--claim-stress",
+        "mode": "off",
+        "exit": 0,
+        "log": "claim-stress-off-06.log",
+        "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      },
+      {
+        "route": "--shot-lifecycle",
+        "mode": "off",
+        "exit": 0,
+        "log": "shot-lifecycle-off-06.log",
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "route": "--shot-inputs",
+        "mode": "off",
+        "exit": 0,
+        "log": "shot-inputs-off-06.log",
+        "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
+      },
+      {
+        "route": "--netcode-performance",
+        "mode": "off",
+        "exit": 0,
+        "log": "netcode-performance-off-06.log",
+        "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
+      },
+      {
+        "route": "--combat-arbitration-scene",
+        "mode": "off",
+        "exit": 0,
+        "log": "combat-arbitration-scene-off-06.log",
+        "logSha256": "066b8cd4d4be73dc3536cb9ff7930ec1e6f278cd5474e3a849c7c957deabd3ce"
+      },
+      {
+        "route": "--continuous-combat-scene",
+        "mode": "off",
+        "exit": 0,
+        "log": "continuous-combat-scene-off-06.log",
+        "logSha256": "678d22f380ed8c5717def82c4d24527eb95ddb4fd8f4f4025f75718617eb6e61"
+      },
+      {
+        "route": "--impact-authority",
+        "mode": "off",
+        "exit": 0,
+        "log": "impact-authority-off-06.log",
+        "logSha256": "93046bb074cf36bb2dd08bca345e12ce0427099754d15e8e93fd47a454199d95"
+      },
+      {
+        "route": "--ncx-timeline",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-timeline-on-06.log",
+        "logSha256": "0e33f1ee65ce4a43412b7c4c1d1157e70ff9ccdce7a6b75144188f889d0459e6"
+      },
+      {
+        "route": "--ncx-visibility",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-visibility-on-06.log",
+        "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
+      },
+      {
+        "route": "--ncx-hit-oracle",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-hit-oracle-on-06.log",
+        "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
+      },
+      {
+        "route": "--ncx-fixtures",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-fixtures-on-06.log",
+        "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
+      },
+      {
+        "route": "--architecture",
+        "mode": "on",
+        "exit": 0,
+        "log": "architecture-on-06.log",
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      },
+      {
+        "route": "--protocol58-replay",
+        "mode": "on",
+        "exit": 0,
+        "log": "protocol58-replay-on-06.log",
+        "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
+      },
+      {
+        "route": "--claim-stress",
+        "mode": "on",
+        "exit": 0,
+        "log": "claim-stress-on-06.log",
+        "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      },
+      {
+        "route": "--shot-lifecycle",
+        "mode": "on",
+        "exit": 0,
+        "log": "shot-lifecycle-on-06.log",
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "route": "--shot-inputs",
+        "mode": "on",
+        "exit": 0,
+        "log": "shot-inputs-on-06.log",
+        "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
+      },
+      {
+        "route": "--netcode-performance",
+        "mode": "on",
+        "exit": 0,
+        "log": "netcode-performance-on-06.log",
+        "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
+      },
+      {
+        "route": "--combat-arbitration-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "combat-arbitration-scene-on-06.log",
+        "logSha256": "01dd51d44a2539cd09ad28ea93628456e7ca94a7cdef34644afa1aa9201d8f4a"
+      },
+      {
+        "route": "--continuous-combat-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "continuous-combat-scene-on-06.log",
+        "logSha256": "0e743e4f4fa6341af09d0fa0b50f0d57a53006eed92793b8ae567a24fa0168c3"
+      },
+      {
+        "route": "--impact-authority",
+        "mode": "on",
+        "exit": 0,
+        "log": "impact-authority-on-06.log",
+        "logSha256": "90eb431fbc3966707b475ea2326587b118f556a3ca0713c6fc5529f217cceb48"
+      },
+      {
+        "route": "--ncx-hit-oracle-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-hit-oracle-scene-on-06.log",
+        "logSha256": "0ed4ebbc3d0ceefdc87477a35c17d9ec5fb3a8176cc8a8ebdd5766173229bc29"
+      }
+    ]
+  },
+  "narrowOracle": {
+    "status": "PASS",
+    "scope": "Declared-resource accepted native internal-admission geometry; frozen Imperialist first segment, biped only; no contested claim verdict input",
+    "nativeAssertions": 949,
+    "observedRows": 36,
+    "qualifiedHistoricalContactRows": 31,
+    "qualifiedMissRows": 1,
+    "unavailableRows": 4,
+    "legalDamageDenominator": "UNAVAILABLE",
+    "rawCapture": "oracle-scene-06.json",
+    "rawSha256": "6e5adc774affdf1b6dd61a2354c3791f66c2ae811b5c94ee64a80a9aa1ef3d14"
+  },
+  "retainedRenderedRun": {
+    "directory": "prime-pixels-lan-04",
+    "campaign": "FAIL",
+    "failure": "Victim view refused4authority-accepted projectile spawns",
+    "drain": "PASS",
+    "verifiedPixelControls": 192,
+    "verifiedVisibleSamples": [
+      60,
+      5,
+      49
+    ],
+    "visibleExactPaidCueSamples": {
+      "shooter": 13,
+      "victim": 2,
+      "spectator": 14
+    },
+    "fullSourceCoverage": "INCOMPLETE: capped64samples per camera and ambiguous/absent authority associations",
+    "achievedHz": [
+      30.5908563779,
+      28.7593386492,
+      41.0813410089
+    ],
+    "requestedHz": 60,
+    "cpuComparison": "DISQUALIFIED",
+    "auditSha256": "e460d871c99d6990a0de0c486681d33184fdf1bb2fbbbfc0a3a1a317c0239374"
+  },
+  "retainedProbeOffControl": {
+    "directory": "prime-pixels-control-lan-04",
+    "campaign": "PASS",
+    "drain": "PASS",
+    "droppedSteps": [
+      0,
+      0,
+      0
+    ],
+    "achievedHz": [
+      42.031594391,
+      41.2908846478,
+      56.4466208174
+    ],
+    "requestedHz": 60
+  },
+  "comparator": {
+    "sourceCommit": "12ff677b9700bc8dabde37eb9a3fdd10c62b87b6",
+    "profileAdapterSha256": "448c5f77b4981d01273d37f8d433f35ad31e19cebff19c54c18b9cc4e5025b79",
+    "binarySha256": "b97712d6b83942dc125076c100cb55b32ba9607106f7db6b5758b225209464ec",
+    "packageSmoke": "PASS",
+    "udpControl": "PASS",
+    "upstreamHarnessControl": "PASS",
+    "comparison": "NOT_QUALIFIED",
+    "limits": [
+      "Prime frontier drain unavailable upstream",
+      "Exact-shot native pixels and independent legal-hit oracle not certified"
+    ],
+    "presentationRateComparison": "UNSUPPORTED by existing native matched netcheck harness; repeated interpolated draw bursts do not establish requested wall-clock cadence",
+    "emulatedFixtures": {
+      "aggregate": "fruity-emulated-controls-results-02.json",
+      "sha256": "e14a18f5f794fc5ba77dc20610e4d4b3e390a1f5fd2dd1a708419009e81e2b2c",
+      "udp": "PASS",
+      "assignedRoles": "PASS",
+      "nativeHarness": "FAIL",
+      "reason": "Declared observer placement differs from generic reference position; generic lateral/jump observer damage coverage unmet. Failures retained."
+    }
+  },
+  "remainingGates": [
+    "Passing capture workload after caching diagnostic assembly hash",
+    "Matched static/lateral/jump control observations and exact roles on both engines",
+    "Requested30/60/120/144/240/360/500presentation matrix with actual achieved rates",
+    "A/A variance measurement",
+    "Source-qualified acceptance manifest and independently reviewable PR"
+  ],
+  "defaults": {
+    "timeline": "off",
+    "pixelProbe": "off",
+    "fastPayment": "not implemented",
+    "movementOwnership": "owner reported, unchanged",
+    "remoteDeath": "authority confirmed, unchanged"
+  },
+  "rawArtifacts": "Ignored artifacts/ncx/NCX-01; retained failures are never replaced by later results",
+  "performanceOrSuperiorityClaim": false,
+  "historicalComparatorMetrics": {
+    "classification": "CONTACT_PRESENTATION_EVENT_DIAGNOSTICS",
+    "actualFramebufferPixels": false,
+    "fullLifecycleIdentity": false,
+    "reportedVictimPercent": [
+      94,
+      95,
+      94
+    ],
+    "reportedObserverPercent": 93,
+    "primaryReport": "https://github.com/liveteklol/Fruity-Prime/pull/109#issuecomment-6062360519",
+    "setup": "Headless native -netcheck -headless -hitlog; contact/synthesized-effect event joins, launch tolerance3frames and nearby damage/impact750ms",
+    "directlyComparableToPixelReleaseTarget": false,
+    "researchManifestSha256": "1eb89a92649b5926305169f8e110c92e5282b932c02c229228b835fd8da27b9f"
+  },
+  "retainedLooseFixtureFailure": {
+    "directory": "prime-ncx-static-pixels-06",
+    "status": "FAIL",
+    "gameplayEvidence": false,
+    "reason": "All three clients timed out in custom-map lobby; loose JSON is not an installed exact package, and ordinary netcheck terminal join does not issue owner ready/start commands."
+  },
+  "identicalBinaryCalibration": {
+    "directory": "aa-integrated-06-01",
+    "status": "BLOCKED_CONCURRENT_TEST",
+    "casesExecuted": 0,
+    "varianceMeasured": false,
+    "reason": "Existing run-net13-matched guard detected independent active builds/tests; none terminated."
+  },
+  "staticFixtureEncoding": {
+    "status": "PASS",
+    "scope": "Retained compiled06 Prime and nativecontrol02 outputs only; not runtime/contact/render parity",
+    "manifest": "fruity-prime-retained-fixture-geometry-01.json",
+    "sha256": "df01a209b5979974d1f921378343dab6e647603a95339a79bc906ff13dc4b085",
+    "entities": "Byte identical spawns/pads and empty animation",
+    "collision": "Same six solid surfaces, directed edges, point/plane sets and all385grid memberships; distinct serialization",
+    "renderModelAndNodes": "Different encodings, runtime visibility unqualified"
+  },
+  "fixtureSetupChecks": {
+    "pythonNcxExporterTests": 42,
+    "pythonComparatorPackageTests": 16,
+    "slotAdmissionRelatedTests": 49,
+    "csharpBuild07": "INTERRUPTED_RESOURCE_PRESSURE",
+    "csharpBuild07b": "PASS",
+    "runtimeGameplaySettingsChanged": false,
+    "warnings": 0,
+    "errors": 0,
+    "focusedRoutes": [
+      {
+        "route": "--ncx-fixture-lobby",
+        "exit": 0,
+        "log": "ncx-fixture-lobby-07b.log",
+        "logSha256": "a8762ceda5bf7c7f202788f6528826361202282582a5f59a96df1bdf27f42c65"
+      },
+      {
+        "route": "--ncx-fixtures",
+        "exit": 0,
+        "log": "ncx-fixtures-07b.log",
+        "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
+      },
+      {
+        "route": "--ncx-visibility",
+        "exit": 0,
+        "log": "ncx-visibility-07b.log",
+        "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
+      },
+      {
+        "route": "--ncx-hit-oracle",
+        "exit": 0,
+        "log": "ncx-hit-oracle-07b.log",
+        "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
+      },
+      {
+        "route": "--architecture",
+        "exit": 0,
+        "log": "architecture-07b.log",
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      }
+    ],
+    "compiledSourceCodeSha256": "f343da0225d4a9109fc34aa8af5bc1b5eb9fc843192b0c66688a679bfbd201e2",
+    "engineSha256": "f993fcdae831a203e514a126354f9418b71767c19b8dabe21b2470557b474bef"
+  }
+}

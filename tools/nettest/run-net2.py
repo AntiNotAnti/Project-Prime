@@ -49,6 +49,8 @@ def child_environment(args, name, profile, inherited=None):
         env["PRIME_NCX_VISIBILITY"] = str((profile / "ncx-visibility.json").resolve())
     if getattr(args, "presentation_hz", None) is not None and name != "server":
         env["PRIME_NCX_PRESENTATION_HZ"] = str(args.presentation_hz)
+    if getattr(args, "scenario", None) in NCX_FIXTURES and name.startswith("peer-"):
+        env["PRIME_NCX_FIXTURE_PLAYERS"] = str(args.players)
     if args.evidence_row_limit is not None:
         env["PRIME_NET2_EVIDENCE_ROW_LIMIT"] = str(args.evidence_row_limit)
     if args.timed_replay_facts and name == "server":
@@ -133,6 +135,115 @@ def stage_build(build, stage):
 
 def save(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def prepare_prime_fixture_packages(args, dotnet, assembly, stage, profile_text, manifest):
+    """Cook declared recipes with the staged build's ordinary mapbundle CLI."""
+    from fruity_comparator import qualified_fixture
+    qualified_fixture(args)
+    profile = args.out / "fixture-preparation"
+    profile.mkdir()
+    exports = profile / "exports"
+    exports.mkdir()
+    lines = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
+    (profile / "paths.txt").write_text("\n".join([*lines, f"Export={exports}", ""]), encoding="utf-8")
+    recipes, packages = profile / "recipes", profile / "packages"
+    shutil.copytree(args.fixture_maps.resolve(), recipes)
+    packages.mkdir()
+    preparation = {"scope": "Existing mapbundle CLI in private preparation profile; identical packages copied to every process MapDir",
+                   "commands": [], "rawRecipes": [], "packages": []}
+    manifest["fixturePreparation"] = preparation
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(("PRIME_", "MPHREAD_", "PROJECT_PRIME_"))}
+    env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null")
+    for recipe in sorted(recipes.glob("*.json")):
+        definition = json.loads(recipe.read_text())
+        package = packages / (recipe.stem + ".ppmap")
+        command = [dotnet, str(assembly), "-mapdir", str(recipes), "-noupdate", "-noautoupdate",
+                   "-mapbundle", definition["name"], "-out", str(package)]
+        log = profile / (recipe.stem + ".log")
+        row = {"argv": command, "cwd": str(stage), "log": str(log), "exit": None,
+               "environment": {key: env[key] for key in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS")}}
+        preparation["commands"].append(row)
+        preparation["rawRecipes"].append({"path": str(recipe), "sha256": digest(recipe)})
+        save(args.out / "manifest.json", manifest)
+        try:
+            with log.open("x", encoding="utf-8") as output:
+                result = subprocess.run(command, cwd=stage, env=env, stdin=subprocess.DEVNULL,
+                                        stdout=output, stderr=subprocess.STDOUT, timeout=180)
+            row["exit"] = result.returncode
+        except subprocess.TimeoutExpired as error:
+            row["timedOut"] = True
+            raise RuntimeError("Prime fixture mapbundle timed out: " + recipe.name) from error
+        finally:
+            if log.is_file(): row["logSha256"] = digest(log)
+            save(args.out / "manifest.json", manifest)
+        if row["exit"] != 0 or not package.is_file() or package.stat().st_size == 0:
+            raise RuntimeError("Prime fixture mapbundle failed or produced no package: " + recipe.name)
+        preparation["packages"].append({"path": str(package), "sha256": digest(package),
+                                         "bytes": package.stat().st_size})
+        save(args.out / "manifest.json", manifest)
+    if len(preparation["packages"]) != len(NCX_FIXTURES):
+        raise RuntimeError("Prime fixture preparation did not produce every declared package")
+    return preparation["packages"]
+
+
+def stage_prime_fixture_packages(packages, maps):
+    """Every role receives the exact once-cooked bytes, without loose recipes."""
+    maps.mkdir()
+    copied = []
+    for package in packages:
+        source = Path(package["path"])
+        if digest(source) != package["sha256"]:
+            raise RuntimeError("Prepared Prime fixture package changed")
+        destination = maps / source.name
+        shutil.copy2(source, destination)
+        if digest(destination) != package["sha256"]:
+            raise RuntimeError("Prime fixture package copy differs")
+        copied.append({"path": str(destination), "sha256": package["sha256"]})
+    return copied
+
+
+def prime_fixture_admission(text, expected_slot):
+    """Observe the existing authenticated Lobby receipt, never launch order."""
+    slots = [int(value) for value in re.findall(
+        r"^\[net\] connected in Lobby, slot (\d+)\s*$", text, flags=re.MULTILINE)]
+    if not slots:
+        return {"status": "WAIT", "expectedSlot": expected_slot}
+    return {"status": "PASS" if all(slot == expected_slot for slot in slots) else "FAIL",
+            "expectedSlot": expected_slot, "assignedSlots": slots}
+
+
+def wait_prime_fixture_admission(args, name, expected_slot, peer, server, manifest):
+    """Bound fixture startup on ordinary authenticated slot admission only."""
+    log = args.out / (name + ".log")
+    row = {"status": "WAIT", "expectedSlot": expected_slot, "log": str(log), "timeoutSeconds": 35,
+           "scope": "Existing authenticated Lobby admission before next peer launch; no map-ready or drain assertion"}
+    manifest.setdefault("fixtureAdmissions", {})[name] = row
+    save(args.out / "manifest.json", manifest)
+    deadline = time.monotonic() + 35
+    reason = "Prime fixture Lobby admission timed out"
+    while time.monotonic() < deadline:
+        if server.poll() is not None:
+            reason = "Prime fixture server exited before peer admission"
+            break
+        if peer.poll() is not None:
+            reason = "Prime fixture peer exited before admission"
+            break
+        observed = prime_fixture_admission(log.read_text(errors="replace") if log.is_file() else "", expected_slot)
+        row.update(observed)
+        if observed["status"] == "PASS":
+            row["logSha256AtAdmission"] = digest(log)
+            save(args.out / "manifest.json", manifest)
+            return
+        if observed["status"] == "FAIL":
+            reason = "Prime fixture assigned slot differs from declared role"
+            break
+        time.sleep(.1)
+    row.update(status="FAIL", reason=reason)
+    if log.is_file(): row["logSha256AtFailure"] = digest(log)
+    save(args.out / "manifest.json", manifest)
+    raise RuntimeError(reason + ": " + name)
 
 
 def release_drain(path, value):
@@ -289,6 +400,11 @@ def run_fruity_control(args):
             shutil.copytree(args.fixture_maps.resolve(), maps)
             manifest["fixtureFiles"] = [{"path": p.relative_to(maps).as_posix(), "sha256": digest(p)}
                                         for p in sorted(maps.rglob("*")) if p.is_file()]
+            maps = native.stage_fixture_maps(binary, maps)
+            manifest["nativeFixtureRegistration"] = {
+                "path": str(maps), "scope": "Private staged app resource maps available before C++ global metadata initialization",
+                "files": [{"path": p.relative_to(maps).as_posix(), "sha256": digest(p)}
+                          for p in sorted(maps.rglob("*")) if p.is_file()]}
         else: maps.mkdir()
         rotation = args.out / "rotation.txt"
         rotation.write_text("\n".join(f"{room} | Battle | {args.round_minutes} | 999"
@@ -335,6 +451,19 @@ def run_fruity_control(args):
         if not listening:
             server_record["timedOut"] = True
             raise RuntimeError("Native server startup timeout")
+        if args.fixture_maps:
+            scene_deadline = time.monotonic() + 90
+            while time.monotonic() < scene_deadline:
+                if server.poll() is not None: raise RuntimeError("Native server exited before fixture scene loaded")
+                if native.scene_started((args.out / "server.log").read_text(errors="replace")):
+                    manifest["nativeFixtureSceneStart"] = {"observed": True,
+                        "marker": "[server] this server runs the match itself",
+                        "scope": "Initial native scene load completed before client launch; no drain assertion"}
+                    break
+                time.sleep(.1)
+            else:
+                server_record["timedOut"] = True
+                raise RuntimeError("Native fixture scene startup timeout")
         time.sleep(2)
         clients = []
         for slot in range(args.players):
@@ -469,11 +598,13 @@ def run(args):
             "scope": "Requested rendered-client cadence only; actual observed rate must be measured separately; simulation remains 60 Hz"}
     if args.scenario in NCX_FIXTURES:
         from fruity_comparator import qualified_fixture
+        manifest["harnessSha256"]["fruity_comparator.py"] = digest(Path(__file__).with_name("fruity_comparator.py"))
         manifest["emulatedFixture"] = qualified_fixture(args)
     save(args.out / "manifest.json", manifest)
     processes, handles, records = [], [], []
     server = None
     started = time.monotonic()
+    fixture_packages = None
 
     def launch(name, extra, duration, expects_shots=True):
         profile = args.out / name
@@ -483,7 +614,9 @@ def run(args):
         isolated_paths = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
         (profile / "paths.txt").write_text("\n".join([*isolated_paths, f"Export={exports}", ""]), encoding="utf-8")
         maps = profile / "empty-maps"
-        if args.scenario in NCX_FIXTURES: shutil.copytree(args.fixture_maps.resolve(), maps)
+        if args.scenario in NCX_FIXTURES:
+            copies = stage_prime_fixture_packages(fixture_packages, maps)
+            manifest.setdefault("fixturePackageCopies", {})[name] = copies
         else: maps.mkdir()
         # Do not silently inherit a developer's experimental/test flags into a
         # supposedly reproducible control. Keep ordinary OS/runtime environment.
@@ -528,7 +661,7 @@ def run(args):
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
         for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS", "PRIME_NET2_EVIDENCE_ROW_LIMIT",
-                    "PRIME_NCX_TIMELINE", "PRIME_NCX_VISIBILITY", "PRIME_NCX_PRESENTATION_HZ"):
+                    "PRIME_NCX_TIMELINE", "PRIME_NCX_VISIBILITY", "PRIME_NCX_PRESENTATION_HZ", "PRIME_NCX_FIXTURE_PLAYERS"):
             if key in env:
                 manifest["commands"][-1]["environment"][key] = env[key]
         if args.server_operator and name == "server":
@@ -555,6 +688,8 @@ def run(args):
         return process, record
 
     try:
+        if args.scenario in NCX_FIXTURES:
+            fixture_packages = prepare_prime_fixture_packages(args, dotnet, assembly, stage, profile_text, manifest)
         server, server_record = launch("server", authority_arguments(args, rotation), args.seconds, False)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
@@ -608,7 +743,10 @@ def run(args):
             if args.observer_delay and slot == 2:
                 continue
             client(slot, f"peer-{slot}", args.seconds)
-            time.sleep(.25)
+            if args.scenario in NCX_FIXTURES:
+                wait_prime_fixture_admission(args, f"peer-{slot}", slot, clients[-1][0], server, manifest)
+            else:
+                time.sleep(.25)
         late_started = reconnect_started = False
         observer_started = not args.observer_delay
         drain_started = None

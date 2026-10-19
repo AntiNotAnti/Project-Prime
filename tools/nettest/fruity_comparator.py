@@ -96,6 +96,15 @@ def stage_package(build, stage):
     return destination / 'Contents/MacOS/FruityPrime'
 
 
+def stage_fixture_maps(binary, definitions):
+    # Pinned C++ Metadata initializes before command-line -mapdir is applied.
+    # Seed its ordinary resource directory inside this run's private app copy
+    # so eager registration and subsequent generation read the same recipes.
+    destination = binary.parent.parent / 'Resources/maps'
+    shutil.copytree(definitions, destination)
+    return destination
+
+
 def environment(profile, inherited=None):
     inherited = os.environ if inherited is None else inherited
     env = {key: value for key, value in inherited.items()
@@ -131,6 +140,12 @@ def observe_client(text):
     verdicts = re.findall(r'^\s*RESULT: (PASS|FAIL)\b', text, flags=re.MULTILINE)
     return dict(joinedSlots=slots, snapshotsReceived=max(snapshots, default=0),
                 nativeResult=verdicts[-1] if verdicts else 'UNAVAILABLE')
+
+
+def scene_started(text):
+    # DedicatedServer emits this only after synchronous StartSimulation and
+    # ServerSim::Start have loaded the room and completed Scene::OnLoad.
+    return '[server] this server runs the match itself' in text
 
 
 def summarize(records, texts, listening, runner_error=None):

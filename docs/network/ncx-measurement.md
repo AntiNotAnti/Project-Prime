@@ -1,18 +1,25 @@
 # NCX-01 measurement contract and work in progress
 
-NCX-01 is **in progress**. Keyed instrumentation is implemented and locally checked.
-The independent collision oracle, matched stationary/lateral/jump fixtures, actual-view
-pixel probe, both-engine controls and A/A variance are still required before this slice
-can pass its exit gate. Do not start NCX-02 or certify a fast-pay family from these checks.
+NCX-01 is **in progress**. Keyed instrumentation, a narrow independent collision oracle,
+stationary/lateral/jump fixture definitions and actual-view pixel attribution are
+implemented. Passing matched workload controls, achieved presentation-rate observations
+and A/A variance are still required before this slice can pass its exit gate. Do not
+start NCX-02 or certify a fast-pay family from these checks.
 
 The prepared-frame probe and narrow frozen-contact oracle are now implemented. They
 remain qualification work: constructed tests pass, actual pixel controls have been
 captured, and matched fixtures/A/A plus a passing capture workload remain pending.
 
-The refreshed integration base is `73d7586bd9b8560bce699f032241dfc320fd6799`: it includes
+The first timeline integration base was `73d7586bd9b8560bce699f032241dfc320fd6799`: it includes
 the intervening replay audio ownership fix (#728) and custom weapon payload foundation
 (#729). The custom payload foundation does not enable a networked M7 or make an unknown
 custom source eligible for native proof. Native protocol remains 59.
+
+The current tested code is `062f868fdda0fc9b302616cc13745c0bfde98b3b`, integrating main
+`2e3eeef10` through CW-04b/CW-04c and the intervening movement setup/replay-label work.
+Its Release build has zero warnings/errors and all 27 focused off/on/native routes pass.
+The [validation manifest](../../tools/nettest/baselines/ncx-measurement.json) remains
+IN_PROGRESS and retains every incomplete gate and prior failure.
 
 ## Opt-in timeline
 
@@ -127,19 +134,35 @@ retained as FAIL, not promoted from its many preceding PASS lines.
 
 ## Remaining NCX-01 gate
 
-Implement an actual-view same-prepared-frame exclusion/readback probe, with exact keyed
-projectile/cue ownership, saved RGB/PNG hashes, positive/negative controls and unchanged
-gameplay clocks/RNG/lifecycles. Repeated draw submissions or a relocated clear camera do
-not satisfy this gate. Capture flight before an impact receipt arrives, then join exact
-authority facts; reject ambiguous component/shot attribution.
+Qualify the implemented same-prepared-frame exclusion/readback probe on a passing
+campaign, with exact keyed projectile/cue ownership, saved RGB/PNG hashes, positive/negative
+controls and unchanged gameplay clocks/RNG/lifecycles. Repeated draw submissions or a
+relocated clear camera do not satisfy this gate. Flight samples are captured before an
+impact receipt arrives, then joined to exact authority facts; ambiguous component/shot
+attribution remains incomplete.
 
-Build independent expected-contact evidence from frozen/replayed collision data, without
-using the contested client hit verdict. Run declared matched stationary, lateral and
+Retain the narrow frozen-contact oracle's unsupported/legal-damage limits. Run declared
+matched stationary, lateral and
 jump-pad fixtures with an explicit no-fire observer and the same supported geometry,
 hunters, weapons and rules on both engines. Prime currently lacks the beam-transparent,
 invisible brush flags used by Fruity's wells, so copying those JSON maps verbatim would
 create a non-equivalent fixture. Measure actual 30/60/120/144/240/360+ Hz observations,
 both binaries' controls and A/A variance before any comparative conclusion.
+
+The native `NetCheckClient` does not use the normal `RenderWindow` frame-cap/accumulator
+path. Its `-drawrate` repeats interpolated draws within each 60 Hz callback; it does not
+establish the corresponding wall-clock refresh cadence. Do not translate Prime's
+`--presentation-hz` to a native `-fpscap` or repeated-draw count and label that matched.
+Native presentation-rate comparison remains unsupported by the current adapter.
+
+The historical [PR #109 report](https://github.com/liveteklol/Fruity-Prime/pull/109#issuecomment-6062360519)
+uses headless `-netcheck -headless -hitlog` clients. Its 94–95% victim and 93% observer
+figures come from simulation contact/synthesized-effect event joins, not framebuffer
+readback. The parser pairs shooter/victim/beam/launch within three frames, and nearby
+damage/impact events within 750 ms; it lacks the full lifecycle identity used by this
+probe. These are contact/presentation-event diagnostics. They cannot serve as an
+actual-pixel baseline for the proposed 96%/95% release targets. Saved primary-source
+responses and historical parser/logger files are retained under `artifacts/ncx/NCX-01/`.
 
 No new gameplay default, fast settlement, movement enforcement, visual-fidelity percentage,
 performance improvement or superiority claim is enabled by this work in progress.
@@ -195,3 +218,34 @@ those 31 geometric contacts into a legal-hit denominator.
 The correct game route `-frametimingcheck` passes on the frozen build-04 binary, including
 fixed-step, presentation/camera and RNG checks. This is chosen-time arithmetic validation,
 separate from the measured achieved rates above.
+
+## Shared-fixture controls and setup failures
+
+All three native emulated fixtures now launch from hashed raw recipes staged in the
+private app resource map directory before C++ metadata initialization. They confirm
+actual slots 0/1 firing and slot 2 contributing no shots, shooting frames or deaths.
+Their upstream harness still reports **FAIL**: its generic reference-position checks
+reject the declared initial observer placement, and lateral/jump cases also expect
+the untargeted observer to take damage. UDP and role controls pass separately; those
+native failures remain recorded in `fruity-emulated-controls-results-02.json`. Do not
+suppress them or claim equivalent passing gameplay from role checks alone.
+
+The retained compiled-06 Prime cache and native control-02 map outputs share byte-exact
+spawn/jump-pad entities and empty animation data. Decoded collision planes, vertices,
+directed polygon edges, flags/layers and face multiplicities across all 385 grid cells
+match the six-solid-box recipes. Collision serialization, model and node bytes differ.
+`fruity-prime-retained-fixture-geometry-01.json` binds the files, parser and hashes.
+This qualifies static encoding only; it does not prove runtime movement, contacts,
+camera framing or visual parity.
+
+`prime-ncx-static-pixels-06` **FAILS** with three lobby timeouts and no gameplay/pixel
+reports. The custom room correctly requires the lobby and exact installed map package;
+loose recipes alone cannot satisfy that package identity. The follow-up harness setup
+uses the existing mapbundle CLI to cook each declared recipe once, copies identical
+archives to every private process profile, and uses ordinary authenticated readiness
+and owner-start commands. No map-availability or readiness bypass is authorized.
+
+The first existing-controller A/A attempt, `aa-integrated-06-01`, is
+**BLOCKED_CONCURRENT_TEST**. Its guard observed other builds/tests on the host and ran
+zero of eighteen cases. No variance was measured; retry on a quiet host without
+terminating independent work.

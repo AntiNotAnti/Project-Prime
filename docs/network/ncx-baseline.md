@@ -163,6 +163,16 @@ lethal prediction at 1 HP and keep authoritative death/score, superseding PR #10
 predicted-kill behavior. Native source, not its historical C# tree, is the comparison arm.
 The audit records source behavior; it has no fresh paired binary or pixel result.
 
+The supplied plan's historical PR #109 "visibility" figures describe headless hit-log
+joins, not measured framebuffer pixels. Its [test report](https://github.com/liveteklol/Fruity-Prime/pull/109#issuecomment-6062360519)
+explicitly uses headless native clients. `HitLocation::Contact` logs simulation contacts;
+`Synthesized` logs effect emission, and `tools/hitrig/hitloc.py` joins shooter/victim/beam
+and launch frames within three frames. Those figures are useful contact/presentation-event
+diagnostics but do not establish actual camera visibility or exact full-lifecycle shot
+identity. Keep the supplied plan intact; use this source correction when interpreting
+its historical numbers. The proposed 96%/95% actual-pixel release targets remain gates,
+and cannot be directly compared to the historical 94–95%/93% event-join rates.
+
 Retain the N13 matched p99 flags, identical-binary noise control and INCONCLUSIVE timing
 as written in `docs/netcode2-n13.md`. Its live UDP settlement coverage is INCOMPLETE despite
 successful gameplay/drain. N14 short eight-client canaries do not certify long soaks,
