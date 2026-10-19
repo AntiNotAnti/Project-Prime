@@ -87,6 +87,8 @@ namespace MphRead.NetTest
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
+                    + "  --momentum-math                   Test pure horizontal Momentum equations and validation.\n"
+                    + "  --momentum-benchmark [json]       Measure warmed eight-player math and assert zero allocations.\n"
                     + "  --native-movement-baseline <assets> <fixture> [--record] Record/verify native seven-Hunter values.\n"
                     + "  --movement-tour <assets> [room]    Test seven hunters through native local movement.\n"
                     + "  --q3-traversal-scene <assets> [room] Test Q3 traversal through native movement.\n"
@@ -374,6 +376,12 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
+            if (args.Length > 0 && args[0] == "--momentum-math") return MomentumMathTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-benchmark")
+            {
+                if (args.Length > 2) return 2;
+                return MomentumMathTests.RunBenchmark(args.Length == 2 ? args[1] : null);
             }
             if (args.Length > 0 && args[0] == "--native-movement-baseline")
             {

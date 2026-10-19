@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "baseCommit": "c6d8806309841bd47e5762ca58b9cbfd0552fb09",
+  "pr00Commit": "43a7975ebc349cd9ef1f477d1c22fbf2ce73269d",
+  "solverSha256": "d1e97538175e9442a47f17eeca00b29d145ab29e9d2af85ba19a05f4918b4eb8",
+  "cpu": "Apple M4 Pro",
+  "build": "Release",
+  "simulationHz": 60,
+  "profile": "dimensionless equation test coefficients; no gameplay profile",
+  "statistic": "nanoseconds per player-step normalized from each 4096-step batch; not individual-step latency",
+  "scope": "shared development host; not full scene, collision or network performance; no 5% integrated p95 acceptance claim",
+  "runs": [
+    {
+      "context": "tiered compilation disabled; native regression process completed; shared compiler CPU activity on host",
+      "schema": 1,
+      "workload": "eight scalar player values; precomputed wish reversals/ground-air phases; warmed batches; no scene/network/gameplay integration",
+      "runtime": "10.0.12",
+      "os": "Unix 27.0.1",
+      "architecture": "Arm64",
+      "players": 8,
+      "ticksPerBatch": 512,
+      "batches": 200,
+      "playerSteps": 819200,
+      "allocatedBytes": 0,
+      "averageNanosecondsPerPlayerStep": 131.02584838867188,
+      "p95NanosecondsPerPlayerStep": 109.19189453125,
+      "p99NanosecondsPerPlayerStep": 3061.676025390625,
+      "checksum": -3
+    },
+    {
+      "context": "runtime defaults; concurrent native regression and compiler activity",
+      "schema": 1,
+      "workload": "eight scalar player values; precomputed wish reversals/ground-air phases; warmed batches; no scene/network/gameplay integration",
+      "runtime": "10.0.12",
+      "os": "Unix 27.0.1",
+      "architecture": "Arm64",
+      "players": 8,
+      "ticksPerBatch": 512,
+      "batches": 200,
+      "playerSteps": 819200,
+      "allocatedBytes": 0,
+      "averageNanosecondsPerPlayerStep": 342.0564892578125,
+      "p95NanosecondsPerPlayerStep": 1388.97705078125,
+      "p99NanosecondsPerPlayerStep": 6873.667236328125,
+      "checksum": -3
+    }
+  ]
+}
