@@ -36,6 +36,8 @@ namespace MphRead.NetTest
                     + "  --ncx-hit-oracle                  Test frozen independent native contact inputs.\n"
                     + "  --ncx-hit-oracle-scene <assets> [room] [json] Exercise native accepted-source oracle controls.\n"
                     + "  --ncx-fixtures                    Test emulated fixture roles and declared aim schedule.\n"
+                    + "  --ncx-fixture-lobby               Test exact-map fixture lobby eligibility and readiness guards.\n"
+                    + "  --ncx-observer-evidence           Test no-fire observer participant lifecycle/emission evidence.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
@@ -133,6 +135,8 @@ namespace MphRead.NetTest
                 return NcxFixtureTests.Run();
             if (args.Length == 1 && args[0] == "--ncx-fixture-lobby")
                 return NcxFixtureLobbyJoinTests.Run();
+            if (args.Length == 1 && args[0] == "--ncx-observer-evidence")
+                return NcxObserverEvidenceTests.Run();
             if (args.Length == 1 && args[0] == "--ncx-visibility")
                 return ShotVisibilityTests.Run();
             if (args.Length == 1 && args[0] == "--ncx-hit-oracle")

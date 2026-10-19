@@ -332,7 +332,8 @@
     "status": "BLOCKED_CONCURRENT_TEST",
     "casesExecuted": 0,
     "varianceMeasured": false,
-    "reason": "Existing run-net13-matched guard detected independent active builds/tests; none terminated."
+    "reason": "Existing run-net13-matched guard detected independent active builds/tests; none terminated.",
+    "scope": "Existing synthetic asset-backed ServerSim driver; no real-UDP or hosting-hardware qualification"
   },
   "staticFixtureEncoding": {
     "status": "PASS",
@@ -386,5 +387,265 @@
     ],
     "compiledSourceCodeSha256": "f343da0225d4a9109fc34aa8af5bc1b5eb9fc843192b0c66688a679bfbd201e2",
     "engineSha256": "f993fcdae831a203e514a126354f9418b71767c19b8dabe21b2470557b474bef"
+  },
+  "latestQualification": {
+    "status": "PASS",
+    "baseHead": "bc83ad39595534672a43a49aa48b47adc7f89c42",
+    "compiledInputsSha256": "b39e652ca7b8e1df5ede7c11f16a3961ee9bd0136be0cbbabb7e9dd813b1dbe2",
+    "engineSha256": "aee894037e3d5c1595103134275734d80bdd723eea2b63a73f4fe2f2f50b2d56",
+    "build": "integrated-build-08.log",
+    "warnings": 0,
+    "errors": 0,
+    "routes": [
+      {
+        "route": "--ncx-timeline",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-timeline-off-08.log",
+        "logSha256": "df0149183a9e2806af0ae7cc82a29f9ecba82a1517f3242fc72503b46c96327b"
+      },
+      {
+        "route": "--ncx-visibility",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-visibility-off-08.log",
+        "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
+      },
+      {
+        "route": "--ncx-hit-oracle",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-hit-oracle-off-08.log",
+        "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
+      },
+      {
+        "route": "--ncx-fixtures",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-fixtures-off-08.log",
+        "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
+      },
+      {
+        "route": "--ncx-fixture-lobby",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-fixture-lobby-off-08.log",
+        "logSha256": "a8762ceda5bf7c7f202788f6528826361202282582a5f59a96df1bdf27f42c65"
+      },
+      {
+        "route": "--ncx-observer-evidence",
+        "mode": "off",
+        "exit": 0,
+        "log": "ncx-observer-evidence-off-08.log",
+        "logSha256": "b221f1aaf870041d229190662b122afa9229b50e1c160cdaaa7a61c5236eca8f"
+      },
+      {
+        "route": "--architecture",
+        "mode": "off",
+        "exit": 0,
+        "log": "architecture-off-08.log",
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      },
+      {
+        "route": "--protocol58-replay",
+        "mode": "off",
+        "exit": 0,
+        "log": "protocol58-replay-off-08.log",
+        "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
+      },
+      {
+        "route": "--claim-stress",
+        "mode": "off",
+        "exit": 0,
+        "log": "claim-stress-off-08.log",
+        "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      },
+      {
+        "route": "--shot-lifecycle",
+        "mode": "off",
+        "exit": 0,
+        "log": "shot-lifecycle-off-08.log",
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "route": "--shot-inputs",
+        "mode": "off",
+        "exit": 0,
+        "log": "shot-inputs-off-08.log",
+        "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
+      },
+      {
+        "route": "--netcode-performance",
+        "mode": "off",
+        "exit": 0,
+        "log": "netcode-performance-off-08.log",
+        "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
+      },
+      {
+        "route": "--combat-arbitration-scene",
+        "mode": "off",
+        "exit": 0,
+        "log": "combat-arbitration-scene-off-08.log",
+        "logSha256": "47589d1a46444131917d0521375a4b709fdcf3e64e4c8a720482b0e0074061ab"
+      },
+      {
+        "route": "--continuous-combat-scene",
+        "mode": "off",
+        "exit": 0,
+        "log": "continuous-combat-scene-off-08.log",
+        "logSha256": "ce6bc97966264d36c5c4ce1862b504c837f8ddc86f277dbec41cdb5d17426467"
+      },
+      {
+        "route": "--impact-authority",
+        "mode": "off",
+        "exit": 0,
+        "log": "impact-authority-off-08.log",
+        "logSha256": "4ad4365cd925d1909ed7869c10ea094390a74eacbac2c4926a5bbecad5f3eb3d"
+      },
+      {
+        "route": "--ncx-timeline",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-timeline-on-08.log",
+        "logSha256": "0e33f1ee65ce4a43412b7c4c1d1157e70ff9ccdce7a6b75144188f889d0459e6"
+      },
+      {
+        "route": "--ncx-visibility",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-visibility-on-08.log",
+        "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
+      },
+      {
+        "route": "--ncx-hit-oracle",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-hit-oracle-on-08.log",
+        "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
+      },
+      {
+        "route": "--ncx-fixtures",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-fixtures-on-08.log",
+        "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
+      },
+      {
+        "route": "--ncx-fixture-lobby",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-fixture-lobby-on-08.log",
+        "logSha256": "a8762ceda5bf7c7f202788f6528826361202282582a5f59a96df1bdf27f42c65"
+      },
+      {
+        "route": "--ncx-observer-evidence",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-observer-evidence-on-08.log",
+        "logSha256": "b221f1aaf870041d229190662b122afa9229b50e1c160cdaaa7a61c5236eca8f"
+      },
+      {
+        "route": "--architecture",
+        "mode": "on",
+        "exit": 0,
+        "log": "architecture-on-08.log",
+        "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
+      },
+      {
+        "route": "--protocol58-replay",
+        "mode": "on",
+        "exit": 0,
+        "log": "protocol58-replay-on-08.log",
+        "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
+      },
+      {
+        "route": "--claim-stress",
+        "mode": "on",
+        "exit": 0,
+        "log": "claim-stress-on-08.log",
+        "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
+      },
+      {
+        "route": "--shot-lifecycle",
+        "mode": "on",
+        "exit": 0,
+        "log": "shot-lifecycle-on-08.log",
+        "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
+      },
+      {
+        "route": "--shot-inputs",
+        "mode": "on",
+        "exit": 0,
+        "log": "shot-inputs-on-08.log",
+        "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
+      },
+      {
+        "route": "--netcode-performance",
+        "mode": "on",
+        "exit": 0,
+        "log": "netcode-performance-on-08.log",
+        "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
+      },
+      {
+        "route": "--combat-arbitration-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "combat-arbitration-scene-on-08.log",
+        "logSha256": "47589d1a46444131917d0521375a4b709fdcf3e64e4c8a720482b0e0074061ab"
+      },
+      {
+        "route": "--continuous-combat-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "continuous-combat-scene-on-08.log",
+        "logSha256": "ce6bc97966264d36c5c4ce1862b504c837f8ddc86f277dbec41cdb5d17426467"
+      },
+      {
+        "route": "--impact-authority",
+        "mode": "on",
+        "exit": 0,
+        "log": "impact-authority-on-08.log",
+        "logSha256": "4ad4365cd925d1909ed7869c10ea094390a74eacbac2c4926a5bbecad5f3eb3d"
+      },
+      {
+        "route": "--ncx-hit-oracle-scene",
+        "mode": "on",
+        "exit": 0,
+        "log": "ncx-hit-oracle-scene-on-08.log",
+        "logSha256": "70a076eefb2ed993dfdd2da0dedc93d7c6dddb954be8a48f9c81501bbc3fa7c8"
+      }
+    ],
+    "main": "a3a73617e1ed4b494d560a28deb5d428a3a2d2dc",
+    "scope": "Integrated main plus explicit no-fire observer diagnostic correction; all31focused off/on/native routes pass; no new gameplay default"
+  },
+  "retainedPackagedFixtureCapture": {
+    "directory": "prime-ncx-static-pixels-07b",
+    "source": "c71986dd9ef1157ca5368c6bf83a5d3ce3ef0bb0",
+    "campaign": "FAIL",
+    "reason": "Observer inherited own-shot activity requirement despite declared no-fire role",
+    "additionalCrossProcessFailures": false,
+    "campaignDrainEvidenceGaps": [],
+    "verifiedSamples": 192,
+    "visible": [
+      64,
+      64,
+      2
+    ],
+    "noTargetPixels": [
+      0,
+      0,
+      62
+    ],
+    "campaignUniquePaidSources": 55,
+    "coverage": "INCOMPLETE",
+    "actualHz": [
+      48.24909905981822,
+      47.24701621891206,
+      49.46398123563743
+    ],
+    "requestedHz": 60,
+    "cpuComparison": "DISQUALIFIED",
+    "pngDecoders": "stdlib and Pillow produce identical independent audit output",
+    "auditSha256": "76d3a27222a18311bbefbd3897559a785ed17e80d40a0b2802a2e131c7afa8a5"
   }
 }

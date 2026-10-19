@@ -15,7 +15,7 @@ the intervening replay audio ownership fix (#728) and custom weapon payload foun
 (#729). The custom payload foundation does not enable a networked M7 or make an unknown
 custom source eligible for native proof. Native protocol remains 59.
 
-The current tested code is `062f868fdda0fc9b302616cc13745c0bfde98b3b`, integrating main
+The last complete 27-route baseline is `062f868fdda0fc9b302616cc13745c0bfde98b3b`, integrating main
 `2e3eeef10` through CW-04b/CW-04c and the intervening movement setup/replay-label work.
 Its Release build has zero warnings/errors and all 27 focused off/on/native routes pass.
 The [validation manifest](../../tools/nettest/baselines/ncx-measurement.json) remains
@@ -249,3 +249,32 @@ The first existing-controller A/A attempt, `aa-integrated-06-01`, is
 **BLOCKED_CONCURRENT_TEST**. Its guard observed other builds/tests on the host and ran
 zero of eighteen cases. No variance was measured; retry on a quiet host without
 terminating independent work.
+
+`fixture-lobby-build-07b.log` passes with zero warnings/errors after reducing build-tool
+concurrency to four processors and serial MSBuild. The earlier build was interrupted
+under memory pressure, without compiler diagnostics; its log and interruption manifest
+remain. Game processes receive no processor-count override. Five focused routes pass,
+including actual-slot/readiness guards. Checkpoint `c71986dd9` contains those setup changes.
+Main `a3a73617e` is subsequently integrated at `bc83ad395`; its refreshed build and checks
+are recorded separately rather than relabeling the frozen capture.
+
+`prime-ncx-static-pixels-07b` uses the frozen 07b binary and identical once-cooked packages
+for server and all three peers. Ordinary authenticated lobby start succeeds. Its pixel
+controls pass independently in both PNG decoders: 192 samples, positives 64/64/2 and
+negatives 0/0/62. Visible exact-paid victim cues occur in both participating cameras;
+the connected observer has two uniquely paid-source flight samples and no visible
+confirmed cue in its capped samples. Flight remains distinct from confirmation.
+All 55 uniquely paid campaign sources are a separate denominator from those samples.
+Full-source coverage remains INCOMPLETE due to the cap and ambiguous associations.
+
+The campaign remains **FAIL** because the new no-fire observer inherits a local-shot
+activity requirement. Both participant processes supply local evidence, and the
+cross-process gameplay/drain checks have no additional failures or gaps. The corrective
+observer guard requires both participants' observed alive lifecycles to join exact
+committed source emissions, rejects every observer offer/emission and any relevant
+overflow, and never substitutes received packets for activity. Rerun after compilation;
+do not retroactively change the failed result. Requested 60 Hz achieved approximately
+48.2/47.2/49.5 Hz with dropped fixed steps; intrusive capture remains disqualified for
+CPU comparison. Retained postprocessing mistakes (a refused duplicate audit output and
+an invalid summary-field lookup) do not alter raw images; the separately saved decoder
+control proof and both matching audits establish the pixel checks.

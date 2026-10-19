@@ -151,7 +151,8 @@ internal static partial class NetCampaignEvidence
         ClientDeclaredCountingUnit = "New client claim declarations; excludes retries and survives match reset",
         CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
-    internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
+    internal static bool RigHasEvidence => HitRig.NcxObserverRole ? NcxObserverHasEvidence
+        : _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
                 ? NetBombEvidence.RequestsAuthored > 0
