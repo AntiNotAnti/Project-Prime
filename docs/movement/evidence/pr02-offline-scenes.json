@@ -1,0 +1,300 @@
+{
+  "scope": "asset-backed offline CPU simulation/input/collision; no GL/network/replay acceptance",
+  "checks": 57346,
+  "summaries": [
+    {
+      "hunter": "Samus",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "forward-release",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 80
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "reversal",
+      "Steps": 180,
+      "DirectComparisons": 142,
+      "MovingDirectComparisons": 89
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "diagonal",
+      "Steps": 180,
+      "DirectComparisons": 164,
+      "MovingDirectComparisons": 63
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "jump-only",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "air-input",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 88
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "idle",
+      "Steps": 180,
+      "DirectComparisons": 180,
+      "MovingDirectComparisons": 0
+    }
+  ]
+}

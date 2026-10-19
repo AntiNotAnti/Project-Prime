@@ -989,7 +989,7 @@ namespace MphRead.Entities
                     }
                 }
             }
-            ProcessMovement();
+            bool momentumApplied = ProcessMovement(allowMomentum: true);
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             // Refresh replicated facing before building the camera and weapon.
             // Doing this after UpdateCamera mixed two aim samples in one POV.
@@ -1204,23 +1204,26 @@ namespace MphRead.Entities
                         anim2 = PlayerAnimation.Morph;
                     }
                 }
-                float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
-                speedDelta = WallClingSteer(speedDelta);
-                ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
-                Speed += speedDelta; // todo: FPS stuff?
-                float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
-                if (magAfter > magBefore && magAfter > _hSpeedCap)
+                if (!momentumApplied)
                 {
-                    float factor;
-                    if (magBefore <= _hSpeedCap)
+                    float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                    speedDelta = WallClingSteer(speedDelta);
+                    ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
+                    Speed += speedDelta; // todo: FPS stuff?
+                    float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                    if (magAfter > magBefore && magAfter > _hSpeedCap)
                     {
-                        factor = _hSpeedCap / magAfter;
+                        float factor;
+                        if (magBefore <= _hSpeedCap)
+                        {
+                            factor = _hSpeedCap / magAfter;
+                        }
+                        else
+                        {
+                            factor = magBefore / magAfter;
+                        }
+                        Speed = Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
                     }
-                    else
-                    {
-                        factor = magBefore / magAfter;
-                    }
-                    Speed = Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
                 }
                 if (EquipInfo.Zoomed)
                 {
@@ -2633,9 +2636,14 @@ namespace MphRead.Entities
             Flags2 &= ~PlayerFlags2.AltAttack;
         }
 
-        private void ProcessMovement()
+        private bool ProcessMovement(bool allowMomentum = false)
         {
+            // Fence before and after triggers/external acceleration: a newly
+            // launched or teleported body retains its existing native owner.
+            bool momentumAllowed = allowMomentum && ModMomentumEligible;
+            Vector3 beforeTriggers = momentumAllowed ? Position : default;
             ModProcessQ3Triggers();
+            if (momentumAllowed && Position != beforeTriggers) momentumAllowed = false;
             Vector3 q3IncomingSpeed = Speed;
             if (_accelerationTimer > 0)
             {
@@ -2815,10 +2823,14 @@ namespace MphRead.Entities
                 }
             }
             UpdateSlidingSfx(slideSfxAmount);
-            ModMovementShadowNoteSpeedFactor(speedFactor);
-            Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
-            if (_q3LaunchGravity != 0) Speed = q3IncomingSpeed;
-            else Speed += (speedMul - Speed) / 2; // todo: FPS stuff
+            bool momentumApplied = momentumAllowed && ModTryApplyMomentum();
+            if (!momentumApplied)
+            {
+                ModMovementShadowNoteSpeedFactor(speedFactor);
+                Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
+                if (_q3LaunchGravity != 0) Speed = q3IncomingSpeed;
+                else Speed += (speedMul - Speed) / 2; // todo: FPS stuff
+            }
             if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
             {
                 Speed = Speed.AddX(_jumpPadAccel.X);
@@ -3019,6 +3031,7 @@ namespace MphRead.Entities
             {
                 UpdateWalkingSfx();
             }
+            return momentumApplied;
         }
 
         /// <summary>

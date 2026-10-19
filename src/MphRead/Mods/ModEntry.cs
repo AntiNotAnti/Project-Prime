@@ -1893,6 +1893,25 @@ namespace MphRead.Mods
                 return true;
             }
 
+#if !ANDROID && !MPHREAD_SERVER
+            if (HasFlag(args, "momentumdev"))
+            {
+                string? room = ValueAfter(args, "momentumdev");
+                string? secondsText = ValueAfter(args, "seconds");
+                int? ticks = null;
+                if (string.IsNullOrWhiteSpace(room)
+                    || secondsText != null && (!int.TryParse(secondsText, out int seconds) || seconds < 1 || seconds > 600))
+                {
+                    Console.Error.WriteLine("Usage: -momentumdev <offline multiplayer room> [-hunter H] [-seconds 1..600]");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+                if (secondsText != null) ticks = int.Parse(secondsText) * Render.FrameTiming.SimulationHz;
+                Environment.ExitCode = Movement.MomentumDeveloperLaunch.Run(room, ParseHunter(args), ticks);
+                return true;
+            }
+#endif
+
             string? mapTest = ValueAfter(args, "maptest");
             if (mapTest != null)
             {
