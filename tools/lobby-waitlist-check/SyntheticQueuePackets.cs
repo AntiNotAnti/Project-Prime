@@ -11,3 +11,13 @@ internal enum QueueStatus : byte { Waiting, NextMatch, Offered, Disconnected }
     uint MatchId, ulong AuthorityEpoch, [NetRange(1,18000)] uint ExpiresInTicks);
 [NetPacket(205, 1)] internal readonly partial record struct QueueAccept(ulong QueueId, ulong OfferId, uint MatchId, ulong AuthorityEpoch);
 [NetPacket(206, 1)] internal readonly partial record struct QueueDecline(ulong QueueId, ulong OfferId, uint MatchId, ulong AuthorityEpoch);
+
+// Production reservation schema dependencies only. This fixture does not register
+// live NetTransport handlers or replace the group-reservation protocol registry gate.
+namespace MphRead.Mods.Network
+{
+    public enum PacketType : byte
+    {
+        PartyReservationRequest = 80, PartyReservationState = 81, PartyReservationAction = 82
+    }
+}
