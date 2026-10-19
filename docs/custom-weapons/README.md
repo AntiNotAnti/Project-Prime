@@ -14,7 +14,7 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-01 | Immutable identity and registry | Complete; 69 checks and native parity passed |
 | CW-02 | Mechanics schema and deterministic per-life state | Complete; 1,179 checks, zero-allocation routine ticks, native parity |
 | CW-03 | Offline M7 through canonical combat hooks | Complete; 1,181 pure and 45 real-scene checks; native parity |
-| CW-04 | Custom action authority/network state | In progress; 04a codecs, 04b resources, 04c rewind and 04d provenance isolation validated; live authority/payment/transport pending |
+| CW-04 | Custom action authority/network state | In progress; 04a codecs, 04b resources, 04c rewind, 04d provenance and 04e bounded payments validated; live authority/payment integration/transport pending |
 | CW-05 | Loadout, input, HUD and scope | Pending CW-04 |
 | CW-06 | Original assets and presentation | Pending CW-05 |
 | CW-07 | Accepted nonlethal head reaction | Pending CW-06 |
