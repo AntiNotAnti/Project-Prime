@@ -272,6 +272,7 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="custom-weapons-check" />
     <InternalsVisibleTo Include="replay-export-queue-check" />
     <InternalsVisibleTo Include="audio-check" />
     <InternalsVisibleTo Include="music-lifecycle-check" />

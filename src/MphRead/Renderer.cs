@@ -5618,6 +5618,7 @@ namespace MphRead
 
         public void DoCleanup()
         {
+            ReleaseCustomWeaponRegistry();
             if (AimTrainer?.Completed == true && this.GameState.MenuPause) this.GameState.UnpauseMenu();
             AimTrainer = null;
             if (Mods.Headless.Active) Mods.MapGen.MapRuntimeUsage.Release(this);
