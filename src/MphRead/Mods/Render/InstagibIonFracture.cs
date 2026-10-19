@@ -94,6 +94,22 @@ namespace MphRead.Mods.Render
             return true;
         }
 
+        // Caps decorative draw submissions in 8-player spam. Every shot
+        // retains its actual depth-tested center rail even after the optional
+        // accent budget is exhausted. Prioritize fresh, nearby shots.
+        internal static CosmeticEffectQuality DetailQualityForRange(
+            CosmeticEffectQuality desired, float distance, int remainingBudget)
+        {
+            if (desired == CosmeticEffectQuality.Off || remainingBudget <= 0
+                || !float.IsFinite(distance) || distance > 75f)
+                return CosmeticEffectQuality.Off;
+            if (distance > 35f && desired > CosmeticEffectQuality.Low)
+                return CosmeticEffectQuality.Low;
+            if (distance > 20f && desired > CosmeticEffectQuality.Medium)
+                return CosmeticEffectQuality.Medium;
+            return desired;
+        }
+
         internal void Draw(Scene scene)
         {
             if (!scene.GameState.Multiplayer || !scene.GameState.InstaGib)
@@ -117,9 +133,32 @@ namespace MphRead.Mods.Render
                 float age = now - lance.Born;
                 if (age < 0 || age >= LifeSeconds) continue;
                 _active[remaining++] = lance;
-                DrawLance(scene, lance, age, view, quality, reduceMotion, reduceTransparency);
             }
             _count = remaining;
+
+            Vector3 camera = scene.ViewMatrix.Inverted().Row3.Xyz;
+            if (!Finite(camera)) camera = Vector3.Zero;
+            int detailBudget = quality switch
+            {
+                CosmeticEffectQuality.High => 12,
+                CosmeticEffectQuality.Medium => 8,
+                CosmeticEffectQuality.Low => 4,
+                _ => 0
+            };
+            for (int i = remaining - 1; i >= 0; i--)
+            {
+                Lance lance = _active[i];
+                Vector3 delta = lance.End - lance.Start;
+                float lengthSquared = delta.LengthSquared;
+                float along = lengthSquared < 0.0001f ? 0f
+                    : Math.Clamp(Vector3.Dot(camera - lance.Start, delta) / lengthSquared, 0f, 1f);
+                float distance = (camera - (lance.Start + delta * along)).Length;
+                var effective = DetailQualityForRange(quality, distance, detailBudget);
+                if (effective != CosmeticEffectQuality.Off && !reduceMotion) detailBudget--;
+                DrawLance(scene, lance, view: view, age: now - lance.Born,
+                    quality: effective, reducedMotion: reduceMotion,
+                    reducedTransparency: reduceTransparency);
+            }
         }
 
         private static void DrawLance(Scene scene, in Lance lance, float age, Vector3 view,

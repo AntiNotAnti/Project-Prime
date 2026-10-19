@@ -54,7 +54,15 @@ namespace MphRead.Mods.Cosmetics
         {
             lock (Gate)
             {
-                if ((uint)hunter >= 7 || Data.Loadouts[(int)hunter] != submitted) return;
+                if ((uint)hunter >= 7) return;
+                // An authenticated save only acknowledges these three server-
+                // owned fields. An independent beam or color selection may
+                // change locally while the HTTP request is in flight and must
+                // neither be lost nor prevent the valid cloud ACK.
+                var current = Data.Loadouts[(int)hunter];
+                if (current.SkinKey != submitted.SkinKey
+                    || current.ArmorEffectKey != submitted.ArmorEffectKey
+                    || current.DeathEffectKey != submitted.DeathEffectKey) return;
                 Data.Pending[(int)hunter] = false; Save();
             }
         }

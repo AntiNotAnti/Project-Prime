@@ -103,6 +103,14 @@ namespace MphRead.Mods.Cosmetics
                 Check(CosmeticPersistence.IsPending(Hunter.Samus), "stale sync acknowledgement ignored");
                 CosmeticPersistence.MarkSynced(Hunter.Samus, loadout);
                 Check(!CosmeticPersistence.IsPending(Hunter.Samus), "matching sync acknowledged");
+                CosmeticPersistence.Equip(Hunter.Samus, loadout with { ArmorEffectKey = "armor.glacial" });
+                var savedCloud = CosmeticPersistence.Get(Hunter.Samus);
+                var changedBeamDuringSync = savedCloud with { BeamEffectKey = "beam.void_rift", BeamColor = 4 };
+                CosmeticPersistence.Equip(Hunter.Samus, changedBeamDuringSync);
+                CosmeticPersistence.MarkSynced(Hunter.Samus, savedCloud);
+                Check(!CosmeticPersistence.IsPending(Hunter.Samus)
+                    && CosmeticPersistence.Get(Hunter.Samus) == changedBeamDuringSync,
+                    "concurrent beam color edit preserves local selection and accepts valid cloud ACK");
                 var appearance = new CosmeticAppearance(Hunter.Samus, loadout);
                 var packet = CosmeticStatePacket.Create(2, Hunter.Samus, 7, 3, 9, 1, appearance);
                 Span<byte> bytes = stackalloc byte[CosmeticStatePacket.Size]; packet.Write(bytes);

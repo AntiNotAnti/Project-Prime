@@ -34,7 +34,7 @@ The authenticated Hunter License HTTP function currently accepts only three fiel
 
 `InstagibIonFracture` is scene-owned and allocated lazily only when needed. At most 24 shot trails live for 0.82 seconds. Drawing is driven by scene time and shot IDs; duplicate replicated fire records and replay seeks cannot create persistent trails. No render-time RNG, new texture, new render backend or shader is introduced. All geometry ends at the actual collision point in the existing depth-tested transparent world pass. Reduced motion preserves the core while disabling accents; reduced transparency removes atmospheric halo. Cosmetic quality Off draws the precise core only.
 
-All added ribbons use pooled `TrailMulti` vertices. The busiest effects are capped at 3 shafts plus up to 18 small accent facets/rings at High; lower quality omits detail.
+All added ribbons use pooled `TrailMulti` vertices. The busiest effects are capped at 3 shafts plus up to 18 small accent facets/rings at High; lower quality omits detail. The scene also prioritizes recently fired nearby shots and caps fully decorated trails at 12 (High), 8 (Medium) or 4 (Low) each frame. Remaining trails keep their canonical center beam; accents degrade with view distance, never changing collision endpoints.
 
 ## UI paths
 

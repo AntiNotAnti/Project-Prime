@@ -74,6 +74,18 @@ internal static class InstagibIonFractureTests
                     "beam palette always yields finite normalized RGB");
             }
         }
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 5f, 3)
+            == CosmeticEffectQuality.High, "near shot retains full High detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 23f, 3)
+            == CosmeticEffectQuality.Medium, "mid-distance shot scales to Medium detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 45f, 3)
+            == CosmeticEffectQuality.Low, "far shot scales to Low detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 80f, 3)
+            == CosmeticEffectQuality.Off, "very distant shot retains only core");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 5f, 0)
+            == CosmeticEffectQuality.Off, "exhausted multi-player accent budget preserves core");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High,
+            float.NaN, 3) == CosmeticEffectQuality.Off, "nonfinite distance safely disables accents");
         var world = new InstagibIonFracture();
         Check(world.Count == 0, "new scene owns empty pool");
         world.Clear();
