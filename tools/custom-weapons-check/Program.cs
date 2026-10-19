@@ -5,6 +5,7 @@ using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
 
 int checks = 0;
 void Check(bool condition, string name)

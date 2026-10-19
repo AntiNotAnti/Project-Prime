@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -363,9 +364,15 @@ namespace MphRead.Mods.Network
         /// holding the note to put it back.
         /// </summary>
         private static bool _inProgress;
+        private static BeamProjectileEntity[]? _shotBeams;
+        private static CustomRewindTiming? _customTiming;
+
+        internal readonly record struct CustomRewindTiming(uint AuthorityFrame, uint RequestedFrame,
+            byte RequestedSubFrame, double EffectiveFrame, double RewindFrames);
 
         public static void Reset()
         {
+            AbortShot();
             _collisionCacheActive = false;
             NetContactLagComp.Reset();
             FormRewinds = FormMismatches = KandenHistoricalSegmentChecks = KandenHistoricalSegmentHits = 0; Array.Clear(_formLog);
@@ -380,6 +387,7 @@ namespace MphRead.Mods.Network
             _inProgress = false;
             _shooter = null;
             _rewind = 0;
+            _shotBeams = null; _customTiming = null;
             ShotsCompensated = 0;
             FramesRewound = 0;
             WorstRewind = 0;
@@ -415,7 +423,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Record(uint frame)
         {
-            _collisionCacheActive = false;
+            // Even a current-world custom scope owns accepted timing and a pool.
+            // Release it at publication when positional rewind is disabled too.
+            AbortShot();
             if (!Enabled)
             {
                 // Timed damage facts describe the published authority snapshot,
@@ -429,8 +439,6 @@ namespace MphRead.Mods.Network
             // the only way, but it is a way -- this would file the rewound
             // positions as the truth and then publish them to everybody. One
             // call, once a frame, and a no-op on all but the pathological one.
-            Restore();
-            _inProgress = false;
             if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
             NetDynamicGeometryHistory.RecordWorld(frame);
             int index = (int)(frame % HistoryFrames);
@@ -858,7 +866,13 @@ namespace MphRead.Mods.Network
             }
             // Remember what was already in flight, so the beams this shot is
             // about to create can be picked out of the pool afterwards.
-            BeamProjectileEntity[] beams = shooter.EquipInfo.Beams;
+            CaptureShotPool(shotEquip.Beams);
+            _inProgress = true;
+        }
+
+        private static void CaptureShotPool(BeamProjectileEntity[] beams)
+        {
+            _shotBeams = beams;
             if (_beamsBefore.Length < beams.Length)
             {
                 _beamsBefore = new bool[beams.Length];
@@ -867,7 +881,82 @@ namespace MphRead.Mods.Network
             {
                 _beamsBefore[i] = beams[i].Lifespan > 0;
             }
-            _inProgress = true;
+        }
+
+        /// <summary>Rewind adapter for an already admitted custom launch. This
+        /// does not establish admission, trade eligibility or payment. The emitter
+        /// must call EndShot/AbortShot in finally and retain this exact private pool.
+        /// Missing history is a definite pre-emission refusal, never live fallback.</summary>
+        internal static bool TryBeginCustomShot(PlayerEntity shooter, in CustomAcceptedLaunch launch,
+            EquipInfo equipment, out CustomRewindTiming timing)
+        {
+            timing = default;
+            var source = launch.Source; var action = source.Action;
+            if (launch.Definition == null || equipment == null || !action.IsValid) return false;
+            var owner = action.Owner;
+            uint now = NetSession.NetFrame;
+            if (_inProgress || _reconciled || shooter.SceneServices.IsReplica || !NetSession.Active || !NetSession.IsAuthority
+                || !source.CanUseWeapon || action.Kind != CustomWeaponActionKind.Fire || !source.IsValidFor(action)
+                || !NetSession.MatchesStream(owner.MatchId,owner.AuthorityEpoch) || shooter.SlotIndex != owner.Slot
+                || owner.Slot >= PlayerEntity.Players.Count || !ReferenceEquals(PlayerEntity.Players[owner.Slot],shooter)
+                || NetPlayerLifecycle.Generation(owner.Slot) != owner.Generation
+                || source.ObservedWorldFrame > now || now-source.ObservedWorldFrame > CustomSourceActionJournal.MaxWorldAge
+                || source.TargetWorldFrame == 0 || source.TargetWorldFrame > now
+                || now-source.TargetWorldFrame > CustomSourceActionJournal.MaxWorldAge
+                || source.TargetWorldFrame == now && source.TargetWorldSubFrame != 0
+                || launch.Before.Owner != owner || launch.After.Owner != owner
+                || launch.Before.Weapon != launch.Definition.Identity || launch.After.Weapon != launch.Definition.Identity
+                || launch.After.LastAcceptedShotId != action.Sequence || launch.After.Magazine != launch.Before.Magazine-1
+                || equipment.Weapon.Beam != BeamType.None || !equipment.InfiniteAmmo
+                || equipment.CustomShot != CustomShotSource.Accepted(launch.Definition,owner,action.Sequence)
+                || equipment.Beams.Length == 0 || equipment.Beams.Length > launch.Definition.Mechanics.MaxActiveProjectiles
+                || ReferenceEquals(equipment.Beams,shooter.EquipInfo.Beams)) return false;
+            for (int i=0; i<equipment.Beams.Length; i++)
+            {
+                var beam = equipment.Beams[i];
+                if (beam == null || beam.OwningScene != shooter.OwningScene) return false;
+                for (int slot=0; slot<PlayerEntity.Players.Count; slot++)
+                    if (PlayerEntity.Players[slot]?.EquipInfo?.Beams is { } nativePool)
+                        foreach (var native in nativePool) if (ReferenceEquals(beam,native)) return false;
+                if (shooter.OwningScene.EnemyBeams is { } enemyPool)
+                    foreach (var native in enemyPool) if (ReferenceEquals(beam,native)) return false;
+                if (shooter.OwningScene.PlatformBeams is { } platformPool)
+                    foreach (var native in platformPool) if (ReferenceEquals(beam,native)) return false;
+                for (int prior=0; prior<i; prior++) if (ReferenceEquals(beam,equipment.Beams[prior])) return false;
+            }
+            var policy = WeaponLagPolicies.Resolve(equipment) with
+                { UsesHistoricalDynamicGeometry = true, AllowPressAge = false, UseShadowPlausibility = false };
+            var decision = LagCompensationPolicy.Evaluate(owner.Slot,now,source.TargetWorldFrame,source.TargetWorldSubFrame,0);
+            double rewind = Enabled ? LagCompensationPolicy.Applied(decision.Timing) : 0;
+            double effective = now-rewind;
+            if (rewind > 0)
+            {
+                // Check every world that catch-up can visit before any emission.
+                // Fractional targets require both samples, rather than silently
+                // falling back to a whole-frame pose when the upper sample is absent.
+                uint lower = (uint)Math.Floor(effective), upper = (uint)Math.Ceiling(effective);
+                if (!HistoryAvailable(lower) || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,lower)
+                    || upper != lower && (!HistoryAvailable(upper)
+                        || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,upper))) return false;
+                int depth = (int)Math.Ceiling(rewind);
+                for (int step=1; step<=policy.CatchUpFrames(depth); step++)
+                {
+                    uint frame = now-(uint)(depth-step);
+                    if (frame < now && (!HistoryAvailable(frame)
+                        || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,frame))) return false;
+                }
+            }
+            BeginCollisionCache();
+            try
+            {
+                if (rewind > 0 && !Reconcile(owner.Slot,effective)) { AbortShot(); return false; }
+                _shotPolicy = policy; _shotTargetFrame = effective; _shooter = shooter;
+                _rewind = (int)Math.Ceiling(rewind);
+                CaptureShotPool(equipment.Beams);
+                timing = new(now,source.TargetWorldFrame,source.TargetWorldSubFrame,effective,rewind);
+                _customTiming = timing; _inProgress = true; return true;
+            }
+            catch { AbortShot(); throw; }
         }
 
         /// <summary>
@@ -885,7 +974,7 @@ namespace MphRead.Mods.Network
         internal static bool TryTimedFirstCollisionFrame(PlayerEntity shooter, out uint frame)
         {
             frame = 0;
-            if (!_inProgress || _shooter != shooter || _rewind <= 0
+            if (_customTiming.HasValue || !_inProgress || _shooter != shooter || _rewind <= 0
                 || _shotPolicy.CatchUpFrames(_rewind) < 1
                 || !NetFireEvents.TryTiming(shooter, out var fire) || fire.AckSubFrame != 0
                 || _shotTargetFrame != fire.AckFrame) return false;
@@ -898,6 +987,7 @@ namespace MphRead.Mods.Network
 
         internal static uint LaunchFrameFor(PlayerEntity shooter)
         {
+            if (_inProgress && _shooter == shooter && _customTiming is { } custom) return custom.RequestedFrame;
             if (NetFireEvents.TryTiming(shooter, out var fire)) return fire.AckFrame;
             int slot = shooter.SlotIndex;
             if (Simulating && slot != NetSession.LocalSlot && !shooter.IsBot
@@ -1112,7 +1202,12 @@ namespace MphRead.Mods.Network
         public static int MaximumCatchUpSteps { get; private set; }
 
         public static void AbortShot()
-        { Restore(); _shooter = null; _rewind = 0; _inProgress = false; _collisionCacheActive = false; }
+        {
+            try { Restore(); }
+            finally
+            { _shooter = null; _rewind = 0; _inProgress = false; _collisionCacheActive = false;
+                _shotBeams = null; _customTiming = null; }
+        }
         public static void EndShot(PlayerEntity shooter)
 
         {
@@ -1130,7 +1225,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             int slot = shooter.SlotIndex;
-            BeamProjectileEntity[] beams = shooter.EquipInfo.Beams;
+            BeamProjectileEntity[] beams = _shotBeams ?? shooter.EquipInfo.Beams;
             int newCount = 0;
             for (int i = 0; i < beams.Length; i++)
             {
