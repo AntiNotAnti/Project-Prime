@@ -183,7 +183,9 @@ difference; do not regenerate a golden to hide it.
 NCX-01 must establish positive actual shot/hit activity, distinct uniquely authored/
 claimed/paid/visible denominators, clock domains and alignment uncertainty, an independent
 collision oracle, actual framebuffer captures for victim and third observer, and A/A
-variance for both binaries. Missing evidence stays NOT_RUN/INCOMPLETE. No performance,
+variance measured with identical binaries. The NCX-01 local Prime calibration does not
+qualify native competitor CPU variance; that remains unavailable for comparative
+performance work. Missing evidence stays NOT_RUN/INCOMPLETE. No performance,
 cross-platform, visual-fidelity or supremacy gate passes merely because reference tests pass.
 
 ## Validation and rollback

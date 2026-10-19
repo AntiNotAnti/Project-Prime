@@ -12,8 +12,8 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | Slice | Deliverable | Status |
 | --- | --- | --- |
 | NCX-00 | Exact-source baseline, ownership and capability audit | Complete; 23 reference routes pass, characterized fidelity failure retained |
-| NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | In progress; keyed timeline, narrow frozen oracle and saved pixel controls checked; passing matched workloads, rate observations and A/A gates pending |
-| NCX-02 | Canonical causal payment identity and definitive terminal results | Pending NCX-01 |
+| NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Complete scoped measurement; 31 routes, positive keyed pixels, three Prime controls, seven requested cadence observations and 18 A/A cases; native failures/unsupported comparisons retained |
+| NCX-02 | Canonical causal payment identity and definitive terminal results | Ready after NCX-01 merge |
 | NCX-03 | Bounded shadow fast-decision layer | Pending NCX-02 |
 | NCX-04 | Certified narrow-family fast settlement | Pending NCX-03 evidence |
 | NCX-05 | Independently certified family extensions and explicit fallbacks | Pending NCX-04 |

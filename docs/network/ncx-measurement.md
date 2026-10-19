@@ -1,25 +1,21 @@
-# NCX-01 measurement contract and work in progress
+# NCX-01 measurement contract and qualification
 
-NCX-01 is **in progress**. Keyed instrumentation, a narrow independent collision oracle,
-stationary/lateral/jump fixture definitions and actual-view pixel attribution are
-implemented. Passing matched workload controls, achieved presentation-rate observations
-and A/A variance are still required before this slice can pass its exit gate. Do not
-start NCX-02 or certify a fast-pay family from these checks.
-
-The prepared-frame probe and narrow frozen-contact oracle are now implemented. They
-remain qualification work: constructed tests pass, actual pixel controls have been
-captured, and matched fixtures/A/A plus a passing capture workload remain pending.
+NCX-01 is **complete for its measurement-foundation exit gate**. Latest-main integration
+checks pass; checkpoint-09 baseline observations retain their original provenance. The manifest
+separates successful instrumentation/control checks from retained comparator failures,
+unsupported comparisons and later release gates. No visual-fidelity percentage or CPU
+improvement follows from these measurements.
 
 The first timeline integration base was `73d7586bd9b8560bce699f032241dfc320fd6799`: it includes
 the intervening replay audio ownership fix (#728) and custom weapon payload foundation
 (#729). The custom payload foundation does not enable a networked M7 or make an unknown
 custom source eligible for native proof. Native protocol remains 59.
 
-The last complete 27-route baseline is `062f868fdda0fc9b302616cc13745c0bfde98b3b`, integrating main
+An earlier complete 27-route baseline is `062f868fdda0fc9b302616cc13745c0bfde98b3b`, integrating main
 `2e3eeef10` through CW-04b/CW-04c and the intervening movement setup/replay-label work.
 Its Release build has zero warnings/errors and all 27 focused off/on/native routes pass.
-The [validation manifest](../../tools/nettest/baselines/ncx-measurement.json) remains
-IN_PROGRESS and retains every incomplete gate and prior failure.
+The [validation manifest](../../tools/nettest/baselines/ncx-measurement.json) records the
+completed scoped gate and retains prior failures and later qualification limits.
 
 ## Opt-in timeline
 
@@ -136,7 +132,11 @@ package-qualified records. The native combat fixture currently reaches an OpenGL
 requirement without a current context after its earlier assertions; its nonzero exit is
 retained as FAIL, not promoted from its many preceding PASS lines.
 
-## Remaining NCX-01 gate
+## Original qualification checklist (retained implementation history)
+
+The following checklist describes the earlier incomplete state. Completed checkpoint-09
+observations and latest-main qualification are recorded below; unsupported comparator
+capabilities stay unavailable.
 
 Qualify the implemented same-prepared-frame exclusion/readback probe on a passing
 campaign, with exact keyed projectile/cue ownership, saved RGB/PNG hashes, positive/negative
@@ -169,7 +169,7 @@ actual-pixel baseline for the proposed 96%/95% release targets. Saved primary-so
 responses and historical parser/logger files are retained under `artifacts/ncx/NCX-01/`.
 
 No new gameplay default, fast settlement, movement enforcement, visual-fidelity percentage,
-performance improvement or superiority claim is enabled by this work in progress.
+performance improvement or superiority claim is enabled by this measurement work.
 
 ## Rendered controls retained during implementation
 
@@ -314,3 +314,124 @@ model cannot satisfy their 8192-byte reads. Headless controls do not exercise th
 read path. A stock-room rendered control opens and saves real images, isolating this
 failure to the custom generation/render combination. Retain all failed outputs and
 qualify a full-data preparation route before accepting these rendered fixtures.
+
+## Completed checkpoint-09 observations
+
+All three rendered Prime emulated controls (static, lateral, jump) pass the existing
+campaign and bounded drain without the intrusive pixel probe. All participants use
+stock uncharged Power Beam and Samus; actual slots 0/1 fire and slot 2 observes.
+The six additional static requested-rate cases also pass campaign/drain. Their source
+is frozen `928350a5e`, not the subsequent main integration. The rate denominator is
+presented frames / measured process elapsed seconds, including setup/drain overhead.
+It measures render/swap-loop cadence, not monitor scanout.
+
+| Requested cap Hz | Achieved loop Hz, slots 0 / 1 / 2 |
+| --- | --- |
+| 30 | 28.49 / 28.87 / 28.99 |
+| 60 | 55.53 / 56.23 / 56.97 |
+| 120 | 96.94 / 98.13 / 96.97 |
+| 144 | 110.02 / 111.55 / 109.05 |
+| 240 | 157.40 / 165.61 / 159.43 |
+| 360 | 193.03 / 203.02 / 206.72 |
+| 500 | 240.75 / 259.40 / 266.35 |
+
+Every case records dropped fixed steps (6–20 per peer) and stalls (0–2). The observations
+do not establish achieved 360+ Hz, identical combat hashes across all rates, or a CPU
+benchmark. `prime-presentation-matrix-results-09.json` retains the six new commands;
+the 60 Hz case and all three scenarios are in `prime-emulated-controls-results-09.json`.
+
+`aa-checkpoint-09-02` completes all eighteen existing synthetic asset-backed ServerSim
+runs: three alternating identical-binary pairs at each of 2/4/8 players, 300 warmup
+and 3600 measured steps. All nine paired workload comparisons match; binary hashes
+remain unchanged and validation has no errors. The raw driver exits with
+**PAIRED_P99_REGRESSION_FLAG**. Paired p99 changes are approximately −3.41/+3.81/+1.75%
+(2 players), −0.44/+5.03/−0.18% (4), and −6.43/−6.07/+6.65% (8). This records host
+A/A variation, not a code regression or improvement. No pooled confidence interval,
+real-UDP CPU comparison, native competitor A/A, or dedicated-host qualification exists.
+Retain the prior blocked/partial attempts and their distinct statuses.
+
+`fruity-rendered-controls-results-04.json` qualifies ordinary full-data native map
+preparation before server/headless startup. Each 19872-byte model contains two complete
+8192-byte texture payloads. All nine native peers now complete 1080 rendered loop frames
+and save 129 hashed actual-view screenshots across three scenarios, with no observed
+render-start exception. Assigned slots, UDP snapshots and no-fire observer controls
+pass. Participant own-shot counts are 39/35 (static), 82/78 (lateral) and 47/44 (jump);
+observer own shooting/shots/events/deaths remain zero. Loop FPS is about 52.4–54.8.
+
+The native upstream harness still **FAILS**, including generic observer position-drift
+and no-hit assertions. The run exit remains 1 and raw failure lines remain in the
+manifest. Successful setup, rendering and role checks do not override that result.
+These native images are unkeyed actual camera views, without an exact-shot exclusion
+pass. Native drain, independently paced high-Hz comparison, legal-hit denominator and
+competitor CPU A/A remain unavailable. This is a characterized comparator baseline,
+not matched passing gameplay or superiority evidence.
+
+Seed scope is fixed transport fault seeds, fixed default gameplay RNG startup words
+`0x3DE9179B / 0`, and a deterministic frame/slot fixture schedule. `--netseed` configures
+fault queues only. Authority snapshots subsequently supply gameplay RNG words; script
+reset does not reseed gameplay RNG. Stock uncharged Power Beam has one projectile and
+zero spread in both engines, skipping randomized spread. Idle sway, camera shake and
+presentation effects still consume RNG; equal startup words do not prove equal pixels
+or combat. The source audit is retained as `seed-scope-audit-01.json`.
+
+Private extracted assets use independent writable APFS copy-on-write clones on macOS,
+and ordinary copies elsewhere. Distinct-inode and mutation-isolation tests pass. No
+hardlinks are used. Failed output trees and generated-before files remain preserved.
+
+## Latest-main integration qualification
+
+Main `46c101cdb7a4a25e2e8fb651181610d733b1fe11` includes CW-04d/e custom provenance/payment
+boundaries and camera/replay/movement changes. Integration `cde48609f` retains those
+boundaries: custom contacts clear the native witness before timeline logging, and the
+segment scope still clears a previous native witness for custom projectiles. Existing
+native-source observation remains opt-in. Checkpoint-09 evidence stays bound to its
+original source; build10 and follow-up checks receive separate records.
+
+Build11 at `4ca528ac0` additionally excludes typed custom sources before native oracle
+buffer work. Its Release build has zero warnings/errors; all 31 off/on/native routes,
+frame-timing checks and both 156-assertion custom rewind scenes pass. The new custom
+regression deliberately forges matching native metadata and verifies that a custom
+first segment changes no oracle row, overflow or coverage. Both actual timeline modes
+are exercised. Fidelity again retains all 46 passing hashes and only the known missile
+divergence; no goldens or engine hash change during qualification.
+
+`prime-ncx-static-pixels-11` passes campaign and bounded drain on that integrated binary.
+The unchanged exporter independently verifies 192 PNG controls: visible samples 64/64/1,
+negative samples 0/0/63. Each participant view has 31 visible exact-paid confirmed cues.
+The observer's one positive is flight, not a confirmed cue. Its 57 uniquely paid sources
+remain a separate denominator; full-source coverage remains INCOMPLETE (12 association
+limits). Requested 60 Hz achieves roughly 50.9/51.7/52.1 loop Hz, with 25/21/44 dropped
+fixed steps; intrusive capture remains disqualified for CPU comparison. The first
+attempt used an unrecognized runner argument and exited 2 before launching any game;
+that command error log is retained separately from the corrected passing invocation.
+
+## Acceptance interpretation
+
+NCX-01's exit is a reproducible measurement foundation: baseline both binaries and
+controls, honest denominators, exporter, positive visual exercise, measured A/A variance
+and no added gameplay change. It does not require the later release's 96%/95% visibility,
+15% CPU improvement, native refresh equivalence or every family to be certified here.
+The characterized native FAILs are part of its baseline and remain FAIL. They provide
+no passing comparative gameplay conclusion and must be resolved or explicitly excluded
+from any later comparison. The complete A/A run measures variation even though its
+performance threshold flags noise; it cannot qualify an optimization.
+
+The scoped positive pixel controls and independent geometric oracle validate their
+measurement mechanisms. Their caps, unavailable legal-damage denominator, unsupported
+families and lack of native shot-keyed pixels are retained limitations. They authorize
+no fast-payment family. NCX-02 may strengthen source/payment identity only after the
+latest-main integration checks below pass; later certification must supply its own
+source-qualified evidence.
+
+The pre-existing [N13 live settlement coverage failure](../netcode2-n13.md) remains an
+explicit remediation item for NCX-02/09/11. The short opt-in NCX campaign/drain controls
+do not replace that exact workload or prove it fixed. Reproduce the original accepted
+source/claim/payment/receipt accounting with this keyed exporter, classify every missing
+terminal or bounded timeout, and retain its original FAIL/INCOMPLETE record until an
+equivalent source-qualified live run passes. Synthetic A/A cannot close live settlement.
+
+The latest-main probe-off `prime-ncx-static-control-11` also passes campaign and bounded
+drain. NCX-01's scoped acceptance is complete; native comparison failures, unavailable
+denominators, A/A noise, unachieved high refresh rates and the N13 remediation item remain
+explicit later qualifications. `code-stability-11.json` verifies all snapshotted code/data
+inputs remain unchanged except the noncompiled measurement-result manifest itself.

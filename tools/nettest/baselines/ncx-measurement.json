@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "slice": "NCX-01",
-  "status": "IN_PROGRESS",
-  "sourceCommit": "928350a5ed7359c50d5e25e9453c0eab759d92e5",
-  "integrationMain": "a3a73617e1ed4b494d560a28deb5d428a3a2d2dc",
+  "status": "COMPLETE_SCOPED_MEASUREMENT",
+  "sourceCommit": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
+  "integrationMain": "46c101cdb7a4a25e2e8fb651181610d733b1fe11",
   "protocol": 59,
-  "engineSha256": "0fb0b9670cb92f0d309da76743694352d99ab00c449aff9a7e0d4b6a9b268a3f",
-  "runnerSha256": "37ce50bc1ae8ca44d9e5c1650338537a2e159ff830aff573fec62f6dc950f232",
+  "engineSha256": "1e863bbb2fe83b58765bb6b8aeb7281b42fc1d6e084bfa5e4aca8a66560ef502",
+  "runnerSha256": "b0ee5f2a0d846fcf871b728361888566a7ce35378bc9b80e857fb32d585f9810",
   "runtime": {
     "sdk": "10.0.401",
     "framework": ".NET10.0.12",
@@ -17,231 +17,231 @@
     "status": "PASS",
     "warnings": 0,
     "errors": 0,
-    "log": "checkpoint-build-09.log",
-    "logSha256": "0b0d9318435c9cba7cf7090476f7a651f8fd340f2faa53d4bb4e804749ff3a7a",
-    "compilerEnvironmentOnly": {
-      "DOTNET_PROCESSOR_COUNT": "4",
-      "MSBuild": "serial/no node reuse; Release settings unchanged"
-    }
+    "log": "checkpoint-build-11.log",
+    "logSha256": "990ae77e7b58547f9176e029463958465d64147338692736ca4de1f27dfa89b7"
   },
   "checks": {
     "status": "PASS",
+    "source": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
+    "count": 31,
+    "rawResults": "checkpoint-results-11.json",
+    "rawSha256": "38ededb24812b9c713aee42d65ee1a5c0b0d617dfb0fd703de0d518ea3f2af05",
     "routes": [
       {
         "route": "--ncx-timeline",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-timeline-off-09.log",
+        "log": "ncx-timeline-off-11.log",
         "logSha256": "df0149183a9e2806af0ae7cc82a29f9ecba82a1517f3242fc72503b46c96327b"
       },
       {
         "route": "--ncx-visibility",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-visibility-off-09.log",
+        "log": "ncx-visibility-off-11.log",
         "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
       },
       {
         "route": "--ncx-hit-oracle",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-hit-oracle-off-09.log",
+        "log": "ncx-hit-oracle-off-11.log",
         "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
       },
       {
         "route": "--ncx-fixtures",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-fixtures-off-09.log",
+        "log": "ncx-fixtures-off-11.log",
         "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
       },
       {
         "route": "--ncx-fixture-lobby",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-fixture-lobby-off-09.log",
+        "log": "ncx-fixture-lobby-off-11.log",
         "logSha256": "a8762ceda5bf7c7f202788f6528826361202282582a5f59a96df1bdf27f42c65"
       },
       {
         "route": "--ncx-observer-evidence",
         "mode": "off",
         "exit": 0,
-        "log": "ncx-observer-evidence-off-09.log",
+        "log": "ncx-observer-evidence-off-11.log",
         "logSha256": "b221f1aaf870041d229190662b122afa9229b50e1c160cdaaa7a61c5236eca8f"
       },
       {
         "route": "--architecture",
         "mode": "off",
         "exit": 0,
-        "log": "architecture-off-09.log",
+        "log": "architecture-off-11.log",
         "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
       },
       {
         "route": "--protocol58-replay",
         "mode": "off",
         "exit": 0,
-        "log": "protocol58-replay-off-09.log",
+        "log": "protocol58-replay-off-11.log",
         "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
       },
       {
         "route": "--claim-stress",
         "mode": "off",
         "exit": 0,
-        "log": "claim-stress-off-09.log",
+        "log": "claim-stress-off-11.log",
         "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
       },
       {
         "route": "--shot-lifecycle",
         "mode": "off",
         "exit": 0,
-        "log": "shot-lifecycle-off-09.log",
+        "log": "shot-lifecycle-off-11.log",
         "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
       },
       {
         "route": "--shot-inputs",
         "mode": "off",
         "exit": 0,
-        "log": "shot-inputs-off-09.log",
+        "log": "shot-inputs-off-11.log",
         "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
       },
       {
         "route": "--netcode-performance",
         "mode": "off",
         "exit": 0,
-        "log": "netcode-performance-off-09.log",
+        "log": "netcode-performance-off-11.log",
         "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
       },
       {
         "route": "--combat-arbitration-scene",
         "mode": "off",
         "exit": 0,
-        "log": "combat-arbitration-scene-off-09.log",
+        "log": "combat-arbitration-scene-off-11.log",
         "logSha256": "47589d1a46444131917d0521375a4b709fdcf3e64e4c8a720482b0e0074061ab"
       },
       {
         "route": "--continuous-combat-scene",
         "mode": "off",
         "exit": 0,
-        "log": "continuous-combat-scene-off-09.log",
+        "log": "continuous-combat-scene-off-11.log",
         "logSha256": "ce6bc97966264d36c5c4ce1862b504c837f8ddc86f277dbec41cdb5d17426467"
       },
       {
         "route": "--impact-authority",
         "mode": "off",
         "exit": 0,
-        "log": "impact-authority-off-09.log",
+        "log": "impact-authority-off-11.log",
         "logSha256": "4ad4365cd925d1909ed7869c10ea094390a74eacbac2c4926a5bbecad5f3eb3d"
       },
       {
         "route": "--ncx-timeline",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-timeline-on-09.log",
+        "log": "ncx-timeline-on-11.log",
         "logSha256": "0e33f1ee65ce4a43412b7c4c1d1157e70ff9ccdce7a6b75144188f889d0459e6"
       },
       {
         "route": "--ncx-visibility",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-visibility-on-09.log",
+        "log": "ncx-visibility-on-11.log",
         "logSha256": "536059fad93d0c17da943c7e6443d75b05224c6d6a1b2d09a3931e7c4ff0a1f6"
       },
       {
         "route": "--ncx-hit-oracle",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-hit-oracle-on-09.log",
+        "log": "ncx-hit-oracle-on-11.log",
         "logSha256": "7b7e5b97006809ff30941a5bf1335d826ccf7bae233b7aab2498b72dd6ec1fbe"
       },
       {
         "route": "--ncx-fixtures",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-fixtures-on-09.log",
+        "log": "ncx-fixtures-on-11.log",
         "logSha256": "8cabb60f54fec3a4638bbb6725fd3dfcf7a0d5dac06a97c3b17d5cd075ea8063"
       },
       {
         "route": "--ncx-fixture-lobby",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-fixture-lobby-on-09.log",
+        "log": "ncx-fixture-lobby-on-11.log",
         "logSha256": "a8762ceda5bf7c7f202788f6528826361202282582a5f59a96df1bdf27f42c65"
       },
       {
         "route": "--ncx-observer-evidence",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-observer-evidence-on-09.log",
+        "log": "ncx-observer-evidence-on-11.log",
         "logSha256": "b221f1aaf870041d229190662b122afa9229b50e1c160cdaaa7a61c5236eca8f"
       },
       {
         "route": "--architecture",
         "mode": "on",
         "exit": 0,
-        "log": "architecture-on-09.log",
+        "log": "architecture-on-11.log",
         "logSha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911"
       },
       {
         "route": "--protocol58-replay",
         "mode": "on",
         "exit": 0,
-        "log": "protocol58-replay-on-09.log",
+        "log": "protocol58-replay-on-11.log",
         "logSha256": "3508dabdb3a7bc07d666fe17323e7f99ce9411d6e87b8cea9a81a4eeb3fc8e72"
       },
       {
         "route": "--claim-stress",
         "mode": "on",
         "exit": 0,
-        "log": "claim-stress-on-09.log",
+        "log": "claim-stress-on-11.log",
         "logSha256": "9dd8c7ee9a2841d6e2dd1049d238ddaa6836ba36ac7ecd6d9c11a89f56c17e1e"
       },
       {
         "route": "--shot-lifecycle",
         "mode": "on",
         "exit": 0,
-        "log": "shot-lifecycle-on-09.log",
+        "log": "shot-lifecycle-on-11.log",
         "logSha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3"
       },
       {
         "route": "--shot-inputs",
         "mode": "on",
         "exit": 0,
-        "log": "shot-inputs-on-09.log",
+        "log": "shot-inputs-on-11.log",
         "logSha256": "a3ec93f743e03a70bb69f184fa732b4e518a293e9e4b87a196d93c39276ed24e"
       },
       {
         "route": "--netcode-performance",
         "mode": "on",
         "exit": 0,
-        "log": "netcode-performance-on-09.log",
+        "log": "netcode-performance-on-11.log",
         "logSha256": "c8beeba3456a91d0456ce27398168558e9ab0b1f6e45feb50e65e43c6f7a91b8"
       },
       {
         "route": "--combat-arbitration-scene",
         "mode": "on",
         "exit": 0,
-        "log": "combat-arbitration-scene-on-09.log",
+        "log": "combat-arbitration-scene-on-11.log",
         "logSha256": "47589d1a46444131917d0521375a4b709fdcf3e64e4c8a720482b0e0074061ab"
       },
       {
         "route": "--continuous-combat-scene",
         "mode": "on",
         "exit": 0,
-        "log": "continuous-combat-scene-on-09.log",
+        "log": "continuous-combat-scene-on-11.log",
         "logSha256": "ce6bc97966264d36c5c4ce1862b504c837f8ddc86f277dbec41cdb5d17426467"
       },
       {
         "route": "--impact-authority",
         "mode": "on",
         "exit": 0,
-        "log": "impact-authority-on-09.log",
+        "log": "impact-authority-on-11.log",
         "logSha256": "4ad4365cd925d1909ed7869c10ea094390a74eacbac2c4926a5bbecad5f3eb3d"
       },
       {
         "route": "--ncx-hit-oracle-scene",
         "mode": "on",
         "exit": 0,
-        "log": "ncx-hit-oracle-scene-on-09.log",
+        "log": "ncx-hit-oracle-scene-on-11.log",
         "logSha256": "70a076eefb2ed993dfdd2da0dedc93d7c6dddb954be8a48f9c81501bbc3fa7c8"
       }
     ]
@@ -256,7 +256,8 @@
     "unavailableRows": 4,
     "legalDamageDenominator": "UNAVAILABLE",
     "rawCapture": "oracle-scene-09.json",
-    "rawSha256": "6e5adc774affdf1b6dd61a2354c3791f66c2ae811b5c94ee64a80a9aa1ef3d14"
+    "rawSha256": "6e5adc774affdf1b6dd61a2354c3791f66c2ae811b5c94ee64a80a9aa1ef3d14",
+    "source": "928350a5ed7359c50d5e25e9453c0eab759d92e5"
   },
   "retainedRenderedRun": {
     "directory": "prime-pixels-lan-04",
@@ -320,15 +321,310 @@
       "assignedRoles": "PASS",
       "nativeHarness": "FAIL",
       "reason": "Declared observer placement differs from generic reference position; generic lateral/jump observer damage coverage unmet. Failures retained."
+    },
+    "renderedFixtureBaseline": {
+      "aggregate": "fruity-rendered-controls-results-04.json",
+      "sha256": "9fa33a5f6a4081fd19e5d2214157dd706beb365fdd095bcd4390cbee063de665",
+      "setup": "PASS",
+      "renderedLoops": "PASS",
+      "roles": "PASS",
+      "upstreamHarness": "FAIL",
+      "comparison": "INCOMPLETE",
+      "totalUnkeyedScreenshots": 129,
+      "ordinaryFullTexturePreparation": "PASS",
+      "cases": [
+        {
+          "scenario": "static",
+          "upstream": "FAIL",
+          "roleControl": "PASS",
+          "actualPeerStats": [
+            {
+              "peer": "peer-0",
+              "ownStats": {
+                "shooting": [
+                  514.0
+                ],
+                "shots": [
+                  39.0
+                ],
+                "shot-events": [
+                  39.0
+                ],
+                "deaths": [
+                  2.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.1,
+                  "reportedLoopFps": 53.8,
+                  "raw": "ran 1080 frame(s) in 20.1 s -- 53.8 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-1",
+              "ownStats": {
+                "shooting": [
+                  471.0
+                ],
+                "shots": [
+                  35.0
+                ],
+                "shot-events": [
+                  35.0
+                ],
+                "deaths": [
+                  2.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.0,
+                  "reportedLoopFps": 54.1,
+                  "raw": "ran 1080 frame(s) in 20.0 s -- 54.1 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-2",
+              "ownStats": {
+                "shooting": [
+                  0.0
+                ],
+                "shots": [
+                  0.0
+                ],
+                "shot-events": [
+                  0.0
+                ],
+                "deaths": [
+                  0.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.0,
+                  "reportedLoopFps": 53.9,
+                  "raw": "ran 1080 frame(s) in 20.0 s -- 53.9 fps"
+                }
+              ],
+              "screenshots": 9,
+              "upstreamFailureLines": [
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "lateral",
+          "upstream": "FAIL",
+          "roleControl": "PASS",
+          "actualPeerStats": [
+            {
+              "peer": "peer-0",
+              "ownStats": {
+                "shooting": [
+                  1055.0
+                ],
+                "shots": [
+                  82.0
+                ],
+                "shot-events": [
+                  82.0
+                ],
+                "deaths": [
+                  0.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.2,
+                  "reportedLoopFps": 53.4,
+                  "raw": "ran 1080 frame(s) in 20.2 s -- 53.4 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-1",
+              "ownStats": {
+                "shooting": [
+                  1030.0
+                ],
+                "shots": [
+                  78.0
+                ],
+                "shot-events": [
+                  78.0
+                ],
+                "deaths": [
+                  0.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.3,
+                  "reportedLoopFps": 53.1,
+                  "raw": "ran 1080 frame(s) in 20.3 s -- 53.1 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-2",
+              "ownStats": {
+                "shooting": [
+                  0.0
+                ],
+                "shots": [
+                  0.0
+                ],
+                "shot-events": [
+                  0.0
+                ],
+                "deaths": [
+                  0.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.6,
+                  "reportedLoopFps": 52.4,
+                  "raw": "ran 1080 frame(s) in 20.6 s -- 52.4 fps"
+                }
+              ],
+              "screenshots": 9,
+              "upstreamFailureLines": [
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            }
+          ]
+        },
+        {
+          "scenario": "jump",
+          "upstream": "FAIL",
+          "roleControl": "PASS",
+          "actualPeerStats": [
+            {
+              "peer": "peer-0",
+              "ownStats": {
+                "shooting": [
+                  623.0
+                ],
+                "shots": [
+                  47.0
+                ],
+                "shot-events": [
+                  47.0
+                ],
+                "deaths": [
+                  1.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.0,
+                  "reportedLoopFps": 53.9,
+                  "raw": "ran 1080 frame(s) in 20.0 s -- 53.9 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-1",
+              "ownStats": {
+                "shooting": [
+                  584.0
+                ],
+                "shots": [
+                  44.0
+                ],
+                "shot-events": [
+                  44.0
+                ],
+                "deaths": [
+                  2.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 20.0,
+                  "reportedLoopFps": 54.0,
+                  "raw": "ran 1080 frame(s) in 20.0 s -- 54.0 fps"
+                }
+              ],
+              "screenshots": 17,
+              "upstreamFailureLines": [
+                "FAIL: their position drifted far from the authority's",
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            },
+            {
+              "peer": "peer-2",
+              "ownStats": {
+                "shooting": [
+                  0.0
+                ],
+                "shots": [
+                  0.0
+                ],
+                "shot-events": [
+                  0.0
+                ],
+                "deaths": [
+                  0.0
+                ]
+              },
+              "frameStats": [
+                {
+                  "frames": 1080,
+                  "wallSeconds": 19.7,
+                  "reportedLoopFps": 54.8,
+                  "raw": "ran 1080 frame(s) in 19.7 s -- 54.8 fps"
+                }
+              ],
+              "screenshots": 9,
+              "upstreamFailureLines": [
+                "FAIL: never took a single hit: peer-2 (slot 2)"
+              ]
+            }
+          ]
+        }
+      ]
     }
   },
-  "remainingGates": [
-    "Complete three Prime static/lateral/jump controls and native baseline characterization",
-    "Native rendered custom-map fixture generation qualification; texture-empty headless outputs fail",
-    "Requested30/60/120/144/240/360/500 Prime presentation observations with actual achieved rates; native pacing unsupported",
-    "Complete source-qualified A/A variance calibration for2/4/8player workloads",
-    "Final source-qualified acceptance manifest and independently reviewable PR"
-  ],
+  "remainingGates": [],
   "defaults": {
     "timeline": "off",
     "pixelProbe": "off",
@@ -421,13 +717,23 @@
     "engineSha256": "f993fcdae831a203e514a126354f9418b71767c19b8dabe21b2470557b474bef"
   },
   "latestQualification": {
-    "sourceCommit": "928350a5ed7359c50d5e25e9453c0eab759d92e5",
-    "integrationMain": "a3a73617e1ed4b494d560a28deb5d428a3a2d2dc",
-    "compiledInputsSha256": "b39e652ca7b8e1df5ede7c11f16a3961ee9bd0136be0cbbabb7e9dd813b1dbe2",
-    "cleanTrackedSource": true,
-    "engineSha256": "0fb0b9670cb92f0d309da76743694352d99ab00c449aff9a7e0d4b6a9b268a3f",
+    "sourceCommit": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
+    "integrationMain": "46c101cdb7a4a25e2e8fb651181610d733b1fe11",
+    "compiledInputsSha256": "9d4083daef7435108bbc2d6ae606b1755ea6ed1bcea6abfcd35c282282849f28",
+    "compiledCodeClean": true,
+    "documentationMayBeDirtyAtBuild": true,
+    "engineSha256": "1e863bbb2fe83b58765bb6b8aeb7281b42fc1d6e084bfa5e4aca8a66560ef502",
     "status": "PASS",
-    "routeCount": 31
+    "plannedRoutes": 31,
+    "completedRoutes": 31,
+    "completed": true,
+    "manifest": "checkpoint-results-11.json",
+    "manifestSha256": "38ededb24812b9c713aee42d65ee1a5c0b0d617dfb0fd703de0d518ea3f2af05",
+    "nativeCustomManifest": "native-custom-qualification-11.json",
+    "nativeCustomSha256": "647bacad94a93cd7e2abc676b565e017c14872800c19a33ea05e9307e56fcadb",
+    "customIsolationChecksEachMode": 156,
+    "frameTiming": "PASS",
+    "fidelity": "CHARACTERIZED_BASELINE_FAILURE_ONLY"
   },
   "retainedPackagedFixtureCapture": {
     "directory": "prime-ncx-static-pixels-07b",
@@ -473,11 +779,11 @@
     },
     "rawResults": "integrated-results-06.json"
   },
-  "compiledInputsSha256": "b39e652ca7b8e1df5ede7c11f16a3961ee9bd0136be0cbbabb7e9dd813b1dbe2",
+  "compiledInputsSha256": "9d4083daef7435108bbc2d6ae606b1755ea6ed1bcea6abfcd35c282282849f28",
   "cleanTrackedSource": true,
   "nativeFidelity": {
     "status": "CHARACTERIZED_BASELINE_FAILURE_ONLY",
-    "source": "928350a5ed7359c50d5e25e9453c0eab759d92e5",
+    "source": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
     "engineExit": 1,
     "passingCases": 46,
     "allPassingCaseHashesMatchNcx00": true,
@@ -485,7 +791,8 @@
       "weapon.missile.splash, tick 177, victim.position4096.z: expected 52814, actual 52815"
     ],
     "logSha256": "7a3270af1e272fa4c9d1e3de683f8cae63de557e69aa650fa51f6d1e207eac6e",
-    "retainedParserMistake": "Initial diagnostic parser expected FAIL-prefixed lines; actual output uses First divergence. Original result/log preserved; this audit parses actual format."
+    "retainedParserMistake": "Initial diagnostic parser expected FAIL-prefixed lines; actual output uses First divergence. Original result/log preserved; this audit parses actual format.",
+    "audit": "native-custom-qualification-11.json"
   },
   "passingPackagedFixtureCapture": {
     "directory": "prime-ncx-static-pixels-09",
@@ -525,5 +832,428 @@
     "plannedCases": 18,
     "matrixQualification": "INCOMPLETE",
     "scope": "Existing synthetic asset-backed ServerSim; no live UDP, stable host or hosting-hardware qualification; full matrix stopped when another test started"
-  }
+  },
+  "completedIdenticalBinaryCalibration": {
+    "directory": "aa-checkpoint-09-02",
+    "source": "928350a5ed7359c50d5e25e9453c0eab759d92e5",
+    "rawDriverStatus": "PAIRED_P99_REGRESSION_FLAG",
+    "casesExecuted": 18,
+    "plannedCases": 18,
+    "pairedWorkloadsEqual": true,
+    "binaryHashesUnchanged": true,
+    "pairedP99PercentChanges": {
+      "2": [
+        -3.411675511751311,
+        3.809523809523818,
+        1.7543859649122862
+      ],
+      "4": [
+        -0.4360148245040385,
+        5.031446540880502,
+        -0.1755540926047794
+      ],
+      "8": [
+        -6.426283706994528,
+        -6.070222131231451,
+        6.650728102586401
+      ]
+    },
+    "scope": "Controlled synthetic asset-backed ServerSim; no transport/hosting-hardware claim; no pooled confidence estimates",
+    "confidenceIntervals": "UNAVAILABLE",
+    "performanceClaim": false,
+    "comparisonSha256": "ac7527d55997eb061bf6552d1e105ef896303d103e1af3f8dc5fca7cdbe0da81"
+  },
+  "primeFixtureControls": {
+    "aggregate": "prime-emulated-controls-results-09.json",
+    "sha256": "021afe9fb2d59c713a342f20afea39bee40c2af2b07120e46a97813ccde7e10e",
+    "cases": [
+      {
+        "scenario": "static",
+        "directory": "prime-ncx-static-control-09",
+        "status": "PASS",
+        "requestedHz": 60,
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 55.528381246711184,
+            "droppedSteps": 12,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 56.23259890496386,
+            "droppedSteps": 19,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 56.96929959616046,
+            "droppedSteps": 12,
+            "stalls": 1
+          }
+        ]
+      },
+      {
+        "scenario": "lateral",
+        "directory": "prime-ncx-lateral-control-09",
+        "status": "PASS",
+        "requestedHz": 60,
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 55.92370705721343,
+            "droppedSteps": 14,
+            "stalls": 1
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 55.62702472476981,
+            "droppedSteps": 16,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 56.13542575934137,
+            "droppedSteps": 14,
+            "stalls": 1
+          }
+        ]
+      },
+      {
+        "scenario": "jump",
+        "directory": "prime-ncx-jump-control-09",
+        "status": "PASS",
+        "requestedHz": 60,
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 55.720595292998674,
+            "droppedSteps": 21,
+            "stalls": 1
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 54.88722745300971,
+            "droppedSteps": 15,
+            "stalls": 2
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 56.43694352134766,
+            "droppedSteps": 15,
+            "stalls": 1
+          }
+        ]
+      }
+    ]
+  },
+  "primePresentationObservations": {
+    "aggregate": "prime-presentation-matrix-results-09.json",
+    "sha256": "7a2a3515b2ebba045dba88b92055598e5cf89dff5f5795c0eb897eb070eb459f",
+    "scope": "Requested caps and observed render/swap-loop cadence; not physical monitor scanout, exact requested-rate certification, matched native pacing, or CPU comparison",
+    "cases": [
+      {
+        "requestedHz": 30,
+        "directory": "prime-ncx-static-rate30-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 28.48736752937077,
+            "droppedSteps": 9,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 28.870943244574864,
+            "droppedSteps": 13,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 28.988672739146033,
+            "droppedSteps": 9,
+            "stalls": 1
+          }
+        ]
+      },
+      {
+        "requestedHz": 60,
+        "directory": "prime-ncx-static-control-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 55.528381246711184,
+            "droppedSteps": 12,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 56.23259890496386,
+            "droppedSteps": 19,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 56.96929959616046,
+            "droppedSteps": 12,
+            "stalls": 1
+          }
+        ]
+      },
+      {
+        "requestedHz": 120,
+        "directory": "prime-ncx-static-rate120-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 96.93488159386794,
+            "droppedSteps": 16,
+            "stalls": 1
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 98.13058403783769,
+            "droppedSteps": 20,
+            "stalls": 0
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 96.96768544672182,
+            "droppedSteps": 16,
+            "stalls": 0
+          }
+        ]
+      },
+      {
+        "requestedHz": 144,
+        "directory": "prime-ncx-static-rate144-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 110.01935240408788,
+            "droppedSteps": 6,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 111.55434427212009,
+            "droppedSteps": 19,
+            "stalls": 0
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 109.0449718644688,
+            "droppedSteps": 15,
+            "stalls": 0
+          }
+        ]
+      },
+      {
+        "requestedHz": 240,
+        "directory": "prime-ncx-static-rate240-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 157.4040754418793,
+            "droppedSteps": 16,
+            "stalls": 1
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 165.61352115732294,
+            "droppedSteps": 18,
+            "stalls": 0
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 159.43200579148925,
+            "droppedSteps": 16,
+            "stalls": 0
+          }
+        ]
+      },
+      {
+        "requestedHz": 360,
+        "directory": "prime-ncx-static-rate360-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 193.02910356246318,
+            "droppedSteps": 6,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 203.01969828585274,
+            "droppedSteps": 9,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 206.71658288467634,
+            "droppedSteps": 6,
+            "stalls": 1
+          }
+        ]
+      },
+      {
+        "requestedHz": 500,
+        "directory": "prime-ncx-static-rate500-09",
+        "campaign": "PASS",
+        "peers": [
+          {
+            "slot": 0,
+            "achievedLoopHz": 240.7452019670554,
+            "droppedSteps": 6,
+            "stalls": 2
+          },
+          {
+            "slot": 1,
+            "achievedLoopHz": 259.3971621254912,
+            "droppedSteps": 9,
+            "stalls": 1
+          },
+          {
+            "slot": 2,
+            "achievedLoopHz": 266.34853650402454,
+            "droppedSteps": 6,
+            "stalls": 1
+          }
+        ]
+      }
+    ]
+  },
+  "liveSettlementRemediation": {
+    "status": "INCOMPLETE",
+    "original": "docs/netcode2-n13.md",
+    "owners": [
+      "NCX-02",
+      "NCX-09",
+      "NCX-11"
+    ],
+    "required": "Reproduce original live accepted-source/claim/payment/receipt workload with keyed exporter; classify every terminal/timeout and preserve original failure",
+    "notSupersededBy": [
+      "shortNCX LAN campaign/drain controls",
+      "synthetic identical-binary ServerSim calibration"
+    ]
+  },
+  "measuredCheckpoint09": {
+    "source": "928350a5ed7359c50d5e25e9453c0eab759d92e5",
+    "engineSha256": "0fb0b9670cb92f0d309da76743694352d99ab00c449aff9a7e0d4b6a9b268a3f",
+    "scope": "All09cadence/control/capture/A-A records remain qualified only to this exact source"
+  },
+  "seedScope": {
+    "audit": "seed-scope-audit-01.json",
+    "sha256": "9e27c134712b029236d783aeea97bf8c0663eebc01ada1dfb513a98364c41ce4",
+    "transport": "base fault seed + process launch index",
+    "gameplayStartupWords": [
+      "0x3DE9179B",
+      "0"
+    ],
+    "schedule": "deterministic frame/slot arithmetic, no fixture reseed",
+    "spread": "stock uncharged PowerBeam zero spread, one projectile; random spread branch skipped",
+    "identicalConsumptionOrOutcomes": "NOT_CERTIFIED",
+    "auditSource": "928350a5ed7359c50d5e25e9453c0eab759d92e5"
+  },
+  "latestPackagedFixtureCapture": {
+    "directory": "prime-ncx-static-pixels-11",
+    "source": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
+    "engineSha256": "1e863bbb2fe83b58765bb6b8aeb7281b42fc1d6e084bfa5e4aca8a66560ef502",
+    "campaign": "PASS",
+    "boundedDrain": "PASS",
+    "failures": [],
+    "incompleteGameplay": [],
+    "verifiedSampleControls": 192,
+    "visible": [
+      64,
+      64,
+      1
+    ],
+    "noTargetPixels": [
+      0,
+      0,
+      63
+    ],
+    "visibleExactPaidConfirmedCues": [
+      31,
+      31,
+      0
+    ],
+    "campaignUniquePaidSources": 57,
+    "fullSourceVisibilityCoverage": "INCOMPLETE",
+    "authorityJoinLimitCount": 12,
+    "cpuComparison": "DISQUALIFIED",
+    "requestedHz": 60,
+    "achievedLoopHz": [
+      50.87678979968032,
+      51.66463916460126,
+      52.111483919958125
+    ],
+    "droppedSteps": [
+      25,
+      21,
+      44
+    ],
+    "auditSha256": "9ba1e934637ab3039169a20aad2c40e76747e46004c7eac52594143b46518e97",
+    "decoder": "Pillow; unchanged exporter previously cross-checked against independent stdlib decoder on09"
+  },
+  "retainedCommandError": {
+    "log": "prime-ncx-static-pixels-11-controller.log",
+    "exit": 2,
+    "reason": "Unrecognized --visibility-probe; parser rejected before launch. Correct supported --shot-visibility used in qualified run.",
+    "gameProcessesLaunched": false
+  },
+  "latestProbeOffControl": {
+    "directory": "prime-ncx-static-control-11",
+    "source": "4ca528ac0b55ba2b9731a24906948dc9e9945442",
+    "campaign": "PASS",
+    "boundedDrain": "PASS",
+    "requestedHz": 60,
+    "peers": [
+      {
+        "slot": 0,
+        "achievedLoopHz": 54.485942127440296,
+        "droppedSteps": 10,
+        "stalls": 2
+      },
+      {
+        "slot": 1,
+        "achievedLoopHz": 55.23464871686891,
+        "droppedSteps": 13,
+        "stalls": 1
+      },
+      {
+        "slot": 2,
+        "achievedLoopHz": 55.61174369179916,
+        "droppedSteps": 10,
+        "stalls": 1
+      }
+    ],
+    "summarySha256": "afbbf6b54a27fa42ee672391ddd77e54bbf912a98901a37d32c46271145902bd"
+  },
+  "acceptance": {
+    "baselineBothBinariesAndControls": "PASS: source/runtime-qualified Prime and native baselines; native observer assertion FAILs retained, no cross-engine parity claim",
+    "honestDenominators": "PASS: sources/claims/payments/contacts/pixel samples separate, legal-hit and full visibility denominators unavailable",
+    "reproducibleExporter": "PASS:42Python tests; explicit command/source/input/runtime/asset hashes",
+    "positiveVisualExercise": "PASS:192PNG controls and exact paid cues in participant views; observer flight distinct",
+    "identicalBinaryVariance": "MEASURED:18synthetic cases/9equal-workload pairs; raw p99 flags retained, no performance gate claimed",
+    "noAddedGameplayChange": "PASS:opt-in evidence/fixture setup only;31off-on routes,156custom assertions per mode,46unchanged native goldens plus known one-unit divergence",
+    "latestMainIntegration": "PASS:46c101cdb integrated,build11,source4ca528ac0,updated capture and probe-off campaign/drain"
+  },
+  "laterQualificationLimits": [
+    "Native emulated upstream harness FAIL: observer drift/no-hit assertions",
+    "Native exact-shot pixels and independently paced comparison unavailable",
+    "Full source visibility coverage and legal-hit denominator unavailable",
+    "Actual360+Hz not achieved on this host; no monitor scanout certification",
+    "Synthetic local A/A noise flags, no comparative CPU or target hardware qualification",
+    "Original N13 live settlement telemetry remains INCOMPLETE",
+    "No fast-payment eligibility, release or superiority certification"
+  ],
+  "compiledInputClosureNote": "source-inputs-11.json snapshots a broad code/data closure including baseline metadata. Only ncx-measurement.json changes during report closeout; it is not compiled. Separate code-stability-11.json verifies every other snapshot hash."
 }
