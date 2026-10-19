@@ -94,6 +94,31 @@ internal static class InstagibIonFractureTests
             == CosmeticEffectQuality.Off, "exhausted multi-player accent budget preserves core");
         Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High,
             float.NaN, 3) == CosmeticEffectQuality.Off, "nonfinite distance safely disables accents");
+        var born = InstagibIonFracture.LookAt(0f);
+        var expired = InstagibIonFracture.LookAt(1f);
+        Check(born.Core == 1f && Math.Abs(born.Glow - 0.75f) < 0.001f
+            && Math.Abs(born.Spiral - 0.95f) < 0.001f
+            && Math.Abs(born.Radius - 0.11f) < 0.001f,
+            "reference rail launches bright core, soft halo and full twin filament");
+        Check(expired.Core == 0f && expired.Glow == 0f && expired.Spiral == 0f,
+            "all textured rail layers fade to zero");
+        Check(InstagibIonFracture.TaperAt(0f, 0.24f, 9f) < 0.04f
+            && Math.Abs(InstagibIonFracture.TaperAt(20f, 0.24f, 9f) - 0.24f) < 0.001f,
+            "halo narrows at muzzle and reaches authored full width");
+        var offset0 = InstagibIonFracture.HelixDisplacement(Vector3.UnitX, Vector3.UnitY,
+            0f, 0.5f, 0f, 0);
+        var strandA = InstagibIonFracture.HelixDisplacement(Vector3.UnitX, Vector3.UnitY,
+            8f, 0.25f, 0.45f, 0);
+        var strandB = InstagibIonFracture.HelixDisplacement(Vector3.UnitX, Vector3.UnitY,
+            8f, 0.25f, 0.45f, 1);
+        Check(offset0.LengthSquared < 0.000001f,
+            "twin filaments begin at exact muzzle, without large first-person halo");
+        Check((strandA + strandB).LengthSquared < 0.000001f
+            && strandA.Length > 0.1f && strandA.Length < 0.5f,
+            "filaments oppose each other and stay bounded around shot axis");
+        Check((InstagibIonFracture.HelixDisplacement(Vector3.UnitX, Vector3.UnitY,
+            8f, 0.25f, 0.45f, 0) - strandA).LengthSquared == 0f,
+            "helix is deterministic and independent of draw frame RNG");
         var world = new InstagibIonFracture();
         Check(world.Count == 0, "new scene owns empty pool");
         world.Clear();
