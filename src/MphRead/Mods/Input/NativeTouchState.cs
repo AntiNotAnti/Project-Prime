@@ -155,19 +155,28 @@ namespace MphRead.Mods.Input
             return NewSample;
         }
 
-        private void FinishLocal()
+        private void FinishLocal(bool allowMovementBoost)
         {
             Current = _state.Report(_sequence, _phase == 0);
+            if (!allowMovementBoost)
+            {
+                // Continued is used only to recognize a boost, not to apply
+                // rolling traction. Clear it in the canonical sample so local
+                // simulation, replicas and replay all agree on the disabled
+                // gesture without changing the 9-byte wire/checkpoint format.
+                Current = Current with { Continued = false };
+            }
             RollShare = _state.Down ? 0.5f : 0;
         }
 
-        public void StepAbsolute(bool down, int x, int y)
+        public void StepAbsolute(bool down, int x, int y, bool allowMovementBoost = true)
         {
             if (BeginLocal()) _state.UpdateAbsolute(down, x, y);
-            FinishLocal();
+            FinishLocal(allowMovementBoost);
         }
 
-        public void StepRelative(bool enabled, float pixelX, float pixelY, float sensitivity)
+        public void StepRelative(bool enabled, float pixelX, float pixelY, float sensitivity,
+            bool allowMovementBoost = true)
         {
             if (!enabled) { Suspend(); return; }
             if (float.IsFinite(pixelX) && float.IsFinite(pixelY))
@@ -186,7 +195,7 @@ namespace MphRead.Mods.Input
                 _state.UpdateRelative(down, dx, dy);
                 _pendingX = _pendingY = 0;
             }
-            FinishLocal();
+            FinishLocal(allowMovementBoost);
         }
 
         public void ApplyRemote(in NativeTouchReport report, ushort generation, ushort life, uint sourceFrame = 0)
