@@ -88,7 +88,7 @@ internal static class MomentumSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM SCENE FAIL " + ex); return 1; }
     }
 
-    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard)
+    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard, string room = "MP3 PROVING GROUND")
     {
         Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
         keyboard = SyntheticInput.CreateKeyboard();
@@ -97,7 +97,7 @@ internal static class MomentumSceneTests
         {
             scene = new Scene(new Vector2i(256, 192), keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { }, lifetimeOwned: value => scene = value);
             scene.AddPlayer(hunter);
-            scene.AddRoom("MP3 PROVING GROUND", GameMode.Battle, playerCount: 1);
+            scene.AddRoom(room, GameMode.Battle, playerCount: 1);
             if (momentum)
             {
                 if (!_admissionChecked)

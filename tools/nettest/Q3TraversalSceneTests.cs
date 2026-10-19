@@ -67,7 +67,9 @@ internal static class Q3TraversalSceneTests
     private static void Move(PlayerEntity p, bool keepPrevious = false)
     {
         if (!keepPrevious) p.PrevPosition = p.Position;
-        Call(p, "ProcessMovement");
+        // Reflection does not supply C# optional defaults. This legacy kernel
+        // fixture deliberately exercises Native, without an accepted jump.
+        Call(p, "ProcessMovement", false, false);
         Require(float.IsFinite(p.Position.X) && float.IsFinite(p.Position.Y) && float.IsFinite(p.Position.Z), "finite native trajectory");
     }
     internal static int Run(string room)

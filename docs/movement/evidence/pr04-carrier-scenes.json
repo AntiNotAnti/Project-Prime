@@ -1,0 +1,94 @@
+{
+  "checks": 1051,
+  "scope": "asset-backed offline native serialized platform with waypoint motion, real standing contact and keyboard walk-off; no transport/render/replay acceptance",
+  "native": {
+    "CarriedTicks": 191,
+    "MovingCarryTicks": 191,
+    "Exited": true,
+    "Resumed": false,
+    "BypassedSteps": 0,
+    "idleTickCount": 240,
+    "firstIdleSample": {
+      "player": [
+        -48,
+        10,
+        -10
+      ],
+      "speed": [
+        0,
+        0,
+        0
+      ],
+      "platform": [
+        -48,
+        3.0124512,
+        -10
+      ],
+      "Carried": false
+    },
+    "lastIdleSample": {
+      "player": [
+        -48,
+        4.7788086,
+        -10
+      ],
+      "speed": [
+        0,
+        0,
+        0
+      ],
+      "platform": [
+        -48,
+        4.0288086,
+        -10
+      ],
+      "Carried": true
+    }
+  },
+  "momentum": {
+    "CarriedTicks": 191,
+    "MovingCarryTicks": 191,
+    "Exited": true,
+    "Resumed": true,
+    "BypassedSteps": 0,
+    "idleTickCount": 240,
+    "firstIdleSample": {
+      "player": [
+        -48,
+        10,
+        -10
+      ],
+      "speed": [
+        0,
+        0,
+        0
+      ],
+      "platform": [
+        -48,
+        3.0124512,
+        -10
+      ],
+      "Carried": false
+    },
+    "lastIdleSample": {
+      "player": [
+        -48,
+        4.7788086,
+        -10
+      ],
+      "speed": [
+        0,
+        0,
+        0
+      ],
+      "platform": [
+        -48,
+        4.0288086,
+        -10
+      ],
+      "Carried": true
+    }
+  },
+  "evidenceNote": "Both complete 240-tick idle traces were compared exactly by the suite; only endpoints are retained here. The command regenerates full local JSON.",
+  "testedBase": "eb4eb71c936b2f91b450c0551d416a9177bac67f"
+}

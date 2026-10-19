@@ -1,0 +1,2235 @@
+{
+  "checks": 98556,
+  "scope": "asset-backed offline CPU scene simulation/input/native event endpoints; headless Roam; no GL, physical devices, network, replay or projectile-hit acceptance",
+  "instantaneousImpulsePolicy": "directed TakeDamage adds native Speed immediately without an acceleration timer; immediate XYZ must match Classic; subsequent ordinary horizontal steering/friction may differ; large .5,.1,0 endpoint is labeled synthetic stress, not projectile acceptance",
+  "conditions": "MP3 PROVING GROUND; seeded helper native spawn/intro skip; 60Hz; entity geometry and initial placement are fixture setup; no per-tick position/speed overrides; Prime earned by native lethal damage on initialized support victim",
+  "remaining": "slippery surfaces/custom geometry tested separately; full custom-map Q3 loading, physical projectiles, actual camera/HUD/device/bot acceptance remain outside this suite",
+  "results": [
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "form-cycle",
+        "Ticks": 120,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "form-cycle",
+        "Ticks": 120,
+        "SuspendedTicks": 119,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "form-cycle",
+        "Ticks": 114,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "form-cycle",
+        "Ticks": 114,
+        "SuspendedTicks": 113,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "form-cycle",
+        "Ticks": 114,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "form-cycle",
+        "Ticks": 114,
+        "SuspendedTicks": 113,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Spire",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Spire",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "form-cycle",
+        "Ticks": 134,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "form-cycle",
+        "Ticks": 134,
+        "SuspendedTicks": 133,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Noxus",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Noxus",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "form-cycle",
+        "Ticks": 184,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 13.485224,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 1
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "form-cycle",
+        "Ticks": 184,
+        "SuspendedTicks": 183,
+        "ResumedTicks": 1,
+        "Displacement": 13.485224,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 1
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Trace",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Trace",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "form-cycle",
+        "Ticks": 120,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "form-cycle",
+        "Ticks": 120,
+        "SuspendedTicks": 119,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "teleport",
+        "Ticks": 95,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 95,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "pad",
+        "Ticks": 162,
+        "SuspendedTicks": 66,
+        "ResumedTicks": 96,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 1.012167,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "directed-damage",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 2.824864,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.2,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 2.5304155,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "large-directed-endpoint-stress",
+        "Ticks": 163,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 163,
+        "Displacement": 7.062166,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": [
+          0.5,
+          0.1,
+          0
+        ],
+        "IncomingOverCapSamples": 25,
+        "NeutralAirRetentionSamples": 23,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "form-cycle",
+        "Ticks": 110,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "form-cycle",
+        "Ticks": 110,
+        "SuspendedTicks": 109,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "prime-native",
+        "Ticks": 262,
+        "SuspendedTicks": 200,
+        "ResumedTicks": 62,
+        "Displacement": 6.925677,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "death-respawn",
+        "Ticks": 251,
+        "SuspendedTicks": 179,
+        "ResumedTicks": 72,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "q3-push",
+        "Ticks": 192,
+        "SuspendedTicks": 26,
+        "ResumedTicks": 166,
+        "Displacement": 8.08107,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 3,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Weavel",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Weavel",
+        "Scenario": "q3-teleport",
+        "Ticks": 182,
+        "SuspendedTicks": 1,
+        "ResumedTicks": 181,
+        "Displacement": 8,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 0,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Samus",
+        "Scenario": "native-bomb",
+        "Ticks": 230,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Samus",
+        "Scenario": "native-bomb",
+        "Ticks": 230,
+        "SuspendedTicks": 229,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Kanden",
+        "Scenario": "native-bomb",
+        "Ticks": 224,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Kanden",
+        "Scenario": "native-bomb",
+        "Ticks": 224,
+        "SuspendedTicks": 223,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    },
+    {
+      "native": {
+        "Hunter": "Sylux",
+        "Scenario": "native-bomb",
+        "Ticks": 414,
+        "SuspendedTicks": 0,
+        "ResumedTicks": 0,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      },
+      "momentum": {
+        "Hunter": "Sylux",
+        "Scenario": "native-bomb",
+        "Ticks": 414,
+        "SuspendedTicks": 413,
+        "ResumedTicks": 1,
+        "Displacement": 0,
+        "ContactOverflows": 0,
+        "RecoveryFallbacks": 0,
+        "BombsObserved": 1,
+        "ImmediateVelocity": null,
+        "IncomingOverCapSamples": 0,
+        "NeutralAirRetentionSamples": 0,
+        "TimedAccelerationEvents": 0
+      }
+    }
+  ],
+  "evidenceNote": "Summary of a passing full run; native/Momentum vertical arrays were compared by the suite and omitted here. The command regenerates full local JSON.",
+  "testedBase": "eb4eb71c936b2f91b450c0551d416a9177bac67f"
+}
