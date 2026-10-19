@@ -1,13 +1,14 @@
 using System;
 using System.Text.Json;
 using MphRead.Formats;
+using MphRead.Mods.Movement;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
 
-// Draft against the proposed observational API. Capture field adapters below
-// deliberately keep these tests independent of the eventual report record types.
+// Exercise the serialized observational contract as consumed by evidence tools,
+// alongside the strongly typed model/profile identity checks.
 internal static class MovementValidationTests
 {
     internal static int Run()
@@ -16,7 +17,7 @@ internal static class MovementValidationTests
         try
         {
             NetMovementValidationShadow.Enabled = true;
-            HuntersAndForms(); OrderingAndGaps(); Lifecycle(); RoomBoundary(); Exemptions(); InvalidSamples(); Bounds(); Disabled();
+            HuntersAndForms(); ModelsAndProfiles(); OrderingAndGaps(); Lifecycle(); RoomBoundary(); Exemptions(); InvalidSamples(); Bounds(); Disabled();
             Console.WriteLine("PASS: movement shadow lifecycle, source time, exemptions and bounded observations");
             return 0;
         }
@@ -59,6 +60,51 @@ internal static class MovementValidationTests
                 $"hunter {h} stable alt explicitly unsupported after transition settling");
         }
     }
+    private static void ModelsAndProfiles()
+    {
+        NetMovementValidationShadow.Reset();
+        var native = Sample(100);
+        NetMovementValidationShadow.Observe(native);
+        NetMovementValidationShadow.Observe(native with { Frame = 101, Position = new(10000, 0, 0) });
+        var momentum = Sample(1) with { MovementModel = MovementModel.Momentum,
+            ProfileVersion = MomentumProfileV1.MomentumProfileVersion };
+        NetMovementValidationShadow.Observe(momentum);
+        Check(Count("Baselines") == 2 && Count("DuplicateOrOld") == 0,
+            "model/profile context establishes a fresh source-time baseline");
+        NetMovementValidationShadow.Observe(momentum with { Frame = 2, Position = new(10000, 0, 0) });
+        var report = NetMovementValidationShadow.Capture();
+        Check(report.Schema == 2 && report.HardRejections == 0 && report.Hunters.Length == 28,
+            "versioned bounded report groups two models without enforcement");
+        Check(report.Hunters[0].MovementModel == MovementModel.Native && report.Hunters[0].ProfileVersion == 0
+            && report.Hunters[0].WouldRefuse == 1
+            && report.Hunters[14].MovementModel == MovementModel.Momentum && report.Hunters[14].ProfileVersion == 1
+            && report.Hunters[14].WouldRefuse == 1,
+            "Native and Momentum counters never combine and retain Native index order");
+        Check(report.Rows.Length == 2 && report.Rows[0].MovementModel == MovementModel.Native
+            && report.Rows[0].ProfileVersion == 0 && report.Rows[1].MovementModel == MovementModel.Momentum
+            && report.Rows[1].ProfileVersion == 1, "anomaly rows retain model/profile provenance");
+
+        var values = Metadata.PlayerValues[0];
+        float nativeLimit = 2 * Fixed.ToFloat(Math.Max(values.WalkSpeedCap, values.StrafeSpeedCap)) + .1f;
+        float momentumLimit = Math.Max(nativeLimit, 2 * MomentumProfileV1.RetentionSpeedCap / 30 + .1f);
+        Check(momentumLimit > nativeLimit, "Momentum retention envelope is broader than Native for calibration Hunter");
+        float displacement = (nativeLimit + momentumLimit) / 2;
+        foreach (bool selected in new[] { false, true })
+        {
+            NetMovementValidationShadow.Reset();
+            var start = selected ? momentum : native;
+            NetMovementValidationShadow.Observe(start);
+            NetMovementValidationShadow.Observe(start with { Frame = start.Frame + 1, Position = new(displacement, 0, 0) });
+            Check(Count("WouldRefuse") == (selected ? 0 : 1),
+                "selected advisory envelope differs without changing Native constants");
+        }
+        NetMovementValidationShadow.Observe(momentum with { ProfileVersion = 2 });
+        NetMovementValidationShadow.Observe(native with { ProfileVersion = 1 });
+        NetMovementValidationShadow.Observe(native with { MovementModel = (MovementModel)255 });
+        Check(Count("Invalid") == 3 && Count("HardRejections") == 0,
+            "unknown profile/model evidence is diagnostic only and cannot enter grouping keys");
+    }
+
     private static void OrderingAndGaps()
     {
         NetMovementValidationShadow.Reset();

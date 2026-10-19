@@ -23,7 +23,21 @@ def number(value, label):
     return value
 
 
+def identity(row, schema):
+    if not isinstance(row, dict): raise ValueError('invalid movement identity row')
+    if schema == 1:
+        model = integer(row.get('MovementModel', 0), 'MovementModel', 0)
+        profile = integer(row.get('ProfileVersion', 0), 'ProfileVersion', 0)
+    else:
+        model = integer(row['MovementModel'], 'MovementModel', 1)
+        profile = integer(row['ProfileVersion'], 'ProfileVersion', 1)
+        if profile != model: raise ValueError('unknown movement model/profile combination')
+    return model, profile
+
+
 def inspect(report, enabled, authority):
+    schema = integer(report.get('Schema', 1), 'Schema', 2, 1)
+    models = ((0, 0),) if schema == 1 else ((0, 0), (1, 1))
     if type(report['Enabled']) is not bool or report['Enabled'] != enabled:
         raise ValueError('Enabled disagrees with explicit expected setting')
     for field in ('HardRejections', 'Invalid', 'Overflow'):
@@ -34,8 +48,9 @@ def inspect(report, enabled, authority):
     for row in report['Hunters']:
         hunter = integer(row['Hunter'], 'Hunter', 6)
         if type(row['Alt']) is not bool: raise ValueError('invalid Alt')
-        key = (hunter, row['Alt'])
-        if key in counters: raise ValueError('duplicate hunter/form counts')
+        model, profile = identity(row, schema)
+        key = (model, profile, hunter, row['Alt'])
+        if key in counters: raise ValueError('duplicate model/profile/hunter/form counts')
         counts = {f: integer(row[f], f) for f in COUNTS}
         counts.update({f: number(row[f], f) for f in MAXIMA})
         if counts['WouldRefuse'] > counts['Evaluated'] or counts['InputAbsentWhileMoving'] > counts['Evaluated']:
@@ -48,11 +63,12 @@ def inspect(report, enabled, authority):
         if (not enabled or not authority) and any(counts.values()):
             raise ValueError('disabled/client report contains measurements')
         counters[key] = counts
-    if set(counters) != {(h, alt) for h in range(7) for alt in (False, True)}:
+    if set(counters) != {(model, profile, h, alt) for model, profile in models for h in range(7) for alt in (False, True)}:
         raise ValueError('incomplete seven-hunter/form counter schema')
     row_counts, seen = {}, set()
     for row in report['Rows']:
-        key = tuple(integer(row[f], f, maximum=maximum, minimum=minimum) for f, maximum, minimum in
+        model, profile = identity(row, schema)
+        key = (model, profile) + tuple(integer(row[f], f, maximum=maximum, minimum=minimum) for f, maximum, minimum in
                     [('Epoch', 2**64-1, 1), ('Match', 65535, 1), ('Slot', 7, 0),
                      ('Generation', 65535, 1), ('Life', 65535, 1), ('Frame', 2**32-1, 0)])
         if key in seen: raise ValueError('duplicate exact candidate identity/frame')
@@ -64,19 +80,33 @@ def inspect(report, enabled, authority):
         signals = [row[f] for f in ('HorizontalSignal', 'VerticalSignal', 'AccelerationSignal')]
         if any(type(v) is not bool for v in signals) or not any(signals):
             raise ValueError('candidate row lacks typed advisory signal')
-        if values[0] > counters[hunter, False]['MaximumHorizontal'] or values[1] > counters[hunter, False]['MaximumUpward']:
+        if values[0] > counters[model, profile, hunter, False]['MaximumHorizontal'] or values[1] > counters[model, profile, hunter, False]['MaximumUpward']:
             raise ValueError('candidate speed exceeds reported measured maximum')
-        row_counts[hunter] = row_counts.get(hunter, 0) + 1
+        group = (model, profile, hunter)
+        row_counts[group] = row_counts.get(group, 0) + 1
     if len(report['Rows']) > 128: raise ValueError('candidate evidence exceeds native bounded capacity')
-    for hunter in range(7):
-        if row_counts.get(hunter, 0) != counters[hunter, False]['WouldRefuse']:
-            raise ValueError('WouldRefuse count disagrees with retained advisory rows')
+    for model, profile in models:
+        for hunter in range(7):
+            if row_counts.get((model, profile, hunter), 0) != counters[model, profile, hunter, False]['WouldRefuse']:
+                raise ValueError('WouldRefuse count disagrees with retained advisory rows')
     if (not enabled or not authority) and report['Rows']:
         raise ValueError('disabled/client report contains candidate rows')
     totals = {f: sum(r[f] for r in counters.values()) for f in COUNTS}
-    byhunter = {HUNTERS[h]: {'biped': counters[h, False], 'alt': counters[h, True]} for h in range(7)}
-    return {'totals': totals, 'perHunter': byhunter, 'candidateRows': report['Rows'],
-            'measuredHunters': [HUNTERS[h] for h in range(7) if any(counters[h, a][f] for a in (False, True) for f in ('Evaluated', 'Exempt', 'Unsupported'))]}
+    per_model = {}
+    for model, profile in models:
+        groups = {HUNTERS[h]: {'biped': counters[model, profile, h, False],
+                              'alt': counters[model, profile, h, True]} for h in range(7)}
+        per_model['Native' if model == 0 else 'Momentum'] = {
+            'movementModel': model, 'profileVersion': profile,
+            'totals': {f: sum(counters[model, profile, h, a][f] for h in range(7) for a in (False, True)) for f in COUNTS},
+            'perHunter': groups,
+            'measuredHunters': [HUNTERS[h] for h in range(7) if any(
+                counters[model, profile, h, a][f] for a in (False, True) for f in ('Evaluated', 'Exempt', 'Unsupported'))]}
+    result = {'schema': schema, 'totals': totals, 'totalsScope': 'sum of explicitly separated model/profile groups',
+              'perModel': per_model, 'candidateRows': report['Rows']}
+    if schema == 1:
+        result.update(perHunter=per_model['Native']['perHunter'], measuredHunters=per_model['Native']['measuredHunters'])
+    return result
 
 
 def audit(server, peers, summary, manifest):
