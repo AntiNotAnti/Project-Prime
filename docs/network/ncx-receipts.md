@@ -26,6 +26,12 @@ from becoming an accepted rescue during its still-live retry window. Exact retai
 terminal retries continue to replay during capacity refusal. No damage or effect is paid
 by receipt storage or retirement.
 
+The original 128-ID admission reorder window remains separate from the 4096-cell receipt
+retention capacity. Enlarging reply storage does not expand rescue eligibility. Normal
+cache probes stop at their first empty cell; entries are cleared only for an entire slot,
+so collision chains remain intact. Matching IDs with expired, different full identities
+can reach fresh judgment after the delivery window instead of borrowing old outcomes.
+
 Every outgoing receipt is retired once as Delivered, TimedOut, CapacityEvicted, LifeRetired,
 OccupantRetired, MatchRetired or SessionRetired. Process-lifetime counts survive ordinary
 world resets; opt-in keyed `receipt-retired` timeline rows retain exact source, component,
@@ -34,6 +40,18 @@ paid damage. Local life/occupant changes cancel old receipts explicitly; late ol
 ACKs remain inert and cannot restore speculative health, deaths, effects or scores.
 Match/session disposal also records pending authority cancellation before clearing it.
 No old-life outcome is applied to the replacement body.
+
+Use the existing `run-net2.py --shot-timeline --claim-receipts` to require final receipt
+accounting. `ncx-receipts.json` checks process-lifetime Created = every typed retirement +
+Outstanding, and joins each declaration to exactly one full source/component/phase/kind/
+victim/claim retirement. Missing/overflowed rows and outstanding final receipts remain
+INCOMPLETE; duplicate or contradictory accounting FAILS the requested campaign gate.
+This output contains no raw source keys or player/account identifiers. A zero-claim
+observer can satisfy accounting but supplies no gameplay-activity denominator. The native
+Fruity adapter rejects this unsupported option rather than fabricating an equivalent.
+
+`AuthorityPendingCancelled` specifically counts bulk match/session cancellation. Pending
+life/occupant retirement follows the existing explicit WrongLife terminal path instead.
 
 Wire protocol remains 59: no packet field/result encoding or replay layout changes.
 Existing safe wire refusal codes remain; missing history is TooOld/refused, not guessed

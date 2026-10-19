@@ -672,6 +672,8 @@ def run(args):
         manifest["harnessSha256"]["fruity_comparator.py"] = digest(Path(__file__).with_name("fruity_comparator.py"))
         manifest["emulatedFixture"] = qualified_fixture(args)
         manifest["fixtureAssetCopies"] = fixture_asset_copies
+    if getattr(args, "claim_receipts", False):
+        manifest["harnessSha256"]["ncx_receipts.py"] = digest(Path(__file__).with_name("ncx_receipts.py"))
     save(args.out / "manifest.json", manifest)
     processes, handles, records = [], [], []
     server = None
@@ -969,6 +971,15 @@ def run(args):
             # a fictitious gameplay PASS, payment fault or legal-hit denominator.
             summary["shotTimeline"] = {"status": timeline["status"], "scope": timeline["scope"],
                 "counts": timeline["counts"], "reportSha256": digest(args.out / "ncx-timeline.json")}
+            if getattr(args, "claim_receipts", False):
+                from ncx_receipts import audit as audit_receipts
+                receipts = audit_receipts(reports)
+                save(args.out / "ncx-receipts.json", receipts)
+                summary["claimReceipts"] = {"status": receipts["status"],
+                    "reportSha256": digest(args.out / "ncx-receipts.json")}
+                if receipts["status"] != "PASS":
+                    summary["status"] = "FAIL"
+                    summary["failures"].append("Requested keyed claim receipt accounting: " + receipts["status"])
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
@@ -1072,6 +1083,8 @@ def parse_args(argv=None):
     p.add_argument("--server-performance", action="store_true", help="Opt-in aggregate server wall-time/process CPU/GC evidence; no per-player facts")
     p.add_argument("--shot-timeline", action="store_true",
                    help="Opt-in bounded full-key process clocks and distinct source/payment/receipt observations; not a pixel or legal-hit oracle")
+    p.add_argument("--claim-receipts", action="store_true",
+                   help="Require final keyed declaration/retirement conservation; requires --shot-timeline")
     p.add_argument("--shot-visibility", action="store_true",
                    help="Intrusive actual-view prepared-frame pixel probe; requires --rendered --shot-timeline; disqualifies CPU timings")
     p.add_argument("--presentation-hz", type=int, choices=(30, 60, 120, 144, 240, 360, 500),
@@ -1079,6 +1092,8 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.claim_receipts and not args.shot_timeline:
+        p.error("--claim-receipts requires --shot-timeline")
     if args.shot_visibility and (not args.rendered or not args.shot_timeline):
         p.error("--shot-visibility requires --rendered and --shot-timeline; timing values are not CPU-comparable")
     if args.presentation_hz is not None and (not args.rendered or not args.shot_timeline):
