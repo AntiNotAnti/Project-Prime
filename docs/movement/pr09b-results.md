@@ -38,8 +38,11 @@ and [combat evidence](evidence/pr09-owner-combat-draft.json) for exact source le
 process outcomes, earlier retained failures and limitations. The staged C# subset
 builds separately with zero warnings/errors. The full macOS main-91f validation
 build and Python compatibility tests also pass. A Windows main-91f source/guard
-and combat compatibility refresh is recorded separately; it does not relabel the
-earlier eight-human experiment as a new revision.
+and combat compatibility refresh now passes: 56 Native golden trajectories,
+18,489 rewind assertions, 3,291 custom contract checks and both impaired two-owner
+combat proofs (22 assertions each), all six processes exiting 0. Native/Momentum
+have 13/6 joined payments and 59/55 served rewinds in that fresh91f cohort. This
+does not relabel the earlier eight-human experiment as a new revision.
 
 For an asset-backed run, each process needs its own user-data directory containing
 only the operator's `paths.txt`. Set `PROJECT_PRIME_USER_DATA` accordingly and use

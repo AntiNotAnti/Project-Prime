@@ -99,6 +99,10 @@ namespace MphRead.NetTest
                     + "  --momentum-combat-proof-many <server-evidence> <all-eight-workers.json> <json> Verify full mixed-Hunter owner cohort.\n"
                     + "  --momentum-combat-proof <server-evidence> <first-worker> <second-worker> <json> Verify real owner payment/rewind joins.\n"
                     + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
+                    + "  --momentum-balance-scene <assets> [json] Measure seven-Hunter hop/coast distributions on two maps.\n"
+                    + "  --momentum-input-cadence-gl <assets> [json] Test rendered seven-Hunter virtual cadence parity.\n"
+                    + "  --momentum-keyboard-gl <assets> <Native|Momentum> <json> Test actual Windows/macOS interactive keyboard/GL.\n"
+                    + "  --momentum-server-performance <assets> <room> <model> <json> [seconds] [timing|verify] Benchmark eight real bots.\n"
                     + "  --momentum-online-acceptance <assets> <port> <model> <json> <seconds> <spectator> <humans> <bots> <latency> <loss> <reorder> <duplicate> <seed> <transitions> [lobby-owner] [require-rejoin] [require-respawn]\n"
                     + "  --momentum-input-scene <assets> [json] Test actual keyboard, controller and touch-model movement semantics.\n"
                     + "  --momentum-input-packets          Test signed axes and input override lifecycle on existing packets.\n"
@@ -414,6 +418,13 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-combat-evidence") return MomentumCombatEvidenceTests.Run();
+            if (args.Length > 1 && args[0] == "--momentum-balance-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumBalanceSceneTests.Run(output);
+            }
             if (args.Length >= 4 && args[0] == "--momentum-combat-proof-many")
                 return MomentumCombatOnlineTests.VerifyMany(args[1], args[2], args[3]);
             if (args.Length >= 5 && args[0] == "--momentum-combat-proof")
@@ -436,6 +447,21 @@ namespace MphRead.NetTest
                 return MomentumCombatOnlineTests.Run(combatPort, combatModel, output, seconds, seed,
                     args.Length > 7 ? args[7] : "200:20", args.Length > 8 ? args[8] : "0",
                     args.Length > 9 ? args[9] : "0", args.Length > 10 ? args[10] : "0", faultSeed, hunter, humanMin);
+            }
+            if (args.Length > 1 && args[0] == "--momentum-input-cadence-gl")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumInputCadenceGlTests.Run(output);
+            }
+            if (args.Length >= 4 && args[0] == "--momentum-keyboard-gl")
+            {
+                if (!Mods.Movement.MovementModelRules.TryParse(args[2], out var keyboardModel)) return 2;
+                string output = System.IO.Path.GetFullPath(args[3]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumKeyboardGlTests.Run(keyboardModel, output);
             }
             if (args.Length > 1 && (args[0] == "--momentum-input-scene"
                 || args[0] == "--momentum-bot-scene" || args[0] == "--momentum-bot-authority"
@@ -694,6 +720,7 @@ namespace MphRead.NetTest
             if (args.Length > 1 && args[0] == "--transport-profile-json") return TransportProfile.Run(args[1]);
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance-evidence") return ServerPerformanceEvidenceTests.Run(args);
+            if (args.Length > 0 && args[0] == "--momentum-server-performance") return MomentumServerPerformanceBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--netcode-performance") return NetcodePerformanceTests.Run();
             if (args.Length > 0 && args[0] == "--dynamic-geometry") return DynamicGeometryTests.Run();

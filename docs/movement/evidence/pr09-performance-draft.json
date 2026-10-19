@@ -1,0 +1,1350 @@
+{
+  "status": "DRAFT / NOT ACCEPTED",
+  "runs": [
+    {
+      "platform": "macOS",
+      "room": "MP3 PROVING GROUND",
+      "simulationSecondsPerRun": 60,
+      "cycles": [
+        {
+          "cycle": 1,
+          "nativeOuterP95Mean": 1.6326999999999998,
+          "momentumInnerP95Mean": 1.6094499999999998,
+          "increase": -0.01424021559380173
+        },
+        {
+          "cycle": 2,
+          "nativeOuterP95Mean": 2.5201000000000002,
+          "momentumInnerP95Mean": 4.03125,
+          "increase": 0.5996389032181262
+        }
+      ],
+      "native": {
+        "runs": 4,
+        "p95Median": 2.3212,
+        "p99Median": 9.1737,
+        "worstFrame": 80.1061,
+        "alivePlayerStepsMean": 24082,
+        "shotsMean": 703
+      },
+      "momentum": {
+        "runs": 4,
+        "p95Median": 2.78195,
+        "p99Median": 19.7183,
+        "worstFrame": 132.9898,
+        "alivePlayerStepsMean": 24767,
+        "shotsMean": 1189
+      },
+      "p95RelativeIncrease": 0.1984964673444769,
+      "strictLimit": 0.05,
+      "passed": false,
+      "scope": "Elapsed wall-clock sim.Step; not per-step CPU tails; cross-model combat workload differs."
+    },
+    {
+      "platform": "Windows",
+      "room": "MP3 PROVING GROUND",
+      "simulationSecondsPerRun": 60.0,
+      "cycles": [
+        {
+          "cycle": 1,
+          "nativeOuterP95Mean": 1.4447,
+          "momentumInnerP95Mean": 1.8302,
+          "increase": 0.26683740568976244
+        },
+        {
+          "cycle": 2,
+          "nativeOuterP95Mean": 1.4010500000000001,
+          "momentumInnerP95Mean": 1.81785,
+          "increase": 0.29749116733878145
+        }
+      ],
+      "native": {
+        "runs": 4,
+        "p95Median": 1.4010500000000001,
+        "p99Median": 2.0214499999999997,
+        "worstFrame": 6.0411,
+        "alivePlayerStepsMean": 24276,
+        "shotsMean": 687
+      },
+      "momentum": {
+        "runs": 4,
+        "p95Median": 1.82165,
+        "p99Median": 2.1044,
+        "worstFrame": 3.3616,
+        "alivePlayerStepsMean": 24788,
+        "shotsMean": 1040
+      },
+      "p95RelativeIncrease": 0.3002034188644229,
+      "strictLimit": 0.05,
+      "passed": false,
+      "scope": "Elapsed wall-clock sim.Step; not per-step CPU tails; cross-model combat workload differs."
+    },
+    {
+      "platform": "Windows",
+      "room": "MP1 SANCTORUS",
+      "simulationSecondsPerRun": 60.0,
+      "cycles": [
+        {
+          "cycle": 1,
+          "nativeOuterP95Mean": 1.5513,
+          "momentumInnerP95Mean": 1.16835,
+          "increase": -0.24685747437632943
+        },
+        {
+          "cycle": 2,
+          "nativeOuterP95Mean": 1.0825,
+          "momentumInnerP95Mean": 1.57175,
+          "increase": 0.4519630484988453
+        }
+      ],
+      "native": {
+        "runs": 4,
+        "p95Median": 1.3937499999999998,
+        "p99Median": 1.7478,
+        "worstFrame": 2.484,
+        "alivePlayerStepsMean": 25591,
+        "shotsMean": 462
+      },
+      "momentum": {
+        "runs": 4,
+        "p95Median": 1.4863,
+        "p99Median": 1.6516000000000002,
+        "worstFrame": 3.7536,
+        "alivePlayerStepsMean": 25426,
+        "shotsMean": 756
+      },
+      "p95RelativeIncrease": 0.06640358744394637,
+      "strictLimit": 0.05,
+      "passed": false,
+      "scope": "Elapsed wall-clock sim.Step; not per-step CPU tails; cross-model combat workload differs."
+    }
+  ],
+  "originalFailuresRetained": true,
+  "performanceAccepted": false,
+  "controlledWindowsTier0": {
+    "status": "COMPLETE / PROVING GROUND FAIL / NO PERFORMANCE ACCEPTANCE",
+    "source": {
+      "baseSha": "f908c7e534bce67e07a3776b21a658790034544d",
+      "sourceDirty": true,
+      "originalPr09OverlayPatchSha256": "bc3b769b4b7d7e169c58fd5f67a195e506f05109c485337fa4949b78836350a4",
+      "candidateOnlyAdditionalFiles": [
+        "src\\MphRead\\Formats\\CollisionDetection.cs",
+        "src\\MphRead\\Entities\\Players\\PlayerAi.cs"
+      ],
+      "candidatePatchSha256": "8faf234f89b164ae0f3f1baec0da56ac871eace79b7e07bc5a885f5de4e22034",
+      "candidateDiagnosticInstrumentation": false,
+      "optimizationPublication": "PR736 merged after this isolated candidate experiment; exact publication build not substituted"
+    },
+    "host": {
+      "os": "Windows 11 Pro 10.0.26200 x64",
+      "cpu": "AMD Ryzen 7 9850X3D",
+      "logicalProcessors": 16,
+      "sdk": "10.0.401",
+      "runtime": ".NET 10.0.12"
+    },
+    "build": "Release; 0 warnings / 0 errors",
+    "settings": {
+      "DOTNET_TieredCompilation": "0",
+      "DOTNET_TieredPGO": "0",
+      "DOTNET_ReadyToRun": "0"
+    },
+    "binarySha256": {
+      "baseline": {
+        "nettest.dll": "8875c0ef5e9f0859c670d6ea3adeeae8111d380fcd173a35c78048c53fa7aa3f",
+        "ProjectPrime.dll": "c09b74d7a0ed56941e9a4880725752448595f76c0ae7ca3f3e9a039d33a488ea",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      },
+      "candidate": {
+        "nettest.dll": "ffefb4d7cee55907835375521a81930e1667e3147f4257f787969092d6c35f05",
+        "ProjectPrime.dll": "49d41b3ca17b3805cb30ecc68d5b385e4b65ea040dddfef5231d73c5372bb7d6",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      }
+    },
+    "runtimeConfig": {
+      "runtimeOptions": {
+        "tfm": "net10.0",
+        "framework": {
+          "name": "Microsoft.NETCore.App",
+          "version": "10.0.0"
+        },
+        "configProperties": {
+          "System.Reflection.Metadata.MetadataUpdater.IsSupported": false,
+          "System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization": false
+        }
+      }
+    },
+    "protocol": {
+      "cyclesPerMapPerVersion": 2,
+      "timedRunsPerModelPerMapPerVersion": 4,
+      "diagnosticVerifyRunsPerVersionMap": 2,
+      "totalChildren": 40,
+      "totalTimedArms": 32,
+      "warmupFixedTicks": 1200,
+      "sampleFixedTicks": 3600,
+      "simulationHz": 60,
+      "strictP95Limit": 0.05,
+      "sequence": "baseline PG; candidate PG; baseline Sanctorus; candidate Sanctorus, each Native/Momentum ABBA x2",
+      "allArmsRetained": true,
+      "repeatedTimingArms": 0,
+      "measurement": "Stopwatch elapsed-wall sim.Step; includes scheduling/GC. Whole-loop process CPU totals cannot provide per-stepCPU p95.",
+      "ambientMeasurement": "GetSystemTimes CPU busy/total deltas; five 1s samples before/after each block",
+      "preflight": "Initial PowerShell provenance-only launcher stalled before any benchmark child, was stopped, and replaced by preserved Python launcher. Empty preflight directory retained; no timing arm discarded."
+    },
+    "blocks": [
+      {
+        "label": "baseline-MP1-SANCTORUS",
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.66405,
+            "momentumInnerP95Mean": 0.5921000000000001,
+            "increase": -0.10835027482870263
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.6091500000000001,
+            "momentumInnerP95Mean": 0.5964499999999999,
+            "increase": -0.020848723631289756
+          }
+        ],
+        "strictLimit": 0.05,
+        "wallProxyPassed": true,
+        "p95RelativeIncrease": -0.03678142253978556,
+        "models": {
+          "native": {
+            "p95Median": 0.6158,
+            "p99Median": 0.66805,
+            "worstFrameMs": 2.9187,
+            "processCpuMeanMs": 1562.5,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-1-native",
+                "meanWallMs": 0.48419355555555565,
+                "p95WallMs": 0.7073,
+                "p99WallMs": 0.7611,
+                "worstWallMs": 2.9046,
+                "wholeLoopProcessCpuMs": 1750
+              },
+              {
+                "name": "cycle-01-4-native",
+                "meanWallMs": 0.42481883333333265,
+                "p95WallMs": 0.6208,
+                "p99WallMs": 0.6789,
+                "worstWallMs": 2.9187,
+                "wholeLoopProcessCpuMs": 1531.25
+              },
+              {
+                "name": "cycle-02-1-native",
+                "meanWallMs": 0.41756863888888796,
+                "p95WallMs": 0.6108,
+                "p99WallMs": 0.6572,
+                "worstWallMs": 2.9025,
+                "wholeLoopProcessCpuMs": 1500
+              },
+              {
+                "name": "cycle-02-4-native",
+                "meanWallMs": 0.4167953888888891,
+                "p95WallMs": 0.6075,
+                "p99WallMs": 0.6536,
+                "worstWallMs": 2.7764,
+                "wholeLoopProcessCpuMs": 1468.75
+              }
+            ]
+          },
+          "momentum": {
+            "p95Median": 0.5931500000000001,
+            "p99Median": 0.667,
+            "worstFrameMs": 7.0594,
+            "processCpuMeanMs": 1531.25,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "meanWallMs": 0.42209841666666625,
+                "p95WallMs": 0.5923,
+                "p99WallMs": 0.6666,
+                "worstWallMs": 6.9685,
+                "wholeLoopProcessCpuMs": 1531.25
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "meanWallMs": 0.4208937499999994,
+                "p95WallMs": 0.5919,
+                "p99WallMs": 0.6629,
+                "worstWallMs": 7.0594,
+                "wholeLoopProcessCpuMs": 1515.625
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "meanWallMs": 0.42446594444444335,
+                "p95WallMs": 0.594,
+                "p99WallMs": 0.6674,
+                "worstWallMs": 6.9017,
+                "wholeLoopProcessCpuMs": 1531.25
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "meanWallMs": 0.43013827777777786,
+                "p95WallMs": 0.5989,
+                "p99WallMs": 0.6911,
+                "worstWallMs": 6.914,
+                "wholeLoopProcessCpuMs": 1546.875
+              }
+            ]
+          }
+        },
+        "ambientCpuBeforePercent": [
+          8.16125860373648,
+          7.662463627546072,
+          8.062930186823992,
+          7.233626588465298,
+          7.38581146744412
+        ],
+        "ambientCpuAfterPercent": [
+          1.1741682974559686,
+          0.8746355685131195,
+          2.346041055718475,
+          0.09823182711198428,
+          2.2243713733075436
+        ]
+      },
+      {
+        "label": "baseline-MP3-PROVING-GROUND",
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.37995,
+            "momentumInnerP95Mean": 0.54515,
+            "increase": 0.4347940518489275
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.3825,
+            "momentumInnerP95Mean": 0.5627500000000001,
+            "increase": 0.4712418300653596
+          }
+        ],
+        "strictLimit": 0.05,
+        "wallProxyPassed": false,
+        "p95RelativeIncrease": 0.4457165416502171,
+        "models": {
+          "native": {
+            "p95Median": 0.37995,
+            "p99Median": 0.46535,
+            "worstFrameMs": 3.5446,
+            "processCpuMeanMs": 894.53125,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-1-native",
+                "meanWallMs": 0.24711549999999943,
+                "p95WallMs": 0.3791,
+                "p99WallMs": 0.4426,
+                "worstWallMs": 3.4185,
+                "wholeLoopProcessCpuMs": 890.625
+              },
+              {
+                "name": "cycle-01-4-native",
+                "meanWallMs": 0.24723216666666697,
+                "p95WallMs": 0.3808,
+                "p99WallMs": 0.4713,
+                "worstWallMs": 3.3662,
+                "wholeLoopProcessCpuMs": 890.625
+              },
+              {
+                "name": "cycle-02-1-native",
+                "meanWallMs": 0.2521996666666664,
+                "p95WallMs": 0.3862,
+                "p99WallMs": 0.4772,
+                "worstWallMs": 3.5446,
+                "wholeLoopProcessCpuMs": 906.25
+              },
+              {
+                "name": "cycle-02-4-native",
+                "meanWallMs": 0.2460336944444448,
+                "p95WallMs": 0.3788,
+                "p99WallMs": 0.4594,
+                "worstWallMs": 3.4849,
+                "wholeLoopProcessCpuMs": 890.625
+              }
+            ]
+          },
+          "momentum": {
+            "p95Median": 0.5493,
+            "p99Median": 0.6397999999999999,
+            "worstFrameMs": 5.7678,
+            "processCpuMeanMs": 1226.5625,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "meanWallMs": 0.33578583333333273,
+                "p95WallMs": 0.5438,
+                "p99WallMs": 0.6304,
+                "worstWallMs": 5.5493,
+                "wholeLoopProcessCpuMs": 1203.125
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "meanWallMs": 0.33692605555555594,
+                "p95WallMs": 0.5465,
+                "p99WallMs": 0.6322,
+                "worstWallMs": 5.5966,
+                "wholeLoopProcessCpuMs": 1218.75
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "meanWallMs": 0.3478128888888889,
+                "p95WallMs": 0.5734,
+                "p99WallMs": 0.6692,
+                "worstWallMs": 5.6922,
+                "wholeLoopProcessCpuMs": 1250
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "meanWallMs": 0.3395581111111105,
+                "p95WallMs": 0.5521,
+                "p99WallMs": 0.6474,
+                "worstWallMs": 5.7678,
+                "wholeLoopProcessCpuMs": 1234.375
+              }
+            ]
+          }
+        },
+        "ambientCpuBeforePercent": [
+          7.421875,
+          10.05859375,
+          9.08203125,
+          8.30078125,
+          5.123152709359606
+        ],
+        "ambientCpuAfterPercent": [
+          3.304178814382896,
+          0.39331366764995085,
+          0.7774538386783285,
+          1.076320939334638,
+          1.7408123791102514
+        ]
+      },
+      {
+        "label": "candidate-MP1-SANCTORUS",
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.34745000000000004,
+            "momentumInnerP95Mean": 0.35785,
+            "increase": 0.02993236436897395
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.35745,
+            "momentumInnerP95Mean": 0.35509999999999997,
+            "increase": -0.0065743460623863825
+          }
+        ],
+        "strictLimit": 0.05,
+        "wallProxyPassed": true,
+        "p95RelativeIncrease": 0.02416918429003001,
+        "models": {
+          "native": {
+            "p95Median": 0.34755,
+            "p99Median": 0.4022,
+            "worstFrameMs": 2.6164,
+            "processCpuMeanMs": 925.78125,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+              "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-1-native",
+                "meanWallMs": 0.2523118888888891,
+                "p95WallMs": 0.3471,
+                "p99WallMs": 0.3908,
+                "worstWallMs": 2.5947,
+                "wholeLoopProcessCpuMs": 921.875
+              },
+              {
+                "name": "cycle-01-4-native",
+                "meanWallMs": 0.2534117222222222,
+                "p95WallMs": 0.3478,
+                "p99WallMs": 0.402,
+                "worstWallMs": 2.5709,
+                "wholeLoopProcessCpuMs": 921.875
+              },
+              {
+                "name": "cycle-02-1-native",
+                "meanWallMs": 0.2547621666666665,
+                "p95WallMs": 0.3473,
+                "p99WallMs": 0.4024,
+                "worstWallMs": 2.5951,
+                "wholeLoopProcessCpuMs": 921.875
+              },
+              {
+                "name": "cycle-02-4-native",
+                "meanWallMs": 0.2618629444444441,
+                "p95WallMs": 0.3676,
+                "p99WallMs": 0.4863,
+                "worstWallMs": 2.6164,
+                "wholeLoopProcessCpuMs": 937.5
+              }
+            ]
+          },
+          "momentum": {
+            "p95Median": 0.35595,
+            "p99Median": 0.4182,
+            "worstFrameMs": 6.7386,
+            "processCpuMeanMs": 921.875,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+              "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "meanWallMs": 0.25321261111111154,
+                "p95WallMs": 0.3506,
+                "p99WallMs": 0.4141,
+                "worstWallMs": 6.7386,
+                "wholeLoopProcessCpuMs": 921.875
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "meanWallMs": 0.26145400000000013,
+                "p95WallMs": 0.3651,
+                "p99WallMs": 0.4332,
+                "worstWallMs": 6.7236,
+                "wholeLoopProcessCpuMs": 937.5
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "meanWallMs": 0.2585802222222226,
+                "p95WallMs": 0.3613,
+                "p99WallMs": 0.4223,
+                "worstWallMs": 6.6224,
+                "wholeLoopProcessCpuMs": 937.5
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "meanWallMs": 0.253416333333334,
+                "p95WallMs": 0.3489,
+                "p99WallMs": 0.4003,
+                "worstWallMs": 6.7311,
+                "wholeLoopProcessCpuMs": 890.625
+              }
+            ]
+          }
+        },
+        "ambientCpuBeforePercent": [
+          1.9286403085824493,
+          1.0869565217391304,
+          1.2682926829268293,
+          5.088062622309198,
+          12.13307240704501
+        ],
+        "ambientCpuAfterPercent": [
+          13.437195715676728,
+          2.1739130434782608,
+          2.549019607843137,
+          3.9767216294859358,
+          3.288201160541586
+        ]
+      },
+      {
+        "label": "candidate-MP3-PROVING-GROUND",
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.28505,
+            "momentumInnerP95Mean": 0.32525000000000004,
+            "increase": 0.14102788984388703
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.2848,
+            "momentumInnerP95Mean": 0.31955,
+            "increase": 0.1220154494382022
+          }
+        ],
+        "strictLimit": 0.05,
+        "wallProxyPassed": false,
+        "p95RelativeIncrease": 0.1246488764044944,
+        "models": {
+          "native": {
+            "p95Median": 0.2848,
+            "p99Median": 0.3417,
+            "worstFrameMs": 3.4801,
+            "processCpuMeanMs": 695.3125,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+              "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-1-native",
+                "meanWallMs": 0.19648458333333294,
+                "p95WallMs": 0.2906,
+                "p99WallMs": 0.3659,
+                "worstWallMs": 3.4801,
+                "wholeLoopProcessCpuMs": 718.75
+              },
+              {
+                "name": "cycle-01-4-native",
+                "meanWallMs": 0.18997172222222222,
+                "p95WallMs": 0.2795,
+                "p99WallMs": 0.3399,
+                "worstWallMs": 3.3171,
+                "wholeLoopProcessCpuMs": 687.5
+              },
+              {
+                "name": "cycle-02-1-native",
+                "meanWallMs": 0.19315925000000025,
+                "p95WallMs": 0.2858,
+                "p99WallMs": 0.3428,
+                "worstWallMs": 3.362,
+                "wholeLoopProcessCpuMs": 687.5
+              },
+              {
+                "name": "cycle-02-4-native",
+                "meanWallMs": 0.1928342222222225,
+                "p95WallMs": 0.2838,
+                "p99WallMs": 0.3406,
+                "worstWallMs": 3.2824,
+                "wholeLoopProcessCpuMs": 687.5
+              }
+            ]
+          },
+          "momentum": {
+            "p95Median": 0.32030000000000003,
+            "p99Median": 0.3789,
+            "worstFrameMs": 5.706,
+            "processCpuMeanMs": 800.78125,
+            "allFourWorkloadsIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "workloadHashes": [
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+              "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+            ],
+            "arms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "meanWallMs": 0.22661086111111062,
+                "p95WallMs": 0.3301,
+                "p99WallMs": 0.3988,
+                "worstWallMs": 5.5855,
+                "wholeLoopProcessCpuMs": 812.5
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "meanWallMs": 0.22199325000000047,
+                "p95WallMs": 0.3204,
+                "p99WallMs": 0.3727,
+                "worstWallMs": 5.4853,
+                "wholeLoopProcessCpuMs": 796.875
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "meanWallMs": 0.221077972222222,
+                "p95WallMs": 0.3202,
+                "p99WallMs": 0.3851,
+                "worstWallMs": 5.4411,
+                "wholeLoopProcessCpuMs": 796.875
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "meanWallMs": 0.22191966666666735,
+                "p95WallMs": 0.3189,
+                "p99WallMs": 0.3665,
+                "worstWallMs": 5.706,
+                "wholeLoopProcessCpuMs": 796.875
+              }
+            ]
+          }
+        },
+        "ambientCpuBeforePercent": [
+          2.584493041749503,
+          1.8410852713178294,
+          1.3539651837524178,
+          0.29732408325074333,
+          3.8797284190106693
+        ],
+        "ambientCpuAfterPercent": [
+          0.6889763779527559,
+          2.837573385518591,
+          7.108081791626096,
+          8.585365853658537,
+          7.543520309477756
+        ]
+      }
+    ],
+    "limitations": [
+      "Cross-model autonomous combat/path/occlusion work differs; exact within-model hashes do not establish matched cross-model cost.",
+      "Original unrecorded-tiering failures retained; explicitTier0 experiment is justified protocol correction, not a replacement pass.",
+      "Ambient CPU varied between blocks; no absolute speedup causal certainty from sequential blocks.",
+      "No calibrated per-stepCPU tails, physical-input acceptance or complete PR09 acceptance."
+    ]
+  },
+  "anyHitProof": {
+    "source": "f908+original dirty PR09 overlay+candidate two-file patch; diagnostic wrappers isolated",
+    "actualSameWorldShadowQueries": 1931862,
+    "mismatches": 0,
+    "wholeWorkloadProofs": {
+      "optimized-MP1-SANCTORUS-Momentum-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+        "queries": 568089,
+        "blocked": 530136,
+        "shadow": false
+      },
+      "optimized-MP1-SANCTORUS-Native-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+        "queries": 570110,
+        "blocked": 529584,
+        "shadow": false
+      },
+      "optimized-MP3-PROVING-GROUND-Momentum-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+        "queries": 433855,
+        "blocked": 339585,
+        "shadow": false
+      },
+      "optimized-MP3-PROVING-GROUND-Native-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+        "queries": 359808,
+        "blocked": 245957,
+        "shadow": false
+      },
+      "shadow-MP1-SANCTORUS-Momentum-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3",
+        "queries": 568089,
+        "blocked": 530136,
+        "shadow": true
+      },
+      "shadow-MP1-SANCTORUS-Native-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82",
+        "queries": 570110,
+        "blocked": 529584,
+        "shadow": true
+      },
+      "shadow-MP3-PROVING-GROUND-Momentum-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66",
+        "queries": 433855,
+        "blocked": 339585,
+        "shadow": true
+      },
+      "shadow-MP3-PROVING-GROUND-Native-result": {
+        "exactOriginalWorkload": true,
+        "sha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+        "queries": 359808,
+        "blocked": 245957,
+        "shadow": true
+      }
+    },
+    "all32ControlledTimedWorkloadsMatchOriginal": true,
+    "collisionFixture": {
+      "cases": 8820,
+      "nearestBitsPreserved": true,
+      "snapshotRows": 618,
+      "snapshotSha256": "68461616B61605635F0AA9532FA7716F2E399CF9A9D0B2190B917A5E0F7D8435",
+      "warmAnyHitQueries": 50000,
+      "warmAllocatedBytes": 0,
+      "fixtureSource": "latest361 tool; f908+two-file candidate Core; BuildProjectReferences=false"
+    },
+    "phaseCounts": {
+      "MP3-PROVING-GROUND-Momentum-phases": {
+        "LOS rays": 320071,
+        "LOS blocked": 252920,
+        "ray candidate visits": 2402413,
+        "ray face visits": 29363163,
+        "ray unique eligible faces": 20672861
+      },
+      "MP3-PROVING-GROUND-Native-phases": {
+        "LOS rays": 265247,
+        "LOS blocked": 181901,
+        "ray candidate visits": 1906155,
+        "ray face visits": 18720343,
+        "ray unique eligible faces": 14011853
+      },
+      "MP1-SANCTORUS-Momentum-phases": {
+        "LOS rays": 410877,
+        "LOS blocked": 381352,
+        "ray candidate visits": 4059030,
+        "ray face visits": 39088884,
+        "ray unique eligible faces": 27048860
+      },
+      "MP1-SANCTORUS-Native-phases": {
+        "LOS rays": 415859,
+        "LOS blocked": 385035,
+        "ray candidate visits": 4150163,
+        "ray face visits": 39324662,
+        "ray unique eligible faces": 27061933
+      }
+    },
+    "phaseTimingInterpretation": "Instrumented elapsed-wall diagnosis only; not acceptance timing. LOS and global counts use actual world; no forced health or synthetic alive counts."
+  },
+  "budgetDecision": {
+    "status": "PENDING EXPLICIT DECISION; no threshold proposed or changed",
+    "provingGroundCandidateP95WallMs": {
+      "native": 0.2848,
+      "momentum": 0.3203
+    },
+    "fixed60HzDeadlineMs": 16.666666666666668,
+    "provingGroundCandidateRelativeIncrease": 0.1246488764044944,
+    "strictLimit": 0.05,
+    "gateMet": false,
+    "wholeLoopCpuMs": {
+      "baselineNative": 894.53125,
+      "baselineMomentum": 1226.5625,
+      "candidateNative": 695.3125,
+      "candidateMomentum": 800.78125
+    },
+    "meaning": "Absolute frame budget headroom and lower whole-loop cost provide context; neither waives the failed5% relative gate or establishes CPU-tail acceptance.",
+    "complementaryExperiment": "Eight genuine human-owner clients with matched offered input and server worlds would measure owner movement without autonomous botLOS. It would complement, not erase, the retained bot failure.",
+    "latestPinnedFollowup": {
+      "provingGroundThreadCycleP95RelativeIncrease": 0.16243036211699158,
+      "provingGroundWallP95Ms": {
+        "native": 0.319,
+        "momentum": 0.3704
+      },
+      "cycleRatioDiagnosticOnly": true,
+      "strictWallProxyPassed": false,
+      "doesNotWaiveOriginalFailures": true
+    }
+  },
+  "threadCycleFollowup": {
+    "status": "COMPLETE DIAGNOSTIC / PERFORMANCE NOT ACCEPTED",
+    "source": {
+      "baseSha": "3de8887a8b04bd85db8b60ea14da9add15c1972a",
+      "sourceDirty": true,
+      "originalOverlayPatchSha256": "a13dd358d0fc69d20e31e6ae63fd5ba478d78a9006a03728c3f3b8e0358f82ee",
+      "additionalSourceSha256": {
+        "MomentumServerPerformanceBenchmark.cs": "4515ed0da3f3ff9841d1dc85114a8ade1f3b6e5f3fcec85909f013f52559e265",
+        "momentum_server_performance.py": "7380b0d46564269b3adfdbcc557bb335a35484990fe7a390b39ddd865207e16f"
+      },
+      "binarySha256": {
+        "ProjectPrime.dll": "c3468982999a21d847d8297760768e200cf5b43c7ff60f2ad2f0509b3be06dca",
+        "nettest.dll": "515566fb79fc398cab25a58eb357720447db92af0fd36ee6ec20b5587fb292af",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      },
+      "scope": "Benchmark-only optional thread-cycle observer; pinned simulation thread; cycle ratio diagnostic only; existingwall5%gateunchanged; no cycles-to-timeconversion",
+      "fixedExperiment": "2cyclesABBApermap,2verify+8timedchildprocesses/map,2maps, noextraarms"
+    },
+    "build": "Windows benchmark tool only, BuildProjectReferences=false, zero warnings/errors; production Core unchanged",
+    "protocol": {
+      "cyclesPerMap": 2,
+      "verificationRunsPerMap": 2,
+      "timingRunsPerModelPerMap": 4,
+      "children": 20,
+      "timingArms": 16,
+      "sampleStepsEach": 3600,
+      "warmStepsEach": 1200,
+      "simulationHz": 60,
+      "runtimeSettings": {
+        "DOTNET_TieredCompilation": "0",
+        "DOTNET_TieredPGO": "0",
+        "DOTNET_ReadyToRun": "0"
+      },
+      "affinity": "only current simulation thread pinned to lowest allowed CPU; allowedFFFF selected1 CPU0 start/end in every arm; restoredfinally",
+      "measurement": "raw QueryThreadCycleTime execution cycles, user+kernel; cycle window includes two wall timestamp reads. Wall timer ends before final cycle API call. No subtraction or conversion to time.",
+      "apiFailurePolicy": "Windows API errors fail closed, no zero fallback; unsupportedplatforms produce nullcycleevidence",
+      "gate": "Existing strict5% elapsed-wall proxy unchanged. Cycle ratios diagnostic only; no new approved CPU-ms-tail gate.",
+      "allArmsRetained": true,
+      "extraOrRepeatedTimingArms": 0
+    },
+    "blocks": [
+      {
+        "room": "MP1 SANCTORUS",
+        "wallP95RelativeIncrease": -0.012356465302046926,
+        "strictWallProxyPassed": true,
+        "threadCycleDiagnostic": {
+          "unit": "thread CPU execution cycles",
+          "diagnosticOnly": true,
+          "nativeP95Median": 1679780.0,
+          "momentumP95Median": 1695760.0,
+          "p95RelativeIncrease": 0.009513150531617276,
+          "scope": "pinned current simulation thread; no conversion to time; cross-model AI/world work differs; no new CPU acceptance gate"
+        },
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.397,
+            "momentumInnerP95Mean": 0.4007,
+            "increase": 0.009319899244332408
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.404,
+            "momentumInnerP95Mean": 0.3923,
+            "increase": -0.028960396039604097
+          }
+        ],
+        "ambientCpuBeforePercent": [
+          0.8893280632411067,
+          0.7835455435847208,
+          0.8712487899322362,
+          2.3369036027263874,
+          0.4916420845624385
+        ],
+        "ambientCpuAfterPercent": [
+          0.2938295788442703,
+          2.7131782945736433,
+          2.7559055118110236,
+          5.365853658536586,
+          9.59843290891283
+        ],
+        "models": {
+          "native": {
+            "wallP95": 0.4006,
+            "wallP99": 0.4873,
+            "cpuMeanMs": 972.65625,
+            "cycleP99Median": 1893160.0,
+            "allFourWorkloadHashesIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "rawSampleCountEach": 3600,
+            "affinity": {
+              "allowedAffinityMask": "FFFF",
+              "selectedAffinityMask": "1",
+              "startProcessor": 0,
+              "endProcessor": 0
+            },
+            "timingArms": [
+              {
+                "name": "cycle-01-1-native",
+                "wallP95Ms": 0.3987,
+                "wallP99Ms": 0.4988,
+                "worstWallMs": 2.7031,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1222470,
+                "cycleP95": 1680250,
+                "cycleP99": 1889400,
+                "cycleSamples": 3600,
+                "workloadSha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+              },
+              {
+                "name": "cycle-01-4-native",
+                "wallP95Ms": 0.39530000000000004,
+                "wallP99Ms": 0.4872,
+                "worstWallMs": 2.8762000000000003,
+                "wholeLoopCpuMs": 984.375,
+                "cycleP50": 1217300,
+                "cycleP95": 1664740,
+                "cycleP99": 1858380,
+                "cycleSamples": 3600,
+                "workloadSha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+              },
+              {
+                "name": "cycle-02-1-native",
+                "wallP95Ms": 0.4055,
+                "wallP99Ms": 0.48350000000000004,
+                "worstWallMs": 3.0849,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1252080,
+                "cycleP95": 1707510,
+                "cycleP99": 1936400,
+                "cycleSamples": 3600,
+                "workloadSha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+              },
+              {
+                "name": "cycle-02-4-native",
+                "wallP95Ms": 0.4025,
+                "wallP99Ms": 0.4874,
+                "worstWallMs": 2.7235,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1214950,
+                "cycleP95": 1679310,
+                "cycleP99": 1896920,
+                "cycleSamples": 3600,
+                "workloadSha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+              }
+            ]
+          },
+          "momentum": {
+            "wallP95": 0.39565,
+            "wallP99": 0.49785,
+            "cpuMeanMs": 972.65625,
+            "cycleP99Median": 1939925.0,
+            "allFourWorkloadHashesIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "rawSampleCountEach": 3600,
+            "affinity": {
+              "allowedAffinityMask": "FFFF",
+              "selectedAffinityMask": "1",
+              "startProcessor": 0,
+              "endProcessor": 0
+            },
+            "timingArms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "wallP95Ms": 0.3977,
+                "wallP99Ms": 0.5053,
+                "worstWallMs": 6.9604,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1153850,
+                "cycleP95": 1695760,
+                "cycleP99": 1968830,
+                "cycleSamples": 3600,
+                "workloadSha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "wallP95Ms": 0.4037,
+                "wallP99Ms": 0.5019,
+                "worstWallMs": 7.1926000000000005,
+                "wholeLoopCpuMs": 984.375,
+                "cycleP50": 1190510,
+                "cycleP95": 1745580,
+                "cycleP99": 1949090,
+                "cycleSamples": 3600,
+                "workloadSha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "wallP95Ms": 0.3936,
+                "wallP99Ms": 0.49350000000000005,
+                "worstWallMs": 7.0844000000000005,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1159020,
+                "cycleP95": 1695760,
+                "cycleP99": 1897390,
+                "cycleSamples": 3600,
+                "workloadSha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "wallP95Ms": 0.391,
+                "wallP99Ms": 0.4938,
+                "worstWallMs": 7.062200000000001,
+                "wholeLoopCpuMs": 968.75,
+                "cycleP50": 1148680,
+                "cycleP95": 1683540,
+                "cycleP99": 1930760,
+                "cycleSamples": 3600,
+                "workloadSha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "room": "MP3 PROVING GROUND",
+        "wallP95RelativeIncrease": 0.16112852664576782,
+        "strictWallProxyPassed": false,
+        "threadCycleDiagnostic": {
+          "unit": "thread CPU execution cycles",
+          "diagnosticOnly": true,
+          "nativeP95Median": 1349840.0,
+          "momentumP95Median": 1569095.0,
+          "p95RelativeIncrease": 0.16243036211699158,
+          "scope": "pinned current simulation thread; no conversion to time; cross-model AI/world work differs; no new CPU acceptance gate"
+        },
+        "cycles": [
+          {
+            "cycle": 1,
+            "nativeOuterP95Mean": 0.31855,
+            "momentumInnerP95Mean": 0.3704,
+            "increase": 0.1627687961073616
+          },
+          {
+            "cycle": 2,
+            "nativeOuterP95Mean": 0.32255,
+            "momentumInnerP95Mean": 0.37670000000000003,
+            "increase": 0.1678809486901256
+          }
+        ],
+        "ambientCpuBeforePercent": [
+          1.3671875,
+          2.4437927663734116,
+          0.1949317738791423,
+          0.29239766081871343,
+          2.24609375
+        ],
+        "ambientCpuAfterPercent": [
+          3.581800580832527,
+          1.1964107676969093,
+          0.7662835249042146,
+          0.2955665024630542,
+          1.7408123791102514
+        ],
+        "models": {
+          "native": {
+            "wallP95": 0.31900000000000006,
+            "wallP99": 0.41375,
+            "cpuMeanMs": 722.65625,
+            "cycleP99Median": 1626435.0,
+            "allFourWorkloadHashesIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "rawSampleCountEach": 3600,
+            "affinity": {
+              "allowedAffinityMask": "FFFF",
+              "selectedAffinityMask": "1",
+              "startProcessor": 0,
+              "endProcessor": 0
+            },
+            "timingArms": [
+              {
+                "name": "cycle-01-1-native",
+                "wallP95Ms": 0.31870000000000004,
+                "wallP99Ms": 0.4112,
+                "worstWallMs": 3.5522,
+                "wholeLoopCpuMs": 703.125,
+                "cycleP50": 876550,
+                "cycleP95": 1349840,
+                "cycleP99": 1642650,
+                "cycleSamples": 3600,
+                "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+              },
+              {
+                "name": "cycle-01-4-native",
+                "wallP95Ms": 0.3184,
+                "wallP99Ms": 0.4163,
+                "worstWallMs": 3.6256000000000004,
+                "wholeLoopCpuMs": 718.75,
+                "cycleP50": 870910,
+                "cycleP95": 1338090,
+                "cycleP99": 1608340,
+                "cycleSamples": 3600,
+                "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+              },
+              {
+                "name": "cycle-02-1-native",
+                "wallP95Ms": 0.32580000000000003,
+                "wallP99Ms": 0.42260000000000003,
+                "worstWallMs": 3.5466,
+                "wholeLoopCpuMs": 734.375,
+                "cycleP50": 875610,
+                "cycleP95": 1360180,
+                "cycleP99": 1662390,
+                "cycleSamples": 3600,
+                "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+              },
+              {
+                "name": "cycle-02-4-native",
+                "wallP95Ms": 0.31930000000000003,
+                "wallP99Ms": 0.4066,
+                "worstWallMs": 3.5441000000000003,
+                "wholeLoopCpuMs": 734.375,
+                "cycleP50": 876080,
+                "cycleP95": 1349840,
+                "cycleP99": 1610220,
+                "cycleSamples": 3600,
+                "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+              }
+            ]
+          },
+          "momentum": {
+            "wallP95": 0.3704,
+            "wallP99": 0.46995000000000003,
+            "cpuMeanMs": 765.625,
+            "cycleP99Median": 1864960.0,
+            "allFourWorkloadHashesIdentical": true,
+            "allMatchOriginalWorkload": true,
+            "rawSampleCountEach": 3600,
+            "affinity": {
+              "allowedAffinityMask": "FFFF",
+              "selectedAffinityMask": "1",
+              "startProcessor": 0,
+              "endProcessor": 0
+            },
+            "timingArms": [
+              {
+                "name": "cycle-01-2-momentum",
+                "wallP95Ms": 0.3718,
+                "wallP99Ms": 0.47040000000000004,
+                "worstWallMs": 5.8734,
+                "wholeLoopCpuMs": 656.25,
+                "cycleP50": 1090400,
+                "cycleP95": 1581550,
+                "cycleP99": 1870130,
+                "cycleSamples": 3600,
+                "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+              },
+              {
+                "name": "cycle-01-3-momentum",
+                "wallP95Ms": 0.369,
+                "wallP99Ms": 0.4657,
+                "worstWallMs": 5.8533,
+                "wholeLoopCpuMs": 656.25,
+                "cycleP50": 1071130,
+                "cycleP95": 1556640,
+                "cycleP99": 1832530,
+                "cycleSamples": 3600,
+                "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+              },
+              {
+                "name": "cycle-02-2-momentum",
+                "wallP95Ms": 0.3688,
+                "wallP99Ms": 0.46950000000000003,
+                "worstWallMs": 5.7499,
+                "wholeLoopCpuMs": 843.75,
+                "cycleP50": 1064080,
+                "cycleP95": 1552410,
+                "cycleP99": 1859790,
+                "cycleSamples": 3600,
+                "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+              },
+              {
+                "name": "cycle-02-3-momentum",
+                "wallP95Ms": 0.3846,
+                "wallP99Ms": 0.48460000000000003,
+                "worstWallMs": 5.7471000000000005,
+                "wholeLoopCpuMs": 906.25,
+                "cycleP50": 1112960,
+                "cycleP95": 1622440,
+                "cycleP99": 1933110,
+                "cycleSamples": 3600,
+                "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "interpretation": "PG execution-cycle increase16.2430% supports genuine current-thread cost difference beyond wall preemption alone, while the preserved cross-model LOS/collision workload differs. Sanctoruscycleincrease0.9513%. Neither erases original or controlled failedruns; explicitbudgetdecision remains pending."
+  },
+  "threadCycleCalibration": {
+    "runtime": ".NET 10.0.12",
+    "os": "Microsoft Windows 10.0.26200",
+    "architecture": "X64",
+    "pseudoHandle": -2,
+    "allowedAffinityMask": "FFFF",
+    "calibrationAffinityMask": "1",
+    "processor": 0,
+    "stopwatchFrequency": 10000000,
+    "settings": {
+      "TieredCompilation": "0",
+      "TieredPGO": "0",
+      "ReadyToRun": "0"
+    },
+    "emptyCyclePairCycles": {
+      "min": 470,
+      "median": 940,
+      "p95": 940,
+      "p99": 940,
+      "max": 11280,
+      "zeroCount": 0
+    },
+    "emptyCyclePairWallNs": {
+      "min": 300,
+      "median": 400,
+      "p95": 400,
+      "p99": 400,
+      "max": 139100,
+      "zeroCount": 0
+    },
+    "emptyCpuTimePair100ns": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 0,
+      "zeroCount": 20000
+    },
+    "groups": {
+      "busy10000": {
+        "n": 100,
+        "wallMsMedian": 0.0131,
+        "cyclesMedian": 59220.0,
+        "cyclesMin": 58750,
+        "cyclesMax": 64390,
+        "cpuTimeZeroCount": 100,
+        "cpuTimeNonzero100ns": [],
+        "observedCPUs": [
+          0
+        ]
+      },
+      "busy100000": {
+        "n": 100,
+        "wallMsMedian": 0.1248,
+        "cyclesMedian": 584210.0,
+        "cyclesMin": 582800,
+        "cyclesMax": 598780,
+        "cpuTimeZeroCount": 99,
+        "cpuTimeNonzero100ns": [
+          156250
+        ],
+        "observedCPUs": [
+          0
+        ]
+      },
+      "busy1000000": {
+        "n": 100,
+        "wallMsMedian": 1.2549,
+        "cyclesMedian": 5845390.0,
+        "cyclesMin": 5835990,
+        "cyclesMax": 5883460,
+        "cpuTimeZeroCount": 92,
+        "cpuTimeNonzero100ns": [
+          156250
+        ],
+        "observedCPUs": [
+          0
+        ]
+      },
+      "sleep20ms0": {
+        "n": 10,
+        "wallMsMedian": 31.3023,
+        "cyclesMedian": 18800.0,
+        "cyclesMin": 15040,
+        "cyclesMax": 785370,
+        "cpuTimeZeroCount": 10,
+        "cpuTimeNonzero100ns": [],
+        "observedCPUs": [
+          0
+        ]
+      }
+    },
+    "sourceSha256": {
+      "Program.cs": "b9c3a4de6633e461185db34204334b072af21b609e958b2ad8bacb8f6230a26c",
+      "CycleCalibration.csproj": "c16e262a4a8000db0e425187606acd9985d89d548c668b42eb862fc4fad9cf2f"
+    }
+  }
+}

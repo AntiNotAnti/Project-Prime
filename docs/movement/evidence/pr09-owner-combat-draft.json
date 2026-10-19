@@ -512,5 +512,125 @@
     },
     "artifact": "artifacts/momentum-pr09/combat-eight-final-evidence/summary.json",
     "freshness": "Captured before latest-main91f3a96d compatibility refresh; not silently promoted to that production revision"
+  },
+  "fresh91fCompatibility": {
+    "status": "PASS",
+    "scope": "Fresh91f focused compatibility only; two actual human-owner processes per model; synthetic production AI input; no full matrix, physical-device or performance claim",
+    "provenance": {
+      "baseSha": "91f3a96d3240d612d4d7e97c1d198570d8197fad",
+      "sourceDirty": true,
+      "overlayManifestSha256": "0b605d260c70e605496fb08ebbedce1b6b782877fe3be2d5ab13731d2d714676",
+      "patchSha256": "d8e8578f32d0acb2372faf01165a71227e7fb5c005b459c1b4691f968cff8f02",
+      "overlayFileCount": 29,
+      "overlayVerified": true,
+      "buildExitCode": 0,
+      "elapsedSeconds": 50.17528100000345,
+      "binarySha256": {
+        "ProjectPrime.dll": "f98233e8b591449eca1454833957838ca882dda1d56378e676f674884d5d73d4",
+        "nettest.dll": "70456ba37c57f70ba47605049cc69617ef0b55d5facb0c784f8c98bcf1903ff0",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      }
+    },
+    "compatibility": {
+      "nativeGoldTrajectories": 56,
+      "rewindAssertions": 18489,
+      "customPureChecks": 3291,
+      "retention": "PASS"
+    },
+    "models": {
+      "Native": {
+        "checks": 22,
+        "joinedPayments": 13,
+        "rewindSamples": 59,
+        "rewindFrames": 898,
+        "processExitCodes": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "damageApplied": 392,
+        "solverSteps": [
+          0,
+          0
+        ],
+        "observedHealthDecreases": [
+          17,
+          27
+        ],
+        "claimsDeclared": [
+          13,
+          13
+        ],
+        "faults": [
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9100
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9101
+          }
+        ],
+        "binaryProvenance": {
+          "nettest.dll": "70456ba37c57f70ba47605049cc69617ef0b55d5facb0c784f8c98bcf1903ff0",
+          "ProjectPrime.dll": "f98233e8b591449eca1454833957838ca882dda1d56378e676f674884d5d73d4"
+        }
+      },
+      "Momentum": {
+        "checks": 22,
+        "joinedPayments": 6,
+        "rewindSamples": 55,
+        "rewindFrames": 828,
+        "processExitCodes": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "damageApplied": 200,
+        "solverSteps": [
+          3093,
+          2882
+        ],
+        "observedHealthDecreases": [
+          13,
+          21
+        ],
+        "claimsDeclared": [
+          6,
+          10
+        ],
+        "faults": [
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9100
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9101
+          }
+        ],
+        "binaryProvenance": {
+          "nettest.dll": "70456ba37c57f70ba47605049cc69617ef0b55d5facb0c784f8c98bcf1903ff0",
+          "ProjectPrime.dll": "f98233e8b591449eca1454833957838ca882dda1d56378e676f674884d5d73d4"
+        }
+      }
+    },
+    "artifact": "artifacts/momentum-pr09/windows-current91-focused-evidence/summary.json"
   }
 }
