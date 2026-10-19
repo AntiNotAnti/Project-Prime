@@ -16,7 +16,8 @@ void Reject<T>(Action action, string name) where T : Exception
 Guid m7 = Guid.Parse("9a776851-f39f-4a76-8c13-c5d88875ef61");
 string revision = new('a', 64);
 var identity = WeaponIdentity.Custom(m7, revision);
-var definition = new WeaponDefinition(identity, "Riftline M7");
+var rules = MechanicsChecks.Rules();
+var definition = WeaponDefinition.Create(m7, "Riftline M7", rules);
 Check(!default(WeaponIdentity).IsValid && !default(WeaponRuntimeId).IsValid, "default is invalid");
 Check(identity != WeaponIdentity.Native(BeamType.Imperialist), "M7 is never Imperialist");
 Check(identity == WeaponIdentity.Custom(m7, revision), "stable equality");
@@ -40,8 +41,9 @@ Reject<ArgumentException>(() => WeaponIdentity.Custom(Guid.Empty, revision), "ze
 Reject<ArgumentException>(() => WeaponIdentity.Custom(m7, new string('A', 64)), "noncanonical hash");
 Reject<InvalidOperationException>(() => _ = identity.NativeBeam, "custom native cast");
 Reject<ArgumentOutOfRangeException>(() => new WeaponRuntimeId(0), "zero runtime ID");
-Reject<ArgumentException>(() => new WeaponDefinition(WeaponIdentity.Native(BeamType.Imperialist), "M7"), "native definition");
-Reject<ArgumentException>(() => new WeaponDefinition(identity, "bad\nname"), "control characters");
+Reject<ArgumentException>(() => new WeaponDefinition(WeaponIdentity.Native(BeamType.Imperialist), "M7", rules), "native definition");
+Reject<ArgumentException>(() => WeaponDefinition.Create(m7, "bad\nname", rules), "control characters");
+identity = definition.Identity;
 using var registry = new WeaponRegistry(true, new[] { definition });
 using var another = new WeaponRegistry(false, Array.Empty<WeaponDefinition>());
 Check(registry.Count == 10 && another.Count == 9, "session isolation");
@@ -59,7 +61,7 @@ for (int i=0; i<9; i++)
         && native.Native.CooldownTicks == Weapons.WeaponsMP[i].ShotCooldown * 2,
         "native and affinity read adapters");
 }
-var otherDefinition = new WeaponDefinition(WeaponIdentity.Custom(m7, new string('b',64)), "M7 revision two");
+var otherDefinition = WeaponDefinition.Create(m7, "M7 revision two", MechanicsChecks.Rules(MechanicsChecks.Json.Replace("\"body\":65","\"body\":66")));
 using (var a = new WeaponRegistry(true, new[] { definition, otherDefinition }))
 using (var b = new WeaponRegistry(true, new[] { otherDefinition, definition }))
 {
@@ -69,8 +71,8 @@ using (var b = new WeaponRegistry(true, new[] { otherDefinition, definition }))
 Reject<ArgumentException>(() => new WeaponRegistry(true, new[] { definition, definition }), "duplicate revisions");
 Reject<ArgumentException>(() => new WeaponRegistry(true, Enumerable.Repeat(definition,65)), "bounded enumeration");
 Check(!registry.TryResolve(new WeaponRuntimeId(ushort.MaxValue), out _), "unknown nonzero runtime ID");
-var limitDefinitions = Enumerable.Range(1, 65).Select(i => new WeaponDefinition(
-    WeaponIdentity.Custom(m7, i.ToString("x64")), "Bounded " + i)).ToArray();
+var limitDefinitions = Enumerable.Range(1, 65).Select(i => WeaponDefinition.Create(m7,
+    "Bounded " + i, MechanicsChecks.Rules(MechanicsChecks.Json.Replace("\"body\":65","\"body\":" + i)))).ToArray();
 using (var full = new WeaponRegistry(true, limitDefinitions.Take(64)))
     Check(full.Count == 73, "exact 64-custom manifest limit accepted");
 Reject<ArgumentException>(() => new WeaponRegistry(true, limitDefinitions), "65 distinct customs refused");
@@ -82,8 +84,9 @@ Parallel.For(0, 32, i =>
 });
 Check(true, "concurrent independent session construction");
 var inventory = registry.Inventory(0);
-Check(inventory.Grant(identity) && !inventory.Grant(identity) && inventory.Contains(identity), "bounded separate grants");
-Check(!inventory.Grant(WeaponIdentity.Native(BeamType.PowerBeam)), "custom inventory refuses native grants");
+Check(inventory.BindLife(new(1,1,0,1,1),0), "inventory binds owner/life before grants");
+Check(inventory.Grant(identity,0) && !inventory.Grant(identity,0) && inventory.Contains(identity), "bounded separate grants");
+Check(!inventory.Grant(WeaponIdentity.Native(BeamType.PowerBeam),0), "custom inventory refuses native grants");
 Check(!registry.Inventory(1).Contains(identity), "player isolation");
 Reject<ArgumentOutOfRangeException>(() => registry.Inventory(8), "slot bounds");
 registry.Dispose(); registry.Dispose();
@@ -97,15 +100,17 @@ try
 {
     Check(scene.CustomWeapons == null, "native-only scene pays no registry allocation");
     var owned = scene.FreezeCustomWeaponRegistry(new[] { definition });
-    var held = owned.Inventory(0); held.Grant(identity);
+    var held = owned.Inventory(0); held.BindLife(new(1,1,0,1,1),0); held.Grant(identity,0);
     Reject<InvalidOperationException>(() => scene.FreezeCustomWeaponRegistry(Array.Empty<WeaponDefinition>()), "no mid-match replacement");
     scene.DoCleanup();
     Check(owned.IsDisposed && scene.CustomWeapons == null, "scene cleanup owns registry");
-    Reject<ObjectDisposedException>(() => held.Grant(identity), "scene invalidates escaped inventory");
+    Reject<ObjectDisposedException>(() => held.Grant(identity,0), "scene invalidates escaped inventory");
     Reject<ObjectDisposedException>(() => scene.FreezeCustomWeaponRegistry(Array.Empty<WeaponDefinition>()), "exited scene cannot rebind");
 }
 finally { scene.DoCleanup(); }
 Check(Weapons.WeaponsMP.Count == 18 && Weapons.Weapons1P.Count == 18
     && (sbyte)BeamType.Imperialist == 4 && (sbyte)BeamType.OmegaCannon == 8, "native shape remains fixed");
-Console.WriteLine($"PASS {checks} custom weapon identity/registry checks (foundation only)");
+MechanicsChecks.Run(Check);
+RuntimeStateChecks.Run(Check);
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state checks (no gameplay entry point)");
 return 0;
