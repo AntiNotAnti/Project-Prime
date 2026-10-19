@@ -11,8 +11,8 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | Slice | Deliverable | Status |
 | --- | --- | --- |
 | CW-00 | Source/behavior baseline and five ADRs | Complete; documented baseline failure/platform gaps |
-| CW-01 | Immutable identity and registry | Pending CW-00 |
-| CW-02 | Mechanics schema and deterministic per-life state | Pending CW-01 |
+| CW-01 | Immutable identity and registry | Complete; 69 checks and native parity passed |
+| CW-02 | Mechanics schema and deterministic per-life state | Next |
 | CW-03 | Offline M7 through canonical combat hooks | Pending CW-02 |
 | CW-04 | Custom action authority/network state | Pending CW-03 |
 | CW-05 | Loadout, input, HUD and scope | Pending CW-04 |
