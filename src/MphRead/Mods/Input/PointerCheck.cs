@@ -880,6 +880,24 @@ namespace MphRead.Mods.Input
                         && !InputSettings.StylusMovementBoost,
                     "movement gesture settings round trip");
 
+                InputSettings.MouseMovementBoost = false;
+                InputSettings.StylusMovementBoost = true;
+                Require(!AltFormGesture.DesktopMovementBoostEnabled(false, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Unknown)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Pen)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Touch),
+                    "a physical mouse never inherits the stylus boost preference");
+                InputSettings.MouseMovementBoost = true;
+                InputSettings.StylusMovementBoost = false;
+                Require(AltFormGesture.DesktopMovementBoostEnabled(false, PointerDeviceType.Mouse)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Pen)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Touch),
+                    "pen and touch do not inherit the mouse boost preference");
+                InputSettings.MouseMovementBoost = false;
+                InputSettings.StylusMovementBoost = false;
+
                 File.WriteAllText(path, "alt_swipe_sensitivity=1.75\n");
                 InputSettings.Load();
                 Require(Math.Abs(InputSettings.AltSwipeSensitivity - 1.75f) < 0.0001f,
