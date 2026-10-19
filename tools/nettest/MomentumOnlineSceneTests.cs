@@ -27,7 +27,7 @@ internal static class MomentumOnlineSceneTests
     { _checks++; if (!condition) throw new InvalidOperationException(message); }
     private static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
-    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12)
+    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12, string? replayPath = null)
     {
         Scene? scene = null;
         var clock = Stopwatch.StartNew();
@@ -70,6 +70,7 @@ internal static class MomentumOnlineSceneTests
             foreach (var control in player.Controls.All) { control.Type = ButtonType.Key; control.Key = Keys.Unknown; }
             player.Controls.MoveUp.Key = Keys.W; player.Controls.MoveDown.Key = Keys.S;
             player.Controls.MoveRight.Key = Keys.D; player.Controls.Jump.Key = Keys.Space; player.Controls.Shoot.Key = Keys.Enter;
+            player.Controls.Morph.Key = Keys.Tab;
             player.Controls.MouseAim = false; player.Controls.KeyboardAim = true;
             var set = typeof(KeyboardState).GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
             NetSession.MarkMatchLoaded();
@@ -85,9 +86,11 @@ internal static class MomentumOnlineSceneTests
             Require(scene.GameState.MovementModel == expected && NetSession.ActiveMatchDefinition?.MovementModel == expected, "actual world and frozen server rule agree");
             Require(!(bool)typeof(Scene).GetField("_developerMomentumRequested", Hidden)!.GetValue(scene)!, "online adapter does not install private developer opt-in");
             if (expected == MovementModel.Momentum) Require(scene.MomentumMovementActive && scene.MomentumOwnsPlayer(player), "authorized online rule owns real local player");
+            if (replayPath != null) Require(DemoRecorder.Start(), "real accepted-fact recording starts after world readiness");
 
             var remoteSlots = new HashSet<int>(); var previousRemote = new Dictionary<int, Vector3>();
             var samples = new List<object>(); int remoteMoving = 0, inputTicks = 0, impulses = 0, directSamples = 0, airborneTicks = 0, landings = 0;
+            int altTicks = 0, airborneMorphTicks = 0, bipedReturnTicks = 0;
             Vector3 origin = player.Position; float previousYSpeed = player.Speed.Y; bool airborne = false;
             long firstSteps = scene.DeveloperMomentumSteps; ulong firstSceneFrame = scene.FrameCount;
             double readyTime = clock.Elapsed.TotalSeconds; int tick = 0;
@@ -98,6 +101,9 @@ internal static class MomentumOnlineSceneTests
                 set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
                 set(keyboard, Keys.S, phase >= 96 && phase < 144);
                 set(keyboard, Keys.Space, tick % 90 == 30);
+                // Recording acceptance adds real mid-air form transitions; the
+                // short protocol/rule worker keeps its original input script.
+                set(keyboard, Keys.Tab, replayPath != null && tick % 600 is 220 or 350);
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
                 scene.OnSimulationFrame(); CheckConnection();
                 Require(NetSession.CurrentMatchId == matchId && NetSession.AuthorityEpoch == epoch,
@@ -127,6 +133,9 @@ internal static class MomentumOnlineSceneTests
                 }
                 previousYSpeed = player.Speed.Y;
                 bool grounded = player.Flags1.TestFlag(PlayerFlags1.Grounded);
+                if (player.IsAltForm) altTicks++;
+                if (!grounded && player.IsMorphing) airborneMorphTicks++;
+                if (altTicks > 0 && !player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing) bipedReturnTicks++;
                 if (!grounded) { airborne = true; airborneTicks++; }
                 else if (airborne) { landings++; airborne = false; }
                 foreach (var remote in scene.Players.Items)
@@ -148,18 +157,40 @@ internal static class MomentumOnlineSceneTests
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
+            uint? recordedFrames = null;
+            if (replayPath != null)
+            {
+                Require(altTicks > 0 && airborneMorphTicks > 0 && bipedReturnTicks > 0,
+                    "actual recorded keyboard script earns mid-air morph, stable alt form and biped return");
+                var timeline = ReplayCapture.Recorder.Timeline;
+                Require(timeline.FirstRecordingFrame.HasValue && timeline.LastRecordingFrame.HasValue,
+                    "real recorder retains accepted-fact history");
+                uint start = timeline.FirstRecordingFrame!.Value, end = timeline.LastRecordingFrame!.Value;
+                recordedFrames = end - start;
+                Require(recordedFrames >= 1800, "recording spans seek/checkpoint acceptance intervals");
+                Require(timeline.TryFreeze(start, end, out var clip) && clip != null,
+                    "production timeline freezes actual accepted match facts");
+                using (clip) ReplayTimelineArchive.SaveFrozen(clip!, Path.GetFullPath(replayPath));
+                Require(ReplayArchive.Validate(replayPath) == ReplayOpenResult.Success,
+                    "actual live fixture round-trips through production replay writer and archive validation");
+                Require(DemoRecorder.LastError == null && ReplayCapture.WorldCapture.LastError == null,
+                    "live canonical world and disk recording report no errors");
+                DemoRecorder.Stop();
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { checks = _checks, model = expected.ToString(), profileVersion = MomentumProfileV1.MomentumProfileVersion,
                 port, localSlot, matchId, authorityEpoch = epoch, name, seconds, ticks = tick, firstSceneFrame, finalSceneFrame = scene.FrameCount,
                 solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, airborneTicks, landings,
+                altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames,
                 remoteSlots = remoteSlots.OrderBy(slot => slot).ToArray(), remoteMovingSamples = remoteMoving, disconnected = false,
-                scope = "real localhost UDP dedicated server + independent client processes; CPU/headless Roam; actual bootstrap/late-join/owner movement; no rendered/device/bot/replay acceptance", samples }, new JsonSerializerOptions { WriteIndented = true }));
+                scope = "real localhost UDP dedicated server + independent client processes; CPU/headless Roam; actual bootstrap/late-join/owner movement and optional accepted-fact archive; no rendered/device/bot/replay-seek acceptance", samples }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"MOMENTUM ONLINE SCENE PASS {_checks} assertions model={expected} local={localSlot} steps={scene.DeveloperMomentumSteps - firstSteps} remoteMoving={remoteMoving}");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM ONLINE SCENE FAIL " + ex); return 1; }
         finally
         {
+            DemoRecorder.Stop();
             try { if (scene != null) MomentumSceneTests.Release(scene); }
             finally { NetSession.Stop(); }
         }

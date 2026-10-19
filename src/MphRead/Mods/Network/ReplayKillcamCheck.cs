@@ -114,9 +114,17 @@ internal static class ReplayKillcamCheck
                 Require(controller.Visible && controller.Kind == KillCamKind.Personal, "Personal killcam did not become visible.");
             }
             var shortContext = context with { Frame = 120 };
+            uint firstRetainedFrame = recorder.Timeline.FirstRecordingFrame
+                ?? throw new InvalidDataException("Killcam fixture has no retained history.");
+            Require(firstRetainedFrame < shortContext.Frame,
+                "Short-history fixture needs retained history before frame 120.");
             controller.NoteKill(marker with { Kill = identity with { ServerTick = 120 } }, 120, shortContext);
             for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, shortContext);
-            Require(controller.Visible && controller.Frame <= 1, "Short history did not clamp its start to the available boundary.");
+            // Actual accepted snapshots may establish the first retained frame
+            // after recording zero. Initial Update may advance once on reveal.
+            Require(controller.Visible && controller.Frame >= firstRetainedFrame
+                && controller.Frame - firstRetainedFrame <= 1,
+                "Short history did not clamp its start to the available boundary.");
             controller.Reset(KillcamEndReason.Completed);
             Begin();
             var liveInput = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input",
