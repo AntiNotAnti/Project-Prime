@@ -10,6 +10,8 @@
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativePartyReservationContracts.cs" Link="NativePartyReservationContracts.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyReservations.cs" Link="AuthenticatedNativePartyReservations.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeSocialFriendsController.cs" Link="NativeSocialFriendsController.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeSocialInvitations.cs" Link="NativeSocialInvitations.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativePresenceController.cs" Link="NativePresenceController.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyAuthority.cs" Link="AuthenticatedNativePartyAuthority.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyTravel.cs" Link="AuthenticatedNativePartyTravel.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/HunterLicenseNativeFunctionLease.cs" Link="HunterLicenseNativeFunctionLease.cs" />
