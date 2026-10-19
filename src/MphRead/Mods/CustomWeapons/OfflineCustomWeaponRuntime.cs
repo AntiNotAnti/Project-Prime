@@ -107,7 +107,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         var result = slot.State.TryFire(Tick,shotId,capacity && finite);
         if (result != WeaponActionResult.Accepted) return result;
         var snapshot = slot.State.Snapshot();
-        slot.Equip.CustomShot = CustomShotSource.Accepted(_definition,snapshot.Owner,shotId);
+        slot.Equip.CustomShot = CustomShotSource.ForOffline(_definition,snapshot.Owner,shotId);
         slot.Equip.Zoomed = snapshot.Optic != 0;
         direction = direction.Normalized();
         int spread = snapshot.Optic == 0 ? _definition.Mechanics.HipSpreadMilliDegrees : _definition.Mechanics.ScopedSpreadMilliDegrees;
@@ -146,7 +146,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         var slot = _slots[player.SlotIndex];
         return slot is { Emitting: true } && slot.Player == player && ReferenceEquals(slot.Equip,equip)
             && equip.CustomShot is { } source && source.Definition == _definition
-            && source.Key.ShotId == slot.State.Snapshot().LastAcceptedShotId;
+            && source.Owner == slot.State.Owner && source.Sequence == slot.State.Snapshot().LastAcceptedShotId;
     }
     internal void Impact(CustomShotSource source,PlayerEntity victim,int before,int turretBefore,DamageFlags flags,Vector3 point)
     {
@@ -154,7 +154,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         int bodyDamage = Math.Max(0,before-victim.Health);
         int turretDamage = Math.Max(0,turretBefore-(victim.Halfturret?.Health ?? 0));
         if (bodyDamage+turretDamage == 0) return;
-        LastImpact = new(source.Definition.Identity,source.Key,victim.SlotIndex,Tick,bodyDamage+turretDamage,
+        LastImpact = new(source.Definition.Identity,source.Identity,victim.SlotIndex,Tick,bodyDamage+turretDamage,
             turretDamage,flags.TestFlag(DamageFlags.Halfturret),
             flags.TestFlag(DamageFlags.Headshot),victim.Health == 0,point);
     }

@@ -21,10 +21,57 @@ string revision = new('a', 64);
 var identity = WeaponIdentity.Custom(m7, revision);
 var rules = MechanicsChecks.Rules();
 var definition = WeaponDefinition.Create(m7, "Riftline M7", rules);
-var customSource = CustomShotSource.Accepted(definition,new(7,0x123456789abcdef0UL,3,5,9),13);
-Check(customSource.Key.AuthorityEpoch == 0x123456789abcdef0UL && customSource.Key.MatchId == 7
-    && customSource.Key.ShooterSlot == 3 && customSource.Key.Generation == 5 && customSource.Key.LifeId == 9
-    && customSource.Key.ShotId == 13,"custom source retains full epoch and distinct match/life fields");
+var customSource = CustomShotSource.ForOffline(definition,new(7,0x123456789abcdef0UL,3,5,9),13);
+Check(customSource.IsValid && customSource.Owner.AuthorityEpoch == 0x123456789abcdef0UL && customSource.Owner.MatchId == 7
+    && customSource.Owner.Slot == 3 && customSource.Owner.Generation == 5 && customSource.Owner.Life == 9
+    && customSource.Sequence == 13 && customSource.Identity.Weapon == definition.Identity
+    && customSource.Identity.Owner == customSource.Owner && customSource.Action == null && customSource.Certificate == null,
+    "nominal offline custom source retains full epoch and distinct weapon/owner/sequence fields");
+CustomShotSource? absentSource = default;
+Check(!default(CustomProjectileIdentity).IsValid && absentSource == null,
+    "default custom projectile identity is invalid and absent source is null");
+Reject<ArgumentException>(() => CustomShotSource.ForOffline(definition,default,13),"offline source needs complete owner");
+Reject<ArgumentException>(() => CustomShotSource.ForOffline(definition,customSource.Owner,0),"offline source needs nonzero sequence");
+Reject<ArgumentNullException>(() => CustomShotSource.ForOffline(null!,customSource.Owner,13),"offline source needs exact definition");
+Reject<ArgumentException>(() => new CustomProjectileIdentity(WeaponIdentity.Native(BeamType.Imperialist),customSource.Owner,13),
+    "custom projectile identity cannot carry native weapon");
+var provenanceBootstrap = new WorldBootstrapIdentity(new(7,0x123456789abcdef0UL,1),1,5,100,1,1);
+var provenanceManifest = new CustomWeaponManifest(new[] { definition });
+var provenanceAction = new CustomWeaponAction(provenanceBootstrap,provenanceManifest.Digest,3,9,new(10),13,100,90,0,
+    CustomWeaponActionKind.Fire,0,new(0,.5f,0),Vector3.UnitZ);
+var provenanceCertificate = new CustomSourceCertificate(provenanceAction,100,90,0,Vector3.Zero,Vector3.UnitZ,true,false,false);
+var provenanceState = new WeaponRuntimeState(definition,customSource.Owner,100); provenanceState.SetEquipped(100,true);
+var provenanceBefore = provenanceState.Snapshot(); provenanceState.TryFire(100,13,true);
+var provenanceLaunch = new CustomAcceptedLaunch(definition,provenanceCertificate,provenanceBefore,provenanceState.Snapshot());
+var launchSource = CustomShotSource.FromLaunch(provenanceLaunch);
+Console.WriteLine($"Custom source field storage: {System.Runtime.CompilerServices.Unsafe.SizeOf<CustomShotSource?>()} bytes.");
+Check(System.Runtime.CompilerServices.Unsafe.SizeOf<CustomShotSource?>() == IntPtr.Size,
+    "native carriers store only a nullable custom source reference");
+Check(launchSource.Identity == customSource.Identity && launchSource.Action == CustomActionIdentity.For(provenanceAction)
+    && launchSource.Certificate == provenanceCertificate && launchSource.MatchesLaunch(provenanceLaunch)
+    && !customSource.MatchesLaunch(provenanceLaunch),"launch provenance pairs exact action/certificate without converting to native shot key");
+Check(!launchSource.MatchesLaunch(provenanceLaunch with { Source = provenanceCertificate with { TargetWorldFrame = 89 } })
+    && launchSource.Certificate == provenanceCertificate && !launchSource.MatchesLaunch(default)
+    && absentSource?.MatchesLaunch(default) != true,
+    "launch match rejects altered immutable certificate and default launch without throwing");
+Reject<ArgumentException>(() => CustomShotSource.FromLaunch(default),"default launch cannot create provenance");
+Reject<ArgumentException>(() => CustomShotSource.FromLaunch(provenanceLaunch with
+    { After = provenanceLaunch.After with { Owner = new(7,0x123456789abcdef0UL,3,5,10) } }),"launch resource owner must match action life");
+Reject<ArgumentException>(() => CustomShotSource.FromLaunch(provenanceLaunch with
+    { After = provenanceLaunch.After with { Magazine = provenanceBefore.Magazine } }),"launch provenance requires consistent one-round transition");
+bool provenanceMatches = true;
+for (int i=0; i<10000; i++) provenanceMatches &= launchSource.MatchesLaunch(provenanceLaunch);
+long provenanceBytes = GC.GetAllocatedBytesForCurrentThread();
+for (int i=0; i<100000; i++) provenanceMatches &= launchSource.MatchesLaunch(provenanceLaunch);
+provenanceBytes = GC.GetAllocatedBytesForCurrentThread()-provenanceBytes;
+Check(provenanceMatches && provenanceBytes == 0,"100000 warmed typed provenance matches allocate zero bytes");
+var retainedSources = new CustomShotSource[1024];
+for (int i=0; i<retainedSources.Length; i++) retainedSources[i] = CustomShotSource.FromLaunch(provenanceLaunch);
+long sourceConstructionBytes = GC.GetAllocatedBytesForCurrentThread();
+for (int i=0; i<retainedSources.Length; i++) retainedSources[i] = CustomShotSource.FromLaunch(provenanceLaunch);
+sourceConstructionBytes = GC.GetAllocatedBytesForCurrentThread()-sourceConstructionBytes;
+Console.WriteLine($"Accepted custom source construction: {sourceConstructionBytes/(double)retainedSources.Length} bytes/source ({retainedSources.Length} retained instances).");
+GC.KeepAlive(retainedSources);
 Check(!default(WeaponIdentity).IsValid && !default(WeaponRuntimeId).IsValid, "default is invalid");
 Check(identity != WeaponIdentity.Native(BeamType.Imperialist), "M7 is never Imperialist");
 Check(identity == WeaponIdentity.Custom(m7, revision), "stable equality");

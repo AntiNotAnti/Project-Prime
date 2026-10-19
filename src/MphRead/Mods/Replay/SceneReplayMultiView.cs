@@ -20,11 +20,6 @@ public partial class Scene
     }
 
     private static readonly ConditionalWeakTable<Scene, MultiViewPass> MultiViewPasses = new();
-#if MPHREAD_RMLUI_GL_SMOKE
-    // Only the native replay acceptance assembly can set this test seam.
-    // It throws inside a real auxiliary tile, exercising the same cleanup as a driver exception.
-    internal static Func<int, Exception?>? NativeReplayMultiViewFailureForTests;
-#endif
     internal bool NativeReplayMultiViewActive => MultiViewPasses.TryGetValue(this, out _);
     private bool NativeReplayMultiViewPreserveCanvas =>
         MultiViewPasses.TryGetValue(this, out var pass) && pass.Index > 0;
@@ -207,13 +202,7 @@ public partial class Scene
         {
             ReplayPreviewSize = framebuffer;
             int leftWidth = bounds.Z / 2, topHeight = bounds.W / 2;
-            // The host already rendered the primary camera this frame.
-            // Blit the actual presented composite to the first tile instead of
-            // rendering its geometry/HUD a second time. The other three cameras
-            // remain separate, read-only draws on this same replay clock.
-            if (!BlitNativeReplayPrimaryTile(new Vector4i(bounds.X, bounds.Y,
-                    leftWidth, topHeight), framebuffer)) return false;
-            for (int index = 1; index < 4; index++)
+            for (int index = 0; index < 4; index++)
             {
                 scope.RestoreCamera();
                 pass.Index = index;
@@ -235,10 +224,6 @@ public partial class Scene
                     bottomTile ? bounds.W - topHeight : topHeight);
                 try
                 {
-#if MPHREAD_RMLUI_GL_SMOKE
-                    if (NativeReplayMultiViewFailureForTests?.Invoke(index) is { } injected)
-                        throw injected;
-#endif
                     OnDrawFrame();
                     if (!OnRenderFrame())
                         throw new InvalidOperationException("The scene renderer did not complete the tile.");

@@ -53,10 +53,15 @@ internal static class OfflineSceneChecks
             Check(runtime.Fire(shooter,++sequence,Aim(.2f)) == WeaponActionResult.Accepted,"accepted body shot emits once");
             BeamProjectileEntity? firstProjectile = null;
             foreach (var beam in scene.GetBeamProjectileEntities())
-                if (beam.ModCustomShot?.Key.ShotId == sequence && beam.Owner == shooter) firstProjectile = beam;
+                if (beam.ModCustomShot?.Sequence == sequence && beam.Owner == shooter) firstProjectile = beam;
             Check(firstProjectile is { InitialSpeed:200, MaxDistance:1000, ModComponentId:1 }
                 && firstProjectile.CylinderRadius == 41/4096f && firstProjectile.Lifespan == 6/60f,
                 "native emitter receives exact 200-unit speed, 1000-unit range, radius, six-tick lifetime and one component");
+            Check(firstProjectile is { ModShotId:0, ModLaunchMatch:0, ModLaunchAuthority:0, ModLaunchGeneration:0, ModLaunchLife:0 }
+                && firstProjectile.ModLaunchKey == default && firstProjectile.ModCustomShot is { } typedSource
+                && typedSource.Owner == runtime.State(shooter)!.Owner && typedSource.Sequence == sequence
+                && typedSource.Identity.Weapon == RiftlineM7.Create().Identity && typedSource.Action == null && typedSource.Certificate == null,
+                "offline custom projectile has typed provenance and leaves every native launch identity at default");
             Step(2);
             Check(victim.Health == 35 && runtime.LastImpact is { Headshot:false, Damage:65 },"canonical collision/TakeDamage pays 65 body damage");
             Check(runtime.State(shooter)!.Snapshot().Magazine == 3 && shooter.CurrentWeapon == original
@@ -68,7 +73,10 @@ internal static class OfflineSceneChecks
             Step(2);
             Check(victim.Health == 0 && runtime.LastImpact is { Headshot:true,Lethal:true },"lethal head hit uses canonical death and typed local attribution");
             Check(scene.GameState.BeamKills[shooter.SlotIndex,(int)BeamType.Imperialist] == 0,"M7 kill never increments Imperialist/native weapon statistics");
-            Check(runtime.LastImpact!.Value.Weapon == RiftlineM7.Create().Identity,"kill fact retains custom revision, never a native alias");
+            Check(runtime.LastImpact!.Value.Weapon == RiftlineM7.Create().Identity
+                && runtime.LastImpact.Value.Source.Weapon == RiftlineM7.Create().Identity
+                && runtime.LastImpact.Value.Source.Owner == runtime.State(shooter)!.Owner
+                && runtime.LastImpact.Value.Source.Sequence == sequence,"kill fact retains typed custom revision/owner/sequence, never a native alias");
             // Recreate the victim through its real spawn path, then isolate subsequent probes.
             victim.Spawn(victim.Position,Vector3.UnitZ,Vector3.UnitY,victim.NodeRef,respawn:true); CleanVictim(200);
             while ((uint)scene.FrameCount < fired+150) Step(1);
@@ -137,7 +145,7 @@ internal static class OfflineSceneChecks
             victim.Halfturret.Health = 100; typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(victim,victim.Flags2 | PlayerFlags2.Halfturret);
             victim.ModPlaceAt(shooter.Position+new Vector3(5,0,0));
             Check(runtime.Fire(shooter,++sequence,Vector3.UnitY) == WeaponActionResult.Accepted,"turret probe owns a genuine accepted custom projectile");
-            var probe = equip.Beams.Single(b=>b.ModCustomShot?.Key.ShotId == sequence);
+            var probe = equip.Beams.Single(b=>b.ModCustomShot?.Sequence == sequence);
             var collision = new CollisionResult { Position = victim.Position, Plane = new Vector4(0,1,0,victim.Position.Y) };
             typeof(BeamProjectileEntity).GetMethod("ResolveCollision",BindingFlags.Instance|BindingFlags.NonPublic)!
                 .Invoke(probe,new object?[] { collision,victim.Halfturret,true,.5f,true });
@@ -146,7 +154,7 @@ internal static class OfflineSceneChecks
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(victim,victim.Flags2 & ~PlayerFlags2.Halfturret);
             Ready();
             Check(runtime.Fire(shooter,++sequence,Vector3.UnitY) == WeaponActionResult.Accepted,"dynamic enemy probe owns a genuine accepted projectile");
-            probe = equip.Beams.Single(b=>b.ModCustomShot?.Key.ShotId == sequence);
+            probe = equip.Beams.Single(b=>b.ModCustomShot?.Sequence == sequence);
             var enemy = new EnemyInstanceEntity(new(0,shooter),shooter.NodeRef,scene);
             ushort enemyHealth = enemy.Health;
             typeof(BeamProjectileEntity).GetMethod("ResolveCollision",BindingFlags.Instance|BindingFlags.NonPublic)!
@@ -161,7 +169,7 @@ internal static class OfflineSceneChecks
             Check(runtime.Optic(shooter,3,1) == WeaponActionResult.Accepted,"range probe selects precision optic");
             var rangeFire = runtime.Fire(shooter,++sequence,Aim(headHeight).Normalized());
             Check(rangeFire == WeaponActionResult.Accepted,"range-limited accepted precision shot: " + rangeFire);
-            probe = equip.Beams.Single(b=>b.ModCustomShot?.Key.ShotId == sequence);
+            probe = equip.Beams.Single(b=>b.ModCustomShot?.Sequence == sequence);
             Step(6);
             Check(victim.Health == 200 && probe.Flags.TestFlag(BeamFlags.Collided)
                 && Vector3.Distance(probe.SpawnPosition,probe.Position) < 1000.1f,

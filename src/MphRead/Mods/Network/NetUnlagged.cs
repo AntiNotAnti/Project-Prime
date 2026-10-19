@@ -908,7 +908,7 @@ namespace MphRead.Mods.Network
                 || launch.Before.Weapon != launch.Definition.Identity || launch.After.Weapon != launch.Definition.Identity
                 || launch.After.LastAcceptedShotId != action.Sequence || launch.After.Magazine != launch.Before.Magazine-1
                 || equipment.Weapon.Beam != BeamType.None || !equipment.InfiniteAmmo
-                || equipment.CustomShot != CustomShotSource.Accepted(launch.Definition,owner,action.Sequence)
+                || equipment.CustomShot?.MatchesLaunch(launch) != true
                 || equipment.Beams.Length == 0 || equipment.Beams.Length > launch.Definition.Mechanics.MaxActiveProjectiles
                 || ReferenceEquals(equipment.Beams,shooter.EquipInfo.Beams)) return false;
             for (int i=0; i<equipment.Beams.Length; i++)
