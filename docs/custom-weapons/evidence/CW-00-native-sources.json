@@ -1,0 +1,12 @@
+{
+  "source_sha": "d726c766a10affaa0d8f95bc25bce9d178528215",
+  "scope": "Exact source bytes at CW-00; supplemental change guard, not gameplay/network acceptance",
+  "sha256": {
+    "src/MphRead/Formats/Enums.cs": "0f5fea8d640e3dc9159a3c57aef7d586441b7b4c4ae9ec7e1c4eb82ed7ac9ad8",
+    "src/MphRead/Metadata/Weapons.cs": "6e59704b581624386a9554b7d787098a104e00270cb364c3a1755da1f48d6972",
+    "src/MphRead/Mods/Network/NetFireEvents.cs": "afe0ae17ddd17cc2e627a8d38cc8067cd89126340307b55f08f7d459ec920470",
+    "src/MphRead/Mods/Network/ReplayShotFact.cs": "315e6d0907164c343ddee274f8c7e30804357dc21b1e44a3fae72f8620e3db7a",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "71a43daa27487149c8df1b967c581b99137d41a6ab1b068c6a97ecac7dafb43b",
+    "src/MphRead/Mods/Network/SessionProtocol.cs": "3dd9747dd1b9968e44c0f3153bfbd56d0e550157f1f1236669de9325464c9368"
+  }
+}

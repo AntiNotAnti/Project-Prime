@@ -1,0 +1,240 @@
+[
+  {
+    "name": "build-release",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "src/MphRead/MphRead.csproj",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 170.176,
+    "log": "build-release.log"
+  },
+  {
+    "name": "build-nettest",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "tools/nettest/nettest.csproj",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 3.646,
+    "log": "build-nettest.log"
+  },
+  {
+    "name": "architecture",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--architecture"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.308,
+    "log": "architecture.log"
+  },
+  {
+    "name": "lobby",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--lobby"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 99.875,
+    "log": "lobby.log"
+  },
+  {
+    "name": "weapon-policy",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--weapon-policy"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.191,
+    "log": "weapon-policy.log"
+  },
+  {
+    "name": "shot-source-journal",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--shot-source-journal"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.198,
+    "log": "shot-source-journal.log"
+  },
+  {
+    "name": "shot-inputs",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--shot-inputs"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.083,
+    "log": "shot-inputs.log"
+  },
+  {
+    "name": "shot-lifecycle",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--shot-lifecycle"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.091,
+    "log": "shot-lifecycle.log"
+  },
+  {
+    "name": "timed-damage-profiles",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--timed-damage-profiles"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.32,
+    "log": "timed-damage-profiles.log"
+  },
+  {
+    "name": "timed-shot-damage",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--timed-shot-damage"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.321,
+    "log": "timed-shot-damage.log"
+  },
+  {
+    "name": "protocol58-replay",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--protocol58-replay"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.249,
+    "log": "protocol58-replay.log"
+  },
+  {
+    "name": "community-v3-check",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "run",
+      "--project",
+      "tools/community-v3-check",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 3.483,
+    "log": "community-v3-check.log"
+  },
+  {
+    "name": "community-dependency-check",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "run",
+      "--project",
+      "tools/community-dependency-check",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 3.242,
+    "log": "community-dependency-check.log"
+  },
+  {
+    "name": "protocol-generator-check",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "run",
+      "--project",
+      "tools/protocol-generator-check",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 2.44,
+    "log": "protocol-generator-check.log"
+  },
+  {
+    "name": "match-events-check",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "run",
+      "--project",
+      "tools/match-events-check",
+      "-c",
+      "Release",
+      "-p:UseSharedCompilation=false"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 1.174,
+    "log": "match-events-check.log"
+  },
+  {
+    "name": "replayformatcheck",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+      "-replayformatcheck"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.656,
+    "log": "replayformatcheck.log"
+  },
+  {
+    "name": "cosmeticscheck",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+      "-cosmeticscheck"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.2,
+    "log": "cosmeticscheck.log"
+  },
+  {
+    "name": "frametimingcheck",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+      "-frametimingcheck"
+    ],
+    "result": "PASS",
+    "exit_code": 0,
+    "seconds": 0.373,
+    "log": "frametimingcheck.log"
+  }
+]
