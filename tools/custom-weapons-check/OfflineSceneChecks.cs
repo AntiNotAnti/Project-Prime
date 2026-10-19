@@ -152,6 +152,22 @@ internal static class OfflineSceneChecks
             typeof(BeamProjectileEntity).GetMethod("ResolveCollision",BindingFlags.Instance|BindingFlags.NonPublic)!
                 .Invoke(probe,new object?[] { collision,enemy,true,.5f,false });
             Check(enemy.Health == enemyHealth && probe.Flags.TestFlag(BeamFlags.Collided),"enemy constructed after activation blocks custom shot without native effectiveness indexing");
+            Ready();
+            var savedShooter = shooter.Position; var savedVictim = victim.Position;
+            shooter.ModPlaceAt(new(0,10000,0)); victim.ModPlaceAt(new(0,10000,-1001)); CleanVictim(200);
+            var rangeOrigin = shooter.Position+new Vector3(0,.4f,0);
+            Check(!BeamProjectileEntity.TryBeamObstacle(rangeOrigin,victim.Position+new Vector3(0,headHeight,0),scene,out _,out _),
+                "range probe has no world occluder");
+            Check(runtime.Optic(shooter,3,1) == WeaponActionResult.Accepted,"range probe selects precision optic");
+            var rangeFire = runtime.Fire(shooter,++sequence,Aim(headHeight).Normalized());
+            Check(rangeFire == WeaponActionResult.Accepted,"range-limited accepted precision shot: " + rangeFire);
+            probe = equip.Beams.Single(b=>b.ModCustomShot?.Key.ShotId == sequence);
+            Step(6);
+            Check(victim.Health == 200 && probe.Flags.TestFlag(BeamFlags.Collided)
+                && Vector3.Distance(probe.SpawnPosition,probe.Position) < 1000.1f,
+                "real flight clips at 1000 units before an unobstructed target beyond range");
+            Step(12); Check(probe.Lifespan == 0,"finite flight and collision presentation retire within a bounded lifetime");
+            shooter.ModPlaceAt(savedShooter); victim.ModPlaceAt(savedVictim);
             var oldLife = runtime.State(shooter)!; shooter.Health = 0; runtime.Step();
             Check(oldLife.Snapshot().Phase == CustomWeaponPhase.Invalid
                 && runtime.Fire(shooter,++sequence,Vector3.UnitY) == WeaponActionResult.InvalidLife,"death cancels resources and refuses new custom fire");
