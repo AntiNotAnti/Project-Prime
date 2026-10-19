@@ -38,6 +38,7 @@ namespace MphRead.NetTest
                     + "  --ncx-fixtures                    Test emulated fixture roles and declared aim schedule.\n"
                     + "  --ncx-fixture-lobby               Test exact-map fixture lobby eligibility and readiness guards.\n"
                     + "  --ncx-observer-evidence           Test no-fire observer participant lifecycle/emission evidence.\n"
+                    + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
@@ -781,6 +782,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--input-edges") return InputEdgeTests.Run();
             if (args.Length > 0 && args[0] == "--protocol18") return Protocol18Tests.Run();
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
+            if (args.Length > 0 && args[0] == "--claim-receipts") return ClaimReceiptAccountingTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--party-join-ownership") return PartyJoinOwnershipTests.Run();

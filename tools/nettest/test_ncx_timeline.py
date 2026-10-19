@@ -27,6 +27,20 @@ def report(rows, role='client', frequency=1000, overflow=0):
 
 
 class TimelineTests(unittest.TestCase):
+    def test_retirement_preserves_phase_and_is_not_payment_or_delivery(self):
+        rows = [row('receipt-retired', Phase=9, Result=1),
+                row('receipt-retired', Phase=10, Result=3),
+                row('claim-cancelled', Result=5)]
+        result = audit({'client': report(rows)})
+        self.assertEqual(result['counts']['retiredReceipts'], 2)
+        self.assertEqual(result['counts']['uniqueCommittedPayments'], 0)
+        self.assertEqual(result['counts']['deliveredTerminals'], 0)
+        self.assertNotIn('receipt-retired', REQUIRED)
+        self.assertNotIn('claim-cancelled', REQUIRED)
+        self.assertEqual([r['Phase'] for r in result['shots'][0]['observations']], [9, 10, 0])
+        duplicate = audit({'client': report(rows + rows[:1])})
+        self.assertTrue(any('duplicate receipt retirement' in issue for issue in duplicate['incomplete']))
+
     def test_duplicate_claim_retries_are_not_payments_or_unique_claims(self):
         result = audit({'server': report([row('claim-received')] * 3, 'server')})
         self.assertEqual(result['counts']['uniqueReceivedClaims'], 1)

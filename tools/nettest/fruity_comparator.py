@@ -44,7 +44,7 @@ def digest(path):
 
 def validate_options(args):
     unsupported = []
-    for name in ('drain_seconds', 'shot_timeline', 'shot_visibility', 'presentation_hz', 'confirmed_impacts', 'server_performance',
+    for name in ('drain_seconds', 'shot_timeline', 'claim_receipts', 'shot_visibility', 'presentation_hz', 'confirmed_impacts', 'server_performance',
                  'server_operator', 'movement_validation_shadow', 'bomb_visibility',
                  'bomb_triangle_fixture', 'soak', 'powerups', 'server_bot',
                  'pacing_lobby_client', 'timed_replay_facts', 'observer_delay'):
