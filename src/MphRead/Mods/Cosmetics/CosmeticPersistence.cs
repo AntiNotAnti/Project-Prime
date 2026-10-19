@@ -36,8 +36,16 @@ namespace MphRead.Mods.Cosmetics
             if ((uint)hunter >= 7) throw new ArgumentOutOfRangeException(nameof(hunter));
             lock (Gate)
             {
-                Data.Loadouts[(int)hunter] = CosmeticCatalog.Resolve(hunter, value);
-                Data.Pending[(int)hunter] = true;
+                CosmeticLoadout old = Data.Loadouts[(int)hunter];
+                CosmeticLoadout next = CosmeticCatalog.Resolve(hunter, value);
+                Data.Loadouts[(int)hunter] = next;
+                // Beam/tint are currently device-owned only. Do not send
+                // redundant account writes or mark an offline beam-only
+                // change as a cloud-sync failure. Retain any older pending
+                // skin, armor or death edit until it receives an ACK.
+                Data.Pending[(int)hunter] |= old.SkinKey != next.SkinKey
+                    || old.ArmorEffectKey != next.ArmorEffectKey
+                    || old.DeathEffectKey != next.DeathEffectKey;
                 Save();
             }
             Changed?.Invoke();

@@ -409,8 +409,19 @@ namespace MphRead.Mods.Launcher
             Cosmetics.CosmeticLoadout loadout, CancellationToken cancellationToken = default)
         {
             loadout = Cosmetics.CosmeticCatalog.Resolve(hunter, loadout);
+            // A beam-only change is deliberately device-owned until the
+            // backend allowlist supports beam IDs. Keep it usable offline
+            // instead of forcing an unrelated authentication round trip.
+            Cosmetics.CosmeticLoadout previous = Cosmetics.CosmeticPersistence.Get(hunter);
+            bool priorPending = Cosmetics.CosmeticPersistence.IsPending(hunter);
+            bool cloudChanged = previous.SkinKey != loadout.SkinKey
+                || previous.ArmorEffectKey != loadout.ArmorEffectKey
+                || previous.DeathEffectKey != loadout.DeathEffectKey;
             // Local equip is durable before HTTPS; failure never unequips it.
             Cosmetics.CosmeticPersistence.Equip(hunter, loadout);
+            if (!cloudChanged && !priorPending)
+                return HunterLicenseActionResult.Ok(
+                    "INSTA-GIB BEAM EQUIPPED LOCALLY // ACCOUNT SYNC NOT REQUIRED");
             await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {

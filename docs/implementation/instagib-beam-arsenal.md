@@ -28,7 +28,7 @@ Each style has an authored palette and eight optional color presets plus Origina
 
 The all-zero upper byte exactly preserves existing cosmetic packets and historical replays. Unknown style, death and dye IDs sanitize before use. New clients display their own selected styles and the corresponding accepted style for other slots, late joins, spectators and replay packets. Older clients at the same protocol number degrade an unrecognized combined death ID to Classic while retaining skins/armor. Any future expansion past 15 beam styles, 15 tints or 255 death styles **requires a new packet layout and protocol revision**, not reusing these bits.
 
-The authenticated Hunter License HTTP function currently accepts only three fields (skin, armor, death). Beam selection is intentionally **local-first**: stored with the existing atomic cosmetics file, carried live via the existing CosmeticState packet, and retained when the three synced fields are refreshed. Syncing beams across devices requires a separate allowlisted backend migration.
+The authenticated Hunter License HTTP function currently accepts only three fields (skin, armor, death). Beam selection is intentionally **local-first**: stored with the existing atomic cosmetics file, carried live via the existing CosmeticState packet, and retained when the three synced fields are refreshed. Beam-only changes do not mark unrelated cloud fields pending and do not require account authentication. Syncing beams across devices requires a separate allowlisted backend migration.
 
 ## Renderer lifetime and performance
 

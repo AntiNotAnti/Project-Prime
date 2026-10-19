@@ -87,6 +87,16 @@ namespace MphRead.Mods.Cosmetics
                 CosmeticPersistence.Equip(Hunter.Samus, loadout); CosmeticPersistence.ResetCache();
                 Check(CosmeticPersistence.Get(Hunter.Samus) == loadout && CosmeticPersistence.IsPending(Hunter.Samus), "durable local pending save");
                 Check(CosmeticPersistence.Get(Hunter.Trace) == CosmeticLoadout.Default, "hunter-specific selection");
+                var localBeam = CosmeticLoadout.Default with
+                { BeamEffectKey = "beam.alimbic", BeamColor = 4 };
+                CosmeticPersistence.Equip(Hunter.Kanden, localBeam);
+                Check(!CosmeticPersistence.IsPending(Hunter.Kanden)
+                    && CosmeticPersistence.Get(Hunter.Kanden) == localBeam,
+                    "beam-only equip is durable without requiring cloud login");
+                CosmeticPersistence.ResetCache();
+                Check(CosmeticPersistence.Get(Hunter.Kanden) == localBeam
+                    && !CosmeticPersistence.IsPending(Hunter.Kanden),
+                    "offline beam and tone survive restart without false pending sync");
                 CosmeticPersistence.MergeRemote(Hunter.Samus, CosmeticLoadout.Default);
                 Check(CosmeticPersistence.Get(Hunter.Samus) == loadout, "remote cannot overwrite pending selection");
                 CosmeticPersistence.MarkSynced(Hunter.Samus, CosmeticLoadout.Default);
