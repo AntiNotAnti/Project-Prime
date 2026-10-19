@@ -45,7 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
-        private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset;
+        private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _thirdPersonCamera;
         private Hunter[] _allowedHunters = Enumerable.Range(0, Hunters.Playable).Select(i => (Hunter)i).ToArray();
         private readonly Note _layoutSummary = new("");
         private readonly Note _teamSummary = new("", lines: 1);
@@ -149,6 +149,7 @@ namespace MphRead.Mods.Launcher.Gui
             _lowTier = Toggle("Low Tier");
             _noImperialist = Toggle("No Imp");
             _balancedMode = Toggle("Balanced Mode");
+            _thirdPersonCamera = Toggle("Third-person camera");
             _octolithAutoReset = Toggle("Octolith Auto Reset");
             _lowTier.Changed += (_, _) => { if (!_syncing) RefreshHunterChoices(_lowTier.On); };
             _instaGib.Changed += (_, _) => { if (!_syncing && _instaGib.On) _noImperialist.On = false; };
@@ -157,7 +158,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (ButtonToggleRow toggle in new[]
             {
                 _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
-                _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _disablePowerups, _spawnProtection
+                _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _thirdPersonCamera, _octolithAutoReset, _disablePowerups, _spawnProtection
             })
                 toggle.Changed += (_, _) => DraftChanged();
             _vanillaDuelResources.Changed += (_, _) =>
@@ -198,7 +199,7 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach (Control row in rows) section.Children.Add(row);
                 return section;
             }
-            var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams);
+            var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams, _thirdPersonCamera);
             var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _freeze, _opponentHealth,
                 _disablePowerups, _spawnProtection, _octolithAutoReset);
             var advancedRules = RuleSection("ADVANCED", _balancedMode, _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist);
@@ -783,6 +784,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _lowTier.On = session.Match.LowTier;
                 _noImperialist.On = session.Match.NoImperialist;
                 _balancedMode.On = session.Match.BalancedMode;
+                _thirdPersonCamera.On = session.Match.ThirdPersonCamera;
                 _octolithAutoReset.On = session.Match.OctolithAutoReset;
                 _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(session.Match.Mode);
                 _requireReady.On = session.RequireReady;
@@ -813,7 +815,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : "SELECT A PLAYER TO MANAGE";
             _selectedPlayerName.IsVisible = NetSession.LocalIsLobbyOwner;
             _handicap.IsEnabled = _ownerControls.IsEnabled && selectedTargetSlot != byte.MaxValue;
-            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
+            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _balancedMode, _thirdPersonCamera, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne
                 && session.Match.Mode == GameMode.BattleTeams;
@@ -1248,6 +1250,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Fiesta = _fiesta.On, OneInTheChamber = false,
                 InstaGib = _instaGib.On, LowTier = _lowTier.On, NoImperialist = _noImperialist.On,
                 BalancedMode = _balancedMode.On,
+                ThirdPersonCamera = _thirdPersonCamera.On,
                 OctolithAutoReset = MatchModifierRules.UsesOctolith(match.Mode) && _octolithAutoReset.On,
                 VanillaDuelResources = vanillaDuelResources
             };
