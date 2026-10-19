@@ -11,8 +11,7 @@ internal static class OfflineRulesAcceptance
         var saved = new MenuSettings { ThirdPersonCamera = "on" };
         var cameraRules = RmlUiOfflineRules.Capture(saved);
         Check(cameraRules.Enabled(12), "saved third-person camera setting restores as a local rule");
-        cameraRules with { Flags = (ushort)(cameraRules.Flags & ~(1 << 12)) };
-        new RmlUiOfflineRules("7", "7:00", "1:30", "medium", 0).CopyTo(saved);
+        (cameraRules with { Flags = (ushort)(cameraRules.Flags & ~(1 << 12)) }).CopyTo(saved);
         Check(saved.ThirdPersonCamera == "off", "camera rule off is persisted independently");
         var services = new Stub();
         using var controller = new RmlUiMenuController(services);
