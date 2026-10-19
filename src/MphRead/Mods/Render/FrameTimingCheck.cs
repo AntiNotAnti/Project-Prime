@@ -122,6 +122,7 @@ namespace MphRead.Mods.Render
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
             failures += RunAngularCameraPresentationCase() ? 0 : 1;
             failures += RunThirdPersonFormHandoffCase() ? 0 : 1;
+            failures += RunThirdPersonShotReticleCase() ? 0 : 1;
             failures += RunFastLateAimCase() ? 0 : 1;
             failures += RunLockjawNoiseCases();
             Console.WriteLine(failures == 0
@@ -533,6 +534,74 @@ namespace MphRead.Mods.Render
             Console.WriteLine("FRAMETIMING " + (correct ? "ok  " : "FAIL")
                 + " third-person biped / Morph Ball view handoff (60/120/240Hz)");
             return correct;
+        }
+
+        /// <summary>
+        /// Check muzzle-ray projection into an independent shoulder camera
+        /// without changing any simulated aim or spawning a beam. Contact
+        /// projection must reflect the real world strike, not the centered
+        /// first-person HUD guess. Keep camera release identical across Hz.
+        /// </summary>
+        private static bool RunThirdPersonShotReticleCase()
+        {
+            Vector3 muzzle = new(0, 0, 0);
+            Vector3 aim = new(0, 0, -20);
+            bool ray = ThirdPersonReticleProjection.TryShotRay(
+                muzzle, aim, out Vector3 direction);
+            bool aligned = ray && (direction + Vector3.UnitZ).LengthSquared < 0.000001f;
+            Vector3 far = ThirdPersonReticleProjection.Target(
+                muzzle, direction, 1f);
+            Vector3 closeWall = ThirdPersonReticleProjection.Target(
+                muzzle, direction, 3f / ThirdPersonReticleProjection.TraceRange);
+
+            Matrix4 native = Matrix4.LookAt(Vector3.Zero,
+                -Vector3.UnitZ, Vector3.UnitY);
+            Vector3 shoulderEye = new(0.5f, 0.35f, 2.4f);
+            Matrix4 shoulder = Matrix4.LookAt(shoulderEye,
+                shoulderEye - Vector3.UnitZ, Vector3.UnitY);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(78f), 16f / 9f, 0.1f, 200f);
+
+            bool first = ThirdPersonReticleProjection.TryProject(
+                far, native, projection, out Vector2 nativeReticle);
+            bool third = ThirdPersonReticleProjection.TryProject(
+                far, shoulder, projection, out Vector2 thirdReticle);
+            bool contact = ThirdPersonReticleProjection.TryProject(
+                closeWall, shoulder, projection, out Vector2 wallReticle);
+            bool parallax = first && third && contact
+                && MathF.Abs(nativeReticle.X - 0.5f) < 0.00001f
+                && MathF.Abs(nativeReticle.Y - 0.5f) < 0.00001f
+                && thirdReticle.X < nativeReticle.X
+                && wallReticle.X < thirdReticle.X
+                && ThirdPersonReticleProjection.Finite(closeWall)
+                && (closeWall - new Vector3(0, 0, -3)).LengthSquared < 0.000001f;
+
+            // A 240Hz four-picture ease must match the 60Hz one-picture ease
+            // over the identical wall-clock interval.
+            float sixty = ThirdPersonReticleProjection.ReleaseFraction(1d);
+            float quarter = ThirdPersonReticleProjection.ReleaseFraction(0.25d);
+            float compounded = 1f - MathF.Pow(1f - quarter, 4f);
+            bool easing = MathF.Abs(sixty - 0.15f) < 0.000001f
+                && MathF.Abs(sixty - compounded) < 0.000001f
+                && ThirdPersonReticleProjection.ReleaseFraction(0d) == 0
+                && ThirdPersonReticleProjection.ReleaseFraction(double.NaN) == 0;
+
+            bool safe = !ThirdPersonReticleProjection.TryShotRay(
+                    muzzle, muzzle, out _)
+                && !ThirdPersonReticleProjection.TryShotRay(
+                    muzzle, new Vector3(float.NaN, 0, 0), out _)
+                && !ThirdPersonReticleProjection.TryProject(
+                    shoulderEye, shoulder, projection, out _)
+                && ThirdPersonReticleProjection.TryProject(
+                    new Vector3(-1000f, 0, -3f), shoulder, projection,
+                    out Vector2 clamped)
+                && clamped.X >= ThirdPersonReticleProjection.ScreenInset
+                && clamped.X <= 1 - ThirdPersonReticleProjection.ScreenInset;
+
+            bool success = aligned && parallax && easing && safe;
+            Console.WriteLine("FRAMETIMING " + (success ? "ok  " : "FAIL")
+                + " third-person muzzle-ray crosshair & release-rate invariants");
+            return success;
         }
 
         /// <summary>
