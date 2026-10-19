@@ -54,7 +54,7 @@ namespace MphRead.Mods.Launcher
     /// presentation. The callbacks deliberately run off the UI thread; a GUI
     /// renderer marshals them onto its own dispatcher.
     /// </summary>
-    public static class ServerBrowserService
+    public static partial class ServerBrowserService
     {
         public static async Task<ServerDiscoveryResult> DiscoverAsync(
             Action<ServerBrowserEntry>? onEntry = null,

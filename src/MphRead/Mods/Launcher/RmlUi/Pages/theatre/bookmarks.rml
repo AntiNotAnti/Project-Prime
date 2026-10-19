@@ -1,0 +1,10 @@
+<rml><head><title>Replay bookmarks</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="theatre.rcss"/></head>
+<body template="prime-dialog"><div id="replay_bookmark_panel" class="prime_dialog">
+<h2>REPLAY BOOKMARKS</h2><p>Save a moment at the playhead, then jump back to it later.</p>
+<label for="replay_bookmark_name">Bookmark name</label><input id="replay_bookmark_name" class="play_input" type="text" maxlength="80" value=""/>
+<div class="theatre_actions"><button id="replay_bookmark_add" class="play_action primary" data-action="replay:bookmark-add">ADD AT PLAYHEAD</button><button id="replay_bookmark_refresh" class="play_action" data-action="replay:bookmark-refresh">REFRESH</button></div>
+<p id="replay_bookmark_count"/><p id="replay_bookmark_selected"/>
+<div class="theatre_actions"><button id="replay_bookmark_previous" class="play_action" data-action="replay:bookmark-previous">PREVIOUS</button><button id="replay_bookmark_next" class="play_action" data-action="replay:bookmark-next">NEXT</button><button id="replay_bookmark_jump" class="play_action" data-action="replay:bookmark-jump">JUMP TO BOOKMARK</button><button id="replay_bookmark_remove" class="play_action danger" data-action="replay:bookmark-remove">REMOVE...</button></div>
+<p id="replay_bookmark_status"/><p id="replay_bookmark_error" class="bookmark_error"/>
+<button id="replay_bookmark_close" class="play_action" data-action="replay:bookmark-cancel">RETURN TO PLAYBACK</button>
+</div></body></rml>

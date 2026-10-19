@@ -16,7 +16,7 @@ namespace MphRead.Mods.Network;
 /// <summary>N0 opt-in, process-owned evidence. Never feeds a gameplay decision.
 /// Bounded buffers fail closed on overflow; only the opt-in headless drain publishes live status.
 /// Wire/replay formats and normal play are unchanged.</summary>
-internal static class NetCampaignEvidence
+internal static partial class NetCampaignEvidence
 {
     private static readonly string? Path = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE");
     internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
@@ -125,6 +125,8 @@ internal static class NetCampaignEvidence
     private static readonly List<PickupObservation> Pickups = new();
     private static readonly List<Health> States = new();
     private static readonly List<FormObservation> Forms = new();
+    private static List<OwnerFormObservation>? _ownerForms;
+    private static (ulong Epoch, ushort Match, int Slot, ushort Generation, ushort Life, uint Frame) _lastOwnerForm;
     private static readonly List<SlowState> SlowStates = new();
     private static readonly List<Fact> Facts = new();
     private static readonly List<Window> Windows = new();
@@ -140,10 +142,13 @@ internal static class NetCampaignEvidence
     private static double _lastStopCheck;
     // Process-lifetime observations survive normal empty-server world teardown.
     // NetHitClaims' diagnostic counters reset when that world is disposed.
-    private static long _claimReceipts, _claimsApplied;
+    private static long _claimReceipts, _claimsApplied, _clientClaimsDeclared;
+    internal static void ClaimDeclared() { if (Enabled) _clientClaimsDeclared++; }
     internal static void ClaimReceived() { if (Enabled) _claimReceipts++; }
     internal static void ClaimApplied() { if (Enabled) _claimsApplied++; }
     internal static object CaptureClaims() => new { Received = _claimReceipts, Applied = _claimsApplied,
+        ClientDeclared = _clientClaimsDeclared, ClientDeclaredScope = "ProcessLifetime",
+        ClientDeclaredCountingUnit = "New client claim declarations; excludes retries and survives match reset",
         CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
     internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
@@ -173,13 +178,19 @@ internal static class NetCampaignEvidence
         bool? TurretEverAvailable = null, int? TurretRecoveryFrames = null);
     private sealed record FormObservation(string Stage, ulong Epoch, ushort Match, byte Slot, ushort Generation,
         ushort Life, string Source, uint ObservedFrame, string Phase, int BodyHp, int TurretHp,
-        bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit, string? BodyAckSource, int? LocalSlot, bool? Spectating, bool? AuthoritySpectating);
+        bool TurretActive, float X, float Y, float Z, float BodyX, float BodyY, float BodyZ, ushort ObservedDamageEvent, int BodyPredictionDebit, string? BodyAckSource, int? LocalSlot, bool? Spectating, bool? AuthoritySpectating, string? Hunter);
     internal static void Form(in PlayerState state, PlayerEntity? player = null, bool local = false)
     {
-        if (!Enabled || state.Form.Phase == FormPhase.Unknown) return;
+        if (!Enabled || player?.SceneServices.IsReplica == true || state.Form.Phase == FormPhase.Unknown) return;
         Span<byte> bytes = stackalloc byte[PlayerFormState.Size]; state.Form.Write(bytes);
         var observed = player?.ModCaptureForm() ?? state.Form;
         var body = player?.Position ?? state.Position;
+        PlayerEntity? native = player;
+        if (native == null && NetSession.IsAuthority && (uint)state.SlotIndex < PlayerEntity.Players.Count)
+            native = PlayerEntity.Players[state.SlotIndex];
+        string? hunter = native != null && native.SlotIndex == state.SlotIndex && !native.SceneServices.IsReplica
+            && NetPlayerLifecycle.Matches(state.SlotIndex, state.SlotGeneration, state.LifeId)
+            ? native.Hunter.ToString() : null;
         ushort sequence = player == null ? state.Form.DamageEventId
             : NetHitPrediction.TurretEvidenceSequenceFor(player.SlotIndex, state.Form.DamageEventId);
         Add(Forms, new(player == null ? "authority" : local ? "owner" : "observer",
@@ -190,7 +201,46 @@ internal static class NetCampaignEvidence
             player == null ? null : NetHitPrediction.FormAckSource(player.SlotIndex, state.SlotGeneration, state.LifeId),
             player == null ? null : NetSession.LocalSlot,
             player == null ? null : player.Flags2.TestFlag(PlayerFlags2.Spectating),
-            player == null ? null : (state.Flags & PlayerState.FlagSpectating) != 0));
+            player == null ? null : (state.Flags & PlayerState.FlagSpectating) != 0, hunter));
+    }
+
+    // Native local state at the existing processed-step boundary, independent of
+    // accepted-source Form observations. No authority/replica reconstruction.
+    private sealed record OwnerFormObservation(string Stage, ulong Epoch, ushort Match, byte Slot,
+        ushort Generation, ushort Life, uint Frame, ulong SceneFrame, string Hunter, string NativeForm,
+        string Phase, int BodyHp, int TurretHp, bool TurretActive, float X, float Y, float Z,
+        float BodyX, float BodyY, float BodyZ, int LocalSlot, bool Spectating);
+    private static void CaptureOwnerForm(Scene scene)
+    {
+        if (!Enabled || scene.Services.IsReplica || !NetSession.IsClient || NetSession.IsAuthority
+            || NetSession.SemanticLegacyPlayback || !NetSession.Active || !scene.GameState.Multiplayer
+            || scene.GameState.MatchState != MatchState.InProgress || scene.GameState.MenuPause
+            || !NetRoomChange.GameplayReady || !NetSession.WorldAdmissionConfirmed
+            || NetSession.ServerSession is not { } session || session.AuthorityEpoch != NetSession.AuthorityEpoch
+            || session.MatchId != NetSession.CurrentMatchId) return;
+        int slot = NetSession.LocalSlot;
+        if ((uint)slot >= scene.Players.Items.Count || (uint)slot >= PlayerEntity.Players.Count) return;
+        var player = scene.Players.Items[slot];
+        if (!ReferenceEquals(player, PlayerEntity.Players[slot]) || player.SceneServices.IsReplica
+            || player.SlotIndex != slot || player.IsBot || player.Health <= 0 || !player.ModIsInPlay
+            || !player.LoadFlags.TestFlag(LoadFlags.Active) || !player.LoadFlags.TestFlag(LoadFlags.Spawned)
+            || SpectatorMode.IsSpectating
+            || player.Flags2.TestFlag(PlayerFlags2.Spectating)) return;
+        ulong epoch = NetSession.AuthorityEpoch;
+        ushort match = NetSession.CurrentMatchId, generation = NetPlayerLifecycle.Generation(slot), life = NetPlayerLifecycle.Get(slot);
+        if (epoch == 0 || match == 0 || generation == 0 || life == 0) return;
+        var key = (epoch, match, slot, generation, life, NetSession.NetFrame);
+        if (_lastOwnerForm == key) return;
+        var form = player.ModCaptureForm();
+        if (!form.IsValid || form.Phase == FormPhase.Unknown) return;
+        _lastOwnerForm = key;
+        Span<byte> bytes = stackalloc byte[PlayerFormState.Size]; form.Write(bytes);
+        var body = player.Position;
+        Add(_ownerForms ??= new(), new OwnerFormObservation("owner-native-after-simulation", epoch, match,
+            (byte)slot, generation, life, NetSession.NetFrame, scene.FrameCount, player.Hunter.ToString(),
+            Convert.ToHexString(bytes), form.Phase.ToString(), form.BodyHealth, form.TurretHealth,
+            form.TurretActive, form.TurretPosition.X, form.TurretPosition.Y, form.TurretPosition.Z,
+            body.X, body.Y, body.Z, slot, false));
     }
 
     private sealed record Health(ulong Epoch, ushort Match, uint Frame, byte Slot, ushort Generation,
@@ -350,6 +400,8 @@ internal static class NetCampaignEvidence
     internal static void Tick(Scene scene)
     {
         if (!Enabled || scene.Services.IsReplica) return;
+        CaptureOwnerForm(scene);
+        CaptureRotationLifecycle(scene);
         if (NetSession.IsAuthority) NetCampaignDrain.Tick(scene);
         long now = Stopwatch.GetTimestamp();
         if (_start == 0) _start = _lastWindow = now;
@@ -469,7 +521,12 @@ internal static class NetCampaignEvidence
                 ContinuousPayments = NetContinuousPayments.Capture(),
                 Bombs = NetBombEvidence.Capture(),
                 Drain = NetCampaignDrain.Capture(),
-                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts, Forms };
+                TransportWindows, Readiness, Windows, ServerSegments, Shots, States, SlowStates, Facts, Forms,
+                FormHunterScope = "NativeScenePlayerHunterAtFormCaptureV1",
+                RotationLifecycle = CaptureRotationReport(),
+                OwnerFormScope = "LiveLocalOwnerNativeAfterSimulationV1",
+                OwnerFormCountingUnit = "One native local-owner sample per processed network frame; independent of accepted-source Forms",
+                OwnerForms = _ownerForms };
             using var file = new FileStream(Path!, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             try { JsonSerializer.Serialize(file, report); }
             catch (ArgumentException)

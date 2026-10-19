@@ -14,12 +14,26 @@ expected = (
     "hud/editor.rml", "ingame/pause.rml", "start/splash.rml"
 )
 errors = []
+published = None
+if len(sys.argv) != 1:
+    if len(sys.argv) != 3 or sys.argv[1] != "--published-root":
+        sys.exit("usage: check-pages.py [--published-root <rmlui directory>]")
+    published = Path(sys.argv[2]).resolve()
 for name in expected:
     if not (pages / name).is_file():
         errors.append(f"Missing authored page: {name}")
 files = sorted(root.rglob("*.rml")) + sorted(root.rglob("*.rcss"))
 for file in files:
     data = file.read_text(encoding="utf-8")
+    if published is not None:
+        relative = file.relative_to(root)
+        published_file = (published / Path(*relative.parts[1:])
+                          if relative.parts[0] == "Assets"
+                          else published / relative.parts[0].lower() / Path(*relative.parts[1:]))
+        if not published_file.is_file():
+            errors.append(f"Missing packaged asset: {published_file}")
+        elif published_file.read_bytes() != file.read_bytes():
+            errors.append(f"Stale packaged asset: {published_file}")
     for relative in re.findall(r'\bhref\s*=\s*["\']([^"\']+)["\']', data):
         if "://" in relative or relative.startswith("#"):
             continue
@@ -46,3 +60,5 @@ if errors:
         print("RML ASSET ERROR: " + error, file=sys.stderr)
     sys.exit(1)
 print(f"RML ASSETS PASS: {len(files)} markup/styles; all local links resolve")
+if published is not None:
+    print(f"RML PACKAGE PASS: {len(files)} authored assets match at {published}")

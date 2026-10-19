@@ -32,8 +32,15 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
     private readonly MapCompilationCache _compilations = new();
     private readonly string _cacheRoot;
     private readonly Func<MapDefinition, string, MapValidationResult>? _build;
-    public static MapBuildScheduler Shared { get; } = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ProjectPrime", "map-cache"));
+    public static MapBuildScheduler Shared { get; } = new(ResolveSharedCacheDirectory());
+    // Maintenance must use the same root this owner captured at construction.
+    // A later environment change must not redirect cleanup to another cache.
+    internal string CacheDirectory => _cacheRoot;
+    private static string ResolveSharedCacheDirectory()
+        => Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA") is { Length: > 0 } directory
+            ? Path.Combine(Path.GetFullPath(directory), "map-cache")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ProjectPrime", "map-cache");
     public long SharedRequests => _queue.Shared;
     public int PendingCount => _queue.Count;
     public int CompiledCacheCount => _compilations.Count;

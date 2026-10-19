@@ -21,8 +21,96 @@ namespace MphRead.Mods.Launcher.RmlUi.Render;
 /// as the current client. No RmlUi-owned NetSession.Pump or session mutation
 /// occurs on a worker completion.
 /// </summary>
-internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
+internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDisposable
 {
+    private readonly Func<NativePresenceView?>? _presenceView;
+    internal RmlUiLiveMenuServices(Func<NativePresenceView?>? presenceView = null)
+        => _presenceView = presenceView;
+    private readonly RmlUiMapPreviewCache _mapPreviews = new(
+        Path.Combine(GameFiles.Root, "rmlui-media", "map-previews"));
+    private readonly RmlUiMapPickerPreviews _pickerPreviews = new();
+    private string _previewRoom = "", _previewRoot = "";
+    private bool _previewAttempted;
+    private CancellationTokenSource? _previewCancel;
+    private Task? _previewGeneration;
+
+    private NativePartyAuthorityController? _homeParty;
+    private long _homePartyRefreshAt;
+    private bool _homePartyPageActive;
+    internal void SetHomePartyPageActive(bool active)
+    {
+        _homePartyPageActive = active;
+        if (!active) _homePartyRefreshAt = 0;
+    }
+    internal NativePartyAuthorityController HomePartyController
+        => _homeParty ??= new(new AuthenticatedNativePartyAuthority());
+
+    public NativePartyView PartyHome()
+    {
+        // Reuse the Party page's controller and its account/revision fences.
+        // Refresh only on the menu owner; no parallel network-session owner.
+        if (SocialClient.Current?.Self == null)
+        {
+            _homePartyRefreshAt = 0;
+            return new(false, false, "PARTY NOT CONNECTED", 0, null);
+        }
+        NativePartyAuthorityController owner = HomePartyController;
+        NativePartyView view = owner.Tick();
+        long now = Environment.TickCount64;
+        if (!_homePartyPageActive && !view.Busy && now >= _homePartyRefreshAt)
+        {
+            _homePartyRefreshAt = now + 15000;
+            owner.Refresh(preserveCurrent: true);
+            view = owner.Tick();
+        }
+        return view;
+    }
+
+    public void Dispose()
+    {
+        CancelPartyJoin(); CancelSocialJoin(); _mapPreviews.Dispose(); _pickerPreviews.Dispose();
+        _homeParty?.Dispose(); _homeParty = null;
+        RetireMapPreview();
+    }
+
+    private void RetireMapPreview()
+    {
+        _previewRoom = _previewRoot = "";
+        _previewAttempted = false;
+        if (_previewCancel is not { } cancel) return;
+        _previewCancel = null;
+        cancel.Cancel();
+        if (_previewGeneration is { IsCompleted: false } work)
+            _ = work.ContinueWith(_ => cancel.Dispose(), TaskScheduler.Default);
+        else cancel.Dispose();
+    }
+
+    private bool EnsureMapPreview(string room)
+    {
+        string root = GameFiles.Root;
+        if (_previewRoom != room || _previewRoot != root)
+        {
+            RetireMapPreview();
+            _previewRoom = room; _previewRoot = root;
+        }
+        // One request, through ThumbnailBatch's existing serialized worker,
+        // per selected room/root. A retired worker never publishes UI state.
+        if (_previewGeneration is { IsCompleted: false }) return true;
+        _previewGeneration = null;
+        if (_previewAttempted || String.IsNullOrWhiteSpace(room)) return false;
+        _previewAttempted = true;
+        var cancel = _previewCancel = new();
+        _previewGeneration = Task.Run(async () =>
+        {
+            try { await ThumbnailHost.RenderRoomAsync(room, root, _ => { }, cancel.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch (Exception error) when (error is not OutOfMemoryException
+                and not StackOverflowException and not AccessViolationException)
+            { DebugLog.Line("rmlui", "Map preview generation unavailable: " + error.GetType().Name); }
+        });
+        return true;
+    }
+
     private static readonly NewsDispatch? HomeDispatch =
         new BundledNewsProvider().Read().FirstOrDefault();
     public NewsDispatch? FeaturedNews() => HomeDispatch;
@@ -30,13 +118,20 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
     public RmlUiSocialHomeState SocialHome()
     {
         SocialSnapshot? state = SocialClient.Current;
-        if (state == null)
+        if (state?.Self == null || state.Friends == null || state.IncomingRequests == null)
             return new(true, false, Array.Empty<string>(), 0);
-        return new(true, NativeSocialFriendsController.ValidPrimeId(state.Self.PrimeId),
-            state.Friends.Where(p => p != null && NativeSocialFriendsController.ValidPrimeId(p.PrimeId))
-                .Select(p => p.DisplayName ?? "Player")
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-                .Take(100).ToArray(), state.IncomingRequests.Count);
+        var projected = RmlUiSocialHomeState.Project(new(state.Self.PrimeId,
+            state.Friends.Where(p => p != null)
+                .Select(p => new NativeSocialPerson(p.PrimeId, p.DisplayName ?? "Player", NativeSocialRelation.Friend))
+                .ToArray()) { AccountWitness = state.AccountWitness }, _presenceView?.Invoke()?.Directory, state.IncomingRequests.Count,
+            DateTimeOffset.UtcNow);
+        var invites = SocialClient.InvitationHome;
+        return invites != null && invites.Directory.SelfPrimeId == state.Self.PrimeId
+            && ReferenceEquals(invites.Directory.AccountWitness, state.AccountWitness)
+                ? projected with { InvitationsVerified = invites.Directory.InvitationsAvailable,
+                    IncomingInvitations = invites.Directory.Invitations.Count(i => i.Incoming
+                        && NativeSocialInvitationValidation.Actionable(i, DateTimeOffset.UtcNow)) }
+                : projected;
     }
 
 
@@ -72,13 +167,15 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
             && NetSession.SlotLobbyReady[NetSession.LocalSlot];
         bool canReady = inLobby && session.RequireReady
             && NetSession.LocalSlot >= 0 && !NetSession.LobbyCommandPending;
-        bool canStart = inLobby && NetSession.CanEditLobby && !NetSession.LobbyCommandPending
-            && LobbyRules.Validate(session.Match, roster, session.RequireReady, out _) == LobbyResultCode.Ok;
+        bool rulesReady = LobbyRules.Validate(session.Match, roster, session.RequireReady,
+            out string startReason) == LobbyResultCode.Ok;
+        bool canStart = inLobby && NetSession.CanEditLobby && !NetSession.LobbyCommandPending && rulesReady;
         string status = NetSession.LobbyMessage.Length != 0 ? NetSession.LobbyMessage
             : !NetSession.RequiredMapReady ? NetSession.MapPreparationMessage
             : session.Phase == SessionPhase.Starting
                 ? "STARTING MATCH // WAITING FOR SERVER"
-                : "WAITING FOR PLAYERS";
+                : !rulesReady ? startReason.ToUpperInvariant()
+                : "READY TO DEPLOY";
 
         return new(true, session.Phase == SessionPhase.Starting, owner, session.RequireReady,
             localReady, canReady, canStart, "MULTIPLAYER LOBBY",
@@ -101,8 +198,15 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public async Task<RmlUiServerCandidate?> QuickMatch(CancellationToken token)
     {
-        QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(token).ConfigureAwait(false);
-        return result.Found ? ToCandidate(result.Entry) : null;
+        var found = new ConcurrentBag<RmlUiServerCandidate>();
+        await ServerBrowserService.DiscoverAsync(entry =>
+        {
+            if (entry.Live && entry.Compatible && entry.Status.MaxPlayers > 0
+                && entry.Status.Players < entry.Status.MaxPlayers)
+                found.Add(ToCandidate(entry));
+        }, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return RmlUiRandomMatch.Choose(found.ToArray(), Random.Shared.Next);
     }
 
     private static RmlUiServerCandidate ToCandidate(ServerBrowserEntry entry)
@@ -133,7 +237,7 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
     {
-        string[] rooms = Shell.RmlUiBuiltInRooms().ToArray();
+        string[] rooms = Shell.RmlUiOfflineRooms().ToArray();
         if (!GameFiles.Ready) return Task.FromResult("CONFIGURE GAME FILES BEFORE OFFLINE PLAY");
         if (!request.ValidateForm(rooms)) return Task.FromResult("INVALID OFFLINE MAP OR MATCH CHOICE");
         // Entity/room capability checks can touch the map registry and must
@@ -153,6 +257,11 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public bool LaunchOffline(RmlUiOfflineRequest request)
         => Shell.RmlUiLaunchOffline(request);
+
+    public RmlUiOfflineRules? ReadOfflineRules() => Shell.RmlUiReadOfflineRules();
+
+    public bool SaveOfflineRules(RmlUiOfflineRules expected, RmlUiOfflineRules next, out string error)
+        => Shell.RmlUiSaveOfflineRules(expected, next, out error);
 
     public AimTrainerDefinition TrainingDefaults() => LauncherPrefs.Training.Sanitize();
 
@@ -174,6 +283,14 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
         return result;
     }
 
+    public bool CanOpenCampaignShip(byte slot) => !NetSession.Active
+        && MatchStart.RecentShipDock is { } dock && dock.Slot == slot;
+
+    public bool OpenCampaignShip(byte slot, Hunter hunter)
+        => !NetSession.Active && MatchStart.RecentShipDock is { } dock && dock.Slot == slot
+            && Shell.Window is { HasScene: false } window
+            && RmlUiOpenGlSmoke.TryOpenNativeCampaignShip(window, dock, hunter);
+
     public bool LaunchAdventure(RmlUiAdventureSlot expected, bool newGame, Hunter hunter)
     {
         if (expected.Slot is < 1 or > AdventureSave.SlotCount || expected.Unreadable
@@ -186,27 +303,51 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
     }
 
     public Task<RmlUiReplayEntry[]> ReadTheatreAsync(CancellationToken token)
-        => ReplayStorageJobs.Run(() =>
+    {
+        string root = GameFiles.Root;
+        return ReplayStorageJobs.Run(() =>
         {
             token.ThrowIfCancellationRequested();
-            return DemoLibrary.List().Select(demo =>
+            // Status reads may republish Paths. Keep the configured-files
+            // capability across the worker's directory and metadata reads.
+            using var files = GameFiles.TryUseConfiguredFiles(root)
+                ?? throw new InvalidOperationException("GAME FILE CONFIGURATION CHANGED // REFRESH REPLAY LIBRARY");
+            return ScanReplayEntries(token);
+        }, token);
+    }
+
+    private RmlUiVirtualReplayLibrary.Prepared? _preparedVirtualReplay;
+
+    private static RmlUiReplayEntry[] ScanReplayEntries(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        lock (ReplayMutationGate)
+        {
+            token.ThrowIfCancellationRequested();
+            var recordings = DemoLibrary.List();
+            return recordings.Select(demo =>
             {
+                token.ThrowIfCancellationRequested();
                 var info = new FileInfo(demo.Path);
                 bool interrupted = demo.Path.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
                 bool playable = !interrupted && demo.Compatibility == ReplayOpenResult.Success;
-                return new RmlUiReplayEntry(
+                var entry = new RmlUiReplayEntry(
                     demo.Path, demo.DisplayName, DemoLibrary.Describe(demo),
                     demo.Room, demo.Recorded.Ticks, demo.Bytes,
                     info.Exists ? info.LastWriteTimeUtc.Ticks : 0,
                     demo.Favorite, demo.Metadata?.Type == ReplayType.Clip,
                     interrupted || demo.Compatibility == ReplayOpenResult.Truncated,
                     playable);
-            }).ToArray();
-        }, token);
+                return RmlUiVirtualReplayLibrary.ProjectMetadata(entry, demo.Metadata, demo.DurationFrames);
+            }).Concat(RmlUiVirtualReplayLibrary.List(DemoLibrary.Directory, recordings, token)).ToArray();
+        }
+    }
 
-    private static bool ExactReplay(RmlUiReplayEntry entry)
+    private static bool ExactReplay(RmlUiReplayEntry entry, bool allowInterrupted = false)
     {
         if (String.IsNullOrWhiteSpace(entry.Path)) return false;
+        if (entry.VirtualWitness.HasValue || RmlUiVirtualReplayLibrary.IsVirtual(entry.Path))
+            return RmlUiVirtualReplayLibrary.Exact(entry, DemoLibrary.Directory, requireSource: !allowInterrupted);
         string file, folder, library;
         try
         {
@@ -221,33 +362,80 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
             ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (!String.Equals(folder, library, comparison)
             || (!file.EndsWith(DemoFile.Extension, comparison)
-                && !file.EndsWith(DemoFile.LegacyExtension, comparison)))
+                && !file.EndsWith(DemoFile.LegacyExtension, comparison)
+                && !(allowInterrupted && (file.EndsWith(DemoFile.Extension + ".part", comparison)
+                    || file.EndsWith(DemoFile.LegacyExtension + ".part", comparison)))))
             return false;
         var info = new FileInfo(file);
-        return info.Exists && info.Length == entry.Bytes
+        return info.Exists && info.LinkTarget == null && info.Length == entry.Bytes
             && info.LastWriteTimeUtc.Ticks == entry.LastWriteTicks;
     }
 
     public Task<string> ValidateReplayAsync(RmlUiReplayEntry entry, CancellationToken token)
-        => ReplayStorageJobs.Run(() =>
+    {
+        string root = GameFiles.Root;
+        return ReplayStorageJobs.Run(() =>
         {
             token.ThrowIfCancellationRequested();
-            if (!entry.Playable || !ExactReplay(entry))
-                return "REPLAY CHANGED, IS INTERRUPTED, OR IS OUTSIDE THE LOCAL LIBRARY";
-            ReplayLaunchValidator.Result result = ReplayLaunchValidator.Probe(entry.Path);
-            token.ThrowIfCancellationRequested();
-            return result.Ok ? "" : result.Error ?? "REPLAY FAILED VALIDATION";
+            using var files = GameFiles.TryUseConfiguredFiles(root);
+            if (files == null) return "GAME FILE CONFIGURATION CHANGED // REFRESH REPLAY LIBRARY";
+            lock (ReplayMutationGate)
+            {
+                token.ThrowIfCancellationRequested();
+                _preparedVirtualReplay = null;
+                if (!entry.Playable || !ExactReplay(entry))
+                    return "REPLAY CHANGED, IS INTERRUPTED, OR IS OUTSIDE THE LOCAL LIBRARY";
+                string path = entry.Path;
+                RmlUiVirtualReplayLibrary.Prepared? prepared = null;
+                if (entry.VirtualWitness.HasValue)
+                {
+                    prepared = RmlUiVirtualReplayLibrary.Resolve(entry, DemoLibrary.Directory, token, out var open);
+                    if (prepared == null) return "VIRTUAL CLIP COULD NOT BE PREPARED // " + open.ToString().ToUpperInvariant();
+                    path = prepared.Value.PlaybackPath;
+                }
+                ReplayLaunchValidator.Result result = ReplayLaunchValidator.Probe(path);
+                token.ThrowIfCancellationRequested();
+                if (!result.Ok) return result.Error ?? "REPLAY FAILED VALIDATION";
+                if (!ExactReplay(entry)) return "REPLAY OR VIRTUAL CLIP SOURCE CHANGED // REFRESH";
+                _preparedVirtualReplay = prepared;
+                return "";
+            }
         }, token);
+    }
 
     public bool LaunchReplay(RmlUiReplayEntry entry)
-        => entry.Playable && ExactReplay(entry) && Shell.RmlUiLaunchReplay(entry);
+        => LaunchReplay(entry, openEditor: false);
+
+    public bool LaunchReplay(RmlUiReplayEntry entry, bool openEditor)
+    {
+        if (openEditor && !ReplayEditingAllowed) return false;
+        lock (ReplayMutationGate)
+        {
+            if (!entry.Playable || !ExactReplay(entry)) return false;
+            if (entry.VirtualWitness.HasValue)
+            {
+                if (_preparedVirtualReplay is not { } prepared
+                    || !RmlUiVirtualReplayLibrary.PreparedUnchanged(prepared, entry, DemoLibrary.Directory)) return false;
+                // Existing playback consumes the materialized file. Its LogicalPath
+                // maps this owned cache back to the descriptor for annotations.
+                entry = entry with { Path = prepared.PlaybackPath, Bytes = prepared.Bytes,
+                    LastWriteTicks = prepared.LastWriteTicks, VirtualWitness = null };
+            }
+            return Shell.RmlUiLaunchReplay(entry, openEditor);
+        }
+    }
 
     public bool ToggleReplayFavorite(RmlUiReplayEntry entry)
     {
         if (!ExactReplay(entry) || !entry.Playable) return false;
         try
         {
-            DemoLibrary.ToggleFavorite(entry.Path);
+            if (entry.VirtualWitness.HasValue)
+            {
+                if (!RmlUiVirtualReplayLibrary.SafeArtifacts(entry, DemoLibrary.Directory)) return false;
+                MphRead.Mods.Replay.ReplayVirtualClips.ToggleFavorite(entry.Path);
+            }
+            else DemoLibrary.ToggleFavorite(entry.Path);
             return true;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -258,8 +446,21 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
 
     public bool AcceptJoin(LaunchPlan plan) => Shell.RmlUiAcceptJoin(plan);
     public bool OpenCreateLobby() => Shell.RmlUiOpenCreateLobby();
+    public bool ConfigureGameFiles() => Shell.RmlUiConfigureGameFiles();
     public bool NavigateTo(RmlUiRouteArgument route) => Shell.RmlUiNavigate(route);
     public bool OpenStudio() => Shell.RmlUiNavigateStudio();
+    public bool ReplayEditingAllowed => Shell.StudioWindow;
+    public bool OpenStudioReplay(RmlUiReplayEntry entry, out string error)
+    {
+        error = "REPLAY CHANGED // REFRESH THE LIBRARY";
+        lock (ReplayMutationGate)
+        {
+            if (ReplayEditingAllowed || !entry.Playable || !ExactReplay(entry)) return false;
+            bool accepted = MphRead.Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(entry.Path, false, out string? problem);
+            error = problem ?? "";
+            return accepted;
+        }
+    }
     public bool LeaveLobby() => Shell.RmlUiLeaveLobby();
 
     public bool SetReady()
@@ -336,7 +537,11 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
     public RmlUiLobbyChrome ReadLobbyChrome()
     {
         if (!NetSession.IsInLobby || NetSession.ServerSession is not { } session)
+        {
+            RetireMapPreview();
+            _mapPreviews.Read("");
             return RmlUiLobbyChrome.Empty;
+        }
         MatchDefinition match = session.Match;
         string time = match.TimeLimitSeconds == 0 ? "NO TIME LIMIT"
             : (match.TimeLimitSeconds / 60) + ":" + (match.TimeLimitSeconds % 60).ToString("00");
@@ -350,13 +555,17 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
             : "CHAT SENDS THROUGH THE CURRENT LOBBY";
         string field = !NetSession.RequiredMapReady ? NetSession.MapPreparationMessage
             : session.Phase == SessionPhase.Starting ? "STARTING MATCH" : "MAP READY";
+        string preview = _mapPreviews.Read(ThumbnailGenerator.PathFor(match.RoomKey));
+        bool generatingPreview = preview.Length == 0 && EnsureMapPreview(match.RoomKey);
         return new(time, score, history, status, field,
-            String.IsNullOrWhiteSpace(NetSession.MapPreparationMessage)
+            preview.Length != 0 ? "MAP: " + match.RoomKey
+            : generatingPreview ? "MAP: " + match.RoomKey + " // GENERATING PREVIEW"
+            : String.IsNullOrWhiteSpace(NetSession.MapPreparationMessage)
                 ? "MAP: " + match.RoomKey + " // PREVIEW NOT AVAILABLE"
                 : NetSession.MapPreparationMessage,
             session.Phase == SessionPhase.Starting ? "STARTING" : "",
             session.Phase == SessionPhase.Starting
-                ? NetSession.LobbyMessage : "");
+                ? NetSession.LobbyMessage : "") { MapPreviewPath = preview };
     }
 
     public bool SendLobbyChat(string message)
@@ -502,6 +711,15 @@ internal sealed class RmlUiLiveMenuServices : IRmlUiMenuServices
     }
 
     public IReadOnlyList<string> BuiltInArenaKeys() => Shell.RmlUiBuiltInRooms();
+    public int LobbyPlayerCapacity(string roomKey) => Math.Clamp(
+        MapGen.CustomRooms.Definitions.FirstOrDefault(map => String.Equals(map.Name, roomKey,
+            StringComparison.Ordinal))?.Capabilities?.MaxPlayers ?? 8, 2, 8);
+    public IReadOnlyList<string> OfflineArenaKeys() => Shell.RmlUiOfflineRooms();
+
+    public Task<IReadOnlyList<RmlUiArenaChoice>> ReadMapPickerCatalogAsync(CancellationToken token)
+        => RmlUiMapPickerCatalog.ReadAsync(GameFiles.Root, token);
+
+    public RmlUiArenaPreview[] ReadMapPickerPreviews(IReadOnlyList<string> rooms) => _pickerPreviews.Read(rooms);
 
     public IReadOnlyList<string> InstalledCommunityArenaKeys()
         => MphRead.Mods.MapGen.CustomRooms.Definitions

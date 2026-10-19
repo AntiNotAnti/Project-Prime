@@ -24,6 +24,7 @@ namespace MphRead.Mods.Launcher
         public static string? LastError { get; private set; }
         // Failed commits remain retryable without retaining the old world.
         private static PostMatchCommitContext? _pendingCommit;
+        internal static bool HasPendingCommit => _pendingCommit != null;
 
         /// <summary>In-memory ship boarding after a successfully committed save.</summary>
         public static CampaignDockReceipt? RecentShipDock { get; private set; }
@@ -42,6 +43,10 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static void Launch(MenuSettings settings, LaunchPlan plan)
         {
+            using var configuredFiles = GameFiles.TryUseConfiguredFiles();
+            if (configuredFiles == null) { LastError = GameFiles.SetupInProgress ? GameFiles.SetupWorking : "Game files are not ready."; return; }
+            if (!OfflineMatchPreflight.TryAdmit(plan, out string offlineReason, prepareRoom: true))
+            { LastError = offlineReason; Console.WriteLine($"[launcher] {offlineReason}"); return; }
             // A standalone match window constructs its Scene immediately.
             // No save slot may be active during that constructor: Adventure
             // selects its slot on the owning SceneGameState below, and every
@@ -73,6 +78,13 @@ namespace MphRead.Mods.Launcher
         /// caller puts the front screen back up.
         /// </summary>
         public static bool Begin(RenderWindow window, MenuSettings settings, LaunchPlan plan)
+        {
+            using var configuredFiles = GameFiles.TryUseConfiguredFiles();
+            if (configuredFiles == null) { LastError = GameFiles.SetupInProgress ? GameFiles.SetupWorking : "Game files are not ready."; return false; }
+            return BeginCore(window, settings, plan);
+        }
+
+        private static bool BeginCore(RenderWindow window, MenuSettings settings, LaunchPlan plan)
         {
             LastError = null;
             try { RetryPendingCommit(); }
@@ -160,6 +172,8 @@ namespace MphRead.Mods.Launcher
                 return false;
             }
 
+            if (!OfflineMatchPreflight.TryAdmit(plan, out string offlineReason))
+            { LastError = offlineReason; Console.WriteLine($"[launcher] {offlineReason}"); return false; }
             NetSession.ReportMatchLoadProgress(MatchLoadStage.WorldBuild);
             EnsureScene(window);
             // The server's rotation decides the mode as well as the map; a

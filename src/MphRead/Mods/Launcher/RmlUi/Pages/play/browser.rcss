@@ -117,6 +117,10 @@ position: absolute;
     top: 128dp;
     width: 450dp;
     padding: 18dp;
+    bottom: 14dp;
+    max-height: 500dp;
+    overflow-y: auto;
+    overflow-x: hidden;
     background-color: rgba(3,13,23,86%);
     border: 1dp rgba(97,182,246,19%);
     border-left: 3dp #2b9ef7;
@@ -226,4 +230,40 @@ max-height: 260dp;
 .play_server {
 min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
 }
+}
+
+.play_search {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8dp;
+    margin-bottom: 6dp;
+    background-color: rgba(8,31,52,92%);
+    color: #78caff;
+    font-size: 10dp;
+}
+.play_action:disabled, .play_server:disabled { opacity: 0.45; }
+#multiplayer_stage { overflow-y:auto; overflow-x:hidden; }
+@media (max-height:500dp) {
+    #play_header { top:9dp; }
+    .play_title { font-size:21dp; line-height:24dp; }
+    .play_status { font-size:8dp; line-height:11dp; max-height:22dp; overflow:hidden; }
+    #play_browser, #play_connect, #play_create { top:70dp; }
+    #play_connect { padding:6dp; }
+    #play_connect .eyebrow { font-size:8dp; line-height:10dp; }
+    #play_connect .play_form_label { margin:5dp 0 3dp; font-size:8dp; line-height:10dp; }
+    #play_connect .play_input { height:24dp; padding:3dp 5dp; font-size:10dp; }
+    #play_connect #play_join { min-height:24dp; padding:4dp 6dp; margin-top:5dp; font-size:9dp; line-height:11dp; }
+    #play_connect .play_form_hint { margin-top:4dp; font-size:7dp; line-height:9dp; }
+    #play_browser .play_toolbar { min-height:28dp; margin-bottom:6dp; flex-wrap:wrap; }
+    #play_browser .play_action { min-width:64dp; padding:5dp 6dp; margin-right:4dp; font-size:9dp; line-height:12dp; }
+    .play_search { padding:5dp; font-size:8dp; }
+    #play_create { padding:8dp; }
+    #play_create .play_section_title { font-size:15dp; line-height:18dp; }
+    #play_create .play_form_label { margin:6dp 0 3dp; font-size:8dp; line-height:10dp; }
+    #play_create .play_input { height:25dp; padding:3dp 5dp; font-size:11dp; }
+    #play_create .play_choice { min-height:28dp; padding:5dp 7dp; font-size:10dp; }
+    #play_create .play_form_hint { margin-top:4dp; font-size:7dp; line-height:9dp; }
+    #play_create .play_toolbar { margin-top:8dp; flex-wrap:wrap; }
+    #play_create .play_action { min-height:28dp; padding:5dp 7dp; font-size:9dp; }
 }

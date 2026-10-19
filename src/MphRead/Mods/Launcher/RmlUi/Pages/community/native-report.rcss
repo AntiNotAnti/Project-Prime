@@ -1,0 +1,23 @@
+body { background-color: rgba(0, 0, 0, 78%); }
+#community_report { position: absolute; left: 12%; right: 12%; top: 6%; bottom: 6%; display: flex; flex-direction: column; box-sizing: border-box; padding: 18dp; background-color: #081523; border: 1dp #41667f; color: #d5eaff; }
+#community_report_title { flex-shrink: 0; margin: 7dp 0; font-size: 25dp; line-height: 29dp; color: #ffffff; }
+#community_report_scroll { flex: 1; min-height: 0dp; overflow-y: auto; padding-right: 8dp; }
+#community_report p { display: block; width: 68vw; font-size: 14dp; line-height: 19dp; white-space: pre-wrap; word-break: break-word; }
+#community_report_target { color: #d5eaff; }
+#community_report_status { color: #80d7ff; }
+#community_report_reasons { display: flex; flex-wrap: wrap; margin: 9dp 0; }
+#community_report button { min-height: 36dp; padding: 7dp 10dp; margin: 3dp 6dp 3dp 0; border: 1dp #5383a3; background-color: #132a40; color: #d7f0ff; }
+#community_report button.selected { border-color: #83d7ff; background-color: #19435f; color: #ffffff; }
+#community_report label { display: block; margin: 10dp 0 6dp; font-size: 12dp; }
+#community_report_details { display: block; width: 100%; box-sizing: border-box; height: 110dp; padding: 8dp; background-color: #061421; border: 1dp #41667f; color: #edf8ff; font-size: 15dp; }
+#community_report_footer { flex-shrink: 0; display: flex; flex-wrap: wrap; padding-top: 8dp; }
+#community_import_path { display: block; width: 100%; box-sizing: border-box; min-height: 38dp; padding: 8dp; background-color: #061421; border: 1dp #41667f; color: #edf8ff; font-size: 15dp; }
+#community_import_actions { display: flex; flex-wrap: wrap; width: 100%; box-sizing: border-box; margin: 8dp 0; }
+@media (max-width: 780dp) {
+    #community_report { left: 3%; right: 3%; top: 3%; bottom: 3%; padding: 11dp; }
+    #community_report p { width: 85vw; }
+}
+@media (max-height: 480dp) {
+    #community_report { top: 2%; bottom: 2%; padding: 9dp; }
+    #community_report_title { font-size: 21dp; line-height: 24dp; margin: 4dp 0; }
+}

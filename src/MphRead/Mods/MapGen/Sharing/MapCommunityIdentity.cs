@@ -19,24 +19,19 @@ namespace MphRead.Mods.MapGen;
 /// </summary>
 internal sealed class MapCommunityIdentityVerifier : IDisposable
 {
-    private const string DefaultUrl = "https://hwcjaygoistufktorbmf.supabase.co";
-    private const string DefaultKey = "sb_publishable_EVT45OPl638kA_j8vZ0ebg_sw3aWaVz";
     private readonly HttpClient _http;
     private readonly object _gate = new();
     private readonly Dictionary<string, CachedIdentity> _cache = new(StringComparer.Ordinal);
 
     public MapCommunityIdentityVerifier()
     {
-        string url = (Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_URL")
-            ?? DefaultUrl).TrimEnd('/') + "/";
-        string key = Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_KEY")
-            ?? DefaultKey;
+        var backend = BackendServiceConfiguration.Capture();
         _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
         {
-            BaseAddress = new Uri(url, UriKind.Absolute),
+            BaseAddress = backend.BaseUri,
             Timeout = TimeSpan.FromSeconds(10)
         };
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("apikey", key);
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("apikey", backend.PublicApiKey);
     }
 
     public async Task<MapCreatorCredential?> AuthenticateAsync(

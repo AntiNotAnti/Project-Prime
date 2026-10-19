@@ -29,10 +29,12 @@ namespace MphRead
         private readonly List<RenderItem> _previewItems = new List<RenderItem>();
         private Mods.Render.HunterPreviewEntity? _preview;
         private Mods.Render.HunterPreviewEntity? _activePreview;
+        // Slots 0..7 belong to the live formation; 8..14 retain the seven
+        // independent lobby-selector cards without rebuilding models each frame.
         private readonly Mods.Render.HunterPreviewEntity?[] _launcherSlotPreviews =
-            new Mods.Render.HunterPreviewEntity?[8];
-        private readonly Hunter[] _launcherSlotInited = new Hunter[8];
-        private readonly bool[] _launcherSlotInitialized = new bool[8];
+            new Mods.Render.HunterPreviewEntity?[15];
+        private readonly Hunter[] _launcherSlotInited = new Hunter[15];
+        private readonly bool[] _launcherSlotInitialized = new bool[15];
 
         /// <summary>
         /// True while the preview's items are being built, so
@@ -125,11 +127,11 @@ namespace MphRead
         private double _launcherPreviewNextStep;
         private Hunter _launcherPreviewClockHunter = Hunter.Random;
         private int _launcherPreviewClockSuit = -1;
-        private readonly double[] _launcherSlotNextStep = new double[8];
-        private readonly Hunter[] _launcherSlotClockHunter = new Hunter[8];
+        private readonly double[] _launcherSlotNextStep = new double[15];
+        private readonly Hunter[] _launcherSlotClockHunter = new Hunter[15];
         private readonly int[] _launcherSlotClockSuit =
-            { -1, -1, -1, -1, -1, -1, -1, -1 };
-        private readonly bool[] _launcherSlotClockSet = new bool[8];
+            { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+        private readonly bool[] _launcherSlotClockSet = new bool[15];
         private const double LauncherPreviewStepSeconds = 1.0 / 60.0;
 
         /// <summary>

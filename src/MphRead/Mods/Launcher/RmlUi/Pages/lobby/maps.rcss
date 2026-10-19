@@ -1,19 +1,33 @@
 body { background-color: rgba(2,9,18,85%); color: #d8edff; font-family: Rajdhani; }
-#map_panel { position: absolute; left: 6%; top: 8%; width: 88%; height: 84%; padding: 18dp; background-color: #071a29; border: 1dp #397394; }
-h1 { font-size: 27dp; margin: 0dp; } #map_close { position: absolute; top: 14dp; right: 14dp; }
-button { tab-index: auto; padding: 8dp 14dp; color: #d8edff; background-color: #102e45; border: 1dp #397394; }
-button:hover, button:focus { background-color: #225778; border-color: #a7e5ff; } button:disabled { opacity: 0.5; }
-#map_status { height: 30dp; color: #a7c7dd; } #map_grid { display: flex; flex-wrap: wrap; height: 74%; width: 100%; }
-.map_card { width: 31%; height: 46%; margin: 0dp 1% 1%; padding: 8dp; display: flex; flex-direction: column; }
-.map_card img { width: 100%; height: 68%; } .map_card b { font-size: 16dp; margin-top: 4dp; } .map_card span { font-size: 12dp; color: #83c5eb; }
-#map_pager { display: flex; align-items: center; justify-content: center; } #map_page { margin: 0dp 20dp; }
-
-#map_categories { display: flex; margin: 8dp 0dp 12dp; }
-#map_categories button { margin-right: 8dp; min-width: 120dp; }
+#map_panel { position: absolute; left: 5%; right: 5%; top: 5%; bottom: 5%; box-sizing: border-box; padding: 16dp; background-color: #071a29; border: 1dp #397394; display: flex; flex-direction: column; }
+h1 { flex-shrink: 0; font-size: 27dp; line-height: 32dp; margin: 0dp; }
+#map_close { position: absolute; top: 12dp; right: 12dp; }
+button { tab-index: auto; padding: 8dp 12dp; color: #d8edff; background-color: #102e45; border: 1dp #397394; }
+button:hover, button:focus { background-color: #225778; border-color: #a7e5ff; }
+button:disabled { opacity: 0.5; }
+#map_status { display: block; flex-shrink: 0; min-height: 28dp; width: 88%; font-size: 12dp; line-height: 16dp; color: #a7c7dd; margin: 4dp 0; }
+#map_categories { display: flex; flex-wrap: wrap; flex-shrink: 0; margin: 6dp 0 10dp; }
+#map_categories button { margin: 0 7dp 4dp 0; min-width: 90dp; box-sizing: border-box; }
 #map_categories .selected { background-color: #225778; border-bottom: 3dp #82daff; }
-#map_grid { height: 65%; }
-.map_art { position: relative; width: 100%; height: 68%; background-color: #091d2b; }
+#map_grid { display: flex; flex-wrap: wrap; align-content: flex-start; flex: 1; min-height: 0dp; width: 100%; overflow-y: auto; }
+.map_card { width: 31%; height: 200dp; margin: 0 1% 12dp; padding: 8dp; box-sizing: border-box; display: flex; flex-direction: column; text-align: left; }
+.map_art { position: relative; flex-shrink: 0; width: 100%; height: 112dp; background-color: #091d2b; }
 .map_art img { width: 100%; height: 100%; }
-#map_empty { position: absolute; left: 25dp; top: 44%; color: #a7c7dd; }
-
-.map_art_label { position: absolute; left: 0dp; top: 43%; width: 100%; text-align: center; font-size: 10dp; color: #6b8ca5; letter-spacing: 1dp; }
+.map_card b { display: block; font-size: 15dp; line-height: 18dp; margin-top: 6dp; max-height: 36dp; overflow: hidden; word-break: break-word; }
+.map_card > span { display: block; font-size: 11dp; line-height: 14dp; color: #83c5eb; }
+.map_art_label { position: absolute; left: 0dp; top: 43%; width: 100%; text-align: center; font-size: 10dp; color: #83c5eb; letter-spacing: 1dp; }
+#map_pager { display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 8dp; }
+#map_page { margin: 0dp 20dp; }
+#map_empty { position: absolute; left: 24dp; right: 24dp; top: 46%; text-align: center; color: #a7c7dd; }
+@media (max-width: 800dp) { .map_card { width: 48%; } }
+@media (max-height: 520dp) {
+    #map_panel { top: 2%; bottom: 2%; padding: 10dp; }
+    h1 { font-size: 22dp; line-height: 26dp; }
+    #map_status { min-height: 22dp; margin: 2dp 0; }
+    #map_categories { margin: 4dp 0 6dp; }
+    #map_categories button { min-width: 80dp; padding: 5dp 9dp; }
+    .map_card { height: 142dp; padding: 6dp; }
+    .map_art { height: 72dp; }
+    .map_card b { font-size: 13dp; line-height: 15dp; max-height: 30dp; margin-top: 4dp; }
+    .map_card > span { font-size: 10dp; line-height: 12dp; }
+}

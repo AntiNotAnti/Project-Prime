@@ -106,7 +106,7 @@ namespace MphRead.Mods.Launcher.Gui
             return 0;
         }
 
-        public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false)
+        public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false, bool openLibrary = true)
         {
             _overlays = overlays;
             Background = PrimeTheme.BackgroundDeepBrush;
@@ -161,7 +161,7 @@ namespace MphRead.Mods.Launcher.Gui
                 ("Open in NetRadiant…",LaunchNetRadiant),("Compile NetRadiant Source…",CompileNetRadiantSource),
                 ("Import editable .map…",ImportEditableQuakeMap),("Export editable .map…",ExportEditableQuakeMap),
                 ("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
-                ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
+                ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,path=>{SaveTo(path);},".json")),("Back to launcher",Close));
             MenuGroup("Edit",("Undo",()=>_document?.History.Undo()),("Redo",()=>_document?.History.Redo()),
                 ("Copy",()=>_document?.CopySelection()),("Paste",()=>_document?.PasteClipboard()),
                 ("Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate)),("Delete",()=>EditSelection("Delete",MapObjects.Delete)),
@@ -474,7 +474,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if(_document==null||!_document.IsDirty||_document.LastEditUtc<=_autosaved||DateTime.UtcNow-_document.LastEditUtc<TimeSpan.FromSeconds(3))return;
                 if (_autosave.Queue(_document.CaptureAutosave(CustomRooms.UserMapDirectory))) _autosaved = _document.LastEditUtc;
             };
-            AttachedToVisualTree+=(_,_)=>{_detached=false;_autosave=new();LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);_idle.Start();
+            AttachedToVisualTree+=(_,_)=>{_visualAttached=true;EnsureEditorOwnerRunning();LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);
 #if MPHREAD_SHELL
                 Shell.FilesDropped+=OnFilesDropped;
 #endif
@@ -483,12 +483,14 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_SHELL
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
-                _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
+                _visualAttached=false;SuspendEditorOwner();};
             RefreshStudioChrome();
-            if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
+            if (preview) Load(MapTemplates.Create("Studio example", true)); else if (openLibrary) ShowLibrary();
         }
         public void Dispose()
         {
+            if(_nativeChange is {} change)CancelNativeChange(change.Ticket);
+            _disposedOwner=true;_nativeEditor?.Dispose();_ownerRunning=false;
             _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _autosave.Dispose(); _sourceWatch?.Dispose(); _sourceWatch=null;
             if (_document != null) _document.Changed -= Changed;
             ReleaseViews();
@@ -574,8 +576,9 @@ namespace MphRead.Mods.Launcher.Gui
             if (_overlays != null) Closed?.Invoke(this, EventArgs.Empty);
             else WithUnsaved(() => Closed?.Invoke(this, EventArgs.Empty));
         }
-        internal void Load(MapProject project,string? path=null)
+        internal void Load(MapProject project,string? path=null,bool showRecoveryPrompt=true,bool prepareImportedPreview=true)
         {
+            _nativeEditor?.Dispose();
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
             _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
@@ -602,8 +605,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             _viewportHost.Children.Clear();_viewportHost.Children.Add(_viewport);_path.Text=path!=null&&!MapBundle.Is(path)?path:Path.Combine(CustomRooms.UserMapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
             Dismiss();Changed();_viewport.FrameAll();
-            if(_document.HasRecovery(CustomRooms.UserMapDirectory))Recovery();
-            if(project.Definition.Import!=null||project.Definition.NativeRoom!=null)
+            if(showRecoveryPrompt&&_document.HasRecovery(CustomRooms.UserMapDirectory))Recovery();
+            if(prepareImportedPreview&&(project.Definition.Import!=null||project.Definition.NativeRoom!=null))
             {
                 // Import completion calls Load from inside the active import
                 // Job. Queue the visual preview behind that job so the busy
@@ -623,9 +626,13 @@ namespace MphRead.Mods.Launcher.Gui
         internal void Open(string path)
         {try{WithUnsaved(()=>{try{Load(MapProjectSerializer.Load(path),path);}catch(Exception ex){Failure(ex);}});}catch(Exception ex){Failure(ex);}}
         private void Save(){if(_document!=null)SaveTo(_path.Text??"");}
-        private void SaveTo(string path)
+        private bool SaveTo(string path)
         {
-            if(_document==null)return;
+            if(_document==null)return false;
+            // A rejected path must leave the existing autosave writer alone.
+            // Only the write block below retires and replaces that writer.
+            try { path = RequireManualSavePath(path); }
+            catch(Exception ex){Failure(ex);return false;}
             try
             {
                 // No old autosave may recreate recovery after a successful manual save.
@@ -633,8 +640,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _document.Save(path);_document.DiscardRecovery(CustomRooms.UserMapDirectory);
                 _path.Text=_document.FilePath;_status.Text="Saved "+_document.FilePath;
                 RefreshStudioChrome();
+                return true;
             }
-            catch(Exception ex){Failure(ex);}
+            catch(Exception ex){Failure(ex);return false;}
             finally{_autosave=new();}
         }
         private sealed record HierarchyRow(string Group,MapObject? Object,bool Header)
@@ -1007,70 +1015,24 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void AddObject(string kind)
         {
-            if(_document==null)return;
-            System.Numerics.Vector3 place=_viewport?.GetPlacementPoint()??System.Numerics.Vector3.Zero;
-            Guid created=Guid.Empty;
-            _document.EditObjects("Create "+kind,Array.Empty<Guid>(),d=>
+            if (_document == null) return;
+            MapStudioObjectKind? objectKind = kind switch
             {
-                switch(kind)
-                {
-                    case "Box":
-                    {
-                        var value=new MapBox{Label="Box",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{4f,2,4}}};
-                        created=value.Id;d.Geometry.Add(value);break;
-                    }
-                    case "Wedge":
-                    {
-                        var value=new MapWedge{Label="Ramp",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{4f,2,6}}};
-                        created=value.Id;d.Geometry.Add(value);break;
-                    }
-                    case "Prism":
-                    {
-                        var value=new MapPrism{Label="Prism",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{3f,2,3}}};
-                        created=value.Id;d.Geometry.Add(value);break;
-                    }
-                    case "Convex":
-                    {
-                        var value=new MapConvexBrush{Label="Convex brush",Transform=new(){Position=new[]{place.X,place.Y,place.Z}},
-                            Vertices=new(){new[]{-1f,0,-1},new[]{1f,0,-1},new[]{0f,2,0},new[]{0f,0,1}},
-                            Faces=new(){new[]{0,1,2},new[]{0,1,3},new[]{0,2,3},new[]{1,2,3}}};
-                        created=value.Id;d.Geometry.Add(value);break;
-                    }
-                    case "Mesh":
-                    {
-                        var value=new MapMesh{Label="Editable mesh",Transform=new(){Position=new[]{place.X,place.Y,place.Z}},
-                            Vertices=new(){new[]{-2f,0,-2},new[]{2f,0,-2},new[]{2f,0,2},new[]{-2f,0,2}},
-                            Faces=new(){new[]{0,1,2,3}},FaceMaterials=new(){0},Solid=false};
-                        created=value.Id;d.Geometry.Add(value);break;
-                    }
-                    case "Spawn":
-                    {
-                        var value=new MapSpawn{Id=Guid.NewGuid(),Position=new[]{place.X,place.Y+.1f,place.Z}};
-                        created=value.Id;d.Spawns.Add(value);break;
-                    }
-                    case "Pickup":
-                    {
-                        var value=new MapItem{Id=Guid.NewGuid(),Type="HealthMedium",Position=new[]{place.X,place.Y+.1f,place.Z}};
-                        created=value.Id;d.Items.Add(value);break;
-                    }
-                    case "Jump pad":
-                    {
-                        var value=new MapJumpPad{Id=Guid.NewGuid(),Position=new[]{place.X,place.Y+.1f,place.Z},
-                            Target=new[]{place.X+8,place.Y+2,place.Z}};
-                        created=value.Id;d.JumpPads.Add(value);break;
-                    }
-                    case "Navigation link":
-                    {
-                        var value=new MapNavigationLink{From=new[]{place.X,place.Y+.1f,place.Z},To=new[]{place.X+6,place.Y+.1f,place.Z}};
-                        created=value.Id;d.NavigationLinks.Add(value);break;
-                    }
-                }
-            });
-            if(created!=Guid.Empty)
-            {
-                _document.Selection.Clear();_document.Selection.Add(created);_document.ActiveObjectId=created;
-                _document.SelectionChanged();_viewport?.FrameSelection();
-            }
+                "Box" => MapStudioObjectKind.Box,
+                "Wedge" => MapStudioObjectKind.Wedge,
+                "Prism" => MapStudioObjectKind.Prism,
+                "Convex" => MapStudioObjectKind.Convex,
+                "Mesh" => MapStudioObjectKind.Mesh,
+                "Spawn" => MapStudioObjectKind.Spawn,
+                "Pickup" => MapStudioObjectKind.Pickup,
+                "Jump pad" => MapStudioObjectKind.JumpPad,
+                "Navigation link" => MapStudioObjectKind.NavigationLink,
+                _ => null
+            };
+            if (objectKind == null) return;
+            System.Numerics.Vector3 place = _viewport?.GetPlacementPoint() ?? System.Numerics.Vector3.Zero;
+            MapStudioObjectCommands.Create(_document, objectKind.Value, place);
+            _viewport?.FrameSelection();
         }
         private void ShowInspectorPage(string name, bool remember=true)
         {

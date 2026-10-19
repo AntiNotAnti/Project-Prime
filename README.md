@@ -369,15 +369,30 @@ Project Prime currently targets the **.NET 10 SDK**.
 
 ### Desktop
 
-Example Windows build:
+RmlUi is the default desktop interface. The game is named **Project Prime**
+(`ProjectPrime.exe` on Windows, `Project Prime.app` on macOS). The separate
+**Project Prime Studio** application contains replay editing; Map Studio is
+Coming Soon.
+
+For a complete Windows game/Studio package, run on Windows with Git Bash,
+Python, CMake and Visual Studio C++ Build Tools installed:
+
+```powershell
+./tools/package-windows.ps1 -OutputDirectory ./artifacts/windows-package
+```
+
+On Linux or macOS, build the pinned native bridge on the matching host before
+running the ordinary client. No UI opt-in flag is required:
 
 ```bash
-dotnet publish src/MphRead/MphRead.csproj \
-  -c Release \
-  -r win-x64 \
-  --self-contained true \
-  -p:PublishSingleFile=true
+bash tools/rmlui/build-native.sh auto gl2
+dotnet run --project src/MphRead/MphRead.csproj -c Release
 ```
+
+For a portable publish folder, select the matching runtime below and run
+`tools/rmlui/package-desktop.sh <rid> <publish-directory>` after `dotnet publish`.
+That step verifies the native runtime, authored pages, startup artwork, fonts,
+and licenses. Dedicated server builds omit the desktop UI.
 
 Supported desktop runtime identifiers include:
 

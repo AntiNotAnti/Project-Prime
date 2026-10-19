@@ -157,6 +157,12 @@ namespace MphRead.Mods
             _refocus = true;
         }
 
+        internal static void MarkOpened()
+        {
+            _open = true;
+            _refocus = false;
+        }
+
         private static void OpenMenu()
         {
 #if MPHREAD_SHELL

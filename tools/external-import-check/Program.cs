@@ -128,10 +128,11 @@ try
     }
     if (args.Length != 0)
     {
-        Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm>]");
+        Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm|local.rvz>] (GameCube RVZ: None or Zstandard)");
         return 2;
     }
     SelfTest();
+    GameCubeRvzFixtureTests.Run();
     RetroPakFixtureTests.Run();
     EchoesMreaFixtureTests.Run();
     EchoesSurfaceFixtureTests.Run();
@@ -142,6 +143,7 @@ try
     EchoesVisualLayerFixtureTests.Run();
     EchoesCannonFixtureTests.Run();
     EchoesRouteFixtureTests.Run();
+    EchoesTopologyNavigationFixtureTests.Run();
     EchoesFloorPlacementFixtureTests.Run();
     EchoesOfflineGateFixtureTests.Run();
     RetroCharacterMeshFixtureTests.Run();

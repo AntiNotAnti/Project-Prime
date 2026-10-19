@@ -14,6 +14,7 @@ public sealed record MapRenderFrame(MapViewportLayout Layout, MapViewportCamera 
     IReadOnlyDictionary<Guid, Matrix4x4> PreviewTransforms, bool Wireframe, bool Collision)
 {
     public IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> Materials { get; init; } = new Dictionary<(bool, int), MapViewportMaterial>();
+    public MapViewportOverlay Overlay { get; init; } = MapViewportOverlay.Empty;
     public bool UvChecker { get; init; }
     public string GridView { get; init; } = "Perspective";
     public float GridStep { get; init; } = 4;

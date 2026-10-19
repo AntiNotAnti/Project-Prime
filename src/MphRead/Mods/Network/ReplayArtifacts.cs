@@ -9,7 +9,7 @@ internal static class ReplayArtifacts
 {
     private static readonly string[] SidecarSuffixes =
     {
-        ".favorite", ".name", ".camera", ".studio.json", ".reel.json",
+        ".favorite", ".name", ".camera", ".studio.json", ".reel.json", ".studio-audio.json", ".studio-presentation.json",
         ".analytics.json", ".export.json", ".thumb0.png", ".thumb1.png", ".thumb2.png"
     };
 
@@ -21,6 +21,8 @@ internal static class ReplayArtifacts
         DeleteTemporaries(path + ".camera.*.tmp");
         DeleteTemporaries(path + ".studio.json.*.tmp");
         DeleteTemporaries(path + ".reel.json.*.tmp");
+        DeleteTemporaries(path + ".studio-audio.json.*.tmp");
+        DeleteTemporaries(path + ".studio-presentation.json.*.tmp");
         ReplayLibraryIndex.Remove(path);
         if (deleteVirtualCache && path.EndsWith(ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase))
             DeleteCache(ReplayVirtualClips.CachePath(path));

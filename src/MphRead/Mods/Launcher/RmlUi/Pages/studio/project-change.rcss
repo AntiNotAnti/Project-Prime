@@ -1,0 +1,11 @@
+#native_change_scrim { position:absolute; left:0; right:0; top:0; bottom:0; background-color:rgba(0,0,0,85%); padding:16dp; }
+#native_change_panel { width:88%; max-width:760dp; max-height:94%; overflow-y:auto; margin:0 auto; padding:16dp; color:#ddf4ff; background-color:#0b2133; border:1dp #689bbb; }
+#native_change_panel h1 { font-size:22dp; margin:4dp 0; } #native_change_panel p,#native_change_panel label { font-size:13dp; white-space:pre-wrap; margin:7dp 0; }
+#native_change_panel input { display:block; width:96%; height:31dp; padding:5dp; color:#e5f7ff; background-color:#061521; border:1dp #6996b5; tab-index:auto; }
+#native_change_panel button { min-height:30dp; padding:5dp 8dp; margin:4dp 5dp 4dp 0; font-size:12dp; color:#e5f7ff; background-color:#15374f; border:1dp #6996b5; tab-index:auto; }
+#native_change_panel button:focus,#native_change_panel button:hover { background-color:#26658c; border-color:#beedff; } #native_change_panel button:disabled { color:#6c8498; }
+#native_change_overwrite_panel { padding:8dp; border:1dp #dbb96d; background-color:#302619; }
+#native_change_panel p { word-break:break-all; }
+#native_change_review_name { display:block; width:100%; font-size:16dp; color:#fff0c1; }
+#native_change_review_path { display:block; width:100%; white-space:pre-wrap; word-break:break-all; max-height:30vh; overflow-y:auto; font-size:12dp; }
+@media (max-height:500dp) { #native_change_scrim { padding:5dp; } #native_change_panel { padding:8dp; max-height:97%; width:96%; } #native_change_panel h1 { font-size:18dp; } #native_change_panel p { margin:4dp 0; font-size:11dp; } }

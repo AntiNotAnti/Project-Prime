@@ -28,6 +28,7 @@ namespace MphRead.Mods.Launcher.Gui
         private PrimeMotionHandle? _scrimMotion;
 
         public bool IsOpen => _stack.Count > 0;
+        public bool IsTop(Control view) => IsOpen && ReferenceEquals(_stack[^1].Frame.Child, view);
 
         public PrimeOverlayHost()
         {

@@ -685,7 +685,7 @@ border-color: rgba(114,199,255,22%);
     font-size: 10dp; font-weight: bold; letter-spacing: 0.9dp;
     transition: color background-color border-color 0.13s quadratic-out;
 }
-.home_rail_link span { color: #72c7ff; }
+.home_rail_link .home_rail_arrow { color: #72c7ff; }
 .home_rail_link:hover, .home_rail_link:focus {
     color: #fff; border-color: #72c7ff; background-color: rgba(24, 83, 138, 54%);
 }
@@ -816,4 +816,142 @@ border-color: rgba(114,199,255,22%);
 }
 @media (max-width: 1180dp) {
     #home_feature_rail, #home_social_rail { display: none; }
+}
+
+/* The platform pages belong to the Play section of the persistent shell. */
+#nav_play {
+    color: #ffffff;
+    background-color: rgba(28,114,225,12%);
+    border-bottom-color: #72c7ff;
+}
+
+/* Four party seats share the original right rail, with Social below them. */
+#home_right_rail {
+    position: absolute; top: 38dp; right: 46dp; bottom: 20dp; width: 304dp;
+    display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
+}
+#home_right_rail #session_panel, #home_right_rail #home_social_rail {
+    position: relative; top: auto; right: auto; bottom: auto;
+    width: 100%; box-sizing: border-box;
+}
+#home_right_rail #session_panel { flex-shrink: 0; padding: 13dp; margin-bottom: 20dp; }
+#home_right_rail #home_social_rail { display: block; flex: none; flex-shrink: 0; min-height: 0dp; max-height: none; overflow-y: visible; }
+#home_party_count { display: block; margin-top: 3dp; color: #91c5e4; font-family: "JetBrains Mono"; font-size: 9dp; text-align: right; }
+.session_state { text-align: right; }
+#session_panel .session_player { padding: 9dp 12dp; min-height: 49dp; }
+#session_panel .session_slot { width: 100%; min-height: 43dp; padding: 7dp 12dp; text-align: left; }
+.session_slot_name, .session_slot_detail { display: block; pointer-events: none; }
+.session_slot_name { color: #c2d9e9; font-size: 11dp; line-height: 13dp; font-weight: bold; }
+.session_slot_detail { margin-top: 2dp; color: #729ebd; font-size: 8dp; line-height: 10dp; }
+.session_slot.occupied { border-left: 2dp #72c7ff; background-color: rgba(12,40,65,60%); }
+.session_slot.occupied .plus { font-size: 0dp; }
+#home_party_capacity_hint { font-size: 8dp; line-height: 11dp; }
+.session_slot .plus, .session_slot .session_copy { pointer-events: none; }
+@media (max-width: 1500dp) { #home_right_rail { right: 28dp; width: 270dp; } }
+@media (max-height: 760dp) {
+    #home_right_rail { top: 20dp; bottom: 12dp; }
+    #home_right_rail #session_panel { padding: 10dp; margin-bottom: 14dp; }
+    #session_panel .session_header { margin-bottom: 8dp; }
+    #session_panel .session_player { min-height: 42dp; padding: 6dp 9dp; }
+    #session_panel .session_slot { min-height: 37dp; margin-top: 5dp; padding: 5dp 9dp; }
+}
+@media (max-width: 1180dp) {
+    #home_right_rail { width: 230dp; }
+    #home_right_rail #session_panel { display: block; }
+    #home_right_rail #home_social_rail { display: block; }
+}
+#session_panel .session_copy { display: block; min-width: 0dp; overflow: hidden; }
+#session_panel .session_name, .session_slot_name { white-space: nowrap; overflow: hidden; }
+@media (max-width: 900dp) { #home_right_rail { display: flex; width: 230dp; right: 18dp; } }
+@media (max-height: 490dp) { #home_right_rail { display: flex; top: 8dp; bottom: 8dp; } }
+
+.home_news_lines { margin-top: 10dp; border-top: 1dp rgba(114,199,255,15%); }
+.home_news_line {
+    display: block; width: 100%; padding: 7dp 0dp; text-align: left;
+    background-color: transparent; border-bottom: 1dp rgba(114,199,255,12%);
+}
+.home_news_line:hover, .home_news_line:focus { background-color: rgba(18,68,106,55%); }
+.home_news_category { display: block; color: #7da7c7; font-size: 8dp; letter-spacing: 0.6dp; }
+.home_news_title { display: block; margin-top: 3dp; color: #d4e8f6; font-size: 10dp; line-height: 13dp; }
+.home_friend_dot { background-color: #65839a; }
+.home_friend_row.joinable .home_friend_dot { background-color: #55e18c; }
+@media (max-width: 620dp) {
+    #home_right_rail { width: 26vw; max-width: 230dp; right: 12dp; }
+    #activity_panel { width: 28vw; left: 14dp; }
+    #activity_compact, #activity_drawer { width: 100%; }
+    #home_right_rail #session_panel, #home_right_rail #home_social_rail { padding: 8dp; }
+}
+
+/* Both utility columns keep their authored source order and scroll as units. */
+#home_left_rail {
+    position: absolute; top: 38dp; bottom: 20dp; left: 52dp; width: 400dp;
+    display: flex; flex-direction: column; justify-content: space-between;
+    overflow-y: auto; overflow-x: hidden;
+}
+#home_left_rail #home_feature_rail, #home_left_rail #activity_panel {
+    position: relative; top: auto; bottom: auto; left: auto; width: 100%;
+    flex-shrink: 0; box-sizing: border-box;
+}
+#home_left_rail #home_feature_rail { display: block; margin-bottom: 20dp; }
+#home_left_rail #home_feature_rail.hidden, #home_left_rail #home_feature_rail.empty { display: none; }
+#home_left_rail #activity_compact, #home_left_rail #activity_drawer { width: 100%; box-sizing: border-box; }
+#home_left_rail #activity_selector, #home_left_rail #activity_status, #home_left_rail #deploy {
+    width: 100%; box-sizing: border-box;
+}
+#home_left_rail #activity_selector:hover, #home_left_rail #activity_selector:focus { transform: none; }
+@media (max-width: 1500dp) {
+    #home_left_rail { left: 32dp; width: 380dp; }
+}
+@media (max-width: 900dp) {
+    #home_left_rail { left: 14dp; width: 28vw; max-width: 300dp; top: 20dp; bottom: 12dp; }
+    #home_right_rail { right: 12dp; width: 26vw; max-width: 230dp; }
+}
+@media (max-height: 490dp) {
+    #home_left_rail { left: 14dp; width: 28vw; max-width: 300dp; top: 8dp; bottom: 8dp; }
+    #home_right_rail { right: 12dp; width: 26vw; max-width: 230dp; }
+}
+@media (max-height: 480dp) {
+    #home_right_rail { width: 26vw; max-width: 230dp; right: 12dp; }
+    #activity_panel { width: 28vw; left: 14dp; }
+    #activity_compact, #activity_drawer { width: 100%; }
+    #home_right_rail #session_panel, #home_right_rail #home_social_rail { padding: 8dp; }
+}
+
+@media (max-width: 900dp) {
+    /* Compact utility rails leave the center chamber at least 40% wide. */
+    #home_left_rail { max-width: 260dp; min-width: 0dp; }
+    #home_right_rail { max-width: 240dp; min-width: 0dp; }
+    #home_left_rail #home_feature_rail { padding: 8dp; margin-bottom: 12dp; }
+    #home_left_rail .home_feature_title { font-size: 13dp; line-height: 16dp; }
+    #home_left_rail .home_feature_summary { font-size: 9dp; line-height: 12dp; }
+    #home_left_rail .selector_art { display: none; }
+    #home_left_rail .selector_copy { padding: 10dp 6dp; min-width: 0dp; }
+    #home_left_rail .selector_title { font-size: 18dp; line-height: 21dp; }
+    #home_left_rail .selector_change { width: 22dp; }
+    #home_left_rail .selector_change_label { display: none; }
+    #home_left_rail #deploy { padding: 10dp 24dp 10dp 8dp; }
+    #home_left_rail .deploy_label { font-size: 17dp; line-height: 20dp; letter-spacing: 0dp; }
+    #home_left_rail .deploy_arrow { right: 6dp; font-size: 19dp; }
+    #home_left_rail #activity_status { padding: 6dp; font-size: 8dp; letter-spacing: 0dp; }
+    #home_right_rail .session_header .eyebrow { font-size: 8dp; letter-spacing: 0dp; }
+    #home_right_rail .session_name { font-size: 12dp; line-height: 15dp; }
+}
+@media (max-height: 490dp) {
+    /* Compact utility rails leave the center chamber at least 40% wide. */
+    #home_left_rail { max-width: 260dp; min-width: 0dp; }
+    #home_right_rail { max-width: 240dp; min-width: 0dp; }
+    #home_left_rail #home_feature_rail { padding: 8dp; margin-bottom: 12dp; }
+    #home_left_rail .home_feature_title { font-size: 13dp; line-height: 16dp; }
+    #home_left_rail .home_feature_summary { font-size: 9dp; line-height: 12dp; }
+    #home_left_rail .selector_art { display: none; }
+    #home_left_rail .selector_copy { padding: 10dp 6dp; min-width: 0dp; }
+    #home_left_rail .selector_title { font-size: 18dp; line-height: 21dp; }
+    #home_left_rail .selector_change { width: 22dp; }
+    #home_left_rail .selector_change_label { display: none; }
+    #home_left_rail #deploy { padding: 10dp 24dp 10dp 8dp; }
+    #home_left_rail .deploy_label { font-size: 17dp; line-height: 20dp; letter-spacing: 0dp; }
+    #home_left_rail .deploy_arrow { right: 6dp; font-size: 19dp; }
+    #home_left_rail #activity_status { padding: 6dp; font-size: 8dp; letter-spacing: 0dp; }
+    #home_right_rail .session_header .eyebrow { font-size: 8dp; letter-spacing: 0dp; }
+    #home_right_rail .session_name { font-size: 12dp; line-height: 15dp; }
 }

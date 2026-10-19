@@ -41,7 +41,7 @@ namespace MphRead.Mods.Network
     /// Both arms of a comparison run this, so a difference between them is the
     /// thing being changed and not the scenario.
     /// </summary>
-    public static class HitRig
+    public static partial class HitRig
     {
         public enum RigMode
         {
@@ -237,6 +237,7 @@ namespace MphRead.Mods.Network
         }
         internal static void SetupNetworkTriangleFixtureOnce()
         {
+            SetupNetworkKandenFixtureOnce();
             if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost)) return;
             TriangleFixtureStream();
             if (_triangleFixtureFailed || _triangleFixtureAuthorityReady || PlayerEntity.Players.Count < 2 || NetBombs.LiveScene is not { } scene
@@ -252,6 +253,7 @@ namespace MphRead.Mods.Network
         }
         internal static bool HoldTriangleFixtureRemoteInput(PlayerEntity player)
         {
+            if (HoldKandenFixtureRemoteInput(player)) return true;
             if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost) || player.SlotIndex is < 0 or > 1) return false;
             TriangleFixtureStream();
             int slot = player.SlotIndex;
@@ -356,7 +358,7 @@ namespace MphRead.Mods.Network
             _frame++;
             PlayerControls c = player.Controls;
             ClearControls(c);
-            if (!TriangleFixtureClientObserved(player))
+            if (!TriangleFixtureClientObserved(player) || !KandenFixtureClientObserved(player))
             { FinishControls(player, c); return; }
             if (player.Health == 0)
             {

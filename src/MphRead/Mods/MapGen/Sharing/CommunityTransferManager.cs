@@ -14,7 +14,7 @@ public enum CommunityTransferKind { Upload, Download }
 public enum CommunityTransferState
 {
     Queued, Preparing, Uploading, Downloading, Verifying, Retryable,
-    Paused, NeedsReview, Completed, Failed, Cancelled
+    Paused, NeedsReview, Completed, Failed, Cancelled, NeedsAuthorization
 }
 
 /// <summary>
@@ -36,9 +36,17 @@ public sealed record CommunityTransferJob(
     CommunityPublishRequest? Publish = null,
     bool Listed = true,
     bool Draft = false,
-    string? Error = null);
+    string? Error = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal CommunityTransferAccount? Account { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal long Attempt { get; init; }
+}
 
 internal sealed record CommunityTransferIndex(int Schema, CommunityTransferJob[] Jobs);
+internal sealed record CommunityTransferStoredJob(CommunityTransferJob Receipt, int AccountVersion = 0, Guid? AccountSubject = null, long Attempt = 0);
+internal sealed record CommunityTransferStoredIndex(int Schema, CommunityTransferStoredJob[] Jobs);
 
 /// <summary>
 /// Persistent bounded Community upload/download jobs. Downloaded archives are
@@ -51,7 +59,7 @@ internal sealed record CommunityTransferIndex(int Schema, CommunityTransferJob[]
 /// </summary>
 public sealed class CommunityTransferManager : IAsyncDisposable
 {
-    private const int SchemaVersion = 1;
+    private const int SchemaVersion = 2;
     private const int MaximumRetainedJobs = 32;
     private readonly string _root;
     private readonly string _indexPath;
@@ -70,6 +78,36 @@ public sealed class CommunityTransferManager : IAsyncDisposable
     private bool _disposed;
 
     public event Action<CommunityTransferJob>? Changed;
+
+    public async Task<CommunityTransferAccount> CaptureUploadAccountAsync(CommunityTransferAccount? expected = null, CancellationToken cancellation = default)
+    {
+        var credentials = _credentials as ICommunityAccountCredentialSource ?? throw new CommunityTransferAuthorizationException();
+        CommunityTransferAccount verified = await credentials.VerifyAccountAsync(expected, cancellation).ConfigureAwait(false);
+        if (expected != null && !expected.Matches(verified)) throw new CommunityTransferAuthorizationException();
+        return expected ?? verified;
+    }
+
+    internal CommunityMapOperations UploadOperations(string endpoint, CommunityTransferAccount account)
+        => new(endpoint, AccountCredentials(account));
+
+    private ICommunityCredentialSource AccountCredentials(CommunityTransferAccount account)
+    {
+        var credentials = _credentials as ICommunityAccountCredentialSource ?? throw new CommunityTransferAuthorizationException();
+        async Task<string> Ticket(bool refresh, CancellationToken token)
+        {
+            try
+            {
+                CommunityTransferAccount verified = await credentials.VerifyAccountAsync(account, token).ConfigureAwait(false);
+                if (!account.Matches(verified)) throw new CommunityTransferAuthorizationException();
+                string value = await credentials.GetTicketForAccountAsync(account, refresh, token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested(); return value;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            { throw new CommunityTransferAuthorizationException(); }
+        }
+        return new DelegateCommunityCredentialSource(token => Ticket(false, token), token => Ticket(true, token));
+    }
 
     public CommunityTransferManager(string root, ICommunityCredentialSource? credentials = null,
         int maxConcurrent = 2)
@@ -160,13 +198,19 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     public async Task<Guid> EnqueueUploadAsync(string endpoint, string packagePath,
         CommunityPublishRequest? publish, bool listed, bool draft,
-        CancellationToken cancellation = default)
+        CancellationToken cancellation = default, CommunityTransferAccount? expectedAccount = null)
     {
         ThrowIfDisposed();
         cancellation.ThrowIfCancellationRequested();
         ValidateEndpoint(endpoint);
+        var credentials = _credentials as ICommunityAccountCredentialSource
+            ?? throw new InvalidOperationException("Verified upload account authorization is required.");
+        CommunityTransferAccount account = await credentials.VerifyAccountAsync(expectedAccount, cancellation).ConfigureAwait(false);
+        if (expectedAccount != null && !expectedAccount.Matches(account))
+            throw new InvalidOperationException("Community upload account changed.");
         Guid id = Guid.NewGuid();
         string snapshot = UploadPath(id);
+        bool admitted = false;
         lock (_gate)
         {
             using var gate = LockAndReloadLocked();
@@ -200,14 +244,16 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             var job = new CommunityTransferJob(id, CommunityTransferKind.Upload,
                 CommunityTransferState.Queued, endpoint, hash, new FileInfo(snapshot).Length,
                 0, DateTimeOffset.UtcNow, SnapshotPath: snapshot, Publish: publish,
-                Listed: listed, Draft: draft);
-            AddJob(job);
+                Listed: listed, Draft: draft) { Account = account };
+            cancellation.ThrowIfCancellationRequested();
+            await credentials.CommitForAccountAsync(account, () => { AddJob(job); admitted = true; }, cancellation).ConfigureAwait(false);
+            NotifyChanged(job);
             Schedule(id);
             return id;
         }
         catch
         {
-            if (File.Exists(snapshot)) File.Delete(snapshot);
+            if (!admitted && File.Exists(snapshot)) File.Delete(snapshot);
             throw;
         }
     }
@@ -242,7 +288,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
         if (added != null)
         {
-            Changed?.Invoke(added);
+            NotifyChanged(added);
             Schedule(added.Id);
             return added.Id;
         }
@@ -265,13 +311,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             using var cached = _archiveCache.TryAcquire(exact);
             if (cached == null)
             {
-                Update(existing.Id, job => job with
-                {
-                    State = CommunityTransferState.Retryable,
-                    Download = map,
-                    AcknowledgedBytes = 0,
-                    Error = "Cached archive missing or invalid; recovering exact revision."
-                });
+                RecoverMissingDownload(existing, map);
                 Schedule(existing.Id);
             }
         }
@@ -279,6 +319,30 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             or CommunityTransferState.Failed or CommunityTransferState.Queued)
             Schedule(existing.Id);
         return existing.Id;
+    }
+
+    private void RecoverMissingDownload(CommunityTransferJob captured, CommunityMap map)
+    {
+        // The caller has just failed a verified exact-archive lease. This explicit
+        // readmission is separate from generic worker updates of terminal receipts.
+        CommunityTransferJob? notification = null;
+        lock (_gate)
+        {
+            using var index = LockAndReloadLocked();
+            CommunityTransferJob latest = _jobs[captured.Id];
+            if (latest.State != CommunityTransferState.Completed || latest.Attempt != captured.Attempt) return;
+            if (latest.Kind != CommunityTransferKind.Download || latest.PackageHash != map.Hash
+                || latest.TotalBytes != map.Bytes || latest.Endpoint != captured.Endpoint || latest.Download == null
+                || latest.Download.MapId != map.MapId || latest.Download.ContentHash != map.ContentHash
+                || !StringComparer.OrdinalIgnoreCase.Equals(latest.Download.Name, map.Name))
+                throw new InvalidDataException("Exact download identity changed before cache readmission.");
+            notification = latest with { State = CommunityTransferState.Queued, Download = map,
+                AcknowledgedBytes = 0, Attempt = checked(latest.Attempt + 1), UpdatedAt = DateTimeOffset.UtcNow,
+                Error = "Cached archive missing or invalid; recovering exact revision." };
+            _jobs[captured.Id] = notification;
+            PersistLocked();
+        }
+        if (notification != null) NotifyChanged(notification);
     }
 
     public void Resume(Guid id)
@@ -297,6 +361,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             if (job.State == CommunityTransferState.NeedsReview)
                 throw new InvalidOperationException(
                     "Resolve the revision conflict explicitly before resuming.");
+            if (job.State == CommunityTransferState.NeedsAuthorization || job.Kind == CommunityTransferKind.Upload && job.Account == null)
+                throw new InvalidOperationException("This upload needs explicit account reauthorization before it can resume.");
             // A queued state survives if a worker in another process is
             // currently retiring from Pause. Either observer can claim its
             // lifetime lease when the previous job owner exits.
@@ -304,8 +370,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 or CommunityTransferState.Retryable
                 or CommunityTransferState.Failed)
             {
-                _jobs[id] = job with { State = CommunityTransferState.Queued,
+                job = job with { State = CommunityTransferState.Queued, Attempt = checked(job.Attempt + 1),
                     UpdatedAt = DateTimeOffset.UtcNow, Error = null };
+                _jobs[id] = job;
                 PersistLocked();
             }
             if (_running.TryGetValue(id, out var active))
@@ -336,6 +403,42 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ThrowIfDisposed();
         foreach (var job in ListJobs().Where(j => j.State == CommunityTransferState.Retryable))
             Schedule(job.Id);
+    }
+
+    /// <summary>Explicitly authorize retained upload bytes; this never resumes or publishes them by itself.</summary>
+    public async Task ReauthorizeUploadAsync(Guid id, CommunityTransferAccount expected, CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        var credentials = _credentials as ICommunityAccountCredentialSource ?? throw new CommunityTransferAuthorizationException();
+        CommunityTransferJob captured = GetJob(id);
+        if (captured.Kind != CommunityTransferKind.Upload || captured.State != CommunityTransferState.NeedsAuthorization
+            || captured.Account != null && !expected.Matches(captured.Account))
+            throw new CommunityTransferAuthorizationException();
+        string snapshot = UploadPath(id);
+        await Task.Run(() =>
+        {
+            cancellation.ThrowIfCancellationRequested();
+            using var package = new MapPackageReader(snapshot);
+            if (package.Manifest == null || new FileInfo(snapshot).Length != captured.TotalBytes
+                || MapBuildFingerprint.HashFile(snapshot) != captured.PackageHash)
+                throw new InvalidDataException("The frozen upload archive changed or is missing.");
+        }, cancellation).ConfigureAwait(false);
+        CommunityTransferJob? notification = null;
+        await credentials.CommitForAccountAsync(expected, () =>
+        {
+            lock (_gate)
+            {
+                using var index = LockAndReloadLocked();
+                CommunityTransferJob latest = _jobs[id];
+                if (latest.State != CommunityTransferState.NeedsAuthorization || latest.PackageHash != captured.PackageHash
+                    || latest.TotalBytes != captured.TotalBytes || latest.Account != null && !expected.Matches(latest.Account))
+                    throw new CommunityTransferAuthorizationException();
+                notification = latest with { Account = expected, State = CommunityTransferState.Paused, Error = null, UpdatedAt = DateTimeOffset.UtcNow };
+                _jobs[id] = notification;
+                PersistLocked();
+            }
+        }, cancellation).ConfigureAwait(false);
+        if (notification != null) NotifyChanged(notification);
     }
 
     public void Pause(Guid id) => Stop(id, cancel: false);
@@ -394,7 +497,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 or CommunityTransferState.Cancelled
                 or CommunityTransferState.Paused
                 or CommunityTransferState.NeedsReview
-                or CommunityTransferState.Retryable)
+                or CommunityTransferState.Retryable
+                or CommunityTransferState.NeedsAuthorization)
                 return job;
             if (job.State == CommunityTransferState.Queued)
                 Schedule(id);
@@ -428,7 +532,6 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             _jobs.Add(job.Id, job);
             PersistLocked();
         }
-        Changed?.Invoke(job);
     }
 
     private void RequireCapacityLocked()
@@ -463,7 +566,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             if (job.State is CommunityTransferState.Completed
                 or CommunityTransferState.Cancelled
                 or CommunityTransferState.Paused
-                or CommunityTransferState.NeedsReview) return;
+                or CommunityTransferState.NeedsReview
+                or CommunityTransferState.NeedsAuthorization) return;
 
             // Lifetime exclusive across separate Game/Studio processes.
             // A second scheduler leaves the first owner untouched.
@@ -480,7 +584,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 CancellationTokenSource ownerCancel = cancel;
                 Task running = Task.Run(async () =>
                 {
-                    try { await RunAsync(id, ownerCancel.Token).ConfigureAwait(false); }
+                    try { await RunAsync(id, job.Attempt, ownerCancel.Token).ConfigureAwait(false); }
                     finally
                     {
                         // Only dispose the job lease after the HTTP worker has
@@ -501,7 +605,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
     }
 
-    private async Task RunAsync(Guid id, CancellationToken cancellation)
+    private async Task RunAsync(Guid id, long attemptGeneration, CancellationToken cancellation)
     {
         try
         {
@@ -512,6 +616,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 {
                     cancellation.ThrowIfCancellationRequested();
                     CommunityTransferJob job = GetJob(id);
+                    if (job.Attempt != attemptGeneration) return;
                     try
                     {
                         if (job.Kind == CommunityTransferKind.Upload)
@@ -522,7 +627,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     }
                     catch (CommunityRevisionConflictException conflict)
                     {
-                        Update(id, j => j with
+                        UpdateAttempt(id, attemptGeneration, j => j with
                         {
                             State = CommunityTransferState.NeedsReview,
                             Error = conflict.Conflict.Message
@@ -532,7 +637,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     catch (HttpRequestException ex) when (Retryable(ex) && attempt < 3
                         && !cancellation.IsCancellationRequested)
                     {
-                        Update(id, j => j with
+                        UpdateAttempt(id, attemptGeneration, j => j with
                         {
                             State = CommunityTransferState.Retryable,
                             Error = "Network unavailable or service busy. Retrying."
@@ -550,16 +655,22 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             // Pause/cancel state was written before cancellation, or Dispose
             // has cancelled an in-progress worker. Do not discard partial bytes.
-            Update(id, j => j.State is CommunityTransferState.Cancelled
-                or CommunityTransferState.Paused or CommunityTransferState.Queued ? j
+            UpdateAttempt(id, attemptGeneration, j => j.State is CommunityTransferState.Cancelled
+                or CommunityTransferState.Paused or CommunityTransferState.Queued
+                or CommunityTransferState.NeedsAuthorization ? j
                 : j with { State = CommunityTransferState.Retryable,
                     Error = "Interrupted; transfer bytes were retained." }, force: true);
+        }
+        catch (CommunityTransferAuthorizationException)
+        {
+            UpdateAttempt(id, attemptGeneration, j => j with { State = CommunityTransferState.NeedsAuthorization,
+                Error = "VERIFY THE ORIGINAL UPLOAD ACCOUNT // IMMUTABLE BYTES RETAINED; PUBLICATION OUTCOME MAY BE UNVERIFIED" });
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException
             or HttpRequestException or UnauthorizedAccessException
             or InvalidOperationException)
         {
-            Update(id, j => j with
+            UpdateAttempt(id, attemptGeneration, j => j with
             {
                 State = CommunityTransferState.Failed, Error = ex.GetBaseException().Message
             });
@@ -568,14 +679,18 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     private async Task UploadAsync(CommunityTransferJob job, CancellationToken cancellation)
     {
+        var credentials = _credentials as ICommunityAccountCredentialSource
+            ?? throw new CommunityTransferAuthorizationException();
+        CommunityTransferAccount account = job.Account
+            ?? throw new CommunityTransferAuthorizationException();
         string snapshot = UploadPath(job.Id);
         if (!File.Exists(snapshot) || new FileInfo(snapshot).Length != job.TotalBytes
             || await Task.Run(() => MapBuildFingerprint.HashFile(snapshot), cancellation)
                 .ConfigureAwait(false) != job.PackageHash)
             throw new InvalidDataException("The frozen upload archive changed or is missing.");
-        Update(job.Id, j => j with { State = CommunityTransferState.Uploading });
-        var operations = new CommunityMapOperations(job.Endpoint, _credentials);
-        Action<long, long> progress = (offset, total) => Progress(job.Id, offset, total);
+        UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Uploading });
+        var operations = UploadOperations(job.Endpoint, account);
+        Action<long, long> progress = (offset, total) => Progress(job.Id, job.Attempt, offset, total);
         if (job.Publish is { } publication)
             await operations.PublishPackageAsync(snapshot, publication, cancellation,
                 job.Listed, job.Draft, progress).ConfigureAwait(false);
@@ -583,9 +698,33 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             await operations.UploadPackageAsync(snapshot, cancellation,
                 job.Listed, job.Draft, progress).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
-        Update(job.Id, j => j with { State = CommunityTransferState.Completed,
-            AcknowledgedBytes = j.TotalBytes, Error = null });
-        if (File.Exists(snapshot)) File.Delete(snapshot);
+        CommunityTransferJob? completed = null;
+        try
+        {
+            await credentials.CommitForAccountAsync(account, () =>
+            {
+                lock (_gate)
+                {
+                    using var index = LockAndReloadLocked();
+                    CommunityTransferJob latest = _jobs[job.Id];
+                    if (latest.Attempt != job.Attempt) return;
+                    if (latest.State is CommunityTransferState.Paused or CommunityTransferState.Cancelled or CommunityTransferState.NeedsAuthorization) return;
+                    if (!account.Matches(latest.Account)) throw new CommunityTransferAuthorizationException();
+                    completed = latest with { State = CommunityTransferState.Completed,
+                        AcknowledgedBytes = latest.TotalBytes, Error = null, UpdatedAt = DateTimeOffset.UtcNow };
+                    _jobs[job.Id] = completed;
+                    PersistLocked();
+                }
+            }, cancellation).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        { throw new CommunityTransferAuthorizationException(); }
+        if (completed != null)
+        {
+            NotifyChanged(completed);
+            if (File.Exists(snapshot)) File.Delete(snapshot);
+        }
     }
 
     private async Task DownloadAsync(CommunityTransferJob job, CancellationToken cancellation)
@@ -601,7 +740,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             if (cached != null)
             {
-                Update(job.Id, j => j with { State = CommunityTransferState.Completed,
+                UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Completed,
                     AcknowledgedBytes = map.Bytes, Error = null });
                 return;
             }
@@ -615,14 +754,14 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         {
             if (cached != null)
             {
-                Update(job.Id, j => j with { State = CommunityTransferState.Completed,
+                UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Completed,
                     AcknowledgedBytes = map.Bytes, Error = null });
                 return;
             }
         }
 
         string partial = PartialPath(map.Hash);
-        Update(job.Id, j => j with { State = CommunityTransferState.Downloading });
+        UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Downloading });
         var operations = new CommunityMapOperations(job.Endpoint, _credentials);
         await operations.UseClientAsync(map.Draft,
             async client =>
@@ -632,16 +771,16 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     await client.DownloadViaTrustedCdnOrOriginAsync(
                         map, partial, new CommunityCdnPolicy(trustedHosts),
                         cancellation,
-                        (received, total) => Progress(job.Id, received, total))
+                        (received, total) => Progress(job.Id, job.Attempt, received, total))
                         .ConfigureAwait(false);
                 else
                     await client.DownloadResumableAsync(map, partial, cancellation,
-                        (received, total) => Progress(job.Id, received, total))
+                        (received, total) => Progress(job.Id, job.Attempt, received, total))
                         .ConfigureAwait(false);
                 return true;
             }, cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
-        Update(job.Id, j => j with { State = CommunityTransferState.Verifying });
+        UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Verifying });
 
         // Atomic cache promotion owns its exclusive lease and rechecks the
         // full immutable identity after copying across any volume boundary.
@@ -652,7 +791,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         using var verified = _archiveCache.TryAcquire(exact)
             ?? throw new IOException("Verified archive disappeared before completion.");
         _archiveCache.Prune();
-        Update(job.Id, j => j with { State = CommunityTransferState.Completed,
+        UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Completed,
             AcknowledgedBytes = map.Bytes, Error = null });
     }
 
@@ -661,7 +800,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         => received >= total || received - acknowledged >= 8L * 1024 * 1024
             || sinceLastWrite >= TimeSpan.FromSeconds(2);
 
-    private void Progress(Guid id, long received, long total)
+    private void Progress(Guid id, long attempt, long received, long total)
     {
         CommunityTransferJob? notification = null;
         lock (_gate)
@@ -669,10 +808,11 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             // Stream callbacks arrive for each 64 KiB. Avoid taking an OS
             // cross-process lock, parsing the full JSON index and rewriting it
             // for every chunk that does not need durable acknowledgement.
-            if (!_jobs.TryGetValue(id, out var cached)
+            if (!_jobs.TryGetValue(id, out var cached) || cached.Attempt != attempt
                 || cached.State is CommunityTransferState.Paused
                     or CommunityTransferState.Cancelled
-                    or CommunityTransferState.Completed) return;
+                    or CommunityTransferState.Completed
+                    or CommunityTransferState.NeedsAuthorization) return;
             long bounded = Math.Clamp(received, 0, cached.TotalBytes);
             if (bounded <= cached.AcknowledgedBytes) return;
 
@@ -693,10 +833,11 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 using var gate = LockAndReloadLocked();
                 // A different running Game/Studio may have requested Pause or
                 // Cancel; re-read its state before writing this acknowledgement.
-                if (!_jobs.TryGetValue(id, out var latest)
+                if (!_jobs.TryGetValue(id, out var latest) || latest.Attempt != attempt
                     || latest.State is CommunityTransferState.Paused
                         or CommunityTransferState.Cancelled
-                        or CommunityTransferState.Completed) return;
+                        or CommunityTransferState.Completed
+                        or CommunityTransferState.NeedsAuthorization) return;
                 bounded = Math.Clamp(received, 0, latest.TotalBytes);
                 if (bounded <= latest.AcknowledgedBytes) return;
                 notification = latest with
@@ -710,7 +851,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             }
         }
         // Never dispatch UI callbacks while owning either process lock.
-        if (notification != null) Changed?.Invoke(notification);
+        if (notification != null) NotifyChanged(notification);
     }
 
     private void Stop(Guid id, bool cancel)
@@ -724,6 +865,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                 throw new KeyNotFoundException("Unknown transfer.");
             if (job.State is CommunityTransferState.Completed
                 or CommunityTransferState.Cancelled) return;
+            if (!cancel && (job.State is CommunityTransferState.NeedsAuthorization or CommunityTransferState.NeedsReview)) return;
             _jobs[id] = job with
             {
                 State = cancel ? CommunityTransferState.Cancelled : CommunityTransferState.Paused,
@@ -734,24 +876,50 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
         try { signal?.Cancel(); }
         catch (ObjectDisposedException) { } // Worker may have just finished.
-        Changed?.Invoke(GetJob(id));
+        NotifyChanged(GetJob(id));
     }
 
     private void Update(Guid id, Func<CommunityTransferJob, CommunityTransferJob> change,
         bool force = false)
+        => UpdateCore(id, change, force, null);
+
+    private void UpdateAttempt(Guid id, long attempt, Func<CommunityTransferJob, CommunityTransferJob> change, bool force = false)
+        => UpdateCore(id, change, force, attempt);
+
+    private void UpdateCore(Guid id, Func<CommunityTransferJob, CommunityTransferJob> change, bool force, long? attempt)
     {
         CommunityTransferJob result;
         lock (_gate)
         {
             using var gate = LockAndReloadLocked();
             var job = _jobs[id];
+            if (attempt != null && job.Attempt != attempt) return;
+            // Network admission is already durably complete. A later observer,
+            // cleanup or retiring-worker failure cannot revise that outcome.
+            // Explicit Forget still removes the receipt through its own transaction.
+            if (job.State == CommunityTransferState.Completed) return;
             if (!force && job.State is CommunityTransferState.Paused
-                or CommunityTransferState.Cancelled) return;
+                or CommunityTransferState.Cancelled or CommunityTransferState.NeedsAuthorization) return;
             result = change(job) with { UpdatedAt = DateTimeOffset.UtcNow };
             _jobs[id] = result;
             PersistLocked();
         }
-        Changed?.Invoke(result);
+        NotifyChanged(result);
+    }
+
+    private void NotifyChanged(CommunityTransferJob job)
+    {
+        var listeners = Changed;
+        if (listeners == null) return;
+        foreach (Action<CommunityTransferJob> listener in listeners.GetInvocationList())
+        {
+            try { listener(job); }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                // Observers do not own admission, cleanup or another observer's
+                // delivery. A failed UI listener may reread the durable receipt.
+            }
+        }
     }
 
     /// <summary>
@@ -785,14 +953,39 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
         if (new FileInfo(_indexPath).Length > 256 * 1024)
             throw new InvalidDataException("Community transfer index exceeds its budget.");
-        CommunityTransferIndex persisted = JsonSerializer.Deserialize<CommunityTransferIndex>(
-            File.ReadAllText(_indexPath), MapPackageReader.JsonOptions)
-            ?? throw new InvalidDataException("Community transfer index is missing.");
-        if (persisted.Schema != SchemaVersion || persisted.Jobs == null
-            || persisted.Jobs.Length > MaximumRetainedJobs)
+        string json = File.ReadAllText(_indexPath);
+        using var header = JsonDocument.Parse(json);
+        if (!header.RootElement.TryGetProperty("Schema", out var schemaNode) && !header.RootElement.TryGetProperty("schema", out schemaNode))
+            throw new InvalidDataException("Community transfer index is missing its schema.");
+        int schema = schemaNode.GetInt32();
+        CommunityTransferJob[] jobs;
+        if (schema == 1)
+        {
+            CommunityTransferIndex legacy = JsonSerializer.Deserialize<CommunityTransferIndex>(json, MapPackageReader.JsonOptions)
+                ?? throw new InvalidDataException("Community transfer index is missing.");
+            jobs = legacy.Jobs ?? throw new InvalidDataException("Community transfer jobs are missing.");
+            jobs = jobs.Select(job => job.Kind == CommunityTransferKind.Upload
+                && job.State is not (CommunityTransferState.Completed or CommunityTransferState.Cancelled)
+                ? job with { State = CommunityTransferState.NeedsAuthorization, Error = "This historical upload needs explicit account reauthorization; immutable bytes retained." } : job).ToArray();
+        }
+        else if (schema == SchemaVersion)
+        {
+            CommunityTransferStoredIndex stored = JsonSerializer.Deserialize<CommunityTransferStoredIndex>(json, MapPackageReader.JsonOptions)
+                ?? throw new InvalidDataException("Community transfer index is missing.");
+            if (stored.Jobs == null) throw new InvalidDataException("Community transfer jobs are missing.");
+            jobs = stored.Jobs.Select(entry => entry.Receipt with
+            {
+                Account = entry.AccountSubject is { } subject && subject != Guid.Empty && entry.AccountVersion == 1
+                    ? new CommunityTransferAccount(subject) : entry.AccountSubject == null && entry.AccountVersion == 0
+                    ? null : throw new InvalidDataException("Invalid stored Community account witness."),
+                Attempt = entry.Attempt
+            }).ToArray();
+        }
+        else throw new InvalidDataException("Unsupported Community transfer index schema.");
+        if (jobs.Length > MaximumRetainedJobs)
             throw new InvalidDataException("Unsupported Community transfer index schema or size.");
         var copy = new Dictionary<Guid, CommunityTransferJob>();
-        foreach (CommunityTransferJob job in persisted.Jobs)
+        foreach (CommunityTransferJob job in jobs)
         {
             ValidateRecord(job);
             if (!copy.TryAdd(job.Id, job))
@@ -800,6 +993,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
         _jobs.Clear();
         foreach (var pair in copy) _jobs.Add(pair.Key, pair.Value);
+        if (schema == 1) PersistLocked();
     }
 
     /// <summary>
@@ -857,7 +1051,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                             || before.Error != job.Error) changed.Add(job);
                         if (_running.TryGetValue(job.Id, out var active)
                             && job.State is CommunityTransferState.Paused
-                                or CommunityTransferState.Cancelled)
+                                or CommunityTransferState.Cancelled or CommunityTransferState.NeedsAuthorization)
                             cancel.Add(active.Cancellation);
                         if ((job.State == CommunityTransferState.Queued
                             || orphaned.Contains(job.Id))
@@ -870,7 +1064,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
                     try { signal.Cancel(); }
                     catch (ObjectDisposedException) { }
                 }
-                foreach (var job in changed) Changed?.Invoke(job);
+                foreach (var job in changed) NotifyChanged(job);
                 foreach (Guid id in queued)
                 {
                     if (!_lifetime.IsCancellationRequested)
@@ -883,13 +1077,14 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     private void PersistLocked()
         => AtomicFile.Write(_indexPath,
-            JsonSerializer.SerializeToUtf8Bytes(new CommunityTransferIndex(
-                SchemaVersion, _jobs.Values.OrderBy(j => j.Id).ToArray()),
+            JsonSerializer.SerializeToUtf8Bytes(new CommunityTransferStoredIndex(
+                SchemaVersion, _jobs.Values.OrderBy(j => j.Id).Select(job => new CommunityTransferStoredJob(
+                    job, job.Account?.Version ?? 0, job.Account?.Subject, job.Attempt)).ToArray()),
                 MapPackageReader.JsonOptions));
 
     private void ValidateRecord(CommunityTransferJob job)
     {
-        if (job.Id == Guid.Empty || !Enum.IsDefined(job.Kind)
+        if (job.Id == Guid.Empty || job.Attempt < 0 || !Enum.IsDefined(job.Kind)
             || !Enum.IsDefined(job.State)
             || string.IsNullOrWhiteSpace(job.Endpoint)
             || !MapCommunityClient.ValidHash(job.PackageHash)
@@ -899,6 +1094,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ValidateEndpoint(job.Endpoint);
         if (job.Kind == CommunityTransferKind.Download)
         {
+            if (job.Account != null) throw new InvalidDataException("A download cannot carry upload authorization.");
             CommunityMap map = job.Download
                 ?? throw new InvalidDataException("Download job has no map metadata.");
             ValidateMap(map);
@@ -907,6 +1103,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         }
         else if (!StringComparer.Ordinal.Equals(job.SnapshotPath, UploadPath(job.Id)))
             throw new InvalidDataException("Upload staging path is outside its private job.");
+        else if (job.Account == null && job.State is not (CommunityTransferState.Completed or CommunityTransferState.Cancelled or CommunityTransferState.NeedsAuthorization))
+            throw new InvalidDataException("Stored upload account authorization is missing.");
     }
 
     private static void ValidateEndpoint(string endpoint)

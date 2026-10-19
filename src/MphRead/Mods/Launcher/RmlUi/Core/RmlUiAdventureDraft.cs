@@ -23,12 +23,16 @@ public sealed class RmlUiAdventureDraft
     private byte _selected = 1;
     private Hunter _hunter;
     private RmlUiAdventureSlot? _confirmation;
+    private RmlUiAdventureSaveChange? _saveChange;
+    private byte _copyDestination = 2;
     private bool _launched;
     private string _status = "SELECT A CAMPAIGN SAVE";
 
     public byte SelectedSlot => _selected;
     public Hunter Hunter => _hunter;
-    public bool Confirming => _confirmation.HasValue;
+    public bool Confirming => _confirmation.HasValue || _saveChange.HasValue;
+    public RmlUiAdventureSaveChange? PendingSaveChange => _saveChange;
+    public byte CopyDestination => _copyDestination;
     public RmlUiAdventureSlot? PendingOverwrite => _confirmation;
     public bool Launched => _launched;
     public string Status => _status;
@@ -59,21 +63,25 @@ public sealed class RmlUiAdventureDraft
         => number >= 1 && number <= _slots.Length
             ? _slots[number - 1] : new(0, false, true, "", 0, 0, 0, "INVALID");
     public RmlUiAdventureSlot Selected => Slot(_selected);
-    public bool CanResume => Selected.Used && !Selected.Unreadable && !_confirmation.HasValue && !_launched;
-    public bool CanStart => !Selected.Unreadable && !_confirmation.HasValue && !_launched;
+    public bool CanResume => Selected.Used && !Selected.Unreadable && !Confirming && !_launched;
+    public bool CanStart => !Selected.Unreadable && !Confirming && !_launched;
+    public bool CanCopy => !Confirming && !_launched && Selected.Used && !Selected.Unreadable
+        && RmlUiAdventureSaveIdentity.Occupied(Selected) && RmlUiAdventureSaveIdentity.Valid(Slot(_copyDestination)) && _copyDestination != _selected;
+    public bool CanArchive => !Confirming && !_launched && RmlUiAdventureSaveIdentity.Occupied(Selected);
 
     public bool Select(int index)
     {
-        if (index is < 1 or > AdventureSave.SlotCount || _confirmation.HasValue || _launched)
+        if (index is < 1 or > AdventureSave.SlotCount || Confirming || _launched)
             return false;
         _selected = (byte)index;
+        if (_copyDestination == _selected) _copyDestination = (byte)(_selected % AdventureSave.SlotCount + 1);
         _status = "SLOT " + index + " SELECTED";
         return true;
     }
 
     public bool NextHunter()
     {
-        if (_confirmation.HasValue || _launched) return false;
+        if (Confirming || _launched) return false;
         _hunter = (Hunter)(((int)_hunter + 1) % 7);
         return true;
     }
@@ -81,6 +89,7 @@ public sealed class RmlUiAdventureDraft
     public bool Refresh(RmlUiAdventureSlot[] slots)
     {
         if (_confirmation.HasValue || _launched) return false;
+        _saveChange = null;
         _slots = Normalize(slots);
         _status = "SAVE SLOTS REFRESHED";
         return true;
@@ -97,16 +106,39 @@ public sealed class RmlUiAdventureDraft
 
     public bool CancelConfirmation()
     {
+        if (_saveChange.HasValue) { _saveChange = null; _status = "SAVE CHANGE CANCELLED // NO WRITE REQUESTED"; return true; }
         if (!_confirmation.HasValue) return false;
         _confirmation = null;
         _status = "NEW RUN CANCELLED // SAVE UNCHANGED";
         return true;
     }
 
+    public bool SelectCopyDestination(int slot)
+    {
+        if (slot is < 1 or > AdventureSave.SlotCount || slot == _selected || Confirming || _launched) return false;
+        _copyDestination = (byte)slot; return true;
+    }
+    public bool RequestSaveChange(RmlUiAdventureSaveAction action)
+    {
+        if (action == RmlUiAdventureSaveAction.Copy ? !CanCopy : action != RmlUiAdventureSaveAction.Archive || !CanArchive) return false;
+        _saveChange = new(action, Selected, action == RmlUiAdventureSaveAction.Copy ? Slot(_copyDestination) : null);
+        _status = "REVIEW THE EXACT SAVE BYTES BEFORE CONFIRMING";
+        return true;
+    }
+    public RmlUiAdventureSaveChange? ConfirmSaveChange(RmlUiAdventureSaveAction action)
+    {
+        if (_launched || _saveChange is not { } change || change.Action != action) return null;
+        _saveChange = null; return change;
+    }
+    public void SaveChangeFinished(RmlUiAdventureSlot[] slots, string status)
+    { _saveChange = null; _slots = Normalize(slots); _status = status; }
+    public void SaveChangePending() => _status = "SAVE CHANGE PENDING // WAITING FOR EXISTING OWNER VERIFICATION";
+
     public RmlUiAdventureSlot? Confirm()
     {
         if (_confirmation is not { } selected || _launched) return null;
         _confirmation = null;
+        _saveChange = null;
         return selected;
     }
 
@@ -114,6 +146,7 @@ public sealed class RmlUiAdventureDraft
     {
         _launched = true;
         _confirmation = null;
+        _saveChange = null;
         _status = "ADVENTURE HANDOFF ACCEPTED";
     }
 

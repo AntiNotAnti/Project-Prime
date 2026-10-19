@@ -17,30 +17,36 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     private readonly RmlUiPageManager _pages;
     private readonly LauncherHunterChoiceController _controller;
     private readonly LauncherCosmeticDraftController _cosmetics;
+    private readonly LauncherHunterPreviewController _preview = new();
     private RmlUiDocumentToken _page;
     private long _revision;
     private bool _disposed;
+    private string _navigationMessage = "";
+    private string _cosmeticVisibility = "";
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
     public RmlUiDocumentToken PreviewDocument => _disposed ? default : _page;
+    public LauncherHunterPreviewSnapshot PreviewState => _preview.Current();
     public (Hunter Hunter, int Suit, CosmeticLoadout Cosmetics) PreviewSelection
     {
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             var selected = _controller.Current().Choice;
-            return (selected.Hunter, selected.Suit, _cosmetics.Current().Draft);
+            return (selected.Hunter, selected.Suit, _preview.Current().CompareNative
+                ? CosmeticLoadout.Default : _cosmetics.Current().Draft);
         }
     }
     public bool CanNavigateAway => !_controller.Current().Dirty
         && !_cosmetics.Current().Dirty && !_cosmetics.Current().Busy;
 
-    public NativeHunterPagePresenter(RmlUiPageManager pages, ILauncherHunterChoiceStore store)
+    public NativeHunterPagePresenter(RmlUiPageManager pages, ILauncherHunterChoiceStore store,
+        ILauncherCosmeticEquipService? cosmeticService = null)
     {
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
         _controller = new LauncherHunterChoiceController(store);
-        _cosmetics = new LauncherCosmeticDraftController(new CurrentCosmeticEquipService(),
+        _cosmetics = new LauncherCosmeticDraftController(cosmeticService ?? new CurrentCosmeticEquipService(),
             _controller.Current().Choice.Hunter);
     }
 
@@ -64,14 +70,26 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             RmlUiIntentKind.HunterResetPreview => Discard(),
             RmlUiIntentKind.HunterCancel => CloseIfClean(),
             RmlUiIntentKind.HunterOpen => FullIfClean(),
-            RmlUiIntentKind.HunterSkinNext => _cosmetics.NextSkin(),
-            RmlUiIntentKind.HunterArmorNext => _cosmetics.NextArmor(),
-            RmlUiIntentKind.HunterDeathNext => _cosmetics.NextDeath(),
-            RmlUiIntentKind.HunterCosmeticsReset => _cosmetics.Reset(),
+            RmlUiIntentKind.HunterSkinNext => ChangeCosmetics(_cosmetics.NextSkin),
+            RmlUiIntentKind.HunterArmorNext => ChangeCosmetics(_cosmetics.NextArmor),
+            RmlUiIntentKind.HunterDeathNext => NextDeath(),
+            RmlUiIntentKind.HunterCosmeticsReset => ChangeCosmetics(_cosmetics.Reset),
+            RmlUiIntentKind.HunterLoadoutDefault => DefaultLoadout(),
             RmlUiIntentKind.HunterCosmeticsSave => _cosmetics.Equip(),
+            RmlUiIntentKind.HunterPreviewMode => _preview.SelectMode(intent.Argument),
+            RmlUiIntentKind.HunterPreviewDeath => _preview.PreviewDeath(),
+            RmlUiIntentKind.HunterRotate => _preview.Rotate(intent.Argument),
+            RmlUiIntentKind.HunterZoom => _preview.Zoom(intent.Argument),
+            RmlUiIntentKind.HunterLoopDeath => _preview.ToggleLoopDeath(),
+            RmlUiIntentKind.HunterCompareNative => _preview.ToggleCompareNative(),
+            RmlUiIntentKind.HunterPreviewReset => _preview.Reset(),
             _ => false
         };
-        if (accepted) Refresh();
+        if (accepted)
+        {
+            _navigationMessage = "";
+            Refresh();
+        }
         return accepted;
     }
 
@@ -79,7 +97,29 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     {
         if (_cosmetics.Current().Dirty || _cosmetics.Current().Busy) return false;
         if (!_controller.SelectHunter(index)) return false;
-        return _cosmetics.SwitchHunter(_controller.Current().Choice.Hunter);
+        if (!_cosmetics.SwitchHunter(_controller.Current().Choice.Hunter)) return false;
+        _preview.ClearComparison();
+        return true;
+    }
+
+    private bool ChangeCosmetics(Func<bool> change)
+    {
+        if (!change()) return false;
+        _preview.ClearComparison();
+        return true;
+    }
+
+    private bool DefaultLoadout()
+    {
+        if (!ChangeCosmetics(_cosmetics.SetDefaultLoadout)) return false;
+        return _preview.Reset();
+    }
+
+    private bool NextDeath()
+    {
+        if (!ChangeCosmetics(_cosmetics.NextDeath)) return false;
+        _preview.PreviewDeath();
+        return true;
     }
 
     private bool Discard()
@@ -88,6 +128,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         _cosmetics.Reset();
         _controller.Discard();
         _cosmetics.SwitchHunter(_controller.Current().Choice.Hunter);
+        _preview.ClearComparison();
         return true;
     }
 
@@ -96,19 +137,45 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         if (_disposed) return;
         var previous = _cosmetics.Current();
         _cosmetics.Pump();
-        if (previous != _cosmetics.Current()) Refresh();
+        if (previous != _cosmetics.Current())
+        {
+            _preview.ClearComparison();
+            Refresh();
+        }
+        else if (_cosmeticVisibility != CosmeticVisibility()) Refresh();
     }
+
+    private static string CosmeticVisibility()
+        => !RenderOptions.ShowCustomCosmetics
+            ? "Custom cosmetics are hidden in Graphics settings. Your selection still saves."
+            : RenderOptions.CosmeticQuality == CosmeticEffectQuality.Off
+                ? "Cosmetic quality is Off: skins display; armor and death effects are hidden."
+                : RenderOptions.BrightSkins
+                    ? "Bright Skins overrides other players' cosmetics in matches. Your weapon and this preview retain cosmetics."
+                    : "Team-colored panels stay visible in team matches. First-person effects are reduced to keep your aim clear.";
 
     private bool CloseIfClean()
     {
-        if (!CanNavigateAway) return false;
+        if (!PrepareNavigation()) return false;
         Closed = true;
         return true;
     }
 
+    public void Back() => CloseIfClean();
+
+    public bool PrepareNavigation()
+    {
+        if (CanNavigateAway) return true;
+        _navigationMessage = _cosmetics.Current().Busy
+            ? "SAVING COSMETICS // WAIT BEFORE LEAVING"
+            : "UNSAVED CHANGES // EQUIP OR DISCARD BEFORE LEAVING";
+        Refresh();
+        return false;
+    }
+
     private bool FullIfClean()
     {
-        if (!CanNavigateAway) return false;
+        if (!PrepareNavigation()) return false;
         OpenFullLicenseRequested = true;
         return true;
     }
@@ -117,15 +184,34 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     {
         var state = _controller.Current();
         var cosmetic = _cosmetics.Current();
+        var preview = _preview.Current();
+        if (CanNavigateAway) _navigationMessage = "";
+        _cosmeticVisibility = CosmeticVisibility();
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
             ["native_hunter_name"] = RmlUiBindingValue.FromText(
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
-            ["native_hunter_status"] = RmlUiBindingValue.FromText(state.Status),
+            ["native_hunter_status"] = RmlUiBindingValue.FromText(
+                _navigationMessage.Length == 0 ? state.Status : _navigationMessage),
             ["native_hunter_hint"] = RmlUiBindingValue.FromText(
                 (GameFiles.Ready ? "LIVE ENGINE 3D PREVIEW" :
                     "3D PREVIEW REQUIRES CONFIGURED GAME FILES") +
                 " // SUIT " + (state.Choice.Suit + 1) + " // YOUR NEXT DEPLOYMENT"),
+            ["hunter_switch_hint"] = RmlUiBindingValue.FromText(cosmetic.Busy
+                ? "SAVING COSMETICS // WAIT TO SWITCH HUNTERS"
+                : cosmetic.Dirty ? "EQUIP OR DISCARD COSMETICS TO SWITCH HUNTERS"
+                : "Choose a Hunter for your next deployment."),
+            ["hunter_preview_state"] = RmlUiBindingValue.FromText(preview.CompareNative
+                ? "NATIVE LOADOUT // COMPARISON" : cosmetic.Dirty
+                    ? "COSMETIC DRAFT // NOT EQUIPPED" : "EQUIPPED COSMETICS"),
+            ["hunter_skin_description"] = RmlUiBindingValue.FromText(
+                CosmeticCatalog.ResolveSkin(cosmetic.Draft.SkinKey, cosmetic.Hunter).Description),
+            ["hunter_armor_description"] = RmlUiBindingValue.FromText(
+                CosmeticCatalog.ResolveArmor(cosmetic.Draft.ArmorEffectKey).Description),
+            ["hunter_death_description"] = RmlUiBindingValue.FromText(
+                CosmeticCatalog.ResolveDeath(cosmetic.Draft.DeathEffectKey).Description),
+            ["disabled:hunter_discard"] = RmlUiBindingValue.FromBoolean(
+                cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
             ["hunter_skin"] = RmlUiBindingValue.FromText("SKIN // " + cosmetic.SkinName),
             ["hunter_armor"] = RmlUiBindingValue.FromText("ARMOR EFFECT // " + cosmetic.ArmorName),
@@ -135,17 +221,33 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 : cosmetic.Dirty ? "LOCAL DRAFT // NOT EQUIPPED"
                 : cosmetic.PendingSync ? "EQUIPPED LOCALLY // ACCOUNT SYNC PENDING"
                 : cosmetic.Status),
+            ["hunter_cosmetics_visibility"] = RmlUiBindingValue.FromText(_cosmeticVisibility),
             ["disabled:hunter_skin"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_armor"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_death"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
+            ["disabled:hunter_loadout_default"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_cosmetics_save"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || !cosmetic.Dirty),
             ["disabled:hunter_cosmetics_reset"] = RmlUiBindingValue.FromBoolean(
-                cosmetic.Busy || !cosmetic.Dirty)
+                cosmetic.Busy || !cosmetic.Dirty),
+            ["class:hunter_preview_biped:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.Biped),
+            ["class:hunter_preview_weapon:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.ViewModel),
+            ["class:hunter_preview_alt:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.AltForm),
+            ["class:hunter_loop_death:selected"] = RmlUiBindingValue.FromBoolean(preview.LoopDeath),
+            ["class:hunter_compare_native:selected"] = RmlUiBindingValue.FromBoolean(preview.CompareNative),
+            ["hunter_compare_native"] = RmlUiBindingValue.FromText(preview.CompareNative
+                ? "SHOW DRAFT" : "COMPARE NATIVE"),
+            ["hunter_loop_death"] = RmlUiBindingValue.FromText(preview.LoopDeath ? "LOOP DEATH // ON" : "LOOP DEATH // OFF"),
+            ["disabled:hunter_zoom_out"] = RmlUiBindingValue.FromBoolean(preview.Zoom <= 0.8f),
+            ["disabled:hunter_zoom_in"] = RmlUiBindingValue.FromBoolean(preview.Zoom >= 1.2f)
         };
         for (int i = 0; i < LauncherHunterChoiceController.Playable.Length; i++)
+        {
             data["class:hunter_choice" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
                 LauncherHunterChoiceController.Playable[i] == state.Choice.Hunter);
+            data["disabled:hunter_choice" + i] = RmlUiBindingValue.FromBoolean(
+                cosmetic.Busy || cosmetic.Dirty);
+        }
         for (int i = 0; i < 4; i++)
             data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
                 i == state.Choice.Suit);
@@ -159,6 +261,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         if (_page != default && _pages.Page == _page) _pages.ClosePage();
         _controller.Dispose();
         _cosmetics.Dispose();
+        _preview.Dispose();
     }
 }
 

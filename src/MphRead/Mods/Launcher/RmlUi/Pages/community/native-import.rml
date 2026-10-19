@@ -1,0 +1,29 @@
+<rml>
+<head>
+    <title>Import local map package</title>
+    <link type="text/rcss" href="../../themes/prime.rcss"/>
+    <link type="text/rcss" href="../../components/controls.rcss"/>
+    <link type="text/rcss" href="native-report.rcss"/>
+</head>
+<body>
+<div id="community_report" role="dialog" aria-labelledby="community_report_title">
+    <div class="eyebrow">COMMUNITY // LOCAL PACKAGE</div>
+    <h1 id="community_report_title">IMPORT MAP PACKAGE</h1>
+    <div id="community_report_scroll">
+        <p id="community_import_status" role="status" aria-live="polite"/>
+        <label for="community_import_path">LOCAL .PPMAP PATH</label>
+        <input id="community_import_path" type="text" maxlength="4096" placeholder="Path to your .ppmap package"/>
+        <div id="community_import_actions">
+            <button id="community_import_pick" data-action="community:import">CHOOSE FILE</button>
+            <button id="community_import_prepare" data-action="community:detail:7">PREPARE PACKAGE</button>
+        </div>
+        <p id="community_import_detail" role="group"/>
+    </div>
+    <div id="community_report_footer">
+        <button id="community_import_confirm" data-action="community:confirm">CONFIRM IMPORT</button>
+        <button id="community_import_cancel_work" data-action="community:cancel-work">CANCEL PREPARATION</button>
+        <button id="community_import_close" data-action="community:cancel">BACK TO MAPS</button>
+    </div>
+</div>
+</body>
+</rml>

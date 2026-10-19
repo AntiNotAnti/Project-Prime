@@ -1,12 +1,52 @@
-#native_studio_entry { width:92vw; height:90vh; padding:20dp; overflow-y:auto; }
-#native_studio_entry h1 { font-size:32dp; color:#edfaff; margin:12dp 0; }
-#native_studio_entry p { font-size:16dp; line-height:23dp; color:#b9d3e3; }
-.native_studio_sections { display:flex; flex-wrap:wrap; margin:18dp 0; gap:16dp; }
-.native_studio_panel { width:40vw; min-height:220dp; padding:22dp; border:1dp #48738d; background-color:#10273a; }
-.native_studio_panel h2 { font-size:23dp; color:#7ad6ff; }
-#native_studio_entry button { min-height:44dp; padding:12dp; color:#e5f7ff; border:1dp #6ca3c3; background-color:#132d44; margin-top:12dp; }
-#native_studio_status { min-height:25dp; color:#7ddfff; }
-@media(max-width:800dp) {
-  .native_studio_panel { width:85vw; }
-  #native_studio_entry { width:96vw; padding:10dp; }
+#native_studio_entry { position:absolute; left:2%; right:2%; top:10dp; bottom:10dp; padding:12dp; overflow-y:auto; background-color:#071927; }
+#native_studio_entry h1 { color:#edfaff; }
+#native_studio_entry h2 { color:#b8bdff; margin:10dp 0 5dp; }
+#native_studio_entry p { font-size:13dp; line-height:17dp; color:#b9d3e3; margin:6dp 0; }
+#native_studio_entry button { color:#e5f7ff; border:1dp #6ca3c3; background-color:#132d44; margin:2dp 4dp 3dp 0; tab-index:auto; }
+#native_studio_entry button:hover,#native_studio_entry button:focus { background-color:#225b81; border-color:#b9e7ff; }
+#native_studio_entry button:disabled { color:#8ba0ad; background-color:#16222c; border-color:#435261; }
+#native_studio_status { padding:7dp; color:#c3d5df; white-space:pre-wrap; }
+/* Destination art is authored geometry; project and replay data stay with their owners. */
+#native_studio_chooser { padding:16dp 12dp; }
+#native_studio_chooser h1 { font-size:34dp; margin:8dp 0; }
+.studio-destinations { display:flex; flex-wrap:wrap; margin:24dp 0; }
+.studio-destination { box-sizing:border-box; width:48%; margin:0 2% 16dp 0; border:1dp #3f9f97; background-color:#0b242a; }
+.studio-technical { border-color:#8574d8; background-color:#191d36; }
+.studio-card-copy { padding:18dp; }
+#native_studio_chooser .studio-forge h2 { color:#7df0c2; font-size:27dp; }
+#native_studio_chooser .studio-technical h2 { color:#b8bdff; font-size:27dp; }
+#native_studio_chooser .studio-card-copy p { min-height:42dp; font-size:15dp; line-height:20dp; }
+#native_studio_chooser button { min-height:42dp; padding:10dp 16dp; font-size:15dp; }
+#native_studio_map { border-color:#7df0c2; background-color:#17453f; }
+#native_studio_theatre { border-color:#aaa0ff; background-color:#35345b; }
+.studio-card-art { position:relative; height:174dp; overflow:hidden; border-bottom:1dp #35736f; background-color:#082027; }
+.replay-art { background-color:#141a32; border-bottom-color:#5c5691; }
+.forge-grid { position:absolute; left:10%; right:10%; top:25dp; bottom:25dp; border:1dp #265d59; transform:rotate(-9deg); }
+.forge-platform { position:absolute; left:22%; right:22%; top:65dp; height:70dp; background-color:#174a46; border:2dp #65cab3; transform:rotate(-9deg); }
+.forge-block { position:absolute; width:22%; height:54dp; border:2dp #8de3bc; background-color:#28645a; transform:rotate(-9deg); }
+.forge-block-a { left:27%; top:43dp; }
+.forge-block-b { right:25%; top:68dp; height:37dp; }
+.replay-frame { position:absolute; left:15%; right:15%; top:24dp; height:84dp; border:1dp #8985d4; background-color:#222947; }
+.replay-play { position:absolute; left:47%; top:46dp; width:28dp; height:38dp; border-left:4dp #c0c4ff; border-top:4dp #c0c4ff; transform:rotate(135deg); }
+.replay-track { position:absolute; left:15%; height:10dp; background-color:#6559ac; }
+.replay-track-a { top:122dp; width:52%; }
+.replay-track-b { top:140dp; width:68%; background-color:#486b98; }
+.replay-playhead { position:absolute; left:58%; top:115dp; height:44dp; width:2dp; background-color:#bfceff; }
+@media (max-width:800dp) { .studio-destination { width:98%; } .studio-card-art { height:164dp; } #native_studio_chooser { padding:8dp; } }
+@media (max-height:600dp) { .studio-destinations { margin:12dp 0; } .studio-card-art { height:164dp; } .studio-card-copy { padding:12dp; } }
+@media (max-height:500dp) {
+  #native_studio_chooser { padding:4dp; }
+  #native_studio_chooser h1 { font-size:23dp; line-height:26dp; margin:3dp 0; }
+  #native_studio_chooser > p, #native_studio_chooser .studio-card-copy p { display:none; }
+  .studio-destinations { margin:8dp 0; }
+  .studio-destination { width:48%; margin-bottom:6dp; }
+  .studio-card-art { display:none; }
+  .studio-card-copy { padding:7dp; }
+  #native_studio_chooser .studio-card-copy h2 { font-size:18dp; margin:4dp 0; }
+  #native_studio_chooser button { min-height:28dp; padding:5dp 8dp; font-size:11dp; }
+  .studio-card-copy .eyebrow { font-size:8dp; }
 }
+/* The chooser belongs to Prime Studio, including when opened inside the game. */
+#nav_play { color:#9bb5c8; background-color:rgba(0,0,0,0); border-bottom-color:rgba(0,0,0,0); }
+#nav_play:hover,#nav_play:focus { color:#ffffff; background-color:rgba(43,158,247,10%); border-bottom-color:#2b9ef7; }
+#nav_studio,#nav_studio_home { color:#ffffff; background-color:#0b2942; border-bottom:3dp #78caff; }

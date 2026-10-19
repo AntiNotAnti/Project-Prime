@@ -1,0 +1,6 @@
+<rml><head><title>Confirm camera edit</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="theatre.rcss"/></head>
+<body template="prime-dialog"><div id="replay_camera_confirm_panel" class="prime_dialog">
+<h2 id="replay_camera_confirm_title"/><p id="replay_camera_confirm_replay"/><p id="replay_camera_confirm_exact"/>
+<p>This changes the selected camera keyframe in this replay's camera track.</p><p id="replay_camera_confirm_error" class="bookmark_error"/>
+<div class="theatre_actions"><button id="replay_camera_confirm_cancel" class="play_action" data-action="replay:camera-cancel-confirm">CANCEL</button><button id="replay_camera_confirm_apply" class="play_action danger" data-action="replay:camera-confirm">CONFIRM EXACT EDIT</button></div>
+</div></body></rml>

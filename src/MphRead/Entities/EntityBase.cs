@@ -41,6 +41,12 @@ namespace MphRead.Entities
         // network code continue to read _transform directly. Keeping the two
         // worlds separate is what lets a high-refresh display look smooth
         // without changing a single 60 Hz gameplay decision.
+        private Mods.Render.DisplayPoseHistory _drawPose;
+
+        // Frozen replay-world schema slots. Preserve their original canonical
+        // capture values and names for existing capsules/generated accessors.
+        // Rendering never reads these compatibility fields; the lifetime-keyed
+        // _drawPose is the sole draw history and is excluded from the schema.
         private Matrix4 _drawPrevious = Matrix4.Identity;
         private Matrix4 _drawCurrent = Matrix4.Identity;
         private bool _drawStateValid;
@@ -288,6 +294,51 @@ namespace MphRead.Entities
             if (this is PlayerEntity radarPlayer) radarPlayer.ModResetRadarHistory();
             _drawPrevious = _drawCurrent = _transform;
             _drawStateValid = true;
+            _drawPose.Reset(_transform, DrawLifetime(), _scene.FrameCount);
+            if (this is BeamProjectileEntity beam) beam.ModCaptureBeamDrawState(reset: true);
+            if (this is PlayerEntity specialized) specialized.ModCaptureSpecializedDrawState(DrawLifetime(), reset: true);
+        }
+
+        private Mods.Render.DisplayPoseLifetime DrawLifetime()
+        {
+            ulong epoch = 0;
+            ushort match = 0, generation = 0, life = 0;
+            byte form = 0, hunter = 0;
+            bool eligible = Initialized && Active && !_scene.Exiting;
+            long timeline = Mods.Render.FrameTiming.PresentationGeneration;
+            if (_scene.Services is ReplaySceneServices replay)
+            {
+                epoch = replay.State.Match?.AuthorityEpoch ?? 0;
+                match = replay.State.Match?.MatchId ?? 0;
+                timeline = replay.Session.Transport.SeekGeneration;
+                if (this is PlayerEntity recordedPlayer)
+                {
+                    if (replay.State.TryGetPlayer(recordedPlayer.SlotIndex, out var recorded))
+                    { generation = recorded.SlotGeneration; life = recorded.LifeId; }
+                    else eligible = false;
+                }
+            }
+            else if (NetSession.Active)
+            {
+                epoch = NetSession.AuthorityEpoch;
+                match = NetSession.CurrentMatchId;
+                if (this is PlayerEntity livePlayer)
+                {
+                    generation = NetPlayerLifecycle.Generation(livePlayer.SlotIndex);
+                    life = NetPlayerLifecycle.Get(livePlayer.SlotIndex);
+                }
+            }
+            if (this is PlayerEntity player)
+            {
+                form = (byte)((player.IsAltForm ? 1 : 0) | (player.IsMorphing ? 2 : 0)
+                    | (player.IsUnmorphing ? 4 : 0));
+                hunter = (byte)player.Hunter;
+                eligible &= player.Health > 0
+                    && (player.LoadFlags & (LoadFlags.Active | LoadFlags.Spawned))
+                        == (LoadFlags.Active | LoadFlags.Spawned);
+            }
+            return new(_scene.LifetimeGeneration, _scene.Room, epoch, match, generation, life,
+                form, timeline, eligible, _scene.Services.IsReplica, hunter);
         }
 
         /// <summary>
@@ -298,16 +349,23 @@ namespace MphRead.Entities
         internal void ModCaptureDrawState()
         {
             if (this is PlayerEntity radarPlayer) radarPlayer.ModCaptureRadarHistory();
+            // Keep the archival slots byte-compatible with the pre-CPP-03
+            // canonical capture rules, including duplicate ticks and pauses.
             Matrix4 current = _transform;
-            if (!_drawStateValid
-                || (current.Row3.Xyz - _drawCurrent.Row3.Xyz).LengthSquared > 16f)
+            if (!_drawStateValid || (current.Row3.Xyz - _drawCurrent.Row3.Xyz).LengthSquared > 16f)
             {
                 _drawPrevious = _drawCurrent = current;
                 _drawStateValid = true;
-                return;
             }
-            _drawPrevious = _drawCurrent;
-            _drawCurrent = current;
+            else
+            {
+                _drawPrevious = _drawCurrent;
+                _drawCurrent = current;
+            }
+            _drawPose.Capture(_transform, DrawLifetime(), _scene.FrameCount,
+                this is BeamProjectileEntity travel ? travel.ModDrawTravelBoundSquared : 16f);
+            if (this is BeamProjectileEntity beam) beam.ModCaptureBeamDrawState(reset: false);
+            if (this is PlayerEntity specialized) specialized.ModCaptureSpecializedDrawState(DrawLifetime(), reset: false);
         }
 
         /// <summary>
@@ -316,9 +374,9 @@ namespace MphRead.Entities
         /// orthogonal instead of linearly blending sixteen unrelated values.
         /// </summary>
         internal Matrix4 ReplayDrawTransform => ModDrawTransform();
-        internal Vector3 SimulationDrawPosition => !_drawStateValid ? Position
-            : Vector3.Lerp(_drawPrevious.Row3.Xyz, _drawCurrent.Row3.Xyz,
-                _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : (float)Mods.Render.FrameTiming.PresentationAlpha);
+        internal Vector3 SimulationDrawPosition => _drawPose.TryGetPosition(_transform, DrawLifetime(),
+            _scene.FrameCount, _scene.Services.IsReplica ? _scene.ReplayRenderAlpha
+                : Mods.Render.FrameTiming.PresentationAlpha, out Vector3 position) ? position : Position;
         protected Matrix4 ModDrawTransform()
         {
             Matrix4 transform = SimulationDrawTransform();
@@ -347,31 +405,19 @@ namespace MphRead.Entities
         }
         private Matrix4 SimulationDrawTransform()
         {
-            if (!InterpolateDrawTransform || !_scene.Services.IsReplica && !Mods.Render.FrameTiming.Active || !_drawStateValid)
+            if (!InterpolateDrawTransform)
             {
                 return _transform;
             }
-            float t = _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : (float)Mods.Render.FrameTiming.PresentationAlpha;
-            if (t <= 0) return _drawPrevious;
-            if (t >= 1) return _drawCurrent;
+            return ModTrySampleCapturedDrawTransform(out Matrix4 transform, out _) ? transform : _transform;
+        }
 
-            Vector3 previousScale = _drawPrevious.ExtractScale();
-            Vector3 currentScale = _drawCurrent.ExtractScale();
-            Vector3 scale = Vector3.Lerp(previousScale, currentScale, t);
-
-            Vector3 previousFacing = _drawPrevious.Row2.Xyz;
-            Vector3 currentFacing = _drawCurrent.Row2.Xyz;
-            Vector3 previousUp = _drawPrevious.Row1.Xyz;
-            Vector3 currentUp = _drawCurrent.Row1.Xyz;
-            if (previousFacing.LengthSquared < 0.000001f || currentFacing.LengthSquared < 0.000001f
-                || previousUp.LengthSquared < 0.000001f || currentUp.LengthSquared < 0.000001f)
-            {
-                return _drawCurrent;
-            }
-            Quaternion rotation = Quaternion.Slerp(_drawPrevious.ExtractRotation(), _drawCurrent.ExtractRotation(), t).Normalized();
-            Matrix4 result = Matrix4.CreateScale(scale) * Matrix4.CreateFromQuaternion(rotation);
-            result.Row3.Xyz = Vector3.Lerp(_drawPrevious.Row3.Xyz, _drawCurrent.Row3.Xyz, t);
-            return result;
+        protected bool ModTrySampleCapturedDrawTransform(out Matrix4 transform, out double alpha)
+        {
+            transform = _transform;
+            alpha = _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : Mods.Render.FrameTiming.PresentationAlpha;
+            if (!_scene.Services.IsReplica && !Mods.Render.FrameTiming.Active) return false;
+            return _drawPose.TryGetTransform(_transform, DrawLifetime(), _scene.FrameCount, alpha, out transform);
         }
 
         public virtual void Destroy()

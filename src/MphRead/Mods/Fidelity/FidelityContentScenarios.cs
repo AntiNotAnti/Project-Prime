@@ -11,6 +11,10 @@ namespace MphRead.Mods.Fidelity;
 /// <summary>Optional real engine probes. No content bytes or proprietary fixtures are serialized.</summary>
 internal static class FidelityContentScenarios
 {
+    internal const string CadenceScenario = "weapon.powerbeam.cadence";
+    internal static bool CaptureOnly(FidelityScenario scenario) => scenario.Id == CadenceScenario;
+    // A 30 Hz original logic tick spans two complete 60 Hz Project frames.
+    internal static bool CadenceTrigger(int tick) => tick > 0 && ((tick - 1) / 2) % 15 < 6;
     internal static readonly FidelityScenario[] All = Create();
     private static FidelityScenario[] Create()
     {
@@ -33,6 +37,8 @@ internal static class FidelityContentScenarios
         scenarios.Add(new("simulation.match-transition", 1, 180, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
             "Actual Battle timer expiration at tick 10; captures engine match-state transition."));
         scenarios.AddRange(FidelityMatchScenarios.All);
+        scenarios.Add(new(CadenceScenario, 1, 180, 123456, "extracted:AMHE1:MP3 PROVING GROUND:cadence-v1", 1, FidelityTier.F2,
+            "Capture-only actual offline engine; Samus slot 1, 120 warmup ticks, Power Beam, 12 frames held then 18 released, repeated on 30 Hz input pairs. Per-frame accepted WeaponFired counter deltas and pre-step input witnesses; no original DS acceptance or regression baseline."));
         // Deliberately last: the core simulation, weapon and match/life probes run first.
         foreach (var hunter in new[] { Hunter.Samus, Hunter.Kanden, Hunter.Trace, Hunter.Sylux, Hunter.Noxus, Hunter.Spire, Hunter.Weavel })
             scenarios.Add(new("alt." + hunter.ToString().ToLowerInvariant(), 1, 840, 123456,
@@ -82,6 +88,7 @@ internal static class FidelityContentScenarios
             Vector3 altOrigin = actor.Position;
             if (alternate) actor.Health = 999;
             bool weapon = scenario.Id.StartsWith("weapon.", StringComparison.Ordinal);
+            bool cadence = CaptureOnly(scenario);
             if (weapon)
             {
                 BeamType beam = scenario.Id[7..].Split('.')[0] switch
@@ -104,6 +111,30 @@ internal static class FidelityContentScenarios
             }
             if (presentationHz < 30 || presentationHz > 1000) throw new ArgumentOutOfRangeException(nameof(presentationHz));
             var output = new List<FidelityCheckpoint>();
+            FidelityEventDelta? shotDeltas = null;
+            int initialShots = scene.GameState.ShotsFired[1];
+            if (cadence)
+            {
+                if (scene.GameState.BalancedMode || scenario.CaptureInterval != 1)
+                    throw new InvalidOperationException("Cadence capture requires vanilla rules and every simulation frame.");
+                shotDeltas = new(initialShots);
+                var initial = FidelityOracle.Point(0, ("capture.simulationHz", 60), ("capture.sampleHz", 60),
+                    ("capture.postStep", 0), ("capture.balancedMode", 0), ("capture.warmupTicks", 120),
+                    ("capture.diagnosticOnly", 1), ("capture.originalTraceVerified", 0),
+                    ("roomId", scene.RoomId), ("actorSlot", actor.SlotIndex), ("hunter", (int)actor.Hunter),
+                    ("health", actor.Health), ("weapon", (int)actor.CurrentWeapon), ("charge", actor.ModChargeLevel),
+                    ("ammoUa", actor.ModAmmo.Ua), ("ammoMissile", actor.ModAmmo.Missiles),
+                    ("rng1", scene.Random.Rng1), ("rng2", scene.Random.Rng2), ("shotsFired.counter", initialShots));
+                void InitialVector(string key, Vector3 value)
+                {
+                    initial.Values.Add(key + ".x", FidelityOracle.Normalize(value.X));
+                    initial.Values.Add(key + ".y", FidelityOracle.Normalize(value.Y));
+                    initial.Values.Add(key + ".z", FidelityOracle.Normalize(value.Z));
+                }
+                InitialVector("position4096", actor.Position); InitialVector("velocity4096", actor.Speed);
+                InitialVector("facing4096", actor.FacingVector);
+                output.Add(initial);
+            }
             Render.FrameTiming.Reset(); Render.FrameTiming.ResetDiagnostics();
             int tick = 0, frames = 0;
             while (tick < scenario.Ticks && frames++ < presentationHz * (scenario.Ticks / 60 + 2))
@@ -128,7 +159,7 @@ internal static class FidelityContentScenarios
                                 : splash ? victim.Position + new Vector3(1, -0.45f, 0) : victim.ModAimTarget);
                             actor.ModApplyScriptAim(aim.X, aim.Y);
                         }
-                        NetTestScript.HoldFire(actor, tick % 30 < 12);
+                        NetTestScript.HoldFire(actor, cadence ? CadenceTrigger(tick) : tick % 30 < 12);
                     }
                     else
                     {
@@ -145,10 +176,28 @@ internal static class FidelityContentScenarios
                             actor.Controls.Jump.IsReleased = tick % 60 == 2;
                         }
                     }
+                    int shotsBefore = cadence ? scene.GameState.ShotsFired[1] : 0;
+                    bool shootDown = cadence && actor.Controls.Shoot.IsDown;
+                    bool shootPressed = cadence && actor.Controls.Shoot.IsPressed;
+                    bool shootReleased = cadence && actor.Controls.Shoot.IsReleased;
                     scene.OnSimulationFrame();
                     var point = FidelityOracle.Point(tick, ("rng1", scene.Random.Rng1), ("rng2", scene.Random.Rng2),
                         ("health", actor.Health), ("charge", actor.ModChargeLevel), ("weapon", (int)actor.CurrentWeapon), ("ammoUa", actor.ModAmmo.Ua), ("ammoMissile", actor.ModAmmo.Missiles),
                         ("animation", actor.BipedModel2.AnimInfo.Index[0]), ("gunAnimation", (int)actor.GunAnimation));
+                    if (cadence)
+                    {
+                        int shotsAfter = scene.GameState.ShotsFired[1];
+                        point.Values.Add("shotsFired", shotDeltas!.Sample(tick, shotsBefore, shotsAfter));
+                        point.Values.Add("shotsFired.counterBefore", shotsBefore);
+                        point.Values.Add("shotsFired.counter", shotsAfter);
+                        point.Values.Add("input.shootDown", shootDown ? 1 : 0);
+                        point.Values.Add("input.shootPressed", shootPressed ? 1 : 0);
+                        point.Values.Add("input.shootReleased", shootReleased ? 1 : 0);
+                        point.Values.Add("capture.simulationHz", 60); point.Values.Add("capture.sampleHz", 60);
+                        point.Values.Add("capture.postStep", 1);
+                        point.Values.Add("capture.diagnosticOnly", 1); point.Values.Add("capture.originalTraceVerified", 0);
+                        point.Values.Add("capture.balancedMode", scene.GameState.BalancedMode ? 1 : 0);
+                    }
                     void Vector(string key, Vector3 vector)
                     {
                         point.Values.Add(key + ".x", FidelityOracle.Normalize(vector.X));
@@ -244,8 +293,22 @@ internal static class FidelityContentScenarios
             }
             if (corner && (actor.Position - altOrigin).Length > 2)
                 throw new InvalidOperationException($"Corner probe escaped its collision boundary: origin={altOrigin}, end={actor.Position}.");
-            if (weapon && !output.Exists(p => p.Values["projectiles"] > 0))
+            if (weapon && !output.Exists(p => p.Tick > 0 && p.Values["projectiles"] > 0))
                 throw new InvalidOperationException("F2 firing probe did not create a projectile.");
+            if (cadence)
+            {
+                long total = 0;
+                foreach (var point in output)
+                    if (point.Tick > 0)
+                    {
+                        if (point.Values["capture.balancedMode"] != 0)
+                            throw new InvalidOperationException("Vanilla cadence capture changed rules.");
+                        total = checked(total + point.Values["shotsFired"]);
+                    }
+                if (total <= 0 || total != (long)scene.GameState.ShotsFired[1] - initialShots
+                    || !output.Exists(p => p.Tick > 0 && p.Values["shotsFired"] == 0 && p.Values["projectiles"] > 0))
+                    throw new InvalidOperationException("Cadence capture must observe accepted shots and distinguish events from persistent projectiles.");
+            }
             if (hit && !output.Exists(p => p.Values["victim.health"] < (headshot ? 99 : 999)))
                 throw new InvalidOperationException("F2 aimed projectile probe did not damage its victim.");
             if (splash)

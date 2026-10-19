@@ -1,0 +1,42 @@
+[
+  {
+    "value": 190,
+    "name": "asset-choose-source"
+  },
+  {
+    "value": 191,
+    "name": "asset-review-import"
+  },
+  {
+    "value": 192,
+    "name": "asset-apply-import"
+  },
+  {
+    "value": 193,
+    "name": "asset-review-replace"
+  },
+  {
+    "value": 194,
+    "name": "asset-apply-replace"
+  },
+  {
+    "value": 195,
+    "name": "asset-review-export"
+  },
+  {
+    "value": 196,
+    "name": "asset-confirm-export"
+  },
+  {
+    "value": 197,
+    "name": "asset-confirm-overwrite"
+  },
+  {
+    "value": 198,
+    "name": "asset-cancel-io"
+  },
+  {
+    "value": 199,
+    "name": "asset-reload-source"
+  }
+]

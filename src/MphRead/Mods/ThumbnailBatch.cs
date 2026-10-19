@@ -255,10 +255,11 @@ namespace MphRead.Mods
                 CreateNoWindow = true,
                 // Workers find paths.txt through the working directory, the
                 // same way a normal launch does.
-                WorkingDirectory = Directory.GetCurrentDirectory(),
+                WorkingDirectory = Launcher.GameFiles.Root,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             };
+            info.Environment["PROJECT_PRIME_USER_DATA"] = Launcher.GameFiles.Root;
             if (Path.GetFileNameWithoutExtension(exePath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
             {
 #pragma warning disable IL3000 // Only a framework-dependent dotnet launch reaches this branch.

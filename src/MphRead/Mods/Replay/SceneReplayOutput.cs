@@ -40,6 +40,9 @@ public partial class Scene
         GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
         var bounds = ReplayPreviewBounds ?? new Vector4i(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
         GL.ClearColor(0, 0, 0, 1);
+        #if !ANDROID && !MPHREAD_SERVER
+        if(!NativeReplayMultiViewPreserveCanvas)
+#endif
         GL.Clear(ClearBufferMask.ColorBufferBit);
         int bottom = ReplayPreviewSize.Y - bounds.Y - bounds.W;
         GL.BlitFramebuffer(0, 0, Size.X, Size.Y, bounds.X, bottom, bounds.X + bounds.Z, bottom + bounds.W,

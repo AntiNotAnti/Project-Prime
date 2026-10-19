@@ -2,11 +2,13 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Launcher;
 
@@ -15,20 +17,35 @@ namespace MphRead.Mods.Launcher;
 /// dedicated host pool or local server process may become authority.
 /// </summary>
 public readonly record struct LobbyCreationRequest(string Name, string Player,
-    string RoomKey, GameMode Mode, MatchFormat Format, Hunter Hunter, bool Dedicated)
+    string RoomKey, GameMode Mode, MatchFormat Format, Hunter Hunter, bool Dedicated,
+    NativeCommunityHostSelection? CommunityMap = null, int MaxPlayers = PlayerEntity.SlotCapacity)
 {
+    public NetworkMapIdentity MapIdentity => CommunityMap is { } selection
+        ? new(selection.Identity.MapId, selection.Identity.ContentHash,
+            selection.Identity.PackageHash, NetworkMapFlags.Custom)
+        : NetworkMapIdentity.ForRoom(RoomKey);
+
     // Safe on the render/owner thread: field and metadata checks only.
     // A full entity-layer map inspection does IO and may decode large world
     // packages. That expensive validation belongs in CreateAsync's worker.
     public bool ValidateForm(out string error)
     {
         error = "";
-        if (String.IsNullOrWhiteSpace(RoomKey) || !Metadata.IsBuiltInRoom(RoomKey))
-            error = "Choose a supported built-in multiplayer arena.";
+        if (String.IsNullOrWhiteSpace(RoomKey) || (CommunityMap == null && !Metadata.IsBuiltInRoom(RoomKey)))
+            error = "Choose a supported built-in arena or an exact installed Community package.";
+        else if (CommunityMap is { } selection && (!selection.Identity.IsCustom
+            || selection.Identity.MapId == Guid.Empty || selection.Identity.ContentHash.IsZero
+            || selection.Identity.PackageHash.IsZero || Metadata.IsBuiltInRoom(RoomKey)
+            || !String.Equals(selection.Identity.RoomKey, RoomKey, StringComparison.Ordinal)
+            || String.IsNullOrWhiteSpace(selection.ConfiguredRoot)
+            || !String.Equals(selection.ConfiguredRoot, GameFiles.Root, StringComparison.Ordinal)))
+            error = "The selected Community package or game-file configuration changed. Select it again.";
         else if (String.IsNullOrWhiteSpace(Name) || Name.Length > 48)
             error = "Enter a lobby name of 1 to 48 characters.";
         else if (String.IsNullOrWhiteSpace(Player))
             error = "Enter your Hunter name.";
+        else if (MaxPlayers is < 2 or > PlayerEntity.SlotCapacity)
+            error = "Choose between 2 and 8 player slots.";
         else if (Dedicated && OperatingSystem.IsAndroid())
             error = "Android requires a remote authoritative host.";
         else if (!Enum.IsDefined(Mode) || Mode is GameMode.None or GameMode.SinglePlayer
@@ -36,7 +53,7 @@ public readonly record struct LobbyCreationRequest(string Name, string Player,
             error = "Choose a valid multiplayer game type.";
         else if (LobbyRules.ValidateDefinition(new MatchDefinition
             {
-                RoomKey = RoomKey, MapIdentity = NetworkMapIdentity.ForRoom(RoomKey),
+                RoomKey = RoomKey, MapIdentity = MapIdentity,
                 Mode = Mode, Format = Format
             }, out error) != LobbyResultCode.Ok)
         {
@@ -48,11 +65,20 @@ public readonly record struct LobbyCreationRequest(string Name, string Player,
     public bool Validate(out string error)
     {
         if (!ValidateForm(out error)) return false;
+        if (CommunityMap is { } selection)
+        {
+            if (!CustomRooms.Installed.HasExact(selection.Identity))
+            { error = "The installed Community archive changed. Reinstall the selected revision."; return false; }
+            string roomKey = RoomKey;
+            var definition = CustomRooms.Definitions.FirstOrDefault(map => map.MapId == selection.Identity.MapId
+                && String.Equals(map.Name, roomKey, StringComparison.Ordinal));
+            if (definition == null || !MapModeCapabilities.AllowsLocalSource(definition, false, out error))
+            { if (error.Length == 0) error = "The selected Community map is no longer registered."; return false; }
+        }
         var match = new MatchDefinition
-        { RoomKey = RoomKey, Mode = Mode, Format = Format };
+        { RoomKey = RoomKey, MapIdentity = MapIdentity, Mode = Mode, Format = Format };
         if (!Multiplayer.MapModeCapabilities.Supports(RoomKey, Mode,
-            LobbyRules.ResolveWorldProfile(match, PlayerEntity.SlotCapacity),
-            out error, PlayerEntity.SlotCapacity))
+            LobbyRules.ResolveWorldProfile(match, MaxPlayers), out error, MaxPlayers))
         {
             if (error.Length == 0) error = "That arena does not support this match type.";
             return false;
@@ -86,7 +112,9 @@ public static class LobbyCreationService
     public static async Task<LobbyCreationOutcome> CreateAsync(
         LobbyCreationRequest request, CancellationToken cancellation = default)
     {
-        if (!GameFiles.Ready)
+        string root = request.CommunityMap?.ConfiguredRoot ?? GameFiles.Root;
+        using var files = GameFiles.TryUseConfiguredFiles(root);
+        if (files == null || !GameFiles.Ready)
             return new(false, default, "Configure the game files before hosting.");
         if (!request.ValidateForm(out string error))
             return new(false, default, error);
@@ -116,11 +144,27 @@ public static class LobbyCreationService
             return new(false, default, "Android does not support local dedicated server processes.");
         if (!LocalServer.Ready)
             return new(false, default, "Install the dedicated server package in the existing lobby creator.");
-        int port = await Task.Run(() => LocalServer.Start(request.Name, rotation,
-            maxPlayers: PlayerEntity.SlotCapacity, timeLimit: seconds,
-            pointGoal: goal, masterHost: LauncherPrefs.MasterHost,
-            masterPort: LauncherPrefs.MasterPort, listed: LauncherPrefs.ListHostedGame,
-            cancel: token, lobby: true, requestedPort: NetConfig.DefaultPort), token).ConfigureAwait(false);
+        HostedMapPreparation? prepared = null;
+        int port = -1;
+        try
+        {
+            if (request.CommunityMap != null)
+                prepared = await Task.Run(() => PrepareLocalPackage(request, token), token).ConfigureAwait(false);
+            port = await Task.Run(() => LocalServer.Start(request.Name, rotation,
+                maxPlayers: request.MaxPlayers, timeLimit: seconds,
+                pointGoal: goal, masterHost: LauncherPrefs.MasterHost,
+                masterPort: LauncherPrefs.MasterPort, listed: LauncherPrefs.ListHostedGame,
+                cancel: token, lobby: true, requestedPort: NetConfig.DefaultPort, format: request.Format,
+                requiredMap: request.CommunityMap != null ? request.MapIdentity : null,
+                hostedMaps: prepared), token).ConfigureAwait(false);
+        }
+        finally
+        {
+            // A successful LocalServer launch owns its private library through
+            // the existing child lifecycle. Failed preparation/start owns no child.
+            if (port < 0 && prepared?.LibraryPath is { } library)
+                HostedMapRequests.TryDeleteDirectory(library);
+        }
         if (port < 0)
             return new(false, default, LocalServer.LastError ?? "Dedicated server did not start.");
 
@@ -178,16 +222,18 @@ public static class LobbyCreationService
             // finish, even if the user has since hidden the page.
             HostedGame game = await Task.Run(() => NetMasterClient.RequestGame(
                 candidate.Host, candidate.Port, request.RoomKey, request.Mode,
-                timeLimit: seconds, pointGoal: goal, maxPlayers: PlayerEntity.SlotCapacity,
-                serverName: request.Name, rotation: rotation, policy: ServerSessionPolicy.Lobby))
+                timeLimit: seconds, pointGoal: goal, maxPlayers: request.MaxPlayers,
+                serverName: request.Name, rotation: rotation, policy: ServerSessionPolicy.Lobby,
+                requiredMap: request.CommunityMap != null ? request.MapIdentity : null))
                 .ConfigureAwait(false);
             if (!game.Started && TransientHostFailure(game.Reason))
             {
                 await Task.Delay(250).ConfigureAwait(false);
                 game = await Task.Run(() => NetMasterClient.RequestGame(
                     candidate.Host, candidate.Port, request.RoomKey, request.Mode,
-                    timeLimit: seconds, pointGoal: goal, maxPlayers: PlayerEntity.SlotCapacity,
-                    serverName: request.Name, rotation: rotation, policy: ServerSessionPolicy.Lobby))
+                    timeLimit: seconds, pointGoal: goal, maxPlayers: request.MaxPlayers,
+                    serverName: request.Name, rotation: rotation, policy: ServerSessionPolicy.Lobby,
+                    requiredMap: request.CommunityMap != null ? request.MapIdentity : null))
                     .ConfigureAwait(false);
             }
             if (!game.Started)
@@ -228,6 +274,28 @@ public static class LobbyCreationService
         LauncherPrefs.LastLobbyTimeLimitSeconds = seconds;
         LauncherPrefs.LastLobbyGoal = goal;
         LauncherPrefs.Save();
+    }
+
+    internal static HostedMapPreparation PrepareLocalPackage(LobbyCreationRequest request, CancellationToken token)
+    {
+        if (request.CommunityMap is not { } selection || !request.ValidateForm(out _)
+            || !CustomRooms.Installed.TryGet(selection.Identity.MapId, out var installed)
+            || !CustomRooms.Installed.HasExact(selection.Identity))
+            throw new InvalidDataException("The reviewed Community package is no longer installed.");
+        token.ThrowIfCancellationRequested();
+        string id = Guid.NewGuid().ToString("N");
+        string library = Path.Combine(HostedMapRequests.CacheDirectory, "native-lobbies", id);
+        Directory.CreateDirectory(library);
+        try
+        {
+            string archive = Path.Combine(library, selection.Identity.MapId.ToString("N") + ".ppmap");
+            File.Copy(installed.PackagePath, archive, overwrite: false);
+            token.ThrowIfCancellationRequested();
+            if (!MapContentIdentity.FromPackage(archive).Matches(selection.Identity))
+                throw new InvalidDataException("The Community archive changed while preparing the server.");
+            return new(new[] { new HostedMapArchive(request.RoomKey, selection.Identity, archive) }, library, id);
+        }
+        catch { HostedMapRequests.TryDeleteDirectory(library); throw; }
     }
 
     private static bool TransientHostFailure(string reason) =>

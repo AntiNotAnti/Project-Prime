@@ -1,29 +1,32 @@
 <rml>
 <head>
-  <title>Project Prime Studio</title>
+  <title>Prime Studio</title>
   <link type="text/template" href="../../components/app-shell.rml"/>
-  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="../../components/controls.rcss"/>
   <link type="text/rcss" href="native-entry.rcss"/>
 </head>
 <body template="prime-shell">
   <div id="native_studio_entry">
-    <div class="eyebrow">CREATION // PROJECT PRIME STUDIO</div>
-    <h1>BUILD YOUR NEXT HUNT</h1>
-    <p>Launch the current Map Studio or open your replay library. These use the same files and game sessions as the existing client.</p>
-    <div class="native_studio_sections">
-      <div class="native_studio_panel">
-        <h2>MAP STUDIO</h2>
-        <p>Edit maps, build packages, and preview them using the existing Project Prime Studio workflow.</p>
-        <button id="native_studio_launch" class="play_action primary" data-action="studio:launch">OPEN MAP STUDIO</button>
+    <div id="native_studio_chooser">
+      <div class="eyebrow">PROJECT PRIME // CREATION</div>
+      <h1>PRIME STUDIO</h1>
+      <p>Choose a workspace. Replay editing is available now.</p>
+      <div class="studio-destinations">
+        <div class="studio-destination studio-forge">
+          <div class="studio-card-art forge-art"><div class="forge-grid"></div><div class="forge-platform"></div><div class="forge-block forge-block-a"></div><div class="forge-block forge-block-b"></div></div>
+          <div class="studio-card-copy"><div class="eyebrow">FUTURE WORKSPACE</div><h2>MAP STUDIO</h2>
+          <p>COMING SOON — Open the separate Prime Studio app to view this future workspace.</p>
+          <button id="native_studio_map" data-action="studio:launch">OPEN MAP STUDIO</button></div>
+        </div>
+        <div class="studio-destination studio-technical">
+          <div class="studio-card-art replay-art"><div class="replay-frame"></div><div class="replay-play"></div><div class="replay-track replay-track-a"></div><div class="replay-track replay-track-b"></div><div class="replay-playhead"></div></div>
+          <div class="studio-card-copy"><div class="eyebrow">REVIEW // EDIT // EXPORT</div><h2>REPLAY STUDIO</h2>
+          <p>Browse recordings and clips, edit the timeline, and direct your camera.</p>
+          <button id="native_studio_theatre" data-action="studio:pick-map">OPEN REPLAY STUDIO</button><button id="native_studio_replay_open" style="display:none" data-action="route:theatre">OPEN REPLAY STUDIO</button></div>
+        </div>
       </div>
-      <div class="native_studio_panel">
-        <h2>REPLAY THEATRE</h2>
-        <p>Find and play your recordings. Replay editing remains available through the current Studio workflow.</p>
-        <button id="native_studio_theatre" class="play_action" data-action="route:theatre">OPEN REPLAY LIBRARY</button>
-      </div>
+      <button id="native_studio_chooser_back" data-action="studio:cancel">BACK TO HOME</button>
     </div>
-    <p id="native_studio_status" role="status">STUDIO READY</p>
-    <button id="native_studio_back" class="play_action" data-action="studio:cancel">BACK TO HOME</button>
+    <p id="native_studio_status" role="status"/>
   </div>
-</body>
-</rml>
+</body></rml>

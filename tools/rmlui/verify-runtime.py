@@ -17,6 +17,8 @@ LICENSES = ("RmlUi-LICENSE.txt", "FreeType-LICENSE.txt", "FreeType-FTL.txt", "Fr
 ASSETS = ("prime_home.rml", "prime_home.rcss", "fonts/Rajdhani-SemiBold.ttf",
           "fonts/Rajdhani-Bold.ttf", "fonts/JetBrainsMono-Regular.ttf",
           "fonts/Rajdhani-OFL.txt", "fonts/JetBrainsMono-OFL.txt", "fonts/NotoSansJP-Regular.ttf", "fonts/NotoSansJP-OFL.txt")
+DESKTOP_STARTUP_ASSETS = ("pages/startup/startup.rml", "pages/startup/startup.rcss",
+                          "pages/startup/startup-background.tga")
 EXPORTS = ("pp_rmlui_initialize", "pp_rmlui_shutdown", "pp_rmlui_update", "pp_rmlui_render",
            "pp_rmlui_key", "pp_rmlui_text", "pp_rmlui_take_action", "pp_rmlui_protocol_version",
            "pp_rmlui_initialize_backend", "pp_rmlui_document_open", "pp_rmlui_document_close",
@@ -149,7 +151,7 @@ def main(args: list[str]) -> None:
         require(target in NAMES, f"unsupported RmlUi RID: {target}")
         library = package / NAMES[target]
         metadata = verify(library, target)
-        for asset in ASSETS:
+        for asset in ASSETS + DESKTOP_STARTUP_ASSETS:
             require((package / "rmlui" / asset).is_file(), f"RmlUi bootstrap asset missing: {asset}")
         print(f"verified RmlUi package: {package} ({target}, {metadata['renderer']})")
         return

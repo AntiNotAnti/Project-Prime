@@ -57,6 +57,13 @@ class LocalPreviewPack(unittest.TestCase):
                 self.assertEqual(manifest["models"][0]["part"],"biped")
                 self.assertEqual(manifest["models"][0]["hunter"],pack.SOURCE_HUNTERS[ident])
                 self.assertEqual(manifest["models"][0]["skinning"],"weighted4")
+                identity,skin=pack.SOURCE_APPEARANCES[ident]
+                self.assertEqual((receipt["characterId"],receipt["skinSource"]),(identity,skin))
+                self.assertEqual(manifest["models"][0]["characterId"],identity)
+                self.assertEqual(manifest["models"][0]["skinSource"],skin)
+                self.assertEqual(manifest["models"][0]["provenance"],"validation-receipt.json")
+                self.assertEqual(manifest["models"][0]["provenanceSha256"],
+                                 pack.sha256_file(dest/"validation-receipt.json"))
                 self.assertEqual(set(manifest["models"][0]["boneMap"]),
                     {"Pelvis","Left","Right"})
                 self.assertTrue(receipt["visualOnly"])

@@ -6,6 +6,8 @@ namespace MphRead.Mods.Replay
 {
     public static class ReplayInput
     {
+        // The native game composes a viewer; Studio alone grants editing.
+        internal static bool EditingAllowed { get; set; } = true;
         internal static bool Scrubbing { get; private set; }
         internal static void CancelScrub() => Scrubbing = false;
         internal static bool OverTimeline(float x, float y)
@@ -67,24 +69,24 @@ namespace MphRead.Mods.Replay
                     (ulong)ReplayController.CurrentFrame + 300,
                     ReplayController.DurationFrames));
             else if (Hit(key, InputSettings.ReplayCameraTrackKey)) ReplayCamera.ToggleTrackPlayback();
-            else if (Hit(key, InputSettings.ReplayConstantSpeedKey)) ReplayCamera.ToggleConstantSpeed();
-            else if (Hit(key, InputSettings.ReplayInterpolationKey)) ReplayCamera.CycleInterpolation();
-            else if (Hit(key, InputSettings.ReplayEasingKey)) ReplayCamera.CycleEase();
+            else if (EditingAllowed && Hit(key, InputSettings.ReplayConstantSpeedKey)) ReplayCamera.ToggleConstantSpeed();
+            else if (EditingAllowed && Hit(key, InputSettings.ReplayInterpolationKey)) ReplayCamera.CycleInterpolation();
+            else if (EditingAllowed && Hit(key, InputSettings.ReplayEasingKey)) ReplayCamera.CycleEase();
             else
             {
                 switch (key)
                 {
-                    case Keys.Delete: ReplayCamera.RemoveKeyframe(); break;
-                    case Keys.Minus: ReplayCamera.AdjustLens(-5, 0); break;
-                    case Keys.Equal: ReplayCamera.AdjustLens(5, 0); break;
-                    case Keys.Semicolon: ReplayCamera.AdjustLens(0, -5); break;
-                    case Keys.Apostrophe: ReplayCamera.AdjustLens(0, 5); break;
+                    case Keys.Delete when EditingAllowed: ReplayCamera.RemoveKeyframe(); break;
+                    case Keys.Minus when EditingAllowed: ReplayCamera.AdjustLens(-5, 0); break;
+                    case Keys.Equal when EditingAllowed: ReplayCamera.AdjustLens(5, 0); break;
+                    case Keys.Semicolon when EditingAllowed: ReplayCamera.AdjustLens(0, -5); break;
+                    case Keys.Apostrophe when EditingAllowed: ReplayCamera.AdjustLens(0, 5); break;
                     case Keys.F: ReplayCamera.ToggleFree(); break;
                     case Keys.C: ReplayCamera.SetMode(ReplayCamera.Mode == ReplayCameraMode.Chase
                         ? ReplayCameraMode.FirstPerson : ReplayCameraMode.Chase); break;
                     case Keys.O: ReplayCamera.SetMode(ReplayCameraMode.Orbit); break;
-                    case Keys.B: ReplayCamera.Bookmark(); break;
-                    case Keys.N: ReplayCamera.RestoreBookmark(); break;
+                    case Keys.B when EditingAllowed: ReplayCamera.Bookmark(); break;
+                    case Keys.N when EditingAllowed: ReplayCamera.RestoreBookmark(); break;
                     case >= Keys.D1 and <= Keys.D8: SpectatorMode.Watch(key - Keys.D1); break;
                     default: handled = false; break;
                 }

@@ -79,6 +79,17 @@ namespace MphRead.Mods.Network
             ? this with { Mode = GameMode.Battle, InstaGib = true }
             : Mode == GameMode.OneInTheChamber ? this with { PointGoal = 2, TimeLimitSeconds = 0 } : this;
 
+        /// <summary>Load-boundary rules, before player resources or world entities are created.</summary>
+        public void ApplyInitialConfiguration(SceneGameState state)
+        {
+            MatchDefinition match = NormalizeLegacy();
+            state.ConfigureMatchMode(match.Mode, applyDefaults: false);
+            match.ApplyModifiers(state);
+            state.PointGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? 0 : match.PointGoal;
+            state.TimeGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? match.PointGoal : 0;
+            state.MatchTime = match.TimeLimitSeconds == 0 ? -1 : match.TimeLimitSeconds;
+        }
+
         public void ApplyModifiers(SceneGameState state)
         {
             state.FriendlyFire = FriendlyFire;

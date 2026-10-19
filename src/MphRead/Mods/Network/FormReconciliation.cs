@@ -87,7 +87,11 @@ namespace MphRead.Mods.Network
                 }
                 return FormCorrection.None;
             }
-            uint latencyGrace = (uint)Math.Clamp(pingMilliseconds * 60 / 1000 + 8, 8, 32);
+            // A 750 ms round trip needs 45 frames plus the existing 8-frame
+            // margin. The former 32-frame cap could reverse a completed switch
+            // before the owner's fresh form arrived. Bound this grace to one
+            // second; the independent 90-frame mismatch ceiling still applies.
+            uint latencyGrace = (uint)Math.Clamp((long)pingMilliseconds * 60 / 1000 + 8, 8, 60);
             if (_transitionSeen && !_attempted && _transitionTarget == actualAlt
                 && frame - _transitionLastSeen <= latencyGrace)
             {

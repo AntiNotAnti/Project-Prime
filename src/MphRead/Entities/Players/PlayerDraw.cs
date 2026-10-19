@@ -35,6 +35,52 @@ namespace MphRead.Entities
         // three-second protection window into a high-frequency strobe.
         private const int SpawnProtectionFlashHalfPeriodFrames = 15;
 
+        /// <summary>
+        /// The body, alternate form and shadow share one actor pose. The
+        /// existing EntityBase policy keeps local first-person current and
+        /// leaves live remote players to network playout below.
+        /// </summary>
+        internal void ModGetDrawActorPose(out Vector3 position, out Vector3 facing)
+        {
+            position = Position;
+            facing = _facingVector;
+            if (!InterpolateDrawTransform) return;
+            if (!_scene.Services.IsReplica && (!FrameTiming.Active || !FrameTiming.HighRefreshPresentation)) return;
+            Matrix4 pose = ReplayDrawTransform;
+            position = pose.Row3.Xyz;
+            Vector3 sampledFacing = pose.Row2.Xyz;
+            if (_scene.Services.IsReplica)
+                facing = sampledFacing.Normalized(); // preserve the recorded-pose branch
+            else if (float.IsFinite(sampledFacing.X) && float.IsFinite(sampledFacing.Y)
+                && float.IsFinite(sampledFacing.Z) && sampledFacing.LengthSquared >= 0.000001f)
+                facing = sampledFacing.Normalized();
+        }
+
+        internal static Matrix4 ModBuildBipedDrawTransform(Vector3 position, Vector3 facing,
+            Vector3 fallbackLateral, float scale, float bottom, out float pitch)
+        {
+            float limit = Fixed.ToFloat(2896);
+            float cos = MathF.Sqrt(1 - facing.Y * facing.Y);
+            float sin = facing.Y;
+            if (MathF.Abs(facing.Y) > limit)
+            {
+                cos = limit;
+                sin = facing.Y <= 0 ? -limit : limit;
+            }
+            pitch = MathF.Atan2(sin, cos);
+            Vector3 lateral = new(facing.X, 0, facing.Z);
+            if (lateral.LengthSquared < 0.000001f) lateral = fallbackLateral;
+            lateral = lateral.Normalized();
+            Vector3 bodyRight = new(lateral.Z, 0, -lateral.X);
+            Matrix4 transform = Matrix4.Identity;
+            transform.Row0.Xyz = -bodyRight * scale;
+            transform.Row1.Xyz = Vector3.Cross(lateral, bodyRight) * scale;
+            transform.Row2.Xyz = -lateral * scale;
+            transform.Row3.Xyz = position;
+            transform.Row3.Y += bottom + bottom * (1 - scale);
+            return transform;
+        }
+
         public void Draw()
         {
             // Player entities bypass GetDrawInfo() in Renderer; emit replay-only
@@ -48,14 +94,19 @@ namespace MphRead.Entities
                 && SlotIndex != Mods.Network.NetHooks.LocalSlot
                 && Mods.Network.NetSmoothing.SamplePresentation(
                     SlotIndex, out presentedPosition, out presentedAlt);
-            Vector3 drawPosition = networkPresented
-                ? Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt)
-                : _scene.Services.IsReplica || (!Mods.Network.NetSession.Active && Mods.SpectatorMode.IsSpectating)
-                    ? ReplayDrawTransform.Row3.Xyz : Position;
+            ModGetDrawActorPose(out Vector3 drawPosition, out Vector3 drawFacing);
+            if (networkPresented)
+                drawPosition = Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt);
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
-            Vector3 drawFacing = _scene.Services.IsReplica
-                ? ReplayDrawTransform.Row2.Xyz.Normalized() : _facingVector;
+            // This is the newly enabled consumer. Preserve preexisting live
+            // network/replay/spectator branches while scoping its sampled body
+            // state away from canonical model/effect/checkpoint owners.
+            bool ordinaryOfflinePresentation = !_scene.Services.IsReplica && !Mods.Network.NetSession.Active
+                && !IsMainPlayer && !Mods.SpectatorMode.IsSpectating && drawAlive
+                && FrameTiming.Active && FrameTiming.HighRefreshPresentation;
+            bool ordinaryOfflineActor = ordinaryOfflinePresentation
+                && (drawPosition != Position || drawFacing != _facingVector);
             bool forceNetworkVisibility = ModForceNetworkVisibility(
                 _scene.Services.IsReplica, Mods.Network.NetSession.Active,
                 SlotIndex, Mods.Network.NetHooks.LocalSlot,
@@ -156,18 +207,22 @@ namespace MphRead.Entities
                 }
                 else if (drawAltForm)
                 {
-                    _modelTransform.Row3.Xyz = drawPosition;
+                    Matrix4 canonicalAlt = _modelTransform;
+                    canonicalAlt.Row3.Xyz = Position;
+                    _modelTransform = ModGetAlternateFormDrawPose(drawPosition, out bool specializedAltSample);
+                    try
+                    {
                     if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
                     {
                         PaletteOverride = Metadata.RedPalette;
                     }
                     if (Hunter == Hunter.Kanden)
                     {
-                        DrawKandenAlt(brightSkin, outlineColor);
+                        specializedAltSample |= DrawKandenAlt(brightSkin, outlineColor, drawPosition);
                     }
                     else if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
                     {
-                        DrawSpireAltAttack(brightSkin, outlineColor);
+                        specializedAltSample |= DrawSpireAltAttack(brightSkin, outlineColor);
                     }
                     else
                     {
@@ -203,8 +258,39 @@ namespace MphRead.Entities
                         DrawMorphBallTrail();
                     }
                     DrawCosmeticArmor(_altModel.Model, true);
-                    _modelTransform.Row3.Xyz = Vector3.Zero;
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
+                    }
+                    finally
+                    {
+                        // Primitive canonical state must be restored even if
+                        // a later node cleanup fails on invalid model data.
+                        _modelTransform = canonicalAlt;
+                        _modelTransform.Row3.Xyz = Vector3.Zero;
+                        if (ordinaryOfflineActor || specializedAltSample)
+                        {
+                            PaletteOverride = null;
+                            if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
+                            {
+                                AnimateSpireAltAttack();
+                                UpdateSpireAltAttackNodes(canonicalAlt);
+                            }
+                            else if (Hunter == Hunter.Kanden)
+                            {
+                                for (int i = 0; i < _kandenSegMtx.Length; i++)
+                                    _altModel.Model.Nodes[i].Animation = _kandenSegMtx[i];
+                                _altModel.Model.UpdateMatrixStack();
+                            }
+                            else
+                                ApplyHunterNodePose(_altModel, canonicalAlt, null);
+                            if (_frozenGfxTimer > 0)
+                            {
+                                float radius = _volume.SphereRadius + 0.2f;
+                                Matrix4 canonicalIce = Matrix4.CreateScale(radius) * canonicalAlt;
+                                canonicalIce.Row3.Y += Fixed.ToFloat(Values.AltColYPos);
+                                ApplyHunterNodePose(_altIceModel, canonicalIce, null);
+                            }
+                        }
+                    }
                 }
                 else if (drawBiped)
                 {
@@ -212,17 +298,6 @@ namespace MphRead.Entities
                     Node spineNode = _spineNodes[lod]!;
                     // Preserve the original split-lower/upper animation
                     // semantics and spine look offset at any display rate.
-                    // todo: we can just figure out the angle directly from the facing vector
-                    Vector3 facing = drawFacing;
-                    float limit = Fixed.ToFloat(2896);
-                    float cos = MathF.Sqrt(1 - facing.Y * facing.Y);
-                    float sin = facing.Y;
-                    if (MathF.Abs(facing.Y) > limit)
-                    {
-                        cos = limit;
-                        sin = facing.Y <= 0 ? -limit : limit;
-                    }
-                    float angle = MathF.Atan2(sin, cos);
                     Model model = _bipedModel1.Model;
                     float scale = Metadata.HunterScales[Hunter];
                     float bottom = Fixed.ToFloat(Values.MinPickupHeight);
@@ -231,22 +306,13 @@ namespace MphRead.Entities
                     // already been angularly interpolated there; using raw
                     // _field70/_field74/_gunVec2 here put their torso rotation
                     // back on the 60 Hz simulation clock.
-                    Vector3 lateral = new(drawFacing.X, 0, drawFacing.Z);
-                    if (lateral.LengthSquared < 0.000001f)
-                    {
-                        lateral = new Vector3(_field70, 0, _field74);
-                    }
-                    lateral = lateral.Normalized();
-                    Vector3 bodyRight = new(lateral.Z, 0, -lateral.X);
-                    Matrix4 transform = Matrix4.Identity;
-                    transform.Row0.Xyz = -bodyRight;
-                    transform.Row1.Xyz = Vector3.Cross(lateral, bodyRight);
-                    transform.Row2.Xyz = -lateral;
-                    transform.Row3.Xyz = drawPosition;
-                    transform.Row3.Y += bottom + bottom * (1 - scale);
-                    transform.Row0.Xyz *= scale;
-                    transform.Row1.Xyz *= scale;
-                    transform.Row2.Xyz *= scale;
+                    Vector3 fallbackLateral = new(_field70, 0, _field74);
+                    Matrix4 transform = ModBuildBipedDrawTransform(drawPosition, drawFacing,
+                        fallbackLateral, scale, bottom, out float angle);
+                    float canonicalAngle = angle;
+                    Matrix4 canonicalBody = ordinaryOfflineActor
+                        ? ModBuildBipedDrawTransform(Position, _facingVector,
+                            fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
                         transform = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(CosmeticDeathDefinition,
                             _cosmeticDeath.Progress(_scene.ElapsedTime, CosmeticDeathDefinition)) * transform;
@@ -264,10 +330,15 @@ namespace MphRead.Entities
                             upperSample = upper;
                     }
                     bool interpolatedPose = lowerSample.HasValue || upperSample.HasValue;
-                    UpdateHunterBipedPresentation(model, spineNode, transform, angle,
-                        lowerSample, upperSample);
+                    // Node interpolation can remain fractional when float actor
+                    // interpolation rounds exactly to the current world pose.
+                    // These canonical owners must not inherit either sample.
+                    bool isolateBipedAnchors = ordinaryOfflineActor
+                        || (ordinaryOfflinePresentation && interpolatedPose);
                     try
                     {
+                    UpdateHunterBipedPresentation(model, spineNode, transform, angle,
+                        lowerSample, upperSample);
                     if (drawAlive)
                     {
                         if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -293,17 +364,44 @@ namespace MphRead.Entities
                         PaletteOverride = null;
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
+                            if (isolateBipedAnchors)
+                                UpdateHunterBipedPresentation(model, spineNode, canonicalBody, canonicalAngle, null, null);
+                            try
+                            {
                             Vector3 muzzlePos = Metadata.MuzzleOffests[(int)Hunter];
                             muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, _shootNodes[lod]!.Animation);
+                            // Preserve canonical emitter updates on every existing
+                            // positive-pending path before PrepareEffectDraw. Only
+                            // a live offline main player's repeated picture uses
+                            // a world-projected, one-picture attachment instead.
+                            bool presentationOnlyMainEffect = ReferenceEquals(this, _scene.Players.Main)
+                                && !_scene.Services.IsReplica && !Mods.Network.NetSession.Active
+                                && !Mods.Network.DemoPlayback.IsActive && !Mods.KillCam.Active
+                                && !Mods.SpectatorMode.IsSpectating && FrameTiming.Active
+                                && !_scene.HasPendingEffectSimulation;
                             if (_chargeEffect != null)
                             {
                                 _chargeEffect.SetDrawEnabled(true);
-                                _chargeEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
+                                if (presentationOnlyMainEffect)
+                                    _scene.SetPresentationEffectTransform(_chargeEffect,
+                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                else
+                                    _chargeEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
                             }
                             if (_muzzleEffect != null)
                             {
                                 _muzzleEffect.SetDrawEnabled(true);
-                                _muzzleEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
+                                if (presentationOnlyMainEffect)
+                                    _scene.SetPresentationEffectTransform(_muzzleEffect,
+                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                else
+                                    _muzzleEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
+                            }
+                            }
+                            finally
+                            {
+                                if (isolateBipedAnchors)
+                                    UpdateHunterBipedPresentation(model, spineNode, transform, angle, lowerSample, upperSample);
                             }
                         }
                         if (_frozenGfxTimer > 0)
@@ -319,7 +417,7 @@ namespace MphRead.Entities
                         }
                     }
                     DrawCosmeticArmor(_bipedModel1.Model, false);
-                    _modelTransform = transform;
+                    _modelTransform = isolateBipedAnchors ? canonicalBody : transform;
                     if (_health == 0)
                     {
                         if (!DrawCosmeticDeath()) DrawDeathParticles();
@@ -331,9 +429,27 @@ namespace MphRead.Entities
                         // The world still reads canonical model nodes for muzzle
                         // and effect ownership. Render sampling must leave only
                         // the integer pose even when a material/LOD draw fails.
-                        if (interpolatedPose)
-                            UpdateHunterBipedPresentation(model, spineNode, transform, angle,
+                        if (isolateBipedAnchors)
+                        {
+                            _modelTransform = canonicalBody;
+                            PaletteOverride = null;
+                        }
+                        if (isolateBipedAnchors || interpolatedPose)
+                            UpdateHunterBipedPresentation(model, spineNode,
+                                isolateBipedAnchors ? canonicalBody : transform,
+                                isolateBipedAnchors ? canonicalAngle : angle,
                                 null, null);
+                        if (isolateBipedAnchors && _frozenGfxTimer > 0)
+                        {
+                            // The simulation uses this archive to place ice
+                            // break effects; leave the completed body pose.
+                            for (int i = 0; i < _bipedIceModel.Model.Nodes.Count; i++)
+                            {
+                                _bipedIceModel.Model.Nodes[i].Animation = _bipedModel1.Model.Nodes[i].Animation;
+                                _bipedIceTransforms[i] = _bipedModel1.Model.Nodes[i].Animation;
+                            }
+                            _bipedIceModel.Model.UpdateMatrixStack();
+                        }
                     }
                 }
                 else if (AttachedEnemy == null && !_field6D0 && Hunter != Hunter.Guardian)
@@ -476,11 +592,14 @@ namespace MphRead.Entities
             model.UpdateMatrixStack();
         }
 
-        private void DrawKandenAlt(Vector4? brightSkin, Vector4? outlineColor)
+        private bool DrawKandenAlt(Vector4? brightSkin, Vector4? outlineColor, Vector3 drawPosition)
         {
+            bool sampled = false;
             for (int i = 0; i < _kandenSegMtx.Length; i++)
             {
-                _altModel.Model.Nodes[i].Animation = _kandenSegMtx[i];
+                Matrix4 segment = ModGetKandenSegmentDrawPose(i, drawPosition, out bool segmentSampled);
+                sampled |= segmentSampled || segment != _kandenSegMtx[i];
+                _altModel.Model.Nodes[i].Animation = segment;
             }
             _altModel.Model.UpdateMatrixStack();
             UpdateMaterials(_altModel, Recolor);
@@ -488,24 +607,36 @@ namespace MphRead.Entities
                 _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
                 GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
                     overrideColor: brightSkin, outlineColor: outlineColor);
+            return sampled;
         }
 
-        private void DrawSpireAltAttack(Vector4? brightSkin, Vector4? outlineColor)
+        private bool DrawSpireAltAttack(Vector4? brightSkin, Vector4? outlineColor)
         {
-            _altModel.Model.Nodes[0].Animation = _modelTransform;
+            bool sampled = TryHunterNodeSample(_altModel, out var presentation);
+            Matrix4 rotation = SpireAttackDrawRotation();
+            bool rotationSampled = rotation != GetTransformMatrix(_spireAltFacing, _spireAltUp);
+            _altModel.Model.AnimateNodes(0, false, rotation,
+                Vector3.One, _altModel.AnimInfo, sampled ? presentation : null);
+            UpdateSpireAltAttackNodes(_modelTransform);
+            UpdateMaterials(_altModel, Recolor);
+            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
+                GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
+                    overrideColor: brightSkin, outlineColor: outlineColor);
+            return sampled || rotationSampled;
+        }
+
+        private void UpdateSpireAltAttackNodes(Matrix4 transform)
+        {
+            _altModel.Model.Nodes[0].Animation = transform;
             for (int i = 1; i < _altModel.Model.Nodes.Count; i++)
             {
                 Node node = _altModel.Model.Nodes[i];
                 Matrix4 animation = node.Animation;
-                animation.Row3.Xyz += _modelTransform.Row3.Xyz;
+                animation.Row3.Xyz += transform.Row3.Xyz;
                 node.Animation = animation;
             }
             _altModel.Model.UpdateMatrixStack();
-            UpdateMaterials(_altModel, Recolor);
-            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
-                _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
-                GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
-                    overrideColor: brightSkin, outlineColor: outlineColor);
         }
 
         private bool ShouldFlashSpawnProtection()

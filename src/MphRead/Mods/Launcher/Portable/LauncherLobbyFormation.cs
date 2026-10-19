@@ -51,7 +51,21 @@ namespace MphRead.Mods.Launcher
         {
             if ((uint)presentationSlot >= Capacity)
                 throw new ArgumentOutOfRangeException(nameof(presentationSlot));
-            return _slots[presentationSlot];
+            LobbyFormationSlot slot = _slots[presentationSlot];
+            if (presentationSlot == 0) return slot;
+            // Seven supporting Hunters keep their established depth rows and
+            // nameplate anchors. Shrink their complete camera frame about the
+            // platform contact so models, boots and pedestals stay together.
+            const float secondaryScale = .88f;
+            return slot with
+            {
+                RadiusX = slot.RadiusX * secondaryScale,
+                RadiusY = slot.RadiusY * secondaryScale,
+                HunterLeft = slot.PadX + (slot.HunterLeft - slot.PadX) * secondaryScale,
+                HunterRight = slot.PadX + (slot.HunterRight - slot.PadX) * secondaryScale,
+                HunterTop = slot.PadY + (slot.HunterTop - slot.PadY) * secondaryScale,
+                HunterBottom = slot.PadY + (slot.HunterBottom - slot.PadY) * secondaryScale
+            };
         }
 
         // Native GL shader uniform arrays are packed tightly as vec4, one
@@ -61,7 +75,7 @@ namespace MphRead.Mods.Launcher
             float[] result = new float[Capacity * 4];
             for (int i = 0; i < Capacity; i++)
             {
-                LobbyFormationSlot pad = _slots[i];
+                LobbyFormationSlot pad = At(i);
                 result[i * 4] = pad.PadX;
                 result[i * 4 + 1] = pad.PadY;
                 result[i * 4 + 2] = pad.RadiusX;
@@ -77,7 +91,7 @@ namespace MphRead.Mods.Launcher
                 return false;
             for (int i = 0; i < Capacity; i++)
             {
-                if (!_slots[i].Valid) return false;
+                if (!At(i).Valid) return false;
                 // The mirrored chevron wings must not collide with the
                 // local platform centre even at small framebuffer sizes.
                 if (i > 0 && i < 7

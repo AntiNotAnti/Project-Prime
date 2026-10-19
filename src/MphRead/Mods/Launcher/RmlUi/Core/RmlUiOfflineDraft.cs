@@ -27,11 +27,12 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
 /// </summary>
 public sealed class RmlUiOfflineDraft
 {
-    private readonly string[] _rooms;
+    private string[] _rooms;
     private readonly MatchTypeDefinition[] _types;
     private string[] _filtered = Array.Empty<string>();
     private int _arenaPage;
     private bool _arenaOpen;
+    private bool _lowTier;
     public const int ArenaPageSize = 16;
     public RmlUiOfflineRequest Current { get; private set; }
     public bool ArenaOpen => _arenaOpen;
@@ -51,6 +52,17 @@ public sealed class RmlUiOfflineDraft
         Current = new(_rooms.FirstOrDefault() ?? "", GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
+    }
+
+    public void RefreshArenas(IEnumerable<string> rooms)
+    {
+        string[] next = rooms.Where(x => !String.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (_rooms.SequenceEqual(next, StringComparer.OrdinalIgnoreCase)) return;
+        _rooms = next;
+        if (!_rooms.Contains(Current.RoomKey, StringComparer.OrdinalIgnoreCase))
+            Current = Current with { RoomKey = _rooms.FirstOrDefault() ?? "" };
+        if (_arenaOpen) SearchArena("");
     }
 
     public bool OpenArena()
@@ -139,10 +151,17 @@ public sealed class RmlUiOfflineDraft
             }
             case 3: Current = Current with { Bots = (Current.Bots + 1) % 8 }; return true;
             case 4: Current = Current with { BotLevel = (Current.BotLevel + 1) % 4 }; return true;
-            case 5: Current = Current with { Hunter = (Hunter)(((int)Current.Hunter + 1) % 7) }; return true;
+            case 5: return Step(MphRead.Mods.Multiplayer.HunterRules.Pool(_lowTier), Current.Hunter,
+                hunter => Current = Current with { Hunter = hunter });
             case 6: Current = Current with { Suit = (Current.Suit + 1) % 4 }; return true;
             default: return false;
         }
+    }
+
+    public void SetLowTier(bool enabled)
+    {
+        _lowTier = enabled;
+        Current = Current with { Hunter = MphRead.Mods.Multiplayer.HunterRules.Sanitize(Current.Hunter, enabled) };
     }
 
     public bool Valid => Current.ValidateForm(_rooms);

@@ -87,12 +87,19 @@ def client_role(args, slot):
     """Native hunter, spectator role and actual shot workload for this slot."""
     hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
     if args.scenario == "alt-morph" and slot == 1:
-        hunter = "Weavel"
+        hunter = getattr(args, "form_hunter", "Weavel")
     observer = getattr(args, "ai_net_client", None) is None and args.players == 3 and slot == 2 and (
         args.rendered or args.scenario in BOMB_HUNTERS or args.scenario == "alt-morph")
     expects_shots = not observer and args.scenario not in BOMB_HUNTERS and (
         getattr(args, "ai_net_client", None) is not None or args.soak or args.scenario in ("tour", "duel", "shockcoil-all", "shockcoil-mixed") or slot % 2 == 0)
     return hunter, observer, expects_shots
+
+
+def turnover_arguments(args, slot):
+    """Dispatch existing native spectator timers only to the declared client."""
+    if getattr(args, "turnover_client_slot", None) != slot:
+        return []
+    return ["-spectate", str(args.spectate_at), "-rejoin", str(args.rejoin_at)]
 
 
 def digest(path):
@@ -397,6 +404,7 @@ def run(args):
                 extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
+            extra += turnover_arguments(args, slot)
             p, record = launch(name, extra, seconds, expects)
             if args.scenario in BOMB_HUNTERS:
                 record["expectsBombs"] = slot == 0
@@ -616,8 +624,16 @@ def parse_args(argv=None):
     for fault in ("loss", "reorder", "duplicate"):
         p.add_argument(f"--{fault}-percent", type=float, help=f"Override profile {fault}, 0..100 percent")
     p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", "alt-morph", *BOMB_HUNTERS), default="tour")
+    p.add_argument("--form-hunter", choices=HUNTERS[:-1], default=argparse.SUPPRESS,
+                   help="Explicit alt-morph target Hunter in slot1; omitted preserves Weavel. Dispatch only; existing form audit remains Weavel-specific.")
     p.add_argument("--observer-delay", type=float, default=0,
                    help="Delay the third spectator in a short three-client bomb or alt-morph campaign")
+    p.add_argument("--turnover-client-slot", type=int, default=argparse.SUPPRESS,
+                   help="Opt-in native headless tour client launch slot for spectator/rejoin dispatch; requires both times")
+    p.add_argument("--spectate-at", type=float, default=argparse.SUPPRESS,
+                   help="Existing native spectator timer in seconds; requires --turnover-client-slot and --rejoin-at")
+    p.add_argument("--rejoin-at", type=float, default=argparse.SUPPRESS,
+                   help="Existing native rejoin timer in seconds; requires --turnover-client-slot and --spectate-at")
     p.add_argument("--rooms", default="MP1 SANCTORUS")
     p.add_argument("--round-minutes", type=float, default=30)
     p.add_argument("--rendered", action="store_true")
@@ -633,6 +649,8 @@ def parse_args(argv=None):
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if hasattr(args, "form_hunter") and args.scenario != "alt-morph":
+        p.error("--form-hunter requires --scenario alt-morph")
     if args.evidence_row_limit is not None and not 262144 <= args.evidence_row_limit <= 1048576:
         p.error("--evidence-row-limit must be between262144 and1048576")
     if args.timed_replay_facts and args.timed_grant_proof != "shadow":
@@ -671,6 +689,18 @@ def parse_args(argv=None):
         p.error("durations must be finite")
     if args.seconds <= 0 or args.round_minutes <= 0 or not 1024 <= args.port <= 65535:
         p.error("duration, round length and port must be positive and valid")
+    turnover_fields = ("turnover_client_slot", "spectate_at", "rejoin_at")
+    if any(hasattr(args, field) for field in turnover_fields):
+        if not all(hasattr(args, field) for field in turnover_fields):
+            p.error("--turnover-client-slot, --spectate-at and --rejoin-at must be supplied together")
+        if (args.ai_net_client is not None or args.soak or args.rendered
+                or args.scenario != "tour" or args.observer_delay):
+            p.error("client turnover requires a headless non-AI tour without soak, HitRig or delayed observers")
+        if not 0 <= args.turnover_client_slot < args.players:
+            p.error("--turnover-client-slot must identify an actual launched client slot")
+        if (not math.isfinite(args.spectate_at) or not math.isfinite(args.rejoin_at)
+                or not 0 <= args.spectate_at < args.rejoin_at < args.seconds):
+            p.error("turnover times must be finite and satisfy 0 <= spectate-at < rejoin-at < seconds")
     if args.drain_seconds < 0 or args.drain_seconds > 60:
         p.error("--drain-seconds must be between zero and 60")
     if args.observer_delay < 0 or args.observer_delay >= args.seconds or (

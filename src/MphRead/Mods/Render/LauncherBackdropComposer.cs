@@ -18,6 +18,7 @@ namespace MphRead.Mods.Render
     public static class LauncherBackdropComposer
     {
         public static bool Enabled { get; set; }
+        internal static LauncherHomeStageLayout? HomeLayout { get; set; }
 
         private static int _program;
         private static int _energyTime, _launch, _hunterWeightsA, _hunterWeightsB;
@@ -45,7 +46,9 @@ namespace MphRead.Mods.Render
         private static int _rightDarken;
         private static int _beamIntensity;
         private static int _backgroundSoftness;
-        private static int _lobbyMode;
+        private static int _lobbyMode, _homePartyMode;
+        private static int _homeLayoutMode;
+        private static readonly int[] _homePadLocations = new int[4];
         private static int _lobbyOccupancyA;
         private static int _lobbyOccupancyB;
         private static readonly int[] _lobbyPadLocations =
@@ -114,6 +117,14 @@ namespace MphRead.Mods.Render
             bool lobby = LauncherLobbyVisuals.Active;
             byte occupied = LauncherLobbyVisuals.OccupiedMask;
             GL.Uniform1(_lobbyMode, lobby ? 1f : 0f);
+            GL.Uniform1(_homePartyMode, !lobby && LauncherBackdrop.Scene == LauncherBackdropScene.Home ? 1f : 0f);
+            bool homeLayout = !lobby && LauncherBackdrop.Scene == LauncherBackdropScene.Home && HomeLayout.HasValue;
+            GL.Uniform1(_homeLayoutMode, homeLayout ? 1f : 0f);
+            for (int i = 0; i < 4; i++)
+            {
+                var pad = homeLayout ? HomeLayout!.Value.Pad(i) : (X: 0f, Y: 0f, RadiusX: 1f, RadiusY: 1f);
+                GL.Uniform4(_homePadLocations[i], new Vector4(pad.X, pad.Y, pad.RadiusX, pad.RadiusY));
+            }
             // This compatibility GL facade exposes typed vec4 uniforms, not
             // the pointer/count overload. Cache locations once at link time
             // and update each authored pad without unmanaged buffers.
@@ -228,6 +239,10 @@ namespace MphRead.Mods.Render
                 _beamIntensity = GL.GetUniformLocation(program, "beam_intensity");
                 _backgroundSoftness = GL.GetUniformLocation(program, "background_softness");
                 _lobbyMode = GL.GetUniformLocation(program, "lobby_mode");
+                _homePartyMode = GL.GetUniformLocation(program, "home_party_mode");
+                _homeLayoutMode = GL.GetUniformLocation(program, "home_layout_mode");
+                for (int i = 0; i < 4; i++)
+                    _homePadLocations[i] = GL.GetUniformLocation(program, $"home_pad_geometry[{i}]");
                 _lobbyOccupancyA = GL.GetUniformLocation(program, "lobby_occupancy_a");
                 _lobbyOccupancyB = GL.GetUniformLocation(program, "lobby_occupancy_b");
                 for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
@@ -275,7 +290,9 @@ namespace MphRead.Mods.Render
             _heroLight = _pulseSpeed = _warmth = _haloStrength = -1;
             _floorGlow = _leftDarken = _rightDarken = -1;
             _beamIntensity = _backgroundSoftness = -1;
-            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
+            _lobbyMode = _homePartyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
+            _homeLayoutMode = -1;
+            HomeLayout = null;
             Array.Fill(_lobbyPadLocations, -1);
         }
     }

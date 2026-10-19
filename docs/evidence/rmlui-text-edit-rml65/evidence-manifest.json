@@ -1,0 +1,87 @@
+[
+  {
+    "path": "README.md",
+    "bytes": 2034,
+    "sha256": "667b08cff9f7265ada921a2ac350d7eba1724866e51909da7084e27bed1a0525"
+  },
+  {
+    "path": "actual-appkit.log",
+    "bytes": 4371,
+    "sha256": "cb7cdfdf682c049e774fbf87ad6a53a5ec061107b40850f1d2a7a3a2fbdaeab0"
+  },
+  {
+    "path": "actual-cocoa-cpu.log",
+    "bytes": 2517,
+    "sha256": "417eea7b29f8f6361fd67446f40380cb833811ad7687c162d2cd7bcb8f702c33"
+  },
+  {
+    "path": "appkit-results.json",
+    "bytes": 441,
+    "sha256": "cf7980884401f1869ef7b9c09d30bf7d8fbac264bcb5236e4e483e4f10b645b9"
+  },
+  {
+    "path": "before-manifest.json",
+    "bytes": 1646,
+    "sha256": "eae4f9cf190d4f7ac10c761e0637174cf8181d9fc060ebb8a0749830b3756f91"
+  },
+  {
+    "path": "build-results.json",
+    "bytes": 4728,
+    "sha256": "415c789b2b49641942785b25f98b13cf2a95f15c3560491617a246a7851a7e0d"
+  },
+  {
+    "path": "built-output-manifest.json",
+    "bytes": 5361,
+    "sha256": "136d8ae91bd5547adc86c5740b94ca33960180a8b9025cc21ae627f0cc7af99c"
+  },
+  {
+    "path": "cpu-check.log",
+    "bytes": 694,
+    "sha256": "f9e2aec04d131e30f66da2663fcea391f17144eb291459df65050a6d0b9a1a58"
+  },
+  {
+    "path": "managed-check.log",
+    "bytes": 392,
+    "sha256": "b1024d143506dff2f26ae2ad40b35d267b9b3cc19de4e9115d1bb229266939bc"
+  },
+  {
+    "path": "manifest.json",
+    "bytes": 261076,
+    "sha256": "f2a14514f6ae2e6f0af76ca5305e1b488ee24361169801b3643d28c9e08d6de3"
+  },
+  {
+    "path": "native-linked.txt",
+    "bytes": 382,
+    "sha256": "22427997b2418bfaddfb05ade04ac1e2d0a962a3ca055be9307d2a568c58e684"
+  },
+  {
+    "path": "prime-rml62-ime-clean-appkit-runtime.log",
+    "bytes": 1985,
+    "sha256": "53fd2c53695a0d9b19675bf5ba945609b6869246ecd5dded6a7d700a9be0248a"
+  },
+  {
+    "path": "prime-rml62-ime-cocoa-fixed-build.log",
+    "bytes": 3992,
+    "sha256": "17df573aed6592d9831cd906830d7ce6f694e39d42f681091a4b74c473438795"
+  },
+  {
+    "path": "prime-rml62-ime-cocoa-predecessor-build.log",
+    "bytes": 2330,
+    "sha256": "e6f902fa13b0dc568ecf244dfa6337e9a41029315ac05d1d8d913782aad494e6"
+  },
+  {
+    "path": "prime-rml62-ime-unmark-diagnostic-appkit.log",
+    "bytes": 3039,
+    "sha256": "f9b1d1c56c5b9a6ed91d7b5f25641bd608ec1f7c8b9d78e1a749c0351320d7fe"
+  },
+  {
+    "path": "promoted-manifest.json",
+    "bytes": 1558,
+    "sha256": "250bd167249e7993bc5a9c7a6eeab6eef82b0fe65bd64490ead681376dd40567"
+  },
+  {
+    "path": "promoted.patch",
+    "bytes": 74040,
+    "sha256": "e11d69082e493b07ced996e7baa03f8bc2f4f0f3bc3c337edb290158455963e4"
+  }
+]

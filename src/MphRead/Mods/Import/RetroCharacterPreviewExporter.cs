@@ -39,7 +39,7 @@ public static class RetroCharacterPreviewExporter
     {
         if (string.IsNullOrWhiteSpace(sourcePath))
         {
-            Console.Error.WriteLine("[retro-character] -retrocharacterexport requires a locally owned Prime or Echoes .iso/.gcm path.");
+            Console.Error.WriteLine("[retro-character] -retrocharacterexport requires a locally owned GameCube Prime or Echoes .iso/.gcm/.rvz path (RVZ: None or Zstandard).");
             return 2;
         }
         try
@@ -135,6 +135,19 @@ public static class RetroCharacterPreviewExporter
                 // no unsupported ANIM is substituted with a guessed pose.
                 RetroMotionPreview.Inventory motion = RetroMotionPreview.FromLocalSource(
                     ancsBytes, Resource, disc.Game == ExternalGameKind.Echoes);
+                // Retain the SAME source resource snapshot, not a second importer.
+                // Raw proof is not a graph evaluator or animation acceptance claim.
+                var graphResult=RetroAnimationGraphProof.CaptureOptional(ancsBytes,disc.GameId,spec.Ancs,spec.Id,spec.NativeName,refs);
+                if(graphResult.Graph is { } graph)
+                {
+                    string graphName=spec.Id+".ancs-graph.json",rawName=graph.Metadata.SourceSnapshotFile;
+                    string stagedGraph=Path.Combine(staging,graphName),stagedRaw=Path.Combine(staging,rawName);
+                    File.WriteAllBytes(stagedGraph,graph.Descriptor);File.WriteAllBytes(stagedRaw,graph.SourceSnapshot);
+                    staged.Add((stagedGraph,Path.Combine(root,graphName)));staged.Add((stagedRaw,Path.Combine(root,rawName)));
+                    motion=motion with{SourceGraphProof=new(1,graphName,RetroAnimationGraphProof.Sha(graph.Descriptor),rawName,
+                        spec.Ancs,graph.Metadata.SourceAncsSha256,graph.Metadata.SourceAncsBytes)};
+                }
+                else motion=motion with{SourceGraphAbsence="animation-set-absent"};
                 string motionName = spec.Id + ".motions.json";
                 string stagedMotion = Path.Combine(staging, motionName);
                 File.WriteAllText(stagedMotion, JsonSerializer.Serialize(motion));

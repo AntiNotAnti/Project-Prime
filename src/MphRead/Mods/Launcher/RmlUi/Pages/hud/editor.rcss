@@ -37,3 +37,10 @@
 #hud_name { width: 58vw; }
 #hud_json { width: 58vw; height: 100dp; overflow-y: auto; font-size: 12dp; }
 @media (max-width: 780dp) { #hud_main { display: block; width: 90vw; } .hud_preview_column, #hud_canvas, .hud_preview_note, #hud_status, #hud_name, #hud_json { width: 88vw; } .hud_inspector { width: 86vw; margin-top: 10dp; } .hud_inspector h2, .hud_inspector h3, .hud_help { width: 82vw; } .hud_property, #hud_property_value, #hud_property_label, #hud_property_help { width: 80vw; } .hud_property span, .hud_property b { width: 76vw; } .hud_layout_fields .play_form_label { width: 26vw; } .hud_layout_fields .play_input { width: 48vw; } #hud_color_swatch { width: 76vw; } }
+
+#hud_safe_area { position: absolute; border: 1dp #c8a660; background-color: transparent; pointer-events: none; }
+#native_hud_unsaved { position: absolute; left: 20%; top: 24%; width: 56%; padding: 22dp; background-color: #041321; border: 1dp #55e18c; }
+#native_hud_unsaved h1 { display: block; margin-bottom: 12dp; color: #ffffff; font-size: 24dp; }
+#native_hud_unsaved p { display: block; margin-bottom: 16dp; color: #b2cadc; line-height: 22dp; }
+#native_hud_unsaved button { display: block; width: 100%; margin-top: 8dp; }
+@media (max-width: 780dp) { #native_hud_unsaved { left: 5%; width: 84%; top: 15%; } }

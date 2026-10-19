@@ -47,7 +47,11 @@ namespace MphRead.Mods.Launcher.Gui
         public static bool Active { get; private set; }
 
         /// <summary>Is a screen up and taking the input?</summary>
-        public static bool UiVisible => UiSurface.Current?.Visible == true;
+        public static bool UiVisible => UiSurface.Current?.Visible == true
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            || MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CapturesInput
+#endif
+            ;
 
         /// <summary>The one window, for anything that needs to own a dialog.</summary>
         internal static RenderWindow? Window => _window;
@@ -95,6 +99,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static InGameMenu? _menu;
         private static MenuSettings _settings = new MenuSettings();
         private static IReadOnlyList<string> _rooms = Array.Empty<string>();
+        private static IReadOnlyList<string> _offlineLocalSourceRooms = Array.Empty<string>();
+        private static IReadOnlyList<string> _deferredOfflineLocalSourceRooms = Array.Empty<string>();
         private static LaunchPlan? _pending;
         private static bool _endMatch;
         private static bool _quit;
@@ -121,6 +127,13 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static string? StudioProjectPath { get; set; }
         internal static bool StudioWindow { get; set; }
+        internal static bool NativeStartupPending => _front?.RmlUiStartupPending == true;
+        internal static MenuSettings RmlUiSettings => _window?.HasScene == true ? GameState.LoadSettings() : _settings;
+        internal static void RmlUiSettingsClosed() => _settings = GameState.LoadSettings();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+        internal static bool RmlUiOpenVersions() => Active && _window is { HasScene: false } window && _front != null
+            && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeVersions(window, _front);
+#endif
 
 
         // The developer RmlUi presenter shares this StartScreen and its lobby pump.
@@ -132,8 +145,12 @@ namespace MphRead.Mods.Launcher.Gui
         {
             get
             {
-                if (!Active || _window == null || _window.HasScene || _front == null
-                    || !_front.RmlUiCanPresent) return false;
+                if (!Active || _window == null || _window.HasScene || _front == null) return false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeStartupOpen) return true;
+                if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeGameFilesOpen) return true;
+#endif
+                if (!_front.RmlUiCanPresent) return false;
                 PrimeRoute route = _front.Prime.Router.Current;
                 if (_rmlUiPreferLegacyLobby)
                 {
@@ -160,14 +177,33 @@ namespace MphRead.Mods.Launcher.Gui
             => Active && _window?.HasScene == false
                 && _front?.RmlUiLaunchOffline(request) == true;
 
+        internal static MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules? RmlUiReadOfflineRules()
+            => Active && _window?.HasScene == false && !NetSession.Active
+                ? MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules.Capture(_settings) : null;
+
+        internal static bool RmlUiSaveOfflineRules(
+            MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules expected,
+            MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules next, out string error)
+        {
+            error = "LOCAL MATCH RULES ARE UNAVAILABLE DURING AN ACTIVE SESSION";
+            if (!Active || _window?.HasScene != false || NetSession.Active) return false;
+            using var write = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (write == null) { error = "SETTINGS WERE REPLACED // RESTART BEFORE SAVING"; return false; }
+            if (!MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules.TryCommit(
+                _settings, expected, next, GameState.CommitSettings, out error)) return false;
+            Mods.GameSettings.Apply(_settings);
+            return true;
+        }
+
         internal static bool RmlUiLaunchTraining(MphRead.Mods.Training.AimTrainerDefinition drill,
             Hunter hunter, int suit)
             => Active && _window?.HasScene == false
                 && _front?.RmlUiLaunchTraining(drill, hunter, suit) == true;
 
-        internal static bool RmlUiLaunchReplay(MphRead.Mods.Launcher.RmlUi.Core.RmlUiReplayEntry entry)
-            => Active && _window?.HasScene == false
-                && _front?.RmlUiLaunchReplay(entry) == true;
+        internal static bool RmlUiLaunchReplay(MphRead.Mods.Launcher.RmlUi.Core.RmlUiReplayEntry entry,
+            bool openEditor = false)
+            => Active && _window?.HasScene == false && (!openEditor || StudioWindow)
+                && _front?.RmlUiLaunchReplay(entry, openEditor) == true;
 
         internal static bool RmlUiLaunchAdventure(
             MphRead.Mods.Launcher.RmlUi.Core.RmlUiAdventureSlot expected,
@@ -175,13 +211,26 @@ namespace MphRead.Mods.Launcher.Gui
             => Active && _window?.HasScene == false
                 && _front?.RmlUiLaunchAdventure(expected, newGame, hunter) == true;
 
+        internal static bool RmlUiLaunchCampaignShip(LaunchPlan plan, Campaign.CampaignDockReceipt expected, string fingerprint)
+            => Active && _window?.HasScene == false
+                && _front?.RmlUiLaunchCampaignShip(plan, expected, fingerprint) == true;
+
         internal static bool RmlUiOpenCreateLobby()
             => Active && _window?.HasScene == false
                 && _front?.RmlUiOpenCreateLobby() == true;
 
+        internal static bool RmlUiConfigureGameFiles()
+            => Active && _window?.HasScene == false && _front?.RmlUiGameFilesOwnerCurrent == true
+                && _front.RmlUiTryOpenGameFiles?.Invoke() == true;
+
         internal static bool RmlUiNavigate(MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument destination)
         {
             if (!Active || _front == null || _window?.HasScene != false) return false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (destination == MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Settings
+                && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeFullSettings(_window);
+#endif
             PrimeRoute? route = destination switch
             {
                 MphRead.Mods.Launcher.RmlUi.Host.RmlUiRouteArgument.Home
@@ -204,15 +253,55 @@ namespace MphRead.Mods.Launcher.Gui
         internal static bool RmlUiNavigateStudio()
         {
             if (!Active || _front == null || _window?.HasScene != false) return false;
-            _front.OpenMapStudio();
-            return true;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenPrimeStudioHub();
+#else
+            return false;
+#endif
         }
+#if MPHREAD_SHELL
+        private static bool NativeStudioAvailable => Active && _front != null && _window?.HasScene == false;
+        internal static NativeStudioResult RmlUiOpenStudioProject(string path, bool recovery)
+            => NativeStudioAvailable ? _front!.OpenNativeStudioProject(path, recovery)
+                : new(false, "STUDIO OWNER IS UNAVAILABLE WHILE GAMEPLAY IS ACTIVE");
+        internal static NativeStudioResult RmlUiCreateStudioProject(string name, string templateId)
+            => NativeStudioAvailable ? _front!.CreateNativeStudioProject(name, templateId)
+                : new(false, "STUDIO OWNER IS UNAVAILABLE WHILE GAMEPLAY IS ACTIVE");
+        internal static NativeStudioResult RmlUiDuplicateStudioProject(string path)
+            => NativeStudioAvailable ? _front!.DuplicateNativeStudioProject(path)
+                : new(false, "STUDIO OWNER IS UNAVAILABLE WHILE GAMEPLAY IS ACTIVE");
+        internal static bool RmlUiStudioOwnsPath(string path)
+            => !NativeStudioAvailable || _front!.NativeStudioOwnsPath(path);
+        internal static NativeStudioChangeSnapshot? NativeStudioChange() => NativeStudioAvailable ? _front!.NativeStudioChange() : null;
+        internal static NativeStudioResult ResolveNativeStudioChange(Guid ticket, NativeStudioChangeDecision decision, string path)
+            => NativeStudioAvailable ? _front!.ResolveNativeStudioChange(ticket, decision, path) : new(false, "STUDIO OWNER UNAVAILABLE");
+        internal static void CancelNativeStudioChange(Guid ticket) => _front?.CancelNativeStudioChange(ticket);
+        internal static bool TryTakeNativeStudioCommittedEditor(Guid ticket, out INativeStudioEditorSession? session)
+        {
+            if (NativeStudioAvailable) return _front!.TryTakeNativeStudioCommittedEditor(ticket, out session);
+            session = null; return false;
+        }
+        internal static bool TryAcquireNativeStudioEditor(out MapStudioScreen.NativeStudioEditorSession? session, out string error)
+        {
+            if (NativeStudioAvailable) return _front!.TryAcquireNativeStudioEditor(out session, out error);
+            session = null; error = "STUDIO EDITOR IS UNAVAILABLE WHILE GAMEPLAY IS ACTIVE"; return false;
+        }
+        internal static bool TryCaptureCommunityPublishIntent(out MapGen.CommunityStudioPublishIntent? intent, out string error)
+        {
+            if (NativeStudioAvailable) return _front!.TryCaptureCommunityPublishIntent(out intent, out error);
+            intent = null; error = "NO ACTIVE STUDIO PROJECT OWNER"; return false;
+        }
+#endif
 
         internal static bool RmlUiLeaveLobby()
             => Active && _window?.HasScene == false && _front?.RmlUiLeaveLobby() == true;
 
         internal static IReadOnlyList<string> RmlUiBuiltInRooms()
             => _rooms.Where(Metadata.IsBuiltInRoom).ToArray();
+
+        internal static IReadOnlyList<string> RmlUiOfflineRooms()
+            => _rooms.Where(room => Metadata.IsBuiltInRoom(room)
+                || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase)).ToArray();
 
         internal static bool RmlUiShowLegacyLobby()
         {
@@ -267,7 +356,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 window = RenderWindow.Create(shell: true);
                 LifecycleTiming.Startup("native window created");
-                if (StudioWindow) { window.Title = "Project Prime · Map Studio"; window.WindowState = OpenTK.Windowing.Common.WindowState.Maximized; }
+                if (StudioWindow) window.Title = "Project Prime Studio";
                 window.FileDrop += OnFilesDropped;
                 PublishNativeHandle(window);
                 _window = window;
@@ -303,6 +392,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _startupWork = null;
                 _deferredCustomRoomsPending = null;
                 _deferredCustomRoomsToken = default;
+                _offlineLocalSourceRooms = Array.Empty<string>();
+                _deferredOfflineLocalSourceRooms = Array.Empty<string>();
                 Active = false;
                 OfflineRematch.StartNext = null;
                 _window = null;
@@ -348,17 +439,41 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void BeforeFrame(RenderWindow window)
         {
+            bool menuMusic = Active && !window.HasScene && window.IsFocused;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            menuMusic &= !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CampaignMenuAudio;
+#endif
+            Mods.Sound.MenuMusicAudio.Update(menuMusic);
             if (!Active)
             {
                 return;
             }
-            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
-                && UiSurface.Ensure() is { } trainingSurface)
+            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training)
             {
-                training.ResultsShown = true;
-                trainingSurface.Show(new AimTrainerResultsView(training,
+                bool nativeShown = false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                nativeShown = MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeAimResults(
+                    window, Core.AimResultsReport.From(training), action =>
+                    {
+                        if (action == Core.AimResultsAction.Retry)
+                        { _endMatch = true; _pending = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); }
+                        else if (action == Core.AimResultsAction.ChangeDrill)
+                        { _focusTrainingOnReturn = true; RequestEndMatch(); }
+                        else RequestEndMatch();
+                    });
+#endif
+                if (nativeShown) training.ResultsShown = true;
+                else if (
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                    !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired &&
+#endif
+                    UiSurface.Ensure() is { } trainingSurface)
+                {
+                    training.ResultsShown = true;
+                    trainingSurface.Show(new AimTrainerResultsView(training,
                     () => { _endMatch = true; _pending = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); },
                     () => { _focusTrainingOnReturn = true; RequestEndMatch(); }, RequestEndMatch));
+                }
             }
             if (_quit)
             {
@@ -376,6 +491,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_pending is LaunchPlan plan)
             {
+                // Leave this exact queued plan (and existing network owner)
+                // intact while setup has reserved or is writing game files.
+                // Holding this read capability also closes the check/load race.
+                using var configuredFiles = GameFiles.TryUseConfiguredFiles();
+                if (configuredFiles == null && GameFiles.SetupInProgress) return;
                 // MatchStart is intentionally synchronous because scene/GPU
                 // creation belongs to this thread. Do not make its CPU preflight
                 // synchronous too: large custom maps can spend seconds compiling,
@@ -383,7 +503,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // window presentation and look like a hard freeze.
                 bool roomLaunch = plan.Kind is LaunchKind.Online or LaunchKind.Offline
                     or LaunchKind.Host or LaunchKind.AimTrainer;
-                if (roomLaunch && !String.IsNullOrWhiteSpace(plan.RoomKey)
+                if (configuredFiles != null && roomLaunch && !String.IsNullOrWhiteSpace(plan.RoomKey)
                     && Mods.RoomPrewarm.Begin(plan.RoomKey)
                     && !Mods.RoomPrewarm.TryGetPreparationResult(plan.RoomKey, out _))
                 {
@@ -403,8 +523,15 @@ namespace MphRead.Mods.Launcher.Gui
                 && _front != null && UiSurface.Ensure() is { } replaySurface
                 && !replaySurface.Visible)
             {
-                _front.ShowReplayEditor(RequestEndMatch, () => replaySurface.Hide());
-                replaySurface.Show(_front);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativePlayback(window))
+                if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.HandleNativeReplayFailure(window,
+                    "REPLAY VIEWER COULD NOT OPEN // RETURNED TO THE LIBRARY"))
+#endif
+                {
+                    _front.ShowReplayEditor(RequestEndMatch, () => replaySurface.Hide());
+                    replaySurface.Show(_front);
+                }
             }
 
             if (_matchLoading && window.HasScene)
@@ -430,6 +557,12 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void TickUi(RenderWindow window)
         {
+            if (Active && !window.HasScene && _front?.RmlUiStartupPending == true)
+                _front.RmlUiTryOpenStartup?.Invoke();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Active && !window.HasScene && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                _front?.RmlUiPollUpdatePrompt();
+#endif
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
             {
@@ -493,7 +626,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// panel steps aside -- the scoreboard beside it is the engine's own
         /// screen and stays exactly as it is.
         /// </summary>
-        public static bool EndPanelUp => _endPanel != null;
+        public static bool EndPanelUp => _endPanel != null
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            || MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeMatchResultsOpen
+#endif
+            ;
 
         /// <summary>
         /// Put the results panel up while the results are up, and take it down
@@ -512,6 +649,22 @@ namespace MphRead.Mods.Launcher.Gui
         {
             bool want = _window?.HasScene == true && !_matchLoading
                 && Mods.EndScreen.PanelAvailable && _menu == null;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            want = want && !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativePauseOpen
+                && !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeAimResultsOpen;
+            if (!want) MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CloseNativeMatchResults();
+            else if (_window is { } nativeWindow
+                && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeMatchResults(nativeWindow))
+            {
+                EndPanelView? previous = _endPanel;
+                _endPanel = null;
+                UiSurface? oldSurface = UiSurface.Current;
+                if (previous != null && oldSurface != null && ReferenceEquals(oldSurface.View, previous)) oldSurface.Hide();
+                Mods.EndScreen.PanelUp = true;
+                return;
+            }
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired) return;
+#endif
             if (want && !EndPanelUp)
             {
                 // Ensure, not Current: a session that went straight into a
@@ -554,7 +707,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_deferredCustomRoomsPending is { } pending)
             {
-                PublishDeferredCustomRooms(pending, _deferredCustomRoomsToken);
+                PublishDeferredCustomRooms(pending, _deferredOfflineLocalSourceRooms, _deferredCustomRoomsToken);
             }
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
@@ -578,7 +731,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_window != null)
             {
-                _window.Title = StudioWindow ? "Project Prime · Map Studio" : Mods.Branding.Name;
+                _window.Title = StudioWindow ? "Project Prime Studio" : Mods.Branding.Name;
             }
             if (_front == null)
             {
@@ -587,6 +740,30 @@ namespace MphRead.Mods.Launcher.Gui
                 // player agree, and this is where a launch begins.
                 Hunters.Reroll();
                 _front = new StartScreen(_settings, _rooms);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                StartScreen capturedFront = _front;
+                RenderWindow? capturedWindow = _window;
+                bool StartupOwnerCurrent() => Active && capturedWindow != null && ReferenceEquals(_window, capturedWindow)
+                    && ReferenceEquals(_front, capturedFront) && !capturedWindow.HasScene && _pending == null
+                    && !_matchLoading && capturedFront.RmlUiStartupOwnerCurrent;
+                capturedFront.RmlUiTryOpenStartup = () => capturedWindow != null && StartupOwnerCurrent()
+                    && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeStartup(capturedWindow,
+                        StartupOwnerCurrent, () => { if (StartupOwnerCurrent()) capturedFront.RmlUiCompleteStartup(); });
+                bool UpdateOwnerCurrent() => Active && capturedWindow != null && ReferenceEquals(_window, capturedWindow)
+                    && ReferenceEquals(_front, capturedFront) && !capturedWindow.HasScene && _pending == null
+                    && !_matchLoading && capturedFront.RmlUiUpdateOwnerCurrent;
+                capturedFront.RmlUiTryOpenUpdatePrompt = (update, installed, decision) => capturedWindow != null
+                    && UpdateOwnerCurrent() && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeUpdate(
+                        capturedWindow, update, installed, UpdateOwnerCurrent,
+                        accepted => { if (UpdateOwnerCurrent()) decision(accepted); });
+                bool SetupOwnerCurrent() => Active && capturedWindow != null && ReferenceEquals(_window, capturedWindow)
+                    && ReferenceEquals(_front, capturedFront) && !capturedWindow.HasScene && _pending == null
+                    && !_matchLoading && capturedFront.RmlUiGameFilesOwnerCurrent;
+                capturedFront.RmlUiTryOpenGameFiles = () => capturedWindow != null && SetupOwnerCurrent()
+                    && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeGameFiles(capturedWindow,
+                        SetupOwnerCurrent, () => { if (SetupOwnerCurrent()) capturedFront.RmlUiGameFilesCompleted(); },
+                        () => { if (SetupOwnerCurrent()) capturedFront.RmlUiGameFilesFallback(); });
+#endif
                 _front.Done += (_, plan) => Decided(plan);
                 _front.MatchRequested += (_, plan) => Decided(plan);
             }
@@ -602,7 +779,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (OpenStudioOnStart)
             {
                 OpenStudioOnStart = false;
-                _front.OpenMapStudio();
+                // The native Studio hub opens after the GL presenter is ready.
+                // Map Studio is a placeholder; never activate the old editor.
             }
         }
 
@@ -677,6 +855,9 @@ namespace MphRead.Mods.Launcher.Gui
                     EndMatch(window);
                     if (plan.Kind == LaunchKind.Demo)
                     {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                        if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.HandleNativeReplayFailure(window, failure))
+#endif
                         _front?.ShowReplayLaunchFailure(failure);
                     }
                     else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(failure);
@@ -694,8 +875,20 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 else if (plan.Kind == LaunchKind.Demo && _front != null)
                 {
-                    _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
-                    UiSurface.Current?.Show(_front);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                    if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativePlayback(window,
+                        plan.OpenNativeReplayEditor))
+                        UiSurface.Current?.Hide();
+                    else
+#endif
+                    {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                        if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.HandleNativeReplayFailure(window,
+                            "REPLAY VIEWER COULD NOT OPEN // RETURNED TO THE LIBRARY")) return;
+#endif
+                        _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
+                        UiSurface.Current?.Show(_front);
+                    }
                 }
                 else
                 {
@@ -720,10 +913,51 @@ namespace MphRead.Mods.Launcher.Gui
                 EndMatch(window);
                 if (plan.Kind == LaunchKind.Demo)
                 {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                    if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.HandleNativeReplayFailure(window,
+                        "Could not open replay: " + ex.Message))
+#endif
                     _front?.ShowReplayLaunchFailure("Could not open replay: " + ex.Message);
                 }
                 else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(ex.Message);
             }
+        }
+
+        internal static bool RecoverReplayPresentation(RenderWindow window, Scene scene, string path)
+        {
+            if (!Active || !ReferenceEquals(_window, window) || !window.HasScene
+                || !ReferenceEquals(window.Scene, scene) || !DemoPlayback.IsActive
+                || DemoPlayback.LogicalPath != path || _front == null || UiSurface.Ensure() is not { } surface)
+                return false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativePlayback(window)
+                    || MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.HandleNativeReplayFailure(window,
+                        "REPLAY PRESENTATION FAILED // RETURNED TO THE LIBRARY");
+#endif
+            _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
+            surface.Show(_front);
+            return true;
+        }
+
+        internal static bool OpenNativeCampaignEndingHandoff(MphRead.Mods.Campaign.CampaignEndingSummary receipt)
+        {
+            if (!Active || _window?.HasScene != false || _front == null
+                || MatchStart.RecentCampaignEnding != receipt) return false;
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeCampaignEnding(_window, receipt);
+            _front.OpenCampaignEnding();
+            return true;
+        }
+
+        internal static bool OpenNativeCampaignShipHandoff(Campaign.CampaignDockReceipt receipt)
+        {
+            if (!Active || _window?.HasScene != false || _front == null
+                || MatchStart.RecentShipDock != receipt) return false;
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeCampaignShip(_window, receipt, HubState.Capture().DisplayHunter);
+            _front.OpenCampaignShip();
+            return true;
         }
 
         private static void FullscreenReplay(RenderWindow window)
@@ -764,12 +998,37 @@ namespace MphRead.Mods.Launcher.Gui
             NetHostSession.Stop();
             if (commit != null) MatchStart.AfterMatch(commit);
             else MatchStart.AfterMatch();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (_played?.Kind == LaunchKind.Demo)
+                MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeReplayClosed(window);
+#endif
             ShowFrontScreen();
             if (_played?.Kind == LaunchKind.Adventure && MatchStart.RecentCampaignEnding != null)
+            {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeCampaignEnding(
+                    window, MatchStart.RecentCampaignEnding.Value)
+                    && !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+#endif
                 _front?.OpenCampaignEnding();
+            }
             else if (_played?.Kind == LaunchKind.Adventure && MatchStart.RecentShipDock != null)
+            {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeCampaignShip(
+                    window, MatchStart.RecentShipDock.Value, HubState.Capture().DisplayHunter)
+                    && !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+#endif
                 _front?.OpenCampaignShip();
-            if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
+            }
+            if (_played?.Kind == LaunchKind.AimTrainer)
+            {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (!MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeTrainingClosed(window)
+                    && !MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+#endif
+                    _front?.OpenTraining(_focusTrainingOnReturn);
+            }
             _focusTrainingOnReturn = false;
             if (commit != null) ForegroundSceneBinding.TryRelease(commit);
         }
@@ -831,6 +1090,16 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static bool OpenPauseMenu()
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (_window is { HasScene: true } nativeWindow
+                && MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenGameplayPause(nativeWindow))
+            {
+                UiSurface.Current?.Hide();
+                PauseMenu.MarkOpened();
+                return true;
+            }
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired) return false;
+#endif
             UiSurface? surface = UiSurface.Ensure();
             if (surface == null)
             {
@@ -855,6 +1124,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Take it down and give the match its input back.</summary>
         internal static void CloseMenu()
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CloseGameplayPause();
+#endif
             if (_menu == null)
             {
                 return;
@@ -863,6 +1135,59 @@ namespace MphRead.Mods.Launcher.Gui
             UiSurface.Current?.Hide();
             PauseMenu.MarkClosed();
         }
+
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+        internal static bool OpenNativeAimResultsHandoff(RenderWindow expectedWindow, Scene expectedScene,
+            Core.AimResultsReport report, Action<Core.AimResultsAction> action)
+        {
+            if (!ReferenceEquals(_window, expectedWindow) || !expectedWindow.HasScene
+                || !ReferenceEquals(expectedWindow.Scene, expectedScene)) return false;
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                return MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeAimResults(expectedWindow, report, action);
+            UiSurface? surface = UiSurface.Ensure();
+            if (surface == null) return false;
+            bool submitted = false;
+            void Submit(Core.AimResultsAction selected)
+            {
+                if (submitted || !ReferenceEquals(_window, expectedWindow) || !expectedWindow.HasScene
+                    || !ReferenceEquals(expectedWindow.Scene, expectedScene)) return;
+                submitted = true;
+                action(selected);
+            }
+            // Keep the report already shown by native RmlUi. Rebuilding it
+            // from mutable training state could change its values or owner.
+            var body = PrimeChrome.Stack(PrimeChrome.Title("TARGETING SIMULATION COMPLETE"),
+                PrimeChrome.Text(report.Summary),
+                PrimeChrome.Text(String.Join("\n", report.Metrics.Select(metric => metric.Label + "  " + metric.Value))),
+                PrimeChrome.Text(report.Status),
+                new PrimeButton("RETRY", () => Submit(Core.AimResultsAction.Retry), true),
+                new PrimeButton("CHANGE DRILL", () => Submit(Core.AimResultsAction.ChangeDrill)),
+                new PrimeButton("EXIT TRAINING", () => Submit(Core.AimResultsAction.Exit)));
+            surface.Show(new ScrollViewer { Content = new PrimePanel(body), Margin = new Avalonia.Thickness(24) });
+            return true;
+        }
+
+        internal static void OpenNativePauseHandoff(Core.InGameEffect effect)
+        {
+            if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+            {
+                if (_window is not { HasScene: true } nativeWindow) { PauseMenu.MarkClosed(); return; }
+                if (effect == Core.InGameEffect.Settings)
+                    MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenNativeFullSettings(nativeWindow, returnToPause: true);
+                else MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.TryOpenGameplayPause(nativeWindow);
+                return;
+            }
+            UiSurface? surface = UiSurface.Ensure();
+            if (surface == null) { PauseMenu.MarkClosed(); return; }
+            ScenePlayerRegistry? players = _window is { HasScene: true } window ? window.Scene.Players : null;
+            var menu = new InGameMenu(GameState.LoadSettings(), players);
+            menu.Emptied += (_, _) => CloseMenu();
+            _menu = menu;
+            menu.OpenNativeHandoff(effect);
+            surface.Show(menu);
+            PauseMenu.MarkOpened();
+        }
+#endif
 
         // ------------------------------------------------------------ capture
 
@@ -970,11 +1295,13 @@ namespace MphRead.Mods.Launcher.Gui
                     MapGen.MapDefinition[] deferred = MapGen.CustomRooms.DeferInitialRegistration
                         ? MapGen.CustomRooms.DeferredDefinitions(builtInRooms).ToArray()
                         : Array.Empty<MapGen.MapDefinition>();
+                    string[] localOffline = Import.EchoesOfflinePlaytestCatalog.QualifiedKeys(
+                        MapGen.CustomRooms.Definitions, MapGen.CustomRooms.UserMapDirectory);
                     token.ThrowIfCancellationRequested();
-                    if (deferred.Length > 0)
+                    if (deferred.Length > 0 || localOffline.Length > 0)
                     {
                         Avalonia.Threading.Dispatcher.UIThread.Post(
-                            () => PublishDeferredCustomRooms(deferred, token),
+                            () => PublishDeferredCustomRooms(deferred, localOffline, token),
                             Avalonia.Threading.DispatcherPriority.Background);
                     }
 
@@ -1004,7 +1331,7 @@ namespace MphRead.Mods.Launcher.Gui
 
 
         private static void PublishDeferredCustomRooms(
-            IReadOnlyList<MapGen.MapDefinition> definitions, CancellationToken token)
+            IReadOnlyList<MapGen.MapDefinition> definitions, IReadOnlyList<string> localOffline, CancellationToken token)
         {
             if (!Active || token.IsCancellationRequested) return;
             // Runtime room metadata is a between-scenes snapshot. If the player
@@ -1013,6 +1340,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_window?.HasScene == true)
             {
                 _deferredCustomRoomsPending = definitions;
+                _deferredOfflineLocalSourceRooms = localOffline;
                 _deferredCustomRoomsToken = token;
                 DebugLog.Line("startup",
                     $"deferred {definitions.Count} custom map registration(s) until the next front screen");
@@ -1028,6 +1356,9 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 IReadOnlyList<string> rooms = ThumbnailGenerator.MultiplayerRooms();
                 _rooms = rooms;
+                _offlineLocalSourceRooms = localOffline.Where(room =>
+                    rooms.Contains(room, StringComparer.OrdinalIgnoreCase)).ToArray();
+                _deferredOfflineLocalSourceRooms = Array.Empty<string>();
                 _front?.RefreshDeferredRooms(rooms);
                 DebugLog.Line("startup",
                     $"registered {definitions.Count} deferred custom map(s)");

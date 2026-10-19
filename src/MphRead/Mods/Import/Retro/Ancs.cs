@@ -34,15 +34,37 @@ namespace MphRead.Mods.Import.Retro
             public string Kind = "";
             public uint AnimId, PrimId;
             public string PrimName = "";
+            // Raw source descriptors only. Retention is not evaluation authority.
+            public int SourceOffset = -1, SourceLength;
+            public uint SourceType;
+            public int PlayParametersOffset = -1, BlendParametersOffset = -1;
+            public uint? PlayTimeBits, PlayTimeTypeRaw, BlendFactorBits;
+            public byte? BlendFlagRaw;
             public readonly List<MetaAnim> Children = new();
             public readonly List<uint> Weights = new();
         }
 
+        // Raw transition layout. Flags/bytes remain opaque data, not a policy.
+        public sealed class MetaTrans
+        {
+            public int SourceOffset=-1,SourceLength,ParametersOffset=-1;
+            public uint SourceType;
+            public MetaAnim? Animation;
+            public uint? DurationBits,DurationTypeRaw,FlagsRaw;
+            public byte? UnknownRaw,RunARaw;
+        }
+        public sealed record Transition(uint Id,uint AnimA,uint AnimB,MetaTrans Meta,int SourceOffset,int SourceLength);
+        public sealed record HalfTransition(uint Anim,MetaTrans Meta,int SourceOffset,int SourceLength);
+
         public sealed class AnimSet
         {
             public int Version;
+            public int SourceOffset = -1, SourceLength;
             public readonly List<(string Name, MetaAnim Anim)> Anims = new();
             public readonly List<(uint Anim, uint Evnt)> Resources = new();
+            public readonly List<Transition> Transitions=new();
+            public MetaTrans? DefaultTransition;
+            public readonly List<HalfTransition> HalfTransitions=new();
         }
 
         public readonly List<Character> Characters = new();
@@ -52,14 +74,22 @@ namespace MphRead.Mods.Import.Retro
         {
             public readonly byte[] B;
             public int O;
+            public int MetaNodes,TransitionNodes;
             public Reader(byte[] b, int o = 0) { B = b; O = o; }
-            public byte U8() { byte v = B[O]; O++; return v; }
-            public ushort U16() { ushort v = Be.U16(B, O); O += 2; return v; }
-            public uint U32() { uint v = Be.U32(B, O); O += 4; return v; }
-            public float F32() { float v = Be.F32(B, O); O += 4; return v; }
-            public string S() { string v = Be.CString(B, O, out int e); O = e + 1; return v; }
-            public void Skip(int n) => O += n;
-            public string Tag() { string v = Encoding.Latin1.GetString(B, O, 4); O += 4; return v; }
+            public void Require(int count)
+            { if(count<0||O<0||O>B.Length||count>B.Length-O)throw new InvalidDataException("ANCS read exceeds source bounds."); }
+            public byte U8() { Require(1); byte v = B[O]; O++; return v; }
+            public ushort U16() { Require(2); ushort v = Be.U16(B, O); O += 2; return v; }
+            public uint U32() { Require(4); uint v = Be.U32(B, O); O += 4; return v; }
+            public float F32() { Require(4); float v = Be.F32(B, O); O += 4; return v; }
+            public string S()
+            {
+                Require(1);int maximum=Math.Min(4097,B.Length-O),end=Array.IndexOf(B,(byte)0,O,maximum);
+                if(end<0)throw new InvalidDataException("ANCS string is unterminated or exceeds4096 bytes.");
+                string value=Encoding.Latin1.GetString(B,O,end-O);O=end+1;return value;
+            }
+            public void Skip(int n) { Require(n); O += n; }
+            public string Tag() { Require(4); string v = Encoding.Latin1.GetString(B, O, 4); O += 4; return v; }
         }
 
         // prime_model.py's character(): (CMDL, CSKR, CINF) of the named character, walking the char nodes by their
@@ -87,6 +117,7 @@ namespace MphRead.Mods.Import.Retro
 
         static List<(uint, uint, uint)> Pas(Reader r)
         {
+            r.Require(4);
             if (r.B.AsSpan(r.O, 4).SequenceEqual("PAS4"u8) == false)
             {
                 throw new InvalidDataException($"expected PAS4 at {r.O:x}");
@@ -173,57 +204,52 @@ namespace MphRead.Mods.Import.Retro
             return c;
         }
 
-        // Python's default recursion limit, less the frames below the tree (a garbage candidate in the Echoes scan fails
-        // there with a RecursionError, caught like any other parse error)
-        const int MaxDepth = 996;
-
+        // Supported private graph bounds are explicit. Counts are checked before
+        // adding children; raw parameter bits (including NaN/-0) are retained and
+        // are never treated as finite playback/evaluation inputs implicitly.
+        const int MaxDepth = 64;
+        const int MaxMetaNodes = 4096;
         static MetaAnim Meta(Reader r, int depth = 0)
         {
-            if (depth > MaxDepth) throw new InvalidDataException("meta anim tree too deep");
-            uint t = r.U32();
-            if (t == 0)
+            if(depth>MaxDepth||++r.MetaNodes>MaxMetaNodes)throw new InvalidDataException("ANCS graph depth/node budget.");
+            int start=r.O;uint type=r.U32();
+            var m=new MetaAnim{SourceOffset=start,SourceType=type};
+            if(type==0)
             {
-                var m = new MetaAnim { Kind = "play", AnimId = r.U32(), PrimId = r.U32() };
-                m.PrimName = r.S();
-                r.F32(); r.U32();
-                return m;
+                m.Kind="play";m.AnimId=r.U32();m.PrimId=r.U32();m.PrimName=r.S();
+                m.PlayParametersOffset=r.O;m.PlayTimeBits=r.U32();m.PlayTimeTypeRaw=r.U32();
             }
-            if (t is 1 or 2)
+            else if(type is 1 or 2)
             {
-                var m = new MetaAnim { Kind = t == 1 ? "blend" : "phaseblend" };
-                m.Children.Add(Meta(r, depth + 1));
-                m.Children.Add(Meta(r, depth + 1));
-                r.F32(); r.U8();
-                return m;
+                m.Kind=type==1?"blend":"phaseblend";
+                m.Children.Add(Meta(r,depth+1));m.Children.Add(Meta(r,depth+1));
+                m.BlendParametersOffset=r.O;m.BlendFactorBits=r.U32();m.BlendFlagRaw=r.U8();
             }
-            if (t == 3)
+            else if(type is 3 or 4)
             {
-                var m = new MetaAnim { Kind = "random" };
-                uint n = r.U32();
-                for (uint i = 0; i < n; i++)
-                {
-                    m.Children.Add(Meta(r, depth + 1));
-                    m.Weights.Add(r.U32());
-                }
-                return m;
+                m.Kind=type==3?"random":"seq";uint count=r.U32();
+                int minimum=type==3?8:4;
+                if(count>MaxMetaNodes-r.MetaNodes||count>(r.B.Length-r.O)/minimum)
+                    throw new InvalidDataException("ANCS graph child count/source budget.");
+                for(uint i=0;i<count;i++)
+                {m.Children.Add(Meta(r,depth+1));if(type==3)m.Weights.Add(r.U32());}
             }
-            if (t == 4)
-            {
-                var m = new MetaAnim { Kind = "seq" };
-                uint n = r.U32();
-                for (uint i = 0; i < n; i++) m.Children.Add(Meta(r, depth + 1));
-                return m;
-            }
-            throw new InvalidDataException($"meta anim type {t} at {r.O - 4:x}");
+            else throw new InvalidDataException($"meta anim type {type} at {start:x}");
+            m.SourceLength=checked(r.O-start);return m;
         }
 
-        static void Trans(Reader r)
+        static MetaTrans Trans(Reader r)
         {
-            uint t = r.U32();
-            if (t == 0) { Meta(r); return; }
-            if (t is 1 or 2) { r.Skip(14); return; }
-            if (t == 3) return;
-            throw new InvalidDataException($"meta trans {t} at {r.O - 4:x}");
+            if(++r.TransitionNodes>4096)throw new InvalidDataException("ANCS transition node budget.");
+            int start=r.O;uint type=r.U32();var value=new MetaTrans{SourceOffset=start,SourceType=type};
+            if(type==0)value.Animation=Meta(r);
+            else if(type is 1 or 2)
+            {
+                value.ParametersOffset=r.O;value.DurationBits=r.U32();value.DurationTypeRaw=r.U32();
+                value.UnknownRaw=r.U8();value.RunARaw=r.U8();value.FlagsRaw=r.U32();
+            }
+            else if(type!=3)throw new InvalidDataException($"meta trans {type} at {start:x}");
+            value.SourceLength=checked(r.O-start);return value;
         }
 
         // the leaves of a meta-animation, in order
@@ -241,9 +267,11 @@ namespace MphRead.Mods.Import.Retro
 
         static AnimSet ReadAnimSet(Reader r, bool echoes)
         {
-            var set = new AnimSet { Version = r.U16() };
+            int sourceOffset=r.O;
+            var set = new AnimSet { Version = r.U16(), SourceOffset=sourceOffset };
             int ver = set.Version;
             uint n = r.U32();
+            if(n>4096)throw new InvalidDataException("ANCS named graph count budget.");
             for (uint i = 0; i < n; i++)
             {
                 string nm = r.S();
@@ -252,9 +280,14 @@ namespace MphRead.Mods.Import.Retro
             if (ver >= 2)
             {
                 uint nt = r.U32();
-                for (uint i = 0; i < nt; i++) { r.U32(); r.U32(); r.U32(); Trans(r); }
+                if(nt>4096||nt>(r.B.Length-r.O)/16)throw new InvalidDataException("ANCS full transition count budget.");
+                for(uint i=0;i<nt;i++)
+                {
+                    int start=r.O;uint id=r.U32(),a=r.U32(),b=r.U32();var meta=Trans(r);
+                    set.Transitions.Add(new(id,a,b,meta,start,checked(r.O-start)));
+                }
             }
-            Trans(r);
+            set.DefaultTransition=Trans(r);
             if (ver >= 3)
             {
                 uint nb = r.U32();
@@ -264,14 +297,16 @@ namespace MphRead.Mods.Import.Retro
             if (ver >= 4)
             {
                 uint nh = r.U32();
-                for (uint i = 0; i < nh; i++) { r.U32(); Trans(r); }
+                if(nh>4096||nh>(r.B.Length-r.O)/8)throw new InvalidDataException("ANCS half transition count budget.");
+                for(uint i=0;i<nh;i++)
+                {int start=r.O;uint anim=r.U32();var meta=Trans(r);set.HalfTransitions.Add(new(anim,meta,start,checked(r.O-start)));}
             }
             if (!echoes)
             {
                 uint nr = r.U32();
                 for (uint i = 0; i < nr; i++) set.Resources.Add((r.U32(), r.U32()));
             }
-            return set;
+            set.SourceLength=checked(r.O-sourceOffset);return set;
         }
 
         static bool IsAnimName(string s, bool dash = false)
@@ -286,10 +321,12 @@ namespace MphRead.Mods.Import.Retro
 
         public static Ancs Parse(byte[] b)
         {
+            if(b==null||b.Length<8||b.Length>32*1024*1024)throw new InvalidDataException("ANCS supported source length budget.");
             var ancs = new Ancs();
             var r = new Reader(b);
             if (r.U32() != 0x00010001) throw new InvalidDataException("not an ANCS");
             uint n = r.U32();
+            if(n>1024)throw new InvalidDataException("ANCS character count budget.");
             bool echoes = false;
             Span<byte> next = stackalloc byte[6];
             for (uint i = 0; i < n; i++)
@@ -310,10 +347,12 @@ namespace MphRead.Mods.Import.Retro
                 // find the animation set: the first offset where it parses cleanly with plausible names; a second pass also
                 // allows '-' (the Echoes commando ANCS 8169653a has "B-quick180turn_pirate"), so ANCSs found by the first
                 // pass resolve exactly as before
+                int scanCandidates=0;
                 for (int pass = 0; pass < 2; pass++)
                 for (int o = r.O; o < b.Length - 8; o++)
                 {
                     if (b[o] != 0 || b[o + 1] is not (2 or 3 or 4 or 5)) continue;
+                    if(++scanCandidates>4096)throw new InvalidDataException("ANCS supported candidate scan budget.");
                     AnimSet set;
                     try
                     {

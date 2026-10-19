@@ -55,6 +55,7 @@ public sealed class NetPacketQueue
             or PacketType.BombIntent or PacketType.BombEvent or PacketType.BombState or PacketType.TurretFireOutcome
             or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
+            or PacketType.PartyReservationRequest or PacketType.PartyReservationState or PacketType.PartyReservationAction
             or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
             or PacketType.HostChallenge or PacketType.HostChallengeReply or PacketType.HostRequest or PacketType.HostReply
             or PacketType.Hello or PacketType.Welcome or PacketType.Bye or PacketType.Refused or PacketType.SessionState

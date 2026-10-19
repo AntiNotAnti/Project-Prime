@@ -53,6 +53,14 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>The screen on top, for the key handling that belongs to it.</summary>
         public Control? Top => _stack.Count > 0 ? _stack[^1] : null;
 
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+        internal void OpenNativeHandoff(Core.InGameEffect effect)
+        {
+            if (effect == Core.InGameEffect.Settings) OpenSettings();
+            else if (effect == Core.InGameEffect.Replay) OpenReplayControls();
+        }
+#endif
+
         private void Push(Control view)
         {
             if (_stack.Count > 0)

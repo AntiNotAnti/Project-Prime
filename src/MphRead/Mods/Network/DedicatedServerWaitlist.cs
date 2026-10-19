@@ -24,6 +24,8 @@ public sealed partial class DedicatedServer
         internal ulong Nonce, QueueId;
         internal double CreatedAt, LastSeen;
         internal bool Disconnected;
+        internal bool PartyPending;
+        internal string PartyRequest = "";
         internal LobbyQueueConnection Owner;
         internal LobbyWaitlistEntry? Published;
     }
@@ -49,6 +51,11 @@ public sealed partial class DedicatedServer
         _queueRemove.Clear();
         foreach (var peer in _queuePeers.Values)
         {
+            if (peer.PartyRequest.Length != 0)
+            {
+                if (!CurrentPartyQueue(peer, now) || now - peer.LastSeen >= 10) _queueRemove.Add(peer.Endpoint);
+                continue;
+            }
             if (peer.QueueId == 0)
             {
                 // Unproven bootstrap never occupies FIFO or player capacity.
@@ -103,7 +110,7 @@ public sealed partial class DedicatedServer
         if (!_queuePeers.TryGetValue(packet.Sender, out var peer))
         {
             if (_waitlist.Count >= WaitlistCapacity || _queuePeers.Count >= WaitlistCapacity + 16
-                || _queuePeers.Values.Count(p => p.QueueId == 0) >= 16
+                || _queuePeers.Values.Count(p => p.QueueId == 0 && p.PartyRequest.Length == 0) >= 16
                 || !_queueBootstrapBudget.Take(now * 1000, 8, 16)) return;
             // A client ID cannot claim an already connected player or queue identity.
             if (_peers.Any(p => p.ClientId == hello.ClientId) || _queuePeers.Values.Any(p => p.ClientId == hello.ClientId)) return;
@@ -129,6 +136,10 @@ public sealed partial class DedicatedServer
         if (packet.ConnectionId == 0 || packet.ConnectionId != _transport?.QueueConnectionId(packet.Sender)) return true;
         var owner = LobbyQueueConnection.FromEstablished(packet.Sender, packet.ConnectionId);
         if (peer.QueueId != 0 && peer.Owner != owner) return true;
+        if (packet.Type == PacketType.PartyReservationRequest)
+        { peer.LastSeen = now; BeginPartyRequest(packet, peer, now); return true; }
+        if (packet.Type == PacketType.PartyReservationAction)
+        { peer.LastSeen = now; HandlePartyAction(packet, now); return true; }
         if (packet.Type is PacketType.Ping or PacketType.Pong or PacketType.QueueJoin or PacketType.QueueLeave
             or PacketType.QueueAccept or PacketType.QueueDecline)
         {
@@ -138,6 +149,7 @@ public sealed partial class DedicatedServer
         switch (packet.Type)
         {
             case PacketType.QueueJoin:
+                if (peer.PartyPending || peer.PartyRequest.Length != 0) break;
                 if (!QueueJoinPacket.TryRead(packet.Payload, out var join) || join.ClientNonce != peer.Nonce) break;
                 if (peer.QueueId == 0)
                 {

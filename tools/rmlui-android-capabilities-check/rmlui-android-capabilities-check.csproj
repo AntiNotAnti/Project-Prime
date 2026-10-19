@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT</DefineConstants>
+  </PropertyGroup>
+  <!-- Source-only tests: no Android, asset/native, OpenGL, or main-project build. -->
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Link="Host/%(Filename)%(Extension)" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidLauncherAdmission.cs" Link="RmlUiAndroidLauncherAdmission.cs" />
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidLocalHunterPage.cs" Link="RmlUiAndroidLocalHunterPage.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherHunterChoiceController.cs" Link="LauncherHunterChoiceController.cs" />
+  </ItemGroup>
+</Project>

@@ -93,6 +93,60 @@ class BombAuditTests(unittest.TestCase):
     def test_complete_gameplay_does_not_imply_pixels(self):
         r=self.result();self.assertEqual(r["gameplayStatus"],"PASS",r);self.assertEqual(r["status"],"INCOMPLETE")
         self.assertEqual(self.result(visibility=dict(status="PASS"))["visibilityStatus"],"INCOMPLETE")
+    def owner_jump_terminals(self):
+        self.manifest["settings"]["protocol"]=57
+        for report in (self.server,*self.peers.values()):
+            report["Protocol"]=57
+            for item in report["Bombs"]["Rows"]:
+                if item["Type"] == "Event" and item["Kind"] == "Detonated": item["Reason"]=1
+    def test_protocol51_owner_jump_terminal_keeps_complete_gameplay_scope(self):
+        self.owner_jump_terminals();r=self.result()
+        self.assertEqual(r["gameplayStatus"],"PASS",r)
+        self.assertEqual(r["metrics"]["authorityEventCounts"]["Detonated"],1)
+        self.assertEqual(r["metrics"]["peers"]["peer-0"]["eventsCompared"],2)
+        self.assertEqual(r["status"],"INCOMPLETE")
+        self.assertEqual(r["liveVisibilityStatus"],"INCOMPLETE")
+        self.assertEqual(r["eventReasonContract"],bomb.EVENT_REASON_CONTRACT)
+    def test_owner_jump_terminal_requires_exact_applied_flag(self):
+        self.owner_jump_terminals()
+        self.peers["peer-0"]["Bombs"]["Rows"][4]["Reason"]=0
+        self.check("FAIL","Event")
+    def reason_event(self,kind,reason):
+        sample=state()
+        if kind in ("Refused","DetonateAccepted"):
+            for field in ("Position","Facing","Up","Speed"):sample[field]=dict(X=0,Y=0,Z=0)
+            sample.update(PlacedFrame=0,Countdown=0)
+        item=event(1,kind,sample,10);item["Reason"]=reason
+        return item
+    def test_event_reason_finite_kind_contract(self):
+        for kind in sorted(bomb.EVENT_KINDS):
+            valid=range(1,8) if kind == "Refused" else (0,1) if kind == "Detonated" else (0,)
+            for reason in range(8):
+                with self.subTest(kind=kind,reason=reason):
+                    item=self.reason_event(kind,reason);findings=[]
+                    parsed=bomb.rows(dict(Bombs=dict(Rows=[item],Overflow=0)),"server",
+                        lambda *args:findings.append(args))
+                    self.assertEqual(len(parsed["events"]),int(reason in valid),findings)
+                    self.assertEqual(bool(findings),reason not in valid,findings)
+    def test_event_reason_rejects_noninteger_negative_and_out_of_range(self):
+        for kind in sorted(bomb.EVENT_KINDS):
+            for reason in (True,False,1.0,0.0,-1,8,255,None,"1"):
+                with self.subTest(kind=kind,reason=reason):
+                    item=self.reason_event(kind,reason);findings=[]
+                    parsed=bomb.rows(dict(Bombs=dict(Rows=[item],Overflow=0)),"server",
+                        lambda *args:findings.append(args))
+                    self.assertEqual(parsed["events"],[])
+                    self.assertTrue(findings)
+    def test_owner_jump_keeps_exact_lifecycle_and_snapshot_checks(self):
+        for wrong_life in (True,False):
+            self.setUp();self.owner_jump_terminals()
+            if wrong_life:
+                terminal=self.server["Bombs"]["Rows"][5]
+                terminal["Key"]["LifeId"]=terminal["State"]["Key"]["LifeId"]=2
+                self.check("FAIL","Terminal")
+            else:
+                self.peers["peer-0"]["Bombs"]["Rows"][3]["States"][0]["Position"]["X"]=1
+                self.check("FAIL","Snapshot.State")
     def test_malformed_key(self):
         self.server["Bombs"]["Rows"][2]["Key"]["Generation"]=0;self.check("FAIL","Rows")
     def test_missing_ledger(self):

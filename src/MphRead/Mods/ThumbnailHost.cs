@@ -32,11 +32,37 @@ namespace MphRead.Mods
         /// <summary>True when previews can be rendered here at all.</summary>
         public static bool CanRender => Current != null || ThumbnailBatch.CanRun;
 
+        /// <summary>Generate only the selected room, using the established preview owner.</summary>
+        public static async Task<int> RenderRoomAsync(string room,
+            string expectedRoot, Action<string> report, CancellationToken cancel = default)
+        {
+            cancel.ThrowIfCancellationRequested();
+            using var configuredFiles = Launcher.GameFiles.TryUseConfiguredFiles(expectedRoot);
+            if (configuredFiles == null) throw new InvalidOperationException(Launcher.GameFiles.SetupWorking);
+            if (!Launcher.GameFiles.Ready || String.IsNullOrWhiteSpace(room)
+                || !Metadata.RoomMetadata.ContainsKey(room) || ThumbnailGenerator.Exists(room)) return 0;
+            string[] rooms = { room };
+            int rendered = Current is { } host
+                ? await host.RenderAsync(rooms, report).ConfigureAwait(false)
+                : !ThumbnailBatch.CanRun ? 0
+                : await Task.Run(() => ThumbnailBatch.Run(rooms, 1,
+                    ThumbnailGenerator.ThumbnailWidth, ThumbnailGenerator.ThumbnailHeight,
+                    report, cancel: cancel), cancel).ConfigureAwait(false);
+            cancel.ThrowIfCancellationRequested();
+            if (!String.Equals(expectedRoot, Launcher.GameFiles.Root, StringComparison.Ordinal))
+                throw new InvalidOperationException("The game-files destination changed while previews were rendering.");
+            return rendered;
+        }
+
         /// <summary>Render whatever is missing, whichever way this platform can.</summary>
         public static async Task<int> RenderMissingAsync(Action<string> report,
             CancellationToken cancel = default)
         {
             cancel.ThrowIfCancellationRequested();
+            string expectedRoot = Launcher.GameFiles.Root;
+            using var configuredFiles = Launcher.GameFiles.TryUseConfiguredFiles(expectedRoot);
+            if (configuredFiles == null) throw new InvalidOperationException(Launcher.GameFiles.SetupWorking);
+            if (!Launcher.GameFiles.Ready) return 0;
             IReadOnlyList<string> missing = ThumbnailGenerator.MissingThumbnails();
             if (missing.Count == 0)
             {
@@ -47,15 +73,20 @@ namespace MphRead.Mods
             {
                 int written = await host.RenderAsync(missing, report);
                 cancel.ThrowIfCancellationRequested();
+                if (!String.Equals(expectedRoot, Launcher.GameFiles.Root, StringComparison.Ordinal))
+                    throw new InvalidOperationException("The game-files destination changed while previews were rendering.");
                 return written;
             }
             if (!ThumbnailBatch.CanRun)
             {
                 return 0;
             }
-            return await Task.Run(() => ThumbnailBatch.Run(missing,
+            int rendered = await Task.Run(() => ThumbnailBatch.Run(missing,
                 ThumbnailBatch.DefaultParallelism, ThumbnailGenerator.ThumbnailWidth,
                 ThumbnailGenerator.ThumbnailHeight, report, cancel: cancel), cancel);
+            if (!String.Equals(expectedRoot, Launcher.GameFiles.Root, StringComparison.Ordinal))
+                throw new InvalidOperationException("The game-files destination changed while previews were rendering.");
+            return rendered;
         }
     }
 }

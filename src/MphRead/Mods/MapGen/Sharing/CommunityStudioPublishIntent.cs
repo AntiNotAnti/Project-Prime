@@ -46,7 +46,8 @@ public sealed class CommunityStudioPublishIntent
     public async Task<CommunityStudioPublishReceipt> QueueAsync(
         string endpoint, CommunityMapOperations operations,
         CommunityTransferManager transfers, CommunityPublishVisibility visibility,
-        string? releaseNotes, CancellationToken cancellation = default)
+        string? releaseNotes, CancellationToken cancellation = default,
+        CommunityTransferAccount? expectedAccount = null, CommunityPublishRequest? expectedPublication = null)
     {
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(transfers);
@@ -59,6 +60,11 @@ public sealed class CommunityStudioPublishIntent
                 "Release notes are limited to 4,000 characters.");
         cancellation.ThrowIfCancellationRequested();
 
+        // Capture before catalog lookup or package work, including older callers that
+        // do not supply a native modal witness. All later reads/tickets stay on it.
+        expectedAccount = await transfers.CaptureUploadAccountAsync(expectedAccount, cancellation).ConfigureAwait(false);
+        operations = transfers.UploadOperations(endpoint, expectedAccount);
+
         // Authenticate the owner's catalog before queueing. Never guess parent
         // hashes or accept a public map with the same name as proof of ownership.
         var owned = await operations.BrowseProjectsAsync(
@@ -70,6 +76,10 @@ public sealed class CommunityStudioPublishIntent
                 "The current Community map is archived/deleted. Restore it explicitly before publishing.");
         if (existing != null && !existing.CanManageLifecycle)
             throw new InvalidOperationException("Creator permissions do not allow this revision.");
+        if (expectedPublication != null && (expectedPublication.AllowStaleParent
+            || expectedPublication.ExistingMap != (existing != null)
+            || expectedPublication.ExpectedParentHash != existing?.LatestHash))
+            throw new InvalidOperationException("The confirmed Community parent changed. Refresh and confirm the new parent.");
 
         var request = new CommunityPublishRequest(
             ExistingMap: existing != null,
@@ -100,7 +110,7 @@ public sealed class CommunityStudioPublishIntent
                 endpoint, temp, request,
                 listed: visibility == CommunityPublishVisibility.Published,
                 draft: visibility == CommunityPublishVisibility.Draft,
-                cancellation: cancellation).ConfigureAwait(false);
+                cancellation: cancellation, expectedAccount: expectedAccount).ConfigureAwait(false);
             return new CommunityStudioPublishReceipt(
                 jobId, MapId, RuntimeName, hash, existing != null,
                 existing?.LatestHash, visibility);

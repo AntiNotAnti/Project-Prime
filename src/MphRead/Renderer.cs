@@ -316,7 +316,8 @@ namespace MphRead
         private Action _close;
 
         public Scene(Vector2i size, KeyboardState keyboardState, MouseState mouseState,
-            Action<string> setTitle, Action close, ISceneServices? services = null, bool initializeRuntime = true)
+            Action<string> setTitle, Action close, ISceneServices? services = null, bool initializeRuntime = true,
+            Action<Scene>? lifetimeOwned = null)
         {
             Services = services ?? LiveSceneServices.Instance;
             PlayerReplication = new Mods.Network.PlayerReplicationBridge(Services.PlayerReplication);
@@ -333,12 +334,15 @@ namespace MphRead
                 Random.SetRng2(Rng.Rng2);
                 BindForegroundFacades();
             }
-            Mods.Network.NetAiClient.Bind(this);
             Size = size;
             _keyboardState = keyboardState;
             _mouseState = mouseState;
             _setTitle = setTitle;
             _close = close;
+            // Optional lifetime registration only: a caller can retain this
+            // exact candidate if subsequent runtime initialization throws.
+            lifetimeOwned?.Invoke(this);
+            Mods.Network.NetAiClient.Bind(this);
             if (!Services.IsReplica)
             {
                 Read.ClearCache();
@@ -2378,6 +2382,9 @@ namespace MphRead
             _cameraUp = previous._cameraUp; _cameraRight = previous._cameraRight;
             _replayOrbit = previous._replayOrbit;
             Players.MainPlayerIndex = previous.Players.MainPlayerIndex;
+#if !ANDROID && !MPHREAD_SERVER
+            CopyNativeStudioPreviewFrom(previous);
+#endif
         }
         internal void MoveReplayEditorCamera(Vector3 move, float yaw, float pitch)
         {
@@ -2392,6 +2399,9 @@ namespace MphRead
             // while the recorded simulation is paused or seeking, but are sampled
             // only once per rendered frame rather than once per replay simulation step.
             _frameTime = 1 / 60f;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PollNativeReplay(this)) return;
+#endif
 #if MPHREAD_SHELL
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
@@ -2551,7 +2561,11 @@ namespace MphRead
                     Mods.EndScreen.PollGamepad();
                 }
                 bool noPlayerInput = !HardwareInputReady || _inputMode == InputMode.CameraOnly
-                    || Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing;
+                    || Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing
+#if MPHREAD_SHELL
+                    || Mods.Launcher.Gui.Shell.UiVisible
+#endif
+                    ;
                 PlayerEntity.ProcessInput(this.Players, _keyboardState, _mouseState, noPlayerInput);
                 if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
                 {
@@ -2835,6 +2849,9 @@ namespace MphRead
                 _palettePreparationCollecting = false;
                 _palettePreparation?.Clear();
             }
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PrepareNativeReplaySpatialOverlays(this);
+#endif
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.CaptureWorld))
                 CaptureRetainedRenderWorld();
         }
@@ -2843,6 +2860,24 @@ namespace MphRead
         {
             float aspect = Size.X / (float)Size.Y;
             return Matrix4.CreatePerspectiveFieldOfView(fov, aspect, _nearClip, _useClip ? _farClip : 10000f);
+        }
+
+        internal Vector3 ModWorldSpaceViewModelPoint(Vector3 point)
+            => ModWorldSpaceViewModelPoint(point, _viewMatrix, _viewModelFov, _cameraFov);
+
+        internal static Vector3 ModWorldSpaceViewModelPoint(Vector3 point, Matrix4 view,
+            float authoredFov, float worldFov)
+        {
+            // A world-space continuous beam must meet the displayed barrel,
+            // whose authored projection is independent of the user's world FOV.
+            // Preserve its camera depth and match its projected X/Y exactly.
+            if (authoredFov == worldFov) return point;
+            float ratio = MathF.Tan(worldFov / 2) / MathF.Tan(authoredFov / 2);
+            if (!float.IsFinite(ratio) || ratio <= 0 || view.Determinant == 0) return point;
+            Vector3 camera = Vector3.TransformPosition(point, view);
+            camera.X *= ratio; camera.Y *= ratio;
+            Vector3 result = Vector3.TransformPosition(camera, view.Inverted());
+            return float.IsFinite(result.X) && float.IsFinite(result.Y) && float.IsFinite(result.Z) ? result : point;
         }
 
         private void UpdateProjection()
@@ -3461,6 +3496,12 @@ namespace MphRead
 
         private void CountFrame()
         {
+#if !ANDROID && !MPHREAD_SERVER
+            // The host already counted this picture before compositing the
+            // replay views. Their redraw cost belongs in elapsed time, while
+            // FPS counts each presented picture once.
+            if (NativeReplayMultiViewActive) return;
+#endif
             _fpsFrames++;
             double elapsed = _fpsClock.Elapsed.TotalSeconds;
             // Long enough to be steady, short enough to answer "is it this
@@ -3491,21 +3532,32 @@ namespace MphRead
             // program choice can safely persist through every pass this frame.
             SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
+#if !MPHREAD_SERVER
+            var nativeReplayCamera = StageNativeReplayCamera();
+#endif
+            bool rendered;
             try
             {
-                return RenderFrameContent();
+                rendered = RenderFrameContent();
             }
             finally
             {
                 EndHudPass();
                 EndRenderDiagnostics();
             }
+#if !MPHREAD_SERVER
+            if (rendered) QueueRenderedNativeReplayCamera(nativeReplayCamera);
+#endif
+            return rendered;
         }
 
         private bool RenderFrameContent()
         {
             CountFrame();
             bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            drawGameHud &= Mods.Replay.ReplayVideoExporter.Active || NativeStudioPreviewGameHud;
+#endif
             if (!ExecuteCoreFrameRenderGraph(drawGameHud))
                 return false;
 
@@ -3563,7 +3615,10 @@ namespace MphRead
             if (!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this))
             {
                 if (drawGameHud) AimTrainer?.DrawHud();
-                Mods.Replay.ReplayHud.Draw(this);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                if (!Mods.Launcher.Gui.Shell.StudioWindow || Mods.Replay.ReplayVideoExporter.Active || NativeStudioPreviewOverlay)
+#endif
+                    Mods.Replay.ReplayHud.Draw(this);
                 if (drawGameHud) Mods.Input.AimAssist.AimAssistDebug.Draw(this);
             }
             if (_movieFrameIndex != -1)
@@ -4101,6 +4156,7 @@ namespace MphRead
                 return null;
             }
             EffectParticle particle = _inactiveParticles.Dequeue();
+            particle.ModResetDrawState();
             particle.Position = Vector3.Zero;
             particle.Speed = Vector3.Zero;
             // A pooled particle must not inherit the previous effect's angle.
@@ -4120,6 +4176,7 @@ namespace MphRead
 
         private void UnlinkEffectParticle(EffectParticle particle)
         {
+            particle.ModResetDrawState();
             _inactiveParticles.Enqueue(particle);
         }
 
@@ -4253,14 +4310,20 @@ namespace MphRead
         }
 
         private readonly List<EffectEntry> _presentationOverrideEntries = new(4);
-        internal void SetPresentationEffectTransform(EffectEntry entry, Matrix4 transform)
+        internal bool HasPendingEffectSimulation => _pendingEffectSteps > 0;
+        internal void SetPresentationEffectTransform(EffectEntry entry, Matrix4 transform, bool viewModel = true)
         {
             if (!_presentationOverrideEntries.Contains(entry)) _presentationOverrideEntries.Add(entry);
             entry.DrawTransformOverride = transform;
+            entry.DrawTransformUsesViewModel = viewModel;
         }
         internal void ClearPresentationEffectTransforms()
         {
-            foreach (var entry in _presentationOverrideEntries) entry.DrawTransformOverride = null;
+            foreach (var entry in _presentationOverrideEntries)
+            {
+                entry.DrawTransformOverride = null;
+                entry.DrawTransformUsesViewModel = false;
+            }
             _presentationOverrideEntries.Clear();
         }
         internal int PresentationEffectOverrideCount => _presentationOverrideEntries.Count;
@@ -4293,7 +4356,16 @@ namespace MphRead
         }
 
         private void ProcessEffects(ulong effectFrame)
-            => ProcessEffectsCore(effectFrame, canonicalBirthsOnly: false);
+        {
+            ProcessEffectsCore(effectFrame, canonicalBirthsOnly: false);
+            long timeline = EffectDrawTimeline;
+            foreach (EffectElementEntry element in _activeElements)
+                foreach (EffectParticle particle in element.Particles)
+                    particle.ModCaptureDrawState(LifetimeGeneration, timeline, effectFrame);
+        }
+
+        private long EffectDrawTimeline => Services is Mods.Network.ReplaySceneServices replay
+            ? replay.Session.Transport.SeekGeneration : Mods.Render.FrameTiming.PresentationGeneration;
 
         private void ProcessEffectsCore(ulong effectFrame, bool canonicalBirthsOnly)
         {
@@ -5301,30 +5373,52 @@ namespace MphRead
                     {
                         EffectParticle particle = element.Particles[j];
                         Matrix4 matrix = _viewMatrix;
+                        Matrix4 canonicalMatrix = _viewMatrix;
                         if (particle.Owner.Flags.TestFlag(EffElemFlags.UseTransform) && !particle.Owner.Flags.TestFlag(EffElemFlags.UseMesh))
                         {
                             matrix = particle.Owner.PresentationTransform * matrix;
+                            canonicalMatrix = particle.Owner.Transform * canonicalMatrix;
                         }
-                        particle.InvokeSetVecsFunc(matrix);
-                        particle.InvokeDrawFunc(1);
-                        if (particle.ShouldDraw)
+                        // Preserve the historical current-state geometry/cache
+                        // before generating this picture's temporary sample.
+                        particle.ModBeginCanonicalDraw();
+                        try
                         {
-                            // First-person linked charge/muzzle effects share the
-                            // cannon's camera-authored projection as well as its
-                            // late-latched transform. World effects keep world FOV.
-                            bool viewModelEffect = particle.Owner.EffectEntry?.DrawTransformOverride.HasValue == true;
-                            if (viewModelEffect)
+                            particle.InvokeSetVecsFunc(canonicalMatrix);
+                            particle.InvokeDrawFunc(1);
+                            bool sampled = particle.ModPrepareDraw(LifetimeGeneration, EffectDrawTimeline, _effectFrame,
+                                Services.IsReplica ? ReplayRenderAlpha : Mods.Render.FrameTiming.PresentationAlpha,
+                                (Services.IsReplica || Mods.Render.FrameTiming.Active && Mods.Render.FrameTiming.HighRefreshPresentation)
+                                    && ProcessFrame && GameState.MatchState == MatchState.InProgress && !GameState.DialogPause);
+                            if (sampled)
                             {
-                                BeginViewModelItems();
+                                particle.InvokeSetVecsFunc(matrix);
+                                particle.InvokeDrawFunc(1);
                             }
-                            try
+                            if (particle.ShouldDraw)
                             {
-                                particle.AddRenderItem(this);
+                                // First-person linked charge/muzzle effects share the
+                                // cannon's camera-authored projection as well as its
+                                // late-latched transform. World effects keep world FOV.
+                                bool viewModelEffect = particle.Owner.EffectEntry is
+                                    { DrawTransformOverride: not null, DrawTransformUsesViewModel: true };
+                                if (viewModelEffect)
+                                {
+                                    BeginViewModelItems();
+                                }
+                                try
+                                {
+                                    particle.AddRenderItem(this);
+                                }
+                                finally
+                                {
+                                    if (viewModelEffect) EndViewModelItems();
+                                }
                             }
-                            finally
-                            {
-                                if (viewModelEffect) EndViewModelItems();
-                            }
+                        }
+                        finally
+                        {
+                            particle.ModFinishDraw();
                         }
                     }
                 }
@@ -5524,6 +5618,7 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                foreach (var player in Players.Items) player?.ModRetireCharacterGameplay();
                 // Keep known asynchronous/decoder owners explicit. No release
                 // is inferred merely because UnloadGl later clears its queues.
                 // Movie decoder workers never capture Scene or OpenAL and
@@ -8487,6 +8582,9 @@ localCenter *= _profileHudScale;
         /// <summary>Whether a match is loaded. False while the launcher is up.</summary>
         public bool HasScene => _scene != null;
 
+        /// <summary>Stable scene owned by this window; replay presentation replicas may change during seeks.</summary>
+        internal Scene? CanonicalScene => _scene;
+
         private Scene? _scene;
 
         /// <summary>
@@ -9061,6 +9159,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeginNativePresentation(this);
+#endif
             Mods.Network.DemoRecorder.PollSaves();
             ApplyFrameRateSettings();
             if (Mods.Network.NetLaunch.TickTerminalLobby(this))
@@ -9081,6 +9182,9 @@ localCenter *= _profileHudScale;
             // the match is over. See Shell.TickEndPanel.
             Mods.Launcher.Gui.Shell.TickEndPanel();
             Mods.Launcher.Gui.Shell.TickUi(this);
+            // Native pause/results have no Avalonia surface. Publish their
+            // ownership before the fixed-step pad consumers resolve context.
+            Mods.Input.GamepadContexts.MenuVisible = Mods.Launcher.Gui.Shell.UiVisible;
 #endif
 #if MPHREAD_SHELL
             if (_scene == null)
@@ -9279,6 +9383,10 @@ localCenter *= _profileHudScale;
                 return;
             }
             Mods.Replay.ReplayVideoExporter.AfterSceneDraw(Scene);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.RenderNativeReplayFourViews(this);
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.RenderNativeReplayComparisonPreview(this);
+#endif
             // Last, over the finished picture: the pause menu is a scrim over
             // a match that is still being played, and the settings opened from
             // it cover the same rectangle. Nothing is drawn when no screen is
@@ -9310,6 +9418,12 @@ localCenter *= _profileHudScale;
             Mods.Render.OpenGlFrameProfiler.EndPresent();
 #else
             PresentFrame();
+#endif
+#if !MPHREAD_SERVER
+            Scene.PublishNativeReplayPresentedFrame();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.PublishNativeTimelinePresentedFrame(this);
+#endif
 #endif
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.PresentEnd);
@@ -9358,6 +9472,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnResize(ResizeEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeViewportChanged();
+#endif
             // The shape first, and outside the _sceneReady guard: a window
             // resized before the scene exists is still a window the player
             // resized, and this only touches memory.
@@ -9413,6 +9530,9 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeViewportChanged();
+#endif
             if (_sceneReady)
             {
                 ResizeToFramebuffer();
@@ -9447,6 +9567,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeFocusChanged(e.IsFocused);
+#endif
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {

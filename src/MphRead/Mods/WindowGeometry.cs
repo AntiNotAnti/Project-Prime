@@ -55,6 +55,7 @@ namespace MphRead.Mods
         /// deterministic one its pictures are compared at.
         /// </summary>
         public static bool Enabled { get; set; } = true;
+        internal static bool DisplayTrialActive { get; set; }
 
         /// <summary>
         /// Whether this process has a shell window at all -- the one window a
@@ -173,7 +174,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Note(NativeWindow window)
         {
-            if (!Enabled)
+            if (!Enabled || DisplayTrialActive)
             {
                 return;
             }
@@ -194,7 +195,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Flush(bool force = false)
         {
-            if (!_dirty)
+            if (DisplayTrialActive || !_dirty)
             {
                 return;
             }
@@ -229,7 +230,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void NoteMode()
         {
-            if (!Enabled || !Owned)
+            if (!Enabled || !Owned || DisplayTrialActive)
             {
                 return;
             }
@@ -259,7 +260,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Remember(NativeWindow window)
         {
-            if (!Enabled)
+            if (!Enabled || DisplayTrialActive)
             {
                 return;
             }

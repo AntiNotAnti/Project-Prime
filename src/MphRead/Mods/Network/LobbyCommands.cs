@@ -36,9 +36,15 @@ namespace MphRead.Mods.Network
         private double _lastStartCommitBroadcast;
         private MatchStartIdentity CurrentStartIdentity => new(_matchId, _authorityEpoch, _start.Identity.StartGeneration);
 
-        private MatchDefinition CurrentDefinition => SessionPolicy == ServerSessionPolicy.Lobby
-            ? (_phase == SessionPhase.Lobby ? _lobbyMatch : _frozenMatch)
-            : DefinitionFor(_rotation.Current);
+        private MatchDefinition CurrentDefinition => _phase == SessionPhase.Lobby
+            ? _lobbyMatch
+            : !String.IsNullOrEmpty(_frozenMatch.RoomKey) ? _frozenMatch : DefinitionFor(_rotation.Current);
+
+        private void FreezeMatch(MatchDefinition match)
+        {
+            _frozenMatch = match.NormalizeLegacy();
+            _frozenWorldProfile = LobbyRules.ResolveWorldProfile(_frozenMatch, _maxPlayers);
+        }
 
         private MatchDefinition DefinitionFor(RotationEntry entry) => new MatchDefinition()
         {
@@ -96,7 +102,7 @@ namespace MphRead.Mods.Network
                 MaxPlayers = (byte)_maxPlayers, Match = CurrentDefinition,
                 MapDownloadSource = CurrentDefinition.MapIdentity.IsCustom ? MapDownloadSource : "",
                 MapAvailability = availability,
-                WorldProfile = SessionPolicy == ServerSessionPolicy.Lobby && _phase != SessionPhase.Lobby
+                WorldProfile = _phase != SessionPhase.Lobby && !String.IsNullOrEmpty(_frozenMatch.RoomKey)
                     ? _frozenWorldProfile : LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers),
                 RuleFlags = (CurrentDefinition.HideOpponentHealth
                         ? LobbyRuleFlags.HideOpponentHealth : 0)
@@ -392,8 +398,8 @@ namespace MphRead.Mods.Network
             }
             StopLobbyMatchRuntime(matchEnded: false);
             _botAssistedMatch = _bots.Count > 0;
-            _frozenMatch = match;
-            _frozenWorldProfile = LobbyRules.ResolveWorldProfile(_frozenMatch, _maxPlayers);
+            FreezeMatch(match);
+            if (SessionPolicy == ServerSessionPolicy.Continuous) NormalizeTeams();
 
             foreach (Peer connected in _peers)
             { connected.LastIntentFrame = 0; connected.HasIntentFrame = false; }
@@ -405,6 +411,12 @@ namespace MphRead.Mods.Network
                 participant.MatchReady = participant.SceneLoaded = false;
                 participant.LoadStartedAt = now; participant.FirstBootstrapAt = -1; participant.LateJoin = false;
                 participant.BootstrapLength = 0;
+                participant.BootstrapIdentity = default;
+                participant.BootstrapObjectives = participant.BootstrapBombs = Array.Empty<byte[]>();
+                participant.PostMatchReady = false;
+                participant.PresentationDelay = null;
+                participant.TimingReportedAt = 0;
+                participant.TimingMatch = 0; participant.TimingEpoch = 0;
                 participant.MatchLoadStage = MatchLoadStage.None;
                 participant.MatchLoadProgressAt = 0;
                 participant.SlowLoadLogged = false;

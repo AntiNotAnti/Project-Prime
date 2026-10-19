@@ -283,6 +283,9 @@ namespace MphRead.Entities
         private Vector3 _fpCurrentGunLocalFacing = Vector3.UnitZ;
         private Vector3 _fpPreviousGunLocalUp = Vector3.UnitY;
         private Vector3 _fpCurrentGunLocalUp = Vector3.UnitY;
+        // Live presentation fences only; historical replay fields and explicit
+        // observed/replay sampling retain their original values and policy.
+        private long _fpPreviousGeneration, _fpCurrentGeneration;
         private bool _fpDrawStateValid;
         private bool _fpHistoryFixedWeapon;
         private FirstPersonRenderPose _fpRenderPose;
@@ -423,6 +426,7 @@ namespace MphRead.Entities
             _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition = position;
             _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing = facing;
             _fpPreviousGunLocalUp = _fpCurrentGunLocalUp = up;
+            _fpPreviousGeneration = _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
             _fpHistoryFixedWeapon = Features.FixedWeapon;
             _fpDrawStateValid = true;
         }
@@ -445,6 +449,7 @@ namespace MphRead.Entities
                 _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition = position;
                 _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing = facing;
                 _fpPreviousGunLocalUp = _fpCurrentGunLocalUp = up;
+                _fpPreviousGeneration = _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
                 _fpHistoryFixedWeapon = fixedWeapon;
                 _fpDrawStateValid = true;
                 return;
@@ -453,16 +458,22 @@ namespace MphRead.Entities
             _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition;
             _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing;
             _fpPreviousGunLocalUp = _fpCurrentGunLocalUp;
+            _fpPreviousGeneration = _fpCurrentGeneration;
             _fpCurrentGunLocalPosition = position;
             _fpCurrentGunLocalFacing = facing;
             _fpCurrentGunLocalUp = up;
+            _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
             _fpHistoryFixedWeapon = fixedWeapon;
         }
 
         private bool ModInterpolatedFirstPersonLocalPose(double presentationAlpha,
-            out Vector3 position, out Vector3 facing, out Vector3 up, bool interpolate = false)
+            out Vector3 position, out Vector3 facing, out Vector3 up, bool interpolate = false,
+            bool fenceLiveClock = false)
         {
-            if (!_fpDrawStateValid)
+            if (!_fpDrawStateValid || fenceLiveClock
+                && (_fpPreviousGeneration != Mods.Render.FrameTiming.PresentationGeneration
+                    || _fpCurrentGeneration != Mods.Render.FrameTiming.PresentationGeneration
+                    || !double.IsFinite(presentationAlpha)))
             {
                 return ModCurrentFirstPersonLocalPose(out position, out facing, out up);
             }
@@ -686,7 +697,7 @@ namespace MphRead.Entities
             {
                 smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
                     out drawCameraPosition, out drawCameraTarget,
-                    out drawCameraUp, out drawCameraFov);
+                    out drawCameraUp, out drawCameraFov, fenceLiveClock: true);
             }
             if (smoothLegacyCamera)
             {
@@ -709,7 +720,11 @@ namespace MphRead.Entities
                 // hitch while walking, strafing, jumping or landing.
                 if (Features.ResponsiveAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
                 {
-                    cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha);
+                    cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha, fenceLiveClock: true);
+                    // Scope magnification belongs to the same picture as the
+                    // interpolated camera and camera-local cannon offsets.
+                    // Orientation below remains responsive to current input.
+                    fov = CameraInfo.ModGetDrawFov(presentationAlpha, fenceLiveClock: true);
                 }
 
                 // Static/Quake and Pro HUD Dynamic/Metroid both use a
@@ -727,7 +742,7 @@ namespace MphRead.Entities
                 || !ModInterpolatedFirstPersonLocalPose(
                     presentationAlpha,
                     out Vector3 gunLocalPosition, out Vector3 gunLocalFacing,
-                    out Vector3 gunLocalUp))
+                    out Vector3 gunLocalUp, fenceLiveClock: true))
             {
                 return false;
             }

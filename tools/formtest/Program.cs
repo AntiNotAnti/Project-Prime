@@ -17,28 +17,41 @@ static class Program
     private static int Main()
     {
         // A relayed press can lead the authority's snapshot for an entire
-        // 300 ms round trip. Exercise both transition directions at 60 Hz.
-        foreach (int ping in new[] { 150, 300 })
+        // round trip. Keep running beyond the delayed state arrival: the old
+        // fixed 50-frame horizon missed the 750 ms rollback at frames 60/54.
+        foreach (int ping in new[] { 45, 150, 250, 300, 350, 750 })
         {
+            uint delay = (uint)(ping * 60 / 1000);
+            uint horizon = 20 + delay + 20;
             var morph = new FormReconciliation();
-            for (uint frame = 0; frame <= 50; frame++)
+            for (uint frame = 0; frame <= horizon; frame++)
             {
                 bool animating = frame < 20;
                 bool actualAlt = !animating;
-                bool stale = frame < 20 + (uint)(ping * 60 / 1000);
+                bool stale = frame < 20 + delay;
                 Expect(morph.Step(frame, !stale, actualAlt, animating, false, ping),
                     FormCorrection.None, $"morph at {ping} ms", frame);
             }
 
             var unmorph = new FormReconciliation();
-            for (uint frame = 0; frame <= 50; frame++)
+            for (uint frame = 0; frame <= horizon; frame++)
             {
                 bool animating = frame < 14;
-                bool stale = frame < 14 + (uint)(ping * 60 / 1000);
+                bool stale = frame < 14 + delay;
                 Expect(unmorph.Step(frame, stale, false, false, animating, ping),
                     FormCorrection.None, $"unmorph at {ping} ms", frame);
             }
         }
+
+        // A report that never catches up still needs finite correction. These
+        // scenarios leave the correction unapplied to test the failed-switch
+        // fallback and the independent absolute mismatch ceiling.
+        MissingReport(750, entering: true, start: 81, force: 93, FormCorrectionReason.FailedTransition);
+        MissingReport(750, entering: false, start: 75, force: 87, FormCorrectionReason.FailedTransition);
+        MissingReport(9999, entering: true, start: 88, force: 100, FormCorrectionReason.FailedTransition);
+        MissingReport(9999, entering: false, start: 82, force: 90, FormCorrectionReason.ForcedMaximumMismatch);
+        MissingReport(int.MaxValue, entering: true, start: 88, force: 100, FormCorrectionReason.FailedTransition);
+        MissingReport(int.MinValue, entering: true, start: 36, force: 48, FormCorrectionReason.FailedTransition);
 
         var lostPress = new FormReconciliation();
         for (uint frame = 0; frame <= 20; frame++)
@@ -135,5 +148,23 @@ static class Program
 
         Console.WriteLine($"form reconciliation: {_checks} checks passed");
         return 0;
+    }
+
+    private static void MissingReport(int ping, bool entering, uint start, uint force, FormCorrectionReason reason)
+    {
+        var reconciliation = new FormReconciliation();
+        uint animationEnd = entering ? 20u : 14u;
+        for (uint frame = 0; frame <= force; frame++)
+        {
+            bool animating = frame < animationEnd;
+            bool actualAlt = entering && !animating;
+            var correction = reconciliation.Step(frame, !entering, actualAlt,
+                entering && animating, !entering && animating, ping);
+            Expect(correction, frame == start ? FormCorrection.Start
+                : frame == force ? FormCorrection.Force : FormCorrection.None,
+                $"missing {(entering ? "morph" : "unmorph")} report at {ping} ms", frame);
+            if (frame == force && reconciliation.Reason != reason)
+                throw new Exception($"missing report at {ping} ms: expected {reason}, got {reconciliation.Reason}");
+        }
     }
 }

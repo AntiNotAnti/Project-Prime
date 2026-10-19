@@ -557,6 +557,7 @@ namespace MphRead.Entities
 
         public override void Initialize()
         {
+            _modCharacterGameplayInitializationStarted = true;
             Vector3 prevPos = _position;
             Vector3 prevUp = _upVector;
             Vector3 prevFacing = _facingVector;
@@ -648,6 +649,7 @@ namespace MphRead.Entities
             _matchSpawnProtectionTimer = 0;
             ModResetSpawnProtectionReplication();
             ModResetMovementValidation();
+            ModResetWallClingForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
             _walkSfxIndex = 0;
@@ -745,6 +747,7 @@ namespace MphRead.Entities
             {
                 Mods.RespawnChoice.ApplyOnSpawn(this);
             }
+            ModResetWallClingForLife();
             LoadFlags |= LoadFlags.Spawned;
             if (IsMainPlayer)
             {
@@ -1259,6 +1262,7 @@ namespace MphRead.Entities
         {
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             ModNoteMovementValidationTeleport();
+            ModResetWallClingForLife();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
             if (IsAltForm || IsMorphing || IsUnmorphing)

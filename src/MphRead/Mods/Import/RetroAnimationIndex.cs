@@ -40,8 +40,9 @@ public static class RetroAnimationIndex
         {
             throw new InvalidDataException("Unable to parse bounded source ANCS animation index.", ex);
         }
-        if (parsed.Set == null || parsed.Set.Anims.Count > MaxClips)
-            throw new InvalidDataException("ANCS source animation set is absent or exceeds budget.");
+        if (parsed.Set == null) return Array.Empty<Clip>(); // Valid parsed sparse source has no animation Set.
+        if (parsed.Set.Anims.Count > MaxClips)
+            throw new InvalidDataException("ANCS source animation set exceeds budget.");
 
         var result = new List<Clip>(parsed.Set.Anims.Count);
         foreach ((string name, Ancs.MetaAnim meta) in parsed.Set.Anims)

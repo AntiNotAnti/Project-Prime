@@ -6,13 +6,14 @@
     <link type="text/rcss" href="page.rcss"/>
 </head>
 <body template="prime-shell">
-<div class="hunter-panel">
+<div id="native_hunter_panel" class="hunter-panel native-hunter-panel">
     <div class="eyebrow">HUNTER SELECTION // NEXT DEPLOYMENT</div>
     <h1 id="native_hunter_name">SELECT YOUR HUNTER</h1>
     <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
     <div class="hunter-grid">
-        <div class="hunter-picker">
+        <div id="native_hunter_picker" class="hunter-picker">
             <div class="section-title">PLAYABLE HUNTERS</div>
+            <div id="hunter_switch_hint" class="hint">Choose a Hunter for your next deployment.</div>
             <div class="hunter-choices">
                 <button id="hunter_choice0" data-action="hunter:select:0">SAMUS</button>
                 <button id="hunter_choice1" data-action="hunter:select:1">KANDEN</button>
@@ -32,25 +33,44 @@
             <div class="section-title">EQUIPPED LOADOUT // COSMETICS</div>
             <div class="hunter-cosmetic-actions">
                 <button id="hunter_skin" data-action="hunter:skin-next">SKIN // DEFAULT</button>
+                <div id="hunter_skin_description" class="hint cosmetic-description" role="status"></div>
                 <button id="hunter_armor" data-action="hunter:armor-next">ARMOR EFFECT // NONE</button>
+                <div id="hunter_armor_description" class="hint cosmetic-description" role="status"></div>
                 <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
+                <div id="hunter_death_description" class="hint cosmetic-description" role="status"></div>
             </div>
             <div id="hunter_cosmetics_state" class="hint">UNSAVED COSMETIC DRAFT</div>
+            <p id="hunter_cosmetics_visibility" class="hint" role="group">Team-colored panels stay visible in team matches. First-person effects are reduced to keep your aim clear.</p>
             <div class="hunter-actions">
                 <button id="hunter_cosmetics_save" data-action="hunter:cosmetics-save">EQUIP COSMETICS</button>
                 <button id="hunter_cosmetics_reset" data-action="hunter:cosmetics-reset">DISCARD COSMETIC DRAFT</button>
+                <button id="hunter_loadout_default" data-action="hunter:loadout-default">RESET LOADOUT</button>
             </div>
             <div class="hunter-actions">
                 <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP HUNTER / SUIT</button>
-                <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD</button>
+                <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD ALL CHANGES</button>
                 <button id="hunter_full" data-action="hunter:open">FULL HUNTER LICENSE</button>
                 <button id="hunter_cancel" data-action="hunter:cancel">BACK</button>
             </div>
         </div>
-        <div class="hunter-preview">
-            <div class="section-title">ACTIVE LOADOUT</div>
+        <div id="native_hunter_preview_panel" class="hunter-preview">
+            <div id="hunter_preview_state" class="section-title">LOADOUT PREVIEW</div>
             <div id="native_hunter_preview" class="hunter-preview-space"></div>
-            <div id="native_hunter_hint" class="hint">Live 3D Hunter preview uses the current engine character model and your unsaved cosmetic draft. Equipping and account sync happen only when you select Save.</div>
+            <div class="hunter-actions native-hunter-preview-controls">
+                <button id="hunter_preview_biped" data-action="hunter:preview-mode:0">HUNTER</button>
+                <button id="hunter_preview_weapon" data-action="hunter:preview-mode:1">WEAPON</button>
+                <button id="hunter_preview_alt" data-action="hunter:preview-mode:2">ALT FORM</button>
+                <button id="hunter_rotate_left" data-action="hunter:rotate:0">ROTATE LEFT</button>
+                <button id="hunter_rotate_right" data-action="hunter:rotate:1">ROTATE RIGHT</button>
+                <button id="hunter_zoom_out" data-action="hunter:zoom:0">ZOOM OUT</button>
+                <button id="hunter_zoom_in" data-action="hunter:zoom:1">ZOOM IN</button>
+                <button id="hunter_preview_death" data-action="hunter:preview-death">DEATH</button>
+                <button id="hunter_loop_death" data-action="hunter:loop-death">LOOP DEATH // OFF</button>
+                <button id="hunter_compare_native" data-action="hunter:compare-native">COMPARE NATIVE</button>
+                <button id="hunter_preview_reset" data-action="hunter:preview-reset">RESET PREVIEW</button>
+            </div>
+            <div class="hint">Compare Native previews the original loadout without changing your draft. Reset Preview restores the camera and clears the death preview.</div>
+            <div id="native_hunter_hint" class="hint">Live 3D preview shows your draft. Equip Hunter / Suit and Equip Cosmetics save their respective selections.</div>
         </div>
     </div>
 </div>

@@ -471,6 +471,7 @@ public:
         for (auto it = pending_inputs.begin(); it != pending_inputs.end();) {
             Rml::Element* element = FindElementById(it->first.c_str());
             if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
+                NotifyProgrammaticTextMutation(input);
                 input->SetValue(it->second);
                 DirtyVisual();
                 it = pending_inputs.erase(it);

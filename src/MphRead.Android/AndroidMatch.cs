@@ -24,7 +24,8 @@ namespace MphRead.Droid
     internal static class AndroidMatch
     {
         /// <summary>Runs on the GL thread: everything below it touches GL.</summary>
-        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close)
+        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close,
+            Action<Scene>? lifetimeOwned = null)
         {
             GameFiles.ApplyPaths();
             if (NetSession.Active)
@@ -41,12 +42,12 @@ namespace MphRead.Droid
                 // through the multiplayer path below is what this did before,
                 // and an adventure plan carries an empty room key on purpose
                 // -- so the story ended at "No room with this name is known."
-                return BuildAdventure(input, size, plan, close);
+                return BuildAdventure(input, size, plan, close, lifetimeOwned);
             }
             // No slot means nothing can be written, which is what a match
             // needs -- the same reason MatchStart gives.
             Menu.SaveSlot = 0;
-            var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
+            var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close, lifetimeOwned: lifetimeOwned);
             if (NetSession.Active)
             {
                 NetLaunch.DisableCheatsForMatch();
@@ -133,7 +134,7 @@ namespace MphRead.Droid
         /// new game.
         /// </summary>
         private static Scene BuildAdventure(AndroidInput input, Vector2i size,
-            LaunchPlan plan, Action close)
+            LaunchPlan plan, Action close, Action<Scene>? lifetimeOwned)
         {
             string? landingRoom = null;
             CampaignDockReceipt? checkedDock = MatchStart.RecentShipDock;
@@ -154,7 +155,7 @@ namespace MphRead.Droid
             // the scene lets the constructor's reset reload the old slot and
             // loses a fresh save (or throws on stale/corrupt JSON).
             Menu.SaveSlot = 0;
-            var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
+            var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close, lifetimeOwned: lifetimeOwned);
             scene.Players.MaxPlayers = 4;
 
             string roomKey = AdventureSave.Begin(
@@ -245,7 +246,8 @@ namespace MphRead.Droid
             // back between matches, and a seven-bot match must not leave the
             // next one at eight.
             PlayerEntity.MaxPlayers = Math.Max(4, bots + 1);
-            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: teamPlay ? 0 : -1);
+            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier),
+                recolor: Math.Clamp(LauncherPrefs.LastColor, 0, 3), team: teamPlay ? 0 : -1);
             for (int i = 1; i <= bots; i++)
             {
                 var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);

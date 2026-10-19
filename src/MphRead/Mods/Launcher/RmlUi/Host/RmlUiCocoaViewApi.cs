@@ -8,7 +8,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host;
 internal readonly record struct RmlUiCocoaRect(double X, double Y, double Width, double Height);
 
 /// <summary>Per-view Objective-C subclass. No global method swizzling and no editable text is exposed through accessibility queries.</summary>
-internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
+internal sealed partial class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
 {
     private const string ObjC = "/usr/lib/libobjc.A.dylib";
     private sealed class ViewClass
@@ -21,7 +21,7 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
     private static readonly MarkedMethod MarkedCallback = OnMarked;
     private static readonly InsertMethod InsertCallback = OnInsert;
     private static readonly VoidMethod UnmarkCallback = OnUnmark, DeallocCallback = OnDealloc;
-    private static readonly ObjectMethod KeyCallback = OnKey;
+    private static readonly ObjectMethod KeyCallback = OnKey, InterpretCallback = OnInterpret, CommandCallback = OnCommand;
     private static readonly RangeMethod SelectionCallback = OnSelection, RangeCallback = OnRange;
     private static readonly BoolMethod HasMarkedCallback = OnHasMarked;
     private static readonly RectRangeMethod RectCallback = OnRect;
@@ -48,7 +48,8 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
             }
             if (!Add("setMarkedText:selectedRange:replacementRange:",MarkedCallback)
                 || !Add("insertText:replacementRange:",InsertCallback) || !Add("unmarkText",UnmarkCallback)
-                || !Add("keyDown:",KeyCallback) || !Add("selectedRange",SelectionCallback)
+                || !Add("keyDown:",KeyCallback) || !Add("interpretKeyEvents:",InterpretCallback)
+                || !Add("doCommandBySelector:",CommandCallback) || !Add("selectedRange",SelectionCallback)
                 || !Add("markedRange",RangeCallback) || !Add("hasMarkedText",HasMarkedCallback)
                 || !Add("firstRectForCharacterRange:actualRange:",RectCallback) || !Add("dealloc",DeallocCallback))
             { objc_disposeClassPair(record.Derived); return false; }
@@ -89,17 +90,26 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
     private static void OnMarked(nint self,nint selector,nint text,RmlUiCocoaRange selection,RmlUiCocoaRange replacement)
     {
         var api=Find(self);if(api==null) return;
-        try { api._callbacks!.Marked(Text(text),checked((int)Math.Min(selection.Location,int.MaxValue)),checked((int)Math.Min(selection.Length,int.MaxValue))); }
+        Trace(api,"marked-enter",text:text,replacement:replacement);
+        try {
+            if (api._callbacks!.MarkedWithReplacement is { } ranged) ranged(Text(text), selection, replacement);
+            else if (replacement == RmlUiCocoaRange.None && selection.Location <= int.MaxValue && selection.Length <= int.MaxValue)
+                api._callbacks.Marked(Text(text), (int)selection.Location, (int)selection.Length);
+        }
         catch { /* Never unwind through AppKit or log composition/password content. */ }
         api.Original<MarkedMethod>("setMarkedText:selectedRange:replacementRange:")(self,selector,text,selection,replacement);
     }
     private static void OnInsert(nint self,nint selector,nint text,RmlUiCocoaRange replacement)
     {
         var api=Find(self);if(api==null) return;
+        Trace(api,"insert-enter",text:text,replacement:replacement);
         bool consumed=api._callbacks!.Owns();
-        try { consumed=api._callbacks.Insert(Text(text)); } catch { }
+        try { consumed = api._callbacks.InsertWithReplacement is { } ranged
+            ? ranged(Text(text), replacement) : replacement == RmlUiCocoaRange.None && api._callbacks.Insert(Text(text)); } catch { }
+        Trace(api,"insert-dispatch",text:text,replacement:replacement,consumed:consumed);
         if(consumed) api.Original<VoidMethod>("unmarkText")(self,sel_registerName("unmarkText"));
         else api.Original<InsertMethod>("insertText:replacementRange:")(self,selector,text,replacement);
+        Trace(api,"insert-return",text:text,replacement:replacement,consumed:consumed);
     }
     private static void OnUnmark(nint self,nint selector)
     {
@@ -110,13 +120,28 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
     private static void OnKey(nint self,nint selector,nint key)
     {
         var api=Find(self);if(api==null) return;
+        Trace(api,"key-enter",key:key);
         try { api._callbacks!.NewKey(); } catch { }
         api.Original<ObjectMethod>("keyDown:")(self,selector,key);
+        Trace(api,"key-return",key:key);
+    }
+    private static void OnInterpret(nint self,nint selector,nint events)
+    {
+        var api=Find(self);if(api==null)return;
+        Trace(api,"interpret-enter");
+        api.Original<ObjectMethod>("interpretKeyEvents:")(self,selector,events);
+        Trace(api,"interpret-return");
+    }
+    private static void OnCommand(nint self,nint selector,nint command)
+    {
+        var api=Find(self);if(api==null)return;
+        Trace(api,"command",command:command);
+        api.Original<ObjectMethod>("doCommandBySelector:")(self,selector,command);
     }
     private static RmlUiCocoaRange OnSelection(nint self,nint selector)
     {
         var api=Find(self);if(api==null) return RmlUiCocoaRange.None;
-        try { var selected=api._callbacks!.Selection(); if(selected.Location!=ulong.MaxValue) return selected; } catch { }
+        try { var selected=api._callbacks!.Selection(); if(selected.Location!=RmlUiCocoaRange.None.Location) return selected; } catch { }
         return api.Original<RangeMethod>("selectedRange")(self,selector);
     }
     private static RmlUiCocoaRange OnRange(nint self,nint selector)
@@ -136,7 +161,10 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
         var api=Find(self);if(api==null) return default;
         try
         {
-            if(api._callbacks!.Candidate() is { } candidate && candidate.Width>0 && candidate.Height>0)
+            var callback = api._callbacks!;
+            RmlUiCocoaCandidate? position = callback.CandidateForRange is { } ranged ? ranged(range)
+                : callback.Candidate() is { } legacy ? new(legacy.Bounds, legacy.Width, legacy.Height, range, false) : null;
+            if(position is { } candidate && candidate.Width>0 && candidate.Height>0)
             {
                 RmlUiCocoaRect bounds=Method<RectMethod>(self,"bounds")(self,sel_registerName("bounds"));
                 double sx=bounds.Width/candidate.Width,sy=bounds.Height/candidate.Height;
@@ -146,7 +174,7 @@ internal sealed class RmlUiCocoaViewApi : IRmlUiCocoaImeApi
                     bounds.Y+(flipped?b.Y*sy:bounds.Height-(b.Y+b.Height)*sy),b.Width*sx,b.Height*sy);
                 var window=SendObject(self,"window");
                 var inWindow=Method<RectViewMethod>(self,"convertRect:toView:")(self,sel_registerName("convertRect:toView:"),local,0);
-                if(actualRange!=0) Marshal.StructureToPtr(range,actualRange,false);
+                if(actualRange!=0) Marshal.StructureToPtr(candidate.ActualRange,actualRange,false);
                 return window==0?inWindow:Method<RectArgumentMethod>(window,"convertRectToScreen:")(window,sel_registerName("convertRectToScreen:"),inWindow);
             }
         }

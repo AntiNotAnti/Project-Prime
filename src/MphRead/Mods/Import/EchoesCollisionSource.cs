@@ -89,10 +89,25 @@ public static class EchoesCollisionSource
             int v1 = U16(data, edges + 4L * e0 + 2);
             int w0 = U16(data, edges + 4L * e1);
             int w1 = U16(data, edges + 4L * e1 + 2);
-            int v2 = w0 != v0 && w0 != v1 ? w0 : w1;
-            if (v0 >= vertexCount || v1 >= vertexCount || v2 >= vertexCount
-                || v0 == v1 || v0 == v2 || v1 == v2)
-                throw new InvalidDataException("Echoes collision triangle contains bad or repeated vertex indices.");
+            int x0 = U16(data, edges + 4L * e2);
+            int x1 = U16(data, edges + 4L * e2 + 2);
+            if (e0 == e1 || e0 == e2 || e1 == e2
+                || v0 >= vertexCount || v1 >= vertexCount
+                || w0 >= vertexCount || w1 >= vertexCount
+                || x0 >= vertexCount || x1 >= vertexCount
+                || v0 == v1 || w0 == w1 || x0 == x1)
+                throw new InvalidDataException("Echoes collision triangle contains bad or repeated edges or vertices.");
+            // Three distinct undirected edges must form exactly one closed
+            // triangle. Preserve the original first-edge winding and FlippedTri
+            // handling; edge storage orientation itself is not winding proof.
+            bool w0Shared = w0 == v0 || w0 == v1;
+            bool w1Shared = w1 == v0 || w1 == v1;
+            if (w0Shared == w1Shared)
+                throw new InvalidDataException("Echoes collision triangle edges do not share one vertex.");
+            int v2 = w0Shared ? w1 : w0;
+            int remaining = (w0Shared ? w0 : w1) == v0 ? v1 : v0;
+            if (!((x0 == remaining && x1 == v2) || (x1 == remaining && x0 == v2)))
+                throw new InvalidDataException("Echoes collision triangle edges do not close.");
             int surface = data[checked((int)(materialIndices + tri))];
             if (surface >= materialCount)
                 throw new InvalidDataException("Echoes collision triangle has invalid material index.");

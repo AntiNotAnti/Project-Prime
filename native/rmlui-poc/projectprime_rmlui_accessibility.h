@@ -4,6 +4,8 @@
 #include <RmlUi/Core/ElementText.h>
 #include <RmlUi/Core/ElementUtilities.h>
 #include <RmlUi/Core/Context.h>
+#include "projectprime_rmlui_bounds.h"
+#include "projectprime_rmlui_accessibility_clip.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -199,20 +201,14 @@ private:
         const bool editable = role == "textbox" || role == "slider" || role == "combobox";
         const bool control = editable || role == "button" || role == "checkbox" || role == "radio" || role == "switch" || role == "link" || role == "tab";
         if (!role.empty() && !(in_control && (role == "text" || role == "heading" || role == "img"))) {
-            const auto origin = element->GetAbsoluteOffset(Rml::BoxArea::Border);
-            const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
-            if (std::isfinite(origin.x) && std::isfinite(origin.y) && std::isfinite(size.x) && std::isfinite(size.y)
-                && size.x > 0.f && size.y > 0.f) {
+            float x,y,width,height;
+            if (PrimeElementBounds(element,x,y,width,height)) {
                 Node node; node.element = element; node.key = "n" + path; node.id = element->GetId(); node.role = role;
                 node.label = Label(element, document, labels, role); node.enabled = Enabled(element); node.focused = element == focus;
                 node.protected_value = Attribute(element,"type") == "password"; node.action = Attribute(element,"data-action");
-                node.x = origin.x; node.y = origin.y; node.width = size.x; node.height = size.y;
-                if (auto* context = document->GetContext()) { auto viewport = context->GetDimensions();
-                    node.offscreen = origin.x + size.x <= 0 || origin.y + size.y <= 0 || origin.x >= viewport.x || origin.y >= viewport.y; }
-                Rml::Rectanglei clip;
-                if (Rml::ElementUtilities::GetClippingRegion(element, clip))
-                    node.offscreen = node.offscreen || origin.x + size.x <= clip.Left() || origin.y + size.y <= clip.Top()
-                        || origin.x >= clip.Right() || origin.y >= clip.Bottom();
+                node.x = x; node.y = y; node.width = width; node.height = height;
+                if (auto* context = document->GetContext())
+                    node.offscreen = PrimeAccessibilityClipping::Offscreen(element,context->GetDimensions());
                 if (node.enabled) {
                     if (control) node.actions |= Focus;
                     if (control && !editable) node.actions |= Press;

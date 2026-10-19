@@ -103,8 +103,10 @@ namespace MphRead.Mods.Launcher.Gui
         internal void PrepareMapRenderer()
         {
             var visible = _view?.GetVisualDescendants().OfType<MapViewport>().Where(v => v.IsEffectivelyVisible).ToArray() ?? Array.Empty<MapViewport>();
-            foreach (var old in _mapViewports.Where(v => !visible.Contains(v)).ToArray()) { old.ReleaseRenderer(); _mapViewports.Remove(old); }
-            foreach (var viewport in visible) { if (!_mapViewports.Contains(viewport)) _mapViewports.Add(viewport); viewport.PrepareRenderer(); }
+            foreach (var old in _mapViewports.Where(v => !visible.Contains(v) || v.NativePresentationLeased).ToArray())
+            { if (!old.NativePresentationLeased) old.ReleaseRenderer(); _mapViewports.Remove(old); }
+            foreach (var viewport in visible.Where(v => !v.NativePresentationLeased))
+            { if (!_mapViewports.Contains(viewport)) _mapViewports.Add(viewport); viewport.PrepareRenderer(); }
         }
         internal OpenTK.Mathematics.Vector4i? ReplayViewportBounds(int width, int height)
         {
@@ -120,7 +122,7 @@ namespace MphRead.Mods.Launcher.Gui
             int bottom = Math.Clamp((int)Math.Round(far.Value.Y / WindowHeight * height), top, height);
             return right > left && bottom > top ? new(left, top, right - left, bottom - top) : null;
         }
-        internal void DrawMapViewport(int width, int height) { foreach (var view in _mapViewports) view.DrawInWindow(this, width, height); }
+        internal void DrawMapViewport(int width, int height) { foreach (var view in _mapViewports) if (!view.NativePresentationLeased) view.DrawInWindow(this, width, height); }
         internal void ReleaseMapRenderer() { foreach (var view in _mapViewports) view.ReleaseRenderer(); _mapViewports.Clear(); }
         private readonly GamepadNavigation _gamepad = new();
         private Point _pointer;
@@ -697,8 +699,14 @@ namespace MphRead.Mods.Launcher.Gui
                 UiOverlay.Visible = false;
                 return;
             }
-            Mods.Input.GamepadDesktop.Poll();
-            _gamepad.Update(_view);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (RmlUi.Render.RmlUiOpenGlSmoke.CapturesInput) _gamepad.Reset();
+            else
+#endif
+            {
+                Mods.Input.GamepadDesktop.Poll();
+                _gamepad.Update(_view);
+            }
             RunPending();
             ApplyScale();
             // Always running, not only while the debug log is: the calibration

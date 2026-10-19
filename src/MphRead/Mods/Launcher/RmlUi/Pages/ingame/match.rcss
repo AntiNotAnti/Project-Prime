@@ -3,6 +3,8 @@ body { background-color: rgba(0,8,16,65%); color: #e7f4ff; font-family: Rajdhani
 h1 { font-size: 36dp; margin: 5dp 0 12dp; } h2 { font-size: 26dp; } p { color: #a5bdcf; white-space: pre-wrap; }
 .match-panel > div, .match-panel > h1, .match-panel > h2, .match-panel > p { display: block; width: 80vw; max-width: 770dp; }
 #ingame_pause > p, #ingame_vote > p, #ingame_vote > h2, #ingame_bots_panel > p, #ingame_bots_panel > h2 { display: block; width: 80vw; max-width: 770dp; }
+#ingame_session { margin: 0dp 0dp 16dp; }
+#ingame_resume { display: block; margin: 4dp 4dp 10dp; }
 button { tab-index: auto; min-height: 44dp; margin: 4dp; padding: 9dp 13dp; color: #e7f4ff; background-color: #15344e; border: 1dp #3b6989; font-size: 17dp; }
 button:hover,button:focus { background-color: #245778; border-color: #83d1ff; } button:disabled,button.unavailable { color: #647d91; background-color: #102435; border-color: #253c4f; }
 button.primary { background-color: #1765a0; min-width: 220dp; } button.danger { border-color: #ae6370; } .error { color: #ffb9aa; }

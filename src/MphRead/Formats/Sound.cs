@@ -233,9 +233,15 @@ namespace MphRead.Formats.Sound
 
         // note: SNDSAMPLES data is padded to multiples of 512 bytes, WFSSNDSAMPLES data is not
         // todo: confirm no unused bytes (given the padding)
+        internal static IReadOnlyList<SoundSample> ReadSoundSamplesFromFileSystem(string fileSystem)
+            => ReadSoundSamples("SNDSAMPLES.DAT", fileSystem);
+
         private static IReadOnlyList<SoundSample> ReadSoundSamples(string filename)
+            => ReadSoundSamples(filename, Paths.FileSystem);
+
+        private static IReadOnlyList<SoundSample> ReadSoundSamples(string filename, string fileSystem)
         {
-            string path = Paths.Combine(Paths.FileSystem, "data", "sound", filename);
+            string path = Paths.Combine(fileSystem, "data", "sound", filename);
             var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(path));
             uint count = Read.SpanReadUint(bytes, 0);
             Debug.Assert(count > 0);

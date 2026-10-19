@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="../../src/MphRead/Mods/Launcher/RmlUi/Components/app-shell.rml" Link="header-app-shell.rml" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Exclude="../../src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLobbyBindings.cs" Link="Host/%(Filename)%(Extension)" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
   </ItemGroup>

@@ -25,8 +25,16 @@ public static class RetroMotionPreview
     public sealed record Pose(double TimeSeconds, IReadOnlyList<BonePose> Bones);
     public sealed record MotionClip(string Name, IReadOnlyList<uint> ResourceIds,
         string Status, double? DurationSeconds, IReadOnlyList<Pose> Samples);
+    public sealed record RawGraphReference(int Format,string File,string Sha256,string SourceSnapshotFile,
+        uint SourceAncsId,string SourceAncsSha256,int SourceAncsBytes);
     public sealed record Inventory(int Format, string Origin, int TotalClips,
-        int SampledClips, IReadOnlyList<MotionClip> Clips);
+        int SampledClips, IReadOnlyList<MotionClip> Clips)
+    {
+        [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public RawGraphReference? SourceGraphProof {get;init;}
+        [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public string? SourceGraphAbsence {get;init;}
+    }
 
     public static Inventory FromLocalSource(byte[] ancs,
         Func<uint, byte[]> resource, bool echoes)

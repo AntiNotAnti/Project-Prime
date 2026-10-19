@@ -1,12 +1,13 @@
 using System;
 using System.IO;
 using System.Numerics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 
 namespace MphRead.Mods.Render.Characters
 {
-    internal static class CharacterModelAssetCheck
+    internal static partial class CharacterModelAssetCheck
     {
         public static int Run()
         {
@@ -181,6 +182,8 @@ namespace MphRead.Mods.Render.Characters
                     && weightedGeometry.Joints[1].SourceNode == "Arm",
                     "Weighted4 joint packing, normalized weights and retarget identity decode exactly");
 
+                CheckPrivateAppearances(root, valid);
+
                 File.WriteAllText(Path.Combine(root, "characters.json"), valid);
 
                 string blender = CharacterModelBlenderHelper.Generate(
@@ -209,6 +212,8 @@ namespace MphRead.Mods.Render.Characters
                     && !weightedBlender.Contains("{{", StringComparison.Ordinal),
                     "Blender Weighted4 helper receives deterministic authoring identities");
 
+                RunSourceRigChecks();
+
                 Console.WriteLine(
                     "[charactermodelcheck] pack safety, rigid/Weighted4 geometry and Blender helper generation passed");
                 return 0;
@@ -223,6 +228,139 @@ namespace MphRead.Mods.Render.Characters
                 try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
                 catch { }
             }
+        }
+
+        // Generated triangles and explicit synthetic hashes test the contract,
+        // never real source-game rig, animation, rendering or device acceptance.
+        private static void CheckPrivateAppearances(string root, string legacyManifest)
+        {
+            string manifestPath = Path.Combine(root, "characters.json");
+            var manifest = JsonNode.Parse(legacyManifest)!.AsObject();
+            var entries = manifest["models"]!.AsArray();
+            var variants = new[]
+            {
+                (Hunter.Samus, "darksamus", "MP2DarkSamus", "darksamus-echoes"),
+                (Hunter.Weavel, "trooper", "MP1PowerTrooper", "trooper-power"),
+                (Hunter.Weavel, "trooper", "MP1IceTrooper", "trooper-ice"),
+                (Hunter.Weavel, "trooper", "MP1WaveTrooper", "trooper-wave"),
+                (Hunter.Weavel, "trooper", "MP1PlasmaTrooper", "trooper-plasma")
+            };
+            string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            foreach (var (hunter, character, skin, source) in variants)
+            {
+                string directory = "private-" + source;
+                Directory.CreateDirectory(Path.Combine(root, directory));
+                string model = directory + "/biped.glb";
+                WriteWeightedTriangleGlb(Path.Combine(root, model));
+                var receipt = new JsonObject
+                {
+                    ["format"] = 1, ["sourceCharacter"] = source, ["nativeHunter"] = hunter.ToString(),
+                    ["characterId"] = character, ["skinSource"] = skin, ["presentationPart"] = "biped",
+                    ["visualOnly"] = true, ["approvedForGameplay"] = false, ["multiplayerEnabled"] = false,
+                    ["playerSelectionEnabled"] = false, ["firstPersonVerified"] = false,
+                    ["alternateFormVerified"] = false, ["sourceMotionRetargetVerified"] = false,
+                    ["devicePerformanceVerified"] = false,
+                    ["sourceGlbSha256"] = Hash(File.ReadAllBytes(Path.Combine(root, model)))
+                };
+                foreach (string key in new[] { "sourceNativeKitSha256", "sourceMappingSha256",
+                    "sourceSkeletonSha256", "sourceWeightsSha256" })
+                    receipt[key] = Hash(Encoding.UTF8.GetBytes("synthetic-contract-only-" + key));
+                string provenance = directory + "/validation-receipt.json";
+                byte[] receiptBytes = Encoding.UTF8.GetBytes(receipt.ToJsonString());
+                File.WriteAllBytes(Path.Combine(root, provenance), receiptBytes);
+                entries.Add(new JsonObject
+                {
+                    ["hunter"] = hunter.ToString(), ["part"] = "biped", ["lod"] = 0,
+                    ["model"] = model, ["skinning"] = "weighted4",
+                    ["characterId"] = character, ["skinSource"] = skin,
+                    ["provenance"] = provenance, ["provenanceSha256"] = Hash(receiptBytes),
+                    ["boneMap"] = new JsonObject { ["Body"] = "Body", ["Arm"] = "Arm" }
+                });
+            }
+            void Write(JsonObject value) => File.WriteAllText(manifestPath, value.ToJsonString());
+            Write(manifest);
+            CharacterModelPack pack = CharacterModelPack.Load(root);
+            Check(pack.Count == 6, "legacy native and all five private variants coexist");
+            Check(CharacterModelRuntime.TryResolvePrivateAppearance(pack, Hunter.Samus,
+                    CharacterModelPart.Biped, 0, null, allowPrivatePreview: false, out var native),
+                "a native Samus seat resolves without a private preview capability");
+            foreach (var (hunter, character, skin, _) in variants)
+            {
+                var choice = new PrivateCharacterAppearance(character, skin);
+                Check(CharacterModelRuntime.TryResolvePrivateAppearance(pack, hunter,
+                        CharacterModelPart.Biped, 0, choice, allowPrivatePreview: true, out var selected)
+                    && selected.PrivateAppearance == choice && selected.ModelPath != native.ModelPath,
+                    "each private seat resolves its own catalog appearance: " + skin);
+                Check(!CharacterModelRuntime.TryResolvePrivateAppearance(pack, hunter,
+                        CharacterModelPart.Biped, 0, choice, allowPrivatePreview: false, out _),
+                    "private appearance requires an explicit offline preview capability");
+                Check(CharacterWeightedModelLoader.Load(selected).VertexCount == 3,
+                    "private identity retains the existing Weighted4 geometry loader");
+            }
+            var darkChoice = new PrivateCharacterAppearance("darksamus", "MP2DarkSamus");
+            Check(pack.TryResolvePrivate(Hunter.Samus, darkChoice, CharacterModelPart.Biped, 0, out var dark)
+                && pack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, out var nativeAgain)
+                && ReferenceEquals(native, nativeAgain), "private seat lookup cannot overwrite a native seat");
+            Check(!pack.TryResolve(Hunter.Weavel, CharacterModelPart.Biped, out _),
+                "private Troopers do not implicitly replace native Weavel seats");
+            Check(!pack.TryResolvePrivate(Hunter.Weavel, darkChoice, CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("darksamus", "MP3DarkSamus"), CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("missing", "MP2DarkSamus"), CharacterModelPart.Biped, 0, out _)
+                && !CharacterModelPack.Empty.TryResolvePrivate(Hunter.Samus, darkChoice, CharacterModelPart.Biped, 0, out _),
+                "wrong parent, reserved, unknown and absent appearances are unavailable without aliasing");
+            Check(CharacterModelRuntime.ModelCacheKey(native, 7) != CharacterModelRuntime.ModelCacheKey(
+                    native with { PrivateAppearance = darkChoice }, 7)
+                && CharacterModelRuntime.ModelCacheKey(dark, 7) != CharacterModelRuntime.ModelCacheKey(
+                    dark with { PrivateAppearance = new("trooper", "MP1IceTrooper") }, 7),
+                "same-path GPU and failure caches keep native and distinct appearance identities separate");
+
+            void InvalidEntry(Action<JsonObject> mutate, string label)
+            {
+                var changed = manifest.DeepClone().AsObject();
+                mutate(changed["models"]![1]!.AsObject());
+                Write(changed);
+                ExpectInvalid(() => CharacterModelPack.Load(root), label);
+            }
+            InvalidEntry(entry => entry["hunter"] = "Weavel", "private native parent mismatch is rejected");
+            InvalidEntry(entry => entry["characterId"] = "missing", "unknown private character is rejected");
+            InvalidEntry(entry => entry["skinSource"] = "MP1PowerTrooper", "another character's skin is rejected");
+            InvalidEntry(entry => entry["skinSource"] = "MP3DarkSamus", "reserved Corruption skin is not implemented");
+            foreach (string key in new[] { "characterId", "skinSource", "provenance", "provenanceSha256" })
+                InvalidEntry(entry => entry.Remove(key), "partial private metadata is rejected: " + key);
+            InvalidEntry(entry => entry["part"] = "viewModel", "private preview cannot claim first person");
+            InvalidEntry(entry => entry["part"] = "alternateForm", "private preview cannot claim alternate form");
+            InvalidEntry(entry => entry["lod"] = 1, "private preview remains LOD0 only");
+            InvalidEntry(entry => entry["mobileModel"] = entry["model"]!.GetValue<string>(), "private preview cannot claim mobile tier");
+            InvalidEntry(entry => entry["provenance"] = "../receipt.json", "provenance must be contained");
+            InvalidEntry(entry => entry["provenance"] = "missing.json", "missing private provenance is rejected");
+            InvalidEntry(entry => entry["provenanceSha256"] = new string('0', 64), "receipt tampering is rejected");
+            var duplicated = manifest.DeepClone().AsObject();
+            duplicated["models"]!.AsArray().Add(duplicated["models"]![1]!.DeepClone());
+            Write(duplicated);
+            ExpectInvalid(() => CharacterModelPack.Load(root), "duplicate private identity is rejected");
+
+            string receiptPath = Path.Combine(root, entries[1]!["provenance"]!.GetValue<string>());
+            byte[] originalReceipt = File.ReadAllBytes(receiptPath);
+            void InvalidReceipt(Action<JsonObject> mutate, string label)
+            {
+                var receipt = JsonNode.Parse(originalReceipt)!.AsObject();
+                mutate(receipt);
+                byte[] bytes = Encoding.UTF8.GetBytes(receipt.ToJsonString());
+                File.WriteAllBytes(receiptPath, bytes);
+                var changed = manifest.DeepClone().AsObject();
+                changed["models"]![1]!["provenanceSha256"] = Hash(bytes);
+                Write(changed);
+                ExpectInvalid(() => CharacterModelPack.Load(root), label);
+            }
+            InvalidReceipt(receipt => receipt["skinSource"] = "MP1IceTrooper", "rehashed receipt identity mismatch is rejected");
+            foreach (string key in new[] { "approvedForGameplay", "multiplayerEnabled", "playerSelectionEnabled",
+                "firstPersonVerified", "alternateFormVerified", "sourceMotionRetargetVerified", "devicePerformanceVerified" })
+                InvalidReceipt(receipt => receipt[key] = true, "rehashed receipt cannot claim acceptance: " + key);
+            InvalidReceipt(receipt => receipt.Remove("sourceSkeletonSha256"), "receipt must retain source witness hashes");
+            InvalidReceipt(receipt => receipt["sourceGlbSha256"] = new string('a', 64), "receipt must hash its actual candidate GLB");
+            File.WriteAllBytes(receiptPath, originalReceipt);
+            Write(manifest);
+            Check(CharacterModelPack.Load(root).Count == 6, "invalid private requests leave pack files and native resolution recoverable");
         }
 
         private static void CheckEmbeddedMaterials(CharacterModelAsset asset)

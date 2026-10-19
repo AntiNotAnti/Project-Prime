@@ -86,6 +86,7 @@ namespace MphRead.Droid
         // Unspecified so that a match ending before one ever started cannot
         // hand the front screen an orientation the manifest never asked for.
         private ScreenOrientation _orientationBefore = ScreenOrientation.SensorLandscape;
+        private long _matchUiEpoch;
 
         internal bool InMatch => _gameView != null;
 
@@ -94,6 +95,9 @@ namespace MphRead.Droid
             Instance = this;
             base.OnCreate(savedInstanceState);
             InstallSettingsArchiveServices();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            PrepareNativePauseAssets();
+#endif
             AndroidPerformance.Attach(this);
             GamepadBridge.Start(this);
             MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
@@ -102,6 +106,9 @@ namespace MphRead.Droid
             // still be saturating storage/CPU when START was pressed.
             _content = FindViewById(Android.Resource.Id.Content) as ViewGroup;
             _launcherView = _content?.GetChildAt(0);
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            InstallNativeLauncher();
+#endif
         }
 
         /// <summary>
@@ -355,6 +362,9 @@ namespace MphRead.Droid
 
         protected override void OnPause()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            NativePauseForeground(false);
+#endif
             if (_displays != null)
             {
                 _displays.UnregisterDisplayListener(this);
@@ -367,7 +377,11 @@ namespace MphRead.Droid
             _overlay?.Invalidate();
             AndroidPerformance.SetForeground(false);
             GamepadBridge.Clear();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            ActiveGlView?.OnPause();
+#else
             _gameView?.OnPause();
+#endif
             base.OnPause();
         }
 
@@ -394,7 +408,14 @@ namespace MphRead.Droid
                 // work that belongs on the UI thread anyway.
                 manager.RegisterDisplayListener(this, null);
             }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            ActiveGlView?.OnResume();
+#else
             _gameView?.OnResume();
+#endif
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            NativePauseForeground(true);
+#endif
         }
 
         /// <summary>
@@ -412,6 +433,9 @@ namespace MphRead.Droid
         /// </summary>
         public override bool DispatchKeyEvent(KeyEvent? e)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (ActiveGlView?.TryNativePauseKey(e) == true) return true;
+#endif
             bool down = e?.Action == KeyEventActions.Down;
             if (e != null && (down || e.Action == KeyEventActions.Up)
                 && GamepadBridge.HandleKey(e.KeyCode, e, down))
@@ -475,6 +499,10 @@ namespace MphRead.Droid
 
         protected override void OnDestroy()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            DisposeNativePausePreparation();
+            DisposeNativeLauncher();
+#endif
             DisposeSettingsArchiveServices();
             if (Instance == this)
             {
@@ -505,8 +533,18 @@ namespace MphRead.Droid
                 CloseReplayEditor();
                 return;
             }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (_nativeLauncherView != null && _pending == null)
+            {
+                _nativeLauncherView.RequestNativeLauncherBack();
+                return;
+            }
+#endif
             if (InMatch)
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_gameView?.NativeLocalState?.Phase == RmlUiAndroidLocalPhase.Loading) { EndMatchCore(false); return; }
+#endif
                 if (Mods.KillCam.RequestSkip()) return;
                 // Back used to end the match outright, which is a gesture a
                 // phone makes by accident and an hour of adventure mode thrown
@@ -588,6 +626,7 @@ namespace MphRead.Droid
                 Console.WriteLine("[android] stopping the preview run: a match was asked for");
                 _stopPreviews = true;
             }
+            long matchUiEpoch = ++_matchUiEpoch;
             // Same reason, and it has to happen whether or not a preview run
             // is going: the launcher's hunter preview holds a scene and a GL
             // context of its own, and a display list cut in that context is
@@ -617,7 +656,7 @@ namespace MphRead.Droid
             _waitingSince = SystemClock.UptimeMillis();
             if (_endPanelTick == null)
             {
-                _endPanelTick = TickEndPanel;
+                _endPanelTick = () => { if (matchUiEpoch == _matchUiEpoch) TickEndPanel(); };
                 _content.PostDelayed(_endPanelTick, 100);
             }
             _lastSize = ContentSize;
@@ -759,6 +798,9 @@ namespace MphRead.Droid
                 return;
             }
             Console.WriteLine($"[android] the match was not started: {reason}");
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (_nativeLauncherView != null) RestoreLegacyLauncher(quit: false);
+#endif
             _pending = null;
             HideNotice();
             _controls.ReleaseEverything();
@@ -847,29 +889,49 @@ namespace MphRead.Droid
                 return;
             }
             AndroidPerformance.SetMatchActive(true);
+            long matchUiEpoch = _matchUiEpoch;
             OfflineRematch.StartNext = selected =>
             {
                 if (NetSession.Active || !OfflineRematch.TryPlan(plan, selected, out var next)) return false;
                 // Queue onto Android's UI thread; never stop/join the render
                 // thread from the results update that is currently running on it.
-                RunOnUiThread(() => { EndMatch(); StartMatch(next); });
+                RunOnUiThread(() =>
+                {
+                    if (matchUiEpoch != _matchUiEpoch) return;
+                    // The established direct rematch keeps its terminal
+                    // fallback until it has its own copied local admission.
+                    EndMatchCore(false); StartMatch(next);
+                });
                 return true;
             };
-            _gameView = new GameView(this, _controls, input,
+            bool reuseNative = false;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (_nativeLauncherView != null)
+            {
+                if (!TransferNativeLauncher(plan)) return;
+                reuseNative = true;
+            }
+#endif
+            if (!reuseNative) _gameView = new GameView(this, _controls, input,
                 (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatch)),
                 () => RunOnUiThread(EndMatch),
                 () => RunOnUiThread(MatchLoaded),
                 error => RunOnUiThread(() => FailMatch(error)),
                 () => RunOnUiThread(TogglePauseMenu),
-                show => RunOnUiThread(() => ShowSoftKeyboard(show)));
+                show => RunOnUiThread(() => ShowSoftKeyboard(show))
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                , CreateNativePauseOptions()
+#endif
+                );
             // The launcher is Avalonia, which draws on a surface of its own,
             // and two surfaces in one window have no z-order between them
             // unless one is asked for. Above the other surface and below the
             // window, so the touch controls and the loading notice -- ordinary
             // views -- still draw over the game.
-            _gameView.SetZOrderMediaOverlay(true);
+            GameView matchView = _gameView ?? throw new InvalidOperationException("The match view was not admitted.");
+            if (!reuseNative) matchView.SetZOrderMediaOverlay(true);
             _overlay = new TouchOverlayView(this, _controls);
-            _content.AddView(_gameView);
+            if (!reuseNative) _content.AddView(matchView);
             _content.AddView(_overlay);
             // The notice has been up since StartMatch. The GameView draws
             // below the window, so an ordinary view still covers it, but the
@@ -938,7 +1000,8 @@ namespace MphRead.Droid
                 ? $"Match starts in {Math.Max(1, (int)Math.Ceiling(remaining))}..."
                 : "Waiting for players...");
             _notice?.BringToFront();
-            _content?.PostDelayed(ReleaseLoadedMatch, 50);
+            long matchUiEpoch = _matchUiEpoch;
+            _content?.PostDelayed(() => { if (matchUiEpoch == _matchUiEpoch) ReleaseLoadedMatch(); }, 50);
         }
 
         private void HideNotice()
@@ -950,7 +1013,7 @@ namespace MphRead.Droid
             }
         }
 
-        private void FailMatch(string message)
+        private void FailMatch(string message, Func<bool>? stillCurrent = null)
         {
             if (_notice != null)
             {
@@ -961,7 +1024,8 @@ namespace MphRead.Droid
                 Toast.MakeText(this, message, ToastLength.Long)?.Show();
             }
             // Leave the message up for long enough to read, then go back.
-            _content?.PostDelayed(EndMatch, 4000);
+            long matchUiEpoch = _matchUiEpoch;
+            _content?.PostDelayed(() => { if (matchUiEpoch == _matchUiEpoch && stillCurrent?.Invoke() != false) EndMatch(); }, 4000);
         }
 
         private bool _pauseMenuOpen;
@@ -988,6 +1052,16 @@ namespace MphRead.Droid
         /// </summary>
         private void TickEndPanel()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            // A registered candidate may still be inside its constructor or
+            // OnLoad. Do not read mutable scene state from UI during loading
+            // or a scene-free return handshake.
+            if (_gameView?.NativeLocalState is { } native && native.Phase != RmlUiAndroidLocalPhase.Match)
+            {
+                if (_endPanelTick != null) _content?.PostDelayed(_endPanelTick, 100);
+                return;
+            }
+#endif
             // `_pending` counts as in a match: the poll is started when one is
             // asked for and the view does not exist until the window has held
             // still, which is a second or two of ticks that must not stop it.
@@ -1099,6 +1173,9 @@ namespace MphRead.Droid
             {
                 return;
             }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _gameView?.RetireNativePauseForUiHandoff();
+#endif
             _replayEditorOpen = true;
             _controls.ReleaseEverything();
             HideEndPanel();
@@ -1146,6 +1223,10 @@ namespace MphRead.Droid
 
         internal void TogglePauseMenu()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (_gameView?.NativeLocalState?.Phase is RmlUiAndroidLocalPhase.Loading or RmlUiAndroidLocalPhase.ReturnRequested or RmlUiAndroidLocalPhase.Retiring
+                or RmlUiAndroidLocalPhase.AwaitingHomeAck or RmlUiAndroidLocalPhase.HomeAccepted) return;
+#endif
             if (Mods.KillCam.RequestSkip()) return;
             if (!InMatch)
             {
@@ -1156,6 +1237,23 @@ namespace MphRead.Droid
                 ClosePauseMenu();
                 return;
             }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (!_replayEditorOpen && _gameView?.TryNativePause() == true)
+            {
+                _controls.ReleaseEverything();
+                MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
+                return;
+            }
+#endif
+            OpenLegacyPauseMenu();
+        }
+
+        private void OpenLegacyPauseMenu(bool openSettings = false)
+        {
+            if (!InMatch || _pauseMenuOpen) return;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _gameView?.RetireNativePauseForUiHandoff();
+#endif
             _pauseMenuOpen = true;
             _controls.ReleaseEverything();
             // Two screens over one match is one too many, and the pause menu
@@ -1191,11 +1289,22 @@ namespace MphRead.Droid
             }
             MphRead.Mods.Launcher.Gui.Deck.Asleep = false;
             GoImmersive(true);
+            long menuEpoch = _matchUiEpoch;
+            GameView? menuView = _gameView;
+            bool CurrentMenu()
+            {
+                if (menuEpoch != _matchUiEpoch || !ReferenceEquals(_gameView, menuView)) return false;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (menuView?.NativeLocalState is { } state && state.Phase != RmlUiAndroidLocalPhase.Match) return false;
+#endif
+                return true;
+            }
             AndroidApp.Home?.ShowPauseMenu(
-                ClosePauseMenu, EndMatch, () => Finish(),
-                () => { _gameView?.RequestSpectate(); },
-                () => { _gameView?.RequestRejoin(); },
-                _gameView?.Scene?.Players);
+                () => { if (CurrentMenu()) ClosePauseMenu(); },
+                () => { if (CurrentMenu()) EndMatch(); }, () => { if (CurrentMenu()) Finish(); },
+                () => { if (CurrentMenu()) menuView?.RequestSpectate(); },
+                () => { if (CurrentMenu()) menuView?.RequestRejoin(); },
+                _gameView?.Scene?.Players, openSettings: openSettings);
         }
 
         private void ClosePauseMenu()
@@ -1231,7 +1340,13 @@ namespace MphRead.Droid
         }
 
         /// <summary>Back to the front screen.</summary>
-        internal void EndMatch() => EndMatchCore(false);
+        internal void EndMatch()
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (TryReturnCurrentNativeHome()) return;
+#endif
+            EndMatchCore(false);
+        }
         internal void EndMatchToLobby() => EndMatchCore(true);
         private void EndMatchCore(bool keepSession)
         {
@@ -1239,11 +1354,15 @@ namespace MphRead.Droid
             {
                 return;
             }
+            _matchUiEpoch++;
             OfflineRematch.StartNext = null;
             _pending = null;
             _pauseMenuOpen = false;
             _replayEditorOnLoad = false;
             _replayEditorOpen = false;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePauseDeferred = null;
+#endif
             HideNotice();
             HideEndPanel();
             _endPanelTick = null;
@@ -1266,6 +1385,9 @@ namespace MphRead.Droid
                 // stop is what breaks the loop, and breaking the loop is what
                 // reaches Scene.DoCleanup -> Sfx.ShutDown and OutputStop.
                 _gameView.Stop();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_nativeLauncherGlOwned) ReleaseNativePreviewAfter(_gameView);
+#endif
                 _content.RemoveView(_gameView);
                 _gameView = null;
             }

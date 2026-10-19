@@ -4,6 +4,7 @@
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
 #include "projectprime_rmlui_renderer.h"
+#include "projectprime_rmlui_bounds.h"
 #include "projectprime_rmlui_text_input.h"
 #include "projectprime_rmlui_accessibility.h"
 #include <RmlUi/Core/EventListener.h>
@@ -31,6 +32,9 @@ namespace {
 void FocusElement(const char* id);
 void QueueHomeAction(const std::string& action);
 void DirtyVisual();
+void SampleTextCaret(Rml::Vector2f position, float height);
+void InvalidateTextCaret();
+void NotifyProgrammaticTextMutation(Rml::Element* field);
 Rml::Element* FindElementById(const char* id);
 bool g_lobby_anchor_dirty = true;
 struct LobbyAnchor { float x = 0.f; float y = 0.f; };
@@ -48,6 +52,8 @@ public:
     void SetClipboardText(const Rml::String& text) override { clipboard = text; }
     void GetClipboardText(Rml::String& text) override { text = clipboard; }
     void ClearClipboard() { clipboard.clear(); }
+    void ActivateKeyboard(Rml::Vector2f position, float height) override { SampleTextCaret(position, height); }
+    void DeactivateKeyboard() override { InvalidateTextCaret(); }
     void JoinPath(Rml::String& translated, const Rml::String& document, const Rml::String& path) override
     {
         // The default browser-style resolver removes the leading '/' from
@@ -76,7 +82,7 @@ uint64_t g_next_document_id = 0;
 uint64_t g_home_id = 0;
 uint64_t g_next_sequence = 0;
 std::filesystem::path g_asset_root;
-struct QueuedAction { PrimeIntent intent; std::string legacy; };
+struct QueuedAction { PrimeIntent intent; std::string legacy; std::string activation_source; };
 std::deque<QueuedAction> g_actions;
 int g_programmatic_field_mutations = 0;
 struct ProgrammaticFieldMutation {
@@ -84,6 +90,7 @@ struct ProgrammaticFieldMutation {
     ~ProgrammaticFieldMutation() { --g_programmatic_field_mutations; }
 };
 struct Document {
+    struct DisabledFocus { bool had_local; Rml::Property property; };
     Rml::ElementDocument* element = nullptr;
     std::string relative_path;
     int layer = 0;
@@ -91,6 +98,7 @@ struct Document {
     std::string restore_element;
     std::unordered_map<std::string, std::string> texts;
     std::unordered_map<std::string, bool> booleans;
+    std::unordered_map<Rml::Element*,DisabledFocus> disabled_focus;
 };
 std::unordered_map<uint64_t, Document> g_documents;
 std::vector<uint64_t> g_document_order;
@@ -138,6 +146,40 @@ Document* GetDocument(uint64_t id)
     const auto found = g_documents.find(id);
     return found != g_documents.end() ? &found->second : nullptr;
 }
+void SetControlEnabled(Document& document, Rml::Element* element, bool enabled)
+{
+    // RmlUi's generic <button> is not ElementFormControl, so its disabled
+    // attribute alone does not remove it from keyboard/gamepad traversal.
+    if (!dynamic_cast<Rml::ElementFormControl*>(element)) {
+        auto saved = document.disabled_focus.find(element);
+        if (!enabled && saved == document.disabled_focus.end()) {
+            const auto* local = element->GetLocalProperty(Rml::PropertyId::Focus);
+            document.disabled_focus.emplace(element,Document::DisabledFocus{local != nullptr,local ? *local : Rml::Property{}});
+            element->SetProperty(Rml::PropertyId::Focus,Rml::Property(Rml::Style::Focus::None));
+            element->Blur();
+        } else if (enabled && saved != document.disabled_focus.end()) {
+            if (saved->second.had_local) element->SetProperty(Rml::PropertyId::Focus,saved->second.property);
+            else element->RemoveProperty(Rml::PropertyId::Focus);
+            document.disabled_focus.erase(saved);
+        }
+    }
+    if (!enabled) g_text_input.Unavailable(element);
+    if (enabled) element->RemoveAttribute("disabled");
+    else element->SetAttribute("disabled","disabled");
+    element->SetPseudoClass("disabled",!enabled);
+    element->SetClass("unavailable",!enabled);
+}
+void NormalizeDisabledControls(Document& document, Rml::Element* element)
+{
+    if (element->HasAttribute("disabled")) SetControlEnabled(document,element,false);
+    for (int i=0; i<element->GetNumChildren(); ++i) NormalizeDisabledControls(document,element->GetChild(i));
+}
+void SampleTextCaret(Rml::Vector2f position, float height)
+{
+    g_text_input.CaptureCaret(g_text_input.CaretOwner(), position, height);
+}
+void InvalidateTextCaret() { g_text_input.InvalidateCaret(); }
+void NotifyProgrammaticTextMutation(Rml::Element* field) { g_text_input.InvalidateCaret(); g_text_input.ExternalMutation(field); }
 uint64_t DocumentId(Rml::ElementDocument* document)
 {
     for (const auto& entry : g_documents) if (entry.second.element == document) return entry.first;
@@ -180,6 +222,9 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"lobby:rules-open", PrimeIntentKind::LobbyRulesOpen, 0}, {"lobby:rules-close", PrimeIntentKind::LobbyRulesClose, 0},
         {"lobby:map-category:0", PrimeIntentKind::LobbyMapCategory, 0},
         {"lobby:map-category:1", PrimeIntentKind::LobbyMapCategory, 1},
+        {"lobby:map-category:2", PrimeIntentKind::LobbyMapCategory, 2},
+        {"lobby:map-category:3", PrimeIntentKind::LobbyMapCategory, 3},
+        {"lobby:map-category:4", PrimeIntentKind::LobbyMapCategory, 4},
         {"lobby:map-open", PrimeIntentKind::LobbyMapOpen, 0}, {"lobby:map-previous", PrimeIntentKind::LobbyMapPrevious, 0},
         {"lobby:map-next", PrimeIntentKind::LobbyMapNext, 0}, {"lobby:map-close", PrimeIntentKind::LobbyMapClose, 0},
         {"lobby:rules-apply", PrimeIntentKind::LobbyRulesApply, 0}, {"lobby:rules-map", PrimeIntentKind::LobbyRulesMap, 0},
@@ -204,6 +249,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"lobby:admin-cancel", PrimeIntentKind::LobbyAdminCancel, 0},
         {"lobby:admin-close", PrimeIntentKind::LobbyAdminClose, 0},
         {"hunter:open", PrimeIntentKind::HunterOpen, 0},
+        {"hunter:random", PrimeIntentKind::HunterRandom, 0},
         {"hunter:spectator", PrimeIntentKind::HunterSpectator, 0},
         {"hunter:apply", PrimeIntentKind::HunterApply, 0},
         {"hunter:cancel", PrimeIntentKind::HunterCancel, 0},
@@ -215,7 +261,9 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"hunter:cosmetics-save", PrimeIntentKind::HunterCosmeticsSave, 0},
         {"hunter:loop-death", PrimeIntentKind::HunterLoopDeath, 0},
         {"hunter:compare-native", PrimeIntentKind::HunterCompareNative, 0},
+        {"hunter:loadout-default", PrimeIntentKind::HunterLoadoutDefault, 0},
         {"hunter:reset-preview", PrimeIntentKind::HunterResetPreview, 0},
+        {"hunter:preview-reset", PrimeIntentKind::HunterPreviewReset, 0},
         {"settings:apply", PrimeIntentKind::SettingsApply, 0},
         {"settings:discard", PrimeIntentKind::SettingsDiscard, 0},
         {"settings:reset-category", PrimeIntentKind::SettingsResetCategory, 0},
@@ -228,6 +276,11 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"adventure:confirm-new-run", PrimeIntentKind::AdventureConfirmNewRun, 0},
         {"adventure:cancel-new-run", PrimeIntentKind::AdventureCancelNewRun, 0},
         {"adventure:refresh", PrimeIntentKind::AdventureRefresh, 0},
+        {"adventure:copy", PrimeIntentKind::AdventureCopy, 0},
+        {"adventure:confirm-copy", PrimeIntentKind::AdventureConfirmCopy, 0},
+        {"adventure:archive", PrimeIntentKind::AdventureArchive, 0},
+        {"adventure:confirm-archive", PrimeIntentKind::AdventureConfirmArchive, 0},
+        {"adventure:cancel-save-change", PrimeIntentKind::AdventureCancelSaveChange, 0},
         {"community:refresh", PrimeIntentKind::CommunityRefresh, 0},
         {"community:search", PrimeIntentKind::CommunitySearch, 0},
         {"community:confirm", PrimeIntentKind::CommunityConfirm, 0},
@@ -298,6 +351,9 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 1; index < 4; ++index) if (action == "adventure:slot:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::AdventureSelectSlot); intent.argument = index; return true;
     }
+    for (int index = 1; index < 4; ++index) if (action == "adventure:copy-destination:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::AdventureCopyDestination); intent.argument = index; return true;
+    }
     for (int index = 0; index < 16; ++index) if (action == "offline:choice:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::OfflineChoice); intent.argument = index; return true;
     }
@@ -320,8 +376,11 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 25; ++index) if (action == std::string("theatre:") + theatreaction_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::TheatreAction); intent.argument = index; return true;
     }
-    const char* replayaction_names[] = {"toggle-pause", "jump-back", "jump-forward", "restart", "step", "next-rate", "next-camera", "previous-player", "next-player", "seek", "studio", "back", "fullscreen"};
-    for (int index = 0; index < 13; ++index) if (action == std::string("replay:") + replayaction_names[index]) {
+    const char* replayaction_names[] = {
+    "toggle-pause", "jump-back", "jump-forward", "restart", "step", "next-rate", "next-camera", "previous-player", "next-player", "seek", "studio", "back", "fullscreen", "bookmarks", "bookmark-previous", "bookmark-next", "bookmark-add", "bookmark-jump", "bookmark-remove", "bookmark-confirm-remove", "bookmark-cancel", "bookmark-refresh", "ranges", "mark-in", "mark-out", "range-save-highlight", "range-create-virtual", "range-refresh", "range-cancel", "range-save-materialized", "range-cancel-materialized", "camera-editor", "camera-refresh", "camera-free", "camera-fov-less", "camera-fov-more", "camera-roll-less", "camera-roll-more", "camera-previous", "camera-next", "camera-preview", "camera-add", "camera-update", "camera-remove", "camera-confirm", "camera-cancel-confirm", "camera-close", "camera-track", "export-open", "export-refresh", "export-preset", "export-resolution", "export-fps", "export-game-hud", "export-replay-overlay", "export-encoder", "export-source", "export-camera", "export-queue", "export-previous", "export-next", "export-cancel-active", "export-retry", "export-clear-pending", "export-confirm", "export-cancel-confirm", "export-close", "export-open-output", "editor-open", "editor-refresh", "editor-tab", "editor-player", "editor-event-filter", "editor-previous", "editor-next", "editor-seek", "editor-select-range", "editor-add-selection-to-reel", "editor-add-highlight-to-reel", "editor-add-top-highlights", "editor-move-up", "editor-move-down", "editor-trim", "editor-cycle-camera", "editor-remove", "editor-clear-reel", "editor-remove-named-highlight", "editor-confirm", "editor-cancel", "editor-close", "editor-previous-shot", "editor-shot-at-playhead", "editor-next-shot", "editor-toggle-analytics-hud", "editor-toggle-network-hud", "editor-toggle-combat-hud", "editor-toggle-shot-rays", "camera-tools-open", "camera-tools-refresh", "camera-tools-previous", "camera-tools-next", "camera-tools-toggle-selection", "camera-tools-range-selection", "camera-tools-select-all", "camera-tools-clear-selection", "camera-tools-move", "camera-tools-copy", "camera-tools-paste", "camera-tools-duplicate", "camera-tools-snap-event", "camera-tools-snap-kill", "camera-tools-snap-bookmark", "camera-tools-interpolation", "camera-tools-ease", "camera-tools-look-at", "camera-tools-remove-selected", "camera-tools-constant-speed", "camera-tools-collision", "camera-tools-director", "camera-tools-preview", "camera-tools-confirm", "camera-tools-cancel", "camera-tools-close", "camera-tools-nearest", "timeline-open", "timeline-refresh", "timeline-zoom-in", "timeline-zoom-out", "timeline-pan-left", "timeline-pan-right", "timeline-center", "timeline-reset", "timeline-cancel-drag", "timeline-close", "timeline-activate", "spatial-open", "spatial-analyze", "spatial-kind", "spatial-player", "spatial-range", "spatial-cancel", "spatial-close", "studio-tools-open", "studio-tools-run", "studio-tools-operation", "studio-tools-game-events", "studio-tools-combat-feedback", "studio-tools-cancel", "studio-tools-close", "camera-tools-transform", "camera-tools-handles", "four-views", "studio-tools-preview", "studio-tools-stop-preview", "camera-tools-curve-key", "spatial-world", "studio-cue-event", "studio-cue-bus", "studio-cue-previous", "studio-cue-next", "studio-cue-add", "studio-cue-update", "studio-cue-remove", "workspace-open", "workspace-save-as", "workspace-settings", "workspace-seek", "workspace-rate-0p25", "workspace-rate-0p5", "workspace-rate-1", "workspace-rate-2", "workspace-rate-4", "workspace-refresh", "workspace-tab-camera", "workspace-tab-markers", "workspace-tab-combat", "workspace-tab-analysis", "workspace-tab-audio", "workspace-tab-export", "workspace-camera-graph", "workspace-camera-apply", "workspace-preview-hud", "workspace-preview-overlay", "workspace-preview-path", "workspace-camera-mode-FirstPerson", "workspace-camera-mode-Free", "workspace-camera-mode-Chase", "workspace-camera-mode-Orbit", "workspace-track-camera", "workspace-track-events", "workspace-track-bookmarks", "workspace-track-ranges", "workspace-track-reel", "workspace-track-kills", "workspace-track-damage", "workspace-track-shots", "workspace-track-spawns", "workspace-track-objectives", "workspace-track-audio", "workspace-track-cuts", "workspace-track-exportrange", "workspace-editor-tab-Events", "workspace-editor-tab-AutomaticHighlights", "workspace-editor-tab-NamedHighlights", "workspace-editor-tab-Reel", "workspace-editor-tab-Analytics", "workspace-combat-choice-0", "workspace-combat-choice-1", "workspace-combat-choice-2", "workspace-combat-choice-3", "workspace-combat-choice-4", "workspace-combat-choice-5", "workspace-combat-choice-6", "workspace-combat-choice-7", "workspace-combat-choice-8", "workspace-combat-choice-9", "workspace-combat-choice-10", "workspace-combat-choice-11", "workspace-combat-choice-12", "workspace-combat-choice-13", "workspace-combat-choice-14", "workspace-combat-choice-15", "workspace-combat-shooter-view", "workspace-combat-shooter-pov", "workspace-combat-authority", "workspace-operation-AudioMix", "workspace-operation-CompareRecording", "workspace-operation-CompareWorld", "workspace-operation-SaveBuildEvidence", "workspace-operation-CompareBuildEvidence", "workspace-operation-PortableBundle", "workspace-operation-ImportPortable", "workspace-operation-DiagnosticBundle", "workspace-operation-MuxVideo", "workspace-export-source-Selection", "workspace-export-source-FullReplay", "workspace-export-source-ExistingReel", "workspace-export-camera-FirstPerson", "workspace-export-camera-Chase", "workspace-export-camera-Orbit", "workspace-export-camera-Director", "workspace-export-camera-SavedCameraTrack", "workspace-export-fps-24", "workspace-export-fps-30", "workspace-export-fps-48", "workspace-export-fps-60", "workspace-export-fps-90", "workspace-export-fps-120", "workspace-export-fps-144", "workspace-export-resolution-0", "workspace-export-resolution-1", "workspace-export-resolution-2", "workspace-export-resolution-3", "workspace-camera-overview", "workspace-comparison-preview", "workspace-comparison-stop", "studio-audio-enabled", "studio-audio-save", "workspace-camera-interpolation-0", "workspace-camera-interpolation-1", "workspace-camera-interpolation-2", "workspace-camera-interpolation-3", "workspace-camera-interpolation-4", "workspace-camera-ease-0", "workspace-camera-ease-1", "workspace-camera-ease-2", "workspace-camera-ease-3", "workspace-camera-lookat-none", "workspace-camera-lookat-0", "workspace-camera-lookat-1", "workspace-camera-lookat-2", "workspace-camera-lookat-3", "workspace-camera-lookat-4", "workspace-camera-lookat-5", "workspace-camera-lookat-6", "workspace-camera-lookat-7", "workspace-camera-slot-0", "workspace-camera-slot-1", "workspace-camera-slot-2", "workspace-camera-slot-3", "workspace-camera-slot-4", "workspace-camera-slot-5", "workspace-camera-slot-6", "workspace-camera-slot-7", "workspace-camera-key-interpolation-0", "workspace-camera-key-interpolation-1", "workspace-camera-key-interpolation-2", "workspace-camera-key-interpolation-3", "workspace-camera-key-interpolation-4", "workspace-camera-key-ease-0", "workspace-camera-key-ease-1", "workspace-camera-key-ease-2", "workspace-camera-key-ease-3", "workspace-camera-key-lookat-none", "workspace-camera-key-lookat-0", "workspace-camera-key-lookat-1", "workspace-camera-key-lookat-2", "workspace-camera-key-lookat-3", "workspace-camera-key-lookat-4", "workspace-camera-key-lookat-5", "workspace-camera-key-lookat-6", "workspace-camera-key-lookat-7", "workspace-event-search", "workspace-replay-tags-save", "workspace-save-view", "workspace-music-choose", "workspace-cue-choose"
+};
+    static_assert(sizeof(replayaction_names) / sizeof(replayaction_names[0]) == PP_RMLUI_REPLAY_ACTION_COUNT);
+    for (uint32_t index = 0; index < PP_RMLUI_REPLAY_ACTION_COUNT; ++index) if (action == std::string("replay:") + replayaction_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::ReplayAction); intent.argument = index; return true;
     }
     for (int index = 0; index < 16; ++index) if (action == "offline:arena:" + std::to_string(index)) {
@@ -333,15 +392,24 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 3; ++index) if (action == "theatre:thumbnail:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::TheatreThumbnail); intent.argument = index; return true;
     }
-    const char* licenseaction_names[] = {"overview", "customization", "stats", "history", "achievements", "emblems", "titles", "comparison", "account", "refresh", "cancel-refresh", "previous-page", "next-page", "send-verification", "finish-password", "recover", "link-google", "link-github", "link-discord", "refresh-account", "back"};
-    for (int index = 0; index < 21; ++index) if (action == std::string("license:") + licenseaction_names[index]) {
+    const char* licenseaction_names[] = {"overview", "customization", "stats", "history", "achievements", "emblems", "titles", "comparison", "account", "refresh", "cancel-refresh", "previous-page", "next-page", "send-verification", "finish-password", "recover", "link-google", "link-github", "link-discord", "refresh-account", "back", "hide-profile", "show-profile", "confirm-public", "cancel-public"};
+    if (action == "license:open") { intent.kind = uint32_t(PrimeIntentKind::LicenseOpen); intent.argument = 0; return true; }
+    const char* licensecard_names[] = {"record", "combat", "skill", "objectives", "time"};
+    for (int index = 0; index < 5; ++index) if (action == std::string("license:card-") + licensecard_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::LicenseAction); intent.argument = 25 + index; return true;
+    }
+    for (int index = 0; index < 25; ++index) if (action == std::string("license:") + licenseaction_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::LicenseAction); intent.argument = index; return true;
     }
-    const char* studioaction_names[] = {"launch", "pick-map", "open-path", "recover", "cancel"};
-    for (int index = 0; index < 5; ++index) if (action == std::string("studio:") + studioaction_names[index]) {
+    const char* studioaction_names[] = {"launch", "pick-map", "open-path", "recover", "cancel", "refresh", "previous-page", "next-page", "open-selected", "create-project", "project-library", "duplicate", "delete", "confirm-delete", "cancel-delete", "select-entry-0", "select-entry-1", "select-entry-2", "select-entry-3", "select-entry-4", "select-entry-5", "select-entry-6", "select-entry-7", "select-template-0", "select-template-1", "select-template-2", "select-template-3", "select-template-4", "select-template-5", "select-template-6", "select-template-7", "edit-current", "editor-back", "editor-undo", "editor-redo", "editor-save", "editor-move", "editor-rotate", "editor-scale", "editor-frame-all", "editor-frame-selection", "editor-perspective", "editor-top", "editor-front", "editor-side", "editor-previous", "editor-next", "editor-select-0", "editor-select-1", "editor-select-2", "editor-select-3", "editor-select-4", "editor-select-5", "editor-select-6", "editor-select-7", "project-change-save", "project-change-preserve", "project-change-cancel", "project-change-overwrite", "project-change-keep-file", "editor-create-box", "editor-create-wedge", "editor-create-prism", "editor-create-convex", "editor-create-mesh", "editor-create-spawn", "editor-create-pickup", "editor-create-jump-pad", "editor-create-link", "editor-duplicate", "editor-delete", "editor-confirm-delete", "editor-cancel-delete", "property-previous", "property-next", "property-apply", "property-reset", "property-cycle-0", "property-cycle-1", "property-cycle-2", "property-cycle-3", "property-cycle-4", "property-cycle-5", "property-cycle-6", "property-cycle-7", "resource-materials", "resource-assets", "resource-objects", "material-previous", "material-next", "material-add", "material-duplicate", "material-assign-selection", "material-select-usages", "material-delete-unused", "material-confirm-delete", "material-cancel-delete", "material-property-previous", "material-property-next", "material-property-apply", "material-property-reset", "material-property-cycle-0", "material-property-cycle-1", "material-property-cycle-2", "material-property-cycle-3", "material-property-cycle-4", "material-property-cycle-5", "material-property-cycle-6", "material-property-cycle-7", "material-select-0", "material-select-1", "material-select-2", "material-select-3", "material-select-4", "material-select-5", "material-select-6", "material-select-7", "asset-previous", "asset-next", "asset-rename", "asset-remove-unused", "asset-confirm-remove", "asset-cancel-remove", "asset-cycle-channel", "asset-select-0", "asset-select-1", "asset-select-2", "asset-select-3", "asset-select-4", "asset-select-5", "asset-select-6", "asset-select-7", "asset-bind-channel", "asset-clear-channel", "resource-refresh-cache", "asset-find-usages", "material-use-as-replacement", "material-replace-usages", "resource-reset-selection", "object-mode", "face-mode", "edge-mode", "vertex-mode", "tool-move", "tool-rotate", "tool-scale", "axis-free", "axis-x", "axis-y", "axis-z", "axis-xy", "axis-xz", "axis-yz", "toggle-local", "snap-apply", "pivot-cycle", "cursor-apply", "component-select-all", "component-clear", "component-linked", "component-grow", "component-shrink", "component-boundary", "component-previous", "component-next", "component-select-0", "component-select-1", "component-select-2", "component-select-3", "component-select-4", "component-select-5", "component-select-6", "component-select-7", "convert-to-mesh", "apply-component-transform", "uv-apply", "uv-fit64", "uv-density", "uv-copy", "uv-paste", "uv-rotate-positive", "uv-rotate-negative", "uv-flip-u", "uv-flip-v", "uv-explicit", "uv-projected", "uv-checker-toggle", "selection-mode-cycle", "gesture-cancel", "reset-uv-draft", "asset-choose-source", "asset-review-import", "asset-apply-import", "asset-review-replace", "asset-apply-replace", "asset-review-export", "asset-confirm-export", "asset-confirm-overwrite", "asset-cancel-io", "asset-reload-source", "build-validate", "build-runtime", "build-package", "build-play-camera", "build-play-selection", "build-navigation", "build-audit", "build-cancel", "build-problems-previous", "build-problems-next", "build-budgets-previous", "build-budgets-next", "build-problem-0", "build-problem-1", "build-problem-2", "build-problem-3", "build-problem-4", "build-problem-5", "build-problem-6", "build-problem-7", "build-clear", "build-play-team-a", "build-play-team-b", "build-panel" };
+    static_assert(sizeof(studioaction_names) / sizeof(studioaction_names[0]) == PP_RMLUI_STUDIO_ACTION_COUNT);
+    for (uint32_t index = 0; index < PP_RMLUI_STUDIO_ACTION_COUNT; ++index) if (action == std::string("studio:") + studioaction_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::StudioAction); intent.argument = index; return true;
     }
-    for (int index = 0; index < 3; ++index) if (action == "community:tab:" + std::to_string(index)) {
+    for (int index = 0; index < 4; ++index) if (action == "community:transfer:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityTransferAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "community:tab:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::CommunityTab); intent.argument = index; return true;
     }
     for (int index = 0; index < 3; ++index) if (action == "community:sort:" + std::to_string(index)) {
@@ -378,8 +446,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 4; ++index) if (action == std::string("play:") + queue_actions[index]) {
         intent.kind = uint32_t(PrimeIntentKind::PlayQueueAction); intent.argument = index; return true;
     }
-    const char* social_names[] = {"friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back"};
-    for (int index = 0; index < 53; ++index) if (action == std::string("social:") + social_names[index]) {
+    const char* social_names[] = {"friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back", "reserve-party-seats"};
+    for (int index = 0; index < 54; ++index) if (action == std::string("social:") + social_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::SocialAction); intent.argument = index; return true;
     }
     for (int index = 0; index < 12; ++index) if (action == "news:action:" + std::to_string(index)) {
@@ -412,16 +480,41 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 8; ++index) if (action == "hud:property:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HudProperty); intent.argument = index; return true;
     }
-    const char* in_game_actions[] = {"resume", "fullscreen", "settings", "replay", "vote", "spectate", "rejoin", "recorder", "return-lobby", "leave", "quit", "confirm", "cancel", "map-next", "vote-submit", "vote-yes", "vote-no", "bots", "bot-select", "bot-hunter", "bot-suit", "bot-skill", "bot-team", "bot-handicap", "bot-remove", "bot-add", "bot-apply"};
-    for (int index = 0; index < 27; ++index) if (action == std::string("ingame:") + in_game_actions[index]) {
+    const char* in_game_actions[] = {"resume", "fullscreen", "settings", "replay", "vote", "spectate", "rejoin", "recorder", "return-lobby", "leave", "quit", "confirm", "cancel", "map-next", "vote-submit", "vote-yes", "vote-no", "bots", "bot-select", "bot-hunter", "bot-suit", "bot-skill", "bot-team", "bot-handicap", "bot-remove", "bot-add", "bot-apply", "journal", "journal-map", "journal-scans", "journal-category", "journal-previous", "journal-next", "journal-back"};
+    for (int index = 0; index < 34; ++index) if (action == std::string("ingame:") + in_game_actions[index]) {
         intent.kind = uint32_t(PrimeIntentKind::InGameAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 11; ++index) if (action == "campaign-ship:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CampaignShipAction); intent.argument = index; return true;
     }
     return false;
 }
-void QueueAction(const std::string& action, uint64_t document)
+bool TimelineActivationCurrent(const QueuedAction& queued)
+{
+    if (queued.activation_source.empty()) return true;
+    auto* focused = g_context ? g_context->GetFocusElement() : nullptr;
+    return focused && DocumentId(focused->GetOwnerDocument()) == queued.intent.document_id
+        && focused->GetId() == queued.activation_source && focused->IsVisible(true)
+        && !focused->HasAttribute("disabled");
+}
+void DiscardRetargetedTimelineActions()
+{
+    while (!g_actions.empty() && !TimelineActivationCurrent(g_actions.front())) g_actions.pop_front();
+}
+void QueueAction(const std::string& action, uint64_t document, Rml::Element* activation_source = nullptr)
 {
     auto* source = GetDocument(document);
     if (!source) return;
+    std::string activation_id;
+    if (action == "replay:timeline-activate") {
+        if (!activation_source || activation_source->GetOwnerDocument() != source->element
+            || !activation_source->IsVisible(true) || activation_source->HasAttribute("disabled")) return;
+        activation_id = activation_source->GetId();
+        if (activation_id.rfind("replay_timeline_", 0) != 0 || activation_id.size() > 64) return;
+        for (char c : activation_id)
+            if (!(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_') return;
+        if (!activation_source->Focus()) return;
+    }
     DirtyVisual();
     source->booleans.clear(); // DOM callbacks may change presenter booleans.
     PrimeIntent intent;
@@ -430,7 +523,7 @@ void QueueAction(const std::string& action, uint64_t document)
     intent.document_id = document;
     intent.sequence = ++g_next_sequence;
     // A bounded queue prevents repeated-input accumulation while a host stalls.
-    if (g_actions.size() < 256) g_actions.push_back({intent, action});
+    if (g_actions.size() < 256) g_actions.push_back({intent, action, activation_id});
 }
 void QueueHomeAction(const std::string& action) { QueueAction(action, g_home_id); }
 class DocumentActionListener final : public Rml::EventListener {
@@ -443,7 +536,7 @@ public:
             auto* target = event.GetTargetElement();
             const Rml::String submit = target->GetAttribute<Rml::String>("data-submit", "");
             if (!submit.empty() && !target->HasAttribute("disabled")) {
-                QueueAction(submit, DocumentId(target->GetOwnerDocument()));
+                QueueAction(submit, DocumentId(target->GetOwnerDocument()), target);
                 event.StopPropagation();
             }
             return;
@@ -461,13 +554,17 @@ public:
         for (auto* element = event.GetTargetElement(); element; element = element->GetParentNode()) {
             const Rml::String action = element->GetAttribute<Rml::String>(click || change ? "data-action" : "data-preview", "");
             if (!action.empty()) {
-                if (!element->HasAttribute("disabled")) QueueAction(action, DocumentId(element->GetOwnerDocument()));
+                if (!element->HasAttribute("disabled")) QueueAction(action, DocumentId(element->GetOwnerDocument()), element);
                 break;
             }
         }
     }
 };
 DocumentActionListener g_action_listener;
+class TextRevisionListener final : public Rml::EventListener {
+    void ProcessEvent(Rml::Event& event) noexcept override { g_text_input.ObserveEditEvent(event); }
+};
+TextRevisionListener g_text_revision_listener;
 
 uint64_t RegisterDocument(Rml::ElementDocument* element, const std::string& path, int layer)
 {
@@ -479,11 +576,15 @@ uint64_t RegisterDocument(Rml::ElementDocument* element, const std::string& path
         entry.restore_document = DocumentId(focused->GetOwnerDocument());
         entry.restore_element = focused->GetId();
     }
+    NormalizeDisabledControls(entry,element);
     g_documents.emplace(id, std::move(entry));
     g_document_order.push_back(id);
     g_lobby_anchor_dirty = true;
     DirtyVisual();
     element->AddEventListener("click", &g_action_listener);
+    element->AddEventListener("input", &g_text_revision_listener, true);
+    element->AddEventListener("focus", &g_text_revision_listener, true);
+    element->AddEventListener("change", &g_text_revision_listener, true);
     element->AddEventListener("change", &g_action_listener);
     element->AddEventListener("keydown", &g_action_listener, true);
     element->AddEventListener("mouseover", &g_action_listener);
@@ -586,7 +687,9 @@ void EnsureUpdated(bool scheduled)
     // frame, rather than causing two timer-driven updates in this frame.
     for (int pass = 0; pass < 2; ++pass) {
         g_update_dirty = false;
+        g_text_input.InvalidateCaret(); // timers/layout can move caret without ActivateKeyboard
         g_context->Update();
+        g_text_input.ValidateAvailability(); // computed CSS/model hidden/disabled/readonly or modal foreground
         g_updated_since_render = true;
         g_last_update_time = g_system.GetElapsedTime();
         ++g_visual_revision;
@@ -602,9 +705,14 @@ void ScrollFocusedElement(Rml::Element* element)
 {
     // A pointer gesture captures its canvas bounds before requesting focus.
     // Authored canvases keep that coordinate space fixed under the finger.
-    // Ordinary controls retain nearest scrolling for keyboard/accessibility.
-    if (element->GetAttribute<Rml::String>("data-focus-scroll", "") != "none")
-        element->ScrollIntoView(Rml::ScrollIntoViewOptions(Rml::ScrollAlignment::Nearest));
+    // Short inspectors can opt into centering so the whole input, including
+    // its border, stays clear of the pane edge. Other controls keep nearest.
+    const auto alignment = element->GetAttribute<Rml::String>("data-focus-scroll", "");
+    if (alignment != "none")
+        element->ScrollIntoView(Rml::ScrollIntoViewOptions(
+            alignment == "center" ? Rml::ScrollAlignment::Center : Rml::ScrollAlignment::Nearest));
+    g_text_input.InvalidateCaret(); // scrolling follows ShowCursor/ActivateKeyboard
+
 }
 
 int ConvertModifiers(int modifiers)
@@ -702,7 +810,7 @@ PP_EXPORT int pp_rmlui_initialize_backend(int width, int height, float density, 
     Rml::SetTextInputHandler(&g_text_input);
     g_context = Rml::CreateContext("project-prime-rmlui", {width, height});
     if (!g_context) { pp_rmlui_shutdown(); return 0; }
-    g_text_input.Attach(g_context, g_generation.load(), DocumentId);
+    g_text_input.Attach(g_context, g_generation.load(), DocumentId, ForegroundDocument);
     g_context->SetDensityIndependentPixelRatio(std::max(density, 1.0f));
     g_model = std::make_unique<PrimeMenuModel>();
     if (!g_model->Setup(g_context)) { pp_rmlui_shutdown(); return 0; }
@@ -722,6 +830,9 @@ PP_EXPORT void pp_rmlui_shutdown()
     // and render adapter still exist. RemoveContext flushes deferred Close().
     for (auto& entry : g_documents) {
         entry.second.element->RemoveEventListener("click", &g_action_listener);
+        entry.second.element->RemoveEventListener("input", &g_text_revision_listener, true);
+        entry.second.element->RemoveEventListener("focus", &g_text_revision_listener, true);
+        entry.second.element->RemoveEventListener("change", &g_text_revision_listener, true);
     entry.second.element->RemoveEventListener("change", &g_action_listener);
     entry.second.element->RemoveEventListener("keydown", &g_action_listener, true);
     entry.second.element->RemoveEventListener("mouseover", &g_action_listener);
@@ -787,6 +898,7 @@ PP_EXPORT void pp_rmlui_resize(int width, int height, float density)
     g_renderer->SetViewport(width, height);
     const float dpi = std::isfinite(density) && density > 0 ? std::max(density, 1.0f) : g_context->GetDensityIndependentPixelRatio();
     if (g_context->GetDimensions() == Rml::Vector2i(width, height) && g_context->GetDensityIndependentPixelRatio() == dpi) return;
+    g_text_input.InvalidateCaret();
     g_context->SetDimensions({width, height});
     g_context->SetDensityIndependentPixelRatio(dpi);
     g_lobby_anchor_dirty = true;
@@ -808,6 +920,7 @@ PP_EXPORT int pp_rmlui_mouse_move(int x, int y, int modifiers)
     const bool stationary = g_pointer_known && x == g_pointer_x && y == g_pointer_y && modifiers == g_pointer_modifiers;
     g_pointer_known = true; g_pointer_x = x; g_pointer_y = y; g_pointer_modifiers = modifiers;
     if (!stationary || g_pointer_buttons) DirtyVisual();
+    if (g_pointer_buttons) g_text_input.ExternalMutation(nullptr, true); // drag selection
     return g_context->ProcessMouseMove(x, y, ConvertModifiers(modifiers)) ? 1 : 0;
 }
 
@@ -819,6 +932,7 @@ PP_EXPORT int pp_rmlui_mouse_button(int button, int down, int modifiers)
         if (down) g_pointer_buttons |= 1u << button;
         else g_pointer_buttons &= ~(1u << button);
     }
+    g_text_input.ExternalMutation(nullptr, true); // click/double-click selection and focus
     const bool propagated = down
         ? g_context->ProcessMouseButtonDown(button, ConvertModifiers(modifiers))
         : g_context->ProcessMouseButtonUp(button, ConvertModifiers(modifiers));
@@ -829,6 +943,7 @@ PP_EXPORT int pp_rmlui_mouse_wheel(float delta_y, int modifiers)
 {
     if (!OwnerThread() || !g_context || !std::isfinite(delta_y)) return 0;
     DirtyVisual();
+    g_text_input.InvalidateCaret();
     return g_context->ProcessMouseWheel(-delta_y, ConvertModifiers(modifiers)) ? 1 : 0;
 }
 
@@ -838,6 +953,7 @@ PP_EXPORT int pp_rmlui_key(int key, int down, int modifiers)
     const Rml::Input::KeyIdentifier converted = ConvertKey(key);
     if (converted == Rml::Input::KI_UNKNOWN) return 0;
     DirtyVisual();
+    if (down) g_text_input.ExternalMutation(nullptr, true); // caret/selection/delete/paste/cut; no text cache
     const bool propagated = down
         ? g_context->ProcessKeyDown(converted, ConvertModifiers(modifiers))
         : g_context->ProcessKeyUp(converted, ConvertModifiers(modifiers));
@@ -849,6 +965,7 @@ PP_EXPORT int pp_rmlui_text(unsigned int codepoint)
     if (codepoint == 0 || codepoint > 0x10ffff || (codepoint >= 0xd800 && codepoint <= 0xdfff)) return 0;
     if (!OwnerThread() || !g_context) return 0;
     DirtyVisual();
+    g_text_input.ExternalMutation(nullptr, true);
     return g_context->ProcessTextInput(static_cast<Rml::Character>(codepoint)) ? 1 : 0;
 }
 
@@ -887,7 +1004,9 @@ PP_EXPORT int pp_rmlui_back()
 
 PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
 {
-    if (!OwnerThread() || !buffer || capacity <= 1 || g_actions.empty()) return 0;
+    if (!OwnerThread() || !buffer || capacity <= 1) return 0;
+    DiscardRetargetedTimelineActions();
+    if (g_actions.empty()) return 0;
     const int length = CopyUtf8(g_actions.front().legacy, buffer, capacity);
     if (length >= 0) g_actions.pop_front();
     return length;
@@ -903,15 +1022,7 @@ PP_EXPORT int pp_rmlui_document_element_bounds(uint64_t document_id, const char*
         return 0;
     EnsureUpdated();
     Rml::Element* element = document->element->GetElementById(id);
-    if (!element || !element->IsVisible(true)) return 0;
-    const auto offset = element->GetAbsoluteOffset(Rml::BoxArea::Border);
-    const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
-    if (size.x <= 0 || size.y <= 0) return 0;
-    *x = offset.x;
-    *y = offset.y;
-    *width = size.x;
-    *height = size.y;
-    return 1;
+    return PrimeElementBounds(element,*x,*y,*width,*height) ? 1 : 0;
 }
 PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
     float* width, float* height)
@@ -940,7 +1051,9 @@ PP_EXPORT uint64_t pp_rmlui_home_document() { return OwnerThread() ? g_home_id :
 PP_EXPORT int pp_rmlui_take_intent(PrimeIntent* intent)
 {
     if (!OwnerThread() || !intent || intent->size != sizeof(PrimeIntent)
-        || intent->version != PP_RMLUI_PROTOCOL_VERSION || g_actions.empty()) return 0;
+        || intent->version != PP_RMLUI_PROTOCOL_VERSION) return 0;
+    DiscardRetargetedTimelineActions();
+    if (g_actions.empty()) return 0;
     *intent = g_actions.front().intent;
     g_actions.pop_front();
     return 1;
@@ -958,7 +1071,11 @@ PP_EXPORT uint64_t pp_rmlui_document_open(const char* relative_path, int layer)
     auto root_part = g_asset_root.begin(); auto path_part = path.begin();
     for (; root_part != g_asset_root.end(); ++root_part, ++path_part)
         if (path_part == path.end() || *root_part != *path_part) return 0;
-    return RegisterDocument(g_context->LoadDocument(path.string()), relative.generic_string(), layer);
+    // RmlUi parses the document's source URL before resolving image sources.
+    // Windows backslashes are filesystem separators, not URL separators: they
+    // leave ElementImage with an empty base directory. Forward slashes retain
+    // the drive and directory through RmlUi's URL-safe path conversion.
+    return RegisterDocument(g_context->LoadDocument(path.generic_string()), relative.generic_string(), layer);
 }
 PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
 {
@@ -967,6 +1084,9 @@ PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
     const uint64_t restore_document = document->restore_document;
     const std::string restore_element = document->restore_element;
     document->element->RemoveEventListener("click", &g_action_listener);
+    document->element->RemoveEventListener("input", &g_text_revision_listener, true);
+    document->element->RemoveEventListener("focus", &g_text_revision_listener, true);
+    document->element->RemoveEventListener("change", &g_text_revision_listener, true);
     document->element->RemoveEventListener("change", &g_action_listener);
     document->element->RemoveEventListener("keydown", &g_action_listener, true);
     document->element->RemoveEventListener("mouseover", &g_action_listener);
@@ -997,6 +1117,7 @@ PP_EXPORT int pp_rmlui_document_show(uint64_t document_id, int show)
     DirtyVisual();
     if (show) document->element->Show(document->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None, Rml::FocusFlag::Keep);
     else {
+        g_text_input.Unavailable(document->element);
         document->element->Hide();
         g_actions.erase(std::remove_if(g_actions.begin(), g_actions.end(), [document_id](const QueuedAction& action) {
             return action.intent.document_id == document_id;
@@ -1020,6 +1141,7 @@ PP_EXPORT int pp_rmlui_document_set_text(uint64_t document_id, const char* name,
     auto* document = GetDocument(document_id);
     if (!document || !name) return 0;
     const std::string text = value ? value : "";
+    g_text_input.InvalidateCaret();
     const auto previous = document->texts.find(name);
     if (previous != document->texts.end() && previous->second == text) return 1;
     const std::string binding(name);
@@ -1073,15 +1195,14 @@ PP_EXPORT int pp_rmlui_document_set_bool(uint64_t document_id, const char* name,
     auto* document = GetDocument(document_id);
     if (!document || !name) return 0;
     const bool boolean = value != 0;
+    g_text_input.InvalidateCaret();
     const auto previous = document->booleans.find(name);
     if (previous != document->booleans.end() && previous->second == boolean) return 1;
     const std::string binding(name);
     if (binding.rfind("disabled:", 0) == 0) {
         auto* element = document->element->GetElementById(binding.substr(9));
         if (!element) return 0;
-        if (boolean) element->SetAttribute("disabled", "disabled");
-        else element->RemoveAttribute("disabled");
-        element->SetClass("unavailable", boolean);
+        SetControlEnabled(*document,element,!boolean);
     } else if (binding.rfind("class:", 0) == 0) {
         const size_t separator = binding.find(':', 6);
         if (separator == std::string::npos || separator + 1 == binding.size()) return 0;
@@ -1093,13 +1214,13 @@ PP_EXPORT int pp_rmlui_document_set_bool(uint64_t document_id, const char* name,
         auto* element = document->element->GetElementById(binding.substr(8));
         if (!element) return 0;
         if (boolean) element->RemoveProperty("display");
-        else element->SetProperty("display", "none");
+        else { g_text_input.Unavailable(element); element->SetProperty("display", "none"); }
     } else if (document_id == g_home_id && g_model) g_model->SetBool(name, boolean);
     else {
         auto* element = document->element->GetElementById(name);
         if (!element) return 0;
         if (boolean) element->RemoveProperty("display");
-        else element->SetProperty("display", "none");
+        else { g_text_input.Unavailable(element); element->SetProperty("display", "none"); }
     }
     document->booleans[name] = boolean;
     DirtyVisual();
@@ -1122,7 +1243,7 @@ PP_EXPORT int pp_rmlui_document_set_field(uint64_t document_id, const char* elem
         if (ReadFiniteNumbers(previous, &previous_number, 1) && ReadFiniteNumbers(text, &next_number, 1))
             changed = previous_number != next_number;
     }
-    if (changed) { ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
+    if (changed) { g_text_input.InvalidateCaret(); g_text_input.ExternalMutation(element); ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
     return 1;
 }
 PP_EXPORT int pp_rmlui_document_read_field(uint64_t document_id, const char* element_id, unsigned char* buffer, int capacity)
@@ -1137,9 +1258,12 @@ PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
 #if !defined(NDEBUG)
     auto* document = GetDocument(document_id);
     if (!document || document_id == g_home_id) return 0;
-    auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).string());
+    auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).generic_string());
     if (!replacement) return 0;
     document->element->RemoveEventListener("click", &g_action_listener);
+    document->element->RemoveEventListener("input", &g_text_revision_listener, true);
+    document->element->RemoveEventListener("focus", &g_text_revision_listener, true);
+    document->element->RemoveEventListener("change", &g_text_revision_listener, true);
     document->element->RemoveEventListener("change", &g_action_listener);
     document->element->RemoveEventListener("keydown", &g_action_listener, true);
     document->element->RemoveEventListener("mouseover", &g_action_listener);
@@ -1148,7 +1272,12 @@ PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
     document->element = replacement;
     g_accessibility.Forget(document_id);
     document->texts.clear(); document->booleans.clear();
+    document->disabled_focus.clear();
+    NormalizeDisabledControls(*document,replacement);
     replacement->AddEventListener("click", &g_action_listener);
+    replacement->AddEventListener("input", &g_text_revision_listener, true);
+    replacement->AddEventListener("focus", &g_text_revision_listener, true);
+    replacement->AddEventListener("change", &g_text_revision_listener, true);
     replacement->AddEventListener("change", &g_action_listener);
     replacement->AddEventListener("keydown", &g_action_listener, true);
     replacement->AddEventListener("mouseover", &g_action_listener);
@@ -1229,9 +1358,7 @@ PP_EXPORT int pp_rmlui_document_set_enabled(uint64_t document_id, const char* el
     if (!document || !element_id) return 0;
     auto* element = document->element->GetElementById(element_id);
     if (!element) return 0;
-    if (enabled) element->RemoveAttribute("disabled");
-    else element->SetAttribute("disabled", "disabled");
-    element->SetClass("unavailable", enabled == 0);
+    SetControlEnabled(*document,element,enabled != 0);
     DirtyVisual();
     return 1;
 }
@@ -1250,6 +1377,7 @@ PP_EXPORT int pp_rmlui_accessibility_action(uint64_t generation, uint64_t docume
     EnsureUpdated();
     auto* element = g_accessibility.Resolve(document->element, g_context->GetFocusElement(), generation, document_id, revision, node_key);
     if (!element) return 0;
+    g_text_input.InvalidateCaret();
     const int mask = g_accessibility.ActionMask(document_id, node_key);
     if (action == 0) {
         if (!(mask & PrimeAccessibilityTree::Focus) || !element->Focus()) return 0;
@@ -1270,7 +1398,7 @@ PP_EXPORT int pp_rmlui_accessibility_action(uint64_t generation, uint64_t docume
                 const Rml::String bound = target->GetAttribute<Rml::String>("data-action", "");
                 if (!bound.empty()) {
                     if (!target->HasAttribute("disabled"))
-                        QueueAction(bound, document_id);
+                        QueueAction(bound, document_id, target);
                     break;
                 }
             }
@@ -1299,10 +1427,10 @@ PP_EXPORT int pp_rmlui_accessibility_set_text(uint64_t generation, uint64_t docu
         const int length = static_cast<int>(Rml::StringUtilities::LengthUTF8(text));
         text.resize(size_t(Rml::StringUtilities::ConvertCharacterOffsetToByteOffset(text, std::min(length, maximum))));
     }
-    g_text_input.Cancel();
+    g_text_input.ExternalMutation(nullptr, true);
     // Accessibility is one user edit. Range SetValue already emits change;
     // silence that binding side effect before the single explicit DOM event.
-    { ProgrammaticFieldMutation binding; field->SetValue(text); }
+    { g_text_input.ExternalMutation(field); ProgrammaticFieldMutation binding; field->SetValue(text); }
     Rml::Dictionary parameters; parameters["value"] = text;
     element->DispatchEvent("change", parameters);
     DirtyVisual();
@@ -1311,10 +1439,14 @@ PP_EXPORT int pp_rmlui_accessibility_set_text(uint64_t generation, uint64_t docu
 
 PP_EXPORT int pp_rmlui_text_input_state(PrimeTextInputState* state)
 {
+    try {
     return OwnerThread() && state && g_text_input.State(*state) ? 1 : 0;
+
+    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
 }
 PP_EXPORT int pp_rmlui_text_selection_utf16(uint64_t generation, uint64_t document_id, uint64_t focus_epoch, int* start, int* end)
 {
+    try {
     if (!OwnerThread() || !start || !end) return 0;
     PrimeTextInputState state;
     if (!g_text_input.State(state) || state.generation != generation || state.document_id != document_id || state.focus_epoch != focus_epoch) return 0;
@@ -1332,12 +1464,44 @@ PP_EXPORT int pp_rmlui_text_selection_utf16(uint64_t generation, uint64_t docume
         return units;
     };
     *start = offset(state.selection_start); *end = offset(state.selection_end); return 1;
+
+    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
 }
 PP_EXPORT int pp_rmlui_composition(uint64_t generation, uint64_t document_id, uint64_t focus_epoch,
     int stage, const char* text, int cursor, int selection_length)
 {
     if (!OwnerThread() || !g_text_input.Compose(generation, document_id, focus_epoch, stage, text, cursor, selection_length)) return 0;
     DirtyVisual(); return 1;
+}
+PP_EXPORT int pp_rmlui_text_edit_state_v1(PrimeTextEditState* state)
+{
+    if (!OwnerThread() || !state) return 0;
+    try {
+        EnsureUpdated(); // settle pending writes/visibility before the revision witness
+        return g_text_input.EditState(*state) ? 1 : 0;
+    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
+}
+PP_EXPORT int pp_rmlui_text_edit_v1(const PrimeTextEditRequest* request, const uint8_t* utf8, uint32_t bytes)
+{
+    if (!OwnerThread() || !request) return -1;
+    try {
+        EnsureUpdated(); // a pending owner write invalidates the captured revision
+        const int result = g_text_input.Edit(*request, utf8, bytes);
+        if (result == 1 || result == -7) DirtyVisual();
+        return g_text_input.OwnerFailed() ? -7 : result;
+    } catch (...) { g_text_input.AbandonAfterFailure(); DirtyVisual(); return -7; }
+}
+PP_EXPORT int pp_rmlui_hovered_action(unsigned char* buffer, int capacity)
+{
+    if (!OwnerThread() || !g_context) return 0;
+    auto* element = g_context->GetHoverElement();
+    while (element) {
+        if (element->HasAttribute("disabled")) return 0;
+        const auto action = element->GetAttribute<Rml::String>("data-action", "");
+        if (!action.empty()) return CopyUtf8(action, buffer, capacity);
+        element = element->GetParentNode();
+    }
+    return 0;
 }
 PP_EXPORT int pp_rmlui_hovered_element(unsigned char* buffer, int capacity)
 {

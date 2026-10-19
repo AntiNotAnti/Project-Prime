@@ -9,6 +9,10 @@ namespace MphRead.Mods.Diagnostics
     /// <summary>Exercise the real desktop launcher without cartridge data.</summary>
     internal static class LauncherWindowCheck
     {
+#if MPHREAD_RMLUI_GL_SMOKE && !ANDROID && !MPHREAD_SERVER
+        // Opt-in acceptance attaches to this already owned window, then observes its post-swap RenderFrame event.
+        internal static event Action<RenderWindow>? NativeReplayWindowObserved;
+#endif
         private static bool _active;
         private static bool _passed;
         private static int _frames;
@@ -72,6 +76,9 @@ namespace MphRead.Mods.Diagnostics
         // Called before buffer swap, after the same UI path used on first launch.
         internal static void AfterDraw(RenderWindow window)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && !ANDROID && !MPHREAD_SERVER
+            NativeReplayWindowObserved?.Invoke(window);
+#endif
             if (!_active || (++_frames != 20 && _frames != (_training ? 180 : 40))) return;
             try
             {
@@ -95,7 +102,11 @@ namespace MphRead.Mods.Diagnostics
                         Render.GraphicsPipelineShader.FragmentSource);
                 }
                 int width = window.FramebufferSize.X, height = window.FramebufferSize.Y;
-                if (!Render.UiOverlay.HasFrame || width <= 0 || height <= 0)
+                bool uiFrame = Render.UiOverlay.HasFrame;
+#if MPHREAD_RMLUI_GL_SMOKE && !ANDROID && !MPHREAD_SERVER
+                uiFrame |= MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CapturesInput;
+#endif
+                if (!uiFrame || width <= 0 || height <= 0)
                     throw new InvalidOperationException("Launcher did not upload a frame.");
                 byte[] pixels = new byte[checked(width * height * 4)];
                 GL.ReadBuffer(ReadBufferMode.Back);

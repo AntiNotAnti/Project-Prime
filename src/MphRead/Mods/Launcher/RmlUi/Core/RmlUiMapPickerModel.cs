@@ -4,6 +4,12 @@ using System.Linq;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
+// Keep the existing Community command index stable; visual tab order is separate.
+public enum RmlUiArenaCategory { Mph = 0, Community = 1, Echoes = 2, Halo = 3, Quake = 4 }
+public readonly record struct RmlUiArenaChoice(string Room, RmlUiArenaCategory Category,
+    bool Selectable = true, string Hint = "INSTALLED PACKAGE");
+public readonly record struct RmlUiArenaPreview(string Image, string Status);
+
 /// <summary>
 /// Pure six-card native map picker. Names must originate from the established
 /// built-in list or locally installed, verified community packages, never from
@@ -12,7 +18,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Core;
 public sealed class RmlUiMapPickerModel
 {
     public const int PageSize = 6;
-    private readonly string[][] _categories;
+    private string[][] _categories;
+    private readonly Dictionary<string, RmlUiArenaChoice> _details = new(StringComparer.OrdinalIgnoreCase);
+    private bool _loaded;
     public int Category { get; private set; }
     public int Page { get; private set; }
     public int Count => _categories[Category].Length;
@@ -30,8 +38,59 @@ public sealed class RmlUiMapPickerModel
         _categories = new[]
         {
             vanilla,
-            Normalize(installedCommunity).Where(x => !existing.Contains(x)).ToArray()
+            Normalize(installedCommunity).Where(x => !existing.Contains(x)).ToArray(),
+            Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>()
         };
+        foreach (string room in _categories[0]) _details[room] = new(room, RmlUiArenaCategory.Mph, true, "MPH ARENA");
+        foreach (string room in _categories[1]) _details[room] = new(room, RmlUiArenaCategory.Community);
+    }
+
+    // Initial async publication only fills previously empty custom categories.
+    // Never reorder existing actionable cards while a click can be queued.
+    public void LoadInstalled(IReadOnlyList<RmlUiArenaChoice> choices)
+    {
+        if (_loaded) return;
+        _loaded = true;
+        var builtIn = new HashSet<string>(_categories[0], StringComparer.OrdinalIgnoreCase);
+        var valid = choices.Where(c => !string.IsNullOrWhiteSpace(c.Room) && c.Room.Length <= 256
+                && !builtIn.Contains(c.Room) && c.Category is >= RmlUiArenaCategory.Community and <= RmlUiArenaCategory.Quake)
+            .DistinctBy(c => c.Room, StringComparer.OrdinalIgnoreCase).ToArray();
+        foreach (var choice in valid) _details[choice.Room] = choice;
+        _categories[1] = Normalize(valid.Select(c => c.Room));
+        for (int category = 2; category < 5; category++)
+            _categories[category] = Normalize(valid.Where(c => (int)c.Category == category).Select(c => c.Room));
+        Page = Math.Min(Page, Pages - 1);
+    }
+
+    public RmlUiArenaChoice? Detail(int slot)
+        => Choice(slot) is { } room && _details.TryGetValue(room, out var choice) ? choice : null;
+
+    /// <summary>Display grouping, never a provenance or installation permission check.
+    /// Older packages have no origin field, so retain their familiar arena titles.
+    /// Community still contains every installed custom package.</summary>
+    public static RmlUiArenaCategory Group(string room, string? displayName, string? description, bool quakeImport)
+    {
+        string title = room + " " + displayName;
+        string notes = description is { Length: > 2048 } ? description[..2048] : description ?? "";
+        bool Has(string text, string term)
+        {
+            int start = 0;
+            while ((start = text.IndexOf(term, start, StringComparison.OrdinalIgnoreCase)) >= 0)
+            {
+                int end = start + term.Length;
+                if ((start == 0 || !char.IsLetterOrDigit(text[start - 1]))
+                    && (end == text.Length || !char.IsLetterOrDigit(text[end]))) return true;
+                start = end;
+            }
+            return false;
+        }
+        if (Has(title, "Echoes") || Has(notes, "Echoes") || Has(notes, "Metroid Prime 2")
+            || new[] { "Sidehopper Station", "Shooting Gallery", "Crossfire Chaos", "Spider Complex", "Pipeline", "Spires" }.Any(n => Has(title, n)))
+            return RmlUiArenaCategory.Echoes;
+        if (Has(title, "Halo") || Has(notes, "Halo")
+            || new[] { "Guardian", "Haven", "Midship", "Lockout", "Blood Gulch", "Bloodgulch", "Valhalla" }.Any(n => Has(title, n)))
+            return RmlUiArenaCategory.Halo;
+        return quakeImport ? RmlUiArenaCategory.Quake : RmlUiArenaCategory.Community;
     }
 
     private static string[] Normalize(IEnumerable<string> rooms) =>
@@ -41,7 +100,7 @@ public sealed class RmlUiMapPickerModel
 
     public bool SelectCategory(int category)
     {
-        if (category is < 0 or > 1) return false;
+        if (category is < 0 or > 4) return false;
         Category = category;
         Page = 0;
         return true;

@@ -33,6 +33,19 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: isolated Social and Party handler contracts
+        run: |
+          node --test tools/edge-check/*.test.ts
+          dotnet run --project tools/social-membership-check -c Release
+          dotnet run --project tools/native-party-travel-source-check -c Release
+
+      - name: exact Social and Party migrations in isolated PostgreSQL
+        run: |
+          npm ci --ignore-scripts --prefix tools/social-db-check
+          npm test --prefix tools/social-db-check
       - name: diagnostic command-line credential redaction
         run: dotnet run --project tools/diagnostic-args-check -c Release
 
@@ -48,14 +61,48 @@ jobs:
       - name: RmlUi local Hunter and suit draft contracts
         run: dotnet run --project tools/rmlui-hunter-check -c Release
 
+      - name: RmlUi offline rule validation, conflict and persistence contracts
+        run: dotnet run --project tools/rmlui-offline-rules-check -c Release
+
       - name: RmlUi native Community async discovery and cancellation contracts
-        run: dotnet run --project tools/rmlui-community-check -c Release
+        run: |
+          dotnet run --project tools/rmlui-community-check -c Release
+          dotnet run --project tools/rmlui-community-revisions-check -c Release
 
       - name: RmlUi authenticated Social Friends, cancellation and privacy contracts
         run: dotnet run --project tools/rmlui-social-check -c Release
 
       - name: RmlUi authoritative Party lifecycle and revision contracts
         run: dotnet run --project tools/rmlui-party-check -c Release
+
+      - name: RmlUi presence, privacy and heartbeat lifetime contracts
+        run: dotnet run --project tools/rmlui-presence-check -c Release
+
+      - name: RmlUi Android input, surface lifetime and APK extraction contracts
+        run: |
+          dotnet run --project tools/rmlui-android-input-check -c Release
+          dotnet run --project tools/rmlui-android-assets-check -c Release
+          dotnet run --project tools/rmlui-android-pause-check -c Release
+          dotnet run --project tools/rmlui-android-capabilities-check -c Release
+          dotnet run --project tools/rmlui-android-cycle-check -c Release
+
+      - name: RmlUi gameplay and HUD controller contracts
+        run: |
+          dotnet run --project tools/rmlui-ingame-restoration-check -c Release
+          dotnet run --project tools/hud-controller-check -c Release
+          dotnet run --project tools/rmlui-bookmark-check -c Release
+          dotnet run --project tools/rmlui-campaign-ending-check -c Release
+          dotnet run --project tools/rmlui-campaign-ship-check -c Release
+          dotnet run --project tools/rmlui-range-check -c Release
+          dotnet run --project tools/rmlui-camera-check -c Release
+          dotnet run --project tools/rmlui-export-owner-check -c Release
+          dotnet run --project tools/rmlui-export-check -c Release
+          dotnet run --project tools/rmlui-adventure-save-check -c Release
+
+      - name: display pose continuity and evidence comparability contracts
+        run: |
+          dotnet run --project tools/display-pose-check -c Release
+          python3 -m unittest discover -s tools/competition-evidence -p 'test_*.py'
 
       - name: RmlUi authenticated Hunter License read-model and cancellation contracts
         run: dotnet run --project tools/rmlui-license-check -c Release
@@ -69,6 +116,9 @@ jobs:
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
+      - name: automatic ROM import, cancellation and destination ownership
+        run: dotnet run --project tools/rmlui-game-files-check -c Release
+
       - name: RmlUi live Home, Play, lobby, and async ownership contracts
         run: dotnet run --project tools/rmlui-live-menu-check -c Release
 
@@ -79,6 +129,25 @@ jobs:
 
       - name: compile opt-in RmlUi OpenGL smoke bridge
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
+
+      - name: actual map-cache owner and maintenance isolation
+        run: |
+          set -euo pipefail
+          dotnet build tools/maintenance-isolation-check -c Release -p:BuildProjectReferences=false
+          env -u PROJECT_PRIME_USER_DATA dotnet tools/maintenance-isolation-check/bin/Release/net10.0/maintenance-isolation-check.dll --default
+          prime_cache_fixture=$(mktemp -d "$RUNNER_TEMP/prime-cache-owner.XXXXXX")
+          PROJECT_PRIME_USER_DATA="$prime_cache_fixture" dotnet tools/maintenance-isolation-check/bin/Release/net10.0/maintenance-isolation-check.dll --isolated "$prime_cache_fixture"
+
+      - name: bounded Party group queue and server owner contracts
+        run: |
+          dotnet run --project tools/group-reservation-check -c Release
+          dotnet run --project tools/party-reservation-owner-check -c Release
+
+      - name: verify opt-in RmlUi packaged page paths and contents
+        run: python3 tools/rmlui/check-pages.py --published-root src/MphRead/bin/Release/net10.0/rmlui
+
+      - name: native replay transport controller contracts
+        run: dotnet run --project tools/rmlui-playback-check -c Release -p:MphReadRmlUiGlSmoke=true
 
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
@@ -144,19 +213,70 @@ jobs:
         # Keep MSBuild to one node so NcsfPlay.deps.json is not generated twice
         # concurrently by distinct target/property graphs.
         run: dotnet build tools/rmlui-opengl-check -c Release -m:1 -p:BuildInParallel=false
-      - name: validate native Home pixels and terminal OpenGL state
+      - name: validate packaged native Home and License clicks, focus, pixels and GL state
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/rmlui/fonts"
-          cp src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.* "$RUNNER_TEMP/rmlui/"
-          cp src/MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf \
-             src/MphRead/Assets/Fonts/Rajdhani-Bold.ttf \
-             src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf "$RUNNER_TEMP/rmlui/fonts/"
+          python3 tools/rmlui/check-pages.py --published-root tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           cp artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
              tools/rmlui-opengl-check/bin/Release/net10.0/
-          xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
-            dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
-            "$RUNNER_TEMP/rmlui"
+          dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --replay-files
+          mkdir -p "${RUNNER_TEMP}/rmlui-studio-owner"
+          PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-studio-owner" \
+            dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --studio-owner
+          dotnet build tools/nettest -c Release -p:BuildProjectReferences=false
+          mkdir -p "${RUNNER_TEMP}/rmlui-party-ownership"
+          PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-party-ownership" \
+            dotnet tools/nettest/bin/Release/net10.0/nettest.dll --party-join-ownership
+          mkdir -p "${RUNNER_TEMP}/rmlui-android-local-integration"
+          PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-android-local-integration" \
+            dotnet tools/nettest/bin/Release/net10.0/nettest.dll --android-local-cycle-integration
+          dotnet run --project tools/server-browser-party-source-check -c Release
+          run_native_fixture() {
+            fixture_mode="$1"
+            fixture_size="$2"
+            fixture_user_data="${RUNNER_TEMP}/rmlui-${fixture_mode}-${fixture_size}"
+            mkdir -p "$fixture_user_data"
+            xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+              PROJECT_PRIME_USER_DATA="$fixture_user_data" \
+              dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
+              tools/rmlui-opengl-check/bin/Release/net10.0/rmlui --"$fixture_mode" "$fixture_size"
+          }
+          for mode in license offline-rules ingame; do
+            run_native_fixture "$mode" 640x360
+          done
+          for mode in party input playback map-preview campaign-ending campaign-ship community-history community-publish studio-workspace party-queue adventure-saves adventure-save-work studio-editor; do
+            for size in 640x360 1280x720 1920x1080; do
+              run_native_fixture "$mode" "$size"
+            done
+          done
+
+      - name: retain synthetic native License framebuffer evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-license-native-fixture
+          path: |
+            artifacts/rmlui-license-rml41
+            artifacts/rmlui-offline-rules-rml42
+            artifacts/rmlui-ingame-rml44
+            artifacts/rmlui-party-rml45
+            artifacts/rmlui-input-rml46
+            artifacts/rmlui-playback-rml48
+            artifacts/rmlui-map-preview-cpp05
+            artifacts/rmlui-campaign-ending-rml49
+            artifacts/rmlui-campaign-ship-rml50
+            artifacts/rmlui-bookmarks-rml49
+            artifacts/rmlui-ranges-rml52
+            artifacts/rmlui-camera-rml54
+            artifacts/rmlui-export-rml58
+            artifacts/rmlui-party-queue-rml58
+            artifacts/rmlui-adventure-saves-rml58
+            artifacts/rmlui-community-history-rml51
+            artifacts/rmlui-community-publish-rml54
+            artifacts/rmlui-studio-workspace
+            ${{ runner.temp }}/rmlui-studio-editor-*/native-studio-editor
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: publish and verify opt-in RmlUi Linux desktop client package
         run: |
@@ -204,6 +324,33 @@ jobs:
           set -euo pipefail
           bash tools/rmlui/package-desktop.sh "${{ matrix.rid }}" \
             "artifacts/rmlui-publish/${{ matrix.rid }}"
+      - uses: actions/setup-python@v6
+        if: matrix.rid == 'win-x64'
+        with:
+          python-version: '3.x'
+      - name: cook the Windows pair map bundles
+        if: matrix.rid == 'win-x64'
+        shell: bash
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/windows-pair-map-data
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
+      - name: publish and verify the Windows Game and Studio pair
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: >-
+          ./tools/package-windows.ps1 -SkipNative
+          -OutputDirectory '${{ runner.temp }}/windows-ci-pair'
+      - uses: actions/upload-artifact@v7
+        if: matrix.rid == 'win-x64'
+        with:
+          name: ProjectPrime-win-x64
+          path: ${{ runner.temp }}/windows-ci-pair/ProjectPrime-win-x64
+          include-hidden-files: true
+          if-no-files-found: error
       - name: verify ad-hoc macOS development-library signature
         if: startsWith(matrix.rid, 'osx-')
         shell: bash
@@ -383,6 +530,10 @@ jobs:
         run: dotnet run --project tools/fidelity-oracle -c Release
       - name: verify reviewed normalized baselines
         run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
+      - name: original trace comparison contracts and capture availability
+        run: |
+          python3 -m unittest discover -s tools/fidelity-oracle -p 'test_compare_ds.py'
+          python3 tools/fidelity-oracle/compare_ds.py status
 
   opengl-renderer-linux:
     name: OpenGL compatibility and retained graph smoke
@@ -646,7 +797,9 @@ jobs:
         run: dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
 
       - name: durable Community transfer resume and exact archive checks
-        run: dotnet run --project tools/community-transfer-check -c Release
+        run: |
+          dotnet run --project tools/community-transfer-check -c Release
+          dotnet run --project tools/community-transfer-account-check -c Release
 
       - name: immutable Community cache, lease and quota acceptance
         run: dotnet run --project tools/community-cache-check -c Release
@@ -768,7 +921,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -graphicscheck
 
+      # The embedded Avalonia shell tests target the retained legacy interface.
+      # Native RmlUi default coverage remains in the GL and package acceptance jobs.
       - name: deterministic controller and headless UI checks
+        env:
+          PROJECT_PRIME_RMLUI_GL_SMOKE: '0'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
@@ -803,10 +960,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - id: win-x64
-            rid: win-x64
-            summary: the game and the launcher, for Windows
-            extra: ""
           - id: linux-x64
             rid: linux-x64
             summary: the game, the launcher and the dedicated server, for Linux
@@ -866,6 +1019,8 @@ jobs:
         run: |
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --match-rotations
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --display-pose-integration
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --outline-colors
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
@@ -918,13 +1073,21 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --transport-stress
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
 
-      # Windows and Linux targets remain cross-published on Ubuntu.
+      - name: build the Linux desktop RmlUi native runtime
+        if: matrix.id == 'linux-x64'
+        run: bash tools/rmlui/build-native.sh linux-x64 gl2
+
+      # Linux clients and dedicated servers are published on Ubuntu.
       - name: publish ${{ matrix.summary }}
         run: >
           dotnet publish src/MphRead/MphRead.csproj
           -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
           --self-contained true -p:PublishSingleFile=true
           -o publish/${{ matrix.id }}
+
+      - name: verify and stage the Linux desktop RmlUi runtime
+        if: matrix.id == 'linux-x64'
+        run: bash tools/rmlui/package-desktop.sh linux-x64 publish/linux-x64
 
       - name: map editor history regressions
         if: matrix.id == 'linux-x64'
@@ -970,13 +1133,6 @@ jobs:
       # would register a room the game then declines to build.
       - name: the custom maps reached the package
         run: tools/check-maps-shipped.sh publish/${{ matrix.id }}
-
-      # Double-clicking the game must not put a terminal behind it. That is one
-      # field in the PE header, it comes out of a csproj condition, and nothing
-      # else in this workflow would notice it changing.
-      - name: the game is a GUI binary
-        if: matrix.id == 'win-x64'
-        run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/ProjectPrime.exe
 
       # Every avares:// asset the screens name has to be in the package.
       # Avalonia does not fall back for a font behind one of those: it throws
@@ -1123,6 +1279,9 @@ jobs:
           RID: ${{ matrix.rid }}
         run: tools/ktx/build-native.sh "$RID"
 
+      - name: build the macOS desktop RmlUi native runtime
+        run: bash tools/rmlui/build-native.sh "${{ matrix.rid }}" gl2
+
       - name: publish, sign and validate
         env:
           RID: ${{ matrix.rid }}
@@ -1130,6 +1289,7 @@ jobs:
           set -euo pipefail
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          bash tools/rmlui/package-desktop.sh "$RID" "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendcheck
           # Hosted Apple Silicon can lack an NSGL pixel format. Exercise a
@@ -1138,6 +1298,7 @@ jobs:
             "publish/$RID/ProjectPrime" -textureupdatecheck -renderer opengl
           fi
           tools/sign-macos.sh "publish/$RID"
+          python3 tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"
           python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"

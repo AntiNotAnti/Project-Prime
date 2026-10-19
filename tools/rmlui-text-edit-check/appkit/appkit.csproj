@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OpenTkAssemblyDirectory Condition="'$(OpenTkAssemblyDirectory)' == ''">$(MSBuildThisFileDirectory)../../rmlui-opengl-check/bin/Release/net10.0</OpenTkAssemblyDirectory></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Exclude="../../../src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLobbyBindings.cs" Link="Host/%(Filename)%(Extension)" />
+    <Compile Include="../../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="OpenTK.Windowing.GraphicsLibraryFramework"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Windowing.GraphicsLibraryFramework.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Input"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Input.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Core"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Core.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Audio.OpenAL"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Audio.OpenAL.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Compute"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Compute.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Mathematics"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Mathematics.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Windowing.Common"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Windowing.Common.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Windowing.Desktop"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Windowing.Desktop.dll</HintPath></Reference>
+    <Reference Include="OpenTK.Graphics"><HintPath>$(OpenTkAssemblyDirectory)/OpenTK.Graphics.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

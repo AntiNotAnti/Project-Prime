@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraContracts.cs" Link="TheatreCameraContracts.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraController.cs" Link="TheatreCameraController.cs" />
+    <Compile Include="../../src/MphRead/Mods/Replay/ReplayCameraPresentation.cs" Link="ReplayCameraPresentation.cs" />
+    <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+  </ItemGroup>
+</Project>

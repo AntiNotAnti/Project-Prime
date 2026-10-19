@@ -157,6 +157,7 @@ public sealed class NetConnection
         ref Attempt previous = ref _attempts[sequence % (uint)_attempts.Length];
         if (previous.Pending) _lost++; // bounded-window estimate, not a claim of certain wire loss
         previous = new() { Sequence = sequence, SentAt = nowMs, Pending = true, EventId = eventId };
+        if (eventId.HasValue) Reliable.RetainAttempt(eventId.Value, sequence, nowMs);
         _sent++; AckPending = false;
         return new(type, flags | (_received.Initialized ? NetHeaderFlags.AckValid : 0), Id, sequence, _received.Latest, _received.Bits);
     }
@@ -180,10 +181,16 @@ public sealed class NetConnection
     private void Acknowledge(uint sequence, double nowMs)
     {
         ref Attempt attempt = ref _attempts[sequence % (uint)_attempts.Length];
-        if (!attempt.Pending || attempt.Sequence != sequence) return;
-        attempt.Pending = false; _acked++;
-        if (attempt.EventId.HasValue) Reliable.Acknowledge(attempt.EventId.Value);
-        double sample = Math.Max(0, nowMs - attempt.SentAt);
+        double sentAt;
+        if (attempt.Pending && attempt.Sequence == sequence)
+        {
+            attempt.Pending = false;
+            if (attempt.EventId.HasValue) Reliable.Acknowledge(attempt.EventId.Value);
+            sentAt = attempt.SentAt;
+        }
+        else if (!Reliable.AcknowledgeAttempt(sequence, out sentAt)) return;
+        _acked++;
+        double sample = Math.Max(0, nowMs - sentAt);
         _recentRtt[_recentCursor++ % _recentRtt.Length] = sample;
         _recentCursor %= _recentRtt.Length;
         _recentCount = Math.Min(_recentCount + 1, _recentRtt.Length);

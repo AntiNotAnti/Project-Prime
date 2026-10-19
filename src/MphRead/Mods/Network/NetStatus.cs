@@ -69,6 +69,10 @@ namespace MphRead.Mods.Network
         /// the number. See <see cref="NetLaunch.DescribeJoinFailure"/>.
         /// </summary>
         public int Protocol { get; init; }
+        /// <summary>Existing status MatchState authority identity; zero for an unproven legacy reply.</summary>
+        public ulong AuthorityEpoch { get; init; }
+        public ushort MatchId { get; init; }
+        public bool PartyReservationsV1 { get; init; }
 
         /// <summary>
         /// Whether this server will open a *new* match for you, on a port of
@@ -295,9 +299,12 @@ namespace MphRead.Mods.Network
                 Latency = latency,
                 Legacy = legacy,
                 Protocol = status.Protocol,
+                AuthorityEpoch = match.AuthorityEpoch,
                 Phase = status.Phase, Format = status.Format, LobbyEnabled = status.LobbyEnabled,
                 AllowJoinInProgress = status.AllowJoinInProgress,
                 CanHost = (status.Flags & ServerStatusPacket.FlagCanHost) != 0,
+                PartyReservationsV1 = (status.Flags & ServerStatusPacket.FlagPartyReservationsV1) != 0,
+                MatchId = status.Match.MatchId,
                 Message = message
             };
         }

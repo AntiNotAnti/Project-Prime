@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <Content Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/identity.rml" Link="lobby-hunter-identity.rml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

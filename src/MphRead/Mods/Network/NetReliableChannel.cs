@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MphRead.Mods.Network;
 
@@ -15,6 +16,8 @@ public sealed class NetReliableChannel
     public const int OrdinaryCapacity = 32, Capacity = 40, History = 256;
     public const double LifetimeMilliseconds = 15000;
     public const double MinimumRtoMilliseconds = 75, MaximumRtoMilliseconds = 1200;
+    internal const int MaximumReceiptsPerEvent = 64;
+    private readonly record struct SentReceipt(uint Sequence, double SentAt);
     private double _baseRto = 150;
     private sealed class PendingEvent
     {
@@ -24,6 +27,9 @@ public sealed class NetReliableChannel
         public double Created, Due, Rto;
         public int Attempts;
         public bool Critical;
+        // This event owns its ACK correlations through settlement, independent
+        // of unrelated packet traffic. Power-of-two growth stops at64 slots.
+        public readonly List<SentReceipt> Receipts = new(4);
     }
     private readonly PendingEvent?[] _pending = new PendingEvent?[Capacity];
     private readonly uint[] _received = new uint[History];
@@ -35,7 +41,51 @@ public sealed class NetReliableChannel
     public bool Failed { get; private set; }
     public string? FailureReason { get; private set; }
     internal void Fail(string reason = "reliable admission refused")
-    { Failed = true; FailureReason ??= reason; }
+    {
+        Failed = true; FailureReason ??= reason;
+        foreach (var pending in _pending) pending?.Receipts.Clear();
+    }
+    internal int RetainedAttemptCount
+    {
+        get { int count = 0; foreach (var pending in _pending) count += pending?.Receipts.Count ?? 0; return count; }
+    }
+    internal void RetainAttempt(uint eventId, uint sequence, double nowMs)
+    {
+        if (Failed) return;
+        foreach (var pending in _pending)
+        {
+            if (pending?.Id != eventId) continue;
+            if (pending.Receipts.Count >= MaximumReceiptsPerEvent)
+            { Fail($"reliable receipt capacity event={eventId} limit={MaximumReceiptsPerEvent}"); return; }
+            // A sequence must identify only one live send in this incarnation.
+            foreach (var owner in _pending)
+                if (owner != null)
+                    foreach (var receipt in owner.Receipts)
+                        if (receipt.Sequence == sequence)
+                        { Fail($"reliable receipt sequence reused event={eventId}"); return; }
+            pending.Receipts.Add(new(sequence, nowMs));
+            return;
+        }
+        // A queued event may settle or be superseded between TrySend and a
+        // transport copy. It no longer needs another retained correlation.
+    }
+    internal bool AcknowledgeAttempt(uint sequence, out double sentAt)
+    {
+        sentAt = 0;
+        if (Failed) return false;
+        foreach (var pending in _pending)
+        {
+            if (pending == null) continue;
+            foreach (var receipt in pending.Receipts)
+                if (receipt.Sequence == sequence)
+                {
+                    sentAt = receipt.SentAt;
+                    Acknowledge(pending.Id);
+                    return true;
+                }
+        }
+        return false;
+    }
     public void UpdateRto(double? smoothedRttMilliseconds, double? variationMilliseconds)
     {
         if (smoothedRttMilliseconds is not double rtt || variationMilliseconds is not double variation
@@ -45,6 +95,7 @@ public sealed class NetReliableChannel
     public bool HasPending(PacketType type)
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
     public static bool IsReliable(PacketType type) => type is PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
+        or PacketType.PartyReservationRequest or PacketType.PartyReservationState or PacketType.PartyReservationAction
         or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
         or PacketType.Welcome or PacketType.SessionState
         or PacketType.Roster or PacketType.MapChange or PacketType.Authority or PacketType.LobbyCommand

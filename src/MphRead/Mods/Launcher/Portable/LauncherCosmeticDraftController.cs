@@ -111,6 +111,16 @@ public sealed class LauncherCosmeticDraftController : IDisposable
     public bool NextArmor() => Step("armor");
     public bool NextDeath() => Step("death");
 
+    /// <summary>Stage the native loadout; persistence still requires explicit Equip.</summary>
+    public bool SetDefaultLoadout()
+    {
+        Verify();
+        if (_save != null) return false;
+        _draft = CosmeticLoadout.Default;
+        _status = "DEFAULT COSMETIC DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
     public bool Reset()
     {
         Verify();

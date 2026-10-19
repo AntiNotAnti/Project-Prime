@@ -137,10 +137,35 @@ internal static class CampaignAudioTests
                 credits.Enter(CampaignAudioPage.Ending);
                 Check(ending.Active == SeqId.CREDITS
                     && ending.Cues[0] == UiFeedbackCue.CampaignEnding,
-                    "ending results use cartridge credits soundtrack and completion cue");
+                    "credits phase uses cartridge credits soundtrack and completion cue");
             }
             Check(ending.Stopped.Count == 1 && ending.Stopped[0] == SeqId.CREDITS,
                 "credits close releases its own soundtrack");
+
+            var result = new FakeAudioSink();
+            using (var flow = new CampaignAudioSession(result))
+            {
+                flow.Enter(CampaignAudioPage.Ending);
+                flow.Enter(CampaignAudioPage.EndingResults);
+                Check(result.Started.Count == 2 && result.Started[0] == SeqId.CREDITS
+                    && result.Started[1] == SeqId.RESULTS && result.Stopped.Count == 1
+                    && result.Stopped[0] == SeqId.CREDITS && result.Active == SeqId.RESULTS,
+                    "post-credits results switch the owned credits track to the original RESULTS sequence");
+                flow.Enter(CampaignAudioPage.EndingResults);
+                Check(result.Started.Count == 2,
+                    "repeated result entry never duplicates or restarts its sequence");
+            }
+            Check(result.Stopped.Count == 2 && result.Stopped[1] == SeqId.RESULTS,
+                "closing results stops only its owned results sequence");
+
+            var resultPreempt = new FakeAudioSink();
+            var oldResult = new CampaignAudioSession(resultPreempt);
+            oldResult.Enter(CampaignAudioPage.EndingResults);
+            resultPreempt.Preempt(SeqId.RESULTS);
+            oldResult.Tick(); oldResult.Dispose();
+            Check(resultPreempt.Active == SeqId.RESULTS && resultPreempt.Ticks == 0
+                && resultPreempt.Stopped.Count == 0,
+                "old results page cannot tick or stop newer same-sequence music");
 
             foreach (UiFeedbackCue cue in new[]
             {

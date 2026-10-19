@@ -12,7 +12,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
-    public class BeamProjectileEntity : EntityBase
+    public partial class BeamProjectileEntity : EntityBase
     {
         internal long TrainingShotId { get; set; }
         public BeamFlags Flags { get; set; }
@@ -1285,14 +1285,14 @@ namespace MphRead.Entities
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;
             bool liveAnchor = NetConfirmedImpacts.TryAnchor(this, out Vector3 liveImpact);
-            Vector3 position = Position, back = BackPosition, past0 = PastPositions[0];
-            if (anchored || liveAnchor)
+            ModPrepareBeamDrawPose();
+            _beamDrawAnchor = anchored || liveAnchor;
+            _beamAnchorPosition = liveAnchor ? liveImpact : _replayImpactPosition;
+            if (_beamDrawActive && !_beamDrawAnchor && Effect != null)
             {
-                // Let the visible projectile/tracer terminate exactly where the
-                // authority says it did for this one draw. The simulation copy
-                // underneath keeps flying untouched and is hidden afterwards.
-                Position = liveAnchor ? liveImpact : _replayImpactPosition;
-                PastPositions[0] = Position;
+                Matrix4 emitter = _beamRenderTransform.ClearScale();
+                emitter.Row3.Xyz = ModBeamDrawPosition;
+                _scene.SetPresentationEffectTransform(Effect, emitter, viewModel: false);
             }
             try
             {
@@ -1308,12 +1308,7 @@ namespace MphRead.Entities
             }
             finally
             {
-                if (anchored || liveAnchor)
-                {
-                    Position = position;
-                    BackPosition = back;
-                    PastPositions[0] = past0;
-                }
+                ModFinishBeamDrawPose();
             }
         }
 
@@ -1322,7 +1317,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Color, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, ModBeamDrawPosition, Color, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail1(Fixed.ToFloat(122));
         }
@@ -1354,7 +1349,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Vector3.One, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, ModBeamDrawPosition, Vector3.One, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail3(Fixed.ToFloat(204));
         }
@@ -1364,7 +1359,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Vector3.One, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, ModBeamDrawPosition, Vector3.One, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail2(Fixed.ToFloat(204), 5);
         }
@@ -1409,9 +1404,9 @@ namespace MphRead.Entities
             float uvT = (texture.Height - (1 / 16f)) / texture.Height;
             Vector3[] uvsAndVerts = ArrayPool<Vector3>.Shared.Rent(8);
             uvsAndVerts[0] = Vector3.Zero;
-            uvsAndVerts[1] = new Vector3(Position.X - BackPosition.X, Position.Y - BackPosition.Y - height, Position.Z - BackPosition.Z);
+            uvsAndVerts[1] = new Vector3(ModBeamDrawPosition.X - ModBeamDrawBack.X, ModBeamDrawPosition.Y - ModBeamDrawBack.Y - height, ModBeamDrawPosition.Z - ModBeamDrawBack.Z);
             uvsAndVerts[2] = new Vector3(0, uvT, 0);
-            uvsAndVerts[3] = new Vector3(Position.X - BackPosition.X, height + Position.Y - BackPosition.Y, Position.Z - BackPosition.Z);
+            uvsAndVerts[3] = new Vector3(ModBeamDrawPosition.X - ModBeamDrawBack.X, height + ModBeamDrawPosition.Y - ModBeamDrawBack.Y, ModBeamDrawPosition.Z - ModBeamDrawBack.Z);
             uvsAndVerts[4] = new Vector3(uvS, 0, 0);
             uvsAndVerts[5] = new Vector3(0, -height, 0);
             uvsAndVerts[6] = new Vector3(uvS, uvT, 0);
@@ -1419,7 +1414,7 @@ namespace MphRead.Entities
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailSingle, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(BackPosition), uvsAndVerts, _bindingId);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(ModBeamDrawBack), uvsAndVerts, _bindingId);
         }
 
         private void DrawTrail2(float height, int segments)
@@ -1444,7 +1439,7 @@ namespace MphRead.Entities
                 {
                     uvS = (texture.Width / (float)(segments - 1) * i - (1 / 16f)) / texture.Width;
                 }
-                Vector3 vec = PastPositions[i * 2] - PastPositions[0];
+                Vector3 vec = ModBeamDrawPast(i * 2) - ModBeamDrawPast(0);
                 uvsAndVerts[4 * i] = new Vector3(uvS, 0, 0);
                 uvsAndVerts[4 * i + 1] = new Vector3(vec.X, vec.Y - height, vec.Z);
                 uvsAndVerts[4 * i + 2] = new Vector3(uvS, uvT, 0);
@@ -1453,7 +1448,7 @@ namespace MphRead.Entities
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailMulti, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[0]), uvsAndVerts, _bindingId, trailCount: count);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(ModBeamDrawPast(0)), uvsAndVerts, _bindingId, trailCount: count);
         }
 
         private void DrawTrail3(float height)
@@ -1469,19 +1464,19 @@ namespace MphRead.Entities
             uvsAndVerts[3] = new Vector3(0, height, 0);
             uvsAndVerts[4] = new Vector3(uvS2, 0, 0);
             uvsAndVerts[5] = new Vector3(
-                PastPositions[8].X - PastPositions[0].X,
-                PastPositions[8].Y - PastPositions[0].Y - height,
-                PastPositions[8].Z - PastPositions[0].Z
+                ModBeamDrawPast(8).X - ModBeamDrawPast(0).X,
+                ModBeamDrawPast(8).Y - ModBeamDrawPast(0).Y - height,
+                ModBeamDrawPast(8).Z - ModBeamDrawPast(0).Z
             );
             uvsAndVerts[6] = new Vector3(uvS2, uvT2, 0);
-            uvsAndVerts[7] = new Vector3(PastPositions[8].X - PastPositions[0].X,
-                PastPositions[8].Y - PastPositions[0].Y + height,
-                PastPositions[8].Z - PastPositions[0].Z
+            uvsAndVerts[7] = new Vector3(ModBeamDrawPast(8).X - ModBeamDrawPast(0).X,
+                ModBeamDrawPast(8).Y - ModBeamDrawPast(0).Y + height,
+                ModBeamDrawPast(8).Z - ModBeamDrawPast(0).Z
             );
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailSingle, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[0]), uvsAndVerts, _bindingId);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(ModBeamDrawPast(0)), uvsAndVerts, _bindingId);
         }
 
         private void DrawTrail4(float height, float range, int segments, Vector3? endpoint = null)
@@ -1497,7 +1492,8 @@ namespace MphRead.Entities
             uint rng = (uint)(frames + (int)((endpoint ?? Position).X * 4096));
             int index = frames & 15;
             float halfRange = range / 2;
-            Vector3 vec = (endpoint ?? Position) - PastPositions[8];
+            Vector3 start = ContinuousDrawStart();
+            Vector3 vec = ContinuousDrawEndpoint(endpoint) - start;
             Texture texture = _trailModel.Model.Recolors[0].Textures[0];
             float uvT = (texture.Height - (1 / 16f)) / texture.Height;
             Vector3[] uvsAndVerts = ArrayPool<Vector3>.Shared.Rent(count);
@@ -1513,9 +1509,9 @@ namespace MphRead.Entities
                 float pct = (float)i / (segments - 1);
 
                 // todo?: not sure if dividing by 4 is strictly correct here
-                float x = vec.X * pct + Velocity.X / 4 * pct * (1 - pct);
-                float y = vec.Y * pct + Velocity.Y / 4 * pct * (1 - pct);
-                float z = vec.Z * pct + Velocity.Z / 4 * pct * (1 - pct);
+                float x = vec.X * pct + ModBeamDrawVelocity.X / 4 * pct * (1 - pct);
+                float y = vec.Y * pct + ModBeamDrawVelocity.Y / 4 * pct * (1 - pct);
+                float z = vec.Z * pct + ModBeamDrawVelocity.Z / 4 * pct * (1 - pct);
 
                 if (i > 0 && i < segments - 1)
                 {
@@ -1532,7 +1528,7 @@ namespace MphRead.Entities
 
             Material material = _trailModel.Model.Materials[0];
             _scene.AddRenderItem(RenderItemType.TrailMulti, alpha: 1, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[8]), uvsAndVerts, _bindingId, trailCount: count);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(start), uvsAndVerts, _bindingId, trailCount: count);
         }
 
         // Creating the trail effect on activation (instead of on the trigger
@@ -1554,16 +1550,16 @@ namespace MphRead.Entities
         {
             if (DrawFuncId == 3)
             {
-                Matrix4 transform = GetTransformMatrix(Direction, Up);
-                transform.Row3.Xyz = Position;
+                Matrix4 transform = GetTransformMatrix(ModBeamDrawDirection, BeamDrawUp);
+                transform.Row3.Xyz = ModBeamDrawPosition;
                 return transform;
             }
             if (DrawFuncId == 17)
             {
-                Matrix4 transform = Transform;
-                float scale = Vector3.Distance(Position, BackPosition);
+                Matrix4 transform = _beamDrawActive && !_beamDrawAnchor ? _beamRenderTransform : Transform;
+                float scale = Vector3.Distance(ModBeamDrawPosition, ModBeamDrawBack);
                 transform.Row2.Xyz *= scale;
-                transform.Row3.Xyz = BackPosition;
+                transform.Row3.Xyz = ModBeamDrawBack;
                 return transform;
             }
             return base.GetModelTransform(inst, index);
@@ -1571,6 +1567,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            ClearBeamDrawState();
             _soundSource.StopAllSfx();
             _replayImpactPending = _replayImpactHidden = false;
             _replayImpactDrawFrame = 0;

@@ -1,0 +1,32 @@
+<rml>
+<head>
+    <title>Report Community map</title>
+    <link type="text/rcss" href="../../themes/prime.rcss"/>
+    <link type="text/rcss" href="../../components/controls.rcss"/>
+    <link type="text/rcss" href="native-report.rcss"/>
+</head>
+<body>
+<div id="community_report" role="dialog" aria-labelledby="community_report_title">
+    <div class="eyebrow">COMMUNITY // MODERATOR REVIEW</div>
+    <h1 id="community_report_title">REPORT MAP</h1>
+    <div id="community_report_scroll">
+        <p id="community_report_target" role="group"/>
+        <p id="community_report_status" role="status" aria-live="polite"/>
+        <div id="community_report_reasons" role="group" aria-label="Report reason">
+            <button id="community_report_reason0" data-action="community:report-reason:0">Broken map</button>
+            <button id="community_report_reason1" data-action="community:report-reason:1">Offensive content</button>
+            <button id="community_report_reason2" data-action="community:report-reason:2">Stolen content</button>
+            <button id="community_report_reason3" data-action="community:report-reason:3">Malicious package</button>
+            <button id="community_report_reason4" data-action="community:report-reason:4">Misleading metadata</button>
+            <button id="community_report_reason5" data-action="community:report-reason:5">Other</button>
+        </div>
+        <label for="community_report_details">DETAILS (OPTIONAL, UP TO 4000 CHARACTERS)</label>
+        <textarea id="community_report_details" maxlength="4000" rows="4" placeholder="Describe the issue"/>
+    </div>
+    <div id="community_report_footer">
+        <button id="community_report_submit" data-action="community:confirm">SUBMIT REPORT</button>
+        <button id="community_report_close" data-action="community:cancel">CANCEL REPORT</button>
+    </div>
+</div>
+</body>
+</rml>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
 
 namespace MphRead.Mods.Network
 {
@@ -177,7 +178,16 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private bool OpenFile(string path, int timeoutMs)
+        /// <summary>Packet-only analytics. No map installation, Scene, live session or presentation services.</summary>
+        internal bool JoinDetached(string path, CancellationToken cancellation = default)
+        {
+            if (_host is not PassiveReplaySessionHost) throw new InvalidOperationException("Detached replay reading requires a passive host.");
+            cancellation.ThrowIfCancellationRequested();
+            try { return OpenFile(path, 0, detached: true, cancellation: cancellation); }
+            catch { Stop(); throw; }
+        }
+
+        private bool OpenFile(string path, int timeoutMs, bool detached = false, CancellationToken cancellation = default)
         {
             _ = timeoutMs; // kept for the call site; nothing here waits on a clock
             Stop();
@@ -202,7 +212,7 @@ namespace MphRead.Mods.Network
                 _reader = null;
                 return false;
             }
-            if (_reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
+            if (!detached && _reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
             bool pathChanged = CurrentPath != path;
             if (pathChanged) Transport.ClearSelection();
             CurrentPath = path;
@@ -217,7 +227,7 @@ namespace MphRead.Mods.Network
             {
                 if (metadata.ExpectedHashes.Count > 0 && (metadata.HashSchema != ReplayStateHash.Schema || metadata.HashBuildId != ReplayStateHash.BuildId))
                     Console.WriteLine("[replay] Expected state hashes belong to a different engine build/schema; packet playback remains available, hash verification is skipped.");
-                LastResult = ReplayMapIdentity.Validate(metadata);
+                LastResult = detached ? ReplayOpenResult.Success : ReplayMapIdentity.Validate(metadata);
                 if (LastResult == ReplayOpenResult.MapHashMismatch
                     && metadata.CustomMapIdentity == null
                     && _reader.ProtocolVersion < NetConfig.ProtocolVersion)
@@ -264,7 +274,7 @@ namespace MphRead.Mods.Network
                 if (metadata.Bootstrap.Packets.Count > 0)
                 {
                     foreach (byte[] packet in metadata.Bootstrap.Packets)
-                        InjectConverted(packet, 0);
+                    { cancellation.ThrowIfCancellationRequested(); InjectConverted(packet, 0); }
                     _host.Advance(0);
                     if (_host.Match?.RoomKey.Length is > 0)
                     {
@@ -302,6 +312,7 @@ namespace MphRead.Mods.Network
             long knownAt = -1;
             while (_frame < JoinSearchFrames)
             {
+                cancellation.ThrowIfCancellationRequested();
                 PumpFrame();
                 _host.Advance(_frame / 60.0);
                 if (_host.Match?.RoomKey.Length > 0)

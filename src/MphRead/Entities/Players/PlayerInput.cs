@@ -827,8 +827,8 @@ namespace MphRead.Entities
                         // itodo: button aim (see free cam code for FPS-independent stuff)
                     }
                 }
-                bool jumping = false;
-                if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck))
+                bool jumping = WallClingInput();
+                if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck) && !WallClingHeld)
                 {
                     // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
                     // and later, for up/down, it tests for either flag, or the look button not held
@@ -957,6 +957,7 @@ namespace MphRead.Entities
                         {
                             Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed)); // todo: FPS stuff?
                         }
+                        WallClingNoteJump();
                         _timeSinceGrounded = 8 * 2; // todo: FPS stuff
                         PlayHunterSfx(HunterSfx.Jump);
                     }
@@ -1204,6 +1205,7 @@ namespace MphRead.Entities
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                speedDelta = WallClingSteer(speedDelta);
                 ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
                 Speed += speedDelta; // todo: FPS stuff?
                 float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
@@ -2640,6 +2642,7 @@ namespace MphRead.Entities
                 _accelerationTimer--;
                 Speed += Acceleration / 2; // todo: FPS stuff
             }
+            WallClingHold();
             var hSpeed = new Vector3(Speed.X, 0, Speed.Z);
             float hSpeedMag = hSpeed.Length;
             if (hSpeedMag == 0)
@@ -2838,7 +2841,7 @@ namespace MphRead.Entities
             }
             if (_health > 0)
             {
-                if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck))
+                if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld)
                 {
                     if (Flags2.TestFlag(PlayerFlags2.GravityOverride))
                     {
@@ -3004,6 +3007,7 @@ namespace MphRead.Entities
                     _walkSfxIndex = 0;
                 }
             }
+            WallClingAfterCollision();
             bool burning = false;
             if (_health > 0 && (_burnTimer > 0 || Hunter != Hunter.Spire
                 && Flags1.TestFlag(PlayerFlags1.OnLava) && Flags1.TestFlag(PlayerFlags1.Grounded)))

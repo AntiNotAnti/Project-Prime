@@ -1,0 +1,7 @@
+Command (repository root, .NET SDK 10.0.401):
+/Users/jarrett/.dotnet/dotnet run --project tools/rmlui-android-input-check/rmlui-android-input-check.csproj -c Release
+
+RMLUI ANDROID INPUT PASS 54 checks; production queue/session with fake native/GLES, no APK/startup/touch/IME/device acceptance.
+
+Scope: source-linked production input queue/session/shared host with instrumented native bridge, GLES compositor and draw-list reader fakes. No Android SDK, native RmlUi or GLES calls are executed by this fixture.
+Final reflow coverage: held pointer and queued old coordinates, stale pointer-up, preedit plus queued/delayed IME, density-only reflow, suspended route staying suspended, and UI suspension during Resize winning over conditional resume.

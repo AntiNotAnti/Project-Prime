@@ -12,12 +12,19 @@ internal sealed class QuickSettingsPagePresenter : IDisposable
     private readonly QuickLauncherSettingsController _controller;
     private RmlUiDocumentToken _page;
     private long _revision;
-    private bool _disposed;
+    private bool _disposed, _blockedBack;
 
     public bool OpenFullSettingsRequested { get; private set; }
     public bool Closed { get; private set; }
     // Prevent header navigation from silently dropping a staged Settings edit.
     public bool CanNavigateAway => !_controller.Current().Dirty;
+    public bool PrepareNavigation()
+    {
+        if (CanNavigateAway) return true;
+        _blockedBack = true;
+        Refresh();
+        return false;
+    }
     public QuickSettingsPagePresenter(RmlUiPageManager pages, IQuickLauncherPreferenceStore store)
     {
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
@@ -62,7 +69,7 @@ internal sealed class QuickSettingsPagePresenter : IDisposable
                 }
                 break;
         }
-        if (result) Refresh();
+        if (result) { _blockedBack = false; Refresh(); }
         return result;
     }
 
@@ -75,10 +82,17 @@ internal sealed class QuickSettingsPagePresenter : IDisposable
             ["quick_motion_state"] = RmlUiBindingValue.FromText(current.Options.ReduceMotion ? "ON" : "OFF"),
             ["quick_updates_state"] = RmlUiBindingValue.FromText(current.Options.AutoUpdate ? "ON" : "OFF"),
             ["quick_debug_state"] = RmlUiBindingValue.FromText(current.Options.DebugLogs ? "ON" : "OFF"),
-            ["quick_setting_status"] = RmlUiBindingValue.FromText(current.Status),
+            ["quick_setting_status"] = RmlUiBindingValue.FromText(_blockedBack
+                ? "CHANGES STAGED // APPLY OR DISCARD BEFORE LEAVING" : current.Status),
             ["disabled:quick_apply"] = RmlUiBindingValue.FromBoolean(!current.Dirty)
         };
         _pages.Present(_page, ++_revision, model);
+    }
+
+    public void Back()
+    {
+        if (_disposed || Closed) return;
+        if (PrepareNavigation()) Closed = true;
     }
 
     public void Dispose()

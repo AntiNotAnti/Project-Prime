@@ -244,19 +244,20 @@ public sealed class RmlUiLobbyAdminController
         if (current == null) return;
         var state = current;
         var selected = Selected(state);
+        var selectedPlayer = selected.GetValueOrDefault();
         bool owner = state.Owner && !state.CommandPending && !_confirmation.HasValue;
         bool target = selected.HasValue;
-        bool targetOwner = target && selected.Value.Slot == state.OwnerSlot;
-        bool bot = target && selected.Value.Bot;
+        bool targetOwner = target && selectedPlayer.Slot == state.OwnerSlot;
+        bool bot = target && selectedPlayer.Bot;
 
         Text("admin_title", "LOBBY // " + state.MatchId);
         Text("admin_status", !String.IsNullOrEmpty(state.CommandStatus)
             ? state.CommandStatus : _status);
         Text("admin_selected_name", selected?.Name ?? "SELECT A CONNECTED PLAYER");
         Text("admin_selected_details", target
-            ? "SLOT " + (selected.Value.Slot + 1) + " // "
-              + selected.Value.Hunter + " // SUIT " + (selected.Value.Suit + 1)
-              + " // " + selected.Value.Ping + " MS"
+            ? "SLOT " + (selectedPlayer.Slot + 1) + " // "
+              + selectedPlayer.Hunter + " // SUIT " + (selectedPlayer.Suit + 1)
+              + " // " + selectedPlayer.Ping + " MS"
             : "SELECT A CURRENT PLAYER TO CHANGE THEIR TEAM OR PERMISSIONS");
         Text("admin_handicap", "DAMAGE REDUCTION: " + (selected?.Handicap ?? 0) + "%");
         Text("admin_bot_hunter", "BOT HUNTER: " + _hunter);

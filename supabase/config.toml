@@ -4,3 +4,18 @@ verify_jwt = false
 # Public read-only career stats, no Supabase JWT on these aggregate views.
 [functions.hunter-leaderboard]
 verify_jwt = false
+
+# Headless match servers authenticate with the handler-owned opaque report
+# credential. These endpoints do not accept a user's Supabase JWT as authority.
+[functions.social-lobby-membership]
+verify_jwt = false
+
+[functions.social-party-reservation-server]
+verify_jwt = false
+
+# User authentication is verified inside the handler with Auth /user.
+[functions.party]
+verify_jwt = false
+
+[functions.native-presence]
+verify_jwt = false

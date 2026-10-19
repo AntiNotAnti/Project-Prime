@@ -1,0 +1,6 @@
+Core sampling allocation check: 20,000 warmed reads, 0 managed bytes.
+60 Hz: 600 draws, 600 canonical ticks, 0 fractional poses, canonical SHA-256 afbd59895f88a7328f960198b41b6752a5f501556396e3703d8e5441881c1071
+120 Hz: 1200 draws, 600 canonical ticks, 4611 fractional poses, canonical SHA-256 afbd59895f88a7328f960198b41b6752a5f501556396e3703d8e5441881c1071
+144 Hz: 1441 draws, 600 canonical ticks, 10159 fractional poses, canonical SHA-256 afbd59895f88a7328f960198b41b6752a5f501556396e3703d8e5441881c1071
+240 Hz: 2400 draws, 600 canonical ticks, 13833 fractional poses, canonical SHA-256 afbd59895f88a7328f960198b41b6752a5f501556396e3703d8e5441881c1071
+DISPLAY POSE PASS 77268 checks. Source-only fixture; no 3D/device/performance acceptance.

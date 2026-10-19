@@ -1,0 +1,1 @@
+PASS: 661 configured-local capability, authored DOM, publisher, modal, admission, local Hunter presenter, and preview barrier checks (source-only; native/engine boundaries faked).

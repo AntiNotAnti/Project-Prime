@@ -10,6 +10,7 @@
     <Compile Include="../../src/MphRead/Mods/Update/ServerUpdate.cs" Link="ServerUpdate.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/Updater.cs" Link="Updater.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/ReleaseInstallation.cs" Link="ReleaseInstallation.cs" />
+    <Compile Include="../../src/MphRead/Mods/Update/DesktopInstallationUse.cs" Link="DesktopInstallationUse.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/DesktopUpdate.cs" Link="DesktopUpdate.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/BuildVersion.cs" Link="BuildVersion.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/UpdateCheck.cs" Link="UpdateCheck.cs" />

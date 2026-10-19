@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><DefineConstants>MPHREAD_RMLUI_GL_SMOKE;MPHREAD_SHELL</DefineConstants></PropertyGroup><ItemGroup>
+<Compile Remove="owner/**/*.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraToolsContracts.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraToolsController.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraContracts.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreWorkspaceCameraContracts.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreCameraController.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatrePlaybackContracts.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.CameraTools.cs"/>
+</ItemGroup></Project>

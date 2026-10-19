@@ -8,4 +8,9 @@
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Own-generated deterministic junk oracle, never game-source data. -->
+    <None Update="Fixtures/Rvz/junk-oracle.bin;Fixtures/Rvz/junk-oracle.json"
+          Link="rvz-fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

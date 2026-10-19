@@ -178,6 +178,7 @@ public partial class Scene
                     }
                 }
             }
+            DrawNativeEditorOverlay(frame.Overlay);
         }
         finally
         {
@@ -268,6 +269,7 @@ public partial class Scene
     }
     private void DisposeEditorMeshes()
     {
+        ReleaseNativeEditorOverlay();
         foreach (int texture in _editorTextures.Values) ReleaseTexture(texture);
         _editorTextures.Clear();
         if (_editorGrid != null) { GL.DeleteLists(_editorGrid.ListId, 1); _editorGrid = null; }

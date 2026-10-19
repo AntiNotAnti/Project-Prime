@@ -32,6 +32,29 @@ static RmlUiMenuSnapshot Wait(RmlUiMenuController controller, Func<RmlUiMenuSnap
     throw new TimeoutException("Timed out waiting for a versioned native presentation result.");
 }
 
+int ownedAudioArg = Array.IndexOf(args, OwnedMenuAudioAcceptance.Argument);
+if (ownedAudioArg >= 0)
+{
+    if (ownedAudioArg + 1 >= args.Length)
+        throw new ArgumentException("--owned-menu-audio requires an absolute owned filesystem path.");
+    OwnedMenuAudioAcceptance.Run(args[ownedAudioArg + 1]);
+    return;
+}
+
+if (args.Contains(ReplayProjectFilesAcceptance.ChildArgument))
+{
+    ReplayProjectFilesAcceptance.RunIsolated();
+    return;
+}
+
+if (args.Contains(NativeSettingsAcceptance.ChildArgument))
+{
+    NativeSettingsAcceptance.RunIsolated();
+    return;
+}
+
+LobbyHunterCardsAcceptance.Run(Check);
+
 var services = new Stub();
 using var controller = new RmlUiMenuController(services);
 var home = controller.Tick();
@@ -44,7 +67,7 @@ Check(Text(home, "home_feature_category") == "NEWS"
     "Home news rail projects the actual shared bundled dispatch source");
 Check(Text(home, "home_session_state") == "SOLO"
     && !Flag(home, "home_social_ready")
-    && !Flag(home, "home_social_rail_visible")
+    && Flag(home, "home_social_rail_visible") && Flag(home, "home_social_empty_visible")
     && Text(home, "home_social_summary").Contains("OPEN SOCIAL"),
     "Home never fabricates Social presence, notifications, friends or online counts");
 var homeBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Home, home.Bindings);
@@ -63,12 +86,46 @@ Check(Text(linkedSocial, "home_social_summary").Contains("2 FRIEND PROFILES")
     && Text(linkedSocial, "home_friends_online") == "UNKNOWN"
     && Text(linkedSocial, "home_requests_count") == "1"
     && Flag(linkedSocial, "home_social_alert_visible")
-    && Text(linkedSocial, "home_invites_count") == "UNAVAILABLE",
+    && Text(linkedSocial, "home_invites_count") == "NOT SYNCED",
     "Home uses actual authenticated social counts, never fabricated online/invite activity");
 var socialBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Home, linkedSocial.Bindings);
 Check(socialBindings.TryGetValue("disabled:home_social", out var activeSocial)
     && !activeSocial.Boolean,
     "native Social route becomes actionable only after its authenticated client is installed");
+services.SocialOverride = new(false, false, Array.Empty<string>(), 0);
+Wait(controller, s => !Flag(s, "home_social_ready"));
+
+string FriendId(int value) => $"PP-AAAA-BBBB-CCCC-DDDD-{value:X4}";
+var observedAt = new DateTimeOffset(2026, 10, 17, 18, 0, 0, TimeSpan.Zero);
+var homeFriends = new NativeSocialDirectory(FriendId(1), new[]
+{
+    new NativeSocialPerson(FriendId(2), "Private friend", NativeSocialRelation.Friend),
+    new NativeSocialPerson(FriendId(3), "Shared friend", NativeSocialRelation.Friend),
+    new NativeSocialPerson(FriendId(4), "Expired friend", NativeSocialRelation.Friend),
+    new NativeSocialPerson(FriendId(5), "Blocked player", NativeSocialRelation.Blocked)
+});
+var homePresence = new NativePresenceDirectory(FriendId(1), new("friends", "friends", "friends", false), new[]
+{
+    new NativePresencePerson(FriendId(3), "Shared friend", "in_match", "", "", false, observedAt),
+    new NativePresencePerson(FriendId(4), "Expired friend", "menu", "", "", false, observedAt.AddSeconds(-45)),
+    new NativePresencePerson(FriendId(5), "Blocked player", "menu", "", "", false, observedAt),
+    new NativePresencePerson(FriendId(6), "Unrelated player", "menu", "", "", false, observedAt)
+});
+services.SocialOverride = RmlUiSocialHomeState.Project(homeFriends, homePresence, 2, observedAt);
+var presenceHome = Wait(controller, s => Text(s, "home_friends_online") == "1");
+Check(Text(presenceHome, "home_friend0_name") == "Shared friend"
+    && Text(presenceHome, "home_friend0_activity") == "IN MATCH"
+    && Text(presenceHome, "home_friend_count") == "3"
+    && !Flag(presenceHome, "home_friend0_joinable"),
+    "Home counts only shared unexpired friend presence and preserves Social route ownership");
+Check(Text(presenceHome, "home_friend1_activity") == "PRESENCE NOT SHARED"
+    && Text(presenceHome, "home_friend2_activity") == "PRESENCE NOT SHARED",
+    "expired or privacy-hidden presence is not presented as offline");
+services.SocialOverride = RmlUiSocialHomeState.Project(homeFriends,
+    homePresence with { SelfPrimeId = FriendId(9) }, 2, observedAt);
+var changedPresence = Wait(controller, s => Text(s, "home_friends_online") == "UNKNOWN");
+Check(Text(changedPresence, "home_friend0_activity") == "PRESENCE UNAVAILABLE",
+    "a different account's presence cannot populate Home friend activity");
 services.SocialOverride = new(false, false, Array.Empty<string>(), 0);
 Wait(controller, s => !Flag(s, "home_social_ready"));
 
@@ -207,7 +264,7 @@ Check(mapPages.Count == 7 && mapPages.Pages == 2
     "native map picker deduplicates and caps pages to six stable choices");
 Check(mapPages.SelectCategory(1) && mapPages.Count == 2
     && mapPages.Page == 0 && mapPages.Choice(0) == "U"
-    && !mapPages.NextPage() && !mapPages.SelectCategory(2),
+    && !mapPages.NextPage() && !mapPages.SelectCategory(5),
     "category change resets cursor and rejects out-of-range indices");
 Check(mapPages.SelectCategory(0) && !mapPages.PreviousPage(),
     "first map page cannot move behind zero");
@@ -611,6 +668,95 @@ controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
 // RML-28: the replay archive is a presentation of indexed library metadata,
 // never an independent replay decoder, renderer, or user-supplied filesystem path.
+// BEGIN THEATRE VISIBLE SELECTION SOURCE UNIT CHECKS
+static void CheckTheatreVisibleSelection()
+{
+    long recorded = DateTime.Now.Ticks;
+    var alpha = new RmlUiReplayEntry("/_demos/alpha.ppdemo", "Match Alpha", "Arena A", "A",
+        recorded, 100, 1000, true, false, false, true);
+    var beta = new RmlUiReplayEntry("/_demos/beta.ppdemo", "Match Beta", "Arena B", "B",
+        recorded - 1, 200, 2000, false, true, false, true);
+    var index = new RmlUiTheatreIndex();
+    index.Refresh(new[] { beta, alpha });
+    Check(index.Select(0) && index.Selected == alpha && index.SelectedUnchanged(alpha),
+        "Theatre source unit: an indexed replay can be explicitly selected before filtering");
+    Check(index.SearchFor("Beta") && index.Count == 1 && index.Selected == beta
+        && !index.SelectedUnchanged(alpha) && index.SelectedUnchanged(beta),
+        "Theatre source unit: search hiding selected Alpha chooses shown Beta and rejects Alpha's worker stamp");
+    var automatic = new RmlUiTheatreIndex();
+    automatic.Refresh(new[] { beta, alpha });
+    Check(automatic.Selected == alpha && automatic.SelectedUnchanged(alpha),
+        "Theatre source unit: initial filtered snapshot selects its first shown replay");
+    Check(index.SearchFor("") && index.Selected == beta,
+        "Theatre source unit: clearing a search preserves a selection still present in the filtered results");
+    Check(index.SearchFor("no matching recording") && index.Count == 0 && index.Selected == null
+        && !index.SelectedUnchanged(alpha) && !index.SelectedUnchanged(beta),
+        "Theatre source unit: zero matches clears selection and every captured selection stamp");
+    Check(index.SearchFor("") && index.Count == 2 && index.Selected == alpha,
+        "Theatre source unit: clearing an empty search selects a shown recording again");
+    Check(index.Select(1) && index.Selected == beta && index.NextFilter()
+        && index.FilterLabel == "FULL MATCHES" && index.Selected == alpha
+        && !index.SelectedUnchanged(beta),
+        "Theatre source unit: a filter hiding selected Beta chooses the shown full replay");
+    Check(index.NextFilter() && index.FilterLabel == "CLIPS" && index.Selected == beta
+        && index.NextFilter() && index.FilterLabel == "FAVORITES" && index.Selected == alpha,
+        "Theatre source unit: clip and favorite filters cannot retain a hidden selection");
+    Check(index.NextFilter() && index.NextFilter() && index.FilterLabel == "RECOVERABLE"
+        && index.Count == 0 && index.Selected == null,
+        "Theatre source unit: an empty recoverable view clears actionable selection");
+    for (int filter = 0; filter < 9; filter++) index.NextFilter();
+    Check(index.FilterLabel == "ALL REPLAYS" && index.Selected == alpha,
+        "Theatre source unit: an empty filter clears selection and returning to all chooses a shown row");
+    Check(index.Select(1) && index.NextSort() && index.Selected == beta && index.SelectedUnchanged(beta),
+        "Theatre source unit: sorting retains a valid selected path rather than retargeting its row number");
+    var changedBeta = beta with { Bytes = beta.Bytes + 1, LastWriteTicks = beta.LastWriteTicks + 1 };
+    index.Refresh(new[] { alpha, changedBeta });
+    Check(index.Selected == changedBeta && !index.SelectedUnchanged(beta)
+        && index.SelectedUnchanged(changedBeta),
+        "Theatre source unit: refresh preserves the selected path but rejects old file size and timestamp witnesses");
+    index.Refresh(new[] { alpha });
+    Check(index.Selected == alpha && !index.SelectedUnchanged(changedBeta),
+        "Theatre source unit: removing a selected replay chooses a shown replacement");
+    index.Refresh(Array.Empty<RmlUiReplayEntry>());
+    Check(index.Selected == null && index.Count == 0 && !index.SelectedUnchanged(alpha),
+        "Theatre source unit: empty refresh retires the old selected path");
+    var virtualAlpha = alpha with { VirtualWitness = new("descriptor-a", alpha.Path, alpha.Bytes, alpha.LastWriteTicks) };
+    index.Refresh(new[] { virtualAlpha });
+    var replacedVirtual = virtualAlpha with { VirtualWitness = new("descriptor-b", alpha.Path, alpha.Bytes, alpha.LastWriteTicks) };
+    index.Refresh(new[] { replacedVirtual });
+    Check(index.Selected == replacedVirtual && !index.SelectedUnchanged(virtualAlpha),
+        "Theatre source unit: selection normalization retains virtual descriptor witness rejection");
+
+    var paged = new RmlUiTheatreIndex();
+    var rows = Enumerable.Range(0, 18).Select(i => alpha with
+    { Path = "/_demos/page_" + i + ".ppdemo", Title = "Page " + i, RecordedTicks = recorded + i }).ToArray();
+    paged.Refresh(rows);
+    var first = paged.Selected;
+    Check(paged.Turn(1) && paged.Selected == first && paged.Select(3),
+        "Theatre source unit: turning pages retains a valid filtered selection until an explicit row selection");
+    var removed = paged.Selected!.Value;
+    Check(paged.Turn(1) && paged.Selected == removed,
+        "Theatre source unit: pagination does not reinterpret a selected replay as another page's row slot");
+    paged.Refresh(rows.Where(row => row.Path != removed.Path));
+    Check(paged.Page == 2 && paged.Selected == paged.Entry(0) && !paged.SelectedUnchanged(removed),
+        "Theatre source unit: removing an off-page selection chooses a shown row on the current page");
+    var retained = paged.Selected;
+    paged.Refresh(rows.Take(5));
+    Check(paged.Page == 0 && paged.Selected == retained,
+        "Theatre source unit: refresh clamps pagination while preserving a still-filtered selected path");
+    var beforeInvalid = paged.Selected;
+    Check(!paged.SearchFor(new string('X', 513)) && paged.Selected == beforeInvalid,
+        "Theatre source unit: rejected search cannot change selection");
+    paged.MarkLaunched();
+    Check(paged.Launched && !paged.Select(0) && !paged.SelectedUnchanged(beforeInvalid!.Value),
+        "Theatre source unit: filtered-selection repair does not reopen a confirmed launch or worker stamp");
+}
+CheckTheatreVisibleSelection();
+CustomReplayAudioAcceptance.Run();
+StudioAudioSettingsAcceptance.Run();
+TheatreSmartViewAcceptance.Run();
+TheatreMetadataAcceptance.Run();
+// END THEATRE VISIBLE SELECTION SOURCE UNIT CHECKS
 RmlUiReplayEntry[] replayRows = Enumerable.Range(0, 18).Select(i =>
     new RmlUiReplayEntry($"/_demos/replay_{i:00}.ppdemo", $"Replay {i:00}",
         $"Arena {i % 3}", $"Map {i % 3}", i + 1, 100 + i,
@@ -650,8 +796,8 @@ var theatreBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Theatre, contr
 Check(theatreBindings.TryGetValue("theatre_entry0_title", out var theatreTitle)
     && theatreTitle.Text == "Replay 02"
     && theatreBindings.TryGetValue("disabled:theatre_watch", out var theatreWatchDisabled)
-    && theatreWatchDisabled.Boolean,
-    "native Theatre bindings show metadata and disable Watch until a selection is made");
+    && !theatreWatchDisabled.Boolean,
+    "native Theatre bindings show metadata and enable Watch for the first shown replay");
 Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 0, theatreSearch: "replay 01")
     && Text(controller.Tick(), "theatre_entry0_title") == "Replay 01"
     && controller.Dispatch(RmlUiIntentKind.TheatreEntry, 0)
@@ -690,7 +836,7 @@ Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 6),
 services.TheatreValidationPending.SetResult("");
 Wait(controller, _ => services.ReplayLaunches == 1);
 Check(services.ReplayLaunches == 1
-    && services.LastReplay.Path == replayRows[2].Path
+    && services.LastReplay.Path == replayRows[2].Path && !services.LastReplayOpenEditor
     && !controller.Dispatch(RmlUiIntentKind.TheatreAction, 6),
     "validated Theatre Watch hands off once to the existing playback launcher");
 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home)
@@ -699,12 +845,22 @@ Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home
 
 services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre),
-    "full Studio fallback fixture opens native archive");
+    "native editor launch fixture opens replay archive");
 services.TheatreReadPending.SetResult(services.TheatreRows);
 Wait(controller,s=>Flag(s,"theatre_entry0_present"));
-Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 18)
-    && services.LegacyTheatreHandoffs == 1 && !controller.TheatreOpen,
-    "Import and advanced replay editing route to full existing Replay Studio");
+controller.Dispatch(RmlUiIntentKind.TheatreAction, 0, theatreSearch: "NO MATCHING FIXTURE");
+Check(!controller.Dispatch(RmlUiIntentKind.TheatreAction, 18) && services.LegacyTheatreHandoffs == 0,
+    "native editor requires an exact selected replay and never falls back to legacy Studio");
+controller.Dispatch(RmlUiIntentKind.TheatreAction, 23);
+Check(controller.Dispatch(RmlUiIntentKind.TheatreEntry, 0), "editor launch captures a foreground library selection");
+services.TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 18) && controller.Busy && services.ReplayLaunches == 1,
+    "native editor waits for the same replay protocol/map preflight as Watch");
+services.TheatreValidationPending.SetResult("");
+Wait(controller, _ => services.ReplayLaunches == 2);
+Check(services.LastReplayOpenEditor && services.LastReplay == services.LastValidatedReplay
+    && services.LegacyTheatreHandoffs == 0,
+    "verified native editor launch forwards only captured selected replay with explicit editor presentation flag");
 
 // The native Create Lobby form uses the same authoritative backend as legacy
 // hosting. It has no local-simulation fallback and cannot be double-submitted.
@@ -754,6 +910,32 @@ Check(!stageHome.Lobby && stageHome.Count == 0 && stageHome.HomeHunter == Hunter
     "native Home stages the actual selected Hunter and suit");
 Check(LauncherLobbyFormation.Validate(),
     "archived eight-player platform centers and preview rectangles remain valid");
+var localStage = LauncherLobbyFormation.At(0);
+var packedLobbyPads = LauncherLobbyFormation.PackPads();
+for (int slotIndex = 1; slotIndex < LauncherLobbyFormation.Capacity; slotIndex++)
+{
+    var supportingStage = LauncherLobbyFormation.At(slotIndex);
+    Check(supportingStage.Valid && supportingStage.RadiusX < localStage.RadiusX * .5f
+        && supportingStage.HunterBottom - supportingStage.HunterTop < (localStage.HunterBottom - localStage.HunterTop) * .42f,
+        "secondary lobby Hunter and platform remain subordinate to readable local hero: " + slotIndex);
+    Check(Math.Abs(packedLobbyPads[slotIndex * 4 + 2] - supportingStage.RadiusX) < .00001f
+        && Math.Abs(packedLobbyPads[slotIndex * 4 + 3] - supportingStage.RadiusY) < .00001f,
+        "shader platform consumes the same compact secondary geometry as the model: " + slotIndex);
+    Check(Math.Abs((supportingStage.HunterLeft + supportingStage.HunterRight) * .5f - supportingStage.LabelX) < .00001f,
+        "secondary Hunter remains centered beneath its distinct nameplate anchor: " + slotIndex);
+}
+NativeSettingsAcceptance.Run();
+ReplayProjectFilesAcceptance.Run();
+QueuedReplayAudioAcceptance.Run();
+HomePartyPadAcceptance.Run();
+StudioPresentationPreferencesAcceptance.Run();
+HomeRailAcceptance.Run();
+MapPickerCatalogAcceptance.Run();
+CommunityHostingAcceptance.Run();
+GameFilesSetupResumeChecks.Run();
+TrainingReturnChecks.Run();
+HostRequestIdentityAcceptance.Run();
+LobbyStartGateAcceptance.Run();
 var stageLobby = new RmlUiLobbyView(true, false, true, false, false,
     true, true, "Stage lobby", "MP1 SANCTORUS", "Battle", "FreeForAll",
     "Ready", 8, Array.Empty<RmlUiLobbyPlayer>());
@@ -852,6 +1034,15 @@ Check(!controller.Dispatch(RmlUiIntentKind.LobbySlotTeamNext, 7),
     "blank nameplate never submits a team change to a synthetic player");
 services.LobbyView = Stub.EmptyLobby;
 services.AdminState = null;
+HomePartyAcceptance.Run();
+LobbyBotAcceptance.Run();
+OfflineRulesAcceptance.Run();
+AdventureSaveAcceptance.Run();
+TheatreWorkAcceptance.Run();
+PartyConnectionAcceptance.Run();
+SocialConnectionAcceptance.Run();
+PartyQueueAcceptance.Run();
+RandomMatchAcceptance.Run();
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices
@@ -860,6 +1051,14 @@ sealed class Stub : IRmlUiMenuServices
         false, false, false, "", "", "", "", "", 8, Array.Empty<RmlUiLobbyPlayer>());
     public TaskCompletionSource<RmlUiDirectory> BrowsePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<RmlUiJoinResult> JoinPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<RmlUiJoinResult> PartyJoinPending = new();
+    public NativePartyJoinTarget? PartyTarget;
+    public CancellationToken PartyJoinToken;
+    public int PartyJoins, PartyDiscards, PartyCancellations;
+    public bool PartyMayAccept = true, AcceptJoinResult = true;
+    public readonly System.Collections.Generic.List<string> PartyEvents = new();
+    public NativePartyQueueSnapshot PartyQueue = NativePartyQueueSnapshot.Empty;
+    public readonly System.Collections.Generic.List<(NativePartyQueueSnapshot Snapshot, NativePartyQueueCommand Command)> PartyQueueCommands = new();
     public TaskCompletionSource<RmlUiJoinResult> CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public LobbyCreationRequest CreatedRequest;
     public string[] BuiltInMaps = { "MP1 SANCTORUS" };
@@ -874,6 +1073,11 @@ sealed class Stub : IRmlUiMenuServices
     public RmlUiAdminSnapshot? AdminState;
     public AimTrainerDefinition TrainingDefault = AimTrainerDefinition.Default;
     public RmlUiAdventureSlot[] AdventureSlots = Array.Empty<RmlUiAdventureSlot>();
+    public bool AdventureSaveManagementAvailable = true;
+    public bool AdventureSaveAsync;
+    public Func<RmlUiAdventureSaveChange, CancellationToken, Task<RmlUiAdventureSaveResult>>? AsyncAdventureSave;
+    public int AdventureSaveChangeAttempts;
+    public readonly System.Collections.Generic.List<RmlUiAdventureSaveChange> AdventureSaveChanges = new();
     public int AdventureLaunches;
     public (RmlUiAdventureSlot Expected, bool NewGame, Hunter Hunter) LastAdventure;
     public int TrainingLaunches;
@@ -881,15 +1085,40 @@ sealed class Stub : IRmlUiMenuServices
     public TaskCompletionSource<string> OfflineValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RmlUiOfflineRequest LastOffline;
     public int OfflineValidations, OfflineLaunches;
+    public RmlUiOfflineRules? OfflineRules = new("7", "7:00", "3:00", "medium", 0);
+    public bool FailOfflineRulesSave;
+    public int OfflineRulesSaveAttempts, OfflineRulesSaves;
     public TaskCompletionSource<RmlUiReplayEntry[]> TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<string> TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public RmlUiReplayEntry[] TheatreRows = Array.Empty<RmlUiReplayEntry>();
-    public RmlUiReplayEntry LastReplay;
+    public RmlUiReplayEntry LastReplay, LastValidatedReplay;
+    public CancellationToken LastReplayValidationToken;
+    public bool IgnoreReplayValidationCancellation, LastReplayOpenEditor;
+    public bool ReplayEditorSupported = true;
+    public bool ReplayEditingAllowed { get; set; } = true;
+    public bool StudioReplayAccepted = true;
+    public int StudioReplayCalls;
+    public RmlUiReplayEntry LastStudioReplay;
+    public bool OpenStudioReplay(RmlUiReplayEntry entry, out string error)
+    {
+        StudioReplayCalls++; LastStudioReplay = entry;
+        bool current = TheatreRows.Any(row => row.Path == entry.Path && row.Bytes == entry.Bytes
+            && row.LastWriteTicks == entry.LastWriteTicks && row.VirtualWitness == entry.VirtualWitness && row.Playable);
+        error = StudioReplayAccepted && current ? "" : "PRIME STUDIO HANDOFF REFUSED";
+        return StudioReplayAccepted && current;
+    }
+    public int ReplayLaunchAttempts;
+    public TaskCompletionSource<RmlUiReplayWorkResult> TheatreWorkPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public RmlUiReplayWorkRequest LastTheatreWork;
+    public CancellationToken LastTheatreWorkToken;
+    public int TheatreWorkCalls, TheatreWorkThread, RevealCalls;
     public int TheatreReadCalls, TheatreValidations, TheatreFavorites, ReplayLaunches, LegacyTheatreHandoffs;
     public RmlUiLobbyChrome Chrome = RmlUiLobbyChrome.Empty;
     public int ChatCalls;
     public string LastChat = "";
     public int CreateCalls;
+    public int LobbyCapacity = 8;
+    public int LobbyPlayerCapacity(string roomKey) => LobbyCapacity;
     public RmlUiLobbyView LobbyView = EmptyLobby;
     public int Accepted, ReadyCalls, StartCalls, LeaveCalls, Submissions;
     public RmlUiRuleDraft? AuthorityRules;
@@ -897,14 +1126,47 @@ sealed class Stub : IRmlUiMenuServices
     public RmlUiSocialHomeState SocialOverride =
         new(false, false, Array.Empty<string>(), 0);
     public RmlUiSocialHomeState SocialHome() => SocialOverride;
+    public NativePartyView HomeParty = new(false, false, "DISCONNECTED", 0, null);
+    public NativePartyView PartyHome() => HomeParty;
     public NewsDispatch? FeaturedNews() => new BundledNewsProvider().Read()[0];
-    public HubSnapshot Hub() => new("Pilot", Hunter.Samus, Hunter.Samus, 0, true, "Desktop");
+    public bool GameFilesReady = true, ConfigureGameFilesAccepted;
+    public int ConfigureGameFilesCalls, NavigationCalls;
+    public bool ConfigureGameFiles() { ConfigureGameFilesCalls++; return ConfigureGameFilesAccepted; }
+    public HubSnapshot Hub() => new("Pilot", Hunter.Samus, Hunter.Samus, 0, GameFilesReady, "Desktop");
     public string BuildVersion() => "0.1.99";
     public RmlUiLobbyView Lobby() => LobbyView;
     public Task<RmlUiDirectory> Browse(CancellationToken _) => BrowsePending.Task;
-    public Task<RmlUiServerCandidate?> QuickMatch(CancellationToken _) =>
-        Task.FromResult<RmlUiServerCandidate?>(null);
-    public Task<RmlUiJoinResult> Join(string _, string __, CancellationToken ___) => JoinPending.Task;
+    public int RandomDiscards;
+    public void DiscardRandomJoin(LaunchPlan plan) => RandomDiscards++;
+    public Func<CancellationToken, Task<RmlUiServerCandidate?>>? RandomScan;
+    public Func<CancellationToken, Task<RmlUiJoinResult>>? RandomJoin;
+    public Task<RmlUiServerCandidate?> QuickMatch(CancellationToken token) =>
+        RandomScan?.Invoke(token) ?? Task.FromResult<RmlUiServerCandidate?>(null);
+    public Task<RmlUiJoinResult> Join(string _, string __, CancellationToken token)
+        => RandomJoin?.Invoke(token) ?? JoinPending.Task;
+    public Task<RmlUiJoinResult> JoinParty(NativePartyJoinTarget target, string playerName, CancellationToken token)
+    {
+        PartyJoins++; PartyTarget = target; PartyJoinToken = token;
+        return PartyJoinPending.Task;
+    }
+    public bool CanAcceptPartyJoin(NativePartyJoinTarget target, LaunchPlan plan)
+    { PartyEvents.Add("validate"); return ReferenceEquals(target, PartyTarget) && PartyMayAccept; }
+    public void NotePartyJoined(NativePartyJoinTarget target) => PartyEvents.Add("joined");
+    public void DiscardPartyJoin(NativePartyJoinTarget target, LaunchPlan plan)
+    { PartyDiscards++; PartyEvents.Add("discard"); }
+    public void CancelPartyJoin() => PartyCancellations++;
+    public NativePartyQueueSnapshot CapturePartyQueue() => PartyQueue;
+    public bool CommandPartyQueue(NativePartyQueueSnapshot expected, NativePartyQueueCommand command)
+    {
+        if (!ReferenceEquals(expected, PartyQueue) || !expected.Active
+            || command == NativePartyQueueCommand.Accept && !expected.CanAccept
+            || command == NativePartyQueueCommand.Decline && !expected.CanDecline) return false;
+        PartyQueueCommands.Add((expected, command));
+        PartyQueue = expected with { Revision = expected.Revision + 1,
+            Phase = command == NativePartyQueueCommand.Accept ? NativePartyQueuePhase.Admitting : NativePartyQueuePhase.Cancelled,
+            CanAccept = false, CanDecline = false };
+        return true;
+    }
     public Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken _)
     {
         CreatedRequest = request;
@@ -917,6 +1179,23 @@ sealed class Stub : IRmlUiMenuServices
         return OfflineValidationPending.Task.WaitAsync(token);
     }
     public RmlUiAdventureSlot[] ReadAdventureSlots() => AdventureSlots.ToArray();
+    public bool CanManageAdventureSaves => AdventureSaveManagementAvailable;
+    public bool AdventureSaveChangesAreAsync => AdventureSaveAsync;
+    public Task<RmlUiAdventureSaveResult> ManageAdventureSaveAsync(RmlUiAdventureSaveChange change, CancellationToken token)
+        => AsyncAdventureSave?.Invoke(change, token) ?? Task.FromResult(new RmlUiAdventureSaveResult(change, false, "FAKE ASYNC OWNER UNAVAILABLE"));
+    public bool ManageAdventureSave(RmlUiAdventureSaveChange change, out string status)
+    {
+        AdventureSaveChangeAttempts++;
+        status = "SIMULATED SAVE CHANGE REFUSED // REFRESH SAVES";
+        if (!CanManageAdventureSaves || AdventureSlots.SingleOrDefault(slot => slot.Slot == change.Source.Slot) != change.Source
+            || change.Destination is { } destination && AdventureSlots.SingleOrDefault(slot => slot.Slot == destination.Slot) != destination) return false;
+        AdventureSaveChanges.Add(change);
+        if (change.Action == RmlUiAdventureSaveAction.Copy && change.Destination is { } target)
+            AdventureSlots[target.Slot - 1] = change.Source with { Slot = target.Slot };
+        else AdventureSlots[change.Source.Slot - 1] = new(change.Source.Slot, false, false, "", 0, 0, 0, "EMPTY");
+        status = "SIMULATED EXACT SAVE CHANGE VERIFIED";
+        return true;
+    }
     public bool LaunchAdventure(RmlUiAdventureSlot expected, bool newGame, Hunter hunter)
     {
         if (expected.Slot is < 1 or > 3) return false;
@@ -941,10 +1220,23 @@ sealed class Stub : IRmlUiMenuServices
         OfflineLaunches++;
         return true;
     }
-    public bool AcceptJoin(LaunchPlan _) { Accepted++; return true; }
-    public bool OpenCreateLobby() => true;
+    public RmlUiOfflineRules? ReadOfflineRules() => OfflineRules;
+    public bool SaveOfflineRules(RmlUiOfflineRules expected, RmlUiOfflineRules next, out string error)
+    {
+        OfflineRulesSaveAttempts++;
+        error = FailOfflineRulesSave ? "SIMULATED SAVE FAILURE // RETRY OR CANCEL"
+            : OfflineRules != expected ? "RULES CHANGED // REOPEN" : "";
+        if (error.Length != 0) return false;
+        OfflineRules = next;
+        OfflineRulesSaves++;
+        return true;
+    }
+    public bool AcceptJoin(LaunchPlan _) { Accepted++; PartyEvents.Add("accept"); return AcceptJoinResult; }
+    public int LegacyCreateCalls;
+    public bool OpenCreateLobby() { LegacyCreateCalls++; return true; }
     public bool NavigateTo(RmlUiRouteArgument route)
     {
+        NavigationCalls++;
         if (route == RmlUiRouteArgument.Theatre) LegacyTheatreHandoffs++;
         return true;
     }
@@ -955,17 +1247,35 @@ sealed class Stub : IRmlUiMenuServices
     }
     public Task<string> ValidateReplayAsync(RmlUiReplayEntry entry, CancellationToken token)
     {
+        LastValidatedReplay = entry;
+        LastReplayValidationToken = token;
         TheatreValidations++;
-        return TheatreValidationPending.Task.WaitAsync(token);
+        return IgnoreReplayValidationCancellation ? TheatreValidationPending.Task : TheatreValidationPending.Task.WaitAsync(token);
     }
+    public Task<RmlUiReplayWorkResult> WorkReplayAsync(RmlUiReplayWorkRequest request, CancellationToken token)
+    {
+        LastTheatreWork = request;
+        LastTheatreWorkToken = token;
+        TheatreWorkThread = Environment.CurrentManagedThreadId;
+        Interlocked.Increment(ref TheatreWorkCalls);
+        return TheatreWorkPending.Task; // Ignore cancellation to verify controller epoch fencing.
+    }
+    public bool RevealReplayFolder() { RevealCalls++; return true; }
     public bool LaunchReplay(RmlUiReplayEntry entry)
     {
         if (!TheatreRows.Any(r => r.Path == entry.Path
             && r.Bytes == entry.Bytes && r.LastWriteTicks == entry.LastWriteTicks
-            && r.Playable)) return false;
+            && r.VirtualWitness == entry.VirtualWitness && r.Playable)) return false;
         ReplayLaunches++;
         LastReplay = entry;
         return true;
+    }
+    public bool LaunchReplay(RmlUiReplayEntry entry, bool openEditor)
+    {
+        ReplayLaunchAttempts++;
+        LastReplayOpenEditor = openEditor;
+        if (openEditor && !ReplayEditorSupported) return false;
+        return LaunchReplay(entry);
     }
     public bool ToggleReplayFavorite(RmlUiReplayEntry entry)
     {
@@ -1036,6 +1346,13 @@ sealed class Stub : IRmlUiMenuServices
     public RmlUiRuleDraft? ReadRules() => LobbyView.Active ? AuthorityRules : null;
     public IReadOnlyList<string> BuiltInArenaKeys() => BuiltInMaps;
     public IReadOnlyList<string> InstalledCommunityArenaKeys() => CommunityMaps;
+    public Func<CancellationToken, Task<IReadOnlyList<RmlUiArenaChoice>>>? MapCatalog;
+    public Func<IReadOnlyList<string>, RmlUiArenaPreview[]>? MapPreviews;
+    public Task<IReadOnlyList<RmlUiArenaChoice>> ReadMapPickerCatalogAsync(CancellationToken token)
+        => MapCatalog?.Invoke(token) ?? Task.FromResult<IReadOnlyList<RmlUiArenaChoice>>(
+            CommunityMaps.Select(room => new RmlUiArenaChoice(room, RmlUiArenaCategory.Community)).ToArray());
+    public RmlUiArenaPreview[] ReadMapPickerPreviews(IReadOnlyList<string> rooms)
+        => MapPreviews?.Invoke(rooms) ?? Array.Empty<RmlUiArenaPreview>();
     public bool SubmitRules(RmlUiRuleDraft draft, out string error)
     {
         error = "";

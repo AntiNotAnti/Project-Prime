@@ -55,6 +55,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly UiMark _choose;
         private readonly UiMark _back;
         private readonly UiWord _previews;
+        private readonly SetupViewWorkScope _work = new();
+        private void CloseOnce() { if (_work.TryClose()) Closed?.Invoke(this, EventArgs.Empty); }
 
         public SetupScreen()
         {
@@ -95,7 +97,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // Nothing to go back to until there is something to play.
                 IsVisible = GameFiles.Ready
             };
-            _back.Click += (_, _) => Closed?.Invoke(this, EventArgs.Empty);
+            _back.Click += (_, _) => CloseOnce();
 
             var holder = new ScrollViewer
             {
@@ -105,20 +107,32 @@ namespace MphRead.Mods.Launcher.Gui
             Content = UiLayout.Page(overGame: false, UiLayout.WellSettings,
                 "game files", strip: null, body: holder, no: _back, yes: _choose);
             RefreshPreviewEntry();
+            if (GameFiles.SetupInProgress) _log.Text = GameFiles.SetupWorking;
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            _work.Resume();
+            var focusTicket = _work.Begin();
+            _choose.IsEnabled = true; _choose.Label = "choose your .nds file";
+            _previews.IsEnabled = true; _back.IsVisible |= GameFiles.Ready;
+            RefreshPreviewEntry();
             LauncherBackdrop.Set(LauncherBackdropScene.Setup);
-            Dispatcher.UIThread.Post(() => _choose.Focus(), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => { if (_work.Current(focusTicket)) _choose.Focus(); }, DispatcherPriority.Background);
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _work.Retire();
+            base.OnDetachedFromVisualTree(e);
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.Escape && _back.IsVisible)
             {
-                Closed?.Invoke(this, EventArgs.Empty);
+                CloseOnce();
                 e.Handled = true;
                 return;
             }
@@ -136,6 +150,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private async Task ChooseRom()
         {
+            var pickerTicket = _work.Begin();
+            if (!_work.Current(pickerTicket)) return;
             TopLevel? top = TopLevel.GetTopLevel(this);
             if (top == null)
             {
@@ -155,6 +171,9 @@ namespace MphRead.Mods.Launcher.Gui
                 string? chosen = await NativeFilePicker.OpenFile(
                     "Your Metroid Prime Hunters cartridge dump",
                     "Nintendo DS ROM", "nds");
+                if (!_work.Current(pickerTicket)) return;
+                _back.IsVisible |= GameFiles.Ready;
+                RefreshPreviewEntry();
                 if (chosen != null)
                 {
                     await RunSetup(chosen, null);
@@ -179,6 +198,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             IReadOnlyList<IStorageFile> picked =
                 await top.StorageProvider.OpenFilePickerAsync(options);
+            if (!_work.Current(pickerTicket)) return;
             if (picked.Count == 0)
             {
                 return;
@@ -200,6 +220,9 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
+            var ticket = _work.Begin();
+            if (!_work.Current(ticket)) return;
+            string expectedRoot = GameFiles.Root;
             _choose.IsEnabled = false;
             _choose.Label = "working...";
             _log.Text = "";
@@ -226,6 +249,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch (Exception ex)
                 {
+                    if (!_work.Current(ticket)) return;
                     _log.Text = $"The file could not be read: {ex.Message}";
                     Ready();
                     return;
@@ -238,18 +262,26 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             string romPath = path;
-            // Extraction takes minutes. Off the UI thread, or the screen stops
-            // answering at the exact moment it is doing the one thing a fresh
-            // install needs.
-            bool ok = await Task.Run(() => GameFiles.RunSetup(romPath, line =>
-                Dispatcher.UIThread.Post(() =>
+            // Cancellation retires callbacks/admission; it never undoes an
+            // extraction already started by the existing GameFiles owner.
+            var progressQueue = new SetupViewProgress();
+            bool ok = false;
+            try
+            {
+                if (!_work.Current(ticket)) return;
+                ok = await GameFiles.RunSetupAsync(romPath, line =>
                 {
-                    _log.Text = Tail(_log.Text, line);
-                    if (progress.Observe(line))
+                    if (ticket.Token.IsCancellationRequested || !progressQueue.Report(line)) return;
+                    Dispatcher.UIThread.Post(() =>
                     {
-                        _progress.Set(progress.Fraction, progress.Stage);
-                    }
-                })));
+                        var update = progressQueue.Drain();
+                        if (!_work.Current(ticket)) return;
+                        foreach (string text in update.Lines) _log.Text = Tail(_log.Text, text);
+                        _progress.Set(update.Fraction, update.Stage);
+                    });
+                }, expectedRoot, ticket.Token);
+            }
+            catch (OperationCanceledException) { }
             if (scratch != null)
             {
                 try
@@ -261,6 +293,9 @@ namespace MphRead.Mods.Launcher.Gui
                     // A copy left behind is untidy, not a failure worth saying.
                 }
             }
+            if (!_work.Current(ticket)) return;
+            if (ok && !String.Equals(expectedRoot, GameFiles.Root, StringComparison.Ordinal))
+            { _log.Text = Tail(_log.Text, "Extraction finished for the captured folder; the active destination changed."); ok = false; }
             // Game-file setup ends when the cartridge data is valid and ready.
             // Map previews are cosmetic and can involve separate GL worker processes;
             // never make a successful extraction wait for them.
@@ -273,7 +308,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _progress.IsVisible = false;
                 _back.IsVisible = true;
-                Closed?.Invoke(this, EventArgs.Empty);
+                CloseOnce();
             }
         }
 
@@ -285,9 +320,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task RenderPreviews()
         {
+            var ticket = _work.Begin();
+            if (!_work.Current(ticket)) return;
             _previews.IsEnabled = false;
             _previews.Text = "Rendering...";
-            await RenderMissing(null);
+            await RenderMissing(null, ticket);
+            if (!_work.Current(ticket)) return;
             _previews.IsEnabled = true;
             _previews.Text = "Render map previews";
             RefreshPreviewEntry();
@@ -298,21 +336,30 @@ namespace MphRead.Mods.Launcher.Gui
         /// were just unpacked. Nothing is downloaded and no picture ships with
         /// the program.
         /// </summary>
-        private async Task RenderMissing(SetupProgress? progress)
+        private async Task RenderMissing(SetupProgress? progress, SetupViewWorkScope.Ticket ticket)
         {
             if (!ThumbnailHost.CanRender)
             {
                 return;
             }
             _log.Text = Tail(_log.Text, "Rendering map previews...");
-            await ThumbnailHost.RenderMissingAsync(line => Dispatcher.UIThread.Post(() =>
+            var reports = new SetupViewProgress();
+            try
             {
-                _log.Text = Tail(_log.Text, line);
-                if (progress != null && progress.Observe(line))
+                await ThumbnailHost.RenderMissingAsync(line =>
                 {
-                    _progress.Set(progress.Fraction, progress.Stage);
-                }
-            }));
+                    if (ticket.Token.IsCancellationRequested || !reports.Report(line)) return;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        var update = reports.Drain();
+                        if (!_work.Current(ticket)) return;
+                        foreach (string text in update.Lines) _log.Text = Tail(_log.Text, text);
+                    });
+                }, ticket.Token);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception error)
+            { if (_work.Current(ticket)) _log.Text = Tail(_log.Text, "Previews did not finish: " + error.Message); }
         }
 
         /// <summary>How many previews are still to render, or nothing to say.</summary>

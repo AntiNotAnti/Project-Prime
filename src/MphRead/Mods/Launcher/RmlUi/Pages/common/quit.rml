@@ -1,0 +1,6 @@
+<rml><head><title>Quit Project Prime</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="../updates/available.rcss"/></head>
+<body><div id="update_scrim"><div id="update_card" class="dialog_content">
+<div class="eyebrow">PROJECT PRIME // SESSION</div><h1>LEAVE THE HUNT?</h1>
+<p>Quit Project Prime and return to the desktop?</p>
+<div id="update_actions"><button id="quit_cancel" data-action="settings:close">KEEP PLAYING</button><button id="quit_confirm" data-action="settings:apply">QUIT</button></div>
+</div></div></body></rml>

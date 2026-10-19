@@ -1,0 +1,27 @@
+<rml><head><title>Party</title><link type="text/template" href="../../components/app-shell.rml"/><link type="text/rcss" href="social.rcss"/></head>
+<body template="prime-shell"><div id="social_page">
+<div class="eyebrow">HUNTERS ONLINE // PARTY</div><h1>YOUR PARTY</h1><p id="party_self"/><p id="party_summary"/>
+<p class="social_notice">Party membership and invitations come from your authenticated Hunter License. Presence follows each member's privacy settings. Invite a friend by Prime ID; the first accepted server request creates your party.</p>
+<div class="social_tabs"><button id="party_members" data-action="social:friends">MEMBERS</button><button id="party_incoming" data-action="social:invites">INCOMING INVITATIONS</button><button id="party_outgoing" data-action="social:party">SENT INVITATIONS</button></div>
+<div class="social_searches"><input id="party_invite_id" type="text" maxlength="27" placeholder="FRIEND'S PRIME ID"/><button id="party_invite" data-action="social:invite-party">INVITE FRIEND</button></div>
+<div class="social_columns"><div class="social_panel social_list"><p id="party_empty"/><button id="party_row_0" class="social_row" data-action="social:select-0"><b id="party_name_0"/><span id="party_detail_0"/></button>
+<button id="party_row_1" class="social_row" data-action="social:select-1"><b id="party_name_1"/><span id="party_detail_1"/></button>
+<button id="party_row_2" class="social_row" data-action="social:select-2"><b id="party_name_2"/><span id="party_detail_2"/></button>
+<button id="party_row_3" class="social_row" data-action="social:select-3"><b id="party_name_3"/><span id="party_detail_3"/></button>
+<button id="party_row_4" class="social_row" data-action="social:select-4"><b id="party_name_4"/><span id="party_detail_4"/></button>
+<button id="party_row_5" class="social_row" data-action="social:select-5"><b id="party_name_5"/><span id="party_detail_5"/></button>
+<button id="party_row_6" class="social_row" data-action="social:select-6"><b id="party_name_6"/><span id="party_detail_6"/></button>
+<button id="party_row_7" class="social_row" data-action="social:select-7"><b id="party_name_7"/><span id="party_detail_7"/></button>
+<div class="social_paging"><button id="party_previous" data-action="social:previous-page">PREVIOUS</button><span id="party_page"/><button id="party_next" data-action="social:next-page">NEXT</button></div></div>
+<div class="social_panel social_details"><h2 id="party_selected"/><p id="party_selected_id"/><div class="social_commands">
+<button id="party_command_34" data-action="social:accept-party-invite">ACCEPT INVITATION</button>
+<button id="party_command_35" data-action="social:decline-party-invite">DECLINE INVITATION</button>
+<button id="party_command_36" data-action="social:cancel-party-invite">CANCEL INVITATION</button>
+<button id="party_command_39" class="social_danger" data-action="social:kick-party-member">REMOVE MEMBER</button>
+<button id="party_command_40" data-action="social:promote-party-member">MAKE LEADER</button>
+<button id="party_command_37" class="social_danger" data-action="social:leave-party">LEAVE PARTY</button>
+<button id="party_command_38" class="social_danger" data-action="social:disband-party">DISBAND PARTY</button>
+</div><p>Leaving, disbanding, removing a member, or transferring leadership requires confirmation. Each action is checked again by the server.</p></div></div>
+<div class="social_panel"><h2>PARTY DESTINATION</h2><p id="party_travel"/><p>Publish your current public lobby for your party. Group seats require verified server support and explicit acceptance before joining.</p><p id="party_reservation"/><div class="social_commands"><button id="party_publish" data-action="social:invite-party-lobby">PUBLISH CURRENT LOBBY</button><button id="party_reserve" data-action="social:reserve-party-seats">RESERVE PARTY SEATS</button><button id="party_cancel_reservation" data-action="social:cancel-reservation">CANCEL SEAT INTENT</button><button id="party_follow" data-action="social:follow-party-travel">FOLLOW PARTY</button><button id="party_join_leader" data-action="social:join-party-leader">JOIN LEADER</button><button id="party_decline_travel" data-action="social:decline-party-travel">DECLINE DESTINATION</button></div></div>
+<p id="party_status" class="social_status"/><div class="social_commands"><button id="party_refresh" data-action="social:refresh">REFRESH PARTY</button><button id="party_cancel" data-action="social:cancel">CANCEL REQUEST</button><button id="party_back" data-action="social:back">BACK TO SOCIAL</button></div>
+</div></body></rml>

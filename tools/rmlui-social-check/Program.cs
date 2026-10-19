@@ -147,6 +147,10 @@ using(var isolated = new NativeSocialFriendsController(wrong))
     Check(failure is InvalidOperationException,
         "owner-thread contract rejects cross-thread writes");
 }
+AccountWitnessAcceptance.Run();
+LeaseRetirementAcceptance.Run();
+InvitationAcceptance.Run();
+RecentPlayersAcceptance.Run();
 Console.WriteLine("RML-33 SOCIAL ACCEPTANCE COMPLETE");
 
 sealed class Stub : INativeSocialFriendsService

@@ -25,13 +25,11 @@ namespace MphRead.Mods.Launcher
     /// Career totals are never accepted from this client. They still come from
     /// the server-accepted match pipeline in the <c>prime</c> schema.
     /// </summary>
-    internal static class HunterLicenseClient
+    internal static partial class HunterLicenseClient
     {
-        private const string DefaultUrl = "https://hwcjaygoistufktorbmf.supabase.co";
         // A public HTTPS landing page for email verification and identity linking.
         // Never rely on GoTrue's Site URL, which may still be set to localhost.
         private const string WebLicenseUrl = "https://projectprime.gg/license";
-        private const string DefaultKey = "sb_publishable_EVT45OPl638kA_j8vZ0ebg_sw3aWaVz";
 
         private static readonly HttpClient Http = new()
         {
@@ -46,10 +44,6 @@ namespace MphRead.Mods.Launcher
             new(StringComparer.OrdinalIgnoreCase) { "google", "github", "discord" };
         private static AuthSession? _currentSession;
 
-        private static string Url =>
-            (Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_URL") ?? DefaultUrl).TrimEnd('/');
-        private static string Key =>
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_KEY") ?? DefaultKey;
         private static string SessionPath =>
             Path.Combine(LauncherPrefs.Directory, "hunter-license.session.json");
 
@@ -75,6 +69,7 @@ namespace MphRead.Mods.Launcher
             {
                 if (_careerTicketClientId == clientId
                     && _careerTicket.Length > 0
+                    && IsNativeAccountLeaseCurrent(_careerTicketAccountLease)
                     && _careerTicketExpiresAt > DateTimeOffset.UtcNow.AddMinutes(5))
                 {
                     ticket = _careerTicket;
@@ -88,19 +83,22 @@ namespace MphRead.Mods.Launcher
                 }
                 if (_careerTicketTask == null || _careerTicketTask.IsCompleted)
                 {
-                    _careerTicketTask = Task.Run(() => RefreshCareerTicketAsync(clientId));
+                    int generation = _careerTicketGeneration;
+                    _careerTicketTask = Task.Run(() => RefreshCareerTicketAsync(clientId, generation));
                 }
                 return false;
             }
         }
 
-        private static async Task RefreshCareerTicketAsync(uint clientId)
+        private static async Task RefreshCareerTicketAsync(uint clientId, int generation)
         {
             await Gate.WaitAsync().ConfigureAwait(false);
             try
             {
+                if (!CareerTicketWorkCurrent(generation)) return;
                 AuthSession session = await AuthenticateAsync(CancellationToken.None)
                     .ConfigureAwait(false);
+                if (!CareerTicketWorkCurrent(generation) || !IsNativeAccountLeaseCurrent(session)) return;
 
                 // A player does not have to open Hunter License before playing
                 // online. Ensure the same prime profile/license rows the page
@@ -118,6 +116,7 @@ namespace MphRead.Mods.Launcher
                         ["favorite_hunter"] = hunter
                     },
                     CancellationToken.None).ConfigureAwait(false);
+                if (!CareerTicketWorkCurrent(generation) || !IsNativeAccountLeaseCurrent(session)) return;
 
                 using var request = Request(HttpMethod.Post,
                     "/functions/v1/career-ticket", session.AccessToken,
@@ -135,19 +134,14 @@ namespace MphRead.Mods.Launcher
                         "Career identity service returned no usable ticket.");
                 }
 
-                lock (CareerTicketLock)
-                {
-                    _careerTicket = result.Ticket;
-                    _careerTicketClientId = clientId;
-                    _careerTicketExpiresAt = result.ExpiresAt;
-                    _careerTicketRetryAt = default;
-                }
+                PublishCareerTicket(clientId, result.Ticket, result.ExpiresAt, session, generation);
             }
             catch (Exception ex)
             {
                 lock (CareerTicketLock)
                 {
-                    _careerTicketRetryAt = DateTimeOffset.UtcNow.AddSeconds(30);
+                    if (generation == _careerTicketGeneration)
+                        _careerTicketRetryAt = DateTimeOffset.UtcNow.AddSeconds(30);
                 }
                 Console.WriteLine($"[career] identity ticket unavailable: {FriendlyAction(ex)}");
             }
@@ -161,6 +155,8 @@ namespace MphRead.Mods.Launcher
         {
             lock (CareerTicketLock)
             {
+                ++_careerTicketGeneration;
+                _careerTicketAccountLease = null;
                 _careerTicket = "";
                 _careerTicketClientId = 0;
                 _careerTicketExpiresAt = default;
@@ -327,6 +323,9 @@ namespace MphRead.Mods.Launcher
                 snapshot.Status = snapshot.Account.IsSecure
                     ? "SECURED LICENSE // SUPABASE CONNECTED"
                     : "GUEST LICENSE // SUPABASE CONNECTED";
+                // Keep the authenticated session witness private to native adapters.
+                // This assignment remains under the existing auth gate.
+                snapshot.AccountWitness = session;
                 return snapshot;
             }
             catch (Exception ex)
@@ -366,6 +365,42 @@ namespace MphRead.Mods.Launcher
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 return HunterLicenseActionResult.Fail(FriendlyAction(ex));
+            }
+            finally { Gate.Release(); }
+        }
+
+        /// <summary>Native opt-out is bound to the loaded account. The same
+        /// authenticated token owns identity verification, write and readback;
+        /// recovery cannot interleave while Gate is held. Never publishes.</summary>
+        internal static Task<bool> HidePublicProfileAsync(Guid expectedUser,
+            CancellationToken cancellationToken) => WriteNativeVisibilityAsync(expectedUser, false, cancellationToken);
+
+        internal static Task<bool> ShowPublicProfileAsync(Guid expectedUser,
+            CancellationToken cancellationToken) => WriteNativeVisibilityAsync(expectedUser, true, cancellationToken);
+
+        private static async Task<bool> WriteNativeVisibilityAsync(Guid expectedUser, bool visible,
+            CancellationToken cancellationToken)
+        {
+            if (expectedUser == Guid.Empty) return false;
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                return await HunterLicensePrivacyWrite.WriteAsync(expectedUser, visible,
+                    async token =>
+                    {
+                        AuthUser user = await GetUserAsync(session.AccessToken, token).ConfigureAwait(false);
+                        return Guid.TryParse(user.Id, out Guid id) ? id : Guid.Empty;
+                    },
+                    token => VisibilityRpcAsync(session.AccessToken, visible, token),
+                    token => VisibilityRpcAsync(session.AccessToken, null, token),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException
+                and not OutOfMemoryException and not StackOverflowException)
+            {
+                // Do not carry private auth/HTTP response context into the UI.
+                return false;
             }
             finally { Gate.Release(); }
         }
@@ -729,8 +764,9 @@ namespace MphRead.Mods.Launcher
         private static HttpRequestMessage Request(
             HttpMethod method, string path, string? accessToken, object? body)
         {
-            var request = new HttpRequestMessage(method, Url + path);
-            request.Headers.TryAddWithoutValidation("apikey", Key);
+            var backend = BackendServiceConfiguration.Capture();
+            var request = new HttpRequestMessage(method, new Uri(backend.BaseUri, path));
+            backend.AddApiKey(request);
             if (!String.IsNullOrWhiteSpace(accessToken))
                 request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + accessToken);
             if (body != null) request.Content = JsonBody(body);
@@ -782,7 +818,9 @@ namespace MphRead.Mods.Launcher
             }
         }
 
-        private static void SaveStoredSession(string refreshToken)
+        private static void SaveStoredSession(string refreshToken) => TrySaveStoredSession(refreshToken);
+
+        private static bool TrySaveStoredSession(string refreshToken)
         {
             try
             {
@@ -791,12 +829,14 @@ namespace MphRead.Mods.Launcher
                 File.WriteAllText(temp, JsonSerializer.Serialize(
                     new StoredSession { RefreshToken = refreshToken }, Json));
                 File.Move(temp, SessionPath, overwrite: true);
+                return true;
             }
             catch (Exception ex)
             {
                 // The in-memory session still works for this run. Log the
                 // persistence failure so a new guest is not a silent mystery.
                 Console.WriteLine($"[hunter-license] could not persist session: {ex.Message}");
+                return false;
             }
         }
 
@@ -952,6 +992,8 @@ namespace MphRead.Mods.Launcher
 
     internal sealed class HunterLicenseSnapshot
     {
+        [JsonIgnore]
+        internal object? AccountWitness { get; set; }
         [JsonIgnore]
         public bool Connected { get; set; }
         // Null means the privacy service has not been reached. Do not display

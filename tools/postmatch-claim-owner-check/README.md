@@ -1,0 +1,5 @@
+# Actual compiled PostMatch claim owner
+
+This isolated executable references an immutable `PrimeReferenceDirectory`; it has no application ProjectReference. It calls the real DedicatedServer handler, NetHitClaims receive/settlement/cache/writers, lifecycle gates, and component/continuous payment owners. A content-free actual Scene supplies normal actor constructors. Reflection installs only controlled packet-state fixtures (the Peer, running-scene reference, and already-parked receipt); it does not qualify UDP admission, live simulation, or a paid gameplay collision. No backend, asset, GL, or network socket is opened.
+
+Six successive streams exercise exact cached replies, unpaid refusals, lost-verdict retries, terminal pending settlement before rescue/head correction, and retired identity rejection. The separate applied-client pilot must qualify real native paid gameplay and socket delivery. Run with fresh absolute `PROJECT_PRIME_USER_DATA` and cwd, with game evidence/service environment variables absent.

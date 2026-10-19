@@ -135,22 +135,31 @@ internal static class ReleaseInstallation
             "ProjectPrimeStudio" or "ProjectPrimeStudio.exe");
         if (studio)
         {
-            string metadata = Path.Combine(source, ".project-prime-desktop.json");
-            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(metadata))
-                throw new InvalidDataException(
-                    "Published release is missing required Game + Studio metadata. The update was not installed; use a corrected release.");
-            using var document = JsonDocument.Parse(File.ReadAllText(metadata));
-            JsonElement root = document.RootElement;
-            if (!root.TryGetProperty("GameVersion", out JsonElement game)
-                || !root.TryGetProperty("StudioVersion", out JsonElement editor)
-                || !String.Equals(game.GetString(), editor.GetString(), StringComparison.Ordinal)
-                || String.IsNullOrWhiteSpace(game.GetString()))
-                throw new InvalidDataException("Published Game and Studio versions do not match.");
+            ValidateDesktopPair(source, next);
         }
         if (!studio && (File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
                      || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"))))
             throw new InvalidDataException(
                 "An older standalone release cannot overwrite paired Project Prime Studio. Install it in a separate folder.");
+    }
+
+    private static void ValidateDesktopPair(string source, Manifest manifest)
+    {
+        const string name = ".project-prime-desktop.json";
+        string path = OwnedPath(source, name);
+        if (!manifest.Files.Contains(name, Names) || !File.Exists(path))
+            throw new InvalidDataException("The paired desktop release is missing compatibility metadata.");
+        if (new FileInfo(path).Length > 16384)
+            throw new InvalidDataException("The paired desktop metadata is too large.");
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        JsonElement pair = document.RootElement;
+        if (pair.ValueKind != JsonValueKind.Object
+            || !pair.TryGetProperty("Version", out var format) || !format.TryGetInt32(out int formatVersion) || formatVersion != 1
+            || !pair.TryGetProperty("IpcVersion", out var ipc) || !ipc.TryGetInt32(out int ipcVersion) || ipcVersion != 1
+            || !pair.TryGetProperty("GameVersion", out var game) || game.ValueKind != JsonValueKind.String
+            || !pair.TryGetProperty("StudioVersion", out var studio) || studio.ValueKind != JsonValueKind.String
+            || String.IsNullOrWhiteSpace(game.GetString()) || !String.Equals(game.GetString(), studio.GetString(), StringComparison.Ordinal))
+            throw new InvalidDataException("Game and Project Prime Studio versions or compatibility metadata do not match.");
     }
 
     internal static void Apply(string source, string target, Action<int>? afterMutation = null)
@@ -175,17 +184,7 @@ internal static class ReleaseInstallation
             throw new InvalidDataException("The selected release does not include the paired Project Prime Studio. Extract the older release into a separate folder.");
         if (incomingStudio)
         {
-            string paired = Path.Combine(source, ".project-prime-desktop.json");
-            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(paired))
-                throw new InvalidDataException("The paired desktop release is missing compatibility metadata.");
-            using var pairDocument = JsonDocument.Parse(File.ReadAllText(paired));
-            JsonElement pairRoot = pairDocument.RootElement;
-            if (pairRoot.ValueKind != JsonValueKind.Object
-                || !pairRoot.TryGetProperty("GameVersion", out JsonElement gameVersion)
-                || !pairRoot.TryGetProperty("StudioVersion", out JsonElement studioVersion)
-                || !String.Equals(gameVersion.GetString(), studioVersion.GetString(), StringComparison.Ordinal)
-                || String.IsNullOrWhiteSpace(gameVersion.GetString()))
-                throw new InvalidDataException("Game and Project Prime Studio release versions do not match.");
+            ValidateDesktopPair(source, next);
         }
         var keep = next.Files.ToHashSet(Names);
         var obsolete = previous?.Files.Where(p => !keep.Contains(p))
@@ -289,6 +288,7 @@ internal static class ReleaseInstallation
     internal static void Recover(string target)
     {
         if (!Directory.Exists(target)) return;
+        if (!Directory.Exists(OwnedPath(target, TransactionName, internalPath: true))) return;
         using var held = Acquire(target);
         RecoverCore(Path.GetFullPath(target));
     }

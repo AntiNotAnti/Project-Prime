@@ -7,9 +7,9 @@
 <body template="prime-shell">
 <div id="social_page">
     <div class="eyebrow">HUNTERS ONLINE // SOCIAL</div>
-    <div id="social_header" class="social_header"><h1>FRIENDS &amp; REQUESTS</h1><p id="social_self_id">NOT CONNECTED</p></div>
+    <div id="social_header" class="social_header"><h1>FRIENDS &amp; PARTY</h1><p id="social_self_id">NOT CONNECTED</p></div>
     <p id="social_counts" />
-    <p class="social_notice">Friends, friend requests and blocks use your authenticated Hunter License. Online presence, lobby invitations, party actions and privacy controls are not yet connected; these controls are deliberately unavailable.</p>
+    <p class="social_notice">Friends, requests and game invitations use your Hunter License. Join shared friend lobbies or accept an invitation here. Open Party to manage your group, travel and reserved seats.</p>
     <div id="social_tabs" class="social_tabs">
         <button id="social_friends" data-action="social:friends">FRIENDS</button>
         <button id="social_players" data-action="social:players">PLAYERS</button>
@@ -56,27 +56,14 @@
                 <button id="social_command_31" data-action="social:decline-game-invite">DECLINE GAME INVITE</button>
                 <button id="social_command_32" data-action="social:cancel-game-invite">CANCEL GAME INVITE</button>
                 <button id="social_command_33" data-action="social:invite-party">INVITE TO PARTY</button>
-                <button id="social_command_34" data-action="social:accept-party-invite">ACCEPT PARTY INVITE</button>
-                <button id="social_command_35" data-action="social:decline-party-invite">DECLINE PARTY INVITE</button>
-                <button id="social_command_36" data-action="social:cancel-party-invite">CANCEL PARTY INVITE</button>
-                <button id="social_command_39" class="social_danger" data-action="social:kick-party-member">REMOVE FROM PARTY</button>
-                <button id="social_command_40" data-action="social:promote-party-member">MAKE PARTY LEADER</button>
             </div>
         </div>
     </div>
     <div class="social_panel social_party_status">
-        <h2>PARTY TRAVEL AND RESERVED SEATS // COMING NEXT</h2>
-        <p id="social_party_summary" /><p id="social_travel_summary" class="social_notice" /><p id="social_travel_members" class="social_notice" />
-        <p id="social_reservation_summary" class="social_notice" /><p id="social_reserved_members" class="social_notice" />
-        <div class="social_commands">
-            <button id="social_command_37" class="social_danger" data-action="social:leave-party">LEAVE PARTY</button>
-            <button id="social_command_38" class="social_danger" data-action="social:disband-party">DISBAND PARTY</button>
-            <button id="social_command_41" data-action="social:invite-party-lobby">INVITE PARTY TO LOBBY</button>
-            <button id="social_command_42" data-action="social:follow-party-travel">FOLLOW PARTY TRAVEL</button>
-            <button id="social_command_43" data-action="social:join-party-leader">JOIN PARTY LEADER</button>
-            <button id="social_command_44" data-action="social:decline-party-travel">DECLINE PARTY TRAVEL</button>
-            <button id="social_command_45" data-action="social:cancel-reservation">CANCEL RESERVED SEATS</button>
-        </div>
+        <h2>PARTY</h2>
+        <p id="social_party_summary" />
+        <p>Manage membership, group invitations, leader travel and reserved seats in Party.</p>
+        <div class="social_commands"><button id="social_open_party" data-action="social:party">OPEN PARTY</button></div>
         <p id="social_session_notice" />
     </div>
     <div class="social_panel social_privacy">
@@ -87,7 +74,7 @@
             <button id="social_invites_privacy" data-action="social:invites-next">INVITES // <span id="social_invites_value" /></button>
             <button id="social_dnd" data-action="social:dnd">DO NOT DISTURB // <span id="social_dnd_value" /></button>
         </div>
-        <p>Privacy controls are disabled until authenticated presence and party services are restored. No privacy preference will be changed here.</p>
+        <p>These settings are stored by your account service. Presence controls who can see you; Activity controls room details. Hidden presence is never shown as offline.</p>
     </div>
     <div id="social_status" class="social_notice social_status" /><div id="social_error" class="social_notice social_error" />
     <div class="social_commands"><button id="social_refresh" data-action="social:refresh">REFRESH SOCIAL</button><button id="social_cancel_refresh" data-action="social:cancel">CANCEL REQUEST</button><button id="social_back" data-action="social:back">BACK</button></div>

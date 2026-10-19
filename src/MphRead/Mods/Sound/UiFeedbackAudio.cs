@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using MphRead.Sound;
+using MphRead.Formats.Sound;
 using SoundFlow.Components;
 using SoundFlow.Providers;
 
@@ -12,6 +14,7 @@ namespace MphRead.Mods.Sound
     {
         Navigate,
         Confirm,
+        Tab,
         Back,
         Error,
         CampaignDock,
@@ -21,19 +24,18 @@ namespace MphRead.Mods.Sound
     }
 
     /// <summary>
-    /// Tiny synthesized launcher cues.
-    ///
-    /// These deliberately do not use game-bank samples: the launcher has to
-    /// sound complete before extracted game files exist, and UI feedback must
-    /// remain independent of any copyrighted source asset. Cues are generated
-    /// once as PCM WAV data and played through the same SoundFlow output used
-    /// by the rest of Project Prime.
+    /// Launcher cues share the existing output. Owned cartridge menu samples are
+    /// decoded only in memory; setup screens retain synthesized fallback cues.
     /// </summary>
     internal static class UiFeedbackAudio
     {
         private static readonly object _gate = new();
         private static readonly Dictionary<UiFeedbackCue, CuePlayer> _players = new();
         private static long _lastNavigateMs = -1;
+        private static bool _usingOwnedSamples;
+        private static string? _ownedRoot;
+        private static Task<Dictionary<UiFeedbackCue, byte[]>>? _ownedLoad;
+        private static Dictionary<UiFeedbackCue, byte[]>? _ownedWaves;
 
         public static void Play(UiFeedbackCue cue)
         {
@@ -55,11 +57,19 @@ namespace MphRead.Mods.Sound
                 if (cue == UiFeedbackCue.Navigate)
                     _lastNavigateMs = now;
 
+                PrepareOwnedCuesLocked();
+                if (!_usingOwnedSamples && _ownedWaves != null)
+                {
+                    foreach (CuePlayer old in _players.Values) old.Dispose();
+                    _players.Clear();
+                    _usingOwnedSamples = true;
+                }
                 if (!_players.TryGetValue(cue, out CuePlayer? player))
                 {
                     try
                     {
-                        player = new CuePlayer(Build(cue));
+                        player = new CuePlayer(_ownedWaves != null && _ownedWaves.TryGetValue(cue, out byte[]? wave)
+                            ? wave : Build(cue));
                         _players.Add(cue, player);
                     }
                     catch (Exception ex)
@@ -90,13 +100,92 @@ namespace MphRead.Mods.Sound
 
         public static void Shutdown()
         {
+            MenuMusicAudio.Shutdown();
             lock (_gate)
             {
                 foreach (CuePlayer player in _players.Values)
                     player.Dispose();
                 _players.Clear();
                 _lastNavigateMs = -1;
+                _usingOwnedSamples = false;
+                _ownedRoot = null;
+                _ownedLoad = null;
+                _ownedWaves = null;
             }
+        }
+
+        internal static SfxId OwnedId(UiFeedbackCue cue) => cue switch
+        {
+            UiFeedbackCue.Navigate => SfxId.MENU_CURSOR,
+            UiFeedbackCue.Confirm => SfxId.MENU_CONFIRM,
+            UiFeedbackCue.Tab => SfxId.TOUCH_MENU_IN,
+            UiFeedbackCue.Back => SfxId.MENU_CANCEL,
+            UiFeedbackCue.Error => SfxId.TOUCH_NEGATIVE,
+            _ => SfxId.None
+        };
+
+        internal static void PrepareOwnedCues()
+        {
+            if (Headless.Active || ThumbnailMode.Active) return;
+            lock (_gate) PrepareOwnedCuesLocked();
+        }
+
+        // Only the calling UI/audio thread installs players. Workers produce
+        // immutable bytes, never touch SoundFlow, and cannot publish stale work.
+        private static void PrepareOwnedCuesLocked()
+        {
+            string? root = Launcher.GameFiles.Ready ? Paths.FileSystem : null;
+            if (!String.Equals(root, _ownedRoot, StringComparison.Ordinal))
+            {
+                foreach (CuePlayer player in _players.Values) player.Dispose();
+                _players.Clear();
+                _usingOwnedSamples = false;
+                _ownedWaves = null;
+                _ownedLoad = null;
+                _ownedRoot = root;
+            }
+            if (root == null) return;
+            if (_ownedLoad == null)
+            {
+                string capturedRoot = root;
+                _ownedLoad = Task.Run(() =>
+                {
+                    var waves = new Dictionary<UiFeedbackCue, byte[]>();
+                    try
+                    {
+                        var samples = SoundRead.ReadSoundSamplesFromFileSystem(capturedRoot);
+                        foreach (UiFeedbackCue cue in new[] { UiFeedbackCue.Navigate,
+                            UiFeedbackCue.Confirm, UiFeedbackCue.Tab, UiFeedbackCue.Back, UiFeedbackCue.Error })
+                            waves.Add(cue, BuildOwnedWave(samples[(int)OwnedId(cue)]));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[sound] owned menu cues unavailable ({ex.Message})");
+                        waves.Clear();
+                    }
+                    // The caller polls this task; no continuation mutates owners.
+                    return waves;
+                });
+            }
+            if (_ownedLoad.IsCompletedSuccessfully && _ownedWaves == null)
+            {
+                var result = _ownedLoad.Result;
+                if (result.Count != 0) _ownedWaves = result;
+            }
+        }
+
+        /// <summary>Pure owned-sample PCM wrapper; opens no audio device.</summary>
+        internal static byte[] BuildOwnedWave(SoundSample sample)
+        {
+            byte[] pcm = SoundRead.GetWaveData(sample);
+            uint bytesPerSample = sample.Format == WaveFormat.PCM8 ? 1u : 2u;
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            SoundRead.WriteWavHeader(writer, (uint)pcm.Length / bytesPerSample,
+                sample.SampleRate, sample.Format);
+            writer.Write(pcm);
+            writer.Flush();
+            return stream.ToArray();
         }
 
         internal static byte[] Build(UiFeedbackCue cue)
@@ -105,6 +194,7 @@ namespace MphRead.Mods.Sound
             (double seconds, double startHz, double endHz, double harmonic) = cue switch
             {
                 UiFeedbackCue.Navigate => (0.034, 720, 900, 0.08),
+                UiFeedbackCue.Tab => (0.045, 650, 950, 0.10),
                 UiFeedbackCue.Confirm => (0.060, 610, 1040, 0.12),
                 UiFeedbackCue.Back => (0.050, 590, 390, 0.08),
                 UiFeedbackCue.Error => (0.080, 230, 170, 0.22),

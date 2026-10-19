@@ -1,17 +1,130 @@
-#native_license { width:94vw; min-height:80vh; padding:20dp; overflow-y:auto; }
-#native_license h1 { color:#f0faff; font-size:29dp; margin:8dp 0 16dp; }
-#native_license h2 { color:#76cfff; font-size:22dp; }
-#native_license p { color:#bed4e5; font-size:15dp; line-height:22dp; }
-.native_license_summary { margin:14dp 0; padding:16dp; border:1dp #4e7998; background-color:#0c2031; }
-.native_license_stats { display:flex; flex-wrap:wrap; gap:10dp; margin:16dp 0; }
-.native_license_stats > div { width:27vw; min-height:84dp; padding:12dp; border:1dp #426983; background-color:#0a1c2d; }
+body { margin:0; background-color:rgba(0,7,12,78%); }
+#native_license { position:absolute; left:5%; right:5%; top:5%; height:680dp; max-height:90%; box-sizing:border-box; padding:18dp; display:flex; flex-direction:column; background-color:#071b23; border:1dp #82b3b3; border-top:3dp #dab75a; color:#e3edf0; }
+.license_heading { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; margin-bottom:14dp; }
+.license_kicker { display:block; font-family:"JetBrains Mono"; font-size:9dp; letter-spacing:2dp; color:#d2b96d; }
+#native_license h1 { margin:2dp 0 0; font-size:28dp; line-height:30dp; color:#f3ead0; }
+#native_license button { box-sizing:border-box; padding:8dp 10dp; min-height:34dp; font-size:12dp; color:#e7edf0; background-color:#15333e; border:1dp #49737e; }
+#native_license button:hover, #native_license button:focus { background-color:#315360; border-color:#f1d77f; color:#fff7d7; }
+#native_license button.selected { background-color:#947b3f; border-color:#e4c978; color:#fff7dc; }
+#native_license button:disabled { opacity:0.45; }
+#native_license_close { flex-shrink:0; min-width:76dp; margin-left:10dp; }
+.license_spread { flex:1; display:flex; align-items:flex-start; min-height:0; overflow-y:auto; overflow-x:hidden; }
+#native_license_card { box-sizing:border-box; flex-shrink:0; width:46%; padding:10dp; background-color:#b7c9c5; border:2dp #d9bc71; color:#152d31; }
+.card_header { display:flex; align-items:center; justify-content:space-between; padding:5dp 7dp; font-size:18dp; line-height:22dp; font-weight:bold; color:#f4e5b4; background-color:#29494e; border-bottom:2dp #b69b52; }
+.card_header b { flex:1; min-width:0; }
+.card_header span { font-family:"JetBrains Mono"; font-size:7dp; letter-spacing:1dp; color:#bbd4d1; margin-left:8dp; }
+.card_identity { display:flex; align-items:center; min-height:112dp; padding:10dp 0; }
+.card_portrait { flex-shrink:0; box-sizing:border-box; width:94dp; height:94dp; padding:4dp; background-color:#3d666a; border:1dp #829f99; }
+#native_license_portrait { width:100%; height:100%; }
+#native_license_portrait_label { display:block; margin-top:32dp; font-size:14dp; text-align:center; color:#d1dfce; }
+.card_holder { flex:1; min-width:0; margin-left:12dp; }
+.card_label { display:block; font-family:"JetBrains Mono"; font-size:8dp; letter-spacing:1dp; color:#4b6263; }
+#native_license #native_license_name { display:block; margin:3dp 0 7dp; font-size:26dp; line-height:28dp; color:#122a2b; word-break:break-word; }
+#native_license .card_holder p { margin:4dp 0; font-size:11dp; line-height:14dp; color:#263e3f; }
+#native_license .card_holder #native_license_rank { color:#72540d; font-weight:bold; }
+.card_points { display:block; padding:7dp 9dp; background-color:#31555b; border-top:1dp #859c95; border-bottom:1dp #859c95; color:#e9e5c6; }
+.card_points span { font-size:11dp; letter-spacing:1dp; }
+.card_points b { font-size:18dp; }
+.card_records { margin:7dp 0; padding:4dp 8dp; background-color:#d1dcd3; border:1dp #89a19a; }
+.card_stat { display:flex; align-items:center; justify-content:space-between; min-height:33dp; border-bottom:1dp #adbfb5; }
+.card_stat span { display:block; width:58%; flex-shrink:0; font-size:12dp; line-height:15dp; color:#2c4948; }
+.card_stat b { display:block; margin-left:7dp; font-size:18dp; line-height:22dp; color:#112e30; text-align:right; }
+.card_tabs { display:flex; width:100%; }
+#native_license .card_tabs button { flex:1; min-width:0; padding:6dp 2dp; min-height:30dp; font-size:9dp; line-height:12dp; background-color:#527b7d; border-color:#98af9e; color:#eef0d8; }
+#native_license .card_tabs button.selected { background-color:#a1833c; border-color:#e6cd79; color:#fff1bd; }
+#native_license .card_tabs button:hover, #native_license .card_tabs button:focus { background-color:#315360; border-color:#f1d77f; color:#fff7d7; }
+#native_license .card_visibility { margin:7dp 0 0; font-family:"JetBrains Mono"; font-size:8dp; line-height:11dp; color:#3d5b59; }
+#native_license_details { flex:none; width:52%; min-width:0; box-sizing:border-box; margin-left:2%; height:100%; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+.native_license_face { box-sizing:border-box; width:100%; }
+.native_license_tabs { display:flex; flex-wrap:wrap; margin-bottom:8dp; }
+.native_license_tabs button { margin:0 5dp 5dp 0; }
+#native_license h2 { display:block; margin:7dp 0; font-size:21dp; line-height:24dp; color:#d4bd7d; }
+#native_license h3 { display:block; margin:5dp 0; font-size:15dp; line-height:18dp; color:#e4ece9; }
+#native_license p { display:block; margin:6dp 0; font-size:13dp; line-height:18dp; color:#a9c2c8; }
+.native_license_stats { display:flex; flex-wrap:wrap; }
+.native_license_stats > div { box-sizing:border-box; width:48%; min-height:62dp; padding:10dp; margin:0 2% 8dp 0; border:1dp #345963; background-color:#0d2931; }
 .native_license_stats span,.native_license_stats strong { display:block; }
-.native_license_stats span { color:#91bdd3; font-size:13dp; }
-.native_license_stats strong { color:#effaff; font-size:24dp; }
-.native_license_footer { display:flex; flex-wrap:wrap; gap:10dp; }
-.native_license_footer button { min-height:44dp; padding:12dp; background-color:#142c42; border:1dp #64a7cc; color:#e1f6ff; }
-.native_license_note { padding-top:10dp; }
-@media(max-width:800dp) {
-  .native_license_stats > div { width:42vw; }
-  #native_license { padding:12dp; }
+.native_license_stats span { font-size:10dp; color:#95b7bc; }
+.native_license_stats strong { font-size:24dp; color:#e6eedf; }
+.native_license_metrics { white-space:pre-wrap; }
+.native_license_match, .native_license_privacy { margin:8dp 0; padding:10dp; background-color:#102e36; border:1dp #345963; }
+.native_license_privacy button { display:block; max-width:100%; margin:7dp 0; white-space:normal; }
+.native_license_account label, .native_license_account input { display:block; }
+.native_license_account label { margin-top:8dp; font-size:11dp; color:#c9ba87; }
+.native_license_account input { box-sizing:border-box; width:100%; min-height:34dp; padding:6dp; font-size:14dp; color:#e4eeea; background-color:#102e36; border:1dp #699099; }
+.native_license_account_actions,.native_license_paging { display:flex; flex-wrap:wrap; }
+.native_license_account_actions button,.native_license_paging button { margin:6dp 5dp 0 0; white-space:normal; }
+.native_license_footer { flex-shrink:0; display:flex; align-items:center; margin-top:12dp; padding-top:10dp; border-top:1dp #34525b; }
+#native_license #native_license_status { flex:1; min-width:0; max-height:36dp; overflow:hidden; margin:0 10dp 0 0; font-size:11dp; line-height:16dp; }
+.native_license_footer button { flex-shrink:0; margin-left:6dp; }
+@media (max-width:900dp) {
+ #native_license { left:3%; right:3%; padding:12dp; }
+ .license_spread { display:block; }
+ #native_license_card { width:100%; }
+ #native_license_details { width:100%; height:auto; margin:14dp 0 0; padding:0; overflow-y:visible; }
+ .card_identity { min-height:92dp; padding:8dp 0; }
+ .card_portrait { width:78dp; height:78dp; }
+ #native_license_portrait_label { margin-top:24dp; }
+}
+@media (max-height:520dp) {
+ #native_license { top:2%; height:96%; max-height:96%; padding:9dp; }
+ .license_heading { margin-bottom:8dp; }
+ #native_license h1 { font-size:23dp; line-height:25dp; }
+ .license_kicker { font-size:8dp; }
+ .native_license_footer { margin-top:7dp; padding-top:6dp; }
+ #native_license .native_license_footer button { min-height:28dp; padding:5dp 7dp; font-size:10dp; }
+ #native_license #native_license_status { font-size:9dp; line-height:13dp; max-height:26dp; }
+}
+
+@media (max-height:650dp) {
+ .card_identity { min-height:82dp; padding:6dp 0; }
+ .card_portrait { width:72dp; height:72dp; }
+ #native_license_portrait_label { margin-top:20dp; }
+ #native_license #native_license_name { font-size:23dp; line-height:25dp; }
+ .card_stat { min-height:27dp; }
+}
+@media (max-height:520dp) {
+ #native_license_card { padding:6dp; }
+ .card_header { padding:2dp 5dp; font-size:14dp; line-height:16dp; }
+ .card_identity { min-height:56dp; padding:4dp 0; }
+ .card_portrait { width:52dp; height:52dp; padding:2dp; }
+ #native_license_portrait_label { margin-top:14dp; font-size:9dp; }
+ .card_holder { margin-left:8dp; }
+ .card_label { font-size:7dp; }
+ #native_license #native_license_name { margin:2dp 0; font-size:18dp; line-height:20dp; }
+ #native_license .card_holder p { margin:2dp 0; font-size:9dp; line-height:11dp; }
+ .card_points { padding:1dp 6dp; }
+ .card_points span { font-size:9dp; }
+ .card_points b { font-size:15dp; }
+ .card_records { margin:3dp 0; padding:0 5dp; }
+ .card_stat { min-height:20dp; }
+ .card_stat span { font-size:10dp; line-height:12dp; }
+ .card_stat b { font-size:15dp; line-height:18dp; }
+ #native_license .card_tabs button { min-height:22dp; padding:4dp 1dp; font-size:8dp; line-height:10dp; }
+ #native_license .card_visibility { margin-top:4dp; font-size:7dp; line-height:9dp; }
+}
+
+/* Original 18px rank sprites retain their alpha over the license stock. */
+.card_points_row { display:flex; align-items:center; justify-content:space-between; }
+#native_license_rank_progress { display:block; margin-top:4dp; font-size:9dp; line-height:12dp; letter-spacing:0; color:#d9d5b6; }
+.card_star_row { width:96dp; height:20dp; padding:1dp 3dp; background-color:transparent; }
+#native_license_star_images { height:18dp; font-size:0dp; line-height:0dp; }
+#native_license_star_images img { width:18dp; height:18dp; vertical-align:top; }
+#native_license_stars_fallback { display:block; font-family:"Noto Sans JP"; font-size:15dp; line-height:18dp; }
+.rank-red #native_license_stars_fallback { color:#ff665e; }
+.rank-bronze #native_license_stars_fallback { color:#c78a53; }
+.rank-silver #native_license_stars_fallback { color:#d2dee8; }
+.rank-gold #native_license_stars_fallback { color:#f6d268; }
+.rank-black #native_license_stars_fallback { color:#162b2d; }
+@media (max-height:520dp) {
+ .card_identity { padding:2dp 0; }
+ .card_portrait { width:44dp; height:44dp; }
+ .card_label { display:none; }
+ #native_license .card_holder p { margin:1dp 0; }
+ .card_star_row { width:66dp; height:14dp; padding:1dp 3dp; }
+ #native_license_star_images { height:12dp; }
+ #native_license_star_images img { width:12dp; height:12dp; }
+ #native_license_stars_fallback { font-size:10dp; line-height:12dp; }
+ #native_license_rank_progress { margin-top:2dp; font-size:8dp; line-height:10dp; }
+ .card_stat { min-height:18dp; }
 }

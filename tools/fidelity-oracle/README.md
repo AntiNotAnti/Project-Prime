@@ -1,5 +1,35 @@
 # Fidelity Oracle
 
+CPP-07 original-game comparison extends this tool with
+[`compare_ds.py`](compare_ds.py), consuming the same normalized F2 result JSON.
+It does not simulate gameplay, record baselines, or change physics. See
+[`DS-TRACES.md`](DS-TRACES.md) for the strict local capture contract and the
+source-pinned coverage audit. No original DS traces are committed or accepted by
+the comparator yet. Two private original-ROM strafe captures now repeat exactly;
+their matching Project landing setup remains unqualified. Closed input/sampler
+checks pass, but the private normal-renderer landing witness currently preserves
+a first-frame OpenGL error and accepts no probe rows. See the
+[capture and preparation record](DS-TRACES.md#private-original-rom-capture-and-landing-preparation-2026-10-18).
+
+```sh
+python3 tools/fidelity-oracle/compare_ds.py status
+python3 -m unittest discover -s tools/fidelity-oracle -p 'test_*.py' -v
+python3 tools/fidelity-oracle/compare_ds.py compare /local/private/comparison.json \
+  --ds-csv /local/private/trace.csv --project-json /local/private/project.json
+```
+
+The Python checks are synthetic F0 protocol tests. A successful protocol test or
+an existing F2 regression hash never establishes original-game accuracy.
+
+The explicit capture-only producer `weapon.powerbeam.cadence` adds accepted-shot
+event deltas, initial state, and every-frame input/counter witnesses. It uses the
+existing actual offline engine path, and requires `run` plus `-allow-content`.
+`all` still selects the original 47 regression cases; `verify` and `record` refuse
+the diagnostic case. Frozen Mac F2 captures at 60/120/144/240 Hz passed with the
+same canonical hash and 12 accepted shots; original DS accuracy remains
+**NOT_VERIFIED**. See the
+[cadence capture contract](DS-TRACES.md#capture-only-power-beam-cadence-producer).
+
 The default pack captures production clock, random-stream, lifecycle and
 continuous-weapon-phase behavior without game content (F1). An opt-in F2 pack
 runs the actual offline engine with extracted AMHE1 content: walking, jumping,

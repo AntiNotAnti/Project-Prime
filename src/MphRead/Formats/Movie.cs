@@ -415,7 +415,7 @@ namespace MphRead
 
         private void DrawMovieFrame()
         {
-            GL.Uniform1(_shaderLocations.LayerAlpha, 1);
+            GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
             bool newFrame = false;
 
             void DrawScreen(int movieBinding, byte[] imageBuffer, float y)
@@ -452,7 +452,7 @@ namespace MphRead
                 GL.BindTexture(TextureTarget.Texture2D, 0);
             }
 
-            GL.Uniform4(_shaderLocations.FadeColor, 0, 0, 0, 1);
+            GL.Uniform4(_shaderLocations.FadeColor, 0f, 0f, 0f, 1f);
             GL.Begin(PrimitiveType.TriangleStrip);
             // top right
             GL.TexCoord3(1f, 1f, 0f);

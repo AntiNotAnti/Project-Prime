@@ -16,10 +16,17 @@ src/MphRead/Assets/project_prime_icon.png
 # Supplied Project Prime startup artwork. Keep the exact path; locally
 # extracted game previews are still excluded.
 src/MphRead/Assets/Backgrounds/launcher-bg.png
+# Lossless native-renderer encoding of that same supplied artwork, generated
+# by tools/rmlui/convert-startup-art.py; exact source and deployed resource path.
+src/MphRead/Mods/Launcher/RmlUi/Pages/startup/startup-background.tga
+*/rmlui/pages/startup/startup-background.tga
 
 # Original Project Prime combat-feedback stingers. These are programmatically
 # synthesized for this project and contain no cartridge audio or third-party samples.
 src/MphRead/Assets/Sounds/Combat/*.wav
+
+# Menu loop supplied directly by the user; cartridge cues are decoded in memory.
+src/MphRead/Assets/Sounds/Menu/prime_hunters_future_atmosphere_loop.mp3
 
 # Generated production-codec benchmark telemetry for 2,016 seeded scenarios.
 # Contains numerical test results only, no extracted game data; exceeds 2 MiB.
@@ -34,3 +41,7 @@ src/MphRead/Assets/Cosmetics/Decals/*/*.png
 # exact separately-licensed name with NotoSansJP-OFL.txt beside the font.
 # The explicit path limits the asset-guard exception to this 5.7 MiB file.
 src/MphRead/Assets/Fonts/NotoSansJP-Regular.ttf
+
+# Synthetic RVZ decoder test vector from an explicit 68-byte seed; generated
+# by the adjacent make-junk-oracle.py, with no disc or cartridge input.
+tools/external-import-check/Fixtures/Rvz/junk-oracle.bin

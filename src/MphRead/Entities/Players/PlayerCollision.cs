@@ -1235,6 +1235,7 @@ namespace MphRead.Entities
                     }
                     v165 = true;
                     Flags1 |= PlayerFlags1.CollidingLateral;
+                    WallClingTouch(result.Plane.Xyz, face: result.Field0 == 0);
                 }
                 // walking into a wall, jumping into a wall/ceiling, or landing/slopes/etc. -- update x/z
                 position.X += result.Plane.X * v2;

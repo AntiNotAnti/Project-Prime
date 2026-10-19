@@ -31,7 +31,29 @@ namespace MphRead.Mods.MapGen
         internal static bool DeferInitialRegistration { get; set; }
         public static InstalledMapRegistry Installed
         {
-            get { lock (_lock) return _installed ??= InstalledMapRegistry.Create(Definitions); }
+            get => ReadInstalled(InstalledMapRegistry.Create);
+        }
+
+        internal static InstalledMapRegistry ReadInstalled(
+            Func<IReadOnlyList<MapDefinition>, InstalledMapRegistry> build)
+        {
+            while (true)
+            {
+                IReadOnlyList<MapDefinition> snapshot;
+                lock (_lock)
+                {
+                    if (_installed != null) return _installed;
+                    snapshot = Definitions;
+                }
+                // Hashing immutable archives can take seconds. Do not hold the
+                // catalog lock needed by the launcher's deferred publication.
+                InstalledMapRegistry candidate = build(snapshot);
+                lock (_lock)
+                {
+                    if (!ReferenceEquals(snapshot, _definitions)) continue;
+                    return _installed ??= candidate;
+                }
+            }
         }
         internal static int FirstId => _firstId;
         // Android builds the map binaries on a background thread while the

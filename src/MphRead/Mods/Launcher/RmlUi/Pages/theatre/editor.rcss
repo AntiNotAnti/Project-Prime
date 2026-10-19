@@ -1,0 +1,6 @@
+#replay_editor_panel, #replay_editor_confirm_panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:760dp; max-width:92%; max-height:92%; overflow-y:auto; box-sizing:border-box; padding:12dp; background-color:#081523; border:1dp #41667f; }
+#replay_editor_panel h2, #replay_editor_panel h3, #replay_editor_panel p, #replay_editor_panel label, #replay_editor_panel input, #replay_editor_confirm_panel h2, #replay_editor_confirm_panel h3, #replay_editor_confirm_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
+#replay_editor_name { width:96%; min-height:34dp; color:#edf7ff; background-color:#14283a; border:1dp #29485e; }
+
+#replay_editor_entries { padding:8dp; background-color:#101f30; border-left:2dp #58cadf; color:#b9d5e5; }
+#replay_editor_selected { padding:8dp; background-color:#14283a; color:#edf7ff; }

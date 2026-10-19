@@ -15,6 +15,8 @@ internal static class ResultRecoveryTests
         var current = typeof(GameState).GetProperty("Current", flags)!;
         var match = typeof(NetSession).GetProperty(nameof(NetSession.ServerMatch))!;
         object? previousState = current.GetValue(null), previousMatch = match.GetValue(null);
+        var lifecycles = (NetLifecycleTracker[])typeof(NetPlayerLifecycle).GetField("_slots", flags)!.GetValue(null)!;
+        var previousOccupant = lifecycles[0].Capture();
         var scene = new Scene(new Vector2i(256, 192),
             MphRead.Mods.Input.SyntheticInput.CreateKeyboard(), MphRead.Mods.Input.SyntheticInput.CreateMouse(),
             _ => { }, () => { }, initializeRuntime: false);
@@ -23,6 +25,7 @@ internal static class ResultRecoveryTests
             current.SetValue(null, scene.GameState);
             GameState.Mode = GameMode.Capture;
             match.SetValue(null, new MatchStatePacket { MatchId = 42 });
+            NetPlayerLifecycle.SetOccupant(0, 1);
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
             var queue = new NetPacketQueue();
             PacketType[] background = { PacketType.MatchSemanticEvent, PacketType.MatchAward, PacketType.ReplayShotFact };
@@ -64,6 +67,7 @@ internal static class ResultRecoveryTests
         {
             typeof(NetSession).GetMethod("ClearPostMatchReport", flags)!.Invoke(null, null);
             current.SetValue(null, previousState); match.SetValue(null, previousMatch);
+            lifecycles[0].Restore(previousOccupant);
         }
     }
 }

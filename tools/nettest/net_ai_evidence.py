@@ -83,6 +83,22 @@ def audit_campaign(directory, processes, legacy):
         if type(value) is not int or value < 0:
             raise ValueError('missing or invalid nonnegative counter')
         return value
+    def client_declared(report):
+        legacy = count(report['HitClaims']['Declared'])
+        claims = report.get('CampaignClaims')
+        if 'CampaignClaims' in report and type(claims) is not dict:
+            raise ValueError('invalid client campaign claim counters')
+        fields = ('ClientDeclared', 'ClientDeclaredScope', 'ClientDeclaredCountingUnit')
+        if claims is not None and any(field in claims for field in fields):
+            if (not all(field in claims for field in fields)
+                    or claims['ClientDeclaredScope'] != 'ProcessLifetime'
+                    or claims['ClientDeclaredCountingUnit'] != 'New client claim declarations; excludes retries and survives match reset'):
+                raise ValueError('incomplete or invalid process-lifetime client declaration scope')
+            value = claims['ClientDeclared']
+            if type(value) is not int or not legacy <= value <= 2**63-1:
+                raise ValueError('invalid process-lifetime client declaration count')
+            return value, 'ProcessLifetime'
+        return legacy, 'LegacyPerMatch'
     def read(name):
         def invalid(value):
             raise ValueError('nonfinite JSON constant: ' + value)
@@ -150,7 +166,7 @@ def audit_campaign(directory, processes, legacy):
             shots = {key for stage, key in shot_rows if stage == 'offered' and key[2] == slot}
             if not shots:
                 incomplete.append(process['name'] + ': no real offered shots')
-            claims = count(report['HitClaims']['Declared'])
+            claims, claims_scope = client_declared(report)
             offered_claims += claims
             native = [row for row in report['Pickups'] if row['Stage'] == 'owner-native-consumption']
             for row in native:
@@ -180,6 +196,7 @@ def audit_campaign(directory, processes, legacy):
             clients.append({'name': process['name'], 'slot': slot, 'inputFrames': ai['InputFrames'],
                             'decisionFrames': ai['DecisionFrames'], 'travel': travel,
                             'offeredShots': len(shots), 'declaredClaims': claims,
+                            'declaredClaimsScope': claims_scope,
                             'nativePickupConsumptions': len(native), 'spawnedLives': spawned_lives,
                             'altFrames': alt_frames, 'weapons': ai['Weapons'], 'lifecycleEvidence': lifecycle})
             clients[-1].update(invalidPositionSamples=invalid_positions,

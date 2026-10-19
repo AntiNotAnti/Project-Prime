@@ -13,6 +13,7 @@ internal sealed partial class MapStudioScreen
 {
     private MapSourceWatchService? _sourceWatch;
     private readonly HashSet<string> _changedSources=new(StringComparer.Ordinal);
+    private long _sourceChangeRevision;
     private string _sourceWatchSignature="";
     private void RefreshSourceWatch()
     {
@@ -28,7 +29,7 @@ internal sealed partial class MapStudioScreen
         if(_sourceWatch==null)
         {
             _sourceWatch=new();var document=_document;var service=_sourceWatch;
-            service.Changed+=path=>Dispatcher.UIThread.Post(()=>{if(_document!=document||_sourceWatch!=service||_detached)return;_changedSources.Add(path);_status.Text=$"SOURCE CHANGED · {Path.GetFileName(path)} · File → Source changes to review.";});
+            service.Changed+=path=>Dispatcher.UIThread.Post(()=>{if(_document!=document||_sourceWatch!=service||_detached)return;_sourceChangeRevision++;_changedSources.Add(path);_nativeEditor?.AssetIoOwnerInvalidated();_status.Text=$"SOURCE CHANGED · {Path.GetFileName(path)} · File → Source changes to review.";});
         }
         _sourceWatch.SetSources(sources.Select(s=>s.Hash.Length>0?s:new(s.Path,File.Exists(s.Path)?MapHash256.HashFile(s.Path).ToString():"missing")));
     }
