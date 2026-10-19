@@ -6,6 +6,7 @@ namespace MphRead
 {
     public class EquipInfo
     {
+        internal Mods.CustomWeapons.CustomShotSource? CustomShot { get; set; }
         public bool Zoomed { get; set; } // replaces Flags
         public WeaponInfo Weapon { get; set; }
         public BeamProjectileEntity[] Beams { get; set; }

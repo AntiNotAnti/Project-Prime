@@ -14,6 +14,8 @@ namespace MphRead.Entities
 {
     public partial class BeamProjectileEntity : EntityBase
     {
+        internal Mods.CustomWeapons.CustomShotSource? ModCustomShot { get; private set; }
+        internal Mods.CustomWeapons.WeaponDefinition? ModCustomDefinition => ModCustomShot?.Definition;
         internal long TrainingShotId { get; set; }
         public BeamFlags Flags { get; set; }
         internal bool EnhancedDirectHit;
@@ -126,7 +128,14 @@ namespace MphRead.Entities
             ModResolvedHitPointValid = Single.IsFinite(impactPoint.X)
                 && Single.IsFinite(impactPoint.Y) && Single.IsFinite(impactPoint.Z);
             using var nativeImpact = NetNativeImpactWitness.Enter(player, this, damage, flags, impactPoint);
-            try { player.TakeDamage(damage, flags, direction, this); }
+            int before = player.Health;
+            int turretBefore = flags.TestFlag(DamageFlags.Halfturret) ? player.Halfturret?.Health ?? 0 : 0;
+            try
+            {
+                player.TakeDamage(damage, flags, direction, this);
+                if (ModCustomShot is { } accepted)
+                    _scene.OfflineWeapons?.Impact(accepted,player,before,turretBefore,flags,impactPoint);
+            }
             finally { ModResolvedHitPoint = priorPoint; ModResolvedHitPointValid = priorValid; }
         }
 
@@ -274,6 +283,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (ModCustomShot != null && _scene.OfflineWeapons?.IsEligible != true)
+            { Destroy(); return false; }
             if (!_scene.Services.IsReplica && _modAcceptedContinuousFrame == _scene.FrameCount)
                 return Lifespan > 0;
             if (_scene.Services.IsReplica && _replayImpactPending
@@ -700,7 +711,7 @@ namespace MphRead.Entities
                             player = ((HalfturretEntity)colWith).Owner;
                         }
                         DamageFlags damageFlags = DamageFlags.NoDmgInvuln;
-                        if (player.BeamEffectiveness[(int)Beam] == Effectiveness.Zero)
+                        if (ModCustomShot == null && player.BeamEffectiveness[(int)Beam] == Effectiveness.Zero)
                         {
                             if (_scene.GameState.SinglePlayer && Owner == _scene.Players.Main)
                             {
@@ -726,7 +737,7 @@ namespace MphRead.Entities
                             if (!player.ModCollisionIsAltForm && Beam != BeamType.ShockCoil
                                 && anyRes.Position.Y - player.Position.Y >= Fixed.ToFloat(player.Values.MaxPickupHeight) - 0.3f)
                             {
-                                if (Beam == BeamType.Imperialist)
+                                if (Beam == BeamType.Imperialist || ModCustomDefinition != null)
                                 {
                                     isHeadshot = true;
                                 }
@@ -816,6 +827,13 @@ namespace MphRead.Entities
                     }
                     else if (colWith.Type == EntityType.EnemyInstance)
                     {
+                        // Campaign enemies have native-ID tables. Custom prototype shots
+                        // stop here without entering those tables, even for dynamic spawns.
+                        if (ModCustomShot != null)
+                        {
+                            OnCollision(anyRes, colWith);
+                            return;
+                        }
                         var enemy = (EnemyInstanceEntity)colWith;
                         if (enemy.GetEffectiveness(Beam) == Effectiveness.Zero && (enemy.EnemyType == EnemyType.FireSpawn
                             || (enemy.Owner as EnemyInstanceEntity)?.EnemyType == EnemyType.FireSpawn))
@@ -1041,6 +1059,7 @@ namespace MphRead.Entities
 
         private void PlayRicochetSfx()
         {
+            if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             bool charged = Flags.TestFlag(BeamFlags.Charged);
             if (charged && Beam == BeamType.Magmaul)
             {
@@ -1065,6 +1084,7 @@ namespace MphRead.Entities
 
         private void StopHomingSfx()
         {
+            if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             int sfx = Metadata.BeamSfx[(int)Beam, (int)BeamSfx.Homing];
             if (sfx != -1)
             {
@@ -1074,6 +1094,7 @@ namespace MphRead.Entities
 
         private void PlayBeamHitSfx()
         {
+            if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             StopHomingSfx();
             BeamSfx type = Flags.TestFlag(BeamFlags.Charged) ? BeamSfx.ChargeHit : BeamSfx.Hit;
@@ -1586,6 +1607,7 @@ namespace MphRead.Entities
                 }
                 MuzzleEffect = null;
             }
+            ModCustomShot = null;
             Owner = null;
             Effect = null;
             Target = null;
@@ -1594,6 +1616,9 @@ namespace MphRead.Entities
             _trailModel = null;
             base.Destroy();
         }
+
+        private static bool _CannotEmitCustom(EntityBase owner, EquipInfo equip, Scene scene)
+            => scene.OfflineWeapons?.OwnsEmission(owner,equip) != true;
 
         private static BeamProjectileEntity ChooseBeamSlot(EquipInfo equip, EntityBase owner)
         {
@@ -1636,6 +1661,17 @@ namespace MphRead.Entities
             out TimedShotEmission emission, BeamProjectileEntity? parent = null, bool enhancedMicro = false)
         {
             emission = default;
+            // The custom lane never uses native ammo, evicts a live pool member,
+            // or enters native authority/replay transport. All checks precede effects.
+            if (equip.CustomShot != null)
+            {
+                if (equip.Weapon.Beam != BeamType.None || parent != null || !equip.InfiniteAmmo
+                    || equip.Weapon.Projectiles != 1 || equip.Weapon.Flags != WeaponFlags.SurfaceCollision
+                    || _CannotEmitCustom(owner,equip,scene)) return BeamResultFlags.NoSpawn;
+                bool free = false; foreach (var candidate in equip.Beams) if (candidate.Lifespan <= 0) { free = true; break; }
+                if (!free) return BeamResultFlags.NoSpawn;
+            }
+            else if (equip.Weapon.Beam == BeamType.None) return BeamResultFlags.NoSpawn;
             bool finitePosition = Single.IsFinite(position.X) && Single.IsFinite(position.Y)
                 && Single.IsFinite(position.Z);
             bool finiteDirection = Single.IsFinite(direction.X) && Single.IsFinite(direction.Y)
@@ -1772,7 +1808,7 @@ namespace MphRead.Entities
             // after the ammo gate, through the same obstacle and impact kernel as
             // normal flight. Child ricochets are not new muzzle emissions.
             equip.Ammo = ammo - cost;
-            if (NetTimedShotProof.Active) emission.Spent(weapon.AmmoType, cost);
+            if (equip.CustomShot == null && NetTimedShotProof.Active) emission.Spent(weapon.AmmoType, cost);
             EffectEntry? muzzleEffect = null;
             if (!spawnFlags.TestFlag(BeamSpawnFlags.NoMuzzle))
             {
@@ -1975,6 +2011,7 @@ namespace MphRead.Entities
             Affliction afflictions = weapon.Afflictions[charged ? 1 : 0];
             float cylinderRadius = GetAmount(weapon.UnchargedCylRadius, weapon.MinChargeCylRadius, weapon.ChargedCylRadius) / 4096f;
             float lifespan = GetAmount(weapon.UnchargedLifespan, weapon.MinChargeLifespan, weapon.ChargedLifespan) * (1 / 30f);
+            if (equip.CustomShot is { } customLifetime) lifespan = customLifetime.Definition.Mechanics.LifetimeTicks / 60f;
             if (balancedNoxusFreezeProjectile)
             {
                 maxDist = 12f;
@@ -2046,6 +2083,7 @@ namespace MphRead.Entities
                     }
                 }
                 beam.Owner = owner;
+                beam.ModCustomShot = equip.CustomShot;
                 PlayerEntity? capturedOwner = owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner;
                 beam.ModOwnerHunter = parent?.ModOwnerHunter ?? capturedOwner?.Hunter ?? default;
                 beam.ModDoubleAtLaunch = parent?.ModDoubleAtLaunch ?? spawnFlags.TestFlag(BeamSpawnFlags.DoubleDamage);
@@ -2068,7 +2106,17 @@ namespace MphRead.Entities
                 beam.ModLaunchAuthority = 0;
                 beam.ModLaunchGeneration = beam.ModLaunchLife = 0;
                 beam.ModLaunchKey = default;
-                if (!scene.Services.IsReplica || (owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner) is { } acceptedOwner
+                if (beam.ModCustomShot is { } customSource)
+                {
+                    beam.ModLaunchKey = customSource.Key;
+                    beam.ModShotId = customSource.Key.ShotId;
+                    beam.ModLaunchMatch = customSource.Key.MatchId;
+                    beam.ModLaunchAuthority = customSource.Key.AuthorityEpoch;
+                    beam.ModLaunchGeneration = customSource.Key.Generation;
+                    beam.ModLaunchLife = customSource.Key.LifeId;
+                    beam.ModLaunchFrame = (uint)scene.FrameCount;
+                }
+                else if (!scene.Services.IsReplica || (owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner) is { } acceptedOwner
                     && NetFireEvents.TryAcceptedKey(acceptedOwner, out _))
                 {
                     NetPlayerLifecycle.StampProjectile(beam, parent);
@@ -2159,14 +2207,14 @@ namespace MphRead.Entities
                 }
                 if (instantAoe)
                 {
-                    NetShotProof.Emitted(beam, parent);
+                    if (beam.ModCustomShot == null) NetShotProof.Emitted(beam, parent);
                     if (muzzleObstacle.HasValue)
                     {
                         beam.Velocity = velocity; beam.Acceleration = acceleration;
                         beam._soundSource.Update(beam.Position, rangeIndex: 0);
                         beam.ResolveCollision(muzzleObstacle.Value, muzzleEntity, false, muzzleObstacle.Value.Distance, false);
                         scene.AddEntity(beam);
-                        if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
+                        if (beam.ModCustomShot == null && NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
                         continue;
                     }
                     beam.SpawnIceWave(weapon, chargePct);
@@ -2192,7 +2240,7 @@ namespace MphRead.Entities
                 }
                 beam.Velocity = velocity;
                 beam.Acceleration = acceleration;
-                NetShotProof.Emitted(beam, parent);
+                if (beam.ModCustomShot == null) NetShotProof.Emitted(beam, parent);
                 // A beam comes off a free list and keeps whatever transform the
                 // last one left on it until the draw pass computes a new one.
                 // Only draw functions 3 and 17 set one here, so every other
@@ -2241,8 +2289,8 @@ namespace MphRead.Entities
                     if (!scene.Services.IsReplica && NetSession.Active && weapon.Flags.TestFlag(WeaponFlags.Continuous))
                         NetShotDiagnostics.Continuous(beam, cost);
                     scene.AddEntity(beam);
-                    if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
-                    if (NetTimedShotProof.Active) emission.Added(beam, parent);
+                    if (beam.ModCustomShot == null && NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
+                    if (equip.CustomShot == null && NetTimedShotProof.Active) emission.Added(beam, parent);
                     continue;
                 }
                 Debug.Assert(beam.Target == null);
@@ -2289,8 +2337,8 @@ namespace MphRead.Entities
                     NetShotDiagnostics.Continuous(beam, cost);
                 beam._soundSource.Update(beam.Position, rangeIndex: 0);
                 scene.AddEntity(beam);
-                if (NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
-                if (NetTimedShotProof.Active) emission.Added(beam, parent);
+                if (beam.ModCustomShot == null && NetCampaignEvidence.Enabled) NetTimedSourceCapabilities.ObserveEmission(beam, parent);
+                if (equip.CustomShot == null && NetTimedShotProof.Active) emission.Added(beam, parent);
                 Mods.EnhancedHunters.EnhancedHunterProjectiles.Spawned(beam, parent);
             }
             if (turretOwner != null) NetFireEvents.Commit(turretOwner);
@@ -2803,6 +2851,7 @@ namespace MphRead.Entities
 
         private void SpawnCollisionEffect(CollisionResult colRes, bool noSplat)
         {
+            if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             if (CollisionEffect != 255)
             {
@@ -2856,6 +2905,7 @@ namespace MphRead.Entities
 
         public void SpawnDamageEffect(Effectiveness effectiveness)
         {
+            if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             if (effectiveness != Effectiveness.Normal && effectiveness != Effectiveness.Double)
             {
                 return;

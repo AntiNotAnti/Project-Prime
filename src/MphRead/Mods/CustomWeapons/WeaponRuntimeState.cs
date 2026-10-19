@@ -107,6 +107,15 @@ public sealed class WeaponRuntimeState
         // Optics may change during a bolt cycle but can never change its deadline.
         _optic = optic; return WeaponActionResult.Accepted;
     }
+    internal void CancelUnemittedFire(uint shotId, in WeaponStateSnapshot before)
+    {
+        if (!_valid || _acceptedId != shotId || _tick != before.Tick || _magazine != before.Magazine-1)
+            throw new InvalidOperationException("Emission rollback crossed a state transition.");
+        _magazine = before.Magazine; _ready = before.FireReadyTick;
+        _acceptedId = before.LastAcceptedShotId; _acceptedTick = before.LastAcceptedShotTick;
+        _hasFired = _acceptedId != 0;
+        // Keep the failed request high-water: retry cannot become delayed fire.
+    }
     public void Invalidate(WeaponCancellation reason)
     { _valid = false; _equipped = false; _reloading = false; _reloadEnd = 0; _optic = 0; }
     public WeaponStateSnapshot Snapshot()

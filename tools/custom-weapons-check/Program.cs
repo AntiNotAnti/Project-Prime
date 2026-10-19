@@ -4,6 +4,8 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
+
 int checks = 0;
 void Check(bool condition, string name)
 { if (!condition) throw new Exception(name); checks++; }
@@ -18,6 +20,10 @@ string revision = new('a', 64);
 var identity = WeaponIdentity.Custom(m7, revision);
 var rules = MechanicsChecks.Rules();
 var definition = WeaponDefinition.Create(m7, "Riftline M7", rules);
+var customSource = CustomShotSource.Accepted(definition,new(7,0x123456789abcdef0UL,3,5,9),13);
+Check(customSource.Key.AuthorityEpoch == 0x123456789abcdef0UL && customSource.Key.MatchId == 7
+    && customSource.Key.ShooterSlot == 3 && customSource.Key.Generation == 5 && customSource.Key.LifeId == 9
+    && customSource.Key.ShotId == 13,"custom source retains full epoch and distinct match/life fields");
 Check(!default(WeaponIdentity).IsValid && !default(WeaponRuntimeId).IsValid, "default is invalid");
 Check(identity != WeaponIdentity.Native(BeamType.Imperialist), "M7 is never Imperialist");
 Check(identity == WeaponIdentity.Custom(m7, revision), "stable equality");
@@ -112,5 +118,5 @@ Check(Weapons.WeaponsMP.Count == 18 && Weapons.Weapons1P.Count == 18
     && (sbyte)BeamType.Imperialist == 4 && (sbyte)BeamType.OmegaCannon == 8, "native shape remains fixed");
 MechanicsChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state checks (no gameplay entry point)");
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state checks (pure contracts; scene fixture requires --scene)");
 return 0;
