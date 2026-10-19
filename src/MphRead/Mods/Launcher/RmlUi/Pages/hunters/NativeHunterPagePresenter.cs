@@ -73,6 +73,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             RmlUiIntentKind.HunterSkinNext => ChangeCosmetics(_cosmetics.NextSkin),
             RmlUiIntentKind.HunterArmorNext => ChangeCosmetics(_cosmetics.NextArmor),
             RmlUiIntentKind.HunterDeathNext => NextDeath(),
+            RmlUiIntentKind.HunterBeamNext => ChangeCosmetics(_cosmetics.NextBeam),
+            RmlUiIntentKind.HunterBeamColorNext => ChangeCosmetics(_cosmetics.NextBeamColor),
             RmlUiIntentKind.HunterCosmeticsReset => ChangeCosmetics(_cosmetics.Reset),
             RmlUiIntentKind.HunterLoadoutDefault => DefaultLoadout(),
             RmlUiIntentKind.HunterCosmeticsSave => _cosmetics.Equip(),
@@ -210,12 +212,16 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 CosmeticCatalog.ResolveArmor(cosmetic.Draft.ArmorEffectKey).Description),
             ["hunter_death_description"] = RmlUiBindingValue.FromText(
                 CosmeticCatalog.ResolveDeath(cosmetic.Draft.DeathEffectKey).Description),
+            ["hunter_beam_description"] = RmlUiBindingValue.FromText(
+                CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).Description),
             ["disabled:hunter_discard"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
             ["hunter_skin"] = RmlUiBindingValue.FromText("SKIN // " + cosmetic.SkinName),
             ["hunter_armor"] = RmlUiBindingValue.FromText("ARMOR EFFECT // " + cosmetic.ArmorName),
             ["hunter_death"] = RmlUiBindingValue.FromText("DEATH PRESENTATION // " + cosmetic.DeathName),
+            ["hunter_beam"] = RmlUiBindingValue.FromText("INSTA-GIB BEAM // " + cosmetic.BeamName),
+            ["hunter_beam_color"] = RmlUiBindingValue.FromText("BEAM COLOR // " + cosmetic.BeamToneName),
             ["hunter_cosmetics_state"] = RmlUiBindingValue.FromText(
                 cosmetic.Busy ? cosmetic.Status
                 : cosmetic.Dirty ? "LOCAL DRAFT // NOT EQUIPPED"
@@ -225,6 +231,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             ["disabled:hunter_skin"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_armor"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_death"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
+            ["disabled:hunter_beam"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
+            ["disabled:hunter_beam_color"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_loadout_default"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_cosmetics_save"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || !cosmetic.Dirty),
