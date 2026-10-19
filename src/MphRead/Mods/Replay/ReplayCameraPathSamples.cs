@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Replay;
@@ -17,8 +16,15 @@ internal sealed class ReplayCameraPathSamples
     internal IReadOnlyList<Vector3> Positions(ReplayCameraTrack track)
     {
         ArgumentNullException.ThrowIfNull(track);
-        if(ReferenceEquals(_owner,track)&&_keys.SequenceEqual(track.Keys))return _points;
-        _owner=track;_keys=track.Keys.ToArray();
+        var keys=track.Keys;
+        bool unchanged=ReferenceEquals(_owner,track)&&_keys.Length==keys.Count;
+        if(unchanged)
+            for(int i=0;i<_keys.Length;i++)
+                if(_keys[i]!=keys[i]){unchanged=false;break;}
+        if(unchanged)return _points;
+        _owner=track;
+        _keys=new ReplayCameraKeyframe[keys.Count];
+        for(int i=0;i<keys.Count;i++)_keys[i]=keys[i];
         if(_keys.Length<2){_points=Array.Empty<Vector3>();Builds++;return _points;}
         double first=_keys[0].Frame,last=_keys[^1].Frame;
         var points=new Vector3[SampleCount];
