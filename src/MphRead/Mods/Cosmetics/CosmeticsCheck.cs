@@ -146,7 +146,7 @@ namespace MphRead.Mods.Cosmetics
                 Span<byte> batch = stackalloc byte[Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
                 int batchSize = replica.Cosmetics.Write(batch, 3, 9);
                 Check(batchSize == CosmeticStatePacket.Size && CosmeticStatePacket.TryRead(batch[..batchSize], out var late)
-                    && lateJoin.Accept(late, 3, 9, 7) && lateJoin.Get(2, Hunter.Samus, 7).Loadout == loadout, "late join/reconnect baseline");
+                    && lateJoin.Accept(late, 3, 9, 7) && lateJoin.Get(2, Hunter.Samus, 7).Loadout == beamLoadout, "late join/reconnect baseline retains selected beam");
                 restored.Reset();
                 Check(restored.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == CosmeticLoadout.Default, "map transition clears cosmetics");
                 CosmeticPersistence.Equip(Hunter.Samus, beamLoadout);
