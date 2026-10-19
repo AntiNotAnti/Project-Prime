@@ -170,10 +170,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 panel.Children.Add(cards);
             }
-            Cards("SKIN", CosmeticCatalog.Skins.Where(s => s.Hunter == null || s.Hunter == _cosmeticHunter).ToArray(),
-                _cosmeticDraft.SkinKey, key => _cosmeticDraft = _cosmeticDraft with { SkinKey = key });
-            Cards("ARMOR EFFECT", CosmeticCatalog.ArmorEffects.ToArray(), _cosmeticDraft.ArmorEffectKey,
-                key => _cosmeticDraft = _cosmeticDraft with { ArmorEffectKey = key });
+            panel.Children.Add(SectionTitle("INSTA-GIB BEAM ARMORY",
+                "Choose one of nine designs and a beam color, then Equip. These selections work without an account."));
             Cards("INSTA-GIB BEAM FX", CosmeticCatalog.BeamEffects.ToArray(), _cosmeticDraft.BeamEffectKey,
                 key => _cosmeticDraft = _cosmeticDraft with { BeamEffectKey = key });
             var beamColors = new ChoiceRow("Beam color", BeamPalette.Names.ToArray(), _cosmeticDraft.BeamColor);
@@ -186,6 +184,10 @@ namespace MphRead.Mods.Launcher.Gui
             panel.Children.Add(beamColors);
             panel.Children.Add(new TextBlock { Text = "Beam colors and styles are saved locally. Beam effects appear in Insta-Gib matches only.",
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap, Foreground = HubTheme.TextBrush });
+            Cards("SKIN", CosmeticCatalog.Skins.Where(s => s.Hunter == null || s.Hunter == _cosmeticHunter).ToArray(),
+                _cosmeticDraft.SkinKey, key => _cosmeticDraft = _cosmeticDraft with { SkinKey = key });
+            Cards("ARMOR EFFECT", CosmeticCatalog.ArmorEffects.ToArray(), _cosmeticDraft.ArmorEffectKey,
+                key => _cosmeticDraft = _cosmeticDraft with { ArmorEffectKey = key });
             Cards("DEATH PRESENTATION", CosmeticCatalog.DeathPresentations.ToArray(), _cosmeticDraft.DeathEffectKey,
                 key => { _cosmeticDraft = _cosmeticDraft with { DeathEffectKey = key }; _stand.PreviewDeath(); });
             var actions = new WrapPanel();
