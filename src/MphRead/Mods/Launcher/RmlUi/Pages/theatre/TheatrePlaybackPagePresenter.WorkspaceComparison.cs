@@ -7,6 +7,14 @@ public sealed partial class TheatrePlaybackPagePresenter
 {
     private TheatreEditorContext? _workspaceComparisonReview;
     private string _workspaceComparisonProblem="";
+    internal void ReportWorkspaceComparisonFailure(Exception error)
+    {
+        try { (_editorBackend as ITheatreWorkspaceComparisonPreviewBackend)?.StopComparisonPreview(); }
+        catch (Exception stop) when (stop is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
+        { _workspaceComparisonProblem = "A/B preview stopped after a render error: " + stop.GetBaseException().Message; }
+        _workspaceComparisonProblem = "A/B preview stopped after a render error. " + error.GetBaseException().Message;
+        if (IsOpen) Present();
+    }
     private bool HandleWorkspaceComparisonControl(string id)
     {
         if(id is not("studio_comparison_preview" or "studio_comparison_stop"))return false;

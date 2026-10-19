@@ -20,7 +20,14 @@ internal static partial class RmlUiOpenGlSmoke
             ||_pages?.Top!=page.Document||foreground==null||!DemoPlayback.Owns(foreground))return false;
         if(page.CurrentComparisonPreviewScene() is not Scene compared)return false;
         var size=window.FramebufferSize;var bounds=NativeReplayViewportBounds(size.X,size.Y);
-        return bounds!=null&&foreground.DrawNativeReplayComparisonViews(compared,bounds.Value,size);
+        if(bounds==null)return false;
+        try{return foreground.DrawNativeReplayComparisonViews(compared,bounds.Value,size);}
+        catch(Exception error)when(error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
+        {
+            Mods.DebugLog.Line("replay","A/B auxiliary preview failed; returning to single view: "+error);
+            page.ReportWorkspaceComparisonFailure(error);
+            return false;
+        }
     }
     private sealed partial class CurrentReplayEditor:ITheatreWorkspaceComparisonPreviewBackend
     {
