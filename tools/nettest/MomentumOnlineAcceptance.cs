@@ -22,7 +22,7 @@ internal sealed record MomentumOnlineAcceptanceOptions(
     bool Spectator = false, int MinimumHumans = 1, int MinimumBots = 0,
     string Latency = "0:0", string Loss = "0", string Reorder = "0", string Duplicate = "0", int Seed = 1,
     bool RequireRejoin = false, bool RequireRespawn = false, int MinimumTransitions = 0,
-    bool LobbyOwner = false, int LobbyBots = 0, int LobbyHumans = 4, bool RequireMapChange = false);
+    bool LobbyOwner = false, int LobbyBots = 0, int LobbyHumans = 4, bool RequireMapChange = false, int LobbyBotLevel = 1);
 
 internal sealed class MomentumOnlineAcceptance : IDisposable
 {
@@ -58,13 +58,14 @@ internal sealed class MomentumOnlineAcceptance : IDisposable
         Require(!_options.Spectator && _options.LobbyBots is >= 0 and <= 7
             && _options.LobbyHumans is >= 1 and <= 8 && _options.LobbyBots + _options.LobbyHumans <= 8,
             "bounded real lobby setup");
+        Require(_options.LobbyBotLevel is >= 0 and <= 3, "bounded native lobby bot difficulty");
         WaitLobby(() => NetSession.ServerSession.HasValue && NetSession.LocalIsLobbyOwner, "actual first-peer lobby ownership");
         Require(NetSession.IsInLobby && NetSession.PersistentLobby, "owner setup requires genuine persistent lobby");
         Require(!NetSession.SlotIsBot.Where((_, slot) => NetSession.SlotOccupied[slot]).Any(value => value), "lobby starts without bots");
         for (int index = 0; index < _options.LobbyBots; index++)
         {
             int expectedBots = index + 1;
-            LobbyCommand(() => NetSession.SendLobbyCommand(LobbyCommandType.AddBot, hunter: (byte)(index % 7), botLevel: 1),
+            LobbyCommand(() => NetSession.SendLobbyCommand(LobbyCommandType.AddBot, hunter: (byte)(index % 7), botLevel: (byte)_options.LobbyBotLevel),
                 () => Enumerable.Range(0, NetSession.SlotOccupied.Length).Count(slot => NetSession.SlotOccupied[slot] && NetSession.SlotIsBot[slot]) == expectedBots,
                 "AddBot acknowledgement and real roster convergence");
         }

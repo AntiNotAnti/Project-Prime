@@ -1,0 +1,786 @@
+{
+  "schema": 1,
+  "releaseAccepted": false,
+  "base": "46c101cdb7a4a25e2e8fb651181610d733b1fe11",
+  "scope": "Actual Windows localhost UDP, two AI-driven human owners plus two server bots. Representative objective observations, not physical devices, competitive balance, LAN or performance acceptance.",
+  "failedNodesControl": {
+    "status": "FAIL positive capture/point gate; no native objective state-adoption mismatch",
+    "processExits": {
+      "server": 0,
+      "owner0": 1,
+      "owner1": 1
+    },
+    "binaries": {
+      "nettest.dll": "cf6b8c6be1ed1a8aaa5122ce490fea6b0d52d89f2003e5064bfca935d65faf9b",
+      "ProjectPrime.dll": "bfe4be1a2a328051b3d1c7ad99dbf808c32fc5cff5940f44bc806d92cc31b22c"
+    },
+    "owners": [
+      {
+        "reportSha256": "437d5eca6e5a6456fd94577f5de607efdf0933f5b5b8bd0ded74392192f93ce8",
+        "slot": 0,
+        "model": "Native",
+        "hunter": "Samus",
+        "seconds": 45,
+        "seed": 1729,
+        "ticks": 2706,
+        "shootingTicks": 1689,
+        "solverSteps": 0,
+        "latency": {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 0,
+          "ReorderRate": 0,
+          "DuplicateRate": 0,
+          "Seed": 9200
+        },
+        "ai": {
+          "Enabled": true,
+          "Level": 3,
+          "Seed": 1729,
+          "InitialRng1": 1729,
+          "InitialRng2": 3891867948,
+          "CurrentAiRng1": 1729,
+          "CurrentAiRng2": 2327868160,
+          "LocalSlot": 0,
+          "InputFrames": 2707,
+          "DecisionFrames": 1987,
+          "Travel": 202.84225949091493,
+          "SpawnedLives": 5,
+          "AltFrames": 0,
+          "InvalidPositionSamples": 0,
+          "InvalidDistanceSamples": 0,
+          "Weapons": [
+            0,
+            2
+          ],
+          "IsBot": false,
+          "RosterBot": false,
+          "ActivityPassed": true
+        },
+        "configuration": {
+          "room": "MP3 PROVING GROUND",
+          "mode": "NodesTeams",
+          "model": "Native",
+          "epoch": 639280490859545250,
+          "match": 2,
+          "roster": [
+            {
+              "slot": 0,
+              "team": 0,
+              "isBot": false,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 1,
+              "team": 1,
+              "isBot": true,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 2,
+              "team": 0,
+              "isBot": false,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 3,
+              "team": 1,
+              "isBot": true,
+              "hunter": "Kanden",
+              "generation": 1
+            }
+          ]
+        },
+        "worlds": 450,
+        "occupancySamples": 119,
+        "capturedSamples": 0,
+        "authorityScoreSamples": 0,
+        "clientScoreSamples": 0,
+        "firstOccupancy": {
+          "Epoch": 639280490859545250,
+          "MatchId": 2,
+          "Tick": 132,
+          "node": {
+            "Id": 19,
+            "Team": -1,
+            "Occupying": 1,
+            "Occupants": 2,
+            "Capturer": {
+              "Slot": 255,
+              "Generation": 0,
+              "Life": 0
+            },
+            "Progress": 0.06666667,
+            "ScoreTimer": 0,
+            "BlinkTimer": 0,
+            "Rotation": 0.10000001,
+            "Spin": 3,
+            "Contested": false,
+            "InProgress": false
+          },
+          "captures": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "maxObservedProgress": 1.8166656
+      },
+      {
+        "reportSha256": "57cb151fad54bcf809fd247619152dee1b602d661ff7fbb29b877f017ede4085",
+        "slot": 2,
+        "model": "Native",
+        "hunter": "Samus",
+        "seconds": 45,
+        "seed": 1866,
+        "ticks": 2706,
+        "shootingTicks": 1382,
+        "solverSteps": 0,
+        "latency": {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 0,
+          "ReorderRate": 0,
+          "DuplicateRate": 0,
+          "Seed": 9201
+        },
+        "ai": {
+          "Enabled": true,
+          "Level": 3,
+          "Seed": 1866,
+          "InitialRng1": 1866,
+          "InitialRng2": 4119907873,
+          "CurrentAiRng1": 1866,
+          "CurrentAiRng2": 1224698596,
+          "LocalSlot": 2,
+          "InputFrames": 2707,
+          "DecisionFrames": 2169,
+          "Travel": 201.723138770522,
+          "SpawnedLives": 4,
+          "AltFrames": 1,
+          "InvalidPositionSamples": 0,
+          "InvalidDistanceSamples": 0,
+          "Weapons": [
+            0,
+            2
+          ],
+          "IsBot": false,
+          "RosterBot": false,
+          "ActivityPassed": true
+        },
+        "configuration": {
+          "room": "MP3 PROVING GROUND",
+          "mode": "NodesTeams",
+          "model": "Native",
+          "epoch": 639280490859545250,
+          "match": 2,
+          "roster": [
+            {
+              "slot": 0,
+              "team": 0,
+              "isBot": false,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 1,
+              "team": 1,
+              "isBot": true,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 2,
+              "team": 0,
+              "isBot": false,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 3,
+              "team": 1,
+              "isBot": true,
+              "hunter": "Kanden",
+              "generation": 1
+            }
+          ]
+        },
+        "worlds": 451,
+        "occupancySamples": 119,
+        "capturedSamples": 0,
+        "authorityScoreSamples": 0,
+        "clientScoreSamples": 0,
+        "firstOccupancy": {
+          "Epoch": 639280490859545250,
+          "MatchId": 2,
+          "Tick": 132,
+          "node": {
+            "Id": 19,
+            "Team": -1,
+            "Occupying": 1,
+            "Occupants": 2,
+            "Capturer": {
+              "Slot": 255,
+              "Generation": 0,
+              "Life": 0
+            },
+            "Progress": 0.06666667,
+            "ScoreTimer": 0,
+            "BlinkTimer": 0,
+            "Rotation": 0.10000001,
+            "Spin": 3,
+            "Contested": false,
+            "InProgress": false
+          },
+          "captures": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "maxObservedProgress": 1.8166656
+      }
+    ],
+    "limits": "First occupancy bitmask2 identifies serverbot slot1, not either human. Maximum observed progress1.8166656s is below native10s capture requirement. No completed capture or points; no Momentum Nodes run or seed reroll. Earlier AD1 Native01 fixture-counter error and corrected Native02 no-contact failure remain retained as failed attempts."
+  },
+  "cliNegativeControls": [
+    {
+      "case": "duration",
+      "exit": 2,
+      "reportCreated": false
+    },
+    {
+      "case": "seed",
+      "exit": 2,
+      "reportCreated": false
+    },
+    {
+      "case": "human-count",
+      "exit": 2,
+      "reportCreated": false
+    },
+    {
+      "case": "unsupported-mode",
+      "exit": 2,
+      "reportCreated": false
+    }
+  ],
+  "defenderRepresentative": {
+    "status": "PASS",
+    "scope": "Additional DefenderTeams representative; NodesTeams captures remain failed/unverified; CPU synthetic production AI human owners, no physical devices or timing acceptance",
+    "baseSha": "46c101cdb7a4a25e2e8fb651181610d733b1fe11",
+    "sourceOverlaySha256": {
+      "Program.cs": "192717aaca781db5acb0e94d54448a3e26af240c863e43c3b4bfaaf07ba268b2",
+      "MomentumCombatOnlineTests.cs": "3978289fe9c5fb038de7ed005de6751889a10387979ba345e45c5759a942cce9",
+      "MomentumOnlineAcceptance.cs": "6fd4d29870a44a6fed4923463518486fa2fce6dfc9928eab503dda298c817d12",
+      "MomentumTeamObjectiveTests.cs": "b0e3eafdabb5df4c0a88abe2c070d26a57a342c7d2e98a7c168dc886223bcae3"
+    },
+    "models": {
+      "Native": {
+        "configuration": {
+          "room": "MP3 PROVING GROUND",
+          "mode": "DefenderTeams",
+          "model": "Native",
+          "epoch": 639280495575683825,
+          "match": 2,
+          "roster": [
+            {
+              "slot": 0,
+              "team": 0,
+              "isBot": false,
+              "botLevel": 0,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 1,
+              "team": 1,
+              "isBot": true,
+              "botLevel": 3,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 2,
+              "team": 0,
+              "isBot": false,
+              "botLevel": 0,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 3,
+              "team": 1,
+              "isBot": true,
+              "botLevel": 3,
+              "hunter": "Kanden",
+              "generation": 1
+            }
+          ]
+        },
+        "processExitCodes": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "worlds": [
+          451,
+          451
+        ],
+        "occupancySamples": [
+          88,
+          88
+        ],
+        "authorityScoreSamples": [
+          346,
+          346
+        ],
+        "clientScoreSamples": [
+          426,
+          426
+        ],
+        "solverSteps": [
+          0,
+          0
+        ],
+        "commonBoundedAuthorityNodeFacts": 128,
+        "commonPositiveFact": {
+          "Epoch": 639280495575683825,
+          "MatchId": 2,
+          "Tick": 1002,
+          "node": {
+            "BlinkTimer": 0,
+            "Capturer": {
+              "Generation": 0,
+              "Life": 0,
+              "Slot": 255
+            },
+            "Contested": false,
+            "Id": 19,
+            "InProgress": false,
+            "Occupants": 0,
+            "Occupying": -1,
+            "Progress": 0,
+            "Rotation": 115.55322,
+            "ScoreTimer": 0,
+            "Spin": 143.37502,
+            "Team": 0
+          }
+        },
+        "firstAuthorityScore": [
+          {
+            "Epoch": 639280495575683825,
+            "MatchId": 2,
+            "Tick": 630,
+            "points": [
+              0,
+              0
+            ],
+            "objectiveStats": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "scope": "Nodes authority TeamPoints or Defender authority per-player integer ObjectiveSeconds; no TeamTime field exists in objective world"
+          },
+          {
+            "Epoch": 639280495575683825,
+            "MatchId": 2,
+            "Tick": 630,
+            "points": [
+              0,
+              0
+            ],
+            "objectiveStats": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "scope": "Nodes authority TeamPoints or Defender authority per-player integer ObjectiveSeconds; no TeamTime field exists in objective world"
+          }
+        ],
+        "firstClientScore": [
+          {
+            "Epoch": 639280495575683825,
+            "MatchId": 2,
+            "objectiveWorldTick": 150,
+            "appliedSnapshotFrame": 150,
+            "points": [
+              0,
+              0
+            ],
+            "teamTime": [
+              0,
+              0.1
+            ],
+            "scope": "independently replicated client score: Nodes points or Defender TeamTime; not assumed same-frame as objective world"
+          },
+          {
+            "Epoch": 639280495575683825,
+            "MatchId": 2,
+            "objectiveWorldTick": 150,
+            "appliedSnapshotFrame": 151,
+            "points": [
+              0,
+              0
+            ],
+            "teamTime": [
+              0,
+              0.1
+            ],
+            "scope": "independently replicated client score: Nodes points or Defender TeamTime; not assumed same-frame as objective world"
+          }
+        ],
+        "sampleOverflow": [
+          234,
+          234
+        ],
+        "evidenceHealth": [
+          {
+            "process": "server",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          },
+          {
+            "process": "owner0",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          },
+          {
+            "process": "owner1",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          }
+        ],
+        "binaryProvenance": {
+          "nettest.dll": "1878584134b1b7d358aa78bd5044f276e6dafb2d655c651f5398cbe3d9a52097",
+          "ProjectPrime.dll": "bfe4be1a2a328051b3d1c7ad99dbf808c32fc5cff5940f44bc806d92cc31b22c"
+        }
+      },
+      "Momentum": {
+        "configuration": {
+          "room": "MP3 PROVING GROUND",
+          "mode": "DefenderTeams",
+          "model": "Momentum",
+          "epoch": 639280496347529670,
+          "match": 2,
+          "roster": [
+            {
+              "slot": 0,
+              "team": 0,
+              "isBot": false,
+              "botLevel": 0,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 1,
+              "team": 1,
+              "isBot": true,
+              "botLevel": 3,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 2,
+              "team": 0,
+              "isBot": false,
+              "botLevel": 0,
+              "hunter": "Samus",
+              "generation": 1
+            },
+            {
+              "slot": 3,
+              "team": 1,
+              "isBot": true,
+              "botLevel": 3,
+              "hunter": "Kanden",
+              "generation": 1
+            }
+          ]
+        },
+        "processExitCodes": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "worlds": [
+          451,
+          451
+        ],
+        "occupancySamples": [
+          98,
+          98
+        ],
+        "authorityScoreSamples": [
+          402,
+          402
+        ],
+        "clientScoreSamples": [
+          411,
+          411
+        ],
+        "solverSteps": [
+          2238,
+          2168
+        ],
+        "commonBoundedAuthorityNodeFacts": 128,
+        "commonPositiveFact": {
+          "Epoch": 639280496347529670,
+          "MatchId": 2,
+          "Tick": 234,
+          "node": {
+            "BlinkTimer": 0,
+            "Capturer": {
+              "Generation": 0,
+              "Life": 0,
+              "Slot": 255
+            },
+            "Contested": false,
+            "Id": 19,
+            "InProgress": false,
+            "Occupants": 0,
+            "Occupying": -1,
+            "Progress": 0,
+            "Rotation": 0.12916668,
+            "ScoreTimer": 0,
+            "Spin": 7.7500005,
+            "Team": 0
+          }
+        },
+        "firstAuthorityScore": [
+          {
+            "Epoch": 639280496347529670,
+            "MatchId": 2,
+            "Tick": 294,
+            "points": [
+              0,
+              0
+            ],
+            "objectiveStats": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "scope": "Nodes authority TeamPoints or Defender authority per-player integer ObjectiveSeconds; no TeamTime field exists in objective world"
+          },
+          {
+            "Epoch": 639280496347529670,
+            "MatchId": 2,
+            "Tick": 294,
+            "points": [
+              0,
+              0
+            ],
+            "objectiveStats": [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "scope": "Nodes authority TeamPoints or Defender authority per-player integer ObjectiveSeconds; no TeamTime field exists in objective world"
+          }
+        ],
+        "firstClientScore": [
+          {
+            "Epoch": 639280496347529670,
+            "MatchId": 2,
+            "objectiveWorldTick": 240,
+            "appliedSnapshotFrame": 240,
+            "points": [
+              0,
+              0
+            ],
+            "teamTime": [
+              0.1,
+              0
+            ],
+            "scope": "independently replicated client score: Nodes points or Defender TeamTime; not assumed same-frame as objective world"
+          },
+          {
+            "Epoch": 639280496347529670,
+            "MatchId": 2,
+            "objectiveWorldTick": 240,
+            "appliedSnapshotFrame": 240,
+            "points": [
+              0,
+              0
+            ],
+            "teamTime": [
+              0.1,
+              0
+            ],
+            "scope": "independently replicated client score: Nodes points or Defender TeamTime; not assumed same-frame as objective world"
+          }
+        ],
+        "sampleOverflow": [
+          284,
+          284
+        ],
+        "evidenceHealth": [
+          {
+            "process": "server",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          },
+          {
+            "process": "owner0",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          },
+          {
+            "process": "owner1",
+            "overflow": 0,
+            "connectionLost": false,
+            "semanticDisconnects": 0
+          }
+        ],
+        "binaryProvenance": {
+          "nettest.dll": "1878584134b1b7d358aa78bd5044f276e6dafb2d655c651f5398cbe3d9a52097",
+          "ProjectPrime.dll": "bfe4be1a2a328051b3d1c7ad99dbf808c32fc5cff5940f44bc806d92cc31b22c"
+        }
+      }
+    },
+    "limits": "Actual two human-owner processes on one team versus two server bots on the other, loopback UDP at200:20 with no added loss/reorder/duplication; both models45seconds. Positive Defender seconds/team-time do not prove Nodes captures. SampleOverflow is omitted representative samples, not a transport/evidence overflow. Raw source/build/binary leases retained separately; no timing or physical input claim."
+  },
+  "currentWindowsGuards": {
+    "nativeGoldenTrajectories": 56,
+    "rewindAssertions": 18489,
+    "replayRuleAssertions": 82,
+    "frameTiming": "PASS, includes latest merged reticle cases",
+    "scope": "Current46 actual production Core plus final test-only overlay; earlier frame-timing check under same Core; no gameplay production edits."
+  }
+}
