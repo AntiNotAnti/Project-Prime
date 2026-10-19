@@ -67,6 +67,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            NetCampaignEvidence.RetainShotRewindBeforeReset();
             Array.Clear(Outcomes);
             foreach (long[] values in new[] { LocalHits, AuthorityHits, Predictions, Claims, Rescues, Refusals,
                 PredictedDamage, AuthorityDamage, LocalHeadshots, AuthorityHeadshots, RewindSamples, RewindFrames, RewindClamps, ContinuousTicks, ContinuousDamageTicks, ContinuousAcquired, ContinuousAmmo, DrainCredit })

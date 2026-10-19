@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -13,16 +14,17 @@ internal enum MovementValidationExemption : byte
 }
 internal readonly record struct MovementValidationSample(ulong Epoch, ushort Match, int Slot,
     ushort Generation, ushort Life, Hunter Hunter, uint Frame, Vector3 Position,
-    IntentButtons Buttons, MovementValidationExemption Exemptions, sbyte MoveX = 0, sbyte MoveY = 0);
+    IntentButtons Buttons, MovementValidationExemption Exemptions, sbyte MoveX = 0, sbyte MoveY = 0,
+    MovementModel MovementModel = MovementModel.Native, int ProfileVersion = 0);
 internal readonly record struct MovementValidationRow(ulong Epoch, ushort Match, int Slot,
     ushort Generation, ushort Life, Hunter Hunter, uint Frame, uint ElapsedFrames,
     bool Alt, float HorizontalPerFrame, float UpwardPerFrame, float AccelerationPerFrame,
-    bool HorizontalSignal, bool VerticalSignal, bool AccelerationSignal);
+    bool HorizontalSignal, bool VerticalSignal, bool AccelerationSignal, MovementModel MovementModel, int ProfileVersion);
 internal readonly record struct MovementValidationCounts(Hunter Hunter, bool Alt, long Baselines,
     long Evaluated, long Exempt, long Unsupported, long WouldRefuse, long DuplicateOrOld,
-    long LongGaps, long InputAbsentWhileMoving, float MaximumHorizontal, float MaximumUpward);
+    long LongGaps, long InputAbsentWhileMoving, float MaximumHorizontal, float MaximumUpward, MovementModel MovementModel, int ProfileVersion);
 internal sealed record MovementValidationReport(bool Enabled, int HardRejections,
-    MovementValidationCounts[] Hunters, MovementValidationRow[] Rows, long Overflow, long Invalid);
+    MovementValidationCounts[] Hunters, MovementValidationRow[] Rows, long Overflow, long Invalid, int Schema = 2);
 
 /// <summary>Opt-in source-time envelope observations. This is not a collision reference,
 /// cheat verdict, or movement authority. It has no path to write player state or reject packets.
@@ -50,29 +52,34 @@ internal static class NetMovementValidationShadow
     private static long _overflow, _invalid;
     private static Counts[] Create()
     {
-        var result = new Counts[14]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
+        var result = new Counts[28]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
     }
     private static bool Alt(in MovementValidationSample value) => (value.Buttons & IntentButtons.AltFormState) != 0;
     private static bool Context(in MovementValidationSample a, in MovementValidationSample b) =>
-        a.Epoch == b.Epoch && a.Match == b.Match && a.Generation == b.Generation && a.Life == b.Life && a.Hunter == b.Hunter;
+        a.Epoch == b.Epoch && a.Match == b.Match && a.Generation == b.Generation && a.Life == b.Life && a.Hunter == b.Hunter
+        && a.MovementModel == b.MovementModel && a.ProfileVersion == b.ProfileVersion;
     internal static void ObserveAccepted(PlayerEntity player, in IntentPacket intent)
     {
         if (!Enabled || !NetSession.IsAuthority || player.SceneServices.IsReplica || !intent.HasState
             || !NetSession.MatchesStream(intent.MatchId, intent.AuthorityEpoch)
             || !NetPlayerLifecycle.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
         Observe(new(intent.AuthorityEpoch, intent.MatchId, player.SlotIndex, intent.SlotGeneration, intent.LifeId,
-            player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions | player.ModQ3MovementProof(intent.Position), intent.MoveX, intent.MoveY));
+            player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions | player.ModQ3MovementProof(intent.Position), intent.MoveX, intent.MoveY,
+            player.OwningScene.GameState.MovementModel, player.OwningScene.GameState.MovementModel == MovementModel.Momentum
+                ? MomentumProfileV1.MomentumProfileVersion : 0));
     }
     internal static void Observe(in MovementValidationSample sample)
     {
         if (!Enabled) return;
         if ((uint)sample.Slot >= Slots.Length || (uint)sample.Hunter >= 7 || sample.Epoch == 0
             || sample.Match == 0 || sample.Generation == 0 || sample.Life == 0
+            || !MovementModelRules.IsDefined(sample.MovementModel)
+            || sample.ProfileVersion != (sample.MovementModel == MovementModel.Momentum ? MomentumProfileV1.MomentumProfileVersion : 0)
             || !float.IsFinite(sample.Position.X) || !float.IsFinite(sample.Position.Y) || !float.IsFinite(sample.Position.Z)
             || Math.Abs(sample.Position.X) >= 100000 || Math.Abs(sample.Position.Y) >= 100000 || Math.Abs(sample.Position.Z) >= 100000)
         { _invalid++; return; }
         bool alt = Alt(sample);
-        Counts count = Counters[(int)sample.Hunter * 2 + (alt ? 1 : 0)];
+        Counts count = Counters[(int)sample.MovementModel * 14 + (int)sample.Hunter * 2 + (alt ? 1 : 0)];
         ref History history = ref Slots[sample.Slot];
         if (!history.Seen || !Context(sample, history.Last))
         { count.Baselines++; history = new() { Seen = true, Last = sample }; return; }
@@ -104,6 +111,16 @@ internal static class NetMovementValidationShadow
         float acceleration = history.VelocitySeen && elapsed <= 2 && history.Elapsed <= 2
             ? new Vector2(velocity.X - history.Velocity.X, velocity.Z - history.Velocity.Z).Length / ((history.Elapsed + elapsed) * .5f) : 0;
         float accelerationLimit = 4 * Fixed.ToFloat(Math.Max(values.WalkBipedTraction, values.StrafeBipedTraction)) + .2f;
+        if (sample.MovementModel == MovementModel.Momentum)
+        {
+            // Profile speeds are units/second; diagnostics measure units per
+            // source frame at 60 Hz. Allow four times the profile retention
+            // speed and acceleration per frame, plus the existing noise margins. Never narrow Native
+            // bounds, and never treat an impulse exemption as solver evidence.
+            speedLimit = Math.Max(speedLimit, 2 * MomentumProfileV1.RetentionSpeedCap / 30 + .1f);
+            accelerationLimit = Math.Max(accelerationLimit,
+                MomentumProfileV1.Tuning.GroundAcceleration * MomentumProfileV1.GroundSpeed / 900 + .2f);
+        }
         bool speedSignal = horizontal > speedLimit, upSignal = upward > verticalLimit, accelerationSignal = acceleration > accelerationLimit;
         const IntentButtons movement = IntentButtons.MoveUp | IntentButtons.MoveDown | IntentButtons.MoveLeft | IntentButtons.MoveRight;
         if ((sample.Buttons & movement) == 0 && sample.MoveX == 0 && sample.MoveY == 0 && horizontal > .05f) count.InputAbsent++;
@@ -112,7 +129,7 @@ internal static class NetMovementValidationShadow
             count.WouldRefuse++;
             if (_rows < Rows.Length) Rows[_rows++] = new(sample.Epoch, sample.Match, sample.Slot,
                 sample.Generation, sample.Life, sample.Hunter, sample.Frame, elapsed, alt,
-                horizontal, upward, acceleration, speedSignal, upSignal, accelerationSignal);
+                horizontal, upward, acceleration, speedSignal, upSignal, accelerationSignal, sample.MovementModel, sample.ProfileVersion);
             else _overflow++;
         }
         history = new() { Seen = true, VelocitySeen = true, Last = sample, Velocity = velocity, Elapsed = elapsed };
@@ -126,9 +143,10 @@ internal static class NetMovementValidationShadow
         var counts = new MovementValidationCounts[Counters.Length];
         for (int i = 0; i < counts.Length; i++)
         {
-            var c = Counters[i]; counts[i] = new((Hunter)(i / 2), (i & 1) != 0,
+            var c = Counters[i]; counts[i] = new((Hunter)((i % 14) / 2), (i & 1) != 0,
                 c.Baselines, c.Evaluated, c.Exempt, c.Unsupported, c.WouldRefuse, c.DuplicateOrOld,
-                c.LongGaps, c.InputAbsent, c.MaxHorizontal, c.MaxUpward);
+                c.LongGaps, c.InputAbsent, c.MaxHorizontal, c.MaxUpward, (MovementModel)(i / 14),
+                i >= 14 ? MomentumProfileV1.MomentumProfileVersion : 0);
         }
         return new(Enabled, 0, counts, Rows.AsSpan(0, _rows).ToArray(), _overflow, _invalid);
     }

@@ -20,6 +20,39 @@ internal static partial class NetCampaignEvidence
 {
     private static readonly string? Path = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE");
     internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
+    private static readonly long[] CompletedRewindSamples = new long[NetShotDiagnostics.WeaponCount],
+        CompletedRewindFrames = new long[NetShotDiagnostics.WeaponCount],
+        CompletedRewindClamps = new long[NetShotDiagnostics.WeaponCount];
+
+    // World diagnostics reset when the last peer leaves or a match changes.
+    // Evidence is process-owned, so retain those completed worlds before reset.
+    internal static void RetainShotRewindBeforeReset()
+    {
+        if (!Enabled) return;
+        for (int i = 0; i < NetShotDiagnostics.WeaponCount; i++)
+        {
+            CompletedRewindSamples[i] += NetShotDiagnostics.RewindSamples[i];
+            CompletedRewindFrames[i] += NetShotDiagnostics.RewindFrames[i];
+            CompletedRewindClamps[i] += NetShotDiagnostics.RewindClamps[i];
+        }
+    }
+
+    internal sealed record ShotRewindReport(string Scope, long[] SamplesByWeapon,
+        long[] FramesByWeapon, long[] ClampsByWeapon, LagShadowSnapshot CurrentWorldPolicy);
+
+    internal static ShotRewindReport CaptureShotRewind()
+    {
+        long[] Sum(long[] completed, long[] current)
+        {
+            var values = new long[completed.Length];
+            for (int i = 0; i < values.Length; i++) values[i] = completed[i] + current[i];
+            return values;
+        }
+        return new("Process-lifetime served shot rewind counters, including completed worlds; authority report required for authority acceptance. Policy is current-world only.",
+            Sum(CompletedRewindSamples, NetShotDiagnostics.RewindSamples),
+            Sum(CompletedRewindFrames, NetShotDiagnostics.RewindFrames),
+            Sum(CompletedRewindClamps, NetShotDiagnostics.RewindClamps), LagCompensationPolicy.CaptureTotal());
+    }
     // A 30-minute eight-slot campaign can retain two rows per continuous shot.
     // This is an opt-in evidence bound, independent of gameplay/transport queues.
     internal static readonly int EvidenceRowLimit = ReadRowLimit();
@@ -509,6 +542,7 @@ internal static partial class NetCampaignEvidence
                 TurretOutcomes,
                 TimedGrants, TimedGrantStates, TimedGrantViews, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
                 CampaignClaims = CaptureClaims(),
+                ShotRewind = CaptureShotRewind(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
                     NetHitClaims.Unanswered, NetHitClaims.Resends, NetHitClaims.Received, NetHitClaims.AppliedHere,

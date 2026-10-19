@@ -35,6 +35,10 @@ on:
       - 'src/MphRead/Mods/Network/NetSessionLobby.cs'
       - 'src/MphRead/Mods/Network/NetMatchSync.cs'
       - 'src/MphRead/Mods/Network/NetStatus.cs'
+      - 'src/MphRead/Mods/Network/NetMovementValidationShadow.cs'
+      - 'src/MphRead/Mods/Network/NetCampaignEvidence.cs'
+      - 'src/MphRead/Mods/Network/NetShotDiagnostics.cs'
+      - 'tools/nettest/MovementValidationTests.cs'
       - 'src/MphRead/Mods/Network/ReplayFormatV3.cs'
       - 'src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs'
       - 'src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs'
@@ -81,6 +85,10 @@ on:
       - 'src/MphRead/Mods/Network/NetSessionLobby.cs'
       - 'src/MphRead/Mods/Network/NetMatchSync.cs'
       - 'src/MphRead/Mods/Network/NetStatus.cs'
+      - 'src/MphRead/Mods/Network/NetMovementValidationShadow.cs'
+      - 'src/MphRead/Mods/Network/NetCampaignEvidence.cs'
+      - 'src/MphRead/Mods/Network/NetShotDiagnostics.cs'
+      - 'tools/nettest/MovementValidationTests.cs'
       - 'src/MphRead/Mods/Network/ReplayFormatV3.cs'
       - 'src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs'
       - 'src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs'
@@ -129,7 +137,13 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-profile
       - name: Signed axes, packet presence and movement override lifecycle
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-input-packets
-      - name: Warmed eight-player workload with zero-allocation assertion
+      - name: Mode and profile advisory identity, exemptions and bounded storage
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --movement-validation-shadow
+      - name: Opt-in combat evidence survives completed world resets
+        env:
+          PRIME_NET2_EVIDENCE: '${{ runner.temp }}/momentum-combat-evidence.json'
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-combat-evidence
+      - name: Warmed eight-player solver call loop with zero-allocation assertion
         env:
           DOTNET_TieredCompilation: '0'
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-benchmark "${{ runner.temp }}/momentum-benchmark.json"

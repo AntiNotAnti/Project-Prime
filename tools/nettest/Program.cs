@@ -97,6 +97,7 @@ namespace MphRead.NetTest
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-input-scene <assets> [json] Test actual keyboard, controller and touch-model movement semantics.\n"
                     + "  --momentum-input-packets          Test signed axes and input override lifecycle on existing packets.\n"
+                    + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
                     + "  --momentum-bot-scene <assets> [json] Test real offline AI through both movement rules.\n"
                     + "  --momentum-bot-authority <assets> [json] Test actual server AI movement, intents and snapshots.\n"
                     + "  --momentum-touch-gl <assets> [json] Test native alternate-form touch and boost parity with GL.\n"
@@ -408,6 +409,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-replay-rules") return MomentumReplayRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-combat-evidence") return MomentumCombatEvidenceTests.Run();
             if (args.Length > 1 && (args[0] == "--momentum-input-scene"
                 || args[0] == "--momentum-bot-scene" || args[0] == "--momentum-bot-authority"
                 || args[0] == "--momentum-touch-gl"))
