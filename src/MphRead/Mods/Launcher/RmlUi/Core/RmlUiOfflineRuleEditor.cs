@@ -51,7 +51,7 @@ public sealed class RmlUiOfflineRuleEditor
 {
     public static readonly string[] Labels = { "OCTOLITH AUTO RESET", "FRIENDLY FIRE", "AFFINITY WEAPONS",
         "SHADOW FREEZE", "SPAWN PROTECTION (3s)", "ONE IN THE CHAMBER", "FIESTA", "INSTA-GIB",
-        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR", "THIRD PERSON CAMERA" };
+        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR", "THIRD PERSON CAMERA", "MOVEMENT" };
     public RmlUiOfflineRules Original { get; }
     public RmlUiOfflineRules Draft { get; private set; }
     public GameMode Mode { get; }
@@ -61,6 +61,9 @@ public sealed class RmlUiOfflineRuleEditor
     public bool TimeGoalVisible => MatchGoalRules.UsesTimeTarget(Mode);
     public bool FireVisible => GameState.IsTeamMode(Mode);
     public bool AutoResetVisible => MatchModifierRules.UsesOctolith(Mode);
+    public bool MovementVisible => Mode != GameMode.SinglePlayer;
+    public string MovementLabel => Movement.MovementModelRules.TryParse(Draft.MovementModel, out var model)
+        ? Movement.MovementModelRules.DisplayName(model) : "Unsupported";
 
     public RmlUiOfflineRuleEditor(GameMode mode, RmlUiOfflineRules original)
     {
@@ -71,6 +74,15 @@ public sealed class RmlUiOfflineRuleEditor
 
     public bool Toggle(int index)
     {
+        if (index == 13)
+        {
+            if (!MovementVisible) return false;
+            // A user explicitly activating an unsupported saved choice selects
+            // Classic. Merely opening/applying an unknown value still fails validation.
+            bool known = Movement.MovementModelRules.TryParse(Draft.MovementModel, out var model);
+            Draft = Draft with { MovementModel = known && model == Movement.MovementModel.Native ? "Momentum" : "Native" };
+            Error = ""; return true;
+        }
         if (index is < 0 or >= 13 or 5 || index == 0 && !AutoResetVisible || index == 1 && !FireVisible) return false;
         ushort flags = (ushort)(Draft.Flags ^ (1 << index));
         // Match the legacy mutually exclusive loadout controls.

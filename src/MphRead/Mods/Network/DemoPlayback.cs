@@ -20,6 +20,9 @@ public static partial class DemoPlayback
     private static bool _failed;
     private static bool _presentationFailed;
     internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
+    public static string MovementLabel => Session?.Host.Match is { } match
+        ? Movement.MovementModelRules.DisplayName(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
+        : "Unknown";
     // The existing Join-created prepared session remains this request's identity after
     // its reader is retired and the actual player adopts the request. No new owner/clock.
     internal static object RequestOwner => _prepared;

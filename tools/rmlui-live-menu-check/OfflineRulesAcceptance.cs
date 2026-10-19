@@ -85,9 +85,70 @@ internal static class OfflineRulesAcceptance
         services.OfflineRules = null;
         Check(!controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
             && !Flag("offline_rules_open"), "unavailable settings service cannot manufacture a rules draft");
+        MovementBindings();
 
         bool Flag(string name) => controller.Tick().Bindings.TryGetValue(name, out var value) && value.Boolean;
         string Text(string name) => controller.Tick().Bindings.TryGetValue(name, out var value) ? value.Text : "";
+    }
+
+    private static void MovementBindings()
+    {
+        var services = new Stub { BuiltInMaps = new[] { "MP1 SANCTORUS", "MP2 HARVESTER" } };
+        using var controller = new RmlUiMenuController(services);
+        string Text(string name) => controller.Tick().Bindings.TryGetValue(name, out var value) ? value.Text : "";
+        bool Flag(string name) => controller.Tick().Bindings.TryGetValue(name, out var value) && value.Boolean;
+        Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+            && controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
+            && Flag("offline_movement_visible") && Text("offline_rule13_label") == "MOVEMENT // CLASSIC",
+            "offline native movement binding restores Classic default in visible multiplayer choice");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && Text("offline_rule13_label") == "MOVEMENT // MOMENTUM"
+            && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && Text("offline_rule13_label") == "MOVEMENT // CLASSIC"
+            && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 12)
+            && controller.Dispatch(RmlUiIntentKind.OfflineDamage)
+            && controller.OfflineRuleInputs?.MovementModel == "Momentum"
+            && services.OfflineRules?.MovementModel == "Native" && services.OfflineRulesSaveAttempts == 0,
+            "both movement cycles and unrelated draft edits stay private before Apply");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineCancelRules)
+            && services.OfflineRules?.MovementModel == "Native", "Cancel preserves authoritative saved Classic");
+        controller.Dispatch(RmlUiIntentKind.OfflineOpenRules);
+        controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13);
+        controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 10);
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineApplyRules, offlinePoints: "7", offlineLimit: "7:00", offlineGoal: "3:00")
+            && Text("offline_rules_error").Contains("Momentum") && services.OfflineRulesSaveAttempts == 0
+            && controller.OfflineRuleInputs?.MovementModel == "Momentum",
+            "incompatible Balanced Momentum shows validator error and reaches no persistence");
+        controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 10);
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineApplyRules, offlinePoints: "7", offlineLimit: "7:00", offlineGoal: "3:00")
+            && services.OfflineRules?.MovementModel == "Momentum" && services.OfflineRulesSaves == 1,
+            "explicit corrected Momentum selection persists once");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 0)
+            && controller.Dispatch(RmlUiIntentKind.OfflineChoice, 1)
+            && controller.Dispatch(RmlUiIntentKind.OfflineChoice, 2)
+            && controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
+            && Text("offline_rule13_label") == "MOVEMENT // MOMENTUM",
+            "map mode and format edits preserve persisted movement on reopening");
+        controller.Dispatch(RmlUiIntentKind.OfflineCancelRules);
+        services.OfflineRules = services.OfflineRules!.Value with { MovementModel = "unknown" };
+        int attempts = services.OfflineRulesSaveAttempts;
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
+            && Text("offline_rule13_label") == "MOVEMENT // UNSUPPORTED"
+            && !controller.Dispatch(RmlUiIntentKind.OfflineApplyRules, offlinePoints: "7", offlineLimit: "7:00", offlineGoal: "3:00")
+            && services.OfflineRulesSaveAttempts == attempts && services.OfflineRules?.MovementModel == "unknown",
+            "unknown saved model displays Unsupported and fails Apply without automatic repair");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && Text("offline_rule13_label") == "MOVEMENT // CLASSIC"
+            && controller.Dispatch(RmlUiIntentKind.OfflineApplyRules, offlinePoints: "7", offlineLimit: "7:00", offlineGoal: "3:00")
+            && services.OfflineRules?.MovementModel == "Native",
+            "explicit movement click repairs unknown saved value to Classic before saving");
+        services.OfflineRules = services.OfflineRules!.Value with { MovementModel = "Momentum" };
+        using var reloaded = new RmlUiMenuController(services);
+        Check(reloaded.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+            && reloaded.Dispatch(RmlUiIntentKind.OfflineOpenRules)
+            && reloaded.Tick().Bindings.TryGetValue("offline_rule13_label", out var label)
+            && label.Text == "MOVEMENT // MOMENTUM", "controller reload rehydrates saved movement display");
     }
 
     private static void Check(bool pass, string message)

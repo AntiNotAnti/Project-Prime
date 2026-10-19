@@ -176,6 +176,7 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
                 ? "STARTING MATCH // WAITING FOR SERVER"
                 : !rulesReady ? startReason.ToUpperInvariant()
                 : "READY TO DEPLOY";
+        status += " // MOVEMENT: " + Movement.MovementModelRules.DisplayName(session.Match.MovementModel).ToUpperInvariant();
 
         return new(true, session.Phase == SessionPhase.Starting, owner, session.RequireReady,
             localReady, canReady, canStart, "MULTIPLAYER LOBBY",

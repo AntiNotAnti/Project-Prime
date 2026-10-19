@@ -20,6 +20,7 @@ void RejectOtherThread(Action action, string message)
 }
 
 Check(!DemoPlayback.IsActive, "fixture starts without a replay session");
+Check(DemoPlayback.MovementLabel == "Unknown", "inactive playback movement label has no recorded authority");
 var playbackDocument = System.Xml.Linq.XDocument.Load(Path.Combine(AppContext.BaseDirectory, "playback.rml"));
 var studioButton = playbackDocument.Descendants("button").Single(element => (string?)element.Attribute("id") == "replay_studio");
 Check((string?)studioButton.Attribute("data-action") == "replay:studio"

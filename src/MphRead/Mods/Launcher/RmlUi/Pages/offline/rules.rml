@@ -23,6 +23,8 @@
                 <button id="offline_rule_4" class="offline_action" data-action="offline:rule:4" data-prime-text="{{offline_rule4_label}}" />
                 <button id="offline_rule_11" class="offline_action" data-action="offline:rule:11" data-prime-text="{{offline_rule11_label}}" />
                 <button id="offline_rule_12" class="offline_action" data-action="offline:rule:12" data-prime-text="{{offline_rule12_label}}" />
+                <button id="offline_rule_13" class="offline_action" data-action="offline:rule:13" data-prime-text="{{offline_rule13_label}}" data-prime-visible="offline_movement_visible" />
+                <p id="offline_movement_help" data-prime-visible="offline_movement_visible">Momentum: air-strafing and bunny-hop momentum. Alternate-form abilities stay native.</p>
             </div>
             <div class="offline_panel">
                 <button id="offline_rule_10" class="offline_action" data-action="offline:rule:10" data-prime-text="{{offline_rule10_label}}" />

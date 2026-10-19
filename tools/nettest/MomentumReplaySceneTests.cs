@@ -212,6 +212,9 @@ internal static class MomentumReplaySceneTests
     private static void CheckMode(PassiveReplayScene replay, MovementModel expected, string operation)
     {
         Require(replay.Scene.GameState.MovementModel == expected, operation + ": explicit recorded movement model preserved");
+        Require(replay.Session.Metadata?.RecordedMovementModel == expected
+            && replay.Session.Metadata.MovementLabel == MovementModelRules.DisplayName(expected),
+            operation + ": metadata label follows recorded rules across playback and seeks");
         Require(replay.Scene.Services.IsReplica && !replay.Scene.MomentumMovementActive && replay.Scene.DeveloperMomentumSteps == 0,
             operation + ": private replica never reruns an active horizontal adapter");
         Require(!NetSession.Active && !DemoPlayback.IsActive, operation + ": private reader never opens live/global playback ownership");

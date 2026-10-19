@@ -15,12 +15,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         // These are authored DOM IDs, not publisher model keys. Apply after projection so
         // periodic desktop publishers cannot reveal controls the local host cannot serve.
-        private static readonly string[] UnsupportedShellElements = { "nav_community", "nav_studio", "profile", "header_settings" };
+        private static readonly string[] UnsupportedShellElements = { "nav_hunters", "nav_theatre", "nav_community", "nav_studio", "profile", "header_settings", "build_version" };
         private static readonly string[] UnsupportedHomeElements =
         {
             "drawer_browser", "drawer_training", "drawer_adventure",
             "home_drawer_multiplayer", "home_drawer_training", "home_drawer_adventure",
-            "home_feature_rail", "home_social", "home_social_summary", "home_social_rail"
+            "home_feature_rail", "home_social", "home_party_slot2", "home_party_slot3", "home_social_summary", "home_social_rail"
         };
         private static readonly string[] UnsupportedOfflineElements = { "offline_training_panel", "offline_rules_open" };
         private static readonly string[] UnsupportedArenaElements = { "offline_arena_search", "offline_arena_search_apply" };

@@ -616,3 +616,8 @@ min-width: 62dp; font-size: 7dp;
 
 /* Leave room for the real preview caption above the footer. */
 #lobby_left_panels { bottom: 32dp; }
+
+/* The wide action strip has transparent space beside its buttons. Let the
+   scrollable rules rail remain clickable through that unused space. */
+#lobby_actions { pointer-events: none; }
+#lobby_actions > button { pointer-events: auto; }

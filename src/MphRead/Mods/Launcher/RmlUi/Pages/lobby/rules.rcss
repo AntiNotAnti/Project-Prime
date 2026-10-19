@@ -219,7 +219,7 @@ nav-up: #rules_mode_next; nav-down: #rules_time;
 }
 
 #rules_apply {
-nav-left: #rules_cancel; nav-up: #rules_toggle16;
+nav-left: #rules_cancel; nav-up: #rules_toggle17;
 }
 
 #rules_cancel {
@@ -303,5 +303,9 @@ height: 34dp; bottom: 8dp;
 
 .rules_toggle .rules_label { display: block; flex: 1; margin-left: 0dp; color: #dcebf7; font-family: Rajdhani; font-size: 12dp; line-height: 16dp; }
 .rules_toggle { min-height: 40dp; }
+.rules_movement_help { color: #a9c3d5; font-size: 11dp; line-height: 14dp; margin-top: 4dp; }
 .rules_columns { position: absolute; top: 78dp; bottom: 110dp; left: 18dp; right: 18dp; width: auto; min-height: 0dp; overflow-y: auto; }
 @media (max-width: 800dp) { .rules_columns { display: block; } .rules_main { width: 100%; border-right: 0dp; padding-right: 0dp; } .rules_flags { padding: 18dp 0dp; } }
+
+/* A modal needs a full readable scroll area on short framebuffers. */
+@media (max-height: 480dp) { #lobby_rules_modal { top: 0dp; bottom: 0dp; } }

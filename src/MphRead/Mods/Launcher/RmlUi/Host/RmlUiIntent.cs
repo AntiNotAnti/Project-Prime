@@ -168,6 +168,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     /// <summary>One registry for the versioned ABI and the transitional string buttons.</summary>
     public static class RmlUiIntentRegistry
     {
+        public const int LobbyRuleChoiceCount = 18;
+        public const int OfflineRuleChoiceCount = 14;
+
         public static int ReplayActionCount => ReplayActions.Length;
         public const uint ProtocolVersion = 1;
         public const uint NativeIntentSize = 40;
@@ -329,7 +332,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.LobbyMapSelect => argument is >= 0 and < 6,
             RmlUiIntentKind.LobbyMapCategory => argument is >= 0 and < 5,
             RmlUiIntentKind.PlayServer => argument is >= 0 and < 8,
-            RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < 16,
+            RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < LobbyRuleChoiceCount,
             RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => argument is >= 0 and < 8,
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
             RmlUiIntentKind.HunterSuit => argument is >= 0 and < 4,
@@ -338,7 +341,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.SettingsCategory => argument is >= 0 and < 13,
             RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => argument is >= 1 and < 4,
             RmlUiIntentKind.OfflineChoice => argument is >= 0 and < 16,
-            RmlUiIntentKind.OfflineRuleToggle => argument is >= 0 and < 12,
+            RmlUiIntentKind.OfflineRuleToggle => argument is >= 0 and < OfflineRuleChoiceCount,
             RmlUiIntentKind.OfflineTrainingToggle => argument is >= 0 and < 5,
             RmlUiIntentKind.HunterRotate => argument is >= 0 and < 2,
             RmlUiIntentKind.LobbyTeamSelect => argument is >= 0 and < 4,
@@ -391,7 +394,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.PlayQueueAction, argument, document, sequence);
             else if (TryIndex(action, "play:server:", 8, out argument))
                 intent = new(RmlUiIntentKind.PlayServer, argument, document, sequence);
-            else if (TryIndex(action, "lobby:rules-toggle:", 16, out argument))
+            else if (TryIndex(action, "lobby:rules-toggle:", LobbyRuleChoiceCount, out argument))
                 intent = new(RmlUiIntentKind.LobbyRulesToggle, argument, document, sequence);
             else if (TryIndex(action, "lobby:map-category:", 5, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.LobbyMapCategory, argument, document, sequence);
@@ -417,7 +420,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.AdventureCopyDestination, argument, document, sequence);
             else if (TryIndex(action, "offline:choice:", 16, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineChoice, argument, document, sequence);
-            else if (TryIndex(action, "offline:rule:", 12, out argument) && argument >= 0)
+            else if (TryIndex(action, "offline:rule:", OfflineRuleChoiceCount, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineRuleToggle, argument, document, sequence);
             else if (TryIndex(action, "offline:training-toggle:", 5, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineTrainingToggle, argument, document, sequence);

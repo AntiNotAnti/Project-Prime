@@ -40,6 +40,19 @@ internal static class OfflineRulesGlAcceptance
             && host.ReadField(modal, "offline_time_limit") == "7:00"
             && host.ReadField(modal, "offline_time_goal") == "3:00",
             "actual native rules modal receives controller field seeds");
+        Check(RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 12)
+            && RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 14), "offline native action codec bounds retain Third Person and Movement only");
+        Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // CLASSIC", "native modal seeds Classic movement label");
+        Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13);
+        Check(controller.OfflineRuleInputs?.MovementModel == "Momentum" && services.Rules.MovementModel == "Native", "native pointer selects Momentum in draft only");
+        Capture("momentum-draft", atOrigin: false);
+        Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13, keyboard: true);
+        Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // CLASSIC", "focused native Enter selects Classic");
+        Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13);
+        Click("offline_rule_12", RmlUiIntentKind.OfflineRuleToggle, 12);
+        Click("offline_rule_12", RmlUiIntentKind.OfflineRuleToggle, 12, keyboard: true);
+        Check(controller.OfflineRuleInputs?.Enabled(12) == false && controller.OfflineRuleInputs?.MovementModel == "Momentum", "Third Person bound12 remains independent of Movement13");
         Capture("rules");
         Click("offline_rule_8", RmlUiIntentKind.OfflineRuleToggle, 8);
         Click("offline_damage_value", RmlUiIntentKind.OfflineDamage);
@@ -60,17 +73,20 @@ internal static class OfflineRulesGlAcceptance
         Click("offline_rules_apply", RmlUiIntentKind.OfflineApplyRules);
         Check(manager.ModalCount == 0 && !host.IsAlive(modal) && services.Saves == 1
             && services.Rules.PointGoal == "12" && services.Rules.TimeLimit == "8:20"
-            && services.Rules.Enabled(8), "native Apply commits the fake store exactly once and retires its modal");
+            && services.Rules.Enabled(8) && services.Rules.MovementModel == "Momentum", "native Apply commits the fake store exactly once and retires its modal");
         Capture("applied-offline");
         Check(!layout.HandleIntent(new(RmlUiIntentKind.OfflineApplyRules, 0, modal, ulong.MaxValue), out _)
             && services.Saves == 1, "retired native rules document cannot repeat Apply");
         Click("offline_rules_open", RmlUiIntentKind.OfflineOpenRules);
         Check(manager.Top != modal && host.ReadField(manager.Top, "offline_point_goal") == "12",
             "reopened native rules use newly committed field seeds");
+        Check(controller.OfflineRuleInputs?.MovementModel == "Momentum"
+            && controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // MOMENTUM", "reopened modal reads saved Momentum");
+        Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13, keyboard: true);
         Click("offline_rule_6", RmlUiIntentKind.OfflineRuleToggle, 6);
         Click("offline_rules_cancel", RmlUiIntentKind.OfflineCancelRules);
         Check(manager.ModalCount == 0 && services.Saves == 1 && !services.Rules.Enabled(6)
-            && layout.ReadField("offline_point_goal") == "",
+            && services.Rules.MovementModel == "Momentum" && layout.ReadField("offline_point_goal") == "",
             "actual Cancel click discards the edit and clears retired field cache");
         Click("offline_rules_open", RmlUiIntentKind.OfflineOpenRules);
         Check(controller.OfflineRuleInputs?.Enabled(6) == false
@@ -132,7 +148,7 @@ internal static class OfflineRulesGlAcceptance
             Frame();
         }
 
-        void Click(string id, RmlUiIntentKind kind, int argument = 0, bool expectedAccepted = true)
+        void Click(string id, RmlUiIntentKind kind, int argument = 0, bool expectedAccepted = true, bool keyboard = false)
         {
             Frame();
             var document = manager.Top;
@@ -143,8 +159,16 @@ internal static class OfflineRulesGlAcceptance
             double px = x + w / 2, py = y + h / 2;
             Check(px >= 0 && px < width && py >= 0 && py < height,
                 "native control is reachable inside framebuffer " + id);
-            host.Input.PointerButton(0, px, py, true);
-            host.Input.PointerButton(0, px, py, false);
+            if (keyboard)
+            {
+                Check(host.FocusedElement() == id, "actual native keyboard focus remains on " + id);
+                host.Input.Key(2, true); host.Input.Key(2, false);
+            }
+            else
+            {
+                host.Input.PointerButton(0, px, py, true);
+                host.Input.PointerButton(0, px, py, false);
+            }
             host.Update();
             bool received = false;
             while (host.TryTakeIntent(out var raw))
@@ -153,7 +177,7 @@ internal static class OfflineRulesGlAcceptance
                 bool accepted = Dispatch(forwarded);
                 if (forwarded.Kind != kind || forwarded.Argument != argument) continue;
                 Check(accepted == expectedAccepted && forwarded.Document == document,
-                    "true native pointer click dispatches " + id);
+                    "true native " + (keyboard ? "Enter" : "pointer") + " dispatches " + id);
                 Check(layout.HandleIntent(raw, out var duplicate) && duplicate == default,
                     "duplicate foreground native sequence rejected " + id);
                 received = true;

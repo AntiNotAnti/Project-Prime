@@ -21,6 +21,25 @@ default, with bounded retention.
 ProjectPrimeServer.exe -server -port 27888 -players 8 -servername "My server"
 ```
 
+## Movement rules
+
+Classic (the `Native` configuration value) remains the default. An operator can
+opt in a standalone game server with `-server -movement Momentum`; use
+`-movement Native`, or omit the option, for original Hunter movement. Unknown
+values are refused. This option does not change master/allocator policy.
+
+In an editable lobby, its owner can choose **Movement: Classic / Momentum** in
+Match Rules and apply the draft. The server validates the change before start;
+guests see the effective choice and cannot apply it. The choice freezes when
+the match starts and is retained in session/replay facts. Roll back by selecting
+Classic before the next start, or restarting a standalone server with Native.
+
+Momentum changes ordinary biped acceleration, air-strafing and manual bunny-hop
+momentum. Native jumps, alternate forms and abilities remain native. Balanced
+and Enhanced Hunter variants cannot be combined with Momentum. It remains an
+experimental opt-in while the final platform, combat and performance matrix is
+being completed; see [movement modes](docs/movement/movement-modes.md).
+
 ## Game files are required
 
 **This changed, and it is a breaking change.** A server used to be a relay: the

@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _startDetail;
         private readonly ScrollViewer _chatHistory;
         private readonly ChoiceRow _hunter, _suit, _team, _mode, _format;
-        private readonly ChoiceRow _target, _handicap;
+        private readonly ChoiceRow _target, _handicap, _movement;
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
@@ -90,13 +90,12 @@ namespace MphRead.Mods.Launcher.Gui
         private double _nextPingRefresh;
         private LobbyRuleFlags _shownRules;
         private string _draftRoom = "";
-        // No editor control yet: preserve the authoritative choice through
-        // unrelated legacy lobby edits instead of reconstructing Native.
-        private Movement.MovementModel _movementModel;
         private string _teamChoiceKey = "";
         private TeamLayout _customLayout = new(2, 2, 2);
         private bool _syncing, _suspended, _closed, _draftDirty, _closingLobby, _startAfterSave, _matchRequestIssued;
-        private bool _saveFailed, _goalCustomized;
+        private bool _saveFailed, _goalCustomized, _movementDirty;
+        private ulong? _movementEpoch;
+        private ushort _movementMatchId;
         private GameMode _goalMode = GameMode.Battle;
         private uint _draftVersion, _submittedDraftVersion;
         private double _draftChangedAt;
@@ -125,6 +124,14 @@ namespace MphRead.Mods.Launcher.Gui
             _map.Clicked += (_, _) => OpenMapPicker();
             _mode = new ChoiceRow("Game type", _gameTypes.Select(m => m.Label).ToArray());
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
+            _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum" });
+            ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum; alt-form abilities stay native.");
+            _movement.Changed += (_, _) =>
+            {
+                if (_syncing) return;
+                _movementDirty = true;
+                DraftChanged();
+            };
             _mode.Changed += (_, _) => MatchChoiceChanged(resetGoal: true);
             _format.Changed += (_, _) => MatchChoiceChanged(resetGoal: false);
 
@@ -203,7 +210,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return section;
             }
             var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams, _thirdPersonCamera);
-            var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _freeze, _opponentHealth,
+            var gameplayRules = RuleSection("GAMEPLAY", _movement, _fire, _affinity, _freeze, _opponentHealth,
                 _disablePowerups, _spawnProtection, _octolithAutoReset);
             var advancedRules = RuleSection("ADVANCED", _balancedMode, _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist);
 
@@ -686,8 +693,19 @@ namespace MphRead.Mods.Launcher.Gui
         private void Refresh()
         {
             if (NetSession.ServerSession is not { } session) return;
+            bool movementAcknowledged = _submittedMatch is { } pending
+                && session.Match == pending && session.RuleFlags == _submittedRules;
+            bool movementSessionChanged = _movementEpoch != session.AuthorityEpoch || _movementMatchId != session.MatchId;
+            bool movementReset = _shownMatch is { } shown && shown.MovementModel != session.Match.MovementModel
+                && !movementAcknowledged && _submittedMatch == null;
             AcceptSubmittedRules(session);
             _syncing = true;
+            if (movementSessionChanged || movementReset || !NetSession.CanEditLobby)
+                _movementDirty = false;
+            if (!_movementDirty)
+                _movement.Index = session.Match.MovementModel == Movement.MovementModel.Momentum ? 1 : 0;
+            _movementEpoch = session.AuthorityEpoch;
+            _movementMatchId = session.MatchId;
             RefreshHunterChoices(_draftDirty && NetSession.CanEditLobby ? _lowTier.On : session.Match.LowTier);
             _suit.Index = NetSession.LocalColor;
             RosterPacket roster = NetSession.LobbyRoster();
@@ -788,7 +806,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _noImperialist.On = session.Match.NoImperialist;
                 _balancedMode.On = session.Match.BalancedMode;
                 _thirdPersonCamera.On = session.Match.ThirdPersonCamera;
-                _movementModel = session.Match.MovementModel;
                 _octolithAutoReset.On = session.Match.OctolithAutoReset;
                 _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(session.Match.Mode);
                 _requireReady.On = session.RequireReady;
@@ -887,6 +904,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (session.Match.ModifierSummary.Length > 0)
                 _status.Text = session.Match.ModifierSummary + " · " + _status.Text;
+            _status.Text = "Movement: " + Movement.MovementModelRules.DisplayName(session.Match.MovementModel) + " · " + _status.Text;
             if (NetSession.MatchContainsBots || Enumerable.Range(0, roster.Count).Any(roster.IsBot))
                 _status.Text = "PRACTICE · BOTS USED — Hunter License progression disabled. " + _status.Text;
             if (_chatRevision != NetChat.Revision)
@@ -1155,7 +1173,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RoomKey = _draftRoom,
                 Mode = mode,
                 Format = format,
-                MovementModel = _movementModel,
+                MovementModel = _movement.Index == 1 ? Movement.MovementModel.Momentum : Movement.MovementModel.Native,
                 CustomTeams = _customLayout
             };
         }
@@ -1329,7 +1347,10 @@ namespace MphRead.Mods.Launcher.Gui
             // produced this authoritative state; otherwise the newer edit is
             // still waiting to be saved.
             if (_submittedDraftVersion == _draftVersion)
+            {
                 _draftDirty = false;
+                _movementDirty = false;
+            }
         }
 
         private void OpenMapPicker()
