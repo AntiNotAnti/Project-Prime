@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "slice": "NCX-02",
+  "status": "IN_PROGRESS_UDP_ACCEPTANCE",
+  "sourceCommit": "4284731bdde88f67c8832d2dfd4334b3d0e0fcf2",
+  "integrationMain": "64894cd4558f5869a7968e02e9594c897d338c3e",
+  "codeInputsSha256": "7070d503e94228384a9446eb93bfc6820f93ac361fdd12af2fe54d5007fd55e6",
+  "engineSha256": "1852fd39e31080781f4d3fc7b45461bc207b200174e63259cc4f7781503c95c5",
+  "protocol": 59,
+  "sourceClosure": "artifacts/ncx/NCX-02/source-05.json",
+  "build": {
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0,
+    "logSha256": "93810d2aad47b51576a5fe78d5c9c422ac52b8b42a91fb9a661778f2979f1b9e"
+  },
+  "checks": {
+    "priorFullRoutes": 41,
+    "priorFullSource": "a4ce44a07bbde146e48591637bd12231ae07beea",
+    "finalAffectedRouteCount": 8,
+    "finalAffectedStatus": "PASS",
+    "receiptAssertionsPerMode": 698,
+    "arbitrationAssertionsPerMode": 1157,
+    "continuousAssertionsPerMode": 667,
+    "customAssertionsPerMode": 156,
+    "finalManifest": "qualification-results-05.json",
+    "finalManifestSha256": "492037b3665a379159a207086fe7083d4570b9119bd6a12fa0576af623557167",
+    "pythonExporterTests": 51,
+    "comparatorTests": 23
+  },
+  "nativeFidelity": {
+    "engineExit": 1,
+    "scope": "Characterized baseline failure only; no regenerated goldens",
+    "passingCases": 46,
+    "allPassingHashesMatchNcx00": true,
+    "divergences": [
+      "weapon.missile.splash, tick 177, victim.position4096.z: expected 52814, actual 52815"
+    ]
+  },
+  "receiptIdentity": {
+    "canonical": "ShotPaymentKey full source/victim/component/kind plus continuous Phase; discrete Phase=0",
+    "continuousTransaction": "Existing owner-tick exclusive damage/heal ledger retained; phase not replaced with emittedShotId",
+    "terminalCapacityPerShooter": 4096,
+    "deliveryWindowFrames": 424,
+    "claimIdReorderWindow": 128,
+    "exhaustion": "Retain every pinned reply; exact capacity refusal; require complete quiet delivery window before new admission",
+    "outboxRetirements": [
+      "Delivered",
+      "TimedOut",
+      "CapacityEvicted",
+      "LifeRetired",
+      "OccupantRetired",
+      "MatchRetired",
+      "SessionRetired"
+    ],
+    "oldLifeAck": "Cancelled receipts cannot apply old health/effects/death to new body",
+    "authorityPendingCancelledCounter": "Bulk match/session only; life/occupant pending exits use explicit WrongLife terminal"
+  },
+  "retainedFailures": [
+    {
+      "record": "build-01.log",
+      "status": "FAIL",
+      "reason": "Test-only int-to-uint conversion; corrected before later builds"
+    },
+    {
+      "record": "continuous-combat-scene-02.log",
+      "status": "FAIL",
+      "reason": "Malformed ShockCoil claim must allocate no receipt. Original early rejection restored with exact response correlation."
+    },
+    {
+      "record": "udp-static-lan-04",
+      "status": "FAIL",
+      "receiptAccounting": "PASS",
+      "reason": "Headless observer inherited trigger requirement; replaced with existing no-fire lifecycle/source evidence guard.78declared/delivered receipts remain verified."
+    }
+  ],
+  "sourceChangesAfter04": [
+    "Only opt-in headless NCX observer harness criterion in NetCheckSimulation.cs; combat/payment logic unchanged"
+  ],
+  "liveSettlementRemediation": {
+    "original": "docs/netcode2-n13.md",
+    "status": "INCOMPLETE",
+    "limits": "NCX campaigns are receipt controls, not equivalent original N13 settlement/performance workload"
+  },
+  "noNewGameplayDefaults": true,
+  "movementOwnership": "Owner reported; unchanged",
+  "performanceOrSuperiorityClaim": false,
+  "rawArtifacts": "Ignored artifacts/ncx/NCX-02; retained failures not overwritten"
+}
