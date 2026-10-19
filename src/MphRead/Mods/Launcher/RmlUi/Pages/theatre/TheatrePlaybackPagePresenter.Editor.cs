@@ -23,6 +23,7 @@ public sealed partial class TheatrePlaybackPagePresenter
         bool confirmation=_editorConfirmation!=default&&intent.Document==_editorConfirmation
             &&action is TheatrePlaybackAction.EditorConfirm or TheatrePlaybackAction.EditorCancel;
         bool editing=_editorConfirmation==default&&_editorModal!=default&&intent.Document==_editorModal
+            &&(!WorkspaceMode||_workspaceTab=="markers")
             &&intent.Argument>=(int)TheatrePlaybackAction.EditorRefresh&&intent.Argument<=(int)TheatrePlaybackAction.EditorToggleShotRays
             &&action is not(TheatrePlaybackAction.EditorConfirm or TheatrePlaybackAction.EditorCancel);
         if((!opening&&!confirmation&&!editing)||!_pages.Accept(intent))return false;
