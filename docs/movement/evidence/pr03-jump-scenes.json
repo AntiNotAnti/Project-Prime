@@ -1,0 +1,2266 @@
+{
+  "checks": 187405,
+  "scope": "asset-backed offline CPU keyboard/input/collision; headless Roam with native intro skip; synthetic fixed-step host scheduling only; no physical device/render/bot/network acceptance",
+  "profileVersion": 1,
+  "groundSpeed": 7.199707,
+  "retentionMultiplier": 1.5,
+  "conditions": {
+    "room": "MP3 PROVING GROUND",
+    "simulationHz": 60,
+    "intro": "native End after keyboard shoot-to-spawn",
+    "landingPressPolicy": "tick numbers 1-based; before/on/after native collision landing; no production buffering",
+    "manualHopSchedule": "one-tick pulses every native firstLanding ticks (first step after previous collision landing)",
+    "movingHopSchedule": "W except jump ticks; first Space pulse tick49, subsequent one-tick pulses on first observed grounded step with previous Space released; each run follows actual collision contact",
+    "traversal": "W ticks1-120; D ticks61-180; S ticks181-220; Space ticks49,141",
+    "syntheticHostHz": [
+      30,
+      60,
+      90,
+      120,
+      144,
+      240
+    ]
+  },
+  "summaries": [
+    {
+      "hunter": "Samus",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "held-jump",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 174
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "press-before-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        64
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "press-on-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        65
+      ],
+      "classicAcceptedTicks": [
+        1
+      ],
+      "momentumAcceptedTicks": [
+        1
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 1,
+        "Airborne": 64,
+        "Landing": 1,
+        "Grounded": 114
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "press-after-landing",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 180,
+      "requestedPressTicks": [
+        1,
+        66
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 180,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 2,
+        "Airborne": 128,
+        "Landing": 1,
+        "Grounded": 49
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "manual-hop-chain",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        66,
+        131,
+        196,
+        261,
+        326,
+        391
+      ],
+      "classicLandingTick": 65,
+      "momentumLandingTick": 65,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 1.2875366,
+      "momentumDisplacement": 1.2875366,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 7,
+        "Airborne": 393
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "space-jump-native",
+      "syntheticSpaceJumpAbility": true,
+      "ticks": 240,
+      "requestedPressTicks": [
+        1,
+        11,
+        21,
+        151
+      ],
+      "classicAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "momentumAcceptedTicks": [
+        1,
+        11,
+        151
+      ],
+      "classicLandingTick": 81,
+      "momentumLandingTick": 81,
+      "classicApexRise": 3.6034546,
+      "momentumApexRise": 3.6034546,
+      "classicDisplacement": 0,
+      "momentumDisplacement": 0,
+      "classicMaximumPlanarSpeed": 0,
+      "momentumMaximumPlanarSpeed": 0,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "LegalJump": 3,
+        "Airborne": 143,
+        "Landing": 2,
+        "Grounded": 92
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "forward-diagonal-reversal-air-traversal",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 240,
+      "requestedPressTicks": [
+        49,
+        141
+      ],
+      "classicAcceptedTicks": [
+        49,
+        141
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        141
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 3.1861386,
+      "momentumApexRise": 2.765625,
+      "classicDisplacement": 6.0182667,
+      "momentumDisplacement": 15.957648,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.2597685,
+      "SolverSteps": 240,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 0,
+      "NeutralGroundBrakingSteps": 6,
+      "Phases": {
+        "Grounded": 58,
+        "LegalJump": 2,
+        "Airborne": 176,
+        "Landing": 4
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "moving-hop-retention",
+      "syntheticSpaceJumpAbility": false,
+      "ticks": 400,
+      "requestedPressTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "momentumAcceptedTicks": [
+        49,
+        114,
+        179,
+        244,
+        309,
+        374
+      ],
+      "classicLandingTick": 113,
+      "momentumLandingTick": 113,
+      "classicApexRise": 2.4658203,
+      "momentumApexRise": 2.4658203,
+      "classicDisplacement": 41.23543,
+      "momentumDisplacement": 40.717407,
+      "classicMaximumPlanarSpeed": 7.1997075,
+      "momentumMaximumPlanarSpeed": 7.1997075,
+      "SolverSteps": 400,
+      "LimitedSteps": 0,
+      "MovingLegalJumps": 6,
+      "NeutralGroundBrakingSteps": 0,
+      "Phases": {
+        "Grounded": 48,
+        "LegalJump": 6,
+        "Airborne": 346
+      }
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "native-calibration",
+      "FirstLanding": 65,
+      "ApexRise": 2.4658203,
+      "apexTick": 32,
+      "maximumVerticalSpeed": 0.2998047,
+      "acceptedTicks": [
+        1
+      ]
+    }
+  ]
+}

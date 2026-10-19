@@ -1,5 +1,14 @@
 # Momentum PR-00: audit and design lock
 
+**Latest integration refresh (PR-03):** the stack was rebased onto main
+`862acd4317667735df29df9668ba48d51bcdf98a` after #708 merged. Its render-only
+third-person rule uses modifier bit 14 / 16384, expands the session mask to 32767,
+and raises live protocol to **58**. Bit 15 / 32768 is currently free and fits
+`ushort RuleBits`; it is not reserved here. Recheck again before PR-05. Declared
+replay schema/hash versions are unchanged. Movement continues to use the native
+body/aim basis, never the offset render camera. Earlier observations below are
+historical snapshots; see [PR-03 results](pr03-results.md) for refreshed validation.
+
 Audit date: 2026-10-19. Main was fetched from `AntiNotAnti/Project-Prime` and
 initially resolved to `dc7f097067d755ec76d145fc7cc333068566863d`. Work is isolated from the user's dirty
 `feature/rmlui-primary-ui` checkout. No game movement, collision, wire semantics

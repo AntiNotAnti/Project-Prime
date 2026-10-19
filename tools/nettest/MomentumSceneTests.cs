@@ -88,7 +88,7 @@ internal static class MomentumSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM SCENE FAIL " + ex); return 1; }
     }
 
-    private static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard)
+    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard)
     {
         Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
         keyboard = SyntheticInput.CreateKeyboard();
@@ -143,7 +143,7 @@ internal static class MomentumSceneTests
         catch { if (scene != null) Release(scene); throw; }
     }
 
-    private static void Release(Scene scene)
+    internal static void Release(Scene scene)
     {
         var commit = PostMatchCommitContext.Capture(scene.GameState, 0, SaveWhen.Never, 0);
         try { scene.DoCleanup(); }
@@ -179,7 +179,7 @@ internal static class MomentumSceneTests
                     Require(scene.LastMomentumStep.HasValue, "diagnostic sample accompanies solver invocation");
                     var sample = scene.LastMomentumStep!.Value;
                     Require(sample.Slot == player.SlotIndex && sample.SimulationFrame == frame, "solver sample belongs to current local simulation tick");
-                    Vector3 expected = MomentumMath.Step(new Vector3(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30), sample.Input, sample.Tuning);
+                    Vector3 expected = MomentumProfileV1.Step(new Vector3(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30), sample.Input).Velocity;
                     Near(sample.NativeVelocityAfter.X, expected.X / 30, "solver X adapter");
                     Near(sample.NativeVelocityAfter.Z, expected.Z / 30, "solver Z adapter");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y), "adapter preserves native Y bits");
