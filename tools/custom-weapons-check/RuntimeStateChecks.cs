@@ -32,6 +32,10 @@ internal static class RuntimeStateChecks
             && stale.TryReload(100,1) == WeaponActionResult.Duplicate,"stale reload ID stays denied");
         check(stale.TrySetOptic(99,1,1) == WeaponActionResult.StaleFrame
             && stale.TrySetOptic(100,1,1) == WeaponActionResult.Duplicate,"stale optic ID stays denied");
+        var rollback = Fresh(); var checkpoint = rollback.Snapshot(); rollback.TryFire(0,1,true);
+        rollback.CancelUnemittedFire(1,checkpoint);
+        check(rollback.Snapshot().Magazine == 4 && rollback.Snapshot().LastAcceptedShotId == 0
+            && rollback.TryFire(0,1,true) == WeaponActionResult.Duplicate,"unemitted rollback restores cost without reviving denied request");
         var reload = Fresh(); reload.TryFire(0,1,true);
         check(reload.TryReload(0,1) == WeaponActionResult.Accepted,"partial reload accepted");
         check(reload.Snapshot().Magazine == 3 && reload.Snapshot().Reserve == 16,"reload start grants nothing");

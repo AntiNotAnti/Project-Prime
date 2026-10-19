@@ -1916,7 +1916,7 @@ namespace MphRead.Entities
                 if (source.Type == EntityType.BeamProjectile)
                 {
                     beam = (BeamProjectileEntity)source;
-                    Effectiveness effectiveness = BeamEffectiveness[(int)beam.Beam];
+                    Effectiveness effectiveness = beam.ModCustomDefinition != null ? Effectiveness.Normal : BeamEffectiveness[(int)beam.Beam];
                     if (effectiveness == Effectiveness.Zero)
                     {
                         return;
@@ -2111,7 +2111,7 @@ namespace MphRead.Entities
                 damageKind: (byte)((beam?.EnhancedDirectHit == true ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
                     ? (uint)beam.ModContinuousPhase : 0);
-            if (flags.TestFlag(DamageFlags.Headshot))
+            if (flags.TestFlag(DamageFlags.Headshot) && beam?.ModCustomDefinition == null)
                 _scene.MatchEvents.Headshot(_scene, attacker, this, beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam, beam?.ModLaunchKey);
             // The last point at which the damage is final and the death has
             // not been decided: a hit this machine's own player has landed is
@@ -2247,10 +2247,14 @@ namespace MphRead.Entities
                 }
                 if (_scene.GameState.Multiplayer)
                 {
+                    // Custom offline impacts retain typed local facts; do not
+                    // mislabel them as an alternate/native weapon semantic event.
+                    if (beam?.ModCustomDefinition == null)
                     _scene.MatchEvents.Death(_scene, attacker, this,
                         beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
                         flags, beam?.ModLaunchKey ?? NetBurnSource.Current?.Key ?? (bomb != null ? bomb.ModOwnerKey : null), bomb != null, fromHalfturret);
-                    _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
+                    if (beam?.ModCustomDefinition == null)
+                        _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
                 }
                 _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
                 if (EnemySpawner != null)
@@ -2568,7 +2572,11 @@ namespace MphRead.Entities
                             {
                                 killedBy = _altAttackNames[(int)attacker.Hunter];
                             }
-                            else if (beamType <= BeamType.OmegaCannon)
+                            else if (beam?.ModCustomDefinition is { } customWeapon)
+                            {
+                                killedBy = customWeapon.Name;
+                            }
+                            else if (beamType >= BeamType.PowerBeam && beamType <= BeamType.OmegaCannon)
                             {
                                 killedBy = _weaponNames[(int)beamType];
                             }
@@ -2645,7 +2653,7 @@ namespace MphRead.Entities
                                 {
                                     _scene.GameState.KillsAsPrime[attacker.SlotIndex]++;
                                 }
-                                if (beamType <= BeamType.OmegaCannon)
+                                if (beamType >= BeamType.PowerBeam && beamType <= BeamType.OmegaCannon)
                                 {
                                     _scene.GameState.BeamKills[attacker.SlotIndex, (int)beamType]++;
                                     // todo: update license info
@@ -3144,7 +3152,7 @@ namespace MphRead.Entities
                     NetCampaignEvidence.Enabled ? Math.Max(0, combatTurretBefore - (Halfturret?.Health ?? 0)) : 0);
                 if (confirmedImpact is { } impact && combatSequence == replayDamageEventId)
                     NetConfirmedImpacts.Publish(impact);
-                if (beam != null)
+                if (beam != null && beam.ModCustomDefinition == null)
                     Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
             }
             if (continuousBeam?.Owner is PlayerEntity drainOwner)
