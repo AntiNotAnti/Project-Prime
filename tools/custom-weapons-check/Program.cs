@@ -118,5 +118,6 @@ Check(Weapons.WeaponsMP.Count == 18 && Weapons.Weapons1P.Count == 18
     && (sbyte)BeamType.Imperialist == 4 && (sbyte)BeamType.OmegaCannon == 8, "native shape remains fixed");
 MechanicsChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state checks (pure contracts; scene fixture requires --scene)");
+NetworkContractChecks.Run(Check);
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract checks (pure contracts; scene fixture requires --scene)");
 return 0;
