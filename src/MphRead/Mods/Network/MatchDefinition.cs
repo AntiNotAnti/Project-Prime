@@ -48,7 +48,7 @@ namespace MphRead.Mods.Network
         None = 0, FriendlyFire = 1, AffinityWeapons = 2, ShadowFreeze = 4,
         DisablePowerups = 8, SpawnProtection = 16, VanillaDuelResources = 32,
         InstaGib = 64, LowTier = 128, NoImperialist = 256, OctolithAutoReset = 512,
-        EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192
+        EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192, ThirdPersonCamera = 16384
     }
 
     public readonly record struct MatchDefinition
@@ -74,6 +74,8 @@ namespace MphRead.Mods.Network
         public bool LowTier { get; init; }
         public bool NoImperialist { get; init; }
         public bool BalancedMode { get; init; }
+        // Rendering-only choice, owned by the match host and shared with every client.
+        public bool ThirdPersonCamera { get; init; }
         public bool OctolithAutoReset { get; init; }
         public MatchDefinition NormalizeLegacy() => Mode == GameMode.InstaGib
             ? this with { Mode = GameMode.Battle, InstaGib = true }
@@ -101,6 +103,7 @@ namespace MphRead.Mods.Network
             state.LowTier = LowTier;
             state.NoImperialist = NoImperialist;
             state.BalancedMode = BalancedMode;
+            state.ThirdPersonCamera = ThirdPersonCamera;
             state.OctolithReset = OctolithAutoReset;
             state.ShadowFreeze = ShadowFreeze;
             state.SpawnProtection = SpawnProtection;
@@ -109,7 +112,7 @@ namespace MphRead.Mods.Network
         public string ModifierSummary => String.Join(" • ", new[] {
             Fiesta ? "Fiesta" : null, OneInTheChamber && Mode != GameMode.OneInTheChamber ? "One in the Chamber" : null, InstaGib ? "Insta-Gib" : null, LowTier ? "Low Tier" : null,
             NoImperialist ? "No Imp" : null,
-            BalancedMode ? "Balanced" : null }.Where(value => value != null));
+            BalancedMode ? "Balanced" : null, ThirdPersonCamera ? "Third person" : null }.Where(value => value != null));
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)
             | (AffinityWeapons ? MatchModifierFlags.AffinityWeapons : 0)
@@ -124,6 +127,7 @@ namespace MphRead.Mods.Network
             | (LowTier ? MatchModifierFlags.LowTier : 0)
             | (NoImperialist ? MatchModifierFlags.NoImperialist : 0)
             | (BalancedMode ? MatchModifierFlags.BalancedMode : 0)
+            | (ThirdPersonCamera ? MatchModifierFlags.ThirdPersonCamera : 0)
             | (OctolithAutoReset ? MatchModifierFlags.OctolithAutoReset : 0);
     }
 }
