@@ -1,0 +1,534 @@
+{
+  "schema": 1,
+  "slice": "NCX-00",
+  "date": "2026-10-19",
+  "status": "AUDIT_COMPLETE_WITH_CHARACTERIZED_BASELINE_FAILURE_AND_UNRUN_RELEASE_GATES",
+  "prime": {
+    "repository": "AntiNotAnti/Project-Prime",
+    "ref": "main",
+    "testedSource": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+    "protocol": 59,
+    "productionChanges": false,
+    "openPullRequestsAtAudit": [],
+    "sourceFiles": 2284,
+    "sourceInventorySha256": "a457d3e30c9e2237d919668684366ea31125cbede63f7ce892b1765652330b87",
+    "sourceInventoryLog": "artifacts/ncx/NCX-00/source-sha256.json",
+    "assemblies": {
+      "src/MphRead/bin/Release/net10.0/ProjectPrime.dll": "1e4b8476117546caf18b74093131eba89c3025f9c9c46c201d26a5fd6571f9a8",
+      "tools/nettest/bin/Release/net10.0/nettest.dll": "792f37cad07e5ca280c3bd424d8d521b4e66b517d4e71799105ec50e2ebe7fc9"
+    },
+    "frozenBuild": "artifacts/ncx/baseline-prime",
+    "build": {
+      "configuration": "Release",
+      "command": [
+        "{dotnet}",
+        "build",
+        "tools/nettest/nettest.csproj",
+        "-c",
+        "Release",
+        "-p:UseSharedCompilation=false"
+      ],
+      "exitCode": 0,
+      "warnings": 0,
+      "errors": 0,
+      "seconds": 163.38,
+      "log": "build-release.log",
+      "logSha256": "76fa49694b9ef6ba5f888fc3d25db2dda672daa6cfd05ed59a37cdd728adc3f0"
+    }
+  },
+  "fruity": {
+    "repository": "liveteklol/Fruity-Prime",
+    "ref": "master",
+    "source": "12ff677b9700bc8dabde37eb9a3fdd10c62b87b6",
+    "protocol": 34,
+    "treeClean": true,
+    "binaryBaseline": "NOT_RUN",
+    "reason": "Qt 6.9+ development kit missing at audit; existing installed app has no current-head provenance",
+    "comparisonStatus": "UNVERIFIED",
+    "remoteDeathsRequireAuthority": true,
+    "humanClaimGrace": 0,
+    "allClaimsImmediate": false
+  },
+  "host": {
+    "os": "macOS 27.0.1",
+    "build": "26A434",
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "memoryBytes": 25769803776,
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "androidWorkload": "36.1.69/10.0.100; discovery only"
+  },
+  "assets": {
+    "key": "AMHE1",
+    "files": 3946,
+    "sha256": "1817a3729d3a2c4cd7da31b14ed80691743c6327681b4219c27a766c652e28b2",
+    "method": "SHA256(canonical sorted relative-path -> exact file SHA256 map); excludes symlinks"
+  },
+  "nativeGoldens": {
+    "storedTablesFixture": "docs/custom-weapons/evidence/CW-00-native-tables.json",
+    "storedTablesSha256": "d79b11cbaeacce31f3a48135e10576892433a531d9afb24d390b8e755c0a6f87",
+    "fidelityDirectory": "tools/fidelity-oracle/baselines",
+    "unchanged": true
+  },
+  "defaults": {
+    "acceptedShots": true,
+    "rewind": true,
+    "pressAge": true,
+    "historyFrames": 128,
+    "maximumRewindFrames": 45,
+    "claimGraceMinimumFrames": 24,
+    "claimGraceMaximumFrames": 72,
+    "claimMaximumSends": 6,
+    "predictionExpiryFrames": 60,
+    "terminalDeliveryMaximumAgeFrames": 424,
+    "hitPrediction": true,
+    "remotePredictedDeath": false,
+    "shotProof": "Shadow",
+    "timedGrantProof": "Off",
+    "confirmedImpacts": false,
+    "movementValidationShadow": false,
+    "combatFastPath": "NOT_IMPLEMENTED"
+  },
+  "referenceResults": [
+    {
+      "name": "architecture",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 1.678,
+      "log": "architecture.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--architecture"
+      ],
+      "logSha256": "8f0067de71cb36a2247c0bac48de08f495267c13833e488d2e04c04fb8bf918f"
+    },
+    {
+      "name": "protocol58-replay",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 1.351,
+      "log": "protocol58-replay.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--protocol58-replay"
+      ],
+      "logSha256": "0efa003fc70f508f56f62d0de1a5a43799754cbab94c319fb0cdb782bce4d43c"
+    },
+    {
+      "name": "shot-inputs",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "shot-inputs.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--shot-inputs"
+      ],
+      "logSha256": "aa090930940ace6c25300d4a167e34de30139ef28cd70d5d2a1ea36992305409"
+    },
+    {
+      "name": "shot-source-journal",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.741,
+      "log": "shot-source-journal.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--shot-source-journal"
+      ],
+      "logSha256": "2d833b65438a700003f13fb9cd5bea21cbf4d65340977538132d7da0b1feb369"
+    },
+    {
+      "name": "shot-lifecycle",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "shot-lifecycle.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--shot-lifecycle"
+      ],
+      "logSha256": "df6ee8fbd2339be1316d53c443895769db9c7e5793819b9dc1fcb0d25a4b245d"
+    },
+    {
+      "name": "weapon-policy",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 1.19,
+      "log": "weapon-policy.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--weapon-policy"
+      ],
+      "logSha256": "538847c17692cfe77c839b6302c7be2696b3f32ca40a826ff2ba64687d83ec97"
+    },
+    {
+      "name": "lagcomp-shadow",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.13,
+      "log": "lagcomp-shadow.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--lagcomp-shadow"
+      ],
+      "logSha256": "6fe1ffdef4e54387f92843283879fad2e6212030173324c76c5b172c3ee1feea"
+    },
+    {
+      "name": "dynamic-geometry",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.231,
+      "log": "dynamic-geometry.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--dynamic-geometry"
+      ],
+      "logSha256": "ad66363b93445c00c64cabcd5d5012879cb6c065181b695d71c8a8178bd15157"
+    },
+    {
+      "name": "native-impact-witness",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.128,
+      "log": "native-impact-witness.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--native-impact-witness"
+      ],
+      "logSha256": "ef220d8c7a3c9caabe0f3474e70b6257a3c0b02ed70c5480d40274c3f84536de"
+    },
+    {
+      "name": "netcode-performance",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 6.92,
+      "log": "netcode-performance.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--netcode-performance"
+      ],
+      "logSha256": "89e91782802347ecbe7afbe16aae1d4c830b7b88d45d1442f5efbc073b36f136"
+    },
+    {
+      "name": "queue-budget",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.984,
+      "log": "queue-budget.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--queue-budget"
+      ],
+      "logSha256": "1cb21e25fcdf464023f31f90422d64bb8822ba5a7d61e3f01252f89d2cd96e3b"
+    },
+    {
+      "name": "claim-stress",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 1.191,
+      "log": "claim-stress.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--claim-stress"
+      ],
+      "logSha256": "00affa515651184b6329f5ac1168ed30f4132fa6e259677cd7d0ffbdbfff846e"
+    },
+    {
+      "name": "transport-stress",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 9.285,
+      "log": "transport-stress.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--transport-stress"
+      ],
+      "logSha256": "84bace11285b398d12b2a59b6e9cb4f383de2e034573c6d7207a997134ab74ad"
+    },
+    {
+      "name": "confirmed-impacts",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.597,
+      "log": "confirmed-impacts.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--confirmed-impacts"
+      ],
+      "logSha256": "0c65cca457bb481fdaebc444087925b6405f9abae01c49656602be39f5b51cea"
+    },
+    {
+      "name": "combat-reconciliation",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.602,
+      "log": "combat-reconciliation.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--combat-reconciliation"
+      ],
+      "logSha256": "a9164b68e3ee98bd41b310cf58feb688064626dd9f7d8c9935fe39d823df03b1"
+    },
+    {
+      "name": "continuous-targets",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.531,
+      "log": "continuous-targets.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--continuous-targets"
+      ],
+      "logSha256": "aa62a548a4a36c1bc3d1a609f22045c00c119109633574abdce1b28971c1ff80"
+    },
+    {
+      "name": "continuous-snapshots",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.953,
+      "log": "continuous-snapshots.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--continuous-snapshots"
+      ],
+      "logSha256": "e29b0b87d5a8e9225bf998f760b187579b1ab73473d66790a50b0b6aa6a737f1"
+    },
+    {
+      "name": "continuous-healing-prediction",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 0.624,
+      "log": "continuous-healing-prediction.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--continuous-healing-prediction"
+      ],
+      "logSha256": "02551df564ad1af6bd8c0e6dd42e5ec0706926624ce3dc650f825e230be75d9f"
+    },
+    {
+      "name": "allocations",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 2.268,
+      "log": "allocations.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--allocations"
+      ],
+      "logSha256": "63cd688cb06fc218e5e3c741533bc39226f1eec597ee4066337287a7b7ae317b"
+    },
+    {
+      "name": "combat-arbitration-scene",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 4.23,
+      "log": "combat-arbitration-scene.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--combat-arbitration-scene",
+        "{repo}/artifacts/ncx/NCX-00/profiles/combat-arbitration-scene"
+      ],
+      "logSha256": "dc0482ed5d59c78fb4167bf16acde66d42d08312d8792d8d8cd998d70a6b8159"
+    },
+    {
+      "name": "continuous-combat-scene",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 7.3,
+      "log": "continuous-combat-scene.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--continuous-combat-scene",
+        "{repo}/artifacts/ncx/NCX-00/profiles/continuous-combat-scene"
+      ],
+      "logSha256": "7329c56de6dfc9c3edd551ac57832b3b3fbccef21abc911900a48c0d7e82cfd9"
+    },
+    {
+      "name": "impact-authority",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 3.063,
+      "log": "impact-authority.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/tools/nettest/bin/Release/net10.0/nettest.dll",
+        "--impact-authority",
+        "{repo}/artifacts/ncx/NCX-00/profiles/impact-authority"
+      ],
+      "logSha256": "64e82762e54152388182cc8cd6369fa7f66052e5e9f4dd7d492970b4ac99481c"
+    },
+    {
+      "name": "native-tables",
+      "result": "PASS",
+      "exitCode": 0,
+      "seconds": 9.737,
+      "log": "native-tables.log",
+      "command": [
+        "{dotnet}",
+        "run",
+        "--project",
+        "{repo}/tools/custom-weapons-baseline/snapshot.csproj",
+        "-c",
+        "Release",
+        "-p:BuildProjectReferences=false",
+        "-p:UseSharedCompilation=false",
+        "--",
+        "{repo}/docs/custom-weapons/evidence/CW-00-native-tables.json"
+      ],
+      "logSha256": "49617872920937b237dab09812e6f27c3397a621b095d2dbb4e64f28d18cd61a"
+    },
+    {
+      "name": "native-fidelity",
+      "result": "FAIL",
+      "exitCode": 1,
+      "seconds": 16.48,
+      "log": "native-fidelity.log",
+      "command": [
+        "{dotnet}",
+        "{repo}/src/MphRead/bin/Release/net10.0/ProjectPrime.dll",
+        "-fidelityoracle",
+        "verify",
+        "all",
+        "-allow-content",
+        "-baselines",
+        "{repo}/tools/fidelity-oracle/baselines"
+      ],
+      "logSha256": "f10f07a775391b99c7a0f855a178611e37014dd986dfe51ecee5f208aae8dc53",
+      "passingCases": 46,
+      "failure": "weapon.missile.splash tick 177 victim.position4096.z: expected 52814, actual 52815; same characterized CW-00/CW-03 baseline failure"
+    }
+  ],
+  "hostedCi": [
+    {
+      "conclusion": "",
+      "databaseId": 39317183349,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "Momentum math",
+      "status": "queued",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183349"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39317183866,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "campaign acceptance",
+      "status": "queued",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183866"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39317183454,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "cancel stale builds",
+      "status": "completed",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183454"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39317183609,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "semantic event foundation",
+      "status": "completed",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183609"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39317183386,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "build",
+      "status": "in_progress",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183386"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39317183614,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "scene ownership",
+      "status": "completed",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183614"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39317183353,
+      "headSha": "2f169d9d1e9eb0c1d2cb6edeb04837820a760a01",
+      "name": "Insta-Gib beam FX",
+      "status": "completed",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39317183353"
+    }
+  ],
+  "measurement": {
+    "kind": "Reference build plus focused content-free and asset-backed regression fixtures",
+    "networkWorkload": "NOT_RUN",
+    "warmup": null,
+    "measuredSteps": null,
+    "seed": "Declared separately by each committed fixture; no pooled gameplay workload",
+    "actualShots": null,
+    "actualClaims": null,
+    "actualPayments": null,
+    "renderedPixels": null,
+    "countsReason": "These tests use distinct fixture workloads; no campaign denominators inferred from assertion totals",
+    "processExits": "Each referenceResults entry records actual exit; no campaign clients launched",
+    "rawArtifacts": "artifacts/ncx/NCX-00/"
+  },
+  "knownUnresolved": [
+    {
+      "criterion": "native-fidelity",
+      "status": "FAIL",
+      "scope": "one prior fixed-unit missile splash position difference; 46 other cases pass"
+    },
+    {
+      "criterion": "N13 matched p99",
+      "status": "INCONCLUSIVE",
+      "source": "docs/netcode2-n13.md"
+    },
+    {
+      "criterion": "N13 live UDP settlement coverage",
+      "status": "INCOMPLETE",
+      "source": "docs/netcode2-n13.md"
+    },
+    {
+      "criterion": "Fruity paired binary and A/A baseline",
+      "status": "NOT_RUN"
+    },
+    {
+      "criterion": "independent legal-hit oracle and rendered victim/observer fidelity",
+      "status": "NOT_RUN"
+    },
+    {
+      "criterion": "Linux/Windows/Android physical device and high-refresh production acceptance",
+      "status": "NOT_RUN"
+    },
+    {
+      "criterion": "long soak / geographic WAN / public rollout",
+      "status": "NOT_RUN"
+    }
+  ],
+  "movementOwnership": "Owner-reported ordinary movement preserved; no new simulation, correction, rejection or movement-enforcement path",
+  "authority": "Dedicated server owns damage, health, death, effects, pickups, objectives, score and match consequences",
+  "securityLimit": "Owner-reported positions are not proof of physically reachable movement",
+  "rollback": "Documentation/manifest only; no gameplay feature, flag, protocol, replay or production migration",
+  "nextSlice": "NCX-01; no promotion of a fast-pay family from this audit"
+}
