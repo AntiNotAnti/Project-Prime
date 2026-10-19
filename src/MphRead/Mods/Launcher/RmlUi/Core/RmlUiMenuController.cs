@@ -2082,7 +2082,7 @@ public sealed class RmlUiMenuController : IDisposable
             Text("rules_goal_label", MphRead.Mods.Network.MatchGoalRules.UsesLives(rules.Draft.Match.Mode)
                 ? "SPARE LIVES" : MphRead.Mods.Network.MatchGoalRules.UsesTimeTarget(rules.Draft.Match.Mode)
                 ? "CONTROL TIME" : "SCORE GOAL");
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 17; i++)
                 Text("rules_toggle" + i, rules.IsOn(i) ? "ON" : "OFF");
         }
         // Fill the authored Lobby's actual fields rather than leaving empty
