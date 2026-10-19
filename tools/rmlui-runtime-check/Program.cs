@@ -68,6 +68,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.LobbyTeamSelect => 4,
         RmlUiIntentKind.HunterSelect => 7,
         RmlUiIntentKind.HunterSuit => 4,
+        RmlUiIntentKind.HunterBeamSelect or RmlUiIntentKind.HunterBeamColorSelect => 9,
         RmlUiIntentKind.HunterPreviewMode => 4,
         RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
@@ -77,6 +78,8 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1
     };
+    if (kind is RmlUiIntentKind.HunterBeamSelect or RmlUiIntentKind.HunterBeamColorSelect)
+        Require(!RmlUiIntentRegistry.IsValid(kind, -1), $"Negative selector argument accepted for {kind}");
     int first = kind is RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination ? 1 : 0;
     for (int index = 0; index < count; index++)
     {
