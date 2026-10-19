@@ -1,6 +1,7 @@
 using System;
 using MphRead.Mods.Render;
 using MphRead.Mods.Cosmetics;
+using MphRead.Mods.Sound;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
@@ -52,8 +53,16 @@ internal static class InstagibIonFractureTests
             Check(current >= 0 && current <= previous, "monotone fade " + step);
             previous = current;
         }
+        var waveIds = new System.Collections.Generic.HashSet<uint>();
         foreach (var beam in CosmeticCatalog.BeamEffects)
         {
+            byte[] pcm = InstagibBeamAudio.BuildWave(beam.Style);
+            Check(pcm.Length > 1024 && pcm.Length < 16000 && pcm[0] == 'R' && pcm[1] == 'I',
+                "authored short synthesis emits a bounded RIFF/WAV for each beam");
+            uint hash = 2166136261;
+            foreach (byte sample in pcm) hash = (hash ^ sample) * 16777619;
+            Check(waveIds.Add(hash), "all beam signatures are acoustically distinct by PCM");
+
             Check(beam.WireId == (ushort)beam.Style && beam.WireId < 16,
                 "style identity fits the reserved cosmetic nibble");
             for (byte tone = 0; tone < BeamPalette.Names.Count; tone++)

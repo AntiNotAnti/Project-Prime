@@ -56,13 +56,13 @@ namespace MphRead.Mods.Render
         private static bool Finite(Vector3 v) =>
             float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
-        internal void Add(Scene scene, Vector3 start, Vector3 end, int slot,
+        internal bool Add(Scene scene, Vector3 start, Vector3 end, int slot,
             uint shotId, uint launchFrame, BeamEffectDefinition? effect = null, byte tone = 0,
             bool hitPlayer = false)
         {
             if (!scene.GameState.Multiplayer || !scene.GameState.InstaGib
                 || !Finite(start) || !Finite(end) || (end - start).LengthSquared < 0.0025f)
-                return;
+                return false;
             float now = scene.ElapsedTime;
             if (now + 0.001f < _lastTime) Clear();
             _lastTime = now;
@@ -71,11 +71,11 @@ namespace MphRead.Mods.Render
                 Lance old = _active[i];
                 if (old.Slot != slot || now - old.Born > LifeSeconds) continue;
                 if (shotId != 0 && old.ShotId == shotId && old.LaunchFrame == launchFrame)
-                    return;
+                    return false;
                 if (shotId == 0 && old.ShotId == 0 && MathF.Abs(now - old.Born) < 1f / 120f
                     && (old.Start - start).LengthSquared < 0.01f
                     && (old.End - end).LengthSquared < 0.01f)
-                    return;
+                    return false;
             }
 
             // Drop the oldest effect instead of allowing unbounded multi-player
@@ -91,6 +91,7 @@ namespace MphRead.Mods.Render
             Vector3 color = BeamPalette.Resolve(tone, original);
             _active[_count++] = new Lance(start, end, color, effect.SecondaryColor,
                 now, slot, shotId, launchFrame, effect.Style, hitPlayer);
+            return true;
         }
 
         internal void Draw(Scene scene)

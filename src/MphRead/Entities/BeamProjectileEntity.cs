@@ -2936,9 +2936,10 @@ namespace MphRead.Entities
             {
                 var appearance = Mods.Cosmetics.CosmeticRuntime.Get(_scene,
                     shooter.SlotIndex, shooter.Hunter, shooter.IsMainPlayer);
-                _scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
+                if (_scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
                     shooter.SlotIndex, ModShotId, ModLaunchFrame,
-                    appearance.Beam, appearance.Loadout.BeamColor, hitPlayer);
+                    appearance.Beam, appearance.Loadout.BeamColor, hitPlayer))
+                    Mods.Sound.InstagibBeamAudio.Play(_scene, appearance.Beam.Style, spawnPos);
                 return;
             }
             Vector3 up = Position - spawnPos;
