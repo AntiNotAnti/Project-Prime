@@ -50,3 +50,36 @@ All added ribbons use pooled `TrailMulti` vertices. The busiest effects are capp
 - `dotnet build src/MphRead.sln -c Release`
 
 Device work outstanding: GPU screenshots for all nine effects from muzzle/third person, 8-player spawn spam, wall/corridor occlusion, 30/60/144/240Hz frame pacing, Android GLES/context loss and thermal limits. Do not claim these without measurements. Original spatial Imperialist sound remains in use. Each beam now has original, distance-attenuated firing and impact accents in the game's existing SoundFlow output, with at most two bounded cached voices per style. Wall and player impacts use the same per-style impact timbre with different volume, always layered quietly underneath native spatial audio. Those generated accents are not authored sample-bank replacements or fully spatialized 3D sounds; real 3D spatial audio remains provided by the original weapon. Actual transient dynamic lights still require separate GPU acceptance. The launcher preview uses a schematic swatch, not a live OpenGL shot. World impacts include a short depth-tested prism flash and shallow surface sparks; these are cosmetic geometry, **not** physically illuminating lights.
+
+## Reference-quality rail upgrade (2026-10-19)
+
+The original hairline effect is replaced by a deliberately thicker,
+soft-edged *textured* rail based on broad visual elements of the current
+Fruity-Prime `InstagibRails` design (reference
+`src/MphRead.Native/Mods/Render/InstagibRails.cpp`, master
+`12ff677b9700bc8dabde37eb9a3fdd10c62b87b6`).
+This is a distinct managed implementation using Project Prime's renderer.
+
+- A persistent 0.9-second central lance uses the **already-loaded native
+  `trail` material**, depth tested and scene-owned. No standalone image/shader.
+- Three layers with authored maximum halfwidths: 0.24 softened halo,
+  0.11 saturated band and 0.06 luminous pale core. Each tapers to 12% width at
+  the muzzle to preserve first-person visibility.
+- The standard Ion Fracture 2.0 adds **two phase-offset luminous filaments**
+  around the central beam, with predictable temporal rotation and a 36-unit
+  reach, 73 samples on High or 43 on Medium. Existing crystalline X-knots and
+  impact presentation remain Project Prime-specific.
+- All other styles also benefit from improved textured layering without losing
+  their distinct silhouettes, color selection or impact sounds.
+- Accessibility settings preserve a legible core while turning off broad
+  transparency and animated accents. Headless and missing texture situations
+  fall back to prior untextured ribbons.
+- Texture binds are resolved using the scene's original material cache each
+  frame. The effect does not own, allocate, release or share a GL texture ID.
+
+Validation: `dotnet run --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture`
+and the focused `Insta-Gib beam FX` workflow cover finite, bounded look
+curves, phase opposition, deterministic offsets and muzzle taper. These
+asset-free checks cannot prove native texture blending, HDR/color behavior,
+wall occlusion or real-device 1v1 and 8-player performance; capture GPU
+screenshots and benchmarks before considering the visual acceptance complete.
