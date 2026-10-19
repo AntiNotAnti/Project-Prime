@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeCommunityRevisionsController.cs" Link="NativeCommunityRevisionsController.cs" />
-    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeCommunityRevisionPolicy.cs" Link="NativeCommunityRevisionPolicy.cs" />
-    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeCommunityDiscoverController.cs" Link="NativeCommunityDiscoverController.cs" />
-    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeCommunityCreatorController.cs" Link="NativeCommunityCreatorController.cs" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
   </ItemGroup>
 </Project>

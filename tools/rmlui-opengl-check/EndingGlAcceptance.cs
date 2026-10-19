@@ -51,7 +51,8 @@ internal static class EndingGlAcceptance
             Check(semantic.ContainsText(Credits.Summary) && semantic.ContainsText(Credits.Author)
                 && semantic.ContainsText(Credits.Foundation.What) && semantic.ContainsText("DB-IP"),
                 "native credits include current shared attribution without truncated fixed rows");
-            Check(audio.Starts == 1 && audio.Sequence == SeqId.CREDITS && audio.Ticks > 0 && audio.Cues == 1,
+            Check(audio.Starts == 1 && audio.Sequence == CampaignAudioCatalog.Sequence(CampaignAudioPage.EndingResults)
+                && audio.Sequence == SeqId.RESULTS && audio.Ticks > 0 && audio.Cues == 1,
                 "existing ending audio lifecycle is pumped through injected silent sink only");
             Capture("complete-summary");
             host.Input.PointerMoved(width / 2d, height * 0.7d);
