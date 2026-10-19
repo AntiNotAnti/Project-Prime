@@ -65,9 +65,21 @@ The provisional +5% integrated scene p95 gate is **not evaluated** in this slice
 
 CI is wired to run the real production library through nettest on Windows, Linux
 and macOS, enforce zero allocations and retain per-machine JSON. PR-specific CI
-is pending at publication and tracked on the PR; local macOS results are not a
+was pending at publication and is tracked on the PR; local macOS results are not a
 claim that cross-platform CI or real devices have passed. Commits/publication do
 not wait for review or CI completion.
+
+Publication snapshot: PR-00's broad **“no game assets” job failed at its earlier
+“isolated Social and Party handler contracts” step**, before the asset scan. The
+compiler reports CS0006: missing
+`MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll`
+in `tools/native-party-travel-source-check`. The identical failure is present on
+merged main `c6d880630`, so it is an inherited clean-build prerequisite issue,
+not evidence of a new movement or proprietary-asset failure. Evidence:
+[main job](https://github.com/AntiNotAnti/Project-Prime/actions/runs/39291170828/job/118191884174)
+and [PR-00 job](https://github.com/AntiNotAnti/Project-Prime/actions/runs/39291942098/job/118194544360).
+PR-01's new math CI was running/queued at this snapshot; it is not reported passed.
+The inherited CI failure remains unresolved and prevents a claim of full green CI.
 
 No gameplay tuning, biped adapter, legal jump/landing model, bhop speed ceiling,
 collision changes, input routing, match-authoritative mode, replay rule extension
