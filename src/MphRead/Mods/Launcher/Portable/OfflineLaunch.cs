@@ -54,6 +54,7 @@ namespace MphRead.Mods.Launcher
                     OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
                     NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
                     BalancedMode = settings.BalancedMode == "on",
+                    ThirdPersonCamera = settings.ThirdPersonCamera == "on",
                     ShadowFreeze = settings.ShadowFreeze == "on",
                     SpawnProtection = settings.SpawnProtection == "on"
                 },
