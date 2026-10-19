@@ -15,6 +15,7 @@ internal sealed record ReplayPacketEvidence(uint Frame,string DecoderHash,Immuta
 {
     public uint? RestoredCheckpointFrame { get; init; }
     public int FramesScanned { get; init; }
+    public string? IndexFallbackReason { get; init; }
 }
 internal sealed record ReplayPoseDifference(int Slot,double Distance,int HealthA,int HealthB,int WeaponA,int WeaponB,
     bool SameLife);
@@ -34,45 +35,23 @@ internal static class ReplayStudioComparison
         if(frame>reader.LastFrame)
             throw new InvalidDataException("The comparison recording ends before the reviewed frame.");
 
-        uint? checkpointFrame=null;
-        if(preferIndexed && frame>0 && reader.DurableCheckpoints.Count>0)
-        {
-            uint leadIn=reader.Metadata?.LeadInFrames??0;
-            foreach(var index in reader.DurableCheckpoints.OrderByDescending(entry=>entry.Frame))
-            {
-                cancellation.ThrowIfCancellationRequested();
-                if(index.Frame<leadIn)continue;
-                uint visible=reader.CheckpointVisibleFrame(index);
-                if(visible>frame)continue;
-                try
-                {
-                    using var saved=reader.LoadCheckpoint(index);
-                    var construction=saved.ConstructionState();
-                    // Reposition resets the passive host's clock/decoder. Install
-                    // the *verified* immutable checkpoint after that reset, so
-                    // advancing packets never re-applies its earlier facts.
-                    if(!reader.Reposition(visible,0))break;
-                    host.State.RestoreCheckpoint(construction);
-                    checkpointFrame=visible;
-                    break;
-                }
-                catch(InvalidDataException)
-                {
-                    // Optional indexes from incompatible/corrupted producers are
-                    // accelerators only. Restore fresh packet-only baseline and
-                    // allow complete linear validation of the recording.
-                    if(!reader.JoinDetached(path,cancellation))
-                        throw new InvalidDataException(reader.LastError??"Cannot restore comparison baseline.");
-                    break;
-                }
-            }
-        }
+        // Durable entries currently contain scene-world checkpoints. Their
+        // decoder includes scene projection/advance effects and producer-stream
+        // diagnostics, so it is not an exact packet-only baseline for this file.
+        // Until an explicit packet-decoder index contract exists, preserve the
+        // canonical complete packet history rather than publishing a false hash.
+        string? fallback=preferIndexed && reader.DurableCheckpoints.Count>0
+            ? "Saved-world indexes do not declare a packet-only decoder baseline; using complete packet history."
+            : null;
 
         int scanned=0;
         while(!reader.AtEnd && (reader.IsWarming||reader.CurrentFrame<frame || !reader.HasSimulatedFrame))
         {
             cancellation.ThrowIfCancellationRequested();
             reader.PumpFrame();
+            // This detached consumer never constructs a BombWorld. Match the
+            // spatial-analysis contract after validating each frame's packets.
+            host.State.DiscardDetachedDrawPackets();
             scanned++;
             if(reader.LastResult!=ReplayOpenResult.Success)
                 throw new IOException(reader.LastError??"Replay comparison packet decoding failed.");
@@ -87,7 +66,7 @@ internal static class ReplayStudioComparison
                 players.Add(new(slot,player.Position.X,player.Position.Y,player.Position.Z,
                     player.Health,player.CurrentWeapon,player.SlotGeneration,player.LifeId));
         string hash=Convert.ToHexString(SHA256.HashData(host.State.CaptureCheckpoint().Bytes));
-        return new(frame,hash,players.ToImmutable()){RestoredCheckpointFrame=checkpointFrame,FramesScanned=scanned};
+        return new(frame,hash,players.ToImmutable()){RestoredCheckpointFrame=null,FramesScanned=scanned,IndexFallbackReason=fallback};
     }
 
     internal static ReplayPacketComparison Compare(ReplayPacketEvidence a,ReplayPacketEvidence b)

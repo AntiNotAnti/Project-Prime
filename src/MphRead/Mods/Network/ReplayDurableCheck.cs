@@ -57,7 +57,7 @@ internal static class ReplayDurableCheck
             if(lifeCompare.Players.Length!=1||lifeCompare.Players[0].SameLife)
                 throw new InvalidDataException("Comparison joined two distinct player lifetimes as the same subject.");
 #endif
-            foreach (uint target in new uint[] { 301, 799, 1250, 1500, 1800 })
+            foreach (uint target in new uint[] { 300, 301, 799, 1250, 1500, 1800 })
             {
 #if !ANDROID && !MPHREAD_SERVER
                 if(reference.ContainsKey(target))
@@ -66,6 +66,8 @@ internal static class ReplayDurableCheck
                     var indexed=ReplayStudioComparison.Read(path,target,CancellationToken.None,preferIndexed:true);
                     if(linear.DecoderHash!=indexed.DecoderHash||!linear.Players.SequenceEqual(indexed.Players))
                         throw new InvalidDataException("Packet comparison durable and linear histories differ at frame "+target);
+                    if(!indexed.RestoredCheckpointFrame.HasValue && string.IsNullOrEmpty(indexed.IndexFallbackReason))
+                        throw new InvalidDataException("Packet comparison omitted its world-index fallback reason.");
                     if(indexed.RestoredCheckpointFrame.HasValue && indexed.FramesScanned>=linear.FramesScanned)
                         throw new InvalidDataException("Indexed packet comparison did not reduce replay steps.");
                 }
