@@ -59,6 +59,12 @@ using (var cosmetics = new LauncherCosmeticDraftController(cosmeticStore, Hunter
     var firstCosmetics = cosmetics.Current();
     Check(firstCosmetics.Hunter == Hunter.Samus && firstCosmetics.Draft == CosmeticLoadout.Default
         && !firstCosmetics.Dirty, "native cosmetics initialize from persisted Hunter loadout");
+    Check(cosmetics.SelectBeam(8) && cosmetics.Current().Draft.BeamEffectKey == "beam.phantom"
+        && cosmetics.SelectBeamColor(7) && cosmetics.Current().Draft.BeamColor == 7
+        && !cosmetics.SelectBeam(9) && !cosmetics.SelectBeamColor(-1),
+        "nine styles and nine colors can be directly selected without an account request");
+    Check(cosmetics.Reset() && cosmetics.Current().Draft == CosmeticLoadout.Default,
+        "direct beam selection is discardable");
     Check(cosmetics.NextSkin() && cosmetics.NextArmor() && cosmetics.NextDeath()
         && cosmetics.NextBeam() && cosmetics.NextBeamColor()
         && cosmetics.Current().Dirty && cosmeticStore.EquipCalls == 0
