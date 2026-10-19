@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'src/MphRead/Mods/Movement/**'
-      - 'tools/nettest/Momentum*Tests.cs'
+      - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'
@@ -54,7 +54,7 @@ on:
     branches: [main]
     paths:
       - 'src/MphRead/Mods/Movement/**'
-      - 'tools/nettest/Momentum*Tests.cs'
+      - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'

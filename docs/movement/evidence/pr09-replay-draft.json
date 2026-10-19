@@ -1,0 +1,848 @@
+{
+  "schema": 1,
+  "status": "PASS scoped replay repair validation; prior failures retained; no full PR09 or index-performance acceptance",
+  "source": {
+    "baseSha": "91f3a96d3240d612d4d7e97c1d198570d8197fad",
+    "sourceDirtyAtBuild": true,
+    "sourceLease": "Isolated actual macOS Core build03 and tool-build03 from base91f plus then-uncommitted final repair patch; compiled before repair commit",
+    "repairPublicationCommit": "e950d5cdce4e4c9fc690df66e5e3f6a24e484ec2",
+    "publicationSourceBytesVerifiedFor": {
+      "src/MphRead/Mods/Replay/ReplayStudioComparison.cs": "ef98d2f9ae7e5a15ea3539838a1732f782bc329c0a6cca4b96d15feb14f9fbcb",
+      "src/MphRead/Mods/Network/ReplayDurableCheck.cs": "a5f3be7d972548c9ee31681e43483e0ded2d26fce3520ceb0a5023fd5f846e52"
+    },
+    "assemblyInformationalVersion": "local+91f3a96d3240d612d4d7e97c1d198570d8197fad",
+    "coreBuild": {
+      "configuration": "Release net10.0",
+      "warnings": 0,
+      "errors": 0
+    },
+    "toolBuild": {
+      "configuration": "Release net10.0; BuildProjectReferences=false",
+      "warnings": 0,
+      "errors": 0
+    },
+    "binarySha256": {
+      "ProjectPrime.dll": "23c2785ae647b071757ee9a32548e042f72da8a217110bb6fcbe802d253aadb8",
+      "nettest.dll": "4173011e6b6d47b2cf365ce46d24be54cb9f49476eaca9978ba5c85bb8b56092",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "hashCollectionUtc": "2026-10-19T23:08:14.668355+00:00",
+    "ci": "Queued/reviewed separately; no hosted CI completion asserted by local execution"
+  },
+  "host": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "cpu": "Apple M4 Pro",
+    "architecture": "arm64",
+    "runtime": ".NET 10.0.12",
+    "renderCadence": "headless; no GL raster",
+    "network": "offline private replay worlds"
+  },
+  "recordingContext": "Historical PR06 Native/Momentum two-client FullMatch and durable checkpoint recordings, reconsumed by the actual freshly compiled managed engine. No new recording or physical/render acceptance is inferred.",
+  "models": {
+    "Native": {
+      "returncode": 0,
+      "rawResultSha256": "5ce5a1f039000f48e9a67bc9380658314e9e0178e53d9df95b050965a5c7c5d8",
+      "checks": 85673,
+      "expectedModel": "Native",
+      "frames": 2982,
+      "firstFrame": 0,
+      "lastFrame": 2982,
+      "gameplayPresentationDigest": "BAE5662C01088E7195A093652563122EAB1B2F6C1E9169D5410BC54FA87618B6",
+      "snapshotPoseChecks": 5964,
+      "morphFrames": 549,
+      "midairMorphFrames": 311,
+      "altFrames": 391,
+      "airborneFrames": 2738,
+      "minimumRecordedPlayers": 2,
+      "maximumRecordedPlayers": 2,
+      "checkpointFrames": [
+        220,
+        300,
+        600,
+        900,
+        1200,
+        1500,
+        1800,
+        2100,
+        2400,
+        2700
+      ],
+      "checkpointSizes": [
+        585815,
+        585825,
+        585815,
+        586399,
+        585847,
+        586431,
+        585857,
+        586441,
+        586431,
+        585323
+      ],
+      "continuedFrames": 2762,
+      "memoryCheckpointCount": 9,
+      "memoryCheckpointBytes": 5275521,
+      "seeks": [
+        {
+          "requested": 1500,
+          "target": 1500,
+          "updates": 13,
+          "steps": 1500,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 35,
+          "target": 35,
+          "updates": 1,
+          "steps": 35,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 1100,
+          "target": 1100,
+          "updates": 2,
+          "steps": 200,
+          "restoreFrame": 900,
+          "source": "memory"
+        },
+        {
+          "requested": 615,
+          "target": 615,
+          "updates": 1,
+          "steps": 15,
+          "restoreFrame": 600,
+          "source": "memory"
+        },
+        {
+          "requested": 0,
+          "target": 0,
+          "updates": 1,
+          "steps": 0,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 1799,
+          "target": 1799,
+          "updates": 3,
+          "steps": 299,
+          "restoreFrame": 1500,
+          "source": "memory"
+        },
+        {
+          "requested": 1201,
+          "target": 1201,
+          "updates": 1,
+          "steps": 1,
+          "restoreFrame": 1200,
+          "source": "memory"
+        },
+        {
+          "requested": 610,
+          "target": 610,
+          "updates": 1,
+          "steps": 10,
+          "restoreFrame": 600,
+          "source": "memory"
+        },
+        {
+          "requested": 2982,
+          "target": 2982,
+          "updates": 13,
+          "steps": 1482,
+          "restoreFrame": 1500,
+          "source": "memory"
+        }
+      ],
+      "durableEnabled": true,
+      "durableSeeks": [
+        {
+          "requested": 301,
+          "target": 301,
+          "updates": 1,
+          "steps": 1,
+          "simulationSteps": 1,
+          "restoreFrame": 300,
+          "source": "file"
+        },
+        {
+          "requested": 799,
+          "target": 799,
+          "updates": 2,
+          "steps": 199,
+          "simulationSteps": 199,
+          "restoreFrame": 600,
+          "source": "file"
+        },
+        {
+          "requested": 1250,
+          "target": 1250,
+          "updates": 1,
+          "steps": 50,
+          "simulationSteps": 50,
+          "restoreFrame": 1200,
+          "source": "file"
+        },
+        {
+          "requested": 1800,
+          "target": 1800,
+          "updates": 1,
+          "steps": 0,
+          "simulationSteps": 0,
+          "restoreFrame": 1800,
+          "source": "file"
+        },
+        {
+          "requested": 2500,
+          "target": 2500,
+          "updates": 1,
+          "steps": 100,
+          "simulationSteps": 100,
+          "restoreFrame": 2400,
+          "source": "file"
+        },
+        {
+          "requested": 301,
+          "target": 301,
+          "updates": 1,
+          "steps": 1,
+          "simulationSteps": 1,
+          "restoreFrame": 300,
+          "source": "file"
+        }
+      ],
+      "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+    },
+    "Momentum": {
+      "returncode": 0,
+      "rawResultSha256": "3d669ddc174d2a5129dc05ae61026592dae638c509c7bc118cdd359e7bd6c659",
+      "checks": 85586,
+      "expectedModel": "Momentum",
+      "frames": 2979,
+      "firstFrame": 0,
+      "lastFrame": 2979,
+      "gameplayPresentationDigest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+      "snapshotPoseChecks": 5958,
+      "morphFrames": 550,
+      "midairMorphFrames": 218,
+      "altFrames": 390,
+      "airborneFrames": 2609,
+      "minimumRecordedPlayers": 2,
+      "maximumRecordedPlayers": 2,
+      "checkpointFrames": [
+        220,
+        300,
+        600,
+        900,
+        1200,
+        1500,
+        1800,
+        2100,
+        2400,
+        2700
+      ],
+      "checkpointSizes": [
+        586379,
+        586389,
+        586379,
+        586399,
+        586389,
+        586409,
+        586399,
+        586419,
+        586409,
+        586429
+      ],
+      "continuedFrames": 2759,
+      "memoryCheckpointCount": 9,
+      "memoryCheckpointBytes": 5278773,
+      "seeks": [
+        {
+          "requested": 1500,
+          "target": 1500,
+          "updates": 13,
+          "steps": 1500,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 35,
+          "target": 35,
+          "updates": 1,
+          "steps": 35,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 1100,
+          "target": 1100,
+          "updates": 2,
+          "steps": 200,
+          "restoreFrame": 900,
+          "source": "memory"
+        },
+        {
+          "requested": 615,
+          "target": 615,
+          "updates": 1,
+          "steps": 15,
+          "restoreFrame": 600,
+          "source": "memory"
+        },
+        {
+          "requested": 0,
+          "target": 0,
+          "updates": 1,
+          "steps": 0,
+          "restoreFrame": 0,
+          "source": "initial world"
+        },
+        {
+          "requested": 1799,
+          "target": 1799,
+          "updates": 3,
+          "steps": 299,
+          "restoreFrame": 1500,
+          "source": "memory"
+        },
+        {
+          "requested": 1201,
+          "target": 1201,
+          "updates": 1,
+          "steps": 1,
+          "restoreFrame": 1200,
+          "source": "memory"
+        },
+        {
+          "requested": 610,
+          "target": 610,
+          "updates": 1,
+          "steps": 10,
+          "restoreFrame": 600,
+          "source": "memory"
+        },
+        {
+          "requested": 2979,
+          "target": 2979,
+          "updates": 13,
+          "steps": 1479,
+          "restoreFrame": 1500,
+          "source": "memory"
+        }
+      ],
+      "durableEnabled": true,
+      "durableSeeks": [
+        {
+          "requested": 301,
+          "target": 301,
+          "updates": 1,
+          "steps": 1,
+          "simulationSteps": 1,
+          "restoreFrame": 300,
+          "source": "file"
+        },
+        {
+          "requested": 799,
+          "target": 799,
+          "updates": 2,
+          "steps": 199,
+          "simulationSteps": 199,
+          "restoreFrame": 600,
+          "source": "file"
+        },
+        {
+          "requested": 1250,
+          "target": 1250,
+          "updates": 1,
+          "steps": 50,
+          "simulationSteps": 50,
+          "restoreFrame": 1200,
+          "source": "file"
+        },
+        {
+          "requested": 1800,
+          "target": 1800,
+          "updates": 1,
+          "steps": 0,
+          "simulationSteps": 0,
+          "restoreFrame": 1800,
+          "source": "file"
+        },
+        {
+          "requested": 2500,
+          "target": 2500,
+          "updates": 1,
+          "steps": 100,
+          "simulationSteps": 100,
+          "restoreFrame": 2400,
+          "source": "file"
+        },
+        {
+          "requested": 301,
+          "target": 301,
+          "updates": 1,
+          "steps": 1,
+          "simulationSteps": 1,
+          "restoreFrame": 300,
+          "source": "file"
+        }
+      ],
+      "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+    }
+  },
+  "committedComparisons": [
+    {
+      "model": "Native",
+      "committedReference": "docs/movement/evidence/pr06-native-replay.json",
+      "referenceSha256": "be05521b6c30ae185aace512e106e9703761f6920be25357293a63802344d527",
+      "matchingFields": [
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {
+        "checks": {
+          "prior": 76861,
+          "current": 85673
+        }
+      }
+    },
+    {
+      "model": "Native",
+      "committedReference": "docs/movement/evidence/pr08-native-replay.json",
+      "referenceSha256": "5ce5a1f039000f48e9a67bc9380658314e9e0178e53d9df95b050965a5c7c5d8",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {}
+    },
+    {
+      "model": "Momentum",
+      "committedReference": "docs/movement/evidence/pr06-momentum-replay.json",
+      "referenceSha256": "4c244112065b59db083e175fe8d2a51558d309cd7437b4132d47d4578eacb127",
+      "matchingFields": [
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {
+        "checks": {
+          "prior": 76783,
+          "current": 85586
+        }
+      }
+    },
+    {
+      "model": "Momentum",
+      "committedReference": "docs/movement/evidence/pr08-momentum-replay.json",
+      "referenceSha256": "3d669ddc174d2a5129dc05ae61026592dae638c509c7bc118cdd359e7bd6c659",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {}
+    }
+  ],
+  "committedDocumentComparison": {
+    "pr06FramesContinuationAndSeekCounts": "MATCH",
+    "pr08FullGameplayPresentationDigests": "MATCH"
+  },
+  "preservedAttempt": {
+    "artifact": "artifacts/momentum-pr09/current-replay-01",
+    "returncodes": [
+      {
+        "model": "Native",
+        "returncode": 1
+      },
+      {
+        "model": "Momentum",
+        "returncode": 1
+      }
+    ],
+    "classification": "Invocation error; optional durable-replay pathname was supplied as literal durable and failed FileMissing. This is preserved and is not classified as a product replay failure.",
+    "correction": "Supply an actual durable replay file path. CLI help now spells the argument [durable-replay]."
+  },
+  "limitations": [
+    "Within-environment replay gameplay/presentation digest comparisons; no cross-platform bit equality.",
+    "Actual native and Momentum replay/checkpoint/continuation/memory/durable-file seeking only; no GL raster, physical device, Studio/theatre UI, killcam, export or universal PR09 acceptance.",
+    "Repair tests were built before publication commit at base91f plus dirty patch; source file bytes match the later repair feature commit. They are not relabelled as a clean post-merge build.",
+    "The repair uses complete packet-history fallback and makes no durable packet-index acceleration/performance claim; no full PR09 release acceptance follows."
+  ],
+  "priorSourceLeases": [
+    {
+      "artifact": "artifacts/momentum-pr09/current-replay-02",
+      "source": {
+        "baseSha": "3de8887a8b04bd85db8b60ea14da9add15c1972a",
+        "sourceDirty": true,
+        "sourceLease": "Actual macOS managed build-current-main-04 plus tool-only build-current-main-05; immutable executable lease shared with balance-scene-02-macos",
+        "coreBuild": {
+          "configuration": "Release net10.0",
+          "warnings": 0,
+          "errors": 0
+        },
+        "toolBuild": {
+          "configuration": "Release net10.0; BuildProjectReferences=false",
+          "warnings": 0,
+          "errors": 0
+        },
+        "binarySha256": {
+          "nettest.dll": "89cbde1d30dc207c5715db38967063f7e2731617d2b492dae20294ef701ffac4",
+          "ProjectPrime.dll": "7aab07a1d54eb6ddcf17fd8667c2e8527b147252e09fbf92ebb2f5818b092981",
+          "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+        }
+      },
+      "host": {
+        "platform": "macOS-27.0.1-arm64-arm-64bit",
+        "cpu": "Apple M4 Pro",
+        "architecture": "arm64",
+        "runtime": ".NET 10.0.12",
+        "renderCadence": "headless; no GL raster",
+        "network": "offline private replay worlds"
+      },
+      "status": "PASS; original results/source lease preserved, all22 resultfields equal latest03"
+    },
+    {
+      "artifact": "artifacts/momentum-pr09/current-replay-03",
+      "source": {
+        "baseSha": "91f3a96d3240d612d4d7e97c1d198570d8197fad",
+        "sourceDirty": true,
+        "sourceLease": "Actual macOS managed build-current-main-10 plus final tool-only build-current-main-11; current-replay-03 immutable executable lease",
+        "coreBuild": {
+          "configuration": "Release net10.0",
+          "warnings": 0,
+          "errors": 0
+        },
+        "toolBuild": {
+          "configuration": "Release net10.0; BuildProjectReferences=false",
+          "warnings": 0,
+          "errors": 0
+        },
+        "binarySha256": {
+          "nettest.dll": "991c6f59bd2143833ee1eafbb7e85460e771b44887df1946aa2f3d2ff0d2eb5d",
+          "ProjectPrime.dll": "b926bcbed447d21fbca369d2bf8579b95618cf0a7224154d4d0e72167287a3e7",
+          "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+        },
+        "hashCollectionUtc": "2026-10-19T22:59:10.075376+00:00"
+      },
+      "status": "Scene checks PASS; production durable comparator failed frame301 in both models, retained separately"
+    }
+  ],
+  "previousRunComparisons": [
+    {
+      "model": "Native",
+      "priorArtifact": "artifacts/momentum-pr09/current-replay-02/native/result.json",
+      "priorRawResultSha256": "5ce5a1f039000f48e9a67bc9380658314e9e0178e53d9df95b050965a5c7c5d8",
+      "currentRawResultSha256": "5ce5a1f039000f48e9a67bc9380658314e9e0178e53d9df95b050965a5c7c5d8",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {}
+    },
+    {
+      "model": "Momentum",
+      "priorArtifact": "artifacts/momentum-pr09/current-replay-02/momentum/result.json",
+      "priorRawResultSha256": "3d669ddc174d2a5129dc05ae61026592dae638c509c7bc118cdd359e7bd6c659",
+      "currentRawResultSha256": "3d669ddc174d2a5129dc05ae61026592dae638c509c7bc118cdd359e7bd6c659",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {}
+    }
+  ],
+  "currentArtifact": "artifacts/momentum-pr09/replay-index-repair-01",
+  "productionDurableComparison": {
+    "status": "PASS scoped functional repair validation",
+    "artifact": "artifacts/momentum-pr09/replay-index-repair-01",
+    "originalArtifact": "/tmp/prime-replay-index-compat/artifacts/replay-index-compat",
+    "models": {
+      "Native": {
+        "returncode": 0,
+        "durableCheckpoints": 9,
+        "fileBytes": 1576037,
+        "exactPacketDecoderAndPlayerEqualityTargets": [
+          300,
+          301,
+          799,
+          1250,
+          1500,
+          1800
+        ],
+        "worldColdBackwardSeeksPassed": true,
+        "nestedClipFidelityFrames": [
+          801,
+          351
+        ],
+        "corruptCheckpointFallbackAndRecoveryPassed": true,
+        "rawLogSha256": "923a672f1134c4fa126b608eef0bb7a9d0a9873e8de8202b22b20a4470868162"
+      },
+      "Momentum": {
+        "returncode": 0,
+        "durableCheckpoints": 9,
+        "fileBytes": 1589952,
+        "exactPacketDecoderAndPlayerEqualityTargets": [
+          300,
+          301,
+          799,
+          1250,
+          1500,
+          1800
+        ],
+        "worldColdBackwardSeeksPassed": true,
+        "nestedClipFidelityFrames": [
+          801,
+          351
+        ],
+        "corruptCheckpointFallbackAndRecoveryPassed": true,
+        "rawLogSha256": "957c56509b50d3ee8868e052de4a587482e1c65c8ff8770b35c078ac29621ac6"
+      }
+    },
+    "repair": "Packet comparison declines saved-world indexes lacking an exact packet-only decoder contract, reports explicit fallback reason and scans complete packet history. Detached packet consumer drains validated draw packets through existing DiscardDetachedDrawPackets. Exact decoder/player equality, queue budgets and malformed-packet checks remain unchanged.",
+    "indexPerformanceAcceptance": false
+  },
+  "priorProductionDurableComparisons": [
+    {
+      "status": "FAIL",
+      "artifact": "artifacts/momentum-pr09/latest-durable-index-01",
+      "sourceLease": "Actual macOS latest91f Core build-current-main-10",
+      "coreSha256": "b926bcbed447d21fbca369d2bf8579b95618cf0a7224154d4d0e72167287a3e7",
+      "scope": "Actual production -replaydurablecheck packet-history indexed durable vs linear comparison; separate from the passing CPU world/hash/seek fixture",
+      "models": {
+        "Native": {
+          "returncode": 1,
+          "durableCheckpoints": 9,
+          "fileBytes": 1576037,
+          "firstMismatchingFrame": 301,
+          "failure": "Packet comparison durable and linear histories differ at frame 301",
+          "rawLogSha256": "768e5c2459a728b7033be5bc6a1117f6a217ee4455fc24d399fd6b429747e9d4"
+        },
+        "Momentum": {
+          "returncode": 1,
+          "durableCheckpoints": 9,
+          "fileBytes": 1589952,
+          "firstMismatchingFrame": 301,
+          "failure": "Packet comparison durable and linear histories differ at frame 301",
+          "rawLogSha256": "599428d7610f1ac9e9f27cffcff0b0505356d164fb5fbfa297faac7532ea147a"
+        }
+      },
+      "classification": "Cause under investigation; both failed attempts retained. No repair, reclassification or general replay acceptance claimed."
+    }
+  ],
+  "repairSceneComparisons": [
+    {
+      "model": "Native",
+      "previousArtifact": "artifacts/momentum-pr09/current-replay-03/native/result.json",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {},
+      "committedReference": "docs/movement/evidence/pr08-native-replay.json",
+      "referenceSha256": "5ce5a1f039000f48e9a67bc9380658314e9e0178e53d9df95b050965a5c7c5d8",
+      "all22SceneFieldsExactlyEqualToPrevious03AndCommittedPR08": true
+    },
+    {
+      "model": "Momentum",
+      "previousArtifact": "artifacts/momentum-pr09/current-replay-03/momentum/result.json",
+      "matchingFields": [
+        "checks",
+        "expectedModel",
+        "frames",
+        "firstFrame",
+        "lastFrame",
+        "gameplayPresentationDigest",
+        "snapshotPoseChecks",
+        "morphFrames",
+        "midairMorphFrames",
+        "altFrames",
+        "airborneFrames",
+        "minimumRecordedPlayers",
+        "maximumRecordedPlayers",
+        "checkpointFrames",
+        "checkpointSizes",
+        "continuedFrames",
+        "memoryCheckpointCount",
+        "memoryCheckpointBytes",
+        "seeks",
+        "durableEnabled",
+        "durableSeeks",
+        "scope"
+      ],
+      "differentFields": {},
+      "committedReference": "docs/movement/evidence/pr08-momentum-replay.json",
+      "referenceSha256": "3d669ddc174d2a5129dc05ae61026592dae638c509c7bc118cdd359e7bd6c659",
+      "all22SceneFieldsExactlyEqualToPrevious03AndCommittedPR08": true
+    }
+  ],
+  "repairAttemptHistory": [
+    {
+      "artifact": "native/run.txt",
+      "classification": "Early repair installed later decoder state from a world checkpoint; strict packet comparison still failed frame300",
+      "firstMismatchingFrame": 300,
+      "rawLogSha256": "1d9b165c8d3dd94494fafe971ee20319aeb4eef9e965b37a7a4b701906f8a735"
+    },
+    {
+      "artifact": "native/run02.txt",
+      "classification": "Canonical packet fallback then retained unconsumed detached BombWorld draw packets and hit existing2048packet queue budget atframe664",
+      "firstFailingFrame": 664,
+      "unchangedBombQueueBudget": 2048,
+      "rawLogSha256": "8caf27a715ff11e81deea6a4f43055d12126330272f88c7cc86d01de9fe9ff99"
+    },
+    {
+      "artifact": "native/run03.txt and momentum/run03.txt",
+      "classification": "Final canonical packet fallback plus existing detached draw-packet drain passes all six equality targets and world/clip/corruption checks; no hash/tolerance weakening"
+    }
+  ],
+  "priorLeaseFrameTiming": {
+    "artifact": "artifacts/momentum-pr09/latest-fast-checks-01/frametiming.txt",
+    "returncode": 0,
+    "allCasesPassed": true,
+    "thirdPersonBipedMorphBallHandoffHz": [
+      60,
+      120,
+      240
+    ],
+    "scope": "Actual compiled frame-timing contract self-check, not measured display cadence or physical/render input acceptance",
+    "sourceLease": "Original main91f Corebuild10/tool11; not the isolated repairbuild03 lease"
+  }
+}
