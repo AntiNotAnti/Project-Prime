@@ -62,6 +62,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     {
         if (_disposed || intent.Document != _page || _pages.Top != _page
             || !_pages.Accept(intent)) return false;
+        int beamSelection = intent.Argument;
         bool accepted = intent.Kind switch
         {
             RmlUiIntentKind.HunterSelect => SelectHunter(intent.Argument),
@@ -75,8 +76,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             RmlUiIntentKind.HunterDeathNext => NextDeath(),
             RmlUiIntentKind.HunterBeamNext => ChangeCosmetics(_cosmetics.NextBeam),
             RmlUiIntentKind.HunterBeamColorNext => ChangeCosmetics(_cosmetics.NextBeamColor),
-            RmlUiIntentKind.HunterBeamSelect => ChangeCosmetics(() => _cosmetics.SelectBeam(intent.Argument)),
-            RmlUiIntentKind.HunterBeamColorSelect => ChangeCosmetics(() => _cosmetics.SelectBeamColor(intent.Argument)),
+            RmlUiIntentKind.HunterBeamSelect => ChangeCosmetics(() => _cosmetics.SelectBeam(beamSelection)),
+            RmlUiIntentKind.HunterBeamColorSelect => ChangeCosmetics(() => _cosmetics.SelectBeamColor(beamSelection)),
             RmlUiIntentKind.HunterCosmeticsReset => ChangeCosmetics(_cosmetics.Reset),
             RmlUiIntentKind.HunterLoadoutDefault => DefaultLoadout(),
             RmlUiIntentKind.HunterCosmeticsSave => _cosmetics.Equip(),
