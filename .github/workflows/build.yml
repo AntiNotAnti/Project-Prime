@@ -760,6 +760,8 @@ jobs:
         run: dotnet run --project tools/nettest -c Release -- --q3-shader-stages
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
+      - name: replay transport and authored-camera regression checks
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replaycontrolcheck
 
   map-editor-checks:
     name: map editor regressions (${{ matrix.os }})

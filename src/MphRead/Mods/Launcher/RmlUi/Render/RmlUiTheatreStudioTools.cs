@@ -110,7 +110,10 @@ internal static partial class RmlUiOpenGlSmoke
                             if(before!=FileFacts(other))throw new IOException("Comparison recording changed while reading.");
                             var comparison=ReplayStudioComparison.Compare(a,b);path=Path.Combine(directory,"recording-comparison.json");
                             await Write(path,new{Scope="Recorded decoder state and player poses; not a simulated full-world comparison",A=a,B=b,Comparison=comparison},cancellation);
-                            summary=$"FRAME {context.Frame} // DECODER EQUAL {comparison.DecoderEqual}\n"+string.Join("\n",comparison.Players.Select(p=>$"P{p.Slot+1}: distance {p.Distance:0.######}, health {p.HealthA}/{p.HealthB}, weapon {p.WeaponA}/{p.WeaponB}"));break;
+                            summary=$"FRAME {context.Frame} // DECODER EQUAL {comparison.DecoderEqual}\n"
+                                +string.Join("\n",comparison.Players.Select(p=>p.SameLife
+                                    ?$"P{p.Slot+1}: distance {p.Distance:0.######}, health {p.HealthA}/{p.HealthB}, weapon {p.WeaponA}/{p.WeaponB}"
+                                    :$"P{p.Slot+1}: recorded life differs or is unavailable; position comparison withheld"));break;
                         case TheatreStudioTool.SaveBuildEvidence:
                             path=Path.Combine(directory,"build-evidence.json");await Write(path,frozenEvidence!,cancellation);
                             summary="Saved the reviewed gameplay, full graph, simulation presentation, camera, projectile and animation hashes with build/schema/frame identity.";break;

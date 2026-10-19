@@ -33,3 +33,11 @@ Acceptance must compare actual source-frame primary-tile pixels to the normal on
 ## RPS-05 path sampling and readiness
 
 An independent bounded ReplayCameraPathSamples cache reuses all 129 source-space positions until the track owner or any authored keyframe value changes; each viewport still computes its own billboard orientation. A production camera-track regression tests cache identity, exact midpoint, Bezier-handle invalidation and clearing. Native Studio also blocks new Four Views activation during seeking and hides labels while the transport is settling.
+
+## RPS-06 indexed packet comparison and subject identity
+
+For Studio's packet-only recording comparison, the passive reader now attempts the most recent compatible durable world checkpoint at or before the reviewed frame. The checkpoint's decoder state is installed **after** the reader's reposition/clock reset, then any remaining packets are replayed normally. A rejected optional checkpoint falls back to a fresh detached linear read. JSON evidence records RestoredCheckpointFrame and FramesScanned so actual seek benefit and fallback can be inspected. No Scene/GPU, second live session or replay-format change is introduced.
+
+The comparison report also retains player slot generation and life; a shared slot across different recorded lifetimes is explicitly flagged SameLife=false instead of silently treating it as one subject. The source-only older replay viewer template now calls this tile TARGET POV, matching the active Studio workspace. The ReplayDurableCheck acceptance compares indexed and linear decoder/player bytes at five reviewed frames and checks source-life mismatch detection.
+
+Remaining RPS-06 fidelity gates: real custom model rendering in Theatre/Studio; impact/kill audio and exact first-person cannon at all export rates; 4K end-to-end encoder/PNG artifacts; physical-device performance and pixel review. These are not certified by this packet-only optimization.
