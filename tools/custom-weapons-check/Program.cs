@@ -168,5 +168,6 @@ MechanicsChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
 NetworkContractChecks.Run(Check);
 SourceJournalChecks.Run(Check);
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal checks (pure contracts; scene fixture requires --scene)");
+checks += CustomPaymentChecks.Run();
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

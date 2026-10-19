@@ -55,6 +55,8 @@ internal sealed record class CustomShotSource
     internal bool MatchesLaunch(in CustomAcceptedLaunch launch)
         => TryValidateLaunch(launch,out var identity,out var action)
             && Definition == launch.Definition && Identity == identity && Action == action && Certificate == launch.Source;
+    internal static bool IsConsistentLaunch(in CustomAcceptedLaunch launch)
+        => TryValidateLaunch(launch,out _,out _);
     private static bool TryValidateLaunch(in CustomAcceptedLaunch launch,
         out CustomProjectileIdentity identity, out CustomActionIdentity actionIdentity)
     {
