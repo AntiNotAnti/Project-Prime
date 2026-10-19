@@ -7,6 +7,8 @@ on:
       - 'tools/nettest/MomentumMathTests.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'tools/nettest/MomentumProfileTests.cs'
+      - 'tools/nettest/MomentumJumpSceneTests.cs'
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
@@ -25,6 +27,8 @@ on:
       - 'tools/nettest/MomentumMathTests.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'tools/nettest/MomentumProfileTests.cs'
+      - 'tools/nettest/MomentumJumpSceneTests.cs'
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
@@ -65,6 +69,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-math
       - name: Offline developer admission and archival schema fences without assets
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-admission
+      - name: V1 contact, speed-retention and partial-input policy
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-profile
       - name: Warmed eight-player workload with zero-allocation assertion
         env:
           DOTNET_TieredCompilation: '0'

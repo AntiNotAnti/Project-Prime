@@ -1,5 +1,9 @@
 # Offline developer integration (PR-02)
 
+This records the PR-02 seam and initial profile. PR-03 replaces its temporary v0
+coefficients with the immutable [v1 private candidate](tuning-v1.md), adding an
+explicit native jump/contact label and a steering-growth ceiling.
+
 Classic remains the default. The desktop developer command is:
 
 ```sh

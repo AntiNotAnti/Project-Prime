@@ -1,4 +1,3 @@
-using System;
 using MphRead.Mods.Movement;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Render;
@@ -26,7 +25,7 @@ public partial class PlayerEntity
         && AttachedEnemy == null && _scene.CameraSequences.Current == null && !Controls.Morph.IsPressed
         && ModCharacterGameplay.Variant == CharacterGameplayVariant.Native;
 
-    private bool ModTryApplyMomentum()
+    private bool ModTryApplyMomentum(bool nativeJumpAccepted)
     {
         if (!ModMomentumEligible) return false;
 
@@ -34,31 +33,24 @@ public partial class PlayerEntity
             : Controls.MoveLeft.IsDown ? -Controls.AnalogScaleX(-1) : 0;
         float y = Controls.MoveUp.IsDown ? Controls.AnalogScaleY(1)
             : Controls.MoveDown.IsDown ? -Controls.AnalogScaleY(-1) : 0;
-        bool strafing = Flags1.TestFlag(PlayerFlags1.Strafing);
-        float nativeCap = Fixed.ToFloat(strafing ? Values.StrafeSpeedCap : Values.WalkSpeedCap);
-        float traction = Fixed.ToFloat(strafing ? Values.StrafeBipedTraction : Values.WalkBipedTraction);
-        if (nativeCap <= 0) return false;
+        if (Hunter is < Hunter.Samus or > Hunter.Weavel) return false;
 
         float dt = (float)FrameTiming.StepSeconds;
-        float desiredSpeed = nativeCap * NativeVelocityUnitsPerSecond;
-        // Developer profile v0 derives its scale from the native Hunter tables.
-        // PR-03 calibrates/finalizes the competitive profile; no Quake world-unit
-        // tuning set is imported here. Stop-speed floor is deliberately zero.
-        float acceleration = traction * FrameTiming.SimulationHz / nativeCap;
-        var tuning = new MomentumTuning(acceleration,
-            (1 - Math.Clamp(Fixed.ToFloat(Values.StandSpeedFactor), 0, 1)) * NativeVelocityUnitsPerSecond,
-            0, acceleration,
-            desiredSpeed * (1 - Math.Clamp(Fixed.ToFloat(Values.AirSpeedFactor), 0, 1)));
+        MomentumTuning tuning = MomentumProfileV1.Tuning;
+        MomentumContactPhase contact = MomentumProfileV1.Contact(
+            Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
+            Speed.Y, nativeJumpAccepted);
         var input = new MomentumInput(new Vector2(x, y),
             new Vector3(_field70, 0, _field74), new Vector3(-_field78, 0, -_field7C),
-            desiredSpeed, Flags1.TestFlag(PlayerFlags1.Standing) && Speed.Y <= 0, dt);
+            MomentumProfileV1.GroundSpeed, MomentumProfileV1.UsesGroundFriction(contact), dt);
         Vector3 before = Speed;
-        Vector3 result = MomentumMath.Step(new Vector3(before.X * NativeVelocityUnitsPerSecond, 0,
-            before.Z * NativeVelocityUnitsPerSecond), input, tuning);
+        MomentumProfileResult result = MomentumProfileV1.Step(new Vector3(before.X * NativeVelocityUnitsPerSecond, 0,
+            before.Z * NativeVelocityUnitsPerSecond), input);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
-        Speed = new Vector3(result.X / NativeVelocityUnitsPerSecond, before.Y,
-            result.Z / NativeVelocityUnitsPerSecond);
-        _scene.NoteDeveloperMomentumStep(new MomentumStepSample(_scene.FrameCount, SlotIndex, before, Speed, input, tuning));
+        Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
+            result.Velocity.Z / NativeVelocityUnitsPerSecond);
+        _scene.NoteDeveloperMomentumStep(new MomentumStepSample(_scene.FrameCount, SlotIndex, before, Speed,
+            input, tuning, contact, result.SpeedLimited, result.IncomingOverCap));
         return true;
     }
 }

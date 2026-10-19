@@ -90,6 +90,8 @@ namespace MphRead.NetTest
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
+                    + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
+                    + "  --momentum-profile                Test v1 retention policy, analog magnitudes and fixed cadence.\n"
                     + "  --momentum-math                   Test pure horizontal Momentum equations and validation.\n"
                     + "  --momentum-benchmark [json]       Measure warmed eight-player math and assert zero allocations.\n"
                     + "  --native-movement-baseline <assets> <fixture> [--record] Record/verify native seven-Hunter values.\n"
@@ -382,6 +384,14 @@ namespace MphRead.NetTest
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-profile") return MomentumProfileTests.Run();
+            if (args.Length > 1 && args[0] == "--momentum-jump-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumJumpSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--momentum-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;

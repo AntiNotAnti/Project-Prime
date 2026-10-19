@@ -723,6 +723,7 @@ namespace MphRead.Entities
                 EquipInfo.SmokeLevel -= EquipInfo.Weapon.SmokeDrain;
             }
             Vector3 speedDelta = Vector3.Zero;
+            bool nativeJumpAccepted = false;
             PlayerAnimation anim1 = PlayerAnimation.None;
             PlayerAnimation anim2 = PlayerAnimation.None;
             AnimFlags animFlags1 = AnimFlags.None;
@@ -958,6 +959,7 @@ namespace MphRead.Entities
                             Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed)); // todo: FPS stuff?
                         }
                         WallClingNoteJump();
+                        nativeJumpAccepted = true;
                         _timeSinceGrounded = 8 * 2; // todo: FPS stuff
                         PlayHunterSfx(HunterSfx.Jump);
                     }
@@ -989,7 +991,7 @@ namespace MphRead.Entities
                     }
                 }
             }
-            bool momentumApplied = ProcessMovement(allowMomentum: true);
+            bool momentumApplied = ProcessMovement(allowMomentum: true, nativeJumpAccepted: nativeJumpAccepted);
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             // Refresh replicated facing before building the camera and weapon.
             // Doing this after UpdateCamera mixed two aim samples in one POV.
@@ -2636,7 +2638,7 @@ namespace MphRead.Entities
             Flags2 &= ~PlayerFlags2.AltAttack;
         }
 
-        private bool ProcessMovement(bool allowMomentum = false)
+        private bool ProcessMovement(bool allowMomentum = false, bool nativeJumpAccepted = false)
         {
             // Fence before and after triggers/external acceleration: a newly
             // launched or teleported body retains its existing native owner.
@@ -2823,7 +2825,7 @@ namespace MphRead.Entities
                 }
             }
             UpdateSlidingSfx(slideSfxAmount);
-            bool momentumApplied = momentumAllowed && ModTryApplyMomentum();
+            bool momentumApplied = momentumAllowed && ModTryApplyMomentum(nativeJumpAccepted);
             if (!momentumApplied)
             {
                 ModMovementShadowNoteSpeedFactor(speedFactor);

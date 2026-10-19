@@ -26,7 +26,7 @@ internal static class MomentumDeveloperLaunch
             return 2;
         }
         window.Scene.GameState.MatchTime = -1;
-        Console.WriteLine("Momentum developer profile v0: offline biped experiment; Classic remains the default.");
+        Console.WriteLine($"Momentum developer profile v{MomentumProfileV1.MomentumProfileVersion}: offline biped experiment; Classic remains the default.");
         if (ticks is { } limit)
             window.UpdateFrame += _ => { if (window.Scene.FrameCount >= (ulong)limit) window.Close(); };
         window.Run();

@@ -10,7 +10,8 @@ namespace MphRead;
 // Bounded developer evidence; never serialized or consulted by gameplay.
 internal readonly record struct MomentumStepSample(ulong SimulationFrame, int Slot,
     Vector3 NativeVelocityBefore, Vector3 NativeVelocityAfter,
-    MomentumInput Input, MomentumTuning Tuning);
+    MomentumInput Input, MomentumTuning Tuning, MomentumContactPhase ContactPhase,
+    bool SpeedLimited, bool IncomingOverCap);
 
 public partial class Scene
 {
