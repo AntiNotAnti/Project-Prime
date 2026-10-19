@@ -1,0 +1,70 @@
+name: Replay protocol compatibility
+
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/Mods/Network/Replay*.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Network/NetLobbyTest.cs'
+      - 'src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs'
+      - 'tools/nettest/**'
+      - 'tools/server-browser-party-source-check/**'
+      - 'global.json'
+      - '.github/workflows/replay-compatibility.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Mods/Network/Replay*.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Network/NetLobbyTest.cs'
+      - 'src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs'
+      - 'tools/nettest/**'
+      - 'tools/server-browser-party-source-check/**'
+      - 'global.json'
+      - '.github/workflows/replay-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replay-compatibility-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  archives:
+    name: archive contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build real production library and asset-free checks
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Protocol, checkpoint, historical archive and session contracts
+        run: |
+          set -euo pipefail
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --protocol58-replay
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --architecture
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --timed-shot-replay
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --pickup-replay
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --grant-replay
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --compact-intents
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --protocol17
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --player-names-chat
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --continuous-targets
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --pickup-protocol
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --enhanced-retirement
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --lobby
+          dotnet tools/nettest/bin/Release/net10.0/nettest.dll --advanced-rules
+      - name: Actual DLL party protocol and preserved legacy byte fixtures
+        run: dotnet run --project tools/server-browser-party-source-check -c Release
