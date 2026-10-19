@@ -1018,6 +1018,8 @@ jobs:
         timeout-minutes: 20
         run: |
           dotnet run --project tools/settings-archive-check -c Release
+          dotnet run --project tools/custom-weapons-check -c Release
+          dotnet run --project tools/custom-weapons-baseline/snapshot.csproj -c Release -- docs/custom-weapons/evidence/CW-00-native-tables.json
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --match-rotations
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --display-pose-integration
