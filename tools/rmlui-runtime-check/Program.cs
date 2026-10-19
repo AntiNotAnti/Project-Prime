@@ -61,7 +61,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.ReplayAction => RmlUiIntentRegistry.ReplayActionCount,
         RmlUiIntentKind.OfflineSelectArena => 16,
         RmlUiIntentKind.OfflineArenaPage => 2,
-        RmlUiIntentKind.LobbyRulesToggle => 16,
+        RmlUiIntentKind.LobbyRulesToggle => RmlUiIntentRegistry.LobbyRuleChoiceCount,
         RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => 8,
         RmlUiIntentKind.LobbyMapSelect => 6,
         RmlUiIntentKind.LobbyMapCategory => 5,
@@ -73,7 +73,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SettingsAction => 63,
         RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => 3,
         RmlUiIntentKind.OfflineChoice => 16,
-        RmlUiIntentKind.OfflineRuleToggle => 12,
+        RmlUiIntentKind.OfflineRuleToggle => RmlUiIntentRegistry.OfflineRuleChoiceCount,
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1
     };
@@ -89,6 +89,16 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
     }
     Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
+Require(RmlUiIntentRegistry.LobbyRuleChoiceCount == 18 && RmlUiIntentRegistry.OfflineRuleChoiceCount == 14,
+    "Reviewed rule action families include Third Person and Movement");
+foreach (var choice in new[] {
+    ("lobby:rules-toggle:16", RmlUiIntentKind.LobbyRulesToggle, 16),
+    ("lobby:rules-toggle:17", RmlUiIntentKind.LobbyRulesToggle, 17),
+    ("offline:rule:12", RmlUiIntentKind.OfflineRuleToggle, 12),
+    ("offline:rule:13", RmlUiIntentKind.OfflineRuleToggle, 13) })
+    Require(RmlUiIntentRegistry.TryParseLegacy(choice.Item1, new(1, 1), 1, out var ruleChoice)
+        && ruleChoice.Kind == choice.Item2 && ruleChoice.Argument == choice.Item3,
+        "Third Person and Movement action indices remain explicit and stable: " + choice.Item1);
 string[] studioBuildActions =
 {
     "build-validate", "build-runtime", "build-package", "build-play-camera",
@@ -105,7 +115,7 @@ for (int index = 0; index < studioBuildActions.Length; index++)
         && parsed.Kind == RmlUiIntentKind.StudioAction && parsed.Argument == 200 + index,
         $"Studio build action index changed: {action}");
 }
-foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:16",
+foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:18", "offline:rule:14",
     "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",
     "lobby:map-select:6", "lobby:map-category:5", "route:unexpected", "quit:extra",
     "campaign-ship:-1", "campaign-ship:01", "campaign-ship:11" })

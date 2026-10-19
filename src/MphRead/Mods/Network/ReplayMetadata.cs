@@ -1,4 +1,8 @@
 using System;
+using System.Text.Json.Serialization;
+using MphRead.Mods.Movement;
+using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Replay;
 using MphRead.Mods.MapGen;
 using System.Collections.Generic;
 using System.IO;
@@ -44,6 +48,113 @@ namespace MphRead.Mods.Network
 
     internal sealed class ReplayMetadata
     {
+        // Presentation projection only: never part of an archive or its metadata JSON.
+        [JsonIgnore]
+        internal MovementModel? IndexedMovementModel { get; init; }
+        [JsonIgnore]
+        public MovementModel? RecordedMovementModel
+        {
+            get
+            {
+                if (IndexedMovementModel.HasValue) return IndexedMovementModel;
+                if (!_movementResolved) { _resolvedMovement = ResolveMovementModel(); _movementResolved = true; }
+                return _resolvedMovement;
+            }
+        }
+        private bool _movementResolved;
+        private MovementModel? _resolvedMovement;
+        [JsonIgnore]
+        public string MovementLabel => RecordedMovementModel is { } model
+            ? MovementModelRules.DisplayName(model) : "Unknown";
+
+        private MovementModel? ResolveMovementModel()
+        {
+            if (!ReplayIdentityCompatibility.Supports(ProtocolVersion)) return null;
+            MovementModel? result = null;
+            ushort? matchId = null;
+            ulong? epoch = null;
+            try
+            {
+                var packets = new List<byte[]>();
+                void AddConstruction(ReplayReplicaCheckpoint checkpoint)
+                {
+                    var state = new ReplayReplicaState(); state.RestoreCheckpoint(checkpoint);
+                    var match = state.Match ?? throw new InvalidDataException("Recorded construction has no match.");
+                    if (state.Configuration is { Phase: not SessionPhase.Lobby } session
+                        && (session.MatchId != match.MatchId || session.AuthorityEpoch != match.AuthorityEpoch
+                            || session.Match.RoomKey != match.RoomKey
+                            || session.Match.MovementModel != MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits)))
+                        throw new InvalidDataException("Recorded construction rules contradict match.");
+                    byte[] packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
+                    match.Write(packet.AsSpan(1)); packets.Add(packet);
+                }
+                if (WorldCheckpoint.Length != 0)
+                {
+                    using var world = ReplayWorldCheckpoint.FromBytes(WorldCheckpoint, BuildId);
+                    AddConstruction(world.ConstructionState());
+                }
+                foreach (byte[] packet in Bootstrap.Packets)
+                {
+                    if (packet.Length != 0 && packet[0] == 253)
+                        AddConstruction(ReplayTimelineArchive.ReadConstruction(packet));
+                    else packets.Add(packet);
+                }
+                foreach (byte[] raw in packets)
+                {
+                    if (raw.Length == 0 || raw[0] != (byte)PacketType.MatchState
+                        && raw[0] != (byte)PacketType.SessionState) continue;
+                    var packet = ReplayIdentityCompatibility.Convert(raw, ProtocolVersion);
+                    MovementModel model;
+                    ushort id; ulong authority; string room;
+                    if (packet.Length == 1 + SessionStatePacket.Size
+                        && packet[0] == (byte)PacketType.SessionState
+                        && SessionStatePacket.TryReadArchived(packet[1..], out var session))
+                    {
+                        // A mutable lobby is not a recorded match's effective rules.
+                        if (session.Phase == SessionPhase.Lobby) continue;
+                        model = session.Match.MovementModel;
+                        id = session.MatchId; authority = session.AuthorityEpoch;
+                        room = session.Match.RoomKey;
+                    }
+                    else if (packet.Length == 1 + MatchStatePacket.Size
+                        && packet[0] == (byte)PacketType.MatchState)
+                    {
+                        var match = MatchStatePacket.Read(packet[1..]);
+                        // MatchState has no TryRead; mirror its replay admission bounds.
+                        if (String.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
+                            || !float.IsFinite(match.TimeRemaining) || !float.IsFinite(match.TimeElapsed)) return null;
+                        var rules = (MatchModifierFlags)match.RuleBits;
+                        // MatchState omits format/team layout. Validate the modifier combinations
+                        // it does carry; the session reader validates the complete definition.
+                        var definition = new MatchDefinition
+                        {
+                            Mode = (GameMode)match.Mode,
+                            Format = rules.HasFlag(MatchModifierFlags.VanillaDuelResources) ? MatchFormat.OneVsOne : MatchFormat.Auto,
+                            MovementModel = MovementModelRules.FromRules(rules),
+                            BalancedMode = rules.HasFlag(MatchModifierFlags.BalancedMode),
+                            EnhancedHunters = rules.HasFlag(MatchModifierFlags.EnhancedHunters),
+                            Fiesta = rules.HasFlag(MatchModifierFlags.Fiesta),
+                            InstaGib = rules.HasFlag(MatchModifierFlags.InstaGib),
+                            OneInTheChamber = rules.HasFlag(MatchModifierFlags.OneInTheChamber),
+                            NoImperialist = rules.HasFlag(MatchModifierFlags.NoImperialist),
+                            VanillaDuelResources = rules.HasFlag(MatchModifierFlags.VanillaDuelResources),
+                            OctolithAutoReset = rules.HasFlag(MatchModifierFlags.OctolithAutoReset)
+                        };
+                        if (!MatchModifierRules.Validate(definition, out _, allowRetiredEnhanced: true)) return null;
+                        model = definition.MovementModel;
+                        id = match.MatchId; authority = match.AuthorityEpoch; room = match.RoomKey;
+                    }
+                    else return null;
+                    if (ProtocolVersion >= 59 && (id == 0 || authority == 0)
+                        || room != RoomKey || !MovementModelRules.IsDefined(model)
+                        || result.HasValue && (result != model || matchId != id || epoch != authority)) return null;
+                    result = model; matchId = id; epoch = authority;
+                }
+            }
+            catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException or IndexOutOfRangeException)
+            { return null; }
+            return result ?? (ProtocolVersion < 59 ? MovementModel.Native : null);
+        }
         public byte FormatVersion { get; init; } = 3;
         public byte ProtocolVersion { get; init; } = (byte)NetConfig.ProtocolVersion;
         public ushort TickRate { get; init; } = 60;

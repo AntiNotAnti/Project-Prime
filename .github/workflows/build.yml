@@ -64,6 +64,11 @@ jobs:
       - name: RmlUi offline rule validation, conflict and persistence contracts
         run: dotnet run --project tools/rmlui-offline-rules-check -c Release
 
+      - name: legacy movement draft and persistence contracts
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/movement-legacy-ui
+        run: dotnet run --project tools/momentum-legacy-ui-check -c Release
+
       - name: RmlUi native Community async discovery and cancellation contracts
         run: |
           dotnet run --project tools/rmlui-community-check -c Release

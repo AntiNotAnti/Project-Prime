@@ -45,6 +45,40 @@ internal static class RuntimeStateChecks
         reload.Advance(138); check(reload.Snapshot().Magazine == 4 && reload.Snapshot().Reserve == 15,"138-tick transfer exactly once");
         reload.Advance(139); check(reload.Snapshot().Reserve == 15,"reload cannot double-complete");
         check(reload.TryFire(139,2,true) == WeaponActionResult.Duplicate,"reload-denied fire stays denied after completion");
+        var preview = Fresh(); preview.TryFire(0,1,true); preview.TryReload(0,1);
+        preview.TryFire(10,2,true); preview.TryReload(10,2); preview.TrySetOptic(10,1,1);
+        var committed = preview.Snapshot();
+        check(preview.Preview(137,out var beforeCompletion) == WeaponActionResult.Accepted
+            && beforeCompletion.Tick == 137 && beforeCompletion.Phase == CustomWeaponPhase.Reloading
+            && beforeCompletion.Magazine == 3 && beforeCompletion.Reserve == 16,"preview before reload deadline transfers nothing");
+        check(preview.Preview(138,out var atCompletion) == WeaponActionResult.Accepted
+            && atCompletion.Tick == 138 && atCompletion.Phase == CustomWeaponPhase.Ready
+            && atCompletion.Magazine == 4 && atCompletion.Reserve == 15
+            && atCompletion.ReloadCompleteTick == 138 && atCompletion.FireReadyTick == 75
+            && atCompletion.LastAcceptedShotId == 1 && atCompletion.LastAcceptedShotTick == 0,
+            "preview projects exact reload completion and preserves acceptance/deadlines");
+        check(preview.Preview(1000,out var laterCompletion) == WeaponActionResult.Accepted
+            && laterCompletion.Magazine == 4 && laterCompletion.Reserve == 15
+            && preview.Snapshot() == committed,"future previews do not advance committed tick or resources");
+        check(preview.TryFire(20,2,true) == WeaponActionResult.Duplicate
+            && preview.TryReload(20,2) == WeaponActionResult.Duplicate
+            && preview.TrySetOptic(20,1,1) == WeaponActionResult.Duplicate,
+            "preview cannot revive denied fire/reload/optic IDs");
+        check(preview.TryFire(20,3,true) == WeaponActionResult.Reloading
+            && preview.Snapshot().Tick == 20 && preview.Snapshot().Magazine == 3
+            && preview.Snapshot().Reserve == 16,"delayed source fire remains in reload after future preview");
+        check(preview.Preview(19,out var stalePreview) == WeaponActionResult.StaleFrame
+            && stalePreview == preview.Snapshot(),"stale preview returns actual committed snapshot");
+        check(preview.Advance(138) == WeaponActionResult.Accepted && preview.Snapshot() == atCompletion,
+            "real reload completion matches earlier projection exactly");
+        preview.Advance(1000);
+        check(preview.Snapshot() == laterCompletion,"real advancement after preview transfers reserve only once");
+        var previewBolt = Fresh(); previewBolt.TryFire(0,1,true);
+        check(previewBolt.Preview(74,out var cyclingPreview) == WeaponActionResult.Accepted
+            && cyclingPreview.Phase == CustomWeaponPhase.BoltCycling
+            && previewBolt.Preview(75,out var readyPreview) == WeaponActionResult.Accepted
+            && readyPreview.Phase == CustomWeaponPhase.Ready && previewBolt.Snapshot().Tick == 0,
+            "preview projects bolt boundary without advancing committed tick");
         var cancel = Fresh(); cancel.TryFire(0,1,true); cancel.TryReload(0,1);
         cancel.SetEquipped(137,false); cancel.Advance(1000); cancel.SetEquipped(1000,true);
         check(cancel.Snapshot().Magazine == 3 && cancel.Snapshot().Reserve == 16,"swap/form cancellation gives no rounds");
@@ -58,6 +92,8 @@ internal static class RuntimeStateChecks
                 && invalid.TryReload(1000,2) == WeaponActionResult.InvalidLife
                 && invalid.Snapshot().Phase == CustomWeaponPhase.Invalid
                 && invalid.Snapshot().Magazine == 3 && invalid.Snapshot().Reserve == 16,"lifecycle invalidation " + reason);
+            check(invalid.Preview(1000,out var invalidPreview) == WeaponActionResult.InvalidLife
+                && invalidPreview == invalid.Snapshot(),"invalid-life preview returns actual snapshot " + reason);
         }
         var empty = Fresh();
         for (uint i=0; i<4; i++) check(empty.TryFire(i*75,i+1,true) == WeaponActionResult.Accepted,"four bounded shots");
@@ -77,7 +113,21 @@ internal static class RuntimeStateChecks
         check(wrap.TryFire(unchecked(start+74),1,true) == WeaponActionResult.Cooldown,"bolt frame wrap before boundary");
         check(wrap.TryFire(unchecked(start+75),2,true) == WeaponActionResult.Accepted,"frame/sequence wrap bounded correctly");
         var wrapReload = Fresh(start); wrapReload.TryFire(start,1,true); wrapReload.TryReload(start,1);
+        var wrapCommitted = wrapReload.Snapshot();
+        var wrapBeforeResult = wrapReload.Preview(unchecked(start+137),out var wrapBefore);
+        var wrapCompleteResult = wrapReload.Preview(unchecked(start+138),out var wrapComplete);
+        check(wrapBeforeResult == WeaponActionResult.Accepted
+            && wrapBefore.Phase == CustomWeaponPhase.Reloading && wrapBefore.Magazine == 3
+            && wrapCompleteResult == WeaponActionResult.Accepted
+            && wrapComplete.Magazine == 4 && wrapComplete.Reserve == 15
+            && wrapComplete.ReloadCompleteTick == unchecked(start+138)
+            && wrapReload.Snapshot() == wrapCommitted,"reload preview crosses uint wrap without committing transfer");
+        check(wrapReload.Preview(unchecked(start-1),out var wrapStale) == WeaponActionResult.StaleFrame
+            && wrapStale == wrapCommitted,"preview rejects stale tick across uint wrap");
+        check(wrapReload.Preview(unchecked(start+0x80000000u),out var ambiguousPreview) == WeaponActionResult.StaleFrame
+            && ambiguousPreview == wrapCommitted,"preview rejects ambiguous half-range tick");
         wrapReload.Advance(unchecked(start+138)); check(wrapReload.Snapshot().Reserve == 15,"reload completes across uint wrap");
+        check(wrapReload.Snapshot() == wrapComplete,"committed wrap completion matches preview");
         using var registry = new WeaponRegistry(true,new[] { definition });
         var inventory = registry.Inventory(0);
         check(!inventory.Grant(definition.Identity,0),"no grant before owner binding");
@@ -126,5 +176,14 @@ internal static class RuntimeStateChecks
         for (uint tick=20000; tick<120000; tick++) { hot.Advance(tick); hot.TrySetOptic(tick,tick+1,(int)(tick%3)); sum+=hot.Snapshot().Magazine; }
         long allocated = GC.GetAllocatedBytesForCurrentThread()-before;
         check(allocated == 0 && sum == 400000,"100000 warmed routine ticks/optics/snapshots allocate zero bytes");
+        var previewHot = Fresh(); previewHot.TryFire(0,1,true); previewHot.TryReload(0,1);
+        var previewHotCommitted = previewHot.Snapshot();
+        for (uint tick=0; tick<20000; tick++) previewHot.Preview(tick,out _);
+        before = GC.GetAllocatedBytesForCurrentThread(); sum = 0;
+        for (uint tick=20000; tick<120000; tick++)
+        { previewHot.Preview(tick,out var projected); sum += projected.Magazine + projected.Reserve; }
+        allocated = GC.GetAllocatedBytesForCurrentThread()-before;
+        check(allocated == 0 && sum == 1900000 && previewHot.Snapshot() == previewHotCommitted,
+            "100000 warmed previews allocate zero bytes and leave admission state unchanged");
     }
 }

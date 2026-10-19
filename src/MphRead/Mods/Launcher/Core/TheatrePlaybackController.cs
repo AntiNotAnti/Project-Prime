@@ -25,7 +25,8 @@ public sealed class TheatrePlaybackController : IDisposable
             active ? ReplayController.CurrentFrame : 0, active ? ReplayController.DurationFrames : 0,
             active ? ReplayController.State.ToString() : "Inactive", active ? ReplayController.PlaybackRate : 1,
             active && (ReplayController.IsPaused || ReplayController.AtEnd), ReplayCamera.Mode.ToString(),
-            _error.Length > 0 ? _error : DemoPlayback.LastError ?? "") { ExportRendering = ReplayVideoExporter.Rendering };
+            _error.Length > 0 ? _error : DemoPlayback.LastError ?? "")
+            { ExportRendering = ReplayVideoExporter.Rendering, Movement = active ? DemoPlayback.MovementLabel : "Unknown" };
         if (_snapshot == null || next != _snapshot) _snapshot = next with { Revision = (_snapshot?.Revision ?? 0) + 1 };
         return _snapshot;
     }

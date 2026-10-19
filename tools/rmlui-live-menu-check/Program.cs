@@ -8,6 +8,7 @@ using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
 using MphRead.Mods.Training;
 using MphRead.Entities;
 
@@ -220,13 +221,35 @@ Check(SessionStatePacket.TryRead(thirdPersonWire, out var receivedThirdPerson)
     && receivedThirdPerson.Match.Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera),
     "session packet round-trips the authoritative third-person match modifier");
 Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
-    "native 17-toggle sheet presents inverse health/powerup labels correctly");
-for (int i = 0; i < 17; i++)
+    "native 18-choice sheet presents inverse health/powerup labels correctly");
+for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
 {
     bool before = editor.IsOn(i);
     Check(editor.Toggle(i) && editor.IsOn(i) != before && editor.Toggle(i)
           && editor.IsOn(i) == before, "rule toggle " + i + " is reversible");
 }
+Check(!editor.Toggle(-1) && !editor.Toggle(18) && editor.Draft == sourceRules,
+    "expanded rule range still rejects invalid actions without changing draft");
+Check(RmlUiRuleEditor.ChoiceCount == 18 && editor.MovementLabel == "Classic"
+    && !editor.IsOn(17), "native rule draft defaults to Classic movement");
+var movementEditor = new RmlUiRuleEditor(sourceRules);
+Check(movementEditor.Toggle(17) && movementEditor.IsOn(17) && movementEditor.MovementLabel == "Momentum"
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Momentum
+    && movementEditor.Toggle(16) && movementEditor.Draft.Match.ThirdPersonCamera,
+    "movement and third-person choices remain independent draft fields");
+Check(movementEditor.NextMode() && movementEditor.NextFormat()
+    && movementEditor.TrySelectMap("MP2 HARVESTER", out _)
+    && movementEditor.TrySetLimits("8:20", "10", out _)
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Momentum,
+    "mode format map and numeric edits preserve selected Momentum");
+Check(movementEditor.Toggle(8) && !movementEditor.Validate(out string movementConflict)
+    && movementConflict.Contains("Momentum") && movementEditor.Draft.Match.MovementModel == MovementModel.Momentum,
+    "Balanced refuses Momentum without silently replacing either selection");
+var unsupportedMovement = new RmlUiRuleEditor(sourceRules with
+    { Match = sourceRules.Match with { MovementModel = (MovementModel)255 } });
+Check(unsupportedMovement.MovementLabel == "Unsupported" && !unsupportedMovement.Toggle(17)
+    && !unsupportedMovement.Validate(out _) && unsupportedMovement.Draft.Match.MovementModel == (MovementModel)255,
+    "unknown authoritative enum remains explicit and invalid instead of auto-repairing");
 Check(editor.Draft == sourceRules && !editor.Dirty,
     "cancelled local rules preserve the exact original session");
 editor.Toggle(8); editor.Toggle(9);
@@ -256,20 +279,70 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
 Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 0)
     && Text(controller.Tick(), "rules_toggle0") == "OFF"
     && services.Submissions == 0, "native edits remain private until Apply");
+Check(Text(controller.Tick(), "rules_toggle17") == "CLASSIC"
+    && controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17)
+    && Text(controller.Tick(), "rules_toggle17") == "MOMENTUM"
+    && services.AuthorityRules?.Match.MovementModel == MovementModel.Native,
+    "movement label distinguishes unsubmitted local draft from authoritative Classic");
 Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "8:20", ruleGoal: "10")
     && services.Submissions == 1 && Flag(controller.Tick(), "rules_pending"),
     "owner Apply submits exactly one validated UpdateMatch draft");
-Check(Flag(controller.Tick(), "lobby_rules_open"),
-    "native sheet waits for authoritative revision instead of optimistic success");
+Check(Flag(controller.Tick(), "lobby_rules_open") && Text(controller.Tick(), "rules_toggle17") == "MOMENTUM"
+    && !controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17)
+    && services.SubmittedRule.Match.MovementModel == MovementModel.Momentum,
+    "pending movement request remains visible and immutable until authoritative confirmation");
 services.AuthorityRules = services.SubmittedRule with { SessionRevision = 18 };
 Check(!Flag(Wait(controller, s => !Flag(s, "lobby_rules_open")), "lobby_rules_open"),
     "server-confirmed matching rules retire local draft and modal");
 services.LobbyView = services.LobbyView with { Owner = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
     && !controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 1)
+    && Text(controller.Tick(), "rules_toggle17") == "MOMENTUM"
+    && !controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17)
     && !controller.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "8:20", ruleGoal: "10"),
     "non-owner cannot mutate rule state");
 controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
+// Independent controller instances prove reload/epoch fencing without sharing
+// a pending movement editor with the subsequent map/roster acceptance cases.
+var movementServices = new Stub { LobbyView = services.LobbyView with { Owner = true, Active = true }, AuthorityRules = sourceRules };
+using (var movementController = new RmlUiMenuController(movementServices))
+{
+    string MovementText() => Text(movementController.Tick(), "rules_toggle17");
+    Check(movementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen) && MovementText() == "CLASSIC"
+        && movementController.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17) && MovementText() == "MOMENTUM",
+        "fresh host editor projects exact authoritative default and private movement choice");
+    movementServices.AuthorityRules = sourceRules with { SessionRevision = 18 };
+    Check(!movementController.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17)
+        && !movementController.Dispatch(RmlUiIntentKind.LobbyRulesApply, ruleTime: "7:00", ruleGoal: "7")
+        && movementServices.Submissions == 0 && MovementText() == "MOMENTUM",
+        "stale revision cannot submit or silently overwrite the local movement draft");
+    movementController.Dispatch(RmlUiIntentKind.LobbyRulesClose);
+    Check(movementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen) && MovementText() == "CLASSIC",
+        "reopening stale editor reloads authoritative movement instead of retaining old draft");
+    movementController.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 17);
+    movementServices.AuthorityRules = sourceRules with { AuthorityEpoch = 1000, SessionRevision = 1 };
+    Check(!Flag(movementController.Tick(), "lobby_rules_open")
+        && movementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen) && MovementText() == "CLASSIC",
+        "authority epoch change retires private Momentum and reloads new authoritative Classic");
+    movementServices.AuthorityRules = sourceRules with { MatchId = 6, AuthorityEpoch = 1000, SessionRevision = 2,
+        Match = sourceRules.Match with { MovementModel = MovementModel.Momentum } };
+    Check(!Flag(movementController.Tick(), "lobby_rules_open")
+        && movementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen) && MovementText() == "MOMENTUM",
+        "new match identity retires prior editor and displays its accepted Momentum rule");
+}
+using (var reloadedMovementController = new RmlUiMenuController(movementServices))
+{
+    Check(reloadedMovementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
+        && Text(reloadedMovementController.Tick(), "rules_toggle17") == "MOMENTUM",
+        "controller reload derives movement from current server definition");
+    movementServices.LobbyView = movementServices.LobbyView with { Active = false };
+    Check(!Flag(reloadedMovementController.Tick(), "lobby_rules_open"), "leaving session retires movement display draft");
+    movementServices.LobbyView = movementServices.LobbyView with { Active = true };
+    movementServices.AuthorityRules = sourceRules with { MatchId = 7, AuthorityEpoch = 2000, SessionRevision = 1 };
+    Check(reloadedMovementController.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
+        && Text(reloadedMovementController.Tick(), "rules_toggle17") == "CLASSIC",
+        "new session restores its own Classic definition instead of prior Momentum");
+}
 var mapPages = new RmlUiMapPickerModel(
     new[] { "G", "F", "E", "D", "C", "B", "A", "a" },
     new[] { "U", "V", "A", "v" });

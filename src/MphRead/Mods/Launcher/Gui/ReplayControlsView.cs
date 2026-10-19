@@ -1315,7 +1315,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : DemoPlayback.LastWarning ?? "";
             _status.Text = $"{ReplayController.State}  ·  {Time(ReplayController.CurrentFrame)} / "
                 + $"{Time(ReplayController.DurationFrames)}  ·  {ReplayController.PlaybackRate:0.##}x\n"
-                + $"{mode} camera  ·  {marks}  ·  zoom {_timeline.Zoom:0.0}x"
+                + $"{mode} camera  ·  Movement: {DemoPlayback.MovementLabel}  ·  {marks}  ·  zoom {_timeline.Zoom:0.0}x"
                 + (_message.Length == 0 ? "" : "\n" + _message)
                 + (replayNotice.Length == 0 ? "" : "\n" + replayNotice);
 

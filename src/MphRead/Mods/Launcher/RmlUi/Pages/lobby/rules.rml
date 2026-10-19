@@ -15,7 +15,7 @@
                     </div>
                     <button id="rules_close_top" class="play_action" data-action="lobby:rules-close">CLOSE</button>
                 </div>
-                <div class="rules_columns">
+                <div id="rules_columns" class="rules_columns">
                     <div class="rules_main">
                         <div class="eyebrow">MATCH CONFIGURATION</div>
                         <div class="play_form_label">NEXT ARENA</div>
@@ -85,11 +85,14 @@
                                 </button>
                                 <button id="rules_toggle16" class="rules_toggle" data-action="lobby:rules-toggle:16" data-prime-disabled="!rules_owner"><span class="rules_label">THIRD-PERSON CAMERA</span><span data-prime-text="{{rules_toggle16}}" id="text_rules_toggle16_1" />
                                 </button>
+                                <button id="rules_toggle17" class="rules_toggle" data-action="lobby:rules-toggle:17" data-prime-disabled="!rules_owner"><span class="rules_label">MOVEMENT</span><span data-prime-text="{{rules_toggle17}}" id="text_rules_toggle17_1" />
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div id="rules_status" data-prime-text="{{rules_status}}" />
+                <div class="rules_movement_help">Momentum: air-strafing and bunny-hop momentum. Alternate-form abilities stay native.</div>
                 <div class="rules_footer">
                     <div class="rules_owner_message" data-prime-visible="rules_owner" id="visible_rules_owner_1">CHANGES ARE SUBMITTED TO THE SERVER ONLY WHEN YOU APPLY.</div>
                     <div class="rules_owner_message" data-prime-visible="!rules_owner" id="visible__rules_owner_1">VIEW ONLY // THE LOBBY OWNER CONTROLS THESE SETTINGS.</div>

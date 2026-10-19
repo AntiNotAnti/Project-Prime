@@ -3,6 +3,8 @@ using System.Text.Json;
 using MphRead;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Movement;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 
 static void Check(bool condition, string label)
@@ -19,7 +21,7 @@ var battle = new RmlUiOfflineRuleEditor(GameMode.Battle, initial);
 Check(battle.Original == initial && !battle.Draft.Enabled(5)
     && battle.Draft.Enabled(0) && battle.Draft.Enabled(1),
     "opening clears retired chamber modifier in draft while preserving original and hidden options");
-foreach (int index in new[] { int.MinValue, -1, 13, int.MaxValue, 5, 0, 1 })
+foreach (int index in new[] { int.MinValue, -1, 14, int.MaxValue, 5, 0, 1 })
 {
     var before = battle.Draft;
     Check(!battle.Toggle(index) && battle.Draft == before,
@@ -125,7 +127,7 @@ Check(!corrected.Validate("7", "7:00", "1:30") && corrected.Toggle(10)
     "removing a conflicting modifier clears error and restores valid rules");
 
 var settings = new MenuSettings { RoomKey = "TEMP FIXTURE MAP", Language = "French", SfxVolume = "0.42" };
-var roundtrip = new RmlUiOfflineRules("123", "15:25", "02:45", "high", 0x1AAA);
+var roundtrip = new RmlUiOfflineRules("123", "15:25", "02:45", "high", 0x1AAA) { MovementModel = "Momentum" };
 roundtrip.CopyTo(settings);
 Check(RmlUiOfflineRules.Capture(settings) == roundtrip && settings.OneInTheChamber == "on" && settings.ThirdPersonCamera == "on"
     && settings.RoomKey == "TEMP FIXTURE MAP" && settings.Language == "French" && settings.SfxVolume == "0.42",
@@ -176,4 +178,50 @@ try
         "successful commit survives temp-file readback with unrelated settings preserved");
 }
 finally { Directory.Delete(temporaryDirectory, recursive: true); }
+
+Check(RmlUiOfflineRuleEditor.Labels.Length == 14 && new MenuSettings().MovementModel == "Native",
+    "fourteen local choices retain Native default");
+var movement = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules());
+Check(movement.MovementVisible && movement.MovementLabel == "Classic" && movement.Toggle(13)
+    && movement.Draft.MovementModel == "Momentum" && movement.MovementLabel == "Momentum"
+    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles both directions");
+movement.Toggle(13);
+Check(movement.Toggle(12) && movement.NextDamage() && movement.Validate("31", "8:10", "2:00")
+    && movement.Draft.MovementModel == "Momentum" && movement.Draft.Enabled(12),
+    "unrelated partial draft edits preserve Momentum and camera independently");
+var balancedMovement = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules(1 << 10) with { MovementModel = "Momentum" });
+var conflictedDraft = balancedMovement.Draft;
+Check(!balancedMovement.Validate("19", "8:20", "2:00") && balancedMovement.Draft == conflictedDraft
+    && balancedMovement.Error.Contains("Momentum"), "Balanced refuses Momentum without silently changing accepted draft");
+foreach (string invalidMovement in new[] { "unknown", "1", "Momentum " })
+{
+    var unsupported = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules() with { MovementModel = invalidMovement });
+    Check(unsupported.MovementLabel == "Unsupported" && !unsupported.Validate("7", "7:00", "1:30")
+        && unsupported.Draft.MovementModel == invalidMovement && unsupported.Original.MovementModel == invalidMovement,
+        "opening and applying unknown saved movement never repairs it automatically: " + invalidMovement);
+    Check(unsupported.Toggle(13) && unsupported.Draft.MovementModel == "Native" && unsupported.MovementLabel == "Classic"
+        && unsupported.Validate("7", "7:00", "1:30"), "explicit movement click repairs unsupported value to Native: " + invalidMovement);
+}
+var campaignRules = Rules() with { MovementModel = "Momentum" };
+var campaign = new RmlUiOfflineRuleEditor(GameMode.SinglePlayer, campaignRules);
+Check(!campaign.MovementVisible && !campaign.Toggle(13) && campaign.Draft == campaignRules
+    && campaign.Validate("7", "7:00", "1:30"), "campaign hides/refuses movement editing while retaining saved multiplayer preference");
+var campaignSettings = new MenuSettings { MovementModel = "Momentum" };
+Check(OfflineLaunch.Preview(campaignSettings, "MP1 SANCTORUS", GameMode.SinglePlayer, Hunter.Samus, 0, 0, 0)
+    .MatchRules.MovementModel == MovementModel.Native && campaignSettings.MovementModel == "Momentum",
+    "campaign launch preview uses Native while preserving saved Momentum for multiplayer");
+
 Console.WriteLine("RML offline rule editor and isolated persistence acceptance complete.");
+
+foreach (int index in new[] { 12, 13 })
+    Check(MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("offline:rule:" + index, new(1, 1), 1, out var parsed)
+        && parsed.Kind == MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentKind.OfflineRuleToggle && parsed.Argument == index,
+        "managed legacy action codec retains Third Person and Movement: " + index);
+Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("offline:rule:14", new(1, 1), 1, out _),
+    "managed legacy offline action codec refuses unknown option");
+foreach (int index in new[] { 16, 17 })
+    Check(MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("lobby:rules-toggle:" + index, new(1, 1), 1, out var parsed)
+        && parsed.Kind == MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentKind.LobbyRulesToggle && parsed.Argument == index,
+        "managed legacy lobby codec retains Third Person and Movement: " + index);
+Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("lobby:rules-toggle:18", new(1, 1), 1, out _),
+    "managed legacy lobby action codec refuses unknown option");

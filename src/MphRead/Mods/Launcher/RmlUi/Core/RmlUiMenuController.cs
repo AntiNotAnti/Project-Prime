@@ -1938,10 +1938,12 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("offline_chamber_help_visible", _offlineRules?.Mode == GameMode.OneInTheChamber);
         Flag("offline_fire_visible", _offlineRules?.FireVisible == true);
         Flag("offline_auto_reset_visible", _offlineRules?.AutoResetVisible == true);
+        Flag("offline_movement_visible", _offlineRules?.MovementVisible == true);
         Text("offline_damage_value", "DAMAGE // " + (_offlineRules?.Draft.DamageLevel.ToUpperInvariant() ?? ""));
         for (int i = 0; i < RmlUiOfflineRuleEditor.Labels.Length; i++)
             Text("offline_rule" + i + "_label", RmlUiOfflineRuleEditor.Labels[i]
-                + " // " + (_offlineRules?.Draft.Enabled(i) == true ? "ON" : "OFF"));
+                + " // " + (i == 13 ? _offlineRules?.MovementLabel.ToUpperInvariant() ?? "CLASSIC"
+                    : _offlineRules?.Draft.Enabled(i) == true ? "ON" : "OFF"));
         Flag("play_browser_mode", _browsing && !_createOpen && !lobby.Active);
         Flag("play_create_mode", _createOpen && !lobby.Active);
         Text("offline_arena_value", _offline?.Map ?? "");
@@ -2082,8 +2084,8 @@ public sealed class RmlUiMenuController : IDisposable
             Text("rules_goal_label", MphRead.Mods.Network.MatchGoalRules.UsesLives(rules.Draft.Match.Mode)
                 ? "SPARE LIVES" : MphRead.Mods.Network.MatchGoalRules.UsesTimeTarget(rules.Draft.Match.Mode)
                 ? "CONTROL TIME" : "SCORE GOAL");
-            for (int i = 0; i < 17; i++)
-                Text("rules_toggle" + i, rules.IsOn(i) ? "ON" : "OFF");
+            for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
+                Text("rules_toggle" + i, i == 17 ? rules.MovementLabel.ToUpperInvariant() : rules.IsOn(i) ? "ON" : "OFF");
         }
         // Fill the authored Lobby's actual fields rather than leaving empty
         // placeholders. Every value here comes from server/session state.

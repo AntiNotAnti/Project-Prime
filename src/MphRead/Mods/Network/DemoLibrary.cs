@@ -192,7 +192,7 @@ namespace MphRead.Mods.Network
         {
             string details = $"{demo.Recorded:d MMM yyyy, HH:mm} / {Size(demo.Bytes)}";
             if (demo.Metadata is ReplayMetadata metadata)
-                details = $"{metadata.Mode} / {metadata.Players.Count} players / {(metadata.Type == ReplayType.FullMatch ? "Full match" : "Clip")}\n"
+                details = $"{metadata.Mode} / Movement: {metadata.MovementLabel} / {metadata.Players.Count} players / {(metadata.Type == ReplayType.FullMatch ? "Full match" : "Clip")}\n"
                     + string.Join(", ", System.Linq.Enumerable.Select(metadata.Players, p => p.Name)) + "\n"
                     + (metadata.BuildMatches ? "Same build" : "Different build") + " / " + details;
             return details;

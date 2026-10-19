@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MphRead.Mods.Launcher.Core;
@@ -14,8 +15,12 @@ internal static class PresenterChecks
         using var page = new TheatrePlaybackPagePresenter(host, pages, backend);
         Check(page.Send(TheatrePlaybackAction.ExportOpen) && pages.Top != page.Document, "actual presenter opens foreground export modal with injected backend");
         var panel = pages.Top;
+        host.SetField(panel, "replay_export_executable", "reviewed-ffmpeg");
+        page.RefreshFixture();
+        Check(host.ReadField(panel, "replay_export_executable") == "reviewed-ffmpeg", "refresh preserves the actual editable field draft");
         Check(page.Send(TheatrePlaybackAction.ExportGameHud) && page.Send(TheatrePlaybackAction.ExportQueue)
-            && backend.Accepted.Single().Options.GameHud, "actual presenter delegates reviewed native options and enqueue");
+            && backend.Accepted.Single().Options.GameHud
+            && backend.Accepted.Single().Options.EncoderExecutable == "reviewed-ffmpeg", "actual presenter delegates reviewed native options and enqueue");
         Check(!page.Repeat(), "actual presenter rejects duplicate accepted intent sequence");
         Check(page.Send(TheatrePlaybackAction.ExportClearPending) && pages.Top != panel, "actual presenter opens queue confirmation before clearing");
         var confirmation = pages.Top; backend.AddPending(); page.RefreshFixture();
@@ -30,6 +35,16 @@ internal static class PresenterChecks
         backend.AddPending(); int accepted = backend.Pending.Length;
         Check(page.Send(TheatrePlaybackAction.ExportClose) && pages.Top == page.Document && backend.Pending.Length == accepted,
             "actual presenter close retires editor without clearing accepted jobs");
+        host.SetField(panel, "replay_export_executable", "retired-write");
+        Check(host.ReadField(panel, "replay_export_executable") == "", "retired document field reads are empty and writes are ignored");
+        Check(host.ReadField(page.Document, "replay_export_executable") == "", "field values remain scoped to their document");
+        bool invalidLimit = false;
+        try { host.ReadField(panel, "replay_export_executable", 0); } catch (ArgumentOutOfRangeException) { invalidLimit = true; }
+        Check(invalidLimit, "field byte-limit validation precedes retired document lookup");
+        host.SetField(page.Document, "utf8", "é");
+        bool oversized = false;
+        try { host.ReadField(page.Document, "utf8", 1); } catch (InvalidOperationException) { oversized = true; }
+        Check(oversized && host.ReadField(page.Document, "utf8", 2) == "é", "field bounds count UTF-8 bytes and allow the exact limit");
         Check(!page.SendFrom(TheatrePlaybackAction.ExportQueue, panel), "retired modal cannot enqueue another export");
         string root = AppContext.BaseDirectory;
         while (!File.Exists(Path.Combine(root, "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/export.rml")))
@@ -58,6 +73,20 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         internal readonly HashSet<RmlUiDocumentToken> Alive = new();
         internal readonly Dictionary<(RmlUiDocumentToken, string), string> Text = new();
         internal readonly Dictionary<(RmlUiDocumentToken, string), bool> Flags = new();
+        private readonly Dictionary<(RmlUiDocumentToken, string), string> Fields = new();
+        public void SetField(RmlUiDocumentToken document, string id, string value)
+        {
+            if (IsAlive(document)) Fields[(document, id)] = value ?? "";
+        }
+        public string ReadField(RmlUiDocumentToken document, string id, int maximumBytes = 4096)
+        {
+            if (maximumBytes is <= 0 or > 128 * 1024) throw new ArgumentOutOfRangeException(nameof(maximumBytes));
+            if (!IsAlive(document)) return "";
+            string value = Fields.GetValueOrDefault((document, id), "");
+            if (Encoding.UTF8.GetByteCount(value) > maximumBytes)
+                throw new InvalidOperationException("The native editable field exceeds its permitted UTF-8 byte length.");
+            return value;
+        }
         public bool IsAlive(RmlUiDocumentToken token) => Alive.Contains(token);
         public void SetText(RmlUiDocumentToken token, string id, string value) => Text[(token, id)] = value;
         public void SetBool(RmlUiDocumentToken token, string id, bool value) => Flags[(token, id)] = value;

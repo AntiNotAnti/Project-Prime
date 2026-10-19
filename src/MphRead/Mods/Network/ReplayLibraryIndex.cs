@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Movement;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,7 @@ namespace MphRead.Mods.Network
 
     internal sealed class ReplayLibraryIndexEntry
     {
+        public MovementModel? RecordedMovementModel { get; set; }
         public string FileName { get; set; } = "";
         public long Bytes { get; set; }
         public long ModifiedUtcTicks { get; set; }
@@ -36,6 +38,7 @@ namespace MphRead.Mods.Network
             {
                 metadata = new ReplayMetadata
                 {
+                    IndexedMovementModel = RecordedMovementModel,
                     FormatVersion = FormatVersion,
                     ProtocolVersion = ProtocolVersion,
                     RecordedAtUtc = RecordedUtcTicks > 0
@@ -66,7 +69,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class ReplayLibraryIndex
     {
-        private const int Version = 4; // Re-evaluate the universal legacy replay compatibility range.
+        private const int Version = 5; // Cache the recorded movement presentation projection.
         private sealed class Document
         {
             public int Version { get; set; } = ReplayLibraryIndex.Version;
@@ -115,6 +118,9 @@ namespace MphRead.Mods.Network
                 string key = info.Name;
                 Document doc = Load();
                 if (!doc.Entries.TryGetValue(key, out ReplayLibraryIndexEntry? entry)
+                    || entry.RecordedMovementModel is { } model && (!MovementModelRules.IsDefined(model)
+                        || !ReplayIdentityCompatibility.Supports(entry.ProtocolVersion)
+                        || entry.ProtocolVersion < 59 && model != MovementModel.Native)
                     || entry.Bytes != info.Length
                     || entry.ModifiedUtcTicks != info.LastWriteTimeUtc.Ticks)
                     return false;
@@ -136,6 +142,7 @@ namespace MphRead.Mods.Network
             ReplayMetadata? metadata = recording.Metadata;
             var entry = new ReplayLibraryIndexEntry
             {
+                RecordedMovementModel = metadata?.RecordedMovementModel,
                 FileName = info.Name,
                 Bytes = info.Length,
                 ModifiedUtcTicks = info.LastWriteTimeUtc.Ticks,
