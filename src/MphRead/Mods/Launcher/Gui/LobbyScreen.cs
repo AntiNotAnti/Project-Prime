@@ -90,6 +90,9 @@ namespace MphRead.Mods.Launcher.Gui
         private double _nextPingRefresh;
         private LobbyRuleFlags _shownRules;
         private string _draftRoom = "";
+        // No editor control yet: preserve the authoritative choice through
+        // unrelated legacy lobby edits instead of reconstructing Native.
+        private Movement.MovementModel _movementModel;
         private string _teamChoiceKey = "";
         private TeamLayout _customLayout = new(2, 2, 2);
         private bool _syncing, _suspended, _closed, _draftDirty, _closingLobby, _startAfterSave, _matchRequestIssued;
@@ -785,6 +788,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _noImperialist.On = session.Match.NoImperialist;
                 _balancedMode.On = session.Match.BalancedMode;
                 _thirdPersonCamera.On = session.Match.ThirdPersonCamera;
+                _movementModel = session.Match.MovementModel;
                 _octolithAutoReset.On = session.Match.OctolithAutoReset;
                 _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(session.Match.Mode);
                 _requireReady.On = session.RequireReady;
@@ -1151,6 +1155,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RoomKey = _draftRoom,
                 Mode = mode,
                 Format = format,
+                MovementModel = _movementModel,
                 CustomTeams = _customLayout
             };
         }

@@ -88,7 +88,7 @@ internal static class MomentumSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM SCENE FAIL " + ex); return 1; }
     }
 
-    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard, string room = "MP3 PROVING GROUND")
+    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard, string room = "MP3 PROVING GROUND", bool matchRule = false)
     {
         Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
         keyboard = SyntheticInput.CreateKeyboard();
@@ -98,7 +98,17 @@ internal static class MomentumSceneTests
             scene = new Scene(new Vector2i(256, 192), keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { }, lifetimeOwned: value => scene = value);
             scene.AddPlayer(hunter);
             scene.AddRoom(room, GameMode.Battle, playerCount: 1);
-            if (momentum)
+            // Fixtures select an explicit default so a preceding rule-selected
+            // scene cannot leak its configuration into the next Native/developer run.
+            new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                MovementModel = matchRule && momentum ? MovementModel.Momentum : MovementModel.Native,
+                TimeLimitSeconds = 0, PointGoal = 10000 }.ApplyInitialConfiguration(scene.GameState);
+            if (momentum && matchRule)
+            {
+                // Diagnostic sampling alone: do not fabricate movement ownership.
+                typeof(Scene).GetField("_developerMomentumDiagnostics", Hidden)!.SetValue(scene, true);
+            }
+            if (momentum && !matchRule)
             {
                 if (!_admissionChecked)
                 {
@@ -137,7 +147,7 @@ internal static class MomentumSceneTests
             for (int i = 0; i < 120; i++) scene.OnSimulationFrame();
             Require(ReferenceEquals(player, scene.Players.Main) && player.ModIsInPlay && player.Health > 0 && !player.IsAltForm, "settled living biped");
             if (momentum) Require(player.ModMomentumEligible,
-                $"settled offline biped is eligible (active={scene.DeveloperMomentumActive}, input={scene.DeveloperMomentumInputAllowed}, flags={player.Flags1}/{player.Flags2})");
+                $"settled offline biped is eligible (active={scene.MomentumMovementActive}, input={scene.DeveloperMomentumInputAllowed}, flags={player.Flags1}/{player.Flags2})");
             return scene;
         }
         catch { if (scene != null) Release(scene); throw; }

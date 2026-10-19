@@ -39,7 +39,9 @@ namespace MphRead.Mods.Launcher
         public static LaunchPlan Preview(MenuSettings settings, string roomKey,
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
         {
-            return new LaunchPlan
+            if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
+                throw new ArgumentException("MovementModel must be Native or Momentum.", nameof(settings));
+            var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
                 Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
@@ -55,6 +57,8 @@ namespace MphRead.Mods.Launcher
                     NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
                     BalancedMode = settings.BalancedMode == "on",
                     ThirdPersonCamera = settings.ThirdPersonCamera == "on",
+                    MovementModel = mode == GameMode.SinglePlayer
+                        ? Movement.MovementModel.Native : movementModel,
                     ShadowFreeze = settings.ShadowFreeze == "on",
                     SpawnProtection = settings.SpawnProtection == "on"
                 },
@@ -64,6 +68,10 @@ namespace MphRead.Mods.Launcher
                 Bots = Math.Clamp(bots, 0, PlayerEntity.SlotCapacity - 1),
                 BotLevel = Math.Clamp(botLevel, 0, 3)
             };
+            if (mode != GameMode.SinglePlayer
+                && !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out string reason))
+                throw new ArgumentException(reason, nameof(settings));
+            return plan;
         }
 
         public static LaunchPlan Create(MenuSettings settings, string roomKey,

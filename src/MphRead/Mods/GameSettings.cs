@@ -168,7 +168,11 @@ namespace MphRead.Mods
         /// <summary>Pure rule application shared by launch code and regressions.</summary>
         internal static void ApplyMatchRules(MenuSettings settings, SceneGameState state)
         {
-            if (!state.Multiplayer) return;
+            if (!state.Multiplayer)
+            {
+                state.MovementModel = Movement.MovementModel.Native;
+                return;
+            }
             if (Network.NetSession.Active)
             {
                 // Scene.Setup just applied engine defaults. Restore the frozen
@@ -177,6 +181,12 @@ namespace MphRead.Mods
                 Network.NetSession.ActiveMatchDefinition?.ApplyInitialConfiguration(state);
                 return;
             }
+
+            if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
+                throw new ArgumentException("MovementModel must be Native or Momentum.", nameof(settings));
+            if (!Multiplayer.MatchModifierRules.Validate(new Network.MatchDefinition
+                { MovementModel = movementModel, BalancedMode = settings.BalancedMode == "on" }, out string movementReason))
+                throw new ArgumentException(movementReason, nameof(settings));
 
             if (TryTime(settings.TimeLimit, out float timeLimit))
                 state.MatchTime = timeLimit > 0 ? timeLimit : -1;
@@ -201,6 +211,7 @@ namespace MphRead.Mods
             state.NoImperialist = settings.NoImperialist == "on" && !state.InstaGib;
             state.BalancedMode = settings.BalancedMode == "on";
             state.ThirdPersonCamera = settings.ThirdPersonCamera == "on";
+            state.MovementModel = movementModel;
             state.SpawnProtection = settings.SpawnProtection == "on";
             // Shadow Freeze also requires an explicit opt-in.
             state.ShadowFreeze = settings.ShadowFreeze == "on";

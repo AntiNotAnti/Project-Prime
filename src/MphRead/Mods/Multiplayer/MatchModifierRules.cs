@@ -1,4 +1,5 @@
 using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
 
 namespace MphRead.Mods.Multiplayer;
 
@@ -10,7 +11,11 @@ public static class MatchModifierRules
     {
         match = match.NormalizeLegacy();
         reason = "";
-        if (match.EnhancedHunters && !allowRetiredEnhanced)
+        if (!MovementModelRules.IsDefined(match.MovementModel))
+            reason = "Movement model must be Native or Momentum.";
+        else if (match.MovementModel == MovementModel.Momentum && (match.BalancedMode || match.EnhancedHunters))
+            reason = "Momentum requires Native Hunter abilities; disable Balanced Mode and Enhanced Hunters.";
+        else if (match.EnhancedHunters && !allowRetiredEnhanced)
             reason = "Enhanced Hunters has been retired. Disable that modifier; Vanilla and Balanced Mode remain available.";
         else if (match.BalancedMode && (match.Fiesta || match.InstaGib || match.OneInTheChamber
             || match.Mode == GameMode.OneInTheChamber || match.Mode == GameMode.GunGame || match.EnhancedHunters))

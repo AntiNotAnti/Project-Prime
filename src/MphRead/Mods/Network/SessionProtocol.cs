@@ -33,8 +33,9 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            MatchModifierFlags movementValidatedRules = Match.Rules;
             dest[..Size].Clear();
-            BinaryPrimitives.WriteUInt32LittleEndian(dest[Protocol28Size..], (uint)Match.Rules);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[Protocol28Size..], (uint)movementValidatedRules);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[(Protocol28Size-2)..],MapGeneration);
             Match.MapIdentity.Write(dest[(LegacySize + 6)..]);
             NetText.Write(dest.Slice(DownloadSourceOffset, MaxDownloadSourceBytes), MapDownloadSource ?? "");
@@ -76,7 +77,7 @@ namespace MphRead.Mods.Network
                 || !Enum.IsDefined(typeof(GameMode), src[9])) return false;
             var flags = (LobbyRuleFlags)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
             var modifiers = (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[Protocol28Size..]);
-            if (((uint)modifiers & ~32767u) != 0 || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
+            if (((uint)modifiers & ~65535u) != 0 || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
             var availability = new MapAvailabilityState[8];
             for (int i = 0; i < 8; i++)
             {
@@ -121,7 +122,8 @@ namespace MphRead.Mods.Network
                     OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
                     NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
                     BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode),
-                    ThirdPersonCamera = modifiers.HasFlag(MatchModifierFlags.ThirdPersonCamera)
+                    ThirdPersonCamera = modifiers.HasFlag(MatchModifierFlags.ThirdPersonCamera),
+                    MovementModel = Movement.MovementModelRules.FromRules(modifiers)
                 }.NormalizeLegacy()
             };
             return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _, allowRetiredEnhanced) == LobbyResultCode.Ok)

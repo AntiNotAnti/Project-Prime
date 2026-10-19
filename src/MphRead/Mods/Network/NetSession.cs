@@ -1654,6 +1654,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void ApplyMatchState(MatchStatePacket state, bool rotated)
         {
+            if (ServerSession is { Phase: not SessionPhase.Lobby } session
+                && session.MatchId == state.MatchId && session.AuthorityEpoch == state.AuthorityEpoch
+                && Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits) != session.Match.MovementModel)
+                return;
             if (!_playback && state.EnhancedHunters)
             {
                 LastError = "Enhanced Hunters has been retired. Disable that modifier on the server.";
@@ -1661,6 +1665,13 @@ namespace MphRead.Mods.Network
             }
             if (state.MatchId == 0 || state.AuthorityEpoch == 0) return;
             MatchStatePacket? previous = ServerMatch;
+            // With no session baseline this is genuine match control, rather
+            // than the provisional control synthesized from a mutable lobby.
+            if (ServerSession == null && previous is { } frozenControl
+                && frozenControl.MatchId == state.MatchId && frozenControl.AuthorityEpoch == state.AuthorityEpoch
+                && Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits)
+                    != Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits))
+                return;
             if (previous.HasValue)
             {
                 if (state.AuthorityEpoch != previous.Value.AuthorityEpoch

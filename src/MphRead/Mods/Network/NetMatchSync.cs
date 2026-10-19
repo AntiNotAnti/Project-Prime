@@ -82,6 +82,8 @@ namespace MphRead.Mods.Network
             // session packets. Never read local camera preferences in online play.
             GameState.Current.ThirdPersonCamera = NetSession.ActiveMatchDefinition?.ThirdPersonCamera
                 ?? (((MatchModifierFlags)state.RuleBits & MatchModifierFlags.ThirdPersonCamera) != 0);
+            GameState.Current.MovementModel = NetSession.ActiveMatchDefinition?.MovementModel
+                ?? Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits);
             GameState.EnhancedHunters = state.EnhancedHunters;
             // And whether weapon pickups are the picking hunter's affinity
             // variant, which is a different row of the damage table -- an

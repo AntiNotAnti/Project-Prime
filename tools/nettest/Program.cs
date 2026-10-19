@@ -61,7 +61,7 @@ namespace MphRead.NetTest
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
                     + "  --timed-shot-replay               Test detached archival fact codecs and optional replay schemas.\n"
-                    + "  --protocol58-replay               Test reviewed 56/57/58 archival layouts and future refusal.\n"
+                    + "  --protocol58-replay               Test reviewed 56/57/58/59 archival layouts and future refusal.\n"
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
@@ -89,6 +89,10 @@ namespace MphRead.NetTest
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
+                    + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
+                    + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
+                    + "  --momentum-match-scene <assets> [json] Test actual rule-selected native scene movement.\n"
+                    + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] Run a real UDP owner world.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
                     + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
                     + "  --momentum-collision <assets> [json] Test authored geometry and native contact handling.\n"
@@ -388,6 +392,42 @@ namespace MphRead.NetTest
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-offline-rules") return MomentumOfflineRulesTests.Run();
+            if (args.Length >= 4 && args[0] == "--momentum-test-server")
+            {
+                if (!Int32.TryParse(args[2], out int movementPort) || movementPort is < 1 or > 65535
+                    || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                var server = new DedicatedServer(movementPort, 2,
+                    MapRotation.SingleMatch("MP3 PROVING GROUND", GameMode.Battle, 120, 999))
+                {
+                    MovementModel = model, ServerName = "movement acceptance", AutoUpdate = false,
+                    ReplayPolicy = ServerReplayPolicy.Default with { Enabled = false }
+                };
+                // A real local authority, with no listing reporter or hosted children.
+                using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                server.Run(stop.Token);
+                return 0;
+            }
+            if (args.Length >= 5 && args[0] == "--momentum-online-scene")
+            {
+                if (!Int32.TryParse(args[2], out int movementPort) || movementPort is < 1 or > 65535
+                    || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
+                int seconds = args.Length > 5 && Int32.TryParse(args[5], out int duration) ? duration : 12;
+                string output = System.IO.Path.GetFullPath(args[4]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds);
+            }
+            if (args.Length > 1 && args[0] == "--momentum-match-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumMatchSceneTests.Run(output);
+            }
             if (args.Length > 0 && args[0] == "--momentum-profile") return MomentumProfileTests.Run();
             if (args.Length > 1 && (args[0] == "--momentum-collision"
                 || args[0] == "--momentum-specials" || args[0] == "--momentum-abilities"

@@ -126,12 +126,13 @@ internal static class ReplayIdentityCompatibility
             byte[] result = new byte[1 + SessionStatePacket.Size];
             converted.CopyTo(result);
             ushort old = BinaryPrimitives.ReadUInt16LittleEndian(result.AsSpan(15));
+            Require((old & 32768) == 0);
             ushort lobby = (ushort)(((old & 8) >> 3) | ((old & 16) >> 3) | ((old & 32) >> 3) | ((old & 64) >> 3));
             uint modifiers = (uint)((old & 7) | ((old & 128) >> 4) | ((old & 256) >> 4)
                 | ((old & 512) >> 4) | ((old & 1024) >> 4) | ((old & 2048) >> 4) | ((old & 4096) >> 4) | ((old & 8192) >> 3));
             BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(15), lobby);
             BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(1 + SessionStatePacket.Protocol28Size), modifiers);
-            return result;
+            converted = result;
         }
 
         if (protocol is >= 27 and < 31 && type == PacketType.PostMatchReport)
@@ -195,8 +196,21 @@ internal static class ReplayIdentityCompatibility
             Require(converted.Length == 1 + MatchStatePacket.Size);
             byte[] result = converted.ToArray();
             ushort old = BinaryPrimitives.ReadUInt16LittleEndian(result.AsSpan(104));
+            Require((old & 32768) == 0);
             BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(104), (ushort)((old & 8192) >> 3));
-            return result;
+            converted = result;
+        }
+        // Bit 15 was reserved before MovementModel-v1. A historical archive
+        // must not turn malformed bytes into a newly enabled movement rule.
+        if (protocol < 59 && type == PacketType.MatchState)
+        {
+            Require(converted.Length == 1 + MatchStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt16LittleEndian(converted[104..]) & 32768) == 0);
+        }
+        if (protocol < 59 && type == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 32768u) == 0);
         }
         return converted;
     }

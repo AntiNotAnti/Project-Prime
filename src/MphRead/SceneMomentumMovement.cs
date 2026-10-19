@@ -49,6 +49,30 @@ public partial class Scene
         }
     }
 
+    // The scene owns the selected rule before entities spawn. Online preference
+    // files never select this path: the admitted server definition must agree.
+    internal bool MomentumMovementActive => DeveloperMomentumActive
+        || GameState.MovementModel == MovementModel.Momentum
+        && MomentumSceneEligible()
+        && (!NetSession.Active ? !Services.PlayerReplication.Active
+            : NetRoomChange.GameplayReady && (NetSession.ActiveMatchDefinition?.MovementModel
+                ?? MovementModelRules.FromRules((MatchModifierFlags)(NetSession.ServerMatch?.RuleBits ?? 0)))
+                == MovementModel.Momentum);
+
+    private bool MomentumSceneEligible() =>
+        ForegroundLease.ThreadId == Environment.CurrentManagedThreadId
+        && ReferenceEquals(global::MphRead.GameState.Current, GameState)
+        && ReferenceEquals(PlayerEntity.LegacyRegistry, Players)
+        && !Exiting && !_cleanupComplete && !_visualReleaseComplete
+        && !SideScene && !Services.IsReplica && !IsReplayLab && AimTrainer == null
+        && GameState.Multiplayer && !GameState.BalancedMode && !GameState.EnhancedHunters
+        && !DemoPlayback.IsActive;
+
+    internal bool MomentumOwnsPlayer(PlayerEntity player) => !NetHooks.IsPuppet(player)
+        && (player.IsBot
+            ? GameState.MovementModel == MovementModel.Momentum && (!NetSession.Active || NetSession.IsAuthority)
+            : ReferenceEquals(Players.Main, player) && player.SlotIndex == NetHooks.LocalSlot);
+
     private bool DeveloperMomentumSceneEligible() =>
         ForegroundLease.ThreadId == Environment.CurrentManagedThreadId
         && ReferenceEquals(global::MphRead.GameState.Current, GameState)
@@ -64,9 +88,9 @@ public partial class Scene
     // or maintaining a second set of UI/focus conditions in the movement code.
     private void ModNoteMomentumInputAvailability(bool blocked)
     {
-        if (!_developerMomentumRequested) return;
+        if (!_developerMomentumRequested && GameState.MovementModel != MovementModel.Momentum) return;
         _developerMomentumInputBlocked = blocked;
-        _ = DeveloperMomentumActive;
+        _ = MomentumMovementActive;
     }
 
     internal void NoteDeveloperMomentumStep(in MomentumStepSample sample)

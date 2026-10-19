@@ -1152,6 +1152,8 @@ namespace MphRead.Mods
 
             if (HasFlag(args, "oneinthechamber"))
                 rotation = Network.MapRotation.SingleMatch(rotation.Current.RoomKey, GameMode.OneInTheChamber, 0, 2);
+            if (!Movement.MovementModelRules.TryParse(ValueAfter(args, "movement"), out var movementModel))
+                throw new ProgramException("-movement must be Native or Momentum.");
             var server = new Network.DedicatedServer(port, maxPlayers, rotation)
             {
                 ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name")
@@ -1185,6 +1187,7 @@ namespace MphRead.Mods
                 OctolithAutoReset = HasFlag(args, "octolithautoreset"),
                 LowTier = HasFlag(args, "lowtier"),
                 NoImperialist = HasFlag(args, "noimp"),
+                MovementModel = movementModel,
                 SpawnProtection = HasFlag(args, "spawnprotection") && !HasFlag(args, "nospawnprotection"),
                 // Players may change the map by voting unless the admin says
                 // otherwise. See DedicatedServer.AllowMapVotes.

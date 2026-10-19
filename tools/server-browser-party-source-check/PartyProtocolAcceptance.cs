@@ -12,7 +12,7 @@ internal static class PartyProtocolAcceptance
         using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("packet-registry-baseline.json")!)
         using(var baseline=JsonDocument.Parse(input))
         {
-            Check(NetConfig.ProtocolVersion==58,"actual DLL uses protocol 58");
+            Check(NetConfig.ProtocolVersion==59,"actual DLL uses protocol 59");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
             Check(Enum.GetNames<PacketType>().Length==81,"only three approved registry names added");
@@ -27,8 +27,10 @@ internal static class PartyProtocolAcceptance
         Check(ServerStatusPacket.Read(newBytes).Flags==3&&ServerStatusPacket.Read(oldBytes.AsSpan(0,ServerStatusPacket.Size)).Flags==0,"new and old optional status decoding");
         var legacyHello=Convert.FromHexString("3939040302010807060504030201");
         Check(!QueueHelloPacket.TryRead(legacyHello,out _),"literal protocol57 QueueHello refused by current live admission");
-        var hello=new QueueHelloPacket(58,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
-        Check(Convert.ToHexString(h)=="393A040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2)),"protocol58 QueueHello changes only the reviewed version byte");
+        var previousHello=Convert.FromHexString("393A040302010807060504030201");
+        Check(!QueueHelloPacket.TryRead(previousHello,out _),"literal protocol58 QueueHello refused by current live admission");
+        var hello=new QueueHelloPacket(59,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
+        Check(Convert.ToHexString(h)=="393B040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2)),"protocol59 QueueHello changes only the reviewed version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);
         Check(Convert.ToHexString(j)=="3B0807060504030201","legacy QueueJoin literal bytes unchanged");
         var request=new PartyReservationRequestPacket(1,PartyReservationPurpose.MemberAttach,1,uint.MaxValue,2,

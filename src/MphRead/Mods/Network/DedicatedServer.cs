@@ -352,6 +352,7 @@ namespace MphRead.Mods.Network
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
         public bool BalancedMode { get; set; }
+        public Movement.MovementModel MovementModel { get; init; }
 
         /// <summary>
         /// Whether this server keeps itself on the newest release.
