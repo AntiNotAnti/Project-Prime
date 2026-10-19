@@ -19,6 +19,7 @@ internal static class InstagibIonFractureTests
 
     internal static int Run()
     {
+        InstagibAudioOwnershipTests.Run(Check);
         Check(InstagibIonFracture.Capacity > 0 && InstagibIonFracture.Capacity <= 64,
             "bounded world effect capacity");
         Check(InstagibIonFracture.LifeSeconds > 0.5f &&
