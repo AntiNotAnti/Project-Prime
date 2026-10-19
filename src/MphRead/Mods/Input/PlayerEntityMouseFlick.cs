@@ -18,13 +18,14 @@ namespace MphRead.Entities
         /// </summary>
         private void ModCheckMouseFlick(bool dedicatedBoostDown)
         {
-            if (!IsMainPlayer || IsBot)
+            // Android already publishes per-finger swipe requests. Its synthetic
+            // mouse deltas must not run through the second desktop recognizer.
+            if (global::System.OperatingSystem.IsAndroid() || !IsMainPlayer || IsBot)
             {
                 return;
             }
-            bool movementBoostEnabled = Mods.Input.PointerDevice.Active
-                ? Mods.InputSettings.StylusMovementBoost
-                : Mods.InputSettings.MouseMovementBoost;
+            bool movementBoostEnabled = Mods.Input.AltFormGesture.DesktopMovementBoostEnabled(
+                Mods.Input.PointerDevice.Active, Mods.Input.PointerDevice.Current.Device);
             if (!movementBoostEnabled || !Controls.MouseAim || dedicatedBoostDown
                 || Flags1.TestFlag(PlayerFlags1.NoAimInput)
                 || Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
@@ -32,6 +33,9 @@ namespace MphRead.Entities
                 || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame
                 || CameraSequence.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
             {
+                // A request queued before the toggle changed must not survive
+                // into a disabled frame.
+                if (!movementBoostEnabled) ModClearAltFlick();
                 Mods.Input.MouseFlick.Reset();
                 return;
             }
@@ -108,8 +112,8 @@ namespace MphRead.Entities
                 return;
             }
 
-            bool absolutePointer = Mods.Input.PointerDevice.Active
-                && Mods.Input.PointerDevice.Current.Device != Mods.Input.PointerDeviceType.Mouse;
+            bool absolutePointer = Mods.Input.AltFormGesture.UsesAbsolutePointer(
+                Mods.Input.PointerDevice.Active, Mods.Input.PointerDevice.Current.Device);
 
             if (Hunter == Hunter.Samus)
             {
