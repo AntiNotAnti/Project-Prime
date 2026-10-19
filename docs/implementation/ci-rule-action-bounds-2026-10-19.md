@@ -1,0 +1,7 @@
+# Runtime rule action bounds — 2026-10-19
+
+The PR 732 `no game assets` job failed in `rmlui-runtime-check` with `Out-of-range argument accepted for LobbyRulesToggle`. The source-linked runtime harness still used family sizes 16 and 12, before the existing Third Person and Movement choices expanded lobby and offline families to 18 and 14. Its malformed-action list also rejected the now-valid lobby Third Person index 16.
+
+The harness now uses the production registry's `LobbyRuleChoiceCount` and `OfflineRuleChoiceCount` for exhaustive valid round trips and first-invalid boundary checks. Explicit assertions pin the reviewed family sizes and positive Third Person indices 16/12 and Movement indices 17/13. Malformed-action checks reject lobby index 18 and offline index 14. Existing enum values, ABI version, production validation, ownership, stale intent, lifecycle and other negative checks are unchanged.
+
+Validation: the full independent source-linked `dotnet run --project tools/rmlui-runtime-check -c Release` harness passed, including scheduled-update, IME, managed Host/Cocoa range, typed ABI, ownership, immutable revision, cancellation, document lifecycle and 100 reinitialization checks. `git diff --check` passed. A proactive search of tool sources found no other stale 16/12 family-size expectations; remaining references to those indices are valid positive Third Person checks. Hosted CI must still rerun after publication.
