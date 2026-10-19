@@ -210,6 +210,7 @@ internal sealed partial class ReplayWindowAcceptance
     }
     private void Detach()
     {
+        Scene.NativeReplayMultiViewFailureForTests=null;
         DetachDisplayTrialObserver();
         RestoreNativeLobbyTyping();
         if(_observerAttached)LauncherWindowCheck.NativeReplayWindowObserved-=Observe;
