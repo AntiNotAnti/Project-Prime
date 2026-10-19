@@ -203,9 +203,12 @@ var sourceRules = new RmlUiRuleDraft(5, 999, 17,
         Format = MatchFormat.FreeForAll, PointGoal = 7, TimeLimitSeconds = 420
     }, LobbyRuleFlags.RequireReady);
 var editor = new RmlUiRuleEditor(sourceRules);
+Check((sourceRules.Match with { ThirdPersonCamera = true }).Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera)
+    && !sourceRules.Match.Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera),
+    "third-person match modifier has its own opt-in protocol bit");
 Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
-    "native 16-toggle sheet presents inverse health/powerup labels correctly");
-for (int i = 0; i < 16; i++)
+    "native 17-toggle sheet presents inverse health/powerup labels correctly");
+for (int i = 0; i < 17; i++)
 {
     bool before = editor.IsOn(i);
     Check(editor.Toggle(i) && editor.IsOn(i) != before && editor.Toggle(i)
