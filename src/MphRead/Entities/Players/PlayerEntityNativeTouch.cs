@@ -96,7 +96,7 @@ namespace MphRead.Entities
             {
                 _nativeTouch.StepAbsolute(NativeTouchHost.Down, NativeTouchHost.X, NativeTouchHost.Y);
             }
-            else if (PointerDevice.Active)
+            else if (AltFormGesture.UsesAbsolutePointer(PointerDevice.Active, PointerDevice.Current.Device))
             {
                 PointerSample pointer = PointerDevice.Current;
                 bool down = pointer.InContact
@@ -110,12 +110,16 @@ namespace MphRead.Entities
                 float regionH = StylusZone.Enabled ? StylusZone.Height : 1f;
                 int dsX = (int)MathF.Round(Math.Clamp((x - regionX) / Math.Max(regionW, .001f), 0, 1) * 255);
                 int dsY = (int)MathF.Round(Math.Clamp((y - regionY) / Math.Max(regionH, .001f), 0, 1) * 191);
-                _nativeTouch.StepAbsolute(down, dsX, dsY);
+                _nativeTouch.StepAbsolute(down, dsX, dsY,
+                    allowMovementBoost: Mods.InputSettings.StylusMovementBoost);
             }
             else
             {
+                // A physical mouse stays governed by MouseMovementBoost even
+                // while Windows' stylus mode is enabled.
                 _nativeTouch.StepRelative(Controls.MouseAim, Input.MouseDeltaX, Input.MouseDeltaY,
-                    Mods.InputSettings.AltSwipeSensitivity);
+                    Mods.InputSettings.AltSwipeSensitivity,
+                    allowMovementBoost: Mods.InputSettings.MouseMovementBoost);
             }
             // A native drag immediately frees a stale camera direction lock.
             if (_nativeTouch.Current.Delta4X != 0 || _nativeTouch.Current.Delta4Y != 0)
