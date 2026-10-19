@@ -206,6 +206,19 @@ var editor = new RmlUiRuleEditor(sourceRules);
 Check((sourceRules.Match with { ThirdPersonCamera = true }).Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera)
     && !sourceRules.Match.Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera),
     "third-person match modifier has its own opt-in protocol bit");
+var thirdPersonState = new SessionStatePacket
+{
+    Phase = SessionPhase.Lobby, Policy = ServerSessionPolicy.Lobby,
+    MatchId = sourceRules.MatchId, AuthorityEpoch = sourceRules.AuthorityEpoch,
+    Revision = sourceRules.SessionRevision, OwnerSlot = 0, MaxPlayers = 8,
+    Match = sourceRules.Match with { ThirdPersonCamera = true }
+};
+byte[] thirdPersonWire = new byte[SessionStatePacket.Size];
+thirdPersonState.Write(thirdPersonWire);
+Check(SessionStatePacket.TryRead(thirdPersonWire, out var receivedThirdPerson)
+    && receivedThirdPerson.Match.ThirdPersonCamera
+    && receivedThirdPerson.Match.Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera),
+    "session packet round-trips the authoritative third-person match modifier");
 Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
     "native 17-toggle sheet presents inverse health/powerup labels correctly");
 for (int i = 0; i < 17; i++)
