@@ -22,8 +22,14 @@ public sealed partial class TheatrePlaybackPagePresenter
             &&_editorModal==default&&intent.Document==_document;
         bool confirmation=_editorConfirmation!=default&&intent.Document==_editorConfirmation
             &&action is TheatrePlaybackAction.EditorConfirm or TheatrePlaybackAction.EditorCancel;
+        // Editor mutations live in Markers; combat inspection and overlays live
+        // in Combat. A forged intent from an inactive inspector must not act.
+        bool combatAction=action is TheatrePlaybackAction.EditorPreviousShot
+            or TheatrePlaybackAction.EditorShotAtPlayhead or TheatrePlaybackAction.EditorNextShot
+            or TheatrePlaybackAction.EditorToggleAnalyticsHud or TheatrePlaybackAction.EditorToggleNetworkHud
+            or TheatrePlaybackAction.EditorToggleCombatHud or TheatrePlaybackAction.EditorToggleShotRays;
         bool editing=_editorConfirmation==default&&_editorModal!=default&&intent.Document==_editorModal
-            &&(!WorkspaceMode||_workspaceTab=="markers")
+            &&(!WorkspaceMode||_workspaceTab=="markers"&&!combatAction||_workspaceTab=="combat"&&combatAction)
             &&intent.Argument>=(int)TheatrePlaybackAction.EditorRefresh&&intent.Argument<=(int)TheatrePlaybackAction.EditorToggleShotRays
             &&action is not(TheatrePlaybackAction.EditorConfirm or TheatrePlaybackAction.EditorCancel);
         if((!opening&&!confirmation&&!editing)||!_pages.Accept(intent))return false;

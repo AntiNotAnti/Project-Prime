@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><DefineConstants>MPHREAD_AVALONIA</DefineConstants><NoWarn>$(NoWarn);CS0649</NoWarn></PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="../../src/MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll" />
+    <ProjectReference Include="../../src/MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <Compile Include="../group-reservation-check/Registry.generated.cs" Link="Registry.generated.cs" />
     <Compile Include="../../src/MphRead/Mods/Network/Generated/NetPacketAttribute.cs" Link="NetPacketAttribute.cs" />
     <Compile Include="../../src/MphRead/Mods/Network/Generated/PartyReservationPackets.cs" Link="PartyReservationPackets.cs" />
@@ -10,6 +10,8 @@
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativePartyReservationContracts.cs" Link="NativePartyReservationContracts.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyReservations.cs" Link="AuthenticatedNativePartyReservations.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeSocialFriendsController.cs" Link="NativeSocialFriendsController.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeSocialInvitations.cs" Link="NativeSocialInvitations.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativePresenceController.cs" Link="NativePresenceController.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyAuthority.cs" Link="AuthenticatedNativePartyAuthority.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/AuthenticatedNativePartyTravel.cs" Link="AuthenticatedNativePartyTravel.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/HunterLicenseNativeFunctionLease.cs" Link="HunterLicenseNativeFunctionLease.cs" />

@@ -45,7 +45,10 @@ CHECK_SIZE=1
 allowed() {
   [ -f "$ALLOW_FILE" ] || return 1
   local path="$1" pattern
-  while IFS= read -r pattern; do
+  while IFS= read -r pattern || [ -n "$pattern" ]; do
+    # Git for Windows may add a carriage return to each allowlist entry.
+    # Normalizing line endings does not broaden the original-artwork paths.
+    pattern="${pattern%$'\r'}"
     case "$pattern" in ''|'#'*) continue ;; esac
     # shellcheck disable=SC2254
     case "$path" in $pattern) return 0 ;; esac
