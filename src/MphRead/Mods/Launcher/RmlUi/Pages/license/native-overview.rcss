@@ -128,3 +128,9 @@ body { margin:0; background-color:rgba(0,7,12,78%); }
  #native_license_rank_progress { margin-top:2dp; font-size:8dp; line-height:10dp; }
  .card_stat { min-height:18dp; }
 }
+
+#native_license .license_customization_link { border:1dp #8feaff; color:#e7faff; background-color:#184b62; font-weight:bold; }
+#native_license .license_customize_banner { display:block; padding:10dp; margin:8dp 0 12dp; background-color:#102e40; border:1dp #3e8aa4; }
+#native_license .license_customize_banner b { color:#8eeafa; font-size:13dp; letter-spacing:1dp; }
+#native_license .license_customize_banner p { font-size:11dp; line-height:15dp; white-space:normal; }
+#native_license .license_customize_banner button { width:100%; min-height:34dp; background-color:#215c76; color:#efffff; border:1dp #79d4f4; }

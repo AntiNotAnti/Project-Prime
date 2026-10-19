@@ -221,7 +221,7 @@ internal static partial class RmlUiOpenGlSmoke
                         CloseNativeCommunity();
                         CloseNativeNews();
                         CloseNativeQuickSettings();
-                        OpenNativeHunter();
+                        OpenNativeHunter(focusBeamGallery: true);
                     }
                     continue;
                 }
@@ -712,7 +712,7 @@ internal static partial class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
-    private static void OpenNativeHunter()
+    private static void OpenNativeHunter(bool focusBeamGallery = false)
     {
         if (_pages == null || _hunterChoice != null) return;
         string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
@@ -723,7 +723,7 @@ internal static partial class RmlUiOpenGlSmoke
         var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore());
         try
         {
-            next.Open();
+            next.Open(focusBeamGallery);
             _hunterChoice = next;
         }
         catch

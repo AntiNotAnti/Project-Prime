@@ -133,9 +133,9 @@ internal static class LicenseCardGlAcceptance
             Check(host.TryTakeIntent(out var finalOpen) && Open(finalOpen), "profile reopens license after account lifecycle checks");
             var finalDocument = layout.Manager.Top;
             Until(() => NativeSemanticReadback.Read(host, finalDocument).ContainsText("SYNTHETIC CARD HUNTER"), "reopened license verifies the current account");
-            Check(!host.TryGetElementBounds(finalDocument, "native_license_customize", out _, out _, out _, out _)
-                && !host.TryGetElementBounds(finalDocument, "native_license_tab_customization", out _, out _, out _, out _),
-                "license contains no customization tab or handoff control");
+            Check(Visible(finalDocument, "native_license_customize")
+                && Visible(finalDocument, "native_license_tab_customization"),
+                "native License exposes both customization handoffs");
             Activate("native_license_tab_account", 8);
             Check(Visible(finalDocument, "native_license_face_account"), "account remains accessible after reopening license");
             Click(finalDocument, "native_license_close", focus: true);

@@ -167,6 +167,8 @@ internal static class LicenseAcceptance
         Capture("public-visible");
 
         Click("native_license_tab_overview", 0);
+        Check(Visible("native_license_tab_customization") && Visible("native_license_customize"),
+            "Hunter License exposes reachable customization navigation");
         Click("native_license_close", 20);
         Check(page.Closed, "actual native Back click closes License presenter");
         page.Dispose();

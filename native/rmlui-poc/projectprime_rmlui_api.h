@@ -145,7 +145,11 @@ enum class PrimeIntentKind : uint32_t {
     CampaignShipAction = 274,
     HunterLoadoutDefault = 275,
     CommunityTransferAction = 276,
-    HunterRandom = 277
+    HunterRandom = 277,
+    HunterBeamNext = 278,
+    HunterBeamColorNext = 279,
+    HunterBeamSelect = 280,
+    HunterBeamColorSelect = 281
 };
 // Navigate arguments: Home=0 Play=1 Offline=2 HunterLicense=3 Community=4
 // Theatre=5 Settings=6 News=7 Adventure=8 Social=9.
