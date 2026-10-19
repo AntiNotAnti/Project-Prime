@@ -55,7 +55,13 @@ namespace MphRead.Mods.Cosmetics
             lock (Gate)
             {
                 if ((uint)hunter >= 7 || Data.Pending[(int)hunter]) return;
-                Data.Loadouts[(int)hunter] = CosmeticCatalog.Resolve(hunter, remote); Save();
+                // The Hunter License HTTP function currently owns only skin,
+                // armor and death. Do not discard the locally equipped beam
+                // when those three fields are refreshed from the account.
+                var local = Data.Loadouts[(int)hunter];
+                Data.Loadouts[(int)hunter] = CosmeticCatalog.Resolve(hunter, remote)
+                    with { BeamEffectKey = local.BeamEffectKey, BeamColor = local.BeamColor };
+                Save();
             }
             Changed?.Invoke();
         }

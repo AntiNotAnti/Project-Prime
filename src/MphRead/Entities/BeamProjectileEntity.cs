@@ -2934,8 +2934,11 @@ namespace MphRead.Entities
             if (!Mods.Headless.Active && _scene.GameState.Multiplayer && _scene.GameState.InstaGib
                 && Beam == BeamType.Imperialist && Owner is PlayerEntity shooter)
             {
+                var appearance = Mods.Cosmetics.CosmeticRuntime.Get(_scene,
+                    shooter.SlotIndex, shooter.Hunter, shooter.IsMainPlayer);
                 _scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
-                    shooter.SlotIndex, ModShotId, ModLaunchFrame);
+                    shooter.SlotIndex, ModShotId, ModLaunchFrame,
+                    appearance.Beam, appearance.Loadout.BeamColor);
                 return;
             }
             Vector3 up = Position - spawnPos;

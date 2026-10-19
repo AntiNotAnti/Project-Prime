@@ -138,7 +138,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         CampaignShipAction = 274,
         HunterLoadoutDefault = 275,
         CommunityTransferAction = 276,
-        HunterRandom = 277
+        HunterRandom = 277,
+        HunterBeamNext = 278, HunterBeamColorNext = 279
     }
 
     public enum RmlUiRouteArgument
@@ -255,6 +256,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 [RmlUiIntentKind.HunterSkinNext] = "hunter:skin-next",
                 [RmlUiIntentKind.HunterArmorNext] = "hunter:armor-next",
                 [RmlUiIntentKind.HunterDeathNext] = "hunter:death-next",
+                [RmlUiIntentKind.HunterBeamNext] = "hunter:beam-next",
+                [RmlUiIntentKind.HunterBeamColorNext] = "hunter:beam-color-next",
                 [RmlUiIntentKind.HunterCosmeticsReset] = "hunter:cosmetics-reset",
                 [RmlUiIntentKind.HunterPreviewDeath] = "hunter:preview-death",
                 [RmlUiIntentKind.HunterCosmeticsSave] = "hunter:cosmetics-save",

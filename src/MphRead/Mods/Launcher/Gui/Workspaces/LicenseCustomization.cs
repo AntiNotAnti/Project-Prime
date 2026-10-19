@@ -32,6 +32,33 @@ namespace MphRead.Mods.Launcher.Gui
             return image;
         }
 
+        private static Control CreateBeamPreview(BeamEffectDefinition beam)
+        {
+            // A zero-asset preview, deliberately not a gameplay shot or GL
+            // scene. Canvas geometry distinguishes beam palettes immediately.
+            var canvas = new Canvas { Width = 144, Height = 74 };
+            var color = Avalonia.Media.Color.FromRgb(
+                (byte)(beam.PrimaryColor.X * 255), (byte)(beam.PrimaryColor.Y * 255),
+                (byte)(beam.PrimaryColor.Z * 255));
+            var tint = new Avalonia.Media.SolidColorBrush(color);
+            foreach (var band in new[] { (Y: 37d, Thick: 13d, Alpha: 0.22d),
+                (Y: 37d, Thick: 4d, Alpha: 0.82d) })
+            {
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Line
+                {
+                    StartPoint = new Avalonia.Point(8, band.Y), EndPoint = new Avalonia.Point(136, band.Y),
+                    Stroke = tint, StrokeThickness = band.Thick, Opacity = band.Alpha
+                });
+            }
+            canvas.Children.Add(new Avalonia.Controls.Shapes.Line
+            {
+                StartPoint = new Avalonia.Point(8, 37), EndPoint = new Avalonia.Point(136, 37),
+                Stroke = Avalonia.Media.Brushes.White, StrokeThickness = 1.5
+            });
+            return new Border { Height = 74, Background = new Avalonia.Media.SolidColorBrush(
+                Avalonia.Media.Color.FromRgb(9, 17, 32)), Child = canvas };
+        }
+
         private Control Customization()
         {
             _cosmeticDraft ??= CosmeticPersistence.Get(_cosmeticHunter);
@@ -69,7 +96,11 @@ namespace MphRead.Mods.Launcher.Gui
                     card.Click += (_, _) => { select(definition.Key); Show(Face.Customization); };
                     var tile = new StackPanel { Width = 150, Spacing = 3, Margin = new Avalonia.Thickness(0, 0, 6, 6) };
                     string thumbnail = CosmeticThumbnail.PathFor(_cosmeticHunter, definition.Key);
-                    if (System.IO.File.Exists(thumbnail))
+                    if (definition is BeamEffectDefinition beam)
+                    {
+                        tile.Children.Add(CreateBeamPreview(beam));
+                    }
+                    else if (System.IO.File.Exists(thumbnail))
                     {
                         tile.Children.Add(CreateCosmeticThumbnail(thumbnail));
                     }
@@ -91,6 +122,18 @@ namespace MphRead.Mods.Launcher.Gui
                 _cosmeticDraft.SkinKey, key => _cosmeticDraft = _cosmeticDraft with { SkinKey = key });
             Cards("ARMOR EFFECT", CosmeticCatalog.ArmorEffects.ToArray(), _cosmeticDraft.ArmorEffectKey,
                 key => _cosmeticDraft = _cosmeticDraft with { ArmorEffectKey = key });
+            Cards("INSTA-GIB BEAM FX", CosmeticCatalog.BeamEffects.ToArray(), _cosmeticDraft.BeamEffectKey,
+                key => _cosmeticDraft = _cosmeticDraft with { BeamEffectKey = key });
+            var beamColors = new ChoiceRow("Beam color", BeamPalette.Names.ToArray(), _cosmeticDraft.BeamColor);
+            ControllerNav.Identify(beamColors, "cosmetics.beam-color");
+            beamColors.Changed += (_, _) =>
+            {
+                _cosmeticDraft = _cosmeticDraft with { BeamColor = (byte)beamColors.Index };
+                Show(Face.Customization);
+            };
+            panel.Children.Add(beamColors);
+            panel.Children.Add(new TextBlock { Text = "Beam colors and styles are saved locally. Beam effects appear in Insta-Gib matches only.",
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap, Foreground = HubTheme.TextBrush });
             Cards("DEATH PRESENTATION", CosmeticCatalog.DeathPresentations.ToArray(), _cosmeticDraft.DeathEffectKey,
                 key => { _cosmeticDraft = _cosmeticDraft with { DeathEffectKey = key }; _stand.PreviewDeath(); });
             var actions = new WrapPanel();

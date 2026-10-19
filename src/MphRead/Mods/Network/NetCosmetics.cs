@@ -33,7 +33,8 @@ namespace MphRead.Mods.Network
         }
         public static CosmeticStatePacket Create(int slot, Hunter hunter, ushort generation, ushort match,
             ulong authority, uint revision, CosmeticAppearance appearance) => new((byte)slot, (byte)hunter,
-                generation, match, authority, revision, appearance.Skin.WireId, appearance.Armor.WireId, appearance.Death.WireId);
+                generation, match, authority, revision, appearance.Skin.WireId, appearance.Armor.WireId,
+                CosmeticCatalog.PackDeathBeam(appearance.Death.WireId, appearance.Beam.WireId, appearance.Loadout.BeamColor));
     }
     public sealed class NetCosmetics
     {
@@ -55,7 +56,7 @@ namespace MphRead.Mods.Network
             var appearance = new CosmeticAppearance((Hunter)packet.Hunter,
                 CosmeticCatalog.FromWire((Hunter)packet.Hunter, packet.Skin, packet.Armor, packet.Death));
             _appearances[packet.Slot] = appearance;
-            _packets[packet.Slot] = packet with { Skin = appearance.Skin.WireId, Armor = appearance.Armor.WireId, Death = appearance.Death.WireId };
+            _packets[packet.Slot] = packet with { Skin = appearance.Skin.WireId, Armor = appearance.Armor.WireId, Death = CosmeticCatalog.PackDeathBeam(appearance.Death.WireId, appearance.Beam.WireId, appearance.Loadout.BeamColor) };
             return true;
         }
         public int Write(Span<byte> dest, ushort match, ulong authority)

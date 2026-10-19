@@ -20,7 +20,7 @@ public interface ILauncherCosmeticEquipService
 
 public sealed record LauncherCosmeticSnapshot(Hunter Hunter, CosmeticLoadout Draft,
     CosmeticLoadout Equipped, bool Dirty, bool Busy, bool PendingSync,
-    string SkinName, string ArmorName, string DeathName, string Status);
+    string SkinName, string ArmorName, string DeathName, string BeamName, string BeamToneName, string Status);
 
 /// <summary>
 /// Bounded, owner-thread native cosmetic draft. All async completions are
@@ -62,6 +62,8 @@ public sealed class LauncherCosmeticDraftController : IDisposable
             CosmeticCatalog.ResolveSkin(_draft.SkinKey, _hunter).DisplayName,
             CosmeticCatalog.ResolveArmor(_draft.ArmorEffectKey).DisplayName,
             CosmeticCatalog.ResolveDeath(_draft.DeathEffectKey).DisplayName,
+            CosmeticCatalog.ResolveBeam(_draft.BeamEffectKey).DisplayName,
+            BeamPalette.Names[_draft.BeamColor],
             _status);
     }
 
@@ -87,13 +89,14 @@ public sealed class LauncherCosmeticDraftController : IDisposable
                 .Select(x => x.Key).ToArray(),
             "armor" => CosmeticCatalog.ArmorEffects.Select(x => x.Key).ToArray(),
             "death" => CosmeticCatalog.DeathPresentations.Select(x => x.Key).ToArray(),
+            "beam" => CosmeticCatalog.BeamEffects.Select(x => x.Key).ToArray(),
             _ => Array.Empty<string>()
         };
         if (keys.Length == 0) return false;
         string key = kind switch
         {
             "skin" => _draft.SkinKey, "armor" => _draft.ArmorEffectKey,
-            _ => _draft.DeathEffectKey
+            "beam" => _draft.BeamEffectKey, _ => _draft.DeathEffectKey
         };
         int current = Array.IndexOf(keys, key);
         string next = keys[(current + 1) % keys.Length];
@@ -101,6 +104,7 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         {
             "skin" => _draft with { SkinKey = next },
             "armor" => _draft with { ArmorEffectKey = next },
+            "beam" => _draft with { BeamEffectKey = next },
             _ => _draft with { DeathEffectKey = next }
         };
         _status = "LOCAL COSMETIC DRAFT // NOT EQUIPPED";
@@ -110,6 +114,15 @@ public sealed class LauncherCosmeticDraftController : IDisposable
     public bool NextSkin() => Step("skin");
     public bool NextArmor() => Step("armor");
     public bool NextDeath() => Step("death");
+    public bool NextBeam() => Step("beam");
+    public bool NextBeamColor()
+    {
+        Verify();
+        if (_save != null) return false;
+        _draft = _draft with { BeamColor = (byte)((_draft.BeamColor + 1) % BeamPalette.Names.Count) };
+        _status = "LOCAL BEAM DRAFT // NOT EQUIPPED";
+        return true;
+    }
 
     /// <summary>Stage the native loadout; persistence still requires explicit Equip.</summary>
     public bool SetDefaultLoadout()

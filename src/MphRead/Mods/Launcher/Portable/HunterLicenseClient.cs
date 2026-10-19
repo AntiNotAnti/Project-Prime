@@ -423,7 +423,10 @@ namespace MphRead.Mods.Launcher
                     || result.ArmorEffectKey != loadout.ArmorEffectKey || result.DeathEffectKey != loadout.DeathEffectKey)
                     return HunterLicenseActionResult.Fail("LOCAL / NOT SYNCED — server returned a different loadout");
                 Cosmetics.CosmeticPersistence.MarkSynced(hunter, loadout);
-                return HunterLicenseActionResult.Ok("EQUIPPED / SYNCED");
+                return HunterLicenseActionResult.Ok(loadout.BeamEffectKey != Cosmetics.CosmeticLoadout.Default.BeamEffectKey
+                    || loadout.BeamColor != 0
+                    ? "EQUIPPED // BEAM FX SAVED LOCALLY; OTHER COSMETICS SYNCED"
+                    : "EQUIPPED / SYNCED");
             }
             catch (Exception ex) { return HunterLicenseActionResult.Fail("LOCAL / NOT SYNCED — " + FriendlyAction(ex)); }
             finally { Gate.Release(); }
