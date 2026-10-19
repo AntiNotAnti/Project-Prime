@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "source": "d726c766a10affaa0d8f95bc25bce9d178528215",
+  "enumType": "SByte",
+  "nativeIds": {
+    "PowerBeam": 0,
+    "VoltDriver": 1,
+    "Missile": 2,
+    "Battlehammer": 3,
+    "Imperialist": 4,
+    "Judicator": 5,
+    "Magmaul": 6,
+    "ShockCoil": 7,
+    "OmegaCannon": 8,
+    "Platform": 9,
+    "Enemy": 10,
+    "None": -1
+  },
+  "multiplayerCount": 18,
+  "singleplayerCount": 18,
+  "multiplayerSha256": "202de61ebc3e395e7d26c2f4a16ca41faa9ef6a1fd6208bb22757639b736e336",
+  "singleplayerSha256": "79d7c7cc62a864d8669f79da9028a33471d9b56b9b8bac4f8390a53588316eaa"
+}
