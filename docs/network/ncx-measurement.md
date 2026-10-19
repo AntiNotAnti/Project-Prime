@@ -123,6 +123,10 @@ upstream path. It changes no combat, movement, weapon, transport, timing or rend
 policy. Preserve both its patch and binary hash in comparison manifests; do not label it
 an unmodified-source binary or silently use the installed older app as current master.
 No comparator code is copied into Prime's combat implementation.
+The exact [profile-only patch](../../tools/nettest/comparators/fruity-private-profile.patch)
+is retained for reproduction. Apply it to the pinned native source before building the
+comparison app, and copy it beside the private qualification manifest as
+`fruity-private-profile.patch`; the adapter checks its exact SHA256 before launch.
 
 Native smoke initially failed because the development app lacked the GLFW runtime path.
 Local staging uses symlinks to the already linked, versioned Homebrew GLFW/OpenAL libraries
@@ -278,3 +282,35 @@ do not retroactively change the failed result. Requested 60 Hz achieved approxim
 CPU comparison. Retained postprocessing mistakes (a refused duplicate audit output and
 an invalid summary-field lookup) do not alter raw images; the separately saved decoder
 control proof and both matching audits establish the pixel checks.
+
+## Clean checkpoint and passing capture
+
+Clean source `928350a5ed7359c50d5e25e9453c0eab759d92e5` integrates main `a3a73617e`.
+`checkpoint-build-09.log` passes with zero warnings/errors; all 31 off/on/native routes
+pass. The native fidelity pack retains exactly the same 46 passing hashes and the
+known missile-splash tick-177 Z difference, expected 52814 versus actual 52815.
+No golden is regenerated. `native-fidelity-audit-09.json` checks the actual divergence
+format; the initial diagnostic parser's incorrect FAIL-prefix assumption is retained.
+
+`prime-ncx-static-pixels-09` **PASSES** the campaign and bounded drain with no failures
+or incomplete cross-process evidence. Both PNG decoders independently agree on all
+192 controls: positives 62/64/2 and negatives 2/0/62. Both participant cameras contain
+visible exact-paid victim cues. The observer contributes no authored/emitted sources
+and has two visible uniquely paid-source flight samples, distinct from confirmed cues.
+The 55 uniquely paid sources do not become a 55-shot visibility denominator. Sampling
+caps and ambiguous associations keep full-source pixel coverage INCOMPLETE.
+Requested 60 Hz achieves approximately 50.0/49.4/51.0 Hz, with dropped fixed steps;
+the intrusive probe remains unsuitable for CPU comparisons.
+
+`aa-checkpoint-09-01` executes eight of eighteen planned synthetic ServerSim cases
+before another test starts and the existing guard stops the matrix. Its raw paired
+workload/variance records remain; the whole 2/4/8-player calibration is INCOMPLETE.
+No real-network or performance-improvement claim follows from those partial cases.
+
+The three native rendered custom-fixture controls fail during rendering startup,
+before usable shot/frame/image reports. The native headless map generator omits
+texture payloads but retains 128x128 texture descriptors; the generated 3488-byte
+model cannot satisfy their 8192-byte reads. Headless controls do not exercise that
+read path. A stock-room rendered control opens and saves real images, isolating this
+failure to the custom generation/render combination. Retain all failed outputs and
+qualify a full-data preparation route before accepting these rendered fixtures.

@@ -137,6 +137,24 @@ def save(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
+def copy_private_assets(source, destination):
+    """Writable isolated asset trees: APFS COW clones, never hardlinks."""
+    source, destination = Path(source).resolve(), Path(destination).absolute()
+    if destination.exists(): raise FileExistsError("Private asset destination already exists: " + str(destination))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if platform.system() == "Darwin":
+        command = ["/bin/cp", "-cRp", str(source), str(destination)]
+        try:
+            subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as error:
+            detail = (error.stderr or b"").decode(errors="replace").strip()
+            raise RuntimeError("Private APFS asset clone failed: " + detail) from error
+        return {"method": "APFS copy-on-write clone", "argv": command,
+                "isolation": "Distinct inodes; destination writes do not modify source; no hardlinks"}
+    shutil.copytree(source, destination)
+    return {"method": "shutil.copytree", "isolation": "Independent private copy; no hardlinks"}
+
+
 def prepare_prime_fixture_packages(args, dotnet, assembly, stage, profile_text, manifest):
     """Cook declared recipes with the staged build's ordinary mapbundle CLI."""
     from fruity_comparator import qualified_fixture
@@ -341,6 +359,53 @@ def bomb_visibility_environment(args,name):
                 PRIME_NET2_SOURCE=args.source)
 
 
+def prepare_native_fixture_data(args, native, binary, maps, asset_roots, profile_text, manifest):
+    profile = args.out / "native-fixture-preparation"
+    profile.mkdir()
+    exports = profile / "exports"
+    exports.mkdir()
+    lines = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
+    (profile / "paths.txt").write_text("\n".join([*lines, f"Export={exports}", ""]), encoding="utf-8")
+    roots = {row["version"]: Path(row["privateCopy"]) for row in asset_roots}
+    if "AMHE1" not in roots: raise RuntimeError("Qualified native fixtures require the declared private AMHE1 assets")
+    generated = list(native.fixture_file_paths(roots["AMHE1"], maps))
+    before = profile / "before"
+    row = {"scope": "Existing native mapgen all before server Headless.Enter; no native feature switches changed",
+           "argv": native.preparation_command(binary, maps), "cwd": str(profile),
+           "exit": None, "generatedBefore": [], "generatedAfter": []}
+    manifest["nativeFixturePreparation"] = row
+    for path, kind in generated:
+        if path.is_file():
+            before.mkdir(exist_ok=True)
+            backup = before / path.name
+            shutil.copy2(path, backup)
+            row["generatedBefore"].append({"path": str(path), "backup": str(backup), "sha256": digest(path)})
+    env = native.environment(profile)
+    row["environment"] = {key: env[key] for key in ("FRUITY_NCX_USER_DATA", "ALSOFT_DRIVERS")}
+    log = profile / "mapgen.log"
+    row["log"] = str(log)
+    save(args.out / "manifest.json", manifest)
+    try:
+        with log.open("x", encoding="utf-8") as output:
+            completed = subprocess.run(row["argv"], cwd=profile, env=env, stdin=subprocess.DEVNULL,
+                                       stdout=output, stderr=subprocess.STDOUT, timeout=180)
+        row["exit"] = completed.returncode
+    except subprocess.TimeoutExpired as error:
+        row["timedOut"] = True
+        raise RuntimeError("Native fixture generation timed out") from error
+    finally:
+        if log.is_file(): row["logSha256"] = digest(log)
+        save(args.out / "manifest.json", manifest)
+    if row["exit"] != 0: raise RuntimeError("Native fixture generation failed; original log retained")
+    for path, kind in generated:
+        if not path.is_file(): raise RuntimeError("Native fixture generation produced no " + str(path))
+        item = {"path": str(path), "kind": kind, "bytes": path.stat().st_size, "sha256": digest(path)}
+        row["generatedAfter"].append(item)
+        if kind == "Model": item["texturePayloads"] = native.validate_texture_payloads(path)
+    row["status"] = "PASS: all declared native outputs exist with bounded complete texture payloads"
+    save(args.out / "manifest.json", manifest)
+
+
 def run_fruity_control(args):
     """Native engine route in this controller; upstream owns all game behavior."""
     import fruity_comparator as native
@@ -384,9 +449,10 @@ def run_fruity_control(args):
             if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
                 raise RuntimeError("Comparator asset version is not a safe directory label")
             private_assets = args.out / "assets" / key
-            shutil.copytree(root, private_assets)
+            copy_strategy = copy_private_assets(root, private_assets)
             isolated_lines.append(f"{key}={private_assets}")
-            asset_roots.append({"version": key, "source": str(root), "privateCopy": str(private_assets)})
+            asset_roots.append({"version": key, "source": str(root), "privateCopy": str(private_assets),
+                                "copyStrategy": copy_strategy})
             for file in sorted(root.rglob("*")):
                 if file.is_file(): assets.append({"version": key, "path": file.relative_to(root).as_posix(),
                     "size": file.stat().st_size, "sha256": digest(file)})
@@ -406,6 +472,8 @@ def run_fruity_control(args):
                 "files": [{"path": p.relative_to(maps).as_posix(), "sha256": digest(p)}
                           for p in sorted(maps.rglob("*")) if p.is_file()]}
         else: maps.mkdir()
+        if args.scenario in NCX_FIXTURES:
+            prepare_native_fixture_data(args, native, binary, maps, asset_roots, profile_text, manifest)
         rotation = args.out / "rotation.txt"
         rotation.write_text("\n".join(f"{room} | Battle | {args.round_minutes} | 999"
                                       for room in args.rooms.split(",")), encoding="utf-8")
@@ -533,6 +601,7 @@ def run(args):
     if not assembly.exists():
         raise RuntimeError("Build directory has no ProjectPrime.dll")
     profile_text = args.paths.resolve().read_text(encoding="utf-8-sig")
+    fixture_asset_copies = []
     if args.scenario in NCX_FIXTURES:
         isolated = []
         for line in profile_text.splitlines():
@@ -544,7 +613,9 @@ def run(args):
             if not re.fullmatch(r"[A-Za-z0-9_-]+", key) or not root.is_absolute() or not root.is_dir():
                 raise RuntimeError("NCX fixture assets require safe version keys and absolute existing directories")
             destination = args.out / "fixture-assets" / key
-            shutil.copytree(root, destination)
+            strategy = copy_private_assets(root, destination)
+            fixture_asset_copies.append({"version": key, "source": str(root), "privateCopy": str(destination),
+                                         "copyStrategy": strategy})
             isolated.append(f"{key}={destination}")
         profile_text = "\n".join(isolated) + "\n"
     asset_files = []
@@ -600,6 +671,7 @@ def run(args):
         from fruity_comparator import qualified_fixture
         manifest["harnessSha256"]["fruity_comparator.py"] = digest(Path(__file__).with_name("fruity_comparator.py"))
         manifest["emulatedFixture"] = qualified_fixture(args)
+        manifest["fixtureAssetCopies"] = fixture_asset_copies
     save(args.out / "manifest.json", manifest)
     processes, handles, records = [], [], []
     server = None

@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 
 NCX_FIXTURES = {'ncx-static': ('NCX EMULATED STATIC', 'wells:powerbeam'),
                 'ncx-lateral': ('NCX EMULATED LATERAL', 'lanes:powerbeam'),
@@ -103,6 +104,45 @@ def stage_fixture_maps(binary, definitions):
     destination = binary.parent.parent / 'Resources/maps'
     shutil.copytree(definitions, destination)
     return destination
+
+
+def preparation_command(binary, maps):
+    # Ordinary CPU map generation, before any server Headless::Enter. Keep
+    # all comparator combat/render feature switches at their native defaults.
+    return [str(binary), '-mapdir', str(maps), '-noupdate', '-noautoupdate', '-mapgen', 'all']
+
+
+def fixture_file_paths(asset_root, maps):
+    for recipe in sorted(maps.glob('*.json')):
+        name = json.loads(recipe.read_text())['name'].lower()
+        if not re.fullmatch(r'[a-z0-9 -]+', name):
+            raise ValueError('Unsafe native fixture runtime name')
+        for kind in ('Model', 'Anim', 'Collision', 'Ent', 'Node'):
+            directory = (asset_root / 'levels/entities' if kind == 'Ent' else
+                         asset_root / 'levels/nodeData' if kind == 'Node' else
+                         asset_root / '_archives' / name)
+            yield directory / (name + '_' + kind + '.bin'), kind
+
+
+def validate_texture_payloads(path):
+    data = path.read_bytes()
+    if len(data) < 100: raise ValueError('Native generated model header missing: ' + str(path))
+    count = struct.unpack_from('<H', data, 40)[0]
+    offset = struct.unpack_from('<I', data, 44)[0]
+    if not count or offset + count * 40 > len(data):
+        raise ValueError('Native generated texture descriptors missing: ' + str(path))
+    result = []
+    for index in range(count):
+        fmt, _, width, height, _, image, size = struct.unpack_from('<BBHHHII', data, offset + index * 40)
+        if fmt not in (0, 1, 2, 4, 5, 6) or not width or not height:
+            raise ValueError('Native generated texture dimensions/format invalid: ' + str(path))
+        pixels = width * height
+        required = pixels // 4 if fmt == 0 else pixels // 2 if fmt == 1 else pixels * 2 if fmt == 5 else pixels
+        if not required or size < required or image < 100 or image + size > len(data) or image + required > len(data):
+            raise ValueError('Native generated texture payload incomplete: ' + str(path))
+        result.append(dict(index=index, format=fmt, width=width, height=height,
+                           imageOffset=image, imageSize=size, requiredBytes=required))
+    return result
 
 
 def environment(profile, inherited=None):
