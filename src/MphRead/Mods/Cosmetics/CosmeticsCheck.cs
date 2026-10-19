@@ -21,13 +21,35 @@ namespace MphRead.Mods.Cosmetics
             try
             {
                 foreach (var catalog in new System.Collections.Generic.IEnumerable<CosmeticDefinition>[]
-                    { CosmeticCatalog.Skins, CosmeticCatalog.ArmorEffects, CosmeticCatalog.DeathPresentations })
+                    { CosmeticCatalog.Skins, CosmeticCatalog.ArmorEffects, CosmeticCatalog.DeathPresentations, CosmeticCatalog.BeamEffects })
                 {
                     Check(catalog.Select(x => x.Key).Distinct().Count() == catalog.Count(), "unique keys");
                     Check(catalog.Select(x => x.WireId).Distinct().Count() == catalog.Count(), "unique wire IDs");
                 }
                 Check(CosmeticCatalog.Resolve(Hunter.Samus, new("../bad", "armor.future", "death.future")) == CosmeticLoadout.Default, "unknown keys default");
                 Check(CosmeticCatalog.ResolveSkin("skin.samus.obsidian", Hunter.Trace).WireId == 0, "wrong hunter defaults");
+                Check(CosmeticStatePacket.Size == 24, "cosmetic packet width remains unchanged");
+                for (ushort d = 0; d < CosmeticCatalog.DeathPresentations.Count; d++)
+                    foreach (var beam in CosmeticCatalog.BeamEffects)
+                        for (byte color = 0; color < BeamPalette.Names.Count; color++)
+                        {
+                            ushort packed = CosmeticCatalog.PackDeathBeam(d, beam.WireId, color);
+                            var unpacked = CosmeticCatalog.FromWire(Hunter.Samus, 0, 0, packed);
+                            Check(unpacked.DeathEffectKey == CosmeticCatalog.DeathPresentations[d].Key
+                                && unpacked.BeamEffectKey == beam.Key && unpacked.BeamColor == color,
+                                "24-byte cosmetic death+beam+color roundtrip");
+                            Check(beam.WireId < 16 && (byte)beam.Style == beam.WireId,
+                                "stable four-bit style IDs");
+                        }
+                Check(CosmeticCatalog.PackDeathBeam(7, 0, 0) == 7
+                    && CosmeticCatalog.FromWire(Hunter.Samus, 0, 0, 7).BeamEffectKey == "beam.ion_fracture",
+                    "legacy cosmetic and replay death IDs remain unchanged");
+                Check(CosmeticCatalog.FromWire(Hunter.Samus, 0, 0, 65535) == CosmeticLoadout.Default,
+                    "malformed packed cosmetic IDs sanitize to defaults");
+                Check(CosmeticCatalog.Resolve(Hunter.Samus,
+                        new("skin.default", "armor.none", "death.classic", "beam.missing", 255))
+                    == CosmeticLoadout.Default, "invalid style and color are clamped");
+
                 foreach (var armor in CosmeticCatalog.ArmorEffects)
                     Check(CosmeticCatalog.FromWire(Hunter.Samus, 0, armor.WireId, 0).ArmorEffectKey == armor.Key, "armor round trip");
                 foreach (var death in CosmeticCatalog.DeathPresentations)
@@ -85,6 +107,18 @@ namespace MphRead.Mods.Cosmetics
                 Check(!cache.Accept(packet with { Revision = 0 }, 3, 9, 7), "stale revision rejected");
                 Check(cache.Accept(packet with { Revision = 2, Skin = 65535, Armor = 65535, Death = 65535 }, 3, 9, 7)
                     && cache.Get(2, Hunter.Samus, 7).Loadout == CosmeticLoadout.Default, "unknown IDs sanitize");
+                var beamLoadout = loadout with { BeamEffectKey = "beam.quantum_split", BeamColor = 5 };
+                var beamAppearance = new CosmeticAppearance(Hunter.Samus, beamLoadout);
+                var beamPacket = CosmeticStatePacket.Create(2, Hunter.Samus, 7, 3, 9, 3, beamAppearance);
+                Span<byte> beamPacketBytes = stackalloc byte[CosmeticStatePacket.Size];
+                beamPacket.Write(beamPacketBytes);
+                Check(CosmeticStatePacket.TryRead(beamPacketBytes, out var decodedBeam)
+                    && decodedBeam.Death == beamPacket.Death
+                    && cache.Accept(decodedBeam, 3, 9, 7)
+                    && cache.Get(2, Hunter.Samus, 7).Loadout == beamLoadout,
+                    "remote cosmetic replication carries selected beam and tint");
+                Check(cache.Get(2, Hunter.Samus, 8).Loadout == CosmeticLoadout.Default,
+                    "beam style cannot leak into a different occupant generation");
                 var replica = new ReplayReplicaState();
                 var match = new MatchStatePacket { MatchId = 3, AuthorityEpoch = 9, RoomKey = "MP1 SANCTORUS", Mode = (byte)GameMode.Battle };
                 byte[] matchBytes = new byte[1 + MatchStatePacket.Size]; matchBytes[0] = (byte)PacketType.MatchState; match.Write(matchBytes.AsSpan(1));
@@ -98,13 +132,29 @@ namespace MphRead.Mods.Cosmetics
                 Check(replica.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == loadout, "replay bootstrap applies cosmetics");
                 var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(replica.CaptureCheckpoint());
                 Check(restored.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == loadout, "replay checkpoint restores cosmetics");
+                byte[] styleEvent = new byte[1 + CosmeticStatePacket.Size];
+                styleEvent[0] = (byte)PacketType.CosmeticState;
+                beamPacket.Write(styleEvent.AsSpan(1));
+                replica.Accept(styleEvent, 1);
+                Check(replica.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == beamLoadout,
+                    "replay packet reproduces beam style and tint");
+                var styledCheckpoint = new ReplayReplicaState();
+                styledCheckpoint.RestoreCheckpoint(replica.CaptureCheckpoint());
+                Check(styledCheckpoint.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == beamLoadout,
+                    "replay seek checkpoint retains beam styling");
                 var lateJoin = new NetCosmetics();
                 Span<byte> batch = stackalloc byte[Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
                 int batchSize = replica.Cosmetics.Write(batch, 3, 9);
                 Check(batchSize == CosmeticStatePacket.Size && CosmeticStatePacket.TryRead(batch[..batchSize], out var late)
-                    && lateJoin.Accept(late, 3, 9, 7) && lateJoin.Get(2, Hunter.Samus, 7).Loadout == loadout, "late join/reconnect baseline");
+                    && lateJoin.Accept(late, 3, 9, 7) && lateJoin.Get(2, Hunter.Samus, 7).Loadout == beamLoadout, "late join/reconnect baseline retains selected beam");
                 restored.Reset();
                 Check(restored.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == CosmeticLoadout.Default, "map transition clears cosmetics");
+                CosmeticPersistence.Equip(Hunter.Samus, beamLoadout);
+                CosmeticPersistence.MarkSynced(Hunter.Samus, beamLoadout);
+                CosmeticPersistence.MergeRemote(Hunter.Samus, CosmeticLoadout.Default);
+                Check(CosmeticPersistence.Get(Hunter.Samus).BeamEffectKey == beamLoadout.BeamEffectKey
+                    && CosmeticPersistence.Get(Hunter.Samus).BeamColor == beamLoadout.BeamColor,
+                    "three-field cloud sync never silently unequips the locally selected beam");
                 RenderOptions.ShowCustomCosmetics = true; RenderOptions.CosmeticQuality = CosmeticEffectQuality.High;
                 Check(CosmeticRuntime.Surface(appearance, 1, true) == default, "critical status suppresses cosmetics");
                 var teamSurface = CosmeticRuntime.Surface(appearance, 1, false, team: true);

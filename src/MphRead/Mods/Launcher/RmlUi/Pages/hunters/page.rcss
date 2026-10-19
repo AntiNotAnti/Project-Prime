@@ -35,6 +35,8 @@ body { background-color: transparent; }
 .native-hunter-panel .hunter-preview-space { min-height:80dp; }
 .native-hunter-panel .hunter-cosmetic-actions > button { display:block; width:96%; text-align:left; }
 .native-hunter-panel .cosmetic-description { margin:0dp 8dp 8dp 0dp; white-space:normal; }
+.native-hunter-panel .beam-miniature { display:block; width:96%; min-height:21dp; margin:1dp 0dp 6dp; padding:3dp 10dp; border:1dp #416b80; background-color:rgba(17,41,61,90%); color:#9ce9ff; letter-spacing:3dp; }
+.native-hunter-panel .beam-miniature span { font-size:12dp; line-height:14dp; color:#c6f7ff; }
 .native-hunter-panel #hunter_switch_hint { margin-bottom:6dp; white-space:normal; }
 .native-hunter-panel #hunter_preview_state { flex-shrink:0; white-space:normal; }
 .native-hunter-panel button:disabled { color:#7e95a8; background-color:#0c2236; border-color:#253e52; }

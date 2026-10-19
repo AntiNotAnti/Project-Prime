@@ -60,13 +60,17 @@ using (var cosmetics = new LauncherCosmeticDraftController(cosmeticStore, Hunter
     Check(firstCosmetics.Hunter == Hunter.Samus && firstCosmetics.Draft == CosmeticLoadout.Default
         && !firstCosmetics.Dirty, "native cosmetics initialize from persisted Hunter loadout");
     Check(cosmetics.NextSkin() && cosmetics.NextArmor() && cosmetics.NextDeath()
+        && cosmetics.NextBeam() && cosmetics.NextBeamColor()
         && cosmetics.Current().Dirty && cosmeticStore.EquipCalls == 0
         && cosmeticStore.Capture(Hunter.Samus) == CosmeticLoadout.Default,
         "skin, armor and death controls only stage a local draft");
     Check(cosmetics.Current().Draft.SkinKey == "skin.samus.obsidian"
         && cosmetics.Current().Draft.ArmorEffectKey == "armor.lightning"
-        && cosmetics.Current().Draft.DeathEffectKey == "death.inferno_burst",
-        "native cosmetic controls cycle current catalog keys, never guessed wire IDs");
+        && cosmetics.Current().Draft.DeathEffectKey == "death.inferno_burst"
+        && cosmetics.Current().Draft.BeamEffectKey == "beam.void_rift"
+        && cosmetics.Current().Draft.BeamColor == 1
+        && cosmetics.Current().BeamName == "Void Rift",
+        "native cosmetic controls cycle skin, armor, death, beam and dye from stable catalog entries");
     Check(!cosmetics.SwitchHunter(Hunter.Kanden),
         "dirty cosmetic draft blocks silent Hunter switching");
     Check(cosmetics.Reset() && !cosmetics.Current().Dirty,
