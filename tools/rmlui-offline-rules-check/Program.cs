@@ -19,15 +19,15 @@ var battle = new RmlUiOfflineRuleEditor(GameMode.Battle, initial);
 Check(battle.Original == initial && !battle.Draft.Enabled(5)
     && battle.Draft.Enabled(0) && battle.Draft.Enabled(1),
     "opening clears retired chamber modifier in draft while preserving original and hidden options");
-foreach (int index in new[] { int.MinValue, -1, 12, int.MaxValue, 5, 0, 1 })
+foreach (int index in new[] { int.MinValue, -1, 13, int.MaxValue, 5, 0, 1 })
 {
     var before = battle.Draft;
     Check(!battle.Toggle(index) && battle.Draft == before,
         "out-of-range, retired and hidden battle toggles cannot mutate draft: " + index);
 }
-Check(!initial.Enabled(-1) && !initial.Enabled(12) && !initial.Enabled(int.MaxValue),
+Check(!initial.Enabled(-1) && !initial.Enabled(13) && !initial.Enabled(int.MaxValue),
     "flag lookup rejects invalid indices without shifting into another option");
-for (int index = 2; index < 12; index++)
+for (int index = 2; index < 13; index++)
 {
     if (index == 5) continue;
     var editor = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules());
@@ -125,12 +125,12 @@ Check(!corrected.Validate("7", "7:00", "1:30") && corrected.Toggle(10)
     "removing a conflicting modifier clears error and restores valid rules");
 
 var settings = new MenuSettings { RoomKey = "TEMP FIXTURE MAP", Language = "French", SfxVolume = "0.42" };
-var roundtrip = new RmlUiOfflineRules("123", "15:25", "02:45", "high", 0x0AAA);
+var roundtrip = new RmlUiOfflineRules("123", "15:25", "02:45", "high", 0x1AAA);
 roundtrip.CopyTo(settings);
-Check(RmlUiOfflineRules.Capture(settings) == roundtrip && settings.OneInTheChamber == "on"
+Check(RmlUiOfflineRules.Capture(settings) == roundtrip && settings.OneInTheChamber == "on" && settings.ThirdPersonCamera == "on"
     && settings.RoomKey == "TEMP FIXTURE MAP" && settings.Language == "French" && settings.SfxVolume == "0.42",
     "capture/copy roundtrips every rule field including legacy bit while preserving unrelated settings");
-for (int bit = 0; bit < 12; bit++)
+for (int bit = 0; bit < 13; bit++)
 {
     var single = Rules((ushort)(1 << bit));
     single.CopyTo(settings);
