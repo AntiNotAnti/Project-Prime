@@ -4,17 +4,25 @@ using System.Linq;
 
 namespace MphRead.Mods.CustomWeapons;
 
-/// <summary>Immutable catalog metadata; validated mechanics arrive in CW-02.</summary>
+/// <summary>Immutable catalog entry bound to an exact validated mechanics digest.</summary>
 public sealed record WeaponDefinition
 {
     public WeaponIdentity Identity { get; }
     public string Name { get; }
-    public WeaponDefinition(WeaponIdentity identity, string name)
+    public WeaponMechanics Mechanics { get; }
+    public static WeaponDefinition Create(Guid contentId, string name, WeaponMechanics mechanics)
+    {
+        ArgumentNullException.ThrowIfNull(mechanics);
+        return new(WeaponIdentity.Custom(contentId, mechanics.DefinitionHash), name, mechanics);
+    }
+    public WeaponDefinition(WeaponIdentity identity, string name, WeaponMechanics mechanics)
     {
         if (identity.Kind != WeaponIdentityKind.Custom) throw new ArgumentException("Custom identity required.", nameof(identity));
         if (string.IsNullOrWhiteSpace(name) || name.Length > 80 || name.Any(char.IsControl))
             throw new ArgumentException("Name must contain 1–80 printable characters.", nameof(name));
-        Identity = identity; Name = name;
+        ArgumentNullException.ThrowIfNull(mechanics);
+        if (identity.DefinitionHash != mechanics.DefinitionHash) throw new ArgumentException("Definition digest mismatch.", nameof(identity));
+        Identity = identity; Name = name; Mechanics = mechanics;
     }
 }
 
@@ -97,7 +105,7 @@ public sealed class WeaponRegistry : IDisposable
     {
         EnsureAlive();
         if ((uint)slot >= 8) throw new ArgumentOutOfRangeException(nameof(slot));
-        return _inventories[slot] ??= new(this);
+        return _inventories[slot] ??= new(this, (byte)slot);
     }
     public void Dispose()
     {
@@ -111,18 +119,63 @@ public sealed class WeaponRegistry : IDisposable
 public sealed class CustomWeaponInventory
 {
     private readonly WeaponRegistry _registry;
-    private readonly HashSet<WeaponIdentity> _owned = new();
-    private bool _invalid;
-    internal CustomWeaponInventory(WeaponRegistry registry) => _registry = registry;
+    private readonly byte _slot;
+    private readonly Dictionary<WeaponIdentity, WeaponRuntimeState> _states = new();
+    private bool _invalid, _bound;
+    private WeaponOwnerContext _owner;
+    private uint _tickHighWater;
+    internal CustomWeaponInventory(WeaponRegistry registry, byte slot) { _registry = registry; _slot = slot; }
     private void EnsureAlive()
     { if (_invalid || _registry.IsDisposed) throw new ObjectDisposedException(nameof(CustomWeaponInventory)); }
-    public bool Grant(WeaponIdentity identity)
+    public bool BindLife(WeaponOwnerContext owner, uint tick)
     {
         EnsureAlive();
-        if (identity.Kind != WeaponIdentityKind.Custom || !_registry.TryResolve(identity, out _)) return false;
-        return _owned.Add(identity);
+        if (!owner.IsValid || owner.Slot != _slot) return false;
+        if (_owner.IsValid)
+        {
+            // A different match/authority requires a new frozen registry. Never
+            // reopen a previous life to manufacture a second initial magazine.
+            if (owner.MatchId != _owner.MatchId || owner.AuthorityEpoch != _owner.AuthorityEpoch) return false;
+            if (owner.Generation == _owner.Generation)
+            { if (unchecked((short)(owner.Life - _owner.Life)) <= 0) return false; }
+            else if (unchecked((short)(owner.Generation - _owner.Generation)) <= 0) return false;
+        }
+        if (!AcceptTime(tick)) return false;
+        ClearStates(); _owner = owner; _tickHighWater = tick; _bound = true;
+        return true;
     }
-    public bool Contains(WeaponIdentity identity) { EnsureAlive(); return _owned.Contains(identity); }
-    public void Clear() { EnsureAlive(); _owned.Clear(); }
-    internal void Invalidate() { _owned.Clear(); _invalid = true; }
+    public bool Grant(WeaponIdentity identity, uint tick)
+    {
+        EnsureAlive();
+        if (!_bound || identity.Kind != WeaponIdentityKind.Custom || _states.ContainsKey(identity)
+            || !_registry.TryResolve(identity, out var weapon) || weapon!.Custom == null) return false;
+        if (!AcceptTime(tick)) return false;
+        _states.Add(identity, new WeaponRuntimeState(weapon.Custom,_owner,tick));
+        return true;
+    }
+    public bool Contains(WeaponIdentity identity) { EnsureAlive(); return _states.ContainsKey(identity); }
+    public bool TryGetState(WeaponIdentity identity, out WeaponRuntimeState? state)
+    { EnsureAlive(); return _states.TryGetValue(identity,out state); }
+    private void ObserveStateTimes()
+    {
+        foreach (var state in _states.Values)
+        {
+            uint observed = state.Snapshot().Tick;
+            if (unchecked((int)(observed - _tickHighWater)) > 0) _tickHighWater = observed;
+        }
+    }
+    private bool AcceptTime(uint tick)
+    {
+        ObserveStateTimes();
+        if (_owner.IsValid && unchecked((int)(tick - _tickHighWater)) < 0) return false;
+        _tickHighWater = tick; return true;
+    }
+    private void ClearStates()
+    {
+        ObserveStateTimes();
+        foreach (var state in _states.Values) state.Invalidate(WeaponCancellation.OwnerChanged);
+        _states.Clear(); _bound = false;
+    }
+    public void Clear() { EnsureAlive(); ClearStates(); }
+    internal void Invalidate() { ClearStates(); _invalid = true; }
 }
