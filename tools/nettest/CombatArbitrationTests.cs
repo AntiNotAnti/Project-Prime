@@ -184,7 +184,8 @@ internal static class CombatArbitrationTests
     {
         NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile);
         var first = Claim(beam, damage: 12);
-        var second = first; second.ClaimId = (ushort)(first.ClaimId + 128);
+        Check(first.ClaimId <= ushort.MaxValue - NetHitClaims.SeenCapacity, "pending collision fixture IDs do not wrap");
+        var second = first; second.ClaimId = (ushort)(first.ClaimId + NetHitClaims.SeenCapacity);
         var receipts = new System.Collections.Generic.List<CombatAckEntry>();
         var saved = NetHitClaims.CombatAckSink;
         void Send(in HitClaimPacket value)
@@ -199,7 +200,7 @@ internal static class CombatArbitrationTests
                 "first full-key claim stays pending inside arbitration grace");
             Send(second); NetHitClaims.Tick();
             Check(receipts.Count == 0 && NetHitClaims.ClaimsPendingCurrent == 2 && _victim.Health == before,
-                "claim IDs separated by old seen modulus coexist pending without early damage");
+                "claim IDs separated by current seen modulus coexist pending without early damage");
             Frame(_frame + (uint)NetHitClaims.MaxGraceFrames); NetHitClaims.Tick();
             var firstAck = receipts.Single(entry => entry.ClaimId == first.ClaimId);
             var secondAck = receipts.Single(entry => entry.ClaimId == second.ClaimId);
@@ -282,6 +283,84 @@ internal static class CombatArbitrationTests
             }
         }
     }
+    private static void TerminalRefusalCacheChurn()
+    {
+        foreach (bool wrongLife in new[] { false, true })
+        {
+            NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile);
+            var claim = Claim(beam, damage: wrongLife ? (ushort)12 : ushort.MaxValue);
+            if (wrongLife) claim.VictimLifeId++;
+            byte expected = wrongLife ? HitVerdictPacket.ResultWrongLife : HitVerdictPacket.ResultDamageLimit;
+            int health = _victim.Health; ushort sequence = NetDamage.Sequence(1); uint started = _frame;
+            Check(Receive(claim) == expected, $"serialized claim receives terminal refusal wrongLife={wrongLife}");
+            byte[] canonical = Bytes(_lastAck);
+            var decoded = CombatAckEntry.Read(canonical);
+            Check(decoded.ClaimId == claim.ClaimId && decoded.ShotId == claim.ShotId
+                && decoded.VictimSlot == claim.VictimSlot && decoded.VictimGeneration == claim.VictimGeneration
+                && decoded.VictimLife == claim.VictimLifeId && decoded.Result == expected
+                && decoded.DamageApplied == 0 && (decoded.Flags & CombatAckFlags.OutcomePresent) == 0,
+                $"refusal wire entry preserves request identity without a paid outcome wrongLife={wrongLife}");
+            for (int i = 0; i < 256; i++)
+            {
+                var churn = claim; churn.ClaimId = ++_claimId;
+                Check(Receive(churn) == expected && _lastAck.ShotId == churn.ShotId
+                    && _lastAck.ClaimId == churn.ClaimId, "distinct refusal remains correlated during terminal cache churn");
+            }
+            Check(_frame - started < NetHitClaims.DeliveryMaxAge
+                && Receive(claim) == expected && Bytes(_lastAck).SequenceEqual(canonical)
+                && _victim.Health == health && NetDamage.Sequence(1) == sequence,
+                $"original refusal survives more than the old 128-receipt cache without damage wrongLife={wrongLife}");
+        }
+    }
+    private static void TerminalReceiptCapacity()
+    {
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Missile);
+        var original = Claim(beam, damage: ushort.MaxValue);
+        Check(Receive(original) == HitVerdictPacket.ResultDamageLimit, "full-cache fixture starts with actual serialized terminal refusal");
+        byte[] canonical = Bytes(_lastAck); int health = _victim.Health; ushort sequence = NetDamage.Sequence(1);
+        T Table<T>(string name) => (T)typeof(NetHitClaims).GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        var ids = Table<ushort[,]>("_seenIds"); var keys = Table<ShotKey[,]>("_seenKeys");
+        var payments = Table<ShotPaymentKey[,]>("_seenPaymentKeys"); var beams = Table<BeamType[,]>("_seenBeams");
+        var outcomes = Table<CombatAckEntry[,]>("_seenOutcomes"); var results = Table<byte[,]>("_seenResults");
+        var frames = Table<uint[,]>("_seenTerminalFrames"); var newest = Table<ushort[]>("_newestId");
+        Check(original.ClaimId < ushort.MaxValue - NetHitClaims.SeenCapacity - 2, "full-cache constructed IDs do not wrap");
+        for (int n = 0; n < NetHitClaims.SeenCapacity; n++)
+        {
+            ushort id = (ushort)(original.ClaimId + n); int at = id % NetHitClaims.SeenCapacity;
+            ids[0, at] = id; keys[0, at] = NetShotProof.Key(0, original);
+            payments[0, at] = NetShotProof.PaymentKey(0, original); beams[0, at] = (BeamType)original.Beam;
+            outcomes[0, at] = _lastAck; outcomes[0, at].ClaimId = id;
+            results[0, at] = HitVerdictPacket.ResultDamageLimit; frames[0, at] = _frame;
+        }
+        newest[0] = (ushort)(original.ClaimId + NetHitClaims.SeenCapacity - 1);
+        var overflow = original; overflow.ClaimId = (ushort)(newest[0] + 1); uint fullFrame = _frame;
+        Check(Receive(overflow) == HitVerdictPacket.ResultClaimCapacity
+            && Receive(original) == HitVerdictPacket.ResultDamageLimit && Bytes(_lastAck).SequenceEqual(canonical),
+            "explicit constructed 4096-terminal cache refuses overflow without corrupting original wire outcome");
+        int originalAt = original.ClaimId % NetHitClaims.SeenCapacity;
+        Check(ids[0, originalAt] == original.ClaimId && keys[0, originalAt] == NetShotProof.Key(0, original)
+            && payments[0, originalAt] == NetShotProof.PaymentKey(0, original)
+            && beams[0, originalAt] == (BeamType)original.Beam && Bytes(outcomes[0, originalAt]).SequenceEqual(canonical),
+            "capacity refusal preserves original full cache identity and immutable outcome");
+        Frame(fullFrame + (uint)NetHitClaims.DeliveryMaxAge);
+        Check(Receive(original) == HitVerdictPacket.ResultDamageLimit && Bytes(_lastAck).SequenceEqual(canonical)
+            && Receive(overflow) == HitVerdictPacket.ResultClaimCapacity,
+            "terminal remains pinned through delivery deadline and overflow retry extends quiet window");
+        Frame(_frame + (uint)NetHitClaims.DeliveryMaxAge + 1);
+        var fresh = overflow; fresh.ClaimId++; fresh.Frame = fresh.AckFrame = fresh.LaunchFrame = _frame;
+        Check(Receive(fresh) == HitVerdictPacket.ResultDamageLimit && _lastAck.ShotId == fresh.ShotId
+            && _victim.Health == health && NetDamage.Sequence(1) == sequence,
+            "after complete quiet window new claim reaches ordinary damage judgement without any payment");
+
+        Prepare(); beam = Emit(BeamType.Missile); original = Claim(beam, damage: ushort.MaxValue);
+        Check(Receive(original) == HitVerdictPacket.ResultDamageLimit, "expired-ID fixture establishes original terminal result");
+        Frame(_frame + (uint)NetHitClaims.DeliveryMaxAge + 1);
+        var reused = original; reused.ShotId++; reused.AckFrame = 0;
+        long tooOld = NetHitClaims.TooOldHere;
+        Check(Receive(reused) == HitVerdictPacket.ResultTooOld && _lastAck.ShotId == reused.ShotId
+            && NetHitClaims.TooOldHere == tooOld + 1,
+            "expired same ClaimId with distinct constructed ShotId reaches fresh Judge rather than old cached refusal");
+    }
     private static void PosthumousFlight()
     {
         Prepare(); var beam = Emit(BeamType.Missile);
@@ -334,7 +413,7 @@ internal static class CombatArbitrationTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
-            RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); PosthumousFlight(); NativeSameFrameTrade();
+            RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0 && lifetimeSuppressed > 0, "process evidence captures actual payments and suppressed repeats");

@@ -89,7 +89,7 @@ internal static partial class NetCampaignEvidence
         byte weapon, uint phase = 0, in CombatAckEntry outcome = default, int result = -1, ushort claimId = 0)
     {
         if (!TimelineEnabled) return;
-        Timeline(stage, payment.Shot, payment.Component, phase, payment.Kind, payment.Victim,
+        Timeline(stage, payment.Shot, payment.Component, phase != 0 ? phase : payment.Phase, payment.Kind, payment.Victim,
             payment.Generation, payment.Life, claimId != 0 ? claimId : outcome.ClaimId, outcome.DamageSequence,
             weapon: weapon, value: outcome.DamageApplied, result: result);
     }

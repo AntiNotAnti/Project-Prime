@@ -17,8 +17,8 @@ KEY_FIELDS = ('AuthorityEpoch', 'MatchId', 'ShooterSlot', 'Generation', 'LifeId'
 STAGES = ('source-authored', 'source-emitted', 'intent-offered', 'intent-received', 'source-admitted',
           'source-rejected', 'source-expired', 'claim-declared', 'claim-offered', 'claim-received',
           'payment-attempt', 'payment-committed', 'payment-refused', 'terminal-decided',
-          'terminal-delivered', 'predicted-feedback', 'replay-captured', 'render-submitted', 'native-contact')
-BRANCHES = {'source-rejected', 'source-expired', 'payment-refused', 'source-authored', 'native-contact', 'claim-offered'}
+          'terminal-delivered', 'predicted-feedback', 'replay-captured', 'render-submitted', 'native-contact', 'receipt-retired', 'claim-cancelled')
+BRANCHES = {'source-rejected', 'source-expired', 'payment-refused', 'source-authored', 'native-contact', 'claim-offered', 'receipt-retired', 'claim-cancelled'}
 # Coverage targets, not the events that every legal shot must produce. A miss,
 # rejected source, or native hit without a claim can correctly lack many stages.
 REQUIRED = set(STAGES) - BRANCHES
@@ -143,6 +143,12 @@ def audit(reports):
         terminals = {(p, r['ClaimId'], r['Victim'], r['VictimGeneration'], r['VictimLife'])
                      for p, _, _, r in observations
                      if r['Stage'] == 'terminal-delivered' and r['ClaimId']}
+        retirements = Counter((p, r['ClaimId'], r['Component'], r['Phase'], r['Kind'],
+                               r['Victim'], r['VictimGeneration'], r['VictimLife'])
+                              for p, role, _, r in observations
+                              if role == 'client' and r['Stage'] == 'receipt-retired' and r['ClaimId'])
+        if any(count > 1 for count in retirements.values()):
+            incomplete.append(shot_token + ': duplicate receipt retirement observations')
         duplicate_payments = sum(count - 1 for count in payments.values())
         if duplicate_payments:
             incomplete.append(shot_token + ': duplicate committed payment observations')
@@ -203,7 +209,7 @@ def audit(reports):
                        claimOfferedRows=stages['claim-offered'], uniqueOfferedClaims=len(claim_offers),
                        claimResendOffers=sum(n - 1 for n in claim_offers.values()),
                        uniqueCommittedPayments=len(payments), committedPaymentRows=sum(payments.values()),
-                       deliveredTerminals=len(terminals))
+                       deliveredTerminals=len(terminals), retiredReceipts=len(retirements))
         totals.update(metrics)
         cases.append(dict(token=shot_token, stages=dict(stages), missingStages=missing,
                           observationCoverage='INCOMPLETE' if missing else 'COMPLETE',
@@ -231,6 +237,7 @@ def audit(reports):
                            nativeContact='observed contact before payment; immunity may prevent a commit',
                            sourceAuthored='provisional Begin; may abort before emission',
                            claimRetries='repeated claim-received observations; not inferred socket transmissions',
+                           receiptRetirement='local disposition, not payment; Result0=Delivered,1=TimedOut,2=CapacityEvicted,3=LifeRetired,4=OccupantRetired,5=MatchRetired,6=SessionRetired; claim-cancelled is authority pending disposal',
                            claimOffered='transport scheduling of a claim attempt; repeated same-claim offers distinguish resend offers, not observed socket sends',
                            completeness='missingStages describes per-shot observation coverage only; valid misses/rejections can be INCOMPLETE without a gameplay bug',
                            paymentAbsence='admitted/emitted sources alone do not prove payment; absent hit/payment events do not establish a false payment or legal-hit count',

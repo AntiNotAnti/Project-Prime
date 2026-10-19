@@ -27,7 +27,7 @@ public readonly record struct ShotProofSource(ushort Weapons, ushort Charges, in
 internal readonly record struct ShotSourceEvidence(ShotProofReason Source, ShotProofReason Pose,
     bool? DoubleHintAgrees, int AmmoType, int Cost, int Cooldown);
 public readonly record struct ShotPaymentKey(ShotKey Shot, byte Victim, ushort Generation,
-    ushort Life, uint Component, byte Kind);
+    ushort Life, uint Component, byte Kind, uint Phase = 0);
 
 /// <summary>Bounded, read-only proof of authored shots and authority collision witnesses.
 /// Does not own emission or damage. Shadow is the default; unavailable evidence is never
@@ -91,7 +91,8 @@ public static class NetShotProof
     internal static byte Kind(byte flags) => (byte)(((flags & HitClaimPacket.FlagDirect) != 0 ? 1 : 2)
         | ((flags & HitClaimPacket.FlagHalfturret) != 0 ? 4 : 0));
     internal static ShotPaymentKey PaymentKey(int slot, in HitClaimPacket c) => new(Key(slot,c),
-        c.VictimSlot,c.VictimGeneration,c.VictimLifeId,c.ComponentId,Kind(c.Flags));
+        c.VictimSlot,c.VictimGeneration,c.VictimLifeId,c.ComponentId,Kind(c.Flags),
+        (c.Flags & HitClaimPacket.FlagContinuousTick) != 0 ? c.Frame : 0);
     private static int Find(in ShotKey key)
     {
         if ((uint)key.ShooterSlot >= 8) return -1;

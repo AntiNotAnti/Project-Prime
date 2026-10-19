@@ -551,6 +551,7 @@ internal static partial class NetCampaignEvidence
                 TurretOutcomes,
                 TimedGrants, TimedGrantStates, TimedGrantViews, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
                 CampaignClaims = CaptureClaims(),
+                ClaimReceiptAccounting = NetHitClaims.CaptureReceiptAccounting(),
                 ShotRewind = CaptureShotRewind(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
