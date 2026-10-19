@@ -25,8 +25,9 @@ public partial class Scene
         if(!NativeStudioPreviewPath||!DemoPlayback.Owns(this)||ReplayVideoExporter.Active||ReplayCamera.Track.Keys.Count<2)return;
         var positions=NativeStudioCameraPaths.GetValue(this,static _=>new ReplayCameraPathSamples()).Positions(ReplayCamera.Track);
         var right=_cameraRight*.07f;var up=_cameraUp*.07f;
-        foreach(var center in positions)
+        for(int i=0;i<positions.Count;i++)
         {
+            var center=positions[i];
             var v=ArrayPool<Vector3>.Shared.Rent(4);
             v[0]=center-right-up;v[1]=center+right-up;v[2]=center+right+up;v[3]=center-right+up;
             AddRenderItem(CullingMode.Neither,0,new Vector4(.2f,.9f,1,.85f),RenderItemType.Quad,v);
