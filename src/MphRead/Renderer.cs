@@ -2566,6 +2566,7 @@ namespace MphRead
                     || Mods.Launcher.Gui.Shell.UiVisible
 #endif
                     ;
+                ModNoteMomentumInputAvailability(noPlayerInput || Mods.SpectatorMode.IsSpectating);
                 PlayerEntity.ProcessInput(this.Players, _keyboardState, _mouseState, noPlayerInput);
                 if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
                 {

@@ -32,7 +32,7 @@ internal readonly record struct MomentumInput(
 /// <summary>
 /// Independent, stateless horizontal acceleration/friction math. No position,
 /// jump, gravity, contact, impulse classification or gameplay ownership lives
-/// here. PR-01 deliberately has no runtime call site.
+/// here. The player adapter selects eligible fixed-step calls.
 /// </summary>
 internal static class MomentumMath
 {

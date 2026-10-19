@@ -5,6 +5,14 @@ on:
     paths:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/MomentumMathTests.cs'
+      - 'tools/nettest/MomentumSceneTests.cs'
+      - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'src/MphRead/SceneMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
+      - 'src/MphRead/Renderer.cs'
+      - 'src/MphRead/Mods/ModEntry.cs'
       - 'tools/nettest/Program.cs'
       - 'src/MphRead/MphRead.csproj'
       - 'tools/nettest/nettest.csproj'
@@ -15,6 +23,14 @@ on:
     paths:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/MomentumMathTests.cs'
+      - 'tools/nettest/MomentumSceneTests.cs'
+      - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'src/MphRead/SceneMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
+      - 'src/MphRead/Renderer.cs'
+      - 'src/MphRead/Mods/ModEntry.cs'
       - 'tools/nettest/Program.cs'
       - 'src/MphRead/MphRead.csproj'
       - 'tools/nettest/nettest.csproj'
@@ -47,6 +63,8 @@ jobs:
         run: dotnet build tools/nettest/nettest.csproj -c Release
       - name: Equation, input validation and fixed cadence fixtures
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-math
+      - name: Offline developer admission and archival schema fences without assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-admission
       - name: Warmed eight-player workload with zero-allocation assertion
         env:
           DOTNET_TieredCompilation: '0'
