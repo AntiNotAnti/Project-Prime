@@ -20,13 +20,15 @@ internal static class CommunityPublishGlAcceptance
         Directory.CreateDirectory(output);
         File.WriteAllText(Path.Combine(output, "README.txt"), "Actual native RmlUi publication dialog, SYNTHETIC frozen source/account/queue only. No package build, user/editor files, credentials, HTTP or backend mutation. The fake completion does not certify live publishing.\n");
         using var pages = new RmlUiPageManager(host);
-        var parent = pages.OpenPage(new("synthetic-publish-studio", "pages/studio/native-entry.rml", "native_studio_publish"));
+        var parent = pages.OpenPage(new("synthetic-publish-studio", "pages/studio/native-entry.rml", "native_studio_theatre"));
         pages.Present(parent, 1, new Dictionary<string, RmlUiBindingValue>
             { ["native_studio_status"] = RmlUiBindingValue.FromText("SYNTHETIC RETAINED STUDIO PARENT // NO EDITOR FILES") });
+        Check(host.FocusDocument(parent, "native_studio_theatre") && host.FocusedElement() == "native_studio_theatre",
+            "retained Studio parent has a visible focusable replay entry");
         var authority = new Authority();
         using var page = new NativeCommunityPublishPage(host, pages, authority);
         host.Input.SetFramebufferScale(1, 1);
-        Check(page.OpenSynthetic(new(Map, "SYNTHETIC FROZEN STUDIO PROJECT"), "native_studio_publish"), "actual native publication modal opens above retained Studio parent");
+        Check(page.OpenSynthetic(new(Map, "SYNTHETIC FROZEN STUDIO PROJECT"), "native_studio_theatre"), "actual native publication modal opens above retained Studio parent");
         var modal = page.Document; Ready();
         Check(NativeSemanticReadback.Read(host, modal).ContainsText("EXPECTED PARENT SHA-256 // " + Parent),
             "native publication displays captured exact parent without account identity");
@@ -66,12 +68,12 @@ internal static class CommunityPublishGlAcceptance
             && !host.FocusDocument(modal, "community_publish_confirm"), "account retirement clears actual notes, private parent, receipt and mutation controls");
         Capture("account-retirement", true);
         Click("community_publish_close", RmlUiIntentKind.CommunityCancel, 0);
-        Check(!page.IsOpen && !host.IsAlive(modal) && pages.Top == parent && host.FocusedElement() == "native_studio_publish",
+        Check(!page.IsOpen && !host.IsAlive(modal) && pages.Top == parent && host.FocusedElement() == "native_studio_theatre",
             "actual native Back retires modal and restores Studio publish focus");
         Check(!page.Handle(new(RmlUiIntentKind.CommunityConfirm, 0, modal, ulong.MaxValue)), "retired publication document cannot replay confirmation");
 
         authority.Reset(); authority.Reject = true;
-        Check(page.OpenSynthetic(new(Map, "SYNTHETIC FROZEN STUDIO PROJECT"), "native_studio_publish"), "fresh synthetic publication scenario reopens safely");
+        Check(page.OpenSynthetic(new(Map, "SYNTHETIC FROZEN STUDIO PROJECT"), "native_studio_theatre"), "fresh synthetic publication scenario reopens safely");
         modal = page.Document; Ready();
         host.SetField(modal, "community_publish_notes", "FAILED SYNTHETIC NOTES");
         Click("community_publish_prepare", RmlUiIntentKind.CommunityUpload, 0);
