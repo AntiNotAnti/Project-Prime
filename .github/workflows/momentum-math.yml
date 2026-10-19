@@ -1,0 +1,60 @@
+name: Momentum math
+
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/Mods/Movement/**'
+      - 'tools/nettest/MomentumMathTests.cs'
+      - 'tools/nettest/Program.cs'
+      - 'src/MphRead/MphRead.csproj'
+      - 'tools/nettest/nettest.csproj'
+      - 'global.json'
+      - '.github/workflows/momentum-math.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Mods/Movement/**'
+      - 'tools/nettest/MomentumMathTests.cs'
+      - 'tools/nettest/Program.cs'
+      - 'src/MphRead/MphRead.csproj'
+      - 'tools/nettest/nettest.csproj'
+      - 'global.json'
+      - '.github/workflows/momentum-math.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: momentum-math-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  math:
+    name: equations and allocations (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build the production solver and headless harness
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Equation, input validation and fixed cadence fixtures
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-math
+      - name: Warmed eight-player workload with zero-allocation assertion
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-benchmark "${{ runner.temp }}/momentum-benchmark.json"
+      - name: Retain machine-specific benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: momentum-math-${{ matrix.os }}
+          path: ${{ runner.temp }}/momentum-benchmark.json
+          if-no-files-found: warn
