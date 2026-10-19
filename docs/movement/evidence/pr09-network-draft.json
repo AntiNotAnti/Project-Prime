@@ -1,0 +1,330 @@
+{
+  "status": "DRAFT scoped functional passes; performance and final-source gates incomplete",
+  "fixtures": [
+    {
+      "fixture": "native-8player-baseline-02",
+      "exitCodes": {
+        "server": null,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit."
+    },
+    {
+      "fixture": "momentum-8player-baseline-02",
+      "exitCodes": {
+        "server": null,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit."
+    },
+    {
+      "fixture": "native-8player-impaired-05",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit.",
+      "faultProfile": {
+        "roundTripMs": 200,
+        "jitterMs": 20,
+        "lossPercent": 1,
+        "reorderRate": 0.05,
+        "duplicateRate": 0.01,
+        "seeds": [
+          170,
+          171,
+          172,
+          173
+        ]
+      },
+      "snapshotAgeMeaning": "Local simulation frames since most recently received snapshot, not authoritative end-to-end snapshot age or network RTT."
+    },
+    {
+      "fixture": "momentum-8player-impaired-05",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit.",
+      "faultProfile": {
+        "roundTripMs": 200,
+        "jitterMs": 20,
+        "lossPercent": 1,
+        "reorderRate": 0.05,
+        "duplicateRate": 0.01,
+        "seeds": [
+          170,
+          171,
+          172,
+          173
+        ]
+      },
+      "snapshotAgeMeaning": "Local simulation frames since most recently received snapshot, not authoritative end-to-end snapshot age or network RTT."
+    },
+    {
+      "fixture": "native-8player-lifecycle-01",
+      "exitCodes": {
+        "server": null,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0,
+        "rejoined": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit."
+    },
+    {
+      "fixture": "momentum-8player-lifecycle-01",
+      "exitCodes": {
+        "server": null,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0,
+        "rejoined": 0
+      },
+      "scope": "Actual localhost UDP; four independent human clients and four dedicated-authority bots. Null server status means orchestrator termination, not clean exit."
+    },
+    {
+      "fixture": "native-map-change-baseline-01",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0
+      },
+      "scope": "Two actual UDP clients; actual loaded room identities and native rebuild/ACK/barrier handling; no bot or physical-device claim.",
+      "actualRooms": [
+        "MP1 SANCTORUS",
+        "MP3 PROVING GROUND"
+      ],
+      "completedTransitionsPerClient": [
+        1,
+        1
+      ],
+      "fixedStepSeconds": 0.016666666666666666,
+      "processedTicks": [
+        3556,
+        3582
+      ],
+      "wallSeconds": [
+        60.0096176,
+        60.0054682
+      ]
+    },
+    {
+      "fixture": "momentum-map-change-baseline-01",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0
+      },
+      "scope": "Two actual UDP clients; actual loaded room identities and native rebuild/ACK/barrier handling; no bot or physical-device claim.",
+      "actualRooms": [
+        "MP1 SANCTORUS",
+        "MP3 PROVING GROUND"
+      ],
+      "completedTransitionsPerClient": [
+        1,
+        1
+      ],
+      "fixedStepSeconds": 0.016666666666666666,
+      "processedTicks": [
+        3600,
+        3600
+      ],
+      "wallSeconds": [
+        60.0007102,
+        60.0014809
+      ]
+    },
+    {
+      "fixture": "native-spectator-baseline-02",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Three playing human peers, one genuine spectator, four authority bots; eight occupied slots and seven playing entities. CPU/headless only.",
+      "spectator": {
+        "spectatorTicks": 1200,
+        "wallSeconds": 20.0004743,
+        "simulationStepSeconds": 0.016666666666666666,
+        "solverSteps": 0
+      }
+    },
+    {
+      "fixture": "momentum-spectator-baseline-02",
+      "exitCodes": {
+        "server": 0,
+        "client0": 1,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Three playing human peers, one genuine spectator, four authority bots; eight occupied slots and seven playing entities. CPU/headless only.",
+      "outcome": "FAIL retained old post-tick jump-ceiling heuristic; exact cause unclassified",
+      "failureSample": {
+        "finalY": 0.29991472,
+        "nativeJumpImpulseCeiling": 0.2998047,
+        "tick": 1020,
+        "lateralContactFlag": true,
+        "padMinimumLock": 0,
+        "solverDelta": null,
+        "actualNativeJumpAcceptance": null,
+        "resolvedContactNormal": null
+      }
+    },
+    {
+      "fixture": "native-transitions-baseline-01",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0
+      },
+      "scope": "Two actual UDP clients; two completed same-map rematches with native rebuild/barriers. Older Sleep16ms-plus-work pacing, not a wall60Hz claim.",
+      "completedTransitionsPerClient": [
+        2,
+        2
+      ],
+      "processedTicks": [
+        3652,
+        3655
+      ]
+    },
+    {
+      "fixture": "momentum-transitions-baseline-01",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0
+      },
+      "scope": "Two actual UDP clients; two completed same-map rematches with native rebuild/barriers. Older Sleep16ms-plus-work pacing, not a wall60Hz claim.",
+      "completedTransitionsPerClient": [
+        2,
+        2
+      ],
+      "processedTicks": [
+        3912,
+        3909
+      ]
+    },
+    {
+      "fixture": "momentum-spectator-baseline-03",
+      "exitCodes": {
+        "server": 0,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Three playing human peers, one genuine spectator, four authority bots; eight occupied slots and seven playing entities. CPU/headless only.",
+      "spectator": {
+        "spectatorTicks": 2361,
+        "wallSeconds": 40.0220989,
+        "simulationStepSeconds": 0.016666666666666666,
+        "solverSteps": 0
+      },
+      "outcome": "PASS complete cohort and orderly server",
+      "acceptedNativeJumpsPerPlayingPeer": [
+        24,
+        24,
+        25
+      ],
+      "acceptedJumpBoundary": {
+        "beforeSolverY": 0.2998047,
+        "afterSolverY": 0.2998047,
+        "bitIdentityRequired": true,
+        "ceilingTolerance": 1e-05,
+        "actualNativeLegalJumpLabelRequired": true,
+        "boundary": "Before gravity/native player and map collision"
+      }
+    },
+    {
+      "fixture": "momentum-spectator-baseline-04",
+      "exitCodes": {
+        "server": null,
+        "client0": 0,
+        "client1": 0,
+        "client2": 0,
+        "client3": 0
+      },
+      "scope": "Three playing human peers, one genuine spectator, four authority bots; eight occupied slots and seven playing entities. CPU/headless only.",
+      "spectator": {
+        "spectatorTicks": 3055,
+        "wallSeconds": 60.0715915,
+        "simulationStepSeconds": 0.016666666666666666,
+        "solverSteps": 0
+      },
+      "outcome": "PASS clients only; server shutdown/evidence invalid",
+      "serverEvidenceValid": false,
+      "reason": "Runner ten-second shutdown wait terminated serialization; truncated JSON must not be cited",
+      "futureShutdownWaitSeconds": 60
+    }
+  ],
+  "sourceLease": {
+    "recordedCampaignBase": "f908c7e534bce67e07a3776b21a658790034544d",
+    "additionalChanges": "Uncommitted PR-09 production/test changes; later contact-boundary incremental tool build for spectator-03/04",
+    "pendingPublicationBase": "3de8887a",
+    "pendingScope": "CW-04c and PR-736 plus final diagnostics/retention/balance helpers; build/reruns pending; prior artifacts not relabelled"
+  },
+  "existingOfflineProjectionEvidence": {
+    "artifact": "artifacts/momentum-pr07/navigation-04.json",
+    "case": "Samus/Momentum/first-veto",
+    "traceTick": 0,
+    "sameFrameDiagnosticRequiredInSource": true,
+    "solverIncomingY": 0,
+    "solverOutgoingY": 0,
+    "finalNativeY": 0.04095151,
+    "standing": true,
+    "jumpInput": false,
+    "scope": "Existing authored-ramp fixture with explicit initial cap seed and no measured speed writes; general native post-solver projection only, not provenance of old UDP sample or fresh PR-09 acceptance"
+  },
+  "pending": [
+    "Exact publication-source build and focused reruns",
+    "Expanded above-ceiling jump-input diagnostics including native bypass/rejected input; no tolerance widening",
+    "Owner combat/lag-compensation acceptance belongs to separate fixture; no such claim from these keyboard workers",
+    "Performance, physical-device and CI gates remain separate"
+  ],
+  "advisoryCandidateAnalysis": {
+    "artifact": "artifacts/momentum-pr09/impaired05-advisory-analysis.json",
+    "nativeCandidates": 1,
+    "momentumCandidates": 6,
+    "hardRejections": 0,
+    "classification": "All seven remain unclassified advisory accepted-position finite differences, not native Speed measurements. No per-tick owner Speed/contact/impulse/exemption trace is retained. Constant Momentum Z=-24.699951 and alternating X displacement suggest a contact-boundary hypothesis but do not establish cause.",
+    "numericJoin": "Native source1608 slot2 matches owner1606\u21921607 horizontal0.89566994. Momentum slot7 source969/986/987/988/989 match owner prior-frame deltas; source980 elapsed2 matches owner977\u2192979 divided by2."
+  },
+  "tracedAdvisoryFollowup": {
+    "source": "Core3de8887a + PR09 tool06",
+    "artifact": "artifacts/momentum-pr09/impaired06-advisory-analysis.json",
+    "nativeAdvisoryCandidates": 4,
+    "momentumAdvisoryCandidates": 1,
+    "allTenProcessesExitZero": true,
+    "allEightOwnerTraceOverflowZero": true,
+    "scope": "Complete anomaly traces distinguish body-position correction from native Speed at all five reproduced candidate steps. Native and Momentum share this positional-displacement phenomenon. PlayerCollision.cs116 separates overlapping players by directly changing Position; map contacts change position at1239+. These are available mechanisms, but no retained call witness identifies exact subtype for these rows. Earlier impaired05 seven rows remain independently unclassified.",
+    "momentumExample": {
+      "sourceFrame": 649,
+      "slot": 6,
+      "displacementX": -0.8659301,
+      "preNativeSpeedX": -0.001570126,
+      "postNativeSpeedX": 0,
+      "solverBeforeX": -0.001570126,
+      "solverAfterX": -0.0013188522,
+      "solverBeforeY": 0.0009375445,
+      "solverAfterY": 0.0009375445
+    }
+  }
+}

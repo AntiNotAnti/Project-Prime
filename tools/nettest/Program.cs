@@ -93,11 +93,15 @@ namespace MphRead.NetTest
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
                     + "  --momentum-replay-metadata         Test recorded movement labels and cold/warm library cache.\n"
-                    + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable] Test recorded world determinism and mode restoration.\n"
+                    + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
+                    + "  --momentum-combat-online <assets> <port> <model> <json> [seconds] [seed] [latency] [loss] [reorder] [duplicate] [fault-seed] [hunter] [human-min] Run genuine owner combat.\n"
+                    + "  --momentum-combat-proof-many <server-evidence> <all-eight-workers.json> <json> Verify full mixed-Hunter owner cohort.\n"
+                    + "  --momentum-combat-proof <server-evidence> <first-worker> <second-worker> <json> Verify real owner payment/rewind joins.\n"
+                    + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
+                    + "  --momentum-online-acceptance <assets> <port> <model> <json> <seconds> <spectator> <humans> <bots> <latency> <loss> <reorder> <duplicate> <seed> <transitions> [lobby-owner] [require-rejoin] [require-respawn]\n"
                     + "  --momentum-input-scene <assets> [json] Test actual keyboard, controller and touch-model movement semantics.\n"
                     + "  --momentum-input-packets          Test signed axes and input override lifecycle on existing packets.\n"
-                    + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
                     + "  --momentum-bot-scene <assets> [json] Test real offline AI through both movement rules.\n"
                     + "  --momentum-bot-authority <assets> [json] Test actual server AI movement, intents and snapshots.\n"
                     + "  --momentum-touch-gl <assets> [json] Test native alternate-form touch and boost parity with GL.\n"
@@ -410,6 +414,29 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-combat-evidence") return MomentumCombatEvidenceTests.Run();
+            if (args.Length >= 4 && args[0] == "--momentum-combat-proof-many")
+                return MomentumCombatOnlineTests.VerifyMany(args[1], args[2], args[3]);
+            if (args.Length >= 5 && args[0] == "--momentum-combat-proof")
+                return MomentumCombatOnlineTests.Verify(args[1], args[2], args[3], args[4]);
+            if (args.Length >= 5 && args[0] == "--momentum-combat-online")
+            {
+                if (!Int32.TryParse(args[2], out int combatPort) || combatPort is < 1 or > 65535
+                    || !Mods.Movement.MovementModelRules.TryParse(args[3], out var combatModel)) return 2;
+                string output = System.IO.Path.GetFullPath(args[4]);
+                int seconds = args.Length > 5 && Int32.TryParse(args[5], out int combatDuration) ? combatDuration : 60;
+                uint seed = args.Length > 6 && UInt32.TryParse(args[6], out uint combatSeed) ? combatSeed : 1729;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                if (args.Length > 11 && !Int32.TryParse(args[11], out _)
+                    || args.Length > 12 && !Enum.TryParse<Hunter>(args[12], true, out _)
+                    || args.Length > 13 && !Int32.TryParse(args[13], out _)) return 2;
+                int faultSeed = args.Length > 11 && Int32.TryParse(args[11], out int parsedFaultSeed) ? parsedFaultSeed : 1;
+                Hunter hunter = args.Length > 12 && Enum.TryParse<Hunter>(args[12], true, out var parsedHunter) ? parsedHunter : Hunter.Samus;
+                int humanMin = args.Length > 13 && Int32.TryParse(args[13], out int parsedHumanMin) ? parsedHumanMin : 2;
+                return MomentumCombatOnlineTests.Run(combatPort, combatModel, output, seconds, seed,
+                    args.Length > 7 ? args[7] : "200:20", args.Length > 8 ? args[8] : "0",
+                    args.Length > 9 ? args[9] : "0", args.Length > 10 ? args[10] : "0", faultSeed, hunter, humanMin);
+            }
             if (args.Length > 1 && (args[0] == "--momentum-input-scene"
                 || args[0] == "--momentum-bot-scene" || args[0] == "--momentum-bot-authority"
                 || args[0] == "--momentum-touch-gl"))
@@ -448,10 +475,17 @@ namespace MphRead.NetTest
                     || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                var server = new DedicatedServer(movementPort, 2,
-                    MapRotation.SingleMatch("MP3 PROVING GROUND", GameMode.Battle, 120, 999))
+                int capacity = args.Length > 5 && Int32.TryParse(args[5], out int requestedCapacity) ? Math.Clamp(requestedCapacity, 2, 8) : 2;
+                int movementMatchSeconds = args.Length > 7 && Int32.TryParse(args[7], out int movementRequestedSeconds)
+                    ? Math.Clamp(movementRequestedSeconds, 10, 120) : 120;
+                var movementTestRotation = args.Length > 8
+                    ? MapRotation.FromList(new (string RoomKey, GameMode Mode)[]
+                        { ("MP3 PROVING GROUND", GameMode.Battle), (args[8], GameMode.Battle) }, movementMatchSeconds, 999)
+                    : MapRotation.SingleMatch("MP3 PROVING GROUND", GameMode.Battle, movementMatchSeconds, 999);
+                var server = new DedicatedServer(movementPort, capacity, movementTestRotation)
                 {
                     MovementModel = model, ServerName = "movement acceptance", AutoUpdate = false,
+                    SessionPolicy = args.Length > 6 && args[6] == "lobby" ? ServerSessionPolicy.Lobby : ServerSessionPolicy.Continuous,
                     ReplayPolicy = ServerReplayPolicy.Default with { Enabled = false }
                 };
                 // A real local authority, with no listing reporter or hosted children.
@@ -460,6 +494,21 @@ namespace MphRead.NetTest
                 using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(lifetime));
                 server.Run(stop.Token);
                 return 0;
+            }
+            if (args.Length >= 15 && args[0] == "--momentum-online-acceptance")
+            {
+                if (!Int32.TryParse(args[2], out int acceptancePort) || acceptancePort is < 1 or > 65535
+                    || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)
+                    || !Int32.TryParse(args[5], out int seconds) || !Boolean.TryParse(args[6], out bool spectator)
+                    || !Int32.TryParse(args[7], out int humans) || !Int32.TryParse(args[8], out int bots)
+                    || !Int32.TryParse(args[13], out int seed) || !Int32.TryParse(args[14], out int transitions)) return 2;
+                string output = System.IO.Path.GetFullPath(args[4]);
+                var options = new MomentumOnlineAcceptanceOptions(spectator, humans, bots, args[9], args[10], args[11], args[12], seed,
+                    RequireRejoin: args.Contains("require-rejoin"), RequireRespawn: args.Contains("require-respawn"), MinimumTransitions: transitions,
+                    LobbyOwner: args.Contains("lobby-owner"), LobbyBots: bots, LobbyHumans: humans, RequireMapChange: args.Contains("map-change"));
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumOnlineSceneTests.Run(acceptancePort, model, output, seconds, acceptanceOptions: options);
             }
             if (args.Length >= 5 && (args[0] == "--momentum-online-scene" || args[0] == "--momentum-touch-online"))
             {
