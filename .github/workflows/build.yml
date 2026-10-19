@@ -116,6 +116,9 @@ jobs:
       - name: RmlUi native-host lifetime and typed intent contracts
         run: dotnet run --project tools/rmlui-runtime-check -c Release
 
+      - name: automatic ROM import, cancellation and destination ownership
+        run: dotnet run --project tools/rmlui-game-files-check -c Release
+
       - name: RmlUi live Home, Play, lobby, and async ownership contracts
         run: dotnet run --project tools/rmlui-live-menu-check -c Release
 

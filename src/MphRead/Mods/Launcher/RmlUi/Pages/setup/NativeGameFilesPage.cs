@@ -31,7 +31,8 @@ internal sealed class NativeGameFilesPage : IDisposable
         if (_document != default) return;
         _document = _pages.OpenPage(new("native-game-files", "pages/setup/native-game-files.rml", "native_setup_choose"));
         _controller = new(_authority, () => _scope() && _host.IsAlive(_document)
-            && _host.IsVisible(_document) && _pages.Page == _document, _pages.Lifetime(_document));
+            && _host.IsVisible(_document) && _pages.Page == _document, _pages.Lifetime(_document),
+            canStartImport: () => Foreground(_document));
         Refresh();
     }
     private bool Foreground(RmlUiDocumentToken document) => !_disposed && document != default

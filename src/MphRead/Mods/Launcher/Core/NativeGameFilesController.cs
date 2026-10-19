@@ -37,6 +37,7 @@ internal sealed class NativeGameFilesController : IDisposable
     }
     private readonly INativeGameFilesAuthority _authority;
     private readonly Func<bool> _scope;
+    private readonly Func<bool> _canStartImport;
     private readonly CancellationToken _lifetime;
     private readonly int _owner = Environment.CurrentManagedThreadId;
     private NativeGameFilesState _files;
@@ -48,8 +49,9 @@ internal sealed class NativeGameFilesController : IDisposable
     private sealed record InstalledReceipt(string ExpectedRoot);
     private InstalledReceipt? _installed;
     private bool _closed, _disposed;
-    public NativeGameFilesController(INativeGameFilesAuthority authority, Func<bool> scope, CancellationToken lifetime = default)
-    { _authority = authority; _scope = scope; _lifetime = lifetime; _files = authority.Read(); }
+    public NativeGameFilesController(INativeGameFilesAuthority authority, Func<bool> scope, CancellationToken lifetime = default,
+        Func<bool>? canStartImport = null)
+    { _authority = authority; _scope = scope; _canStartImport = canStartImport ?? (() => true); _lifetime = lifetime; _files = authority.Read(); }
     private void Verify() { if (Environment.CurrentManagedThreadId != _owner) throw new InvalidOperationException("Game Files requires its owner thread."); }
     private bool Current() => !_disposed && !_closed && !_lifetime.IsCancellationRequested && _scope();
     public NativeGameFilesView Snapshot() { Verify(); return new(_revision, _files, _operation != null, _pick != null,
@@ -64,8 +66,10 @@ internal sealed class NativeGameFilesController : IDisposable
     }
     public bool Confirm()
     {
-        Verify(); if (!Current() || _operation != null || _pick == null || _files.SetupBusy) return false;
+        Verify(); if (!Current() || !_canStartImport() || _operation != null || _pick == null || _files.SetupBusy) return false;
         NativeGameFilesState now = _authority.Read();
+        if (!Current() || !_canStartImport())
+        { _pick = null; _status = "Setup is no longer current. Choose the cartridge dump again."; _revision++; return false; }
         if (!String.Equals(now.Root, _files.Root, StringComparison.Ordinal) || now.SetupBusy)
         { _pick = null; _files = now; _status = "The game-files destination changed or another setup is working. Choose again."; _revision++; return false; }
         var proposal = _pick; _pick = null;
@@ -114,6 +118,10 @@ internal sealed class NativeGameFilesController : IDisposable
             { _log = log; _stage = op.Kind == "install" ? op.Progress.Stage : ""; _fraction = op.Progress.Fraction; _revision++; }
         }
         if (!op.Task.IsCompleted) return Snapshot();
+        // Selecting a valid ROM is the import action. If another modal covers
+        // setup while the OS picker closes, defer its result until setup owns
+        // the foreground again; retirement/cancellation still wins above.
+        if (op.Kind == "picker" && !_canStartImport()) return Snapshot();
         _operation = null;
         try
         {
@@ -125,7 +133,11 @@ internal sealed class NativeGameFilesController : IDisposable
                 if (!String.Equals(current.Root, _files.Root, StringComparison.Ordinal) || current.SetupBusy)
                 { _files = current; _status = "The game-files destination changed or setup started. Choose again."; }
                 else if (result is NativeGameFilesPick picked && picked.Error.Length == 0 && !String.IsNullOrWhiteSpace(picked.Path))
-                { _pick = picked; _status = "Install " + picked.Name + " // " + picked.Label + "?"; }
+                {
+                    _pick = picked;
+                    try { Confirm(); }
+                    finally { _pick = null; }
+                }
                 else _status = result is NativeGameFilesPick rejected && rejected.Error.Length > 0 ? rejected.Error : "No cartridge dump selected.";
             }
             else if (result is NativeGameFilesResult finished)
