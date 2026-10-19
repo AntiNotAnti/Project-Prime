@@ -11,12 +11,14 @@ namespace MphRead.Mods.Cosmetics
         public SkinDefinition Skin { get; }
         public ArmorEffectDefinition Armor { get; }
         public DeathPresentationDefinition Death { get; }
+        public BeamEffectDefinition Beam { get; }
         public CosmeticAppearance(Hunter hunter, CosmeticLoadout loadout)
         {
             Loadout = CosmeticCatalog.Resolve(hunter, loadout);
             Skin = CosmeticCatalog.ResolveSkin(Loadout.SkinKey, hunter);
             Armor = CosmeticCatalog.ResolveArmor(Loadout.ArmorEffectKey);
             Death = CosmeticCatalog.ResolveDeath(Loadout.DeathEffectKey);
+            Beam = CosmeticCatalog.ResolveBeam(Loadout.BeamEffectKey);
         }
         public static readonly CosmeticAppearance Default = new(Hunter.Samus, CosmeticLoadout.Default);
     }

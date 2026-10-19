@@ -11,6 +11,27 @@ namespace MphRead.Mods.Cosmetics
     {
         // Wire IDs are permanent. Append new entries; never reuse a retired ID.
         public static IReadOnlyList<SkinDefinition> Skins { get; } = BuildSkins();
+        public static IReadOnlyList<BeamEffectDefinition> BeamEffects { get; } = Array.AsReadOnly(new[]
+        {
+            new BeamEffectDefinition("beam.ion_fracture", 0, "Ion Fracture 2.0", BeamFxStyle.IonFracture,
+                Rgb(0x24dcff), Rgb(0xffffff)) { Description = "A precision ion lance, traveling diamond knot, crystalline fins and hexagonal impact corona." },
+            new BeamEffectDefinition("beam.void_rift", 1, "Void Rift", BeamFxStyle.VoidRift,
+                Rgb(0x9552ff), Rgb(0x181128)) { Description = "Violet dimensional edges around a dark fractured core." },
+            new BeamEffectDefinition("beam.quantum_split", 2, "Quantum Split", BeamFxStyle.QuantumSplit,
+                Rgb(0x23e9ff), Rgb(0xff50df)) { Description = "Cyan precision rail with diverging magenta phase echoes." },
+            new BeamEffectDefinition("beam.alimbic", 3, "Alimbic Resonance", BeamFxStyle.AlimbicResonance,
+                Rgb(0xffd776), Rgb(0xfff9d3)) { Description = "Ancient golden energy with hexagonal containment glyphs." },
+            new BeamEffectDefinition("beam.omega", 4, "Omega Pulse", BeamFxStyle.OmegaPulse,
+                Rgb(0xff5680), Rgb(0xffffff)) { Description = "Crimson overdrive with expanding compression rings." },
+            new BeamEffectDefinition("beam.arc", 5, "Arc Disruptor", BeamFxStyle.ArcDisruptor,
+                Rgb(0xa989ff), Rgb(0xe8dfff)) { Description = "A straight electric lance with branching violet discharges." },
+            new BeamEffectDefinition("beam.solar", 6, "Solar Spear", BeamFxStyle.SolarSpear,
+                Rgb(0xff8824), Rgb(0xfff6b0)) { Description = "White-gold plasma, solar flares and a radiant impact." },
+            new BeamEffectDefinition("beam.cryo", 7, "Cryo Shatter", BeamFxStyle.CryoShatter,
+                Rgb(0x93e9ff), Rgb(0xf1feff)) { Description = "Glacial blue precision energy shedding angular icy facets." },
+            new BeamEffectDefinition("beam.phantom", 8, "Phantom Trace", BeamFxStyle.PhantomTrace,
+                Rgb(0x78fff0), Rgb(0xffffff)) { Description = "Thin emerald holographic afterimages for competitive clarity." }
+        });
         public static IReadOnlyList<ArmorEffectDefinition> ArmorEffects { get; } = Array.AsReadOnly(new[]
         {
             new ArmorEffectDefinition("armor.none", 0, "None") { Intensity = 0, ParticleRate = 0 },
@@ -72,12 +93,24 @@ namespace MphRead.Mods.Cosmetics
             Skins.FirstOrDefault(x => x.Key == key && (x.Hunter == null || x.Hunter == hunter)) ?? Skins[0];
         public static ArmorEffectDefinition ResolveArmor(string? key) => ArmorEffects.FirstOrDefault(x => x.Key == key) ?? ArmorEffects[0];
         public static DeathPresentationDefinition ResolveDeath(string? key) => DeathPresentations.FirstOrDefault(x => x.Key == key) ?? DeathPresentations[0];
+        public static BeamEffectDefinition ResolveBeam(string? key) => BeamEffects.FirstOrDefault(x => x.Key == key) ?? BeamEffects[0];
         public static CosmeticLoadout Resolve(Hunter hunter, CosmeticLoadout? value) => value == null ? CosmeticLoadout.Default
-            : new(ResolveSkin(value.SkinKey, hunter).Key, ResolveArmor(value.ArmorEffectKey).Key, ResolveDeath(value.DeathEffectKey).Key);
-        public static CosmeticLoadout FromWire(Hunter hunter, ushort skin, ushort armor, ushort death) => Resolve(hunter,
+            : new(ResolveSkin(value.SkinKey, hunter).Key, ResolveArmor(value.ArmorEffectKey).Key,
+                ResolveDeath(value.DeathEffectKey).Key, ResolveBeam(value.BeamEffectKey).Key,
+                BeamPalette.Valid(value.BeamColor) ? value.BeamColor : (byte)0);
+
+        // Size-preserving cosmetic-only extension. The death catalog currently
+        // occupies IDs 0..7. Reserve its low byte for death; dedicate 4 upper
+        // bits to the cosmetic rail and 4 to its tone. Legacy 24-byte records
+        // decode unchanged, and old replays continue to work.
+        public static ushort PackDeathBeam(ushort death, ushort beam, byte color)
+            => (ushort)((death & 255) | ((beam & 15) << 8) | ((color & 15) << 12));
+        public static CosmeticLoadout FromWire(Hunter hunter, ushort skin, ushort armor, ushort packedDeath) => Resolve(hunter,
             new(Skins.FirstOrDefault(x => x.WireId == skin)?.Key ?? "skin.default",
                 ArmorEffects.FirstOrDefault(x => x.WireId == armor)?.Key ?? "armor.none",
-                DeathPresentations.FirstOrDefault(x => x.WireId == death)?.Key ?? "death.classic"));
+                DeathPresentations.FirstOrDefault(x => x.WireId == (packedDeath & 255))?.Key ?? "death.classic",
+                BeamEffects.FirstOrDefault(x => x.WireId == ((packedDeath >> 8) & 15))?.Key ?? "beam.ion_fracture",
+                (byte)((packedDeath >> 12) & 15)));
         private static Vector3 Rgb(uint value) => new((value >> 16) / 255f, ((value >> 8) & 255) / 255f, (value & 255) / 255f);
     }
 }
