@@ -452,6 +452,11 @@ namespace MphRead.Mods.Launcher.Gui
             fire.IsVisible = GameState.IsTeamMode(selectedMode);
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
+            bool validMovement = Movement.MovementModelRules.TryParse(_settings.MovementModel, out var savedMovement);
+            var movement = new ChoiceRow("Movement", validMovement ? new[] { "Classic", "Momentum" }
+                : new[] { "Classic", "Momentum", "Choose movement" },
+                validMovement ? savedMovement == Movement.MovementModel.Momentum ? 1 : 0 : 2);
+            ToolTip.SetTip(movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum; alt-form abilities stay native.");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
@@ -473,10 +478,12 @@ namespace MphRead.Mods.Launcher.Gui
             var body = PrimeChrome.Stack(PrimeChrome.Title("MATCH RULES"),
                 PrimeChrome.Columns("*,*,*",
                     Section("MATCH", PrimeChrome.Text(selectedMode == GameMode.OneInTheChamber ? "3 lives • Last player standing\nOne lethal shot • Kills earn ammo" : "", 12, PrimeTheme.TextSecondaryBrush), score, time, objective, damage),
-                    Section("GAMEPLAY", fire, affinity, freeze, spawnProtection, radar),
+                    Section("GAMEPLAY", movement, fire, affinity, freeze, spawnProtection, radar),
                     Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
+                    if (movement.Index is not (0 or 1))
+                    { error.Text = "Saved movement is unknown. Choose Classic or Momentum before applying rules."; return; }
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
                         || TimeSpan.TryParseExact(value, @"mm\:ss", null, out _);
                     if (!int.TryParse(score.Value, out int points) || points < 0 || points > 999 || !Duration(time.Value) || !Duration(objective.Value))
@@ -488,7 +495,8 @@ namespace MphRead.Mods.Launcher.Gui
                     // keep the runtime settings facade in sync with the committed values.
                     var rules = new Network.MatchDefinition { Mode = SelectedMode(),
                         InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On,
-                        BalancedMode = balancedMode.On };
+                        BalancedMode = balancedMode.On,
+                        MovementModel = movement.Index == 1 ? Movement.MovementModel.Momentum : Movement.MovementModel.Native };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;
                     string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;
@@ -496,6 +504,7 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldLowTier = _settings.LowTier;
                     string oldNoImperialist = _settings.NoImperialist;
                     string oldBalancedMode = _settings.BalancedMode;
+                    string oldMovementModel = _settings.MovementModel;
                     string oldPointGoal = _settings.PointGoal;
                     string oldTimeLimit = _settings.TimeLimit;
                     string oldTimeGoal = _settings.TimeGoal;
@@ -512,6 +521,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _settings.LowTier = lowTier.On ? "on" : "off";
                     _settings.NoImperialist = noImperialist.On ? "on" : "off";
                     _settings.BalancedMode = balancedMode.On ? "on" : "off";
+                    _settings.MovementModel = rules.MovementModel.ToString();
                     _settings.PointGoal = score.Value;
                     _settings.TimeLimit = time.Value;
                     _settings.TimeGoal = objective.Value;
@@ -536,6 +546,7 @@ namespace MphRead.Mods.Launcher.Gui
                         _settings.LowTier = oldLowTier;
                         _settings.NoImperialist = oldNoImperialist;
                         _settings.BalancedMode = oldBalancedMode;
+                        _settings.MovementModel = oldMovementModel;
                         _settings.PointGoal = oldPointGoal;
                         _settings.TimeLimit = oldTimeLimit;
                         _settings.TimeGoal = oldTimeGoal;

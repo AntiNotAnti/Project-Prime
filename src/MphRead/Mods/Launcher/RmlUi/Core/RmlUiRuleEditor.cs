@@ -14,15 +14,17 @@ public readonly record struct RmlUiRuleDraft(ushort MatchId, ulong AuthorityEpoc
     ushort SessionRevision, MatchDefinition Match, LobbyRuleFlags Flags);
 
 /// <summary>
-/// A bounded local draft for the existing native 17-toggle rule sheet.
+/// A bounded local draft for the native rule sheet.
 /// The authoritative session only changes after UpdateMatch is validated
 /// and accepted by the server. No direct network, toolkit or scene calls.
 /// </summary>
 public sealed class RmlUiRuleEditor
 {
+    public const int ChoiceCount = Host.RmlUiIntentRegistry.LobbyRuleChoiceCount;
     public RmlUiRuleDraft Source { get; }
     public RmlUiRuleDraft Draft { get; private set; }
     public bool Dirty => Source.Match != Draft.Match || Source.Flags != Draft.Flags;
+    public string MovementLabel => Movement.MovementModelRules.DisplayName(Draft.Match.MovementModel);
 
     public RmlUiRuleEditor(RmlUiRuleDraft source)
     {
@@ -34,7 +36,7 @@ public sealed class RmlUiRuleEditor
 
     public bool Toggle(int index)
     {
-        if (index is < 0 or > 16) return false;
+        if (index is < 0 or >= ChoiceCount) return false;
         var match = Draft.Match;
         var flags = Draft.Flags;
         switch (index)
@@ -59,6 +61,11 @@ public sealed class RmlUiRuleEditor
             case 14: match = match with { ShadowFreeze = !match.ShadowFreeze }; break;
             case 15: match = match with { OctolithAutoReset = !match.OctolithAutoReset }; break;
             case 16: match = match with { ThirdPersonCamera = !match.ThirdPersonCamera }; break;
+            case 17:
+                if (!Movement.MovementModelRules.IsDefined(match.MovementModel)) return false;
+                match = match with { MovementModel = match.MovementModel == Movement.MovementModel.Native
+                    ? Movement.MovementModel.Momentum : Movement.MovementModel.Native };
+                break;
         }
         Draft = Draft with { Match = match, Flags = flags };
         return true;
@@ -87,6 +94,7 @@ public sealed class RmlUiRuleEditor
             14 => match.ShadowFreeze,
             15 => match.OctolithAutoReset,
             16 => match.ThirdPersonCamera,
+            17 => match.MovementModel == Movement.MovementModel.Momentum,
             _ => false
         };
     }

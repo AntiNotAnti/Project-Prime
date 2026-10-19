@@ -92,6 +92,7 @@ namespace MphRead.NetTest
                     + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
+                    + "  --momentum-replay-metadata         Test recorded movement labels and cold/warm library cache.\n"
                     + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-input-scene <assets> [json] Test actual keyboard, controller and touch-model movement semantics.\n"
@@ -405,6 +406,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-offline-rules") return MomentumOfflineRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-replay-rules") return MomentumReplayRulesTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
             if (args.Length > 1 && (args[0] == "--momentum-input-scene"
                 || args[0] == "--momentum-bot-scene" || args[0] == "--momentum-bot-authority"

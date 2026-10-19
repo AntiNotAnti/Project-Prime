@@ -11,6 +11,13 @@ public static class MovementModelRules
 {
     public static bool IsDefined(MovementModel model) => model is MovementModel.Native or MovementModel.Momentum;
 
+    public static string DisplayName(MovementModel model) => model switch
+    {
+        MovementModel.Native => "Classic",
+        MovementModel.Momentum => "Momentum",
+        _ => "Unsupported"
+    };
+
     public static bool TryParse(string? value, out MovementModel model)
     {
         model = MovementModel.Native;

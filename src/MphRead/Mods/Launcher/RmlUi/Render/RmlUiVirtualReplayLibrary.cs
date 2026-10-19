@@ -50,6 +50,7 @@ internal static class RmlUiVirtualReplayLibrary
                     && document.EndFrame <= recording.DurationFrames;
                 uint duration = document.EndFrame - document.StartFrame;
                 string detail = $"virtual clip // {ReplayHud.Time(duration)}";
+                if (compatible && recording.Metadata is { } sourceMetadata) detail += $" // Movement: {sourceMetadata.MovementLabel}";
                 if (!available) detail += " // SOURCE UNAVAILABLE";
                 else if (!compatible) detail += " // SOURCE REQUIRES VALIDATION";
                 bool annotationsSafe = SafeSidecar(path + ReplayAnnotations.Extension);

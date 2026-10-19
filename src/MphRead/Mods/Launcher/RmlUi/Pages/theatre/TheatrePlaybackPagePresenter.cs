@@ -35,7 +35,7 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         _host.SetBool(_document,"disabled:replay_four_views",!state.Active||state.ExportRendering);
         _host.SetText(_document, "replay_pause", state.PlayAction ? "PLAY" : "PAUSE");
         _host.SetText(_document, "replay_time", Time(state.Frame) + " / " + Time(state.Duration));
-        _host.SetText(_document, "replay_state", state.State.ToUpperInvariant());
+        _host.SetText(_document, "replay_state", state.State.ToUpperInvariant() + " // MOVEMENT: " + state.Movement.ToUpperInvariant());
         _host.SetText(_document, "replay_rate", state.Rate.ToString("0.##", CultureInfo.InvariantCulture) + "× SPEED");
         _host.SetText(_document, "replay_camera", state.Camera.ToUpperInvariant() + " CAMERA");
         if(!WorkspaceMode)_host.SetText(_document, "replay_studio", _editorBackend == null ? "OPEN IN PRIME STUDIO" : "REPLAY EDITOR");

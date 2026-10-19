@@ -14,6 +14,29 @@ void Throws(Action action, string message)
     catch (ArgumentException) { Check(true, message); return; }
     throw new InvalidOperationException(message);
 }
+bool AuthoredDisplayNone(XElement element)
+{
+    string? display = null;
+    foreach (string declaration in (element.Attribute("style")?.Value ?? "").Split(';'))
+    {
+        int colon = declaration.IndexOf(':');
+        if (colon >= 0 && declaration[..colon].Trim().Equals("display", StringComparison.OrdinalIgnoreCase))
+            display = declaration[(colon + 1)..].Trim();
+    }
+    return String.Equals(display, "none", StringComparison.OrdinalIgnoreCase);
+}
+bool AuthoredHidden(XElement element, ISet<string> applied) => element.AncestorsAndSelf().Any(parent =>
+    parent.Attribute("id") is { } id && applied.Contains(id.Value) || AuthoredDisplayNone(parent));
+foreach (string style in new[] { "display:none", " DISPLAY : NONE ; ", "color:red; DiSpLaY: NoNe;" })
+{
+    var ancestor = new XElement("div", new XAttribute("style", style), new XElement("button"));
+    Check(AuthoredHidden(ancestor.Element("button")!, new HashSet<string>()), "static hidden ancestor recognized: " + style);
+}
+foreach (string style in new[] { "", "display:block", "visibility:hidden", "color:none", "display:none;display:block" })
+{
+    var visible = new XElement("button", new XAttribute("style", style));
+    Check(!AuthoredHidden(visible, new HashSet<string>()), "visible unsupported action still requires capability admission: " + style);
+}
 string root = Directory.GetCurrentDirectory();
 while (!Directory.Exists(Path.Combine(root, "src/MphRead")))
     root = Directory.GetParent(root)?.FullName ?? throw new InvalidOperationException("Run within the repository.");
@@ -104,6 +127,12 @@ foreach (var (path, surface) in new[] { ("pages/home/home.rml", RmlUiLocalDocume
         .Select(pair => pair.Key.Name["visible:".Length..]));
     host.CloseDocument(probe);
 }
+Check(RmlUiIntentRegistry.TryParseLegacy("studio:open", home, 1, out var visibleStudio)
+    && !local.Allows(visibleStudio)
+    && !AuthoredHidden(new XElement("button", new XAttribute("data-action", "studio:open")), appliedIds),
+    "visible unsupported Studio action remains refused");
+Check(local.Allows(new(RmlUiIntentKind.HunterOpen, 0, home, ++sequence)),
+    "local inline HunterOpen remains available despite hidden unsupported Hunter workspace route");
 var auditedIds = new HashSet<string>();
 foreach (string relative in new[] { "Components/app-shell.rml", "Pages/home/home.rml", "Pages/offline/setup.rml", "Pages/offline/arena.rml" })
 {
@@ -117,14 +146,15 @@ foreach (string relative in new[] { "Components/app-shell.rml", "Pages/home/home
             string? action = element.Attribute(attribute)?.Value;
             if (action == null) continue;
             Check(RmlUiIntentRegistry.TryParseLegacy(action, home, 1, out var intent), "authored action decodes: " + action);
-            bool hidden = element.AncestorsAndSelf().Any(parent => parent.Attribute("id") is { } attr
-                && appliedIds.Contains(attr.Value));
+            // The shared shell includes a permanently hidden Studio-home action.
+            // Account for authored display:none as well as platform visibility overrides.
+            bool hidden = AuthoredHidden(element, appliedIds);
             Check(local.Allows(intent) || hidden, "unsupported authored action is hidden: " + action);
         }
     }
 }
 Check(auditedIds.SetEquals(appliedIds), "every capability visibility override targets an actual authored DOM ID");
-Check(auditedIds.Count == 18, "authored capability DOM inventory includes original fifteen controls and three unsupported section headings");
+Check(auditedIds.Count == 23, "authored capability DOM inventory includes original controls, unsupported headings and five added workspace/social actions");
 
 var offline = pages.ShowBaseline(RmlUiMenuPage.Offline);
 Hidden(offline, "offline_training_panel"); Hidden(offline, "offline_rules_open");
@@ -201,9 +231,9 @@ var canceled = new RmlUiAndroidLauncherAdmission<Request, Plan>();
 Check(canceled.TryRequest(new(2), out var canceledWitness) && canceled.TryAccept(canceledWitness, new(2)), "accepted cancellation setup");
 Task.Run(canceled.Retire).GetAwaiter().GetResult();
 Check(!canceled.TryTakePlan(out _), "retirement discards an already accepted plan before owner consumption");
-Check(checks == 460, "original 454 capability/admission checks plus six section/footer checks remain complete");
+Check(checks == 484, "capability/admission and current authored-action inventory checks remain complete");
 HunterAcceptance.Run(root, Check);
-Check(checks == 636, "existing 630 capability/admission/Hunter checks plus six section/footer checks remain complete");
+Check(checks == 660, "existing Hunter checks and current authored-action inventory remain complete");
 Guid previewOwner = Guid.NewGuid(), replacementOwner = Guid.NewGuid();
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked && !RmlUiAndroidLauncherPreviewBarrier.IsOwned(previewOwner),
     "preview barrier begins unowned");
@@ -224,7 +254,7 @@ Check(RmlUiAndroidLauncherPreviewBarrier.Blocked && RmlUiAndroidLauncherPreviewB
     && !RmlUiAndroidLauncherPreviewBarrier.TryAcquire(previewOwner), "stale old-owner release cannot unlock replacement owner");
 RmlUiAndroidLauncherPreviewBarrier.Release(replacementOwner);
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked, "barrier fixture leaves production static gate released");
-Check(checks == 645, "existing 639 capability/admission/Hunter/barrier checks plus six section/footer checks remain complete");
+Check(checks == 669, "existing Hunter/barrier checks and current authored-action inventory remain complete");
 
 // Actual admission overload keeps the acknowledged plan private until native
 // launcher owner retirement succeeds. Callback failure consumes it permanently.

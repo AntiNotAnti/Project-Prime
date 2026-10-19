@@ -35,6 +35,7 @@ public sealed record TheatrePlaybackSnapshot(Guid Lifetime, long Revision, bool 
     uint Duration, string State, float Rate, bool PlayAction, string Camera, string Error)
 {
     public bool ExportRendering { get; init; }
+    public string Movement { get; init; } = "Unknown";
 }
 
 /// <summary>The current launcher retains Studio routing and process ownership.</summary>
