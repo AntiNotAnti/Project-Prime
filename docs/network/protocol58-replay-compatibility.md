@@ -1,5 +1,8 @@
 # Protocol 58 replay compatibility follow-up
 
+Branch: `movement/protocol58-compatibility`, based on main
+`9705a4771` after #704/#705 and #706 merged; the PR history identifies the commits.
+
 Merged #708 raises live protocol to 58 for its match-owned third-person camera.
 Its checkpoint/metadata writers therefore emit protocol 58, but four archival
 allowlists still accept only 56/57. Current v12/v13 replica checkpoints cannot
@@ -66,6 +69,12 @@ pickup replay **83**, grant replay **51**, pickup codecs **355**, names/chat
 advanced-rule **131** checks passed. Actual-DLL Party checks: **106 passed**.
 Python: **639 passed, one skipped**. Diff whitespace and tracked-file asset guard
 passed. Local logs are retained under `artifacts/momentum-compat58/`.
+After #704/#705 merged, a fresh integrated build against main `bea1d7db4` passed
+with zero warnings/errors. The 142-check compatibility suite, architecture,
+timed-shot/pickup/grant archives and 104 Momentum math checks passed again.
+The subsequent #706 rebase changes UI acceptance/build/asset-guard paths, with no
+archival implementation overlap; its full UI/package acceptance is not certified
+by these local byte checks.
 
 The new byte tests cover explicit v12/v13 protocol-tagged 56/57/58 fixtures,
 restore/recapture, retained match bits, future protocol 59 refusal, unknown version
@@ -82,7 +91,8 @@ A separate asset-free Windows/Linux/macOS CI matrix builds the real production
 library and runs the archive/protocol suites, so they do not depend on unrelated
 asset/package/UI gates. Existing broad CI remains enabled. CI is pending at
 publication; committing does not wait for CI/review. The separate generator/UI/
-Windows allowlist failures are tracked by #706 and are not fixed here.
+Windows allowlist failures were addressed by now-merged #706. Latest CI is still
+pending; its merge is not treated as proof of a fully green matrix.
 
 These are byte/archive compatibility checks. They do not certify native replay
 rendering, seeking a real match, third-person visual behavior or physical devices.
