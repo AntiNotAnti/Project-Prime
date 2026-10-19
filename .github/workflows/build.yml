@@ -325,12 +325,29 @@ jobs:
         if: matrix.rid == 'win-x64'
         with:
           python-version: '3.x'
+      - name: cook the Windows pair map bundles
+        if: matrix.rid == 'win-x64'
+        shell: bash
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/windows-pair-map-data
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
       - name: publish and verify the Windows Game and Studio pair
         if: matrix.rid == 'win-x64'
         shell: pwsh
         run: >-
           ./tools/package-windows.ps1 -SkipNative
           -OutputDirectory '${{ runner.temp }}/windows-ci-pair'
+      - uses: actions/upload-artifact@v7
+        if: matrix.rid == 'win-x64'
+        with:
+          name: ProjectPrime-win-x64
+          path: ${{ runner.temp }}/windows-ci-pair/ProjectPrime-win-x64
+          include-hidden-files: true
+          if-no-files-found: error
       - name: verify ad-hoc macOS development-library signature
         if: startsWith(matrix.rid, 'osx-')
         shell: bash
@@ -936,10 +953,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - id: win-x64
-            rid: win-x64
-            summary: the game and the launcher, for Windows
-            extra: ""
           - id: linux-x64
             rid: linux-x64
             summary: the game, the launcher and the dedicated server, for Linux
@@ -1053,13 +1066,21 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --transport-stress
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
 
-      # Windows and Linux targets remain cross-published on Ubuntu.
+      - name: build the Linux desktop RmlUi native runtime
+        if: matrix.id == 'linux-x64'
+        run: bash tools/rmlui/build-native.sh linux-x64 gl2
+
+      # Linux clients and dedicated servers are published on Ubuntu.
       - name: publish ${{ matrix.summary }}
         run: >
           dotnet publish src/MphRead/MphRead.csproj
           -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
           --self-contained true -p:PublishSingleFile=true
           -o publish/${{ matrix.id }}
+
+      - name: verify and stage the Linux desktop RmlUi runtime
+        if: matrix.id == 'linux-x64'
+        run: bash tools/rmlui/package-desktop.sh linux-x64 publish/linux-x64
 
       - name: map editor history regressions
         if: matrix.id == 'linux-x64'
@@ -1105,13 +1126,6 @@ jobs:
       # would register a room the game then declines to build.
       - name: the custom maps reached the package
         run: tools/check-maps-shipped.sh publish/${{ matrix.id }}
-
-      # Double-clicking the game must not put a terminal behind it. That is one
-      # field in the PE header, it comes out of a csproj condition, and nothing
-      # else in this workflow would notice it changing.
-      - name: the game is a GUI binary
-        if: matrix.id == 'win-x64'
-        run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/ProjectPrime.exe
 
       # Every avares:// asset the screens name has to be in the package.
       # Avalonia does not fall back for a font behind one of those: it throws
@@ -1258,6 +1272,9 @@ jobs:
           RID: ${{ matrix.rid }}
         run: tools/ktx/build-native.sh "$RID"
 
+      - name: build the macOS desktop RmlUi native runtime
+        run: bash tools/rmlui/build-native.sh "${{ matrix.rid }}" gl2
+
       - name: publish, sign and validate
         env:
           RID: ${{ matrix.rid }}
@@ -1265,6 +1282,7 @@ jobs:
           set -euo pipefail
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          bash tools/rmlui/package-desktop.sh "$RID" "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendcheck
           # Hosted Apple Silicon can lack an NSGL pixel format. Exercise a
@@ -1273,6 +1291,7 @@ jobs:
             "publish/$RID/ProjectPrime" -textureupdatecheck -renderer opengl
           fi
           tools/sign-macos.sh "publish/$RID"
+          python3 tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"
           python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"

@@ -26,15 +26,18 @@ public static class RmlUiOpenGlFrame
         int readFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int program = GL.GetInteger(GetPName.CurrentProgram);
         int activeTexture = GL.GetInteger(GetPName.ActiveTexture);
+        int clientActiveTexture = GL.GetInteger(GetPName.ClientActiveTexture);
         try
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GL.UseProgram(0);
             GL.ActiveTexture(TextureUnit.Texture0);
+            OpenTK.Graphics.OpenGL.GL.ClientActiveTexture(TextureUnit.Texture0);
             host.Render(width, height);
         }
         finally
         {
+            OpenTK.Graphics.OpenGL.GL.ClientActiveTexture((TextureUnit)clientActiveTexture);
             GL.ActiveTexture((TextureUnit)activeTexture);
             GL.UseProgram(program);
             GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, drawFramebuffer);

@@ -31,6 +31,7 @@ internal static class StartupGlAcceptance
             var semantics=NativeSemanticReadback.Read(host,page.Document);
             Check(semantics.ContainsText("PRESS START")&&semantics.ContainsText(input=="space"?"PROJECT PRIME STUDIO":"PROJECT PRIME"),"startup presents application identity and readable Press Start");
             Check(!host.TryGetElementBounds(page.Document,"topbar",out _,out _,out _,out _),"startup remains headerless");
+            if(input=="pointer") StartupTextureStateAcceptance.Run(host,page.Document,height,Frame,Check);
             Check(host.FocusDocument(page.Document,"native_startup_continue"),"continue has native keyboard focus");
             string path=Path.Combine(output,"startup-"+input+".png");Check(ScreenCapture.SaveWindow(width,height,path),"capture native startup "+input);
             FinalCompositeCapture.WriteEvidence(path,width,height,scope);File.WriteAllText(path+".semantic.json",semantics.RawJson);

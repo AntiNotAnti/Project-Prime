@@ -1071,7 +1071,11 @@ PP_EXPORT uint64_t pp_rmlui_document_open(const char* relative_path, int layer)
     auto root_part = g_asset_root.begin(); auto path_part = path.begin();
     for (; root_part != g_asset_root.end(); ++root_part, ++path_part)
         if (path_part == path.end() || *root_part != *path_part) return 0;
-    return RegisterDocument(g_context->LoadDocument(path.string()), relative.generic_string(), layer);
+    // RmlUi parses the document's source URL before resolving image sources.
+    // Windows backslashes are filesystem separators, not URL separators: they
+    // leave ElementImage with an empty base directory. Forward slashes retain
+    // the drive and directory through RmlUi's URL-safe path conversion.
+    return RegisterDocument(g_context->LoadDocument(path.generic_string()), relative.generic_string(), layer);
 }
 PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
 {
@@ -1254,7 +1258,7 @@ PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
 #if !defined(NDEBUG)
     auto* document = GetDocument(document_id);
     if (!document || document_id == g_home_id) return 0;
-    auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).string());
+    auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).generic_string());
     if (!replacement) return 0;
     document->element->RemoveEventListener("click", &g_action_listener);
     document->element->RemoveEventListener("input", &g_text_revision_listener, true);

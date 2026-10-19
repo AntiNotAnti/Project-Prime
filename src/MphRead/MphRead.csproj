@@ -7,11 +7,13 @@
          and paths.txt because the server simulates the authoritative world. It
          is what the Pi and the Windows server downloads are published with.
 
-         One framework for every target. The launcher is Avalonia on all four
-         desktop platforms, so nothing here needs the Windows desktop TFM any
-         more, which is also what makes an osx or android build of these
-         sources possible at all. -->
+         Desktop clients use the native RmlUi shell. Avalonia remains a shared
+         implementation dependency and an explicit legacy diagnostic option;
+         no Windows desktop TFM is required. -->
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Keep the compatibility property name for existing build scripts, but
+         ordinary desktop builds now include the primary UI without opt-in. -->
+    <MphReadRmlUiGlSmoke Condition="'$(MphReadRmlUiGlSmoke)' == '' and '$(MphReadServer)' != 'true'">true</MphReadRmlUiGlSmoke>
     <!-- A console binary everywhere except a Windows game build, which is a GUI
          one: double-clicking it has to open the launcher and nothing else, and
          a console subsystem process gets a terminal before Main can hide it.
@@ -388,9 +390,8 @@
   <ItemGroup Condition="'$(MphReadServer)' == 'true'">
     <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/RmlUi/Core/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
   </ItemGroup>
-  <!-- Native desktop packages explicitly enable this compatibility-named flag
-       and stage the pinned GL2 bridge. Such clients use RmlUi by default.
-       Keep enablement explicit until every ordinary package also stages it. -->
+  <!-- Native RmlUi is the desktop default; explicit false is for legacy
+       developer diagnostics. Dedicated servers never include this UI. -->
   <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <DefineConstants>$(DefineConstants);MPHREAD_RMLUI_GL_SMOKE;MPHREAD_RMLUI</DefineConstants>
   </PropertyGroup>
@@ -401,5 +402,22 @@
     <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf"
           Link="rmlui/fonts/%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- A local native build is also staged by ordinary dotnet build/run/publish.
+       Headless/source-only builds can compile without the native toolchain;
+       release packagers build and verify the bridge before shipping. -->
+  <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <_RmlUiRuntimeIdentifier>$(RuntimeIdentifier)</_RmlUiRuntimeIdentifier>
+    <_RmlUiRuntimeIdentifier Condition="'$(_RmlUiRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</_RmlUiRuntimeIdentifier>
+    <_RmlUiNativeRoot>$(MSBuildProjectDirectory)/../../artifacts/rmlui-native/$(_RmlUiRuntimeIdentifier)</_RmlUiNativeRoot>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'win-x64'">ProjectPrime.RmlUi.Native.dll</_RmlUiNativeLibrary>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'linux-x64'">libProjectPrime.RmlUi.Native.so</_RmlUiNativeLibrary>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'osx-arm64' or '$(_RmlUiRuntimeIdentifier)' == 'osx-x64'">libProjectPrime.RmlUi.Native.dylib</_RmlUiNativeLibrary>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(_RmlUiNativeLibrary)' != '' and Exists('$(_RmlUiNativeRoot)/$(_RmlUiNativeLibrary)')">
+    <None Include="$(_RmlUiNativeRoot)/$(_RmlUiNativeLibrary);$(_RmlUiNativeRoot)/PRIME-RMLUI.json"
+          Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(_RmlUiNativeRoot)/licenses/*.txt"
+          Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

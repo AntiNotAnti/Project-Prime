@@ -301,6 +301,9 @@ jobs:
         with:
           name: prepared-maps
           path: maps
+      - name: build the Linux desktop RmlUi native runtime
+        if: matrix.target == 'linux-x64'
+        run: bash tools/rmlui/build-native.sh linux-x64 gl2
       - name: publish target
         env:
           TARGET: ${{ matrix.target }}
@@ -316,6 +319,9 @@ jobs:
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             "${args[@]}" -o "publish/$TARGET"
+      - name: verify and stage the Linux desktop RmlUi runtime
+        if: matrix.target == 'linux-x64'
+        run: bash tools/rmlui/package-desktop.sh linux-x64 publish/linux-x64
       - uses: actions/upload-artifact@v7
         with:
           name: build-linux-${{ matrix.target }}
@@ -759,15 +765,18 @@ jobs:
         run: |
           set -euo pipefail
           tools/ktx/build-native.sh "$RID"
+          bash tools/rmlui/build-native.sh "$RID" gl2
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          bash tools/rmlui/package-desktop.sh "$RID" "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendcheck
           if [ "$RID" = "osx-x64" ]; then
             "publish/$RID/ProjectPrime" -textureupdatecheck -renderer opengl
           fi
           tools/sign-macos.sh "publish/$RID"
+          python3 tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"
           python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"

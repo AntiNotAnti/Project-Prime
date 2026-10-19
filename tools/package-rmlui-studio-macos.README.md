@@ -5,7 +5,7 @@ client, create its separate Studio sibling:
 
 ```sh
 python3 tools/package-rmlui-studio-macos.py \
-  '/absolute/delivery/Project Prime RmlUi.app' \
+  '/absolute/delivery/Project Prime.app' \
   '/absolute/delivery/Project Prime Studio.app'
 ```
 
