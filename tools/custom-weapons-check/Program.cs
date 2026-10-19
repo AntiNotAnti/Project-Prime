@@ -119,5 +119,6 @@ Check(Weapons.WeaponsMP.Count == 18 && Weapons.Weapons1P.Count == 18
 MechanicsChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
 NetworkContractChecks.Run(Check);
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract checks (pure contracts; scene fixture requires --scene)");
+SourceJournalChecks.Run(Check);
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal checks (pure contracts; scene fixture requires --scene)");
 return 0;

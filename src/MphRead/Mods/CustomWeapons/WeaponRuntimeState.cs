@@ -118,11 +118,29 @@ public sealed class WeaponRuntimeState
     }
     public void Invalidate(WeaponCancellation reason)
     { _valid = false; _equipped = false; _reloading = false; _reloadEnd = 0; _optic = 0; }
-    public WeaponStateSnapshot Snapshot()
+    /// <summary>Project presentation at a later tick without advancing source-time
+    /// admission, transferring committed resources or changing request identities.</summary>
+    public WeaponActionResult Preview(uint tick, out WeaponStateSnapshot snapshot)
+    {
+        if (!_valid) { snapshot = Snapshot(); return WeaponActionResult.InvalidLife; }
+        if (!Reached(tick,_tick)) { snapshot = Snapshot(); return WeaponActionResult.StaleFrame; }
+        bool reloading = _reloading;
+        int magazine = _magazine, reserve = _reserve;
+        if (reloading && Reached(tick,_reloadEnd))
+        {
+            reloading = false;
+            int transfer = Math.Min(Definition.Mechanics.MagazineCapacity - magazine,reserve);
+            magazine += transfer; reserve -= transfer;
+        }
+        snapshot = CalculateSnapshot(tick,reloading,magazine,reserve);
+        return WeaponActionResult.Accepted;
+    }
+    public WeaponStateSnapshot Snapshot() => CalculateSnapshot(_tick,_reloading,_magazine,_reserve);
+    private WeaponStateSnapshot CalculateSnapshot(uint tick, bool reloading, int magazine, int reserve)
     {
         var phase = !_valid ? CustomWeaponPhase.Invalid : !_equipped ? CustomWeaponPhase.Unequipped
-            : _reloading ? CustomWeaponPhase.Reloading : _hasFired && !Reached(_tick,_ready) ? CustomWeaponPhase.BoltCycling
-            : _magazine == 0 ? CustomWeaponPhase.Empty : CustomWeaponPhase.Ready;
-        return new(Owner,Definition.Identity,_tick,phase,_magazine,_reserve,_optic,_ready,_reloadEnd,_acceptedId,_acceptedTick);
+            : reloading ? CustomWeaponPhase.Reloading : _hasFired && !Reached(tick,_ready) ? CustomWeaponPhase.BoltCycling
+            : magazine == 0 ? CustomWeaponPhase.Empty : CustomWeaponPhase.Ready;
+        return new(Owner,Definition.Identity,tick,phase,magazine,reserve,_optic,_ready,_reloadEnd,_acceptedId,_acceptedTick);
     }
 }
