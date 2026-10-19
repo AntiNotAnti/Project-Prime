@@ -68,7 +68,8 @@ internal static partial class EditorGlAcceptance
         memory.Rendering=true;Frame();Check(!host.FocusDocument(panel,"replay_editor_add_selection")&&!host.FocusDocument(panel,"replay_editor_next_shot"),"existing video exporter blocks native editor playback mutations");memory.Rendering=false;
         Click("studio_tab_markers");
         Click("replay_editor_tab",TheatrePlaybackAction.EditorTab);Check(pages.Top==panel,"analytics remains in same native editor workspace");
-        Click("replay_editor_close",TheatrePlaybackAction.EditorClose);Check(pages.Top==playback&&memory.Retired==0,"returning to Studio camera retains the shared editor owner");
+        Check(!host.FocusDocument(panel,"replay_editor_close"),"integrated Studio hides the retired modal close control");
+        Click("studio_tab_camera");Check(pages.Top==playback&&memory.Retired==0,"returning to Studio camera retains the shared editor owner");
         Check(!page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.EditorSeek,panel,ulong.MaxValue)),"hidden Studio markers reject stale editor seeks");
         Check(page.Close()&&memory.Retired==1,"closing Studio retires the editor owner exactly once");
         Check(!page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.EditorSeek,panel,ulong.MaxValue)),"retired Studio cannot seek any replacement transport");
