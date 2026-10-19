@@ -1,15 +1,16 @@
 using System;
 using System.Buffers;
+using MphRead.Mods.Cosmetics;
 using MphRead.Mods.Render.Hud;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
 {
     /// <summary>
-    /// World-owned, presentation-only Imperialist effect for Insta-Gib.
-    /// "Ion Fracture" is deliberately not Fruity Prime's double helix: it is a
-    /// luminous lance with a hot core, asymmetric crystalline shear fins and
-    /// a short impact corona. Nothing here affects hit validation or packets.
+    /// Scene-owned, depth-tested, cosmetic-only Insta-Gib presentation. The
+    /// canonical Imperialist collision endpoint and shot identity are immutable.
+    /// Every style uses the same bounded TrailMulti submission and shot clock.
+    /// No random draws, gameplay modifications, textures, new shaders or packets.
     /// </summary>
     internal sealed class InstagibIonFracture
     {
@@ -18,69 +19,50 @@ namespace MphRead.Mods.Render
 
         private readonly struct Lance
         {
-            internal readonly Vector3 Start, End, Color;
+            internal readonly Vector3 Start, End, Color, Secondary;
             internal readonly float Born;
             internal readonly int Slot;
             internal readonly uint ShotId, LaunchFrame;
-
-            internal Lance(Vector3 start, Vector3 end, Vector3 color, float born,
-                int slot, uint shotId, uint launchFrame)
+            internal readonly BeamFxStyle Style;
+            internal Lance(Vector3 start, Vector3 end, Vector3 color, Vector3 secondary,
+                float born, int slot, uint shotId, uint launchFrame, BeamFxStyle style)
             {
-                Start = start;
-                End = end;
-                Color = color;
-                Born = born;
-                Slot = slot;
-                ShotId = shotId;
-                LaunchFrame = launchFrame;
+                Start = start; End = end; Color = color; Secondary = secondary;
+                Born = born; Slot = slot; ShotId = shotId;
+                LaunchFrame = launchFrame; Style = style;
             }
         }
 
-        // Saturated player-slot identification, with a common cold-white inner core.
-        // These are visual identities only; they do not follow team outline settings.
         private static readonly Vector3[] Palette =
         {
-            new(0.13f, 0.88f, 1.00f), // ion cyan
-            new(1.00f, 0.22f, 0.73f), // plasma pink
-            new(0.58f, 1.00f, 0.18f), // acid green
-            new(1.00f, 0.53f, 0.16f), // ember
-            new(1.00f, 0.88f, 0.28f), // gold
-            new(1.00f, 0.18f, 0.22f), // scarlet
-            new(0.54f, 0.42f, 1.00f), // ultraviolet
-            new(0.55f, 0.86f, 1.00f)  // glacial blue
+            new(0.13f, 0.88f, 1.00f), new(1.00f, 0.22f, 0.73f),
+            new(0.58f, 1.00f, 0.18f), new(1.00f, 0.53f, 0.16f),
+            new(1.00f, 0.88f, 0.28f), new(1.00f, 0.18f, 0.22f),
+            new(0.54f, 0.42f, 1.00f), new(0.55f, 0.86f, 1.00f)
         };
-
         private readonly Lance[] _active = new Lance[Capacity];
         private int _count;
         private float _lastTime;
-
         internal int Count => _count;
         internal static Vector3 ColorForSlot(int slot) => Palette[slot < 0 ? 0 : slot % Palette.Length];
-
         internal static float FadeAt(float normalizedAge)
         {
             float left = 1 - Math.Clamp(normalizedAge, 0, 1);
             return left * left * (3 - 2 * left);
         }
-
         internal void Clear() => _count = 0;
-
         private static bool Finite(Vector3 v) =>
             float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
         internal void Add(Scene scene, Vector3 start, Vector3 end, int slot,
-            uint shotId, uint launchFrame)
+            uint shotId, uint launchFrame, BeamEffectDefinition? effect = null, byte tone = 0)
         {
             if (!scene.GameState.Multiplayer || !scene.GameState.InstaGib
                 || !Finite(start) || !Finite(end) || (end - start).LengthSquared < 0.0025f)
                 return;
-
             float now = scene.ElapsedTime;
-            if (now + 0.001f < _lastTime) Clear(); // replay seek/new timeline
+            if (now + 0.001f < _lastTime) Clear();
             _lastTime = now;
-
-            // A recovered/replicated fire event can reach multiple presentation
-            // paths. Never double-emit its distinctive lance.
             for (int i = 0; i < _count; i++)
             {
                 Lance old = _active[i];
@@ -93,13 +75,19 @@ namespace MphRead.Mods.Render
                     return;
             }
 
+            // Drop the oldest effect instead of allowing unbounded multi-player
+            // bursts to accumulate render submissions or heap state.
             if (_count == Capacity)
             {
                 Array.Copy(_active, 1, _active, 0, Capacity - 1);
                 _count--;
             }
-            _active[_count++] = new Lance(start, end, ColorForSlot(slot), now,
-                slot, shotId, launchFrame);
+            effect ??= CosmeticCatalog.BeamEffects[0];
+            Vector3 original = effect.Style == BeamFxStyle.IonFracture
+                ? ColorForSlot(slot) : effect.PrimaryColor;
+            Vector3 color = BeamPalette.Resolve(tone, original);
+            _active[_count++] = new Lance(start, end, color, effect.SecondaryColor,
+                now, slot, shotId, launchFrame, effect.Style);
         }
 
         internal void Draw(Scene scene)
@@ -112,29 +100,26 @@ namespace MphRead.Mods.Render
             float now = scene.ElapsedTime;
             if (now + 0.001f < _lastTime) Clear();
             _lastTime = now;
-
-            // Reuse the frame's existing GL transparent world submission. No
-            // static scene references, model/material edits, or render-only RNG.
-            bool reduce = HudProfiles.Runtime.ReduceMotion;
-            bool lowTransparency = HudProfiles.Runtime.ReduceTransparency;
+            bool reduceMotion = HudProfiles.Runtime.ReduceMotion;
+            bool reduceTransparency = HudProfiles.Runtime.ReduceTransparency;
+            CosmeticEffectQuality quality = RenderOptions.CosmeticQuality;
             Vector3 view = scene.ViewMatrix.Inverted().Row2.Xyz;
             if (view.LengthSquared < 0.000001f) view = Vector3.UnitZ;
             else view.Normalize();
-
-            int surviving = 0;
+            int remaining = 0;
             for (int i = 0; i < _count; i++)
             {
                 Lance lance = _active[i];
                 float age = now - lance.Born;
                 if (age < 0 || age >= LifeSeconds) continue;
-                _active[surviving++] = lance;
-                DrawLance(scene, lance, view, age, reduce, lowTransparency);
+                _active[remaining++] = lance;
+                DrawLance(scene, lance, age, view, quality, reduceMotion, reduceTransparency);
             }
-            _count = surviving;
+            _count = remaining;
         }
 
-        private static void DrawLance(Scene scene, in Lance lance, Vector3 view,
-            float age, bool reducedMotion, bool reducedTransparency)
+        private static void DrawLance(Scene scene, in Lance lance, float age, Vector3 view,
+            CosmeticEffectQuality quality, bool reducedMotion, bool reducedTransparency)
         {
             Vector3 delta = lance.End - lance.Start;
             float length = delta.Length;
@@ -144,72 +129,204 @@ namespace MphRead.Mods.Render
             Vector3 up = Vector3.Cross(axis, right).Normalized();
             float fraction = age / LifeSeconds;
             float fade = FadeAt(fraction);
-            float muzzleTaper = MathF.Min(1f, length / 2f);
+            float taper = MathF.Min(1f, length / 2f);
+            Vector3 hot = Vector3.Lerp(lance.Color, Vector3.One, 0.82f);
 
-            // The three-lane energy silhouette: cold white pencil core,
-            // coloured sheath and atmospheric halo, tapered at the muzzle.
-            Vector3 hot = Vector3.Lerp(lance.Color, Vector3.One, 0.78f);
-            if (!reducedMotion && !reducedTransparency)
-                DrawShaft(scene, lance.Start, lance.End, right, 0.18f * muzzleTaper,
-                    lance.Color, fade * 0.12f);
-            DrawShaft(scene, lance.Start, lance.End, right, 0.075f * muzzleTaper,
-                lance.Color, fade * 0.62f);
-            DrawShaft(scene, lance.Start, lance.End, right, 0.022f * muzzleTaper,
+            // World-pass depth remains authoritative for every component.
+            // Halo is strictly cosmetic and is removed on accessibility/low
+            // quality; the small white core is never hidden by those toggles.
+            if (!reducedTransparency && quality == CosmeticEffectQuality.High)
+                DrawShaft(scene, lance.Start, lance.End, right, 0.17f * taper,
+                    lance.Color, fade * 0.11f);
+            DrawShaft(scene, lance.Start, lance.End, right, 0.065f * taper,
+                lance.Color, fade * 0.67f);
+            DrawShaft(scene, lance.Start, lance.End, right, 0.020f * taper,
                 hot, fade * 0.98f);
 
-            if (reducedMotion) return; // readable beam without animated fragments
+            if (reducedMotion || quality == CosmeticEffectQuality.Off) return;
+            bool full = quality == CosmeticEffectQuality.High;
+            bool medium = quality >= CosmeticEffectQuality.Medium;
+            float pulse = Math.Clamp(age / 0.19f, 0f, 1f);
+            float blossom = MathF.Sin(pulse * MathF.PI);
+            float impact = 1f - Math.Clamp(age / 0.24f, 0f, 1f);
+            Vector3 center = lance.Start + delta * (0.06f + 0.91f * pulse);
 
-            // Signature feature: an X-shaped phase knot races down the actual
-            // rail in the first 0.19s. It briefly splits the energy into two
-            // diagonal crystalline edges, then vanishes into the impact prism.
-            // No helical winding or per-frame random number generation.
-            const float pulseLife = 0.19f;
-            if (age < pulseLife)
+            switch (lance.Style)
             {
-                float travel = age / pulseLife;
-                float along = 0.06f + travel * 0.91f;
-                Vector3 center = lance.Start + delta * along;
-                float bloom = MathF.Sin(travel * MathF.PI);
-                Vector3 wedge = (right + up) * (0.20f * bloom);
-                Vector3 opposing = (right - up) * (0.20f * bloom);
-                float pulseAlpha = fade * bloom * 0.92f;
-                DrawFacet(scene, center - axis * 0.22f - wedge,
-                    center + axis * 0.22f + wedge, up,
-                    0.022f, 0.006f, hot, pulseAlpha);
-                DrawFacet(scene, center - axis * 0.22f + opposing,
-                    center + axis * 0.22f - opposing, right,
-                    0.022f, 0.006f, lance.Color, pulseAlpha * 0.75f);
+                case BeamFxStyle.IonFracture:
+                    if (age < 0.19f)
+                    {
+                        Vector3 fork = (right + up) * (0.19f * blossom);
+                        DrawFacet(scene, center - axis * 0.21f - fork,
+                            center + axis * 0.21f + fork, up, 0.024f, 0.007f,
+                            hot, fade * blossom);
+                        DrawFacet(scene, center - axis * 0.21f + fork,
+                            center + axis * 0.21f - fork, right, 0.020f, 0.006f,
+                            lance.Color, fade * blossom * 0.8f);
+                        if (full) DrawRing(scene, center, right, up, 4,
+                            0.10f + 0.09f * blossom, 0.018f, hot, fade * blossom);
+                    }
+                    if (medium) Shards(scene, lance.Start, delta, axis, right, up,
+                        lance.Color, fade, fraction, 3, outward: true);
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.07f,
+                        right, up, full ? 6 : 3, 0.21f + age * 0.9f, 0.036f,
+                        hot, impact * 0.76f);
+                    break;
+
+                case BeamFxStyle.VoidRift:
+                    if (medium)
+                    {
+                        DrawShaft(scene, lance.Start + right * 0.08f, lance.End + right * 0.08f,
+                            right, 0.013f, lance.Color, fade * 0.65f);
+                        DrawShaft(scene, lance.Start - right * 0.08f, lance.End - right * 0.08f,
+                            right, 0.013f, lance.Secondary, fade * 0.85f);
+                    }
+                    if (full) Shards(scene, lance.Start, delta, axis, right, up,
+                        lance.Color, fade, fraction, 3, outward: false);
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
+                        right, up, 4, 0.14f + age * 0.72f, 0.035f,
+                        lance.Color, impact * 0.9f);
+                    break;
+
+                case BeamFxStyle.QuantumSplit:
+                    if (medium)
+                    {
+                        float spread = 0.11f * MathF.Sin(MathF.PI * fraction);
+                        Vector3 skew = (right + up * 0.36f) * spread;
+                        DrawShaft(scene, lance.Start, lance.End + skew, right,
+                            0.014f, lance.Secondary, fade * 0.64f);
+                        DrawShaft(scene, lance.Start, lance.End - skew, right,
+                            0.014f, lance.Secondary, fade * 0.50f);
+                    }
+                    if (full)
+                        for (int i = 0; i < 3; i++)
+                        {
+                            Vector3 site = lance.Start + delta * (0.27f + i * 0.24f);
+                            DrawFacet(scene, site - up * 0.11f, site + right * 0.11f,
+                                axis, 0.012f, 0.012f, lance.Secondary, fade * 0.58f);
+                        }
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
+                        right, up, 4, 0.18f + age * 0.6f, 0.020f,
+                        lance.Secondary, impact * 0.8f);
+                    break;
+
+                case BeamFxStyle.AlimbicResonance:
+                    if (medium)
+                        DrawRing(scene, lance.Start + delta * (0.19f + fraction * 0.08f),
+                            right, up, full ? 6 : 4, 0.17f, 0.025f,
+                            lance.Color, fade * 0.72f);
+                    if (full)
+                        DrawRing(scene, lance.Start + delta * (0.67f + fraction * 0.06f),
+                            right, up, 6, 0.20f, 0.018f, lance.Secondary, fade * 0.56f);
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
+                        right, up, full ? 6 : 4, 0.19f + age * 0.62f, 0.032f,
+                        lance.Color, impact * 0.83f);
+                    break;
+
+                case BeamFxStyle.OmegaPulse:
+                    int rings = full ? 3 : medium ? 2 : 1;
+                    for (int i = 0; i < rings; i++)
+                    {
+                        float along = (0.19f + i * 0.26f + fraction * 0.26f) % 0.94f;
+                        DrawRing(scene, lance.Start + delta * along, right, up,
+                            medium ? 4 : 3, 0.15f + fraction * 0.05f, 0.026f,
+                            lance.Color, fade * 0.73f);
+                    }
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
+                        right, up, 4, 0.15f + age * 0.94f, 0.032f,
+                        hot, impact * 0.9f);
+                    break;
+
+                case BeamFxStyle.ArcDisruptor:
+                    for (int i = 0; i < (full ? 3 : medium ? 2 : 1); i++)
+                    {
+                        float u = 0.19f + i * 0.27f;
+                        Vector3 a = lance.Start + delta * u;
+                        float sign = (i & 1) == 0 ? 1f : -1f;
+                        Vector3 b = a + axis * MathF.Min(0.65f, length * 0.13f)
+                            + right * (0.15f * sign);
+                        Vector3 c = b + axis * MathF.Min(0.4f, length * 0.07f)
+                            - up * 0.18f;
+                        DrawFacet(scene, a, b, up, 0.025f, 0.013f, lance.Color, fade * 0.83f);
+                        DrawFacet(scene, b, c, right, 0.013f, 0.003f, hot, fade * 0.78f);
+                    }
+                    if (impact > 0)
+                        for (int i = 0; i < (full ? 3 : 2); i++)
+                        {
+                            Vector3 spoke = right * MathF.Cos(i * MathF.Tau / 3f)
+                                + up * MathF.Sin(i * MathF.Tau / 3f);
+                            DrawFacet(scene, lance.End, lance.End + spoke * (0.34f + age),
+                                axis, 0.028f, 0.002f, hot, impact * 0.84f);
+                        }
+                    break;
+
+                case BeamFxStyle.SolarSpear:
+                    Shards(scene, lance.Start, delta, axis, right, up,
+                        lance.Color, fade, fraction, full ? 3 : 2, outward: true);
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
+                        right, up, full ? 6 : 4, 0.14f + age * 0.9f, 0.040f,
+                        lance.Secondary, impact * 0.93f);
+                    break;
+
+                case BeamFxStyle.CryoShatter:
+                    if (medium) Shards(scene, lance.Start, delta, axis, right, up,
+                        lance.Color, fade, fraction, full ? 4 : 2, outward: true);
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.05f,
+                        right, up, 4, 0.17f + age * 0.56f, 0.025f,
+                        lance.Secondary, impact * 0.75f);
+                    break;
+
+                case BeamFxStyle.PhantomTrace:
+                    if (medium)
+                    {
+                        Vector3 echo = (right - up) * (0.034f + fraction * 0.09f);
+                        DrawShaft(scene, lance.Start + echo, lance.End + echo,
+                            right, 0.012f, lance.Color, fade * 0.29f);
+                        if (full) DrawShaft(scene, lance.Start - echo, lance.End - echo,
+                            right, 0.009f, lance.Color, fade * 0.18f);
+                    }
+                    if (impact > 0) DrawRing(scene, lance.End - axis * 0.05f,
+                        right, up, 3, 0.12f + age * 0.35f, 0.012f,
+                        lance.Color, impact * 0.45f);
+                    break;
             }
+        }
 
-            // Three stationary-in-shot-space shear fractures, not a corkscrew.
-            // As the beam ages, each crystalline fin opens once and dissipates.
-            // The stagger is stable per-shot, independent of the frame cadence.
-            float open = MathF.Min(1f, age * 15f);
-            float disperse = fraction * 0.25f;
-            for (int i = 0; i < 3; i++)
+        // The animation is wholly time-based, including the stagger and
+        // oscillations: neither simulation RNG nor a draw-frame counter is read.
+        private static void Shards(Scene scene, Vector3 origin, Vector3 delta,
+            Vector3 axis, Vector3 right, Vector3 up, Vector3 color,
+            float fade, float fraction, int count, bool outward)
+        {
+            float open = MathF.Min(1f, fraction * 10f);
+            float signDirection = outward ? 1f : -1f;
+            for (int i = 0; i < count; i++)
             {
-                float along = 0.20f + i * 0.25f;
-                if (along * length > 55f) break;
+                float u = 0.19f + i * 0.18f;
+                Vector3 basePoint = origin + delta * u;
                 float sign = (i & 1) == 0 ? 1f : -1f;
-                Vector3 basePoint = lance.Start + delta * along;
-                Vector3 offset = (right * sign + up * (i == 1 ? -0.45f : 0.28f)) * (0.15f + open * 0.28f + disperse);
-                Vector3 tip = basePoint + offset + axis * (0.18f + 0.12f * i);
-                DrawFacet(scene, basePoint, tip, right, 0.042f, 0.008f,
-                    lance.Color, fade * (0.48f + 0.07f * i));
+                Vector3 direction = (right * sign + up * (i % 3 == 0 ? 0.52f : -0.36f));
+                Vector3 tip = basePoint + axis * 0.19f
+                    + direction * signDirection * (0.10f + 0.28f * open);
+                DrawFacet(scene, basePoint, tip, right, 0.032f, 0.005f,
+                    color, fade * (0.4f + 0.06f * i));
             }
+        }
 
-            // Impact prism: three sharp, short-lived radial flashes emerging
-            // on the shooter's side of the actual hit point (no x-ray decals).
-            float impactAlpha = 1f - Math.Clamp(age / 0.22f, 0f, 1f);
-            if (impactAlpha <= 0) return;
-            Vector3 origin = lance.End - axis * 0.075f;
-            for (int i = 0; i < 3; i++)
+        private static void DrawRing(Scene scene, Vector3 center, Vector3 right,
+            Vector3 up, int sides, float radius, float thickness,
+            Vector3 color, float alpha)
+        {
+            if (alpha <= 0.005f) return;
+            for (int i = 0; i < sides; i++)
             {
-                float a = MathF.Tau * i / 3f + (lance.Slot & 3) * 0.35f;
-                Vector3 spread = right * MathF.Cos(a) + up * MathF.Sin(a);
-                Vector3 end = origin + spread * (0.36f + age * 0.70f) - axis * 0.12f;
-                DrawFacet(scene, origin, end, axis, 0.036f, 0.002f,
-                    i == 0 ? hot : lance.Color, impactAlpha * 0.72f);
+                float a = MathF.Tau * i / sides;
+                float b = MathF.Tau * (i + 1) / sides;
+                Vector3 radialA = right * MathF.Cos(a) + up * MathF.Sin(a);
+                Vector3 radialB = right * MathF.Cos(b) + up * MathF.Sin(b);
+                DrawFacet(scene, center + radialA * radius, center + radialB * radius,
+                    (radialA + radialB).Normalized(), thickness, thickness,
+                    color, alpha);
             }
         }
 
@@ -221,15 +338,12 @@ namespace MphRead.Mods.Render
             return side.Normalized();
         }
 
-        // Two points are the minimum valid TrailMulti strip. The source renderer
-        // returns pooled vertices after submitting the frame, as it does for
-        // armor cosmetic trails.
         private static void DrawFacet(Scene scene, Vector3 a, Vector3 b, Vector3 normal,
             float widthA, float widthB, Vector3 color, float alpha)
         {
             if (alpha <= 0.005f) return;
             Vector3[] points = ArrayPool<Vector3>.Shared.Rent(8);
-            points[0] = new Vector3(0, 0, 0);
+            points[0] = Vector3.Zero;
             points[1] = a - normal * widthA;
             points[2] = new Vector3(1, 0, 0);
             points[3] = a + normal * widthA;
@@ -238,8 +352,7 @@ namespace MphRead.Mods.Render
             points[6] = new Vector3(1, 1, 0);
             points[7] = b + normal * widthB;
             scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(),
-                new Vector4(color, alpha), RenderItemType.TrailMulti,
-                points, 8, noLines: true);
+                new Vector4(color, alpha), RenderItemType.TrailMulti, points, 8, noLines: true);
         }
 
         private static void DrawShaft(Scene scene, Vector3 start, Vector3 end,
@@ -252,8 +365,6 @@ namespace MphRead.Mods.Render
             {
                 float u = i / (float)(samples - 1);
                 Vector3 center = Vector3.Lerp(start, end, u);
-                // Pinch right at the muzzle and end, rather than leaving a
-                // large flat glowing plane over the player's view-model.
                 float envelope = i == 0 ? 0.12f : i == samples - 1 ? 0.45f : 1f;
                 Vector3 offset = right * (width * envelope);
                 int at = i * 4;
