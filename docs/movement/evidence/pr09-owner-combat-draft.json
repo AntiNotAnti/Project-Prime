@@ -1,0 +1,516 @@
+{
+  "schema": 1,
+  "status": "PASS scoped two-human-owner combat proof; PR-09 release acceptance remains incomplete",
+  "source": {
+    "baseSha": "3de8887a8b04bd85db8b60ea14da9add15c1972a",
+    "sourceDirty": true,
+    "patchSha256": "a13dd358d0fc69d20e31e6ae63fd5ba478d78a9006a03728c3f3b8e0358f82ee",
+    "overlayFileCount": 22,
+    "provenance": "Fresh Windows Git checkout plus hash-verified PR-09 overlay; immutable Release binaries"
+  },
+  "scope": "Actual dedicated authority and two independent UDP client processes. Production NetAiClient drives native human-owner controls and aim; neither client occupies a bot slot. CPU scene with Roam presentation and native intro skip. No fixture grants, placement, direct damage, role or readiness writes.",
+  "transport": {
+    "configuredRoundTripMs": 200,
+    "configuredJitterMs": 20,
+    "lossPercent": 0,
+    "reorderRate": 0,
+    "duplicateRate": 0,
+    "scope": "Configured localhost delay/jitter; not packet-loss/reorder acceptance, Internet measurement or performance timing"
+  },
+  "durationSecondsPerOwner": 60,
+  "platform": "Windows x64",
+  "models": {
+    "Native": {
+      "fixture": "windows-native-owner-combat-02",
+      "proofChecks": 15,
+      "joinedPayments": 6,
+      "rewindSamples": 61,
+      "rewindFrames": 910,
+      "claims": [
+        6,
+        20
+      ],
+      "healthChanges": [
+        11,
+        30
+      ],
+      "solverSteps": [
+        0,
+        0
+      ],
+      "joinedDamage": 190,
+      "processResults": {
+        "owner1": 0,
+        "server": 0,
+        "owner0": 0
+      },
+      "serverOverflow": 0,
+      "budgetDrops": {
+        "Certificates": 0,
+        "Components": 0,
+        "Claims": 0,
+        "Terminals": 0,
+        "Payments": 0,
+        "Continuous": 0
+      },
+      "proofArtifact": "artifacts/momentum-pr09/windows-owner-combat-final-evidence/windows-native-owner-combat-02/proof.json"
+    },
+    "Momentum": {
+      "fixture": "windows-momentum-owner-combat-01",
+      "proofChecks": 15,
+      "joinedPayments": 12,
+      "rewindSamples": 66,
+      "rewindFrames": 990,
+      "claims": [
+        11,
+        13
+      ],
+      "healthChanges": [
+        23,
+        18
+      ],
+      "solverSteps": [
+        2704,
+        2883
+      ],
+      "joinedDamage": 312,
+      "processResults": {
+        "owner1": 0,
+        "server": 0,
+        "owner0": 0
+      },
+      "serverOverflow": 0,
+      "budgetDrops": {
+        "Certificates": 0,
+        "Components": 0,
+        "Claims": 0,
+        "Terminals": 0,
+        "Payments": 0,
+        "Continuous": 0
+      },
+      "proofArtifact": "artifacts/momentum-pr09/windows-owner-combat-final-evidence/windows-momentum-owner-combat-01/proof.json"
+    }
+  },
+  "proof": "Exact worker authority epoch/match and full ShotKey joins certificate, received claim and positive committed human-victim native payment. Full payment identity includes victim incarnation/component/kind; duplicate native payment rejected. Observed victim health decreases required. Authority process-lifetime served rewind counters must be positive; aggregate rewind does not establish depth of each joined shot.",
+  "healthScope": "Committed DamageApplied/HealthAfter/DamageSequence are native payment observations. Accounted prior health is HealthAfter+DamageApplied, not an independently sampled HealthBefore.",
+  "retentionControl": {
+    "checks": 5,
+    "status": "PASS",
+    "scope": "Pure reset preservation, no double counting and clone isolation before UDP cohorts"
+  },
+  "negativeControls": {
+    "status": "PASS",
+    "positivePortableBaselines": 2,
+    "rejectedCases": 10,
+    "originalInputsSha256Unchanged": true,
+    "integerHandling": "Python JSON integers preserve full UInt64 authority epochs",
+    "portableVerifierSha256": "1514d1a8e8be90f1a7dc3819c62332c89633daf2a2f7eff8cc7e85bf53d94b26",
+    "cases": [
+      "missing certificates",
+      "duplicate full native payment identity",
+      "zero authority rewind",
+      "wrong worker epoch",
+      "authority overflow"
+    ],
+    "artifact": "artifacts/momentum-pr09/combat-proof-negative-01/report.json",
+    "allNegativeExitCodes": 1,
+    "negativeAcceptanceOutputsCreated": 0
+  },
+  "limitations": [
+    "No physical input or rendered-hit acceptance",
+    "No separate four-human combat arm or combat reconnect/map-change combination",
+    "AI encounter outcome counts are observations, not controlled cross-model balance comparisons",
+    "PR-09 integrated performance and remaining platform gates remain separate",
+    "Eight-human production baseline3de requires explicit compatibility refresh after latest91f merges"
+  ],
+  "eightHumanFaultCohorts": {
+    "status": "PASS scoped actual eight-human-owner UDP combat; all seven Hunters; no physical devices",
+    "sourceBase": "3de8887a8b04bd85db8b60ea14da9add15c1972a",
+    "sourceDirty": true,
+    "testSnapshotFileCount": 182,
+    "binarySha256": {
+      "ProjectPrime.dll": "c3468982999a21d847d8297760768e200cf5b43c7ff60f2ad2f0509b3be06dca",
+      "nettest.dll": "290282c73e7ae7377dff99fb90a9f81421faaafc5c1940593d00eb626421ab0e",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    },
+    "immutableCanonicalBinariesPreserved": true,
+    "profile": {
+      "roundTripMs": 200,
+      "jitterMs": 20,
+      "lossPercent": 1,
+      "reorderRate": 0.05,
+      "duplicateRate": 0.01,
+      "faultSeeds": [
+        9000,
+        9001,
+        9002,
+        9003,
+        9004,
+        9005,
+        9006,
+        9007
+      ]
+    },
+    "durationSecondsPerOwner": 60,
+    "scope": "Eight independent human-owner processes and dedicated authority, no bots; actual production AI controls; real native spawn/baseline and cohort arrival barrier; all reports verified, no favorable pair selection; no grants/placements/readiness writes",
+    "models": {
+      "native": {
+        "proofChecks": 58,
+        "workerCount": 8,
+        "hunterIdentities": [
+          "Samus",
+          "Kanden",
+          "Spire",
+          "Noxus",
+          "Trace",
+          "Sylux",
+          "Weavel",
+          "Samus"
+        ],
+        "joinedPayments": 51,
+        "joinedDamage": 1497,
+        "rewindSamples": 343,
+        "rewindFrames": 5157,
+        "clientClaims": [
+          11,
+          15,
+          17,
+          31,
+          17,
+          29,
+          22,
+          16
+        ],
+        "remoteHealthDecreases": [
+          162,
+          178,
+          158,
+          179,
+          166,
+          190,
+          167,
+          175
+        ],
+        "solverSteps": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "humanRemotesObserved": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "arrivalWaitSeconds": [
+          4.1745103,
+          3.3828753,
+          2.8538551,
+          2.054779,
+          1.297819,
+          0.0001094,
+          0.0001707,
+          0.0001064
+        ],
+        "humansAtStart": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "serverOverflow": 0,
+        "clientOverflow": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "joinDropped": {
+          "Certificates": 0,
+          "Components": 0,
+          "Claims": 0,
+          "Terminals": 0,
+          "Payments": 0,
+          "Continuous": 0
+        },
+        "processResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0,
+          "owner2": 0,
+          "owner3": 0,
+          "owner4": 0,
+          "owner5": 0,
+          "owner6": 0,
+          "owner7": 0
+        },
+        "faults": [
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9000
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9001
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9002
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9003
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9004
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9005
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9006
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9007
+          }
+        ]
+      },
+      "momentum": {
+        "proofChecks": 58,
+        "workerCount": 8,
+        "hunterIdentities": [
+          "Samus",
+          "Kanden",
+          "Spire",
+          "Noxus",
+          "Trace",
+          "Sylux",
+          "Weavel",
+          "Samus"
+        ],
+        "joinedPayments": 59,
+        "joinedDamage": 1796,
+        "rewindSamples": 414,
+        "rewindFrames": 6243,
+        "clientClaims": [
+          23,
+          10,
+          28,
+          20,
+          14,
+          31,
+          19,
+          24
+        ],
+        "remoteHealthDecreases": [
+          165,
+          146,
+          149,
+          140,
+          165,
+          145,
+          157,
+          165
+        ],
+        "solverSteps": [
+          2670,
+          2064,
+          1898,
+          2280,
+          2849,
+          2055,
+          2273,
+          2014
+        ],
+        "humanRemotesObserved": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "arrivalWaitSeconds": [
+          4.1665029,
+          3.4109702,
+          2.8418092,
+          2.0449413,
+          1.2928316,
+          0.3416815,
+          0.0001139,
+          0.00011
+        ],
+        "humansAtStart": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "serverOverflow": 0,
+        "clientOverflow": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "joinDropped": {
+          "Certificates": 0,
+          "Components": 0,
+          "Claims": 0,
+          "Terminals": 0,
+          "Payments": 0,
+          "Continuous": 0
+        },
+        "processResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0,
+          "owner2": 0,
+          "owner3": 0,
+          "owner4": 0,
+          "owner5": 0,
+          "owner6": 0,
+          "owner7": 0
+        },
+        "faults": [
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9000
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9001
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9002
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9003
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9004
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9005
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9006
+          },
+          {
+            "RoundTripMs": 200,
+            "JitterMs": 20,
+            "LossPercent": 1,
+            "ReorderRate": 0.05,
+            "DuplicateRate": 0.01,
+            "Seed": 9007
+          }
+        ]
+      }
+    },
+    "negativeControls": {
+      "rejected": 20,
+      "acceptanceOutputsCreated": 0,
+      "originalInputsUnchanged": true,
+      "scope": "Ten legacy two-owner corruption checks plus ten full-cohort checks: missing eighth owner, duplicate report, wrong epoch, missing Hunter, missing remote observation; actual shared verifier; Python integer-preserving copies",
+      "artifact": "artifacts/momentum-pr09/combat-eight-controls/report.json"
+    },
+    "artifact": "artifacts/momentum-pr09/combat-eight-final-evidence/summary.json",
+    "freshness": "Captured before latest-main91f3a96d compatibility refresh; not silently promoted to that production revision"
+  }
+}
