@@ -73,8 +73,18 @@ namespace MphRead.Formats
             return CheckBetweenPoints(null, point1, point2, flags, scene, ref result, hasCandidates: false);
         }
 
+        /// <summary>Tests the same directional segment and collision masks as
+        /// CheckBetweenPoints, stopping at the first obstruction. Use the full
+        /// query whenever the nearest contact or its metadata is needed.</summary>
+        public static bool HasObstruction(Vector3 point1, Vector3 point2, TestFlags flags, Scene scene)
+        {
+            CollisionResult discard = default;
+            return CheckBetweenPoints(null, point1, point2, flags, scene, ref discard,
+                hasCandidates: false, anyHit: true);
+        }
+
         private static bool CheckBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2,
-            TestFlags flags, Scene scene, ref CollisionResult result, bool hasCandidates)
+            TestFlags flags, Scene scene, ref CollisionResult result, bool hasCandidates, bool anyHit = false)
         {
             using var workspace = CollisionQueryWorkspace.Borrow();
             bool collided = false;
@@ -150,6 +160,7 @@ namespace MphRead.Formats
                                 );
                                 if (CheckPointOnFace(pos, info, data))
                                 {
+                                    if (anyHit) return true;
                                     if (candidate.EntityCollision != null)
                                     {
                                         result.Position = Matrix.Vec3MultMtx4(pos, candidate.EntityCollision.Transform);
