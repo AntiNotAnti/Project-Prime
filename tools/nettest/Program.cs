@@ -94,8 +94,15 @@ namespace MphRead.NetTest
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
                     + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
+                    + "  --momentum-input-scene <assets> [json] Test actual keyboard, controller and touch-model movement semantics.\n"
+                    + "  --momentum-input-packets          Test signed axes and input override lifecycle on existing packets.\n"
+                    + "  --momentum-bot-scene <assets> [json] Test real offline AI through both movement rules.\n"
+                    + "  --momentum-bot-authority <assets> [json] Test actual server AI movement, intents and snapshots.\n"
+                    + "  --momentum-touch-gl <assets> [json] Test native alternate-form touch and boost parity with GL.\n"
+                    + "  --momentum-bot-navigation <assets> [json] Test actual bot geometry probes and stopping margin.\n"
                     + "  --momentum-match-scene <assets> [json] Test actual rule-selected native scene movement.\n"
                     + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] [replay] Run a real UDP owner world.\n"
+                    + "  --momentum-touch-online <assets> <port> <Native|Momentum> <json> [seconds] Run actual touch-model movement over 200 ms UDP impairment.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
                     + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
                     + "  --momentum-collision <assets> [json] Test authored geometry and native contact handling.\n"
@@ -398,6 +405,22 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-offline-rules") return MomentumOfflineRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-replay-rules") return MomentumReplayRulesTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
+            if (args.Length > 1 && (args[0] == "--momentum-input-scene"
+                || args[0] == "--momentum-bot-scene" || args[0] == "--momentum-bot-authority"
+                || args[0] == "--momentum-touch-gl"))
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return args[0] switch
+                {
+                    "--momentum-input-scene" => MomentumInputSceneTests.Run(output),
+                    "--momentum-bot-scene" => MomentumBotSceneTests.Run(output),
+                    "--momentum-touch-gl" => MomentumTouchGlTests.Run(output),
+                    _ => MomentumBotAuthorityTests.Run(output)
+                };
+            }
             if (args.Length >= 5 && args[0] == "--momentum-replay-scene")
             {
                 if (!Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
@@ -434,16 +457,17 @@ namespace MphRead.NetTest
                 server.Run(stop.Token);
                 return 0;
             }
-            if (args.Length >= 5 && args[0] == "--momentum-online-scene")
+            if (args.Length >= 5 && (args[0] == "--momentum-online-scene" || args[0] == "--momentum-touch-online"))
             {
                 if (!Int32.TryParse(args[2], out int movementPort) || movementPort is < 1 or > 65535
                     || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
                 int seconds = args.Length > 5 && Int32.TryParse(args[5], out int duration) ? duration : 12;
                 string output = System.IO.Path.GetFullPath(args[4]);
-                string? replay = args.Length > 6 ? System.IO.Path.GetFullPath(args[6]) : null;
+                bool touchModel = args[0] == "--momentum-touch-online";
+                string? replay = !touchModel && args.Length > 6 ? System.IO.Path.GetFullPath(args[6]) : null;
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds, replay);
+                return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds, replay, touchModel);
             }
             if (args.Length > 1 && args[0] == "--momentum-match-scene")
             {
@@ -455,7 +479,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-profile") return MomentumProfileTests.Run();
             if (args.Length > 1 && (args[0] == "--momentum-collision"
                 || args[0] == "--momentum-specials" || args[0] == "--momentum-abilities"
-                || args[0] == "--momentum-carrier"))
+                || args[0] == "--momentum-carrier" || args[0] == "--momentum-bot-navigation"))
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
                 // Resolve the authored map catalog before the asset configuration changes cwd.
@@ -472,6 +496,7 @@ namespace MphRead.NetTest
                     "--momentum-collision" => MomentumCollisionSceneTests.Run(output),
                     "--momentum-specials" => MomentumSpecialSceneTests.Run(output),
                     "--momentum-carrier" => MomentumCarrierSceneTests.Run(output),
+                    "--momentum-bot-navigation" => MomentumBotNavigationTests.Run(output),
                     _ => MomentumAbilitySceneTests.Run(output)
                 };
             }
