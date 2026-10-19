@@ -28,7 +28,7 @@ struct PrimeMenuData {
     Rml::String rules_format = "FFA";
     Rml::String rules_goal_label = "SCORE GOAL";
     Rml::String rules_status = "READING SERVER RULES";
-    std::array<Rml::String, 16> rules_toggles{};
+    std::array<Rml::String, 17> rules_toggles{};
     bool multiplayer_mode = false;
     bool play_create_mode = false;
     bool play_browser_mode = false;
@@ -125,6 +125,7 @@ public:
         model.Bind("rules_toggle13", &data.rules_toggles[13]);
         model.Bind("rules_toggle14", &data.rules_toggles[14]);
         model.Bind("rules_toggle15", &data.rules_toggles[15]);
+        model.Bind("rules_toggle16", &data.rules_toggles[16]);
         model.Bind("multiplayer_mode", &data.multiplayer_mode);
         model.Bind("play_create_mode", &data.play_create_mode);
         model.Bind("play_browser_mode", &data.play_browser_mode);
@@ -260,6 +261,7 @@ public:
         model.BindEventCallback("lobby_rules_toggle13", &PrimeMenuModel::LobbyRulesToggle13, this);
         model.BindEventCallback("lobby_rules_toggle14", &PrimeMenuModel::LobbyRulesToggle14, this);
         model.BindEventCallback("lobby_rules_toggle15", &PrimeMenuModel::LobbyRulesToggle15, this);
+        model.BindEventCallback("lobby_rules_toggle16", &PrimeMenuModel::LobbyRulesToggle16, this);
         model.BindEventCallback("play_quick", &PrimeMenuModel::PlayQuick, this);
         model.BindEventCallback("play_browse", &PrimeMenuModel::PlayBrowse, this);
         model.BindEventCallback("play_create_open", &PrimeMenuModel::PlayCreateOpen, this);
@@ -755,5 +757,7 @@ private:
     { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:14"); }
     void LobbyRulesToggle15(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:15"); }
+    void LobbyRulesToggle16(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:16"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
