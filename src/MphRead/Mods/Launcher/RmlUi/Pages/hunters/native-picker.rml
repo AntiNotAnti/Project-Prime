@@ -40,12 +40,12 @@
                 <div id="hunter_beam_grid" class="beam-picker">
                     <button id="hunter_beam0" class="beam-card beam-ion" data-action="hunter:beam-select:0"><span class="beam-glyph">==X==</span><span>ION FRACTURE 2.0</span></button>
                     <button id="hunter_beam1" class="beam-card beam-void" data-action="hunter:beam-select:1"><span class="beam-glyph">==| |==</span><span>VOID RIFT</span></button>
-                    <button id="hunter_beam2" class="beam-card beam-quantum" data-action="hunter:beam-select:2"><span class="beam-glyph">==< >==</span><span>QUANTUM SPLIT</span></button>
+                    <button id="hunter_beam2" class="beam-card beam-quantum" data-action="hunter:beam-select:2"><span class="beam-glyph">==&lt; &gt;==</span><span>QUANTUM SPLIT</span></button>
                     <button id="hunter_beam3" class="beam-card beam-alimbic" data-action="hunter:beam-select:3"><span class="beam-glyph">==[O]==</span><span>ALIMBIC RESONANCE</span></button>
                     <button id="hunter_beam4" class="beam-card beam-omega" data-action="hunter:beam-select:4"><span class="beam-glyph">==O==O==</span><span>OMEGA PULSE</span></button>
                     <button id="hunter_beam5" class="beam-card beam-arc" data-action="hunter:beam-select:5"><span class="beam-glyph">==/\/==</span><span>ARC DISRUPTOR</span></button>
                     <button id="hunter_beam6" class="beam-card beam-solar" data-action="hunter:beam-select:6"><span class="beam-glyph">==^^==</span><span>SOLAR SPEAR</span></button>
-                    <button id="hunter_beam7" class="beam-card beam-cryo" data-action="hunter:beam-select:7"><span class="beam-glyph">==<*>==</span><span>CRYO SHATTER</span></button>
+                    <button id="hunter_beam7" class="beam-card beam-cryo" data-action="hunter:beam-select:7"><span class="beam-glyph">==&lt;*&gt;==</span><span>CRYO SHATTER</span></button>
                     <button id="hunter_beam8" class="beam-card beam-phantom" data-action="hunter:beam-select:8"><span class="beam-glyph">==...==</span><span>PHANTOM TRACE</span></button>
                 </div>
                 <div class="section-title">BEAM COLOR // SELECT A TINT</div>
