@@ -30,6 +30,13 @@ namespace MphRead
         private Vector3 _thirdPersonReticleTraceMuzzle;
         private Vector3 _thirdPersonReticleTraceAim;
         private Vector3 _thirdPersonReticleTraceTarget;
+        // A stationary shoulder pose submits the same wall ray many times at
+        // 120/240Hz. Reuse only byte-identical rays from this simulation tick;
+        // changed pose or world step always gets a fresh occlusion answer.
+        private ulong _thirdPersonWallTraceFrame = ulong.MaxValue;
+        private Vector3 _thirdPersonWallTraceStart;
+        private Vector3 _thirdPersonWallTraceEnd;
+        private float _thirdPersonWallTraceDistance;
         // Scene-owned presentation history, never written into the player,
         // match snapshot, replay or simulation camera.
         private readonly ThirdPersonFormCameraHandoff _thirdPersonFormHandoff = new();
@@ -134,14 +141,30 @@ namespace MphRead
                     && float.IsFinite(distance) && distance > 0.001f)
                 {
                     Vector3 direction = desired / distance;
-                    float allowed = distance;
-                    CollisionResult result = default;
-                    if (CollisionDetection.CheckBetweenPoints(eye,
-                            eye + direction * (distance + ThirdPersonWallMargin),
-                            TestFlags.Players, this, ref result))
+                    Vector3 endpoint = eye
+                        + direction * (distance + ThirdPersonWallMargin);
+                    float allowed;
+                    if (_thirdPersonWallTraceFrame == FrameCount
+                        && _thirdPersonWallTraceStart == eye
+                        && _thirdPersonWallTraceEnd == endpoint)
                     {
-                        allowed = Math.Clamp(result.Distance * (distance + ThirdPersonWallMargin)
-                            - ThirdPersonWallMargin, 0, distance);
+                        allowed = _thirdPersonWallTraceDistance;
+                    }
+                    else
+                    {
+                        allowed = distance;
+                        CollisionResult result = default;
+                        if (CollisionDetection.CheckBetweenPoints(eye, endpoint,
+                                TestFlags.Players, this, ref result))
+                        {
+                            allowed = Math.Clamp(result.Distance
+                                * (distance + ThirdPersonWallMargin)
+                                - ThirdPersonWallMargin, 0, distance);
+                        }
+                        _thirdPersonWallTraceFrame = FrameCount;
+                        _thirdPersonWallTraceStart = eye;
+                        _thirdPersonWallTraceEnd = endpoint;
+                        _thirdPersonWallTraceDistance = allowed;
                     }
 
                     // Snap toward walls, but release using elapsed *simulation*
