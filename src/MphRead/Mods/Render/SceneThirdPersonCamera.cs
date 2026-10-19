@@ -2,6 +2,7 @@ using System;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 
 namespace MphRead
@@ -21,6 +22,14 @@ namespace MphRead
 
         private float _thirdPersonCameraDistance = float.MaxValue;
         private Vector3 _thirdPersonCameraOffset = Vector3.Zero;
+        private double _thirdPersonCameraLastTick = double.NaN;
+        private long _thirdPersonCameraLastGeneration;
+        // The world ray is immutable between 60Hz simulation ticks. Cache its
+        // expensive terrain trace, but reproject it for every rendered pose.
+        private ulong _thirdPersonReticleTraceFrame = ulong.MaxValue;
+        private Vector3 _thirdPersonReticleTraceMuzzle;
+        private Vector3 _thirdPersonReticleTraceAim;
+        private Vector3 _thirdPersonReticleTraceTarget;
         // Scene-owned presentation history, never written into the player,
         // match snapshot, replay or simulation camera.
         private readonly ThirdPersonFormCameraHandoff _thirdPersonFormHandoff = new();
@@ -34,6 +43,44 @@ namespace MphRead
             _thirdPersonCameraOffset = Vector3.Zero;
             if (_cameraMode != CameraMode.Player)
                 _thirdPersonFormHandoff.Reset();
+        }
+
+        /// <summary>
+        /// Project a projectile's existing native muzzle-to-aim line into the
+        /// *displayed* over-the-shoulder camera. This affects HUD only, not the
+        /// shot sent to the server or the historical replay reticle.
+        /// </summary>
+        internal bool ModTryGetThirdPersonShotReticle(Vector3 muzzle, Vector3 aim,
+            out Vector2 position)
+        {
+            position = new Vector2(0.5f, 0.5f);
+            if (!ModThirdPersonCameraActive || _cameraMode != CameraMode.Player
+                || !GameState.Multiplayer || !GameState.ThirdPersonCamera
+                || Services.IsReplica || Mods.Headless.Active
+                || this.Players.Main.CameraType != CameraType.First
+                || !ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
+                    out Vector3 direction))
+                return false;
+
+            if (_thirdPersonReticleTraceFrame != FrameCount
+                || _thirdPersonReticleTraceMuzzle != muzzle
+                || _thirdPersonReticleTraceAim != aim)
+            {
+                _thirdPersonReticleTraceFrame = FrameCount;
+                _thirdPersonReticleTraceMuzzle = muzzle;
+                _thirdPersonReticleTraceAim = aim;
+                Vector3 far = ThirdPersonReticleProjection.Target(muzzle,
+                    direction, 1f);
+                CollisionResult impact = default;
+                float contact = CollisionDetection.CheckBetweenPoints(muzzle, far,
+                    TestFlags.Beams, this, ref impact)
+                    ? impact.Distance : 1f;
+                _thirdPersonReticleTraceTarget = ThirdPersonReticleProjection.Target(
+                    muzzle, direction, contact);
+            }
+            return ThirdPersonReticleProjection.TryProject(
+                _thirdPersonReticleTraceTarget, _viewMatrix,
+                _perspectiveMatrix, out position);
         }
 
         /// <summary>Shift only the render matrix, never CameraInfo or simulation.</summary>
@@ -51,6 +98,7 @@ namespace MphRead
                 || player.Health <= 0 || !player.LoadFlags.TestFlag(LoadFlags.Spawned))
             {
                 _thirdPersonCameraDistance = float.MaxValue;
+                _thirdPersonCameraLastTick = double.NaN;
                 _thirdPersonFormHandoff.Reset();
                 return;
             }
@@ -59,6 +107,7 @@ namespace MphRead
             if (!float.IsFinite(determinant) || MathF.Abs(determinant) < 0.001f)
             {
                 _thirdPersonCameraDistance = float.MaxValue;
+                _thirdPersonCameraLastTick = double.NaN;
                 _thirdPersonFormHandoff.Reset();
                 return;
             }
@@ -68,6 +117,11 @@ namespace MphRead
             // unlike the old code, Unmorphing does NOT temporarily disable it.
             // The presentation-only handoff below bridges both CameraType changes.
             Matrix4 nativeView = view;
+            double clock = Mods.Render.FrameTiming.Active
+                ? Mods.Render.FrameTiming.TotalSteps + Mods.Render.FrameTiming.Alpha
+                : GlobalElapsedTime * Mods.Render.FrameTiming.SimulationHz;
+            long generation = Mods.Render.FrameTiming.Active
+                ? Mods.Render.FrameTiming.PresentationGeneration : 0;
             if (player.CameraType == CameraType.First && !player.IsAltForm)
             {
                 Matrix4 inverse = view.Inverted();
@@ -90,11 +144,22 @@ namespace MphRead
                             - ThirdPersonWallMargin, 0, distance);
                     }
 
-                    // Immediate pull-in prevents seeing through walls; easing out
-                    // is independent of the underlying 60 Hz aim and input.
+                    // Snap toward walls, but release using elapsed *simulation*
+                    // time rather than a fixed percentage for every draw.
+                    // The old 0.15-per-draw relaxed ~4x faster at 240Hz.
+                    if (_thirdPersonCameraLastGeneration != generation
+                        || !double.IsFinite(_thirdPersonCameraLastTick)
+                        || clock < _thirdPersonCameraLastTick
+                        || clock - _thirdPersonCameraLastTick > 60)
+                        _thirdPersonCameraDistance = float.MaxValue;
+                    double elapsedTicks = double.IsFinite(_thirdPersonCameraLastTick)
+                        ? clock - _thirdPersonCameraLastTick : 1d;
+                    _thirdPersonCameraLastTick = clock;
+                    _thirdPersonCameraLastGeneration = generation;
+                    float release = ThirdPersonReticleProjection.ReleaseFraction(elapsedTicks);
                     _thirdPersonCameraDistance = allowed < _thirdPersonCameraDistance
                         ? allowed
-                        : _thirdPersonCameraDistance + (allowed - _thirdPersonCameraDistance) * 0.15f;
+                        : _thirdPersonCameraDistance + (allowed - _thirdPersonCameraDistance) * release;
 
                     if (_thirdPersonCameraDistance >= ThirdPersonBodyClearance)
                     {
@@ -107,16 +172,10 @@ namespace MphRead
             else
             {
                 _thirdPersonCameraDistance = float.MaxValue;
+                _thirdPersonCameraLastTick = double.NaN;
             }
 
-            // TotalSteps + Alpha follows real presentation frames (including
-            // 120/240Hz draws) without advancing physics. Android uses the same
-            // clock; tools driving Scene directly use its 60Hz simulation time.
-            double clock = Mods.Render.FrameTiming.Active
-                ? Mods.Render.FrameTiming.TotalSteps + Mods.Render.FrameTiming.Alpha
-                : GlobalElapsedTime * Mods.Render.FrameTiming.SimulationHz;
-            long generation = Mods.Render.FrameTiming.Active
-                ? Mods.Render.FrameTiming.PresentationGeneration : 0;
+            // Reuse the same display clock for morph-camera interpolation.
             view = _thirdPersonFormHandoff.Present(view, player.CameraType, clock,
                 generation, out bool blending);
 
