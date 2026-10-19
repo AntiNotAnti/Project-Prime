@@ -87,6 +87,7 @@ namespace MphRead.NetTest
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
+                    + "  --native-movement-baseline <assets> <fixture> [--record] Record/verify native seven-Hunter values.\n"
                     + "  --movement-tour <assets> [room]    Test seven hunters through native local movement.\n"
                     + "  --q3-traversal-scene <assets> [room] Test Q3 traversal through native movement.\n"
                     + "  --quiescent-turret-scene <assets> [room] Test native turret retirement during drain.\n"
@@ -373,6 +374,18 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
+            }
+            if (args.Length > 0 && args[0] == "--native-movement-baseline")
+            {
+                if (args.Length < 3 || args.Length > 4 || args.Length == 4 && args[3] != "--record")
+                {
+                    Console.Error.WriteLine("Usage: --native-movement-baseline <asset-config-directory> <fixture.json> [--record]");
+                    return 2;
+                }
+                string fixture = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NativeMovementBaselineTests.Run("MP3 PROVING GROUND", fixture, args.Length == 4);
             }
             if (args.Length > 1 && args[0] == "--movement-tour")
             {
