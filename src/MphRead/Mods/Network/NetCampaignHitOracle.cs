@@ -141,7 +141,7 @@ internal static class NetCampaignHitOracle
     // No Begin/Restore, simulation, RNG, lifecycle or gameplay write occurs.
     internal static void ObserveSegment(BeamProjectileEntity beam, Vector3 start, Vector3 end)
     {
-        if (!NetCampaignEvidence.TimelineEnabled || beam.OwningScene.Services.IsReplica
+        if (beam.ModCustomShot != null || !NetCampaignEvidence.TimelineEnabled || beam.OwningScene.Services.IsReplica
             || start != beam.SpawnPosition) return;
         bool authority = NetSession.IsAuthority;
         var owner = beam.Owner as PlayerEntity;
