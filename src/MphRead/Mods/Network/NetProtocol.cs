@@ -33,6 +33,7 @@ namespace MphRead.Mods.Network
         PickupClaim = 73, PickupVerdict = 74, PickupItem = 75, PickupReady = 76,
         TimedGrant = 77, // authority timed state, ordinary reliable event/delta lane
         PickupPrediction = 78, TimedGrantBootstrap = 79, // local replay only; never live authority messages
+        PartyReservationRequest = 80, PartyReservationState = 81, PartyReservationAction = 82,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -410,6 +411,8 @@ namespace MphRead.Mods.Network
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
         public const byte FlagCanHost = 1;
+        /// <summary>Optional V1 group seats; existing protocol/packet bytes are unchanged.</summary>
+        public const byte FlagPartyReservationsV1 = 2;
 
         public SessionPhase Phase;
         public MatchFormat Format;

@@ -114,5 +114,6 @@ if (args.Length == 0)
 {
     ArchiveChecks.Run(Check);
     InstallationChecks.Run(Check);
+    DesktopUseChecks.Run(Check);
 }
 return failures == 0 ? 0 : 1;

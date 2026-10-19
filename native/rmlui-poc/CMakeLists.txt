@@ -50,6 +50,9 @@ endif()
 target_link_libraries(ProjectPrimeRmlUiNative PRIVATE
     RmlUi::Core
 )
+# Pinned RmlUi6.3 exposes TransformState through Element's public accessor,
+# while its definition is in Source/Core. Bounds must use that same matrix.
+target_include_directories(ProjectPrimeRmlUiNative PRIVATE "${RMLUI_SOURCE_DIR}/Source/Core")
 if(ANDROID)
     # Android 15+ supports devices with 16 KB memory pages; native APK payloads
     # must be compatible even when they are cross-built on a 4 KB host.

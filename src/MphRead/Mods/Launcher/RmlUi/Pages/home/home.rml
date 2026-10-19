@@ -5,6 +5,20 @@
         <link type="text/rcss" href="home.rcss" />
     </head>
     <body template="prime-shell">
+        <div id="home_left_rail">
+        <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
+            <div class="home_rail_heading">
+                <span class="eyebrow">COMMUNITY UPDATES</span>
+                <span class="home_rail_tag" id="home_feature_category">NEWS</span>
+            </div>
+            <div class="home_feature_title" id="home_feature_title">PROJECT PRIME UPDATE</div>
+            <div class="home_feature_summary" id="home_feature_summary">Catch up with the Project Prime community.</div>
+            <div class="home_news_lines">
+                <button id="home_news0" class="home_news_line" data-action="route:news"><span id="home_news0_category" class="home_news_category"/><span id="home_news0_title" class="home_news_title"/></button>
+                <button id="home_news1" class="home_news_line" data-action="route:news"><span id="home_news1_category" class="home_news_category"/><span id="home_news1_title" class="home_news_title"/></button>
+            </div>
+            <button id="home_feature_open" class="home_rail_link" data-action="route:news"><span id="home_feature_open_label" class="home_rail_label">READ DISPATCH</span><span class="home_rail_arrow">&gt;</span></button>
+        </div>
         <div id="activity_panel" class="enter_left">
             <div id="activity_compact" data-prime-class-hidden="activity_selector_open">
                 <div class="eyebrow" data-prime-text="{{activity_group}}" id="text_activity_group_1" />
@@ -40,17 +54,17 @@
                     </div>
                     <button id="drawer_close" data-action="home:drawer-close">CLOSE</button>
                 </div>
-                <div class="drawer_section">MULTIPLAYER</div>
+                <div id="home_drawer_multiplayer" class="drawer_section">MODE</div>
                 <button id="drawer_browser" class="drawer_item" data-prime-class-selected="activity_index == 1" data-preview="stage-preview:browser" data-action="stage:browser">
                     <span class="drawer_code">01</span>
                     <span class="drawer_copy">
-                        <span class="drawer_name">LOBBY BROWSER</span>
+                        <span class="drawer_name">ONLINE</span>
                         <span class="drawer_meta">Browse public and private sessions</span>
                     </span>
                     <span class="drawer_state" data-prime-visible="activity_index == 1" id="visible_activity_index____1_1">ACTIVE</span>
                     <span class="drawer_arrow">›</span>
                 </button>
-                <div class="drawer_section">AIM LAB</div><button id="drawer_training" class="drawer_item" data-prime-class-selected="activity_index == 4" data-action="stage:training" data-preview="stage-preview:training"><span class="drawer_code">02</span><span class="drawer_copy"><span class="drawer_name">AIM LAB</span><span class="drawer_meta">Dedicated aim and movement drills</span></span><span id="drawer_training_active" class="drawer_state" data-prime-visible="activity_index == 4">ACTIVE</span><span class="drawer_arrow">&gt;</span></button>
+                <div id="home_drawer_training" class="drawer_section">AIM LAB</div><button id="drawer_training" class="drawer_item" data-prime-class-selected="activity_index == 4" data-action="stage:training" data-preview="stage-preview:training"><span class="drawer_code">02</span><span class="drawer_copy"><span class="drawer_name">AIM LAB</span><span class="drawer_meta">Dedicated aim and movement drills</span></span><span id="drawer_training_active" class="drawer_state" data-prime-visible="activity_index == 4">ACTIVE</span><span class="drawer_arrow">&gt;</span></button>
                     <div class="drawer_section">OFFLINE BATTLE</div>
                 <button id="drawer_offline" class="drawer_item" data-prime-class-selected="activity_index == 2" data-preview="stage-preview:offline" data-action="stage:offline">
                     <span class="drawer_code">03</span>
@@ -61,7 +75,7 @@
                     <span class="drawer_state" data-prime-visible="activity_index == 2" id="visible_activity_index____2_1">ACTIVE</span>
                     <span class="drawer_arrow">›</span>
                 </button>
-                <div class="drawer_section">ADVENTURE</div>
+                <div id="home_drawer_adventure" class="drawer_section">ADVENTURE</div>
                 <button id="drawer_adventure" class="drawer_item" data-prime-class-selected="activity_index == 3" data-preview="stage-preview:adventure" data-action="stage:adventure">
                     <span class="drawer_code">04</span>
                     <span class="drawer_copy">
@@ -71,20 +85,12 @@
                     <span class="drawer_state" data-prime-visible="activity_index == 3" id="visible_activity_index____3_1">ACTIVE</span>
                     <span class="drawer_arrow">›</span>
                 </button>
-                <div class="drawer_footer">
+                <div id="home_drawer_footer" class="drawer_footer">
                         HOVER OR FOCUS TO PREVIEW THE MENU STAGE // SELECT TO CONFIRM
                     </div>
             </div>
         </div>
 
-        <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
-            <div class="home_rail_heading">
-                <span class="eyebrow">COMMUNITY DISPATCH</span>
-                <span class="home_rail_tag" id="home_feature_category">NEWS</span>
-            </div>
-            <div class="home_feature_title" id="home_feature_title">PROJECT PRIME UPDATE</div>
-            <div class="home_feature_summary" id="home_feature_summary">Catch up with the Project Prime community.</div>
-            <button id="home_feature_open" class="home_rail_link" data-action="route:news">READ DISPATCH <span>&gt;</span></button>
         </div>
         <div id="hunter_caption" class="enter_hunter">
             <div class="hunter_rule" />
@@ -94,12 +100,13 @@
                 <div id="hunter_meta">SELECTED LOADOUT</div>
             </div>
         </div>
+        <div id="home_right_rail">
         <div id="session_panel" class="enter_right">
             <div class="session_header">
                 <div class="eyebrow">CURRENT SESSION</div>
-                <div class="session_state" id="home_session_state" data-prime-text="{{home_session_state}}">SOLO</div>
+                <div class="session_state"><span id="home_session_state" data-prime-text="{{home_session_state}}">SOLO</span><span id="home_party_count">1 / 4</span></div>
             </div>
-            <div class="session_player">
+            <div id="home_party_slot0" class="session_player">
 
                 <div class="session_copy">
                     <div class="session_name" data-prime-text="{{player_name}}" id="text_player_name_2" />
@@ -108,18 +115,27 @@
             </div>
             <button id="home_social" class="session_slot" data-action="route:social">
                 <span class="plus">+</span>
-                <span id="home_party_state">FRIENDS AND PARTY</span>
+                <span class="session_copy"><span id="home_party_slot1_name" class="session_slot_name">OPEN PARTY SLOT</span><span id="home_party_slot1_detail" class="session_slot_detail">+ INVITE FRIEND</span></span>
             </button>
-            <div id="home_social_summary" class="session_hint">OPEN SOCIAL TO MANAGE FRIENDS, INVITES AND YOUR PARTY.</div>
+            <button id="home_party_slot2" class="session_slot" data-action="route:social">
+                <span class="plus">+</span>
+                <span class="session_copy"><span id="home_party_slot2_name" class="session_slot_name">OPEN PARTY SLOT</span><span id="home_party_slot2_detail" class="session_slot_detail">+ INVITE FRIEND</span></span>
+            </button>
+            <button id="home_party_slot3" class="session_slot" data-action="route:social">
+                <span class="plus">+</span>
+                <span class="session_copy"><span id="home_party_slot3_name" class="session_slot_name">OPEN PARTY SLOT</span><span id="home_party_slot3_detail" class="session_slot_detail">+ INVITE FRIEND</span></span>
+            </button>
+            <div id="home_party_capacity_hint" class="session_hint">SELECT AN OPEN SLOT TO INVITE A FRIEND</div>
         </div>
 
         <div id="home_social_rail" class="enter_right" data-prime-visible="home_social_rail_visible">
             <div class="home_rail_heading">
-                <span class="eyebrow">FRIENDS / PARTY</span>
+                <span class="eyebrow">FRIENDS</span>
                 <span class="home_rail_tag" id="home_social_count">0 ONLINE</span>
             </div>
+            <div id="home_social_summary" class="session_hint" />
             <div class="home_social_stats">
-                <div class="home_social_stat"><b id="home_friends_online">UNKNOWN</b><span>ONLINE</span></div>
+                <div class="home_social_stat"><b id="home_friends_online">UNKNOWN</b><span>SHARING PRESENCE</span></div>
                 <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
                 <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
             </div>
@@ -155,7 +171,8 @@
                     <span id="home_friend2_status" class="home_friend_status"></span>
                 </button>
             </div>
-            <button id="home_social_open" class="home_rail_link" data-action="route:social">OPEN SOCIAL <span>&gt;</span></button>
+            <button id="home_social_open" class="home_rail_link" data-action="route:social"><span id="home_social_open_label" class="home_rail_label">OPEN SOCIAL</span><span class="home_rail_arrow">&gt;</span></button>
+        </div>
         </div>
     </body>
 </rml>

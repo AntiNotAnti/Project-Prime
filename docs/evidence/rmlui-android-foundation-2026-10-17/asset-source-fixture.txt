@@ -1,0 +1,7 @@
+Command (repository root, .NET SDK 10.0.401):
+/Users/jarrett/.dotnet/dotnet run --project tools/rmlui-android-assets-check/rmlui-android-assets-check.csproj -c Release
+
+RMLUI ANDROID APK ASSETS PASS 42 checks; inventory 158ea4965bc16474c0af9b3bb1c276ce94401d567f2973bb010a5eb7e37b85b3; fake APK reader + local filesystem, no Android/APK/native/device acceptance.
+
+Scope: source-linked production extractor with fake read-only package reader and temporary local filesystem. The fingerprint belongs to the ten synthetic fixture files, not an APK.
+Final coverage includes full staged inventory/receipt verification before atomic publication and cancellation after a partial streamed file copy.

@@ -53,6 +53,8 @@ namespace MphRead.Mods.Network
     public sealed class ServerSim
     {
         private Scene? _scene;
+        internal Scene? EvidenceScene => _scene;
+        private NetClientJoinOwnership? _authorityOwner;
         private string _room = "";
         private GameMode _mode = GameMode.Battle;
 
@@ -241,7 +243,14 @@ namespace MphRead.Mods.Network
                 // would leave a server advertising eight slots and simulating
                 // the first four.
                 PlayerEntity.MaxPlayers = Math.Clamp(maxPlayers, 2, PlayerEntity.SlotCapacity);
-                NetSession.StartServerAuthority(sink, matchEnded);
+                lock (NetSession.ClientLifecycleGate)
+                {
+                    NetSession.StartServerAuthority(sink, matchEnded, authorityPublished: () =>
+                    {
+                        _authorityOwner = new NetClientJoinOwnership();
+                        _authorityOwner.CaptureAuthority();
+                    });
+                }
                 // Establish the match identity/rules before accepting its roster.
                 if (session is { } state) NetSession.ApplySessionState(state);
                 if (roster is { } players) NetSession.ApplyRoster(players);
@@ -250,13 +259,16 @@ namespace MphRead.Mods.Network
                 // own, so a stray aspect ratio is at least the right one.
                 var scene = new Scene(new Vector2i(256, 192),
                     SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
-                    _ => { }, () => { });
+                    _ => { }, () => { }, lifetimeOwned: candidate => _scene = candidate);
                 // Samus for every unoccupied slot, as a placeholder only: each
                 // slot's real hunter arrives on the roster and PlayerColors
                 // settles it every frame thereafter, the same as on a client.
                 NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,
                     teams: GameState.IsTeamMode(mode), localSlot: -1);
                 scene.AddRoom(roomKey, mode, playerCount: NetLaunch.RoomPlayerCount);
+                // AddRoom.Setup restores engine defaults. Restore the frozen
+                // goals and modifiers before OnLoad initializes the first life.
+                session?.Match.ApplyInitialConfiguration(scene.GameState);
                 scene.OnLoad();
                 _scene = scene;
                 Frames = 0;
@@ -277,11 +289,11 @@ namespace MphRead.Mods.Network
                 // -- on a machine where nobody will be attaching a debugger.
                 Console.WriteLine($"[sim] could not load \"{roomKey}\": {ex}");
                 NetLog.Event($"server simulation failed to start: {ex}");
-                Stop(preserveRoomPrewarm: true);
-                // Loading can fail before _scene is assigned. Release the partial
-                // authority session and assets so another lobby start can retry.
-                NetSession.StopMatchRuntime();
-                Read.ClearCache();
+                try { Stop(preserveRoomPrewarm: true); }
+                catch (Exception cleanupError)
+                { Console.WriteLine($"[sim] failed-world cleanup: {cleanupError}"); }
+                // The existing constructor callback retains a partial candidate;
+                // the exact authority token also covers failure before it exists.
                 return false;
             }
         }
@@ -352,25 +364,50 @@ namespace MphRead.Mods.Network
 
         public void Stop(bool preserveRoomPrewarm = false)
         {
-            if (_scene != null) NetCampaignEvidence.ServerSegment(this, _room);
-            Mods.Multiplayer.BalancedModeTelemetry.FlushToProductionTelemetry();
-            Telemetry.ProductionTelemetry.FlushServerSteps();
-            Telemetry.ProductionTelemetry.End();
-            if (_scene == null)
+            // Detach this exact candidate before callbacks can publish another
+            // world, including a reentrant Start on this same ServerSim.
+            Scene? scene = _scene;
+            NetClientJoinOwnership? authority = _authorityOwner;
+            string room = _room;
+            _scene = null; _authorityOwner = null; _room = "";
+
+            System.Collections.Generic.List<Exception>? failures = null;
+            void Attempt(Action work)
             {
-                if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
-                return;
+                try { work(); }
+                catch (Exception error) { (failures ??= new()).Add(error); }
             }
-            MapGen.MapRuntimeUsage.Release(_scene);
-            _scene = null;
-            _room = "";
-            if (preserveRoomPrewarm) NetSession.StopMatchRuntime();
-            else NetSession.Stop();
-            // The room's models, collision and entity lists, which are held in
-            // a static cache keyed by path: without this a rotation through
-            // twenty maps keeps all twenty.
-            Read.ClearCache();
-            CollectUnderMemoryPressure();
+            Mods.Launcher.PostMatchCommitContext? release = null;
+            if (scene != null)
+                Attempt(() => release = Mods.Launcher.PostMatchCommitContext.Capture(
+                    scene.GameState, 0, SaveWhen.Never, 0));
+            Attempt(() => authority?.RunCurrentAuthority(() =>
+            {
+                if (scene != null) NetCampaignEvidence.ServerSegment(this, room);
+                Mods.Multiplayer.BalancedModeTelemetry.FlushToProductionTelemetry();
+                Telemetry.ProductionTelemetry.FlushServerSteps();
+                Telemetry.ProductionTelemetry.End();
+            }));
+            if (scene != null)
+            {
+                Attempt(scene.DoCleanup);
+                Attempt(scene.UnloadGl);
+                Attempt(() => MapGen.MapRuntimeUsage.Release(scene));
+            }
+            Attempt(() => authority?.RunCurrentAuthority(() =>
+            {
+                if (preserveRoomPrewarm) NetSession.StopMatchRuntime();
+                else NetSession.Stop();
+                Read.ClearCache();
+                CollectUnderMemoryPressure();
+            }));
+            if (release != null)
+                Attempt(() => { release.Commit(); release.Release(); ForegroundSceneBinding.TryRelease(release); });
+            // Cleanup failure never grants eligibility, but remaining exact-owner
+            // cleanup still runs. Preserve the original error and any followers.
+            if (failures?.Count == 1)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            if (failures?.Count > 1) throw new AggregateException(failures);
         }
 
         /// <summary>

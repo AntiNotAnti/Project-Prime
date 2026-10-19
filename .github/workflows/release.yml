@@ -272,9 +272,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: win-x64
-            rid: win-x64
-            server: false
           - target: linux-x64
             rid: linux-x64
             server: false
@@ -323,6 +320,39 @@ jobs:
         with:
           name: build-linux-${{ matrix.target }}
           path: publish/${{ matrix.target }}
+          if-no-files-found: error
+
+  release-windows:
+    name: publish Windows Game and Studio pair
+    needs: [resolve, prepare-release]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: prepared-maps
+          path: maps
+      - name: build and verify the Windows Game and Studio pair
+        shell: pwsh
+        run: >-
+          ./tools/package-windows.ps1
+          -Version '${{ needs.resolve.outputs.version }}'
+          -OutputDirectory '${{ runner.temp }}/windows-release-pair'
+      # Keep the assembly transport name consumed by package-release below.
+      # Hidden compatibility and ownership metadata must survive this transport.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-linux-win-x64
+          path: ${{ runner.temp }}/windows-release-pair/ProjectPrime-win-x64
+          include-hidden-files: true
           if-no-files-found: error
 
   release-android:
@@ -443,7 +473,7 @@ jobs:
           if-no-files-found: error
 
   package-release:
-    needs: [resolve, release-linux]
+    needs: [resolve, release-linux, release-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -486,6 +516,7 @@ jobs:
         run: |
           set -euo pipefail
           tools/check-subsystem.sh gui publish/win-x64/ProjectPrime.exe
+          tools/check-subsystem.sh gui publish/win-x64/ProjectPrimeStudio.exe
           tools/check-subsystem.sh console publish/win-x64-server/ProjectPrimeServer.exe
 
       # Nothing gets tagged as a release until a server out of it has actually
@@ -521,7 +552,11 @@ jobs:
           cat > publish/win-x64/README.txt <<'NOTE'
           Project Prime -- Metroid Prime Hunters, on PC, with multiplayer.
 
-          Double-click ProjectPrime.exe. The first thing it asks for is your own
+          Double-click ProjectPrime.exe to open the game. ProjectPrimeStudio.exe
+          opens Project Prime Studio. Keep both applications and their shared
+          runtime/resources together. Map Studio is Coming Soon.
+
+          The first thing the game asks for is your own
           Metroid Prime Hunters cartridge dump (.nds); it unpacks what it needs
           next to this program and leaves the file alone. No game data is
           included in this download, and none is downloaded.

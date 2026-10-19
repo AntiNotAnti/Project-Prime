@@ -42,6 +42,9 @@ class AcceptanceMatrixTests(unittest.TestCase):
                 self.assertEqual(report["runtimeBipedCandidatesPassed"],0)
                 self.assertEqual(report["results"][0]["fallbackHunter"],
                                  accept.SOURCE_HUNTERS[char])
+                self.assertEqual(report["results"][0]["bindingKind"],"private-catalog-appearance")
+                self.assertEqual((report["results"][0]["characterId"],report["results"][0]["skinSource"]),
+                                 accept.SOURCE_APPEARANCES[char])
                 self.assertFalse(report["fullPortReady"])
                 self.assertFalse(report["onlineMultiplayerEnabled"])
                 self.assertGreaterEqual(len(report["manualGatesRequired"]),8)
@@ -117,6 +120,84 @@ class AcceptanceMatrixTests(unittest.TestCase):
             self.assertEqual(report["assetPreflightPassed"],1)
             self.assertEqual(report["inputPacks"],2)
             self.assertIn("Duplicate source identity",report["results"][1]["error"])
+
+    def test_identity_and_parent_and_provenance_must_match_together(self):
+        mutations=(
+            ("characterId","trooper"),("skinSource","MP3DarkSamus"),
+            ("skinSource","MP1PowerTrooper"),("hunter","Weavel"),
+            ("provenance","../validation-receipt.json"),
+            ("provenanceSha256","0"*64),("mobileModel","samus/biped.glb"),
+        )
+        with tempfile.TemporaryDirectory() as scratch:
+            path=stage(Path(scratch))
+            manifest_path=path/"characters.json"
+            original=json.loads(manifest_path.read_text(encoding="utf-8"))
+            for key,value in mutations:
+                with self.subTest(field=key,value=value):
+                    manifest=json.loads(json.dumps(original))
+                    manifest["models"][0][key]=value
+                    manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+                    self.assertEqual(accept.evaluate([path])["assetPreflightPassed"],0)
+            for key in ("characterId","skinSource","provenance","provenanceSha256"):
+                with self.subTest(missing=key):
+                    manifest=json.loads(json.dumps(original))
+                    del manifest["models"][0][key]
+                    manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+                    self.assertEqual(accept.evaluate([path])["assetPreflightPassed"],0)
+
+    def test_rehashed_receipt_cannot_change_identity_or_claim_acceptance(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            path=stage(Path(scratch))
+            receipt_path=path/"validation-receipt.json"
+            manifest_path=path/"characters.json"
+            receipt=json.loads(receipt_path.read_text(encoding="utf-8"))
+            manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+            mutations=[("characterId","trooper"),("skinSource","MP1IceTrooper"),
+                       ("nativeHunter","Weavel"),("sourceCharacter","trooper-power"),
+                       ("presentationPart","viewModel"),
+                       ("visualOnly",1),("format",True),("sourceSkeletonSha256","0"*64)]
+            mutations.extend((key,True) for key in (
+                "approvedForGameplay","multiplayerEnabled","playerSelectionEnabled",
+                "firstPersonVerified","alternateFormVerified","sourceMotionRetargetVerified",
+                "devicePerformanceVerified"))
+            for key,value in mutations:
+                with self.subTest(field=key):
+                    changed=dict(receipt)
+                    changed[key]=value
+                    receipt_path.write_text(json.dumps(changed),encoding="utf-8")
+                    manifest["models"][0]["provenanceSha256"]=local_visual_pack.sha256_file(receipt_path)
+                    manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+                    self.assertEqual(accept.evaluate([path])["assetPreflightPassed"],0)
+
+    def test_old_hunter_only_pack_keeps_legacy_binding(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            path=stage(Path(scratch))
+            manifest_path=path/"characters.json"
+            manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+            for key in ("characterId","skinSource","provenance","provenanceSha256"):
+                del manifest["models"][0][key]
+            manifest_path.write_text(json.dumps(manifest),encoding="utf-8")
+            report=accept.evaluate([path])
+            self.assertEqual(report["assetPreflightPassed"],1)
+            self.assertEqual(report["results"][0]["bindingKind"],"legacy-native-hunter")
+            self.assertIsNone(report["results"][0]["characterId"])
+            self.assertFalse(report["fullPortReady"])
+
+    def test_distinct_trooper_looks_share_parent_without_aliasing_identity(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root=Path(scratch)
+            paths=[stage(root,ident) for ident in ("trooper-power","trooper-ice")]
+            rows=accept.evaluate(paths)["results"]
+            self.assertEqual([row["assetPreflight"] for row in rows],["pass","pass"])
+            self.assertEqual([row["fallbackHunter"] for row in rows],["Weavel","Weavel"])
+            self.assertEqual([row["skinSource"] for row in rows],["MP1PowerTrooper","MP1IceTrooper"])
+
+    def test_duplicate_json_contract_properties_rejected(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            path=stage(Path(scratch))
+            manifest_path=path/"characters.json"
+            manifest_path.write_text('{"format":1,"format":1}',encoding="utf-8")
+            self.assertEqual(accept.evaluate([path])["assetPreflightPassed"],0)
 
 
 if __name__=="__main__":

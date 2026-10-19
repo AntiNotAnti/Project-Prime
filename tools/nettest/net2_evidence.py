@@ -535,8 +535,12 @@ def drain_coverage(manifest, reports):
     return ("FAIL" if gaps else "PASS"), gaps
 
 
-def rotation_coverage(reports, processes, settings):
+def rotation_coverage(reports, processes, settings, archive_inspection=None, expected_client_sha256=None):
     """A room label is not proof that a new match simulated on every peer."""
+    required = settings.get("required_completed_matches", 0)
+    if required != 0 or type(required) is not int:
+        from completed_rotation_evidence import completed_rotation_coverage
+        return completed_rotation_coverage(reports, processes, required, archive_inspection, expected_client_sha256)
     authority = reports.get("server", {})
     server_windows = authority.get("Windows", [])
     identities = {(w.get("Epoch"), w.get("Match")) for w in server_windows
@@ -614,7 +618,7 @@ def shot_gap_context(missing, authority_shots, report, death_frames):
                 "authorityFirstDeadFrame": death_frames.get(k[:5])} for k in sorted(missing)[:32]]}
 
 
-def adjudicate(out, processes, expected_protocol=41, require_shots=True):
+def adjudicate(out, processes, expected_protocol=41, require_shots=True, required_completed_matches=None):
     """FAIL outranks missing evidence. No process count/exit-code-only green path."""
     out = Path(out)
     failures, incomplete, reports, observations = [], [], {}, {}
@@ -889,7 +893,16 @@ def adjudicate(out, processes, expected_protocol=41, require_shots=True):
     # Keep coverage in the offline adjudicator so re-reading raw evidence cannot
     # turn a short or frozen soak into a pass by losing the runner's final checks.
     windows = [w for report in reports.values() for w in report["Windows"]]
-    rotation, rotation_gaps = rotation_coverage(reports, processes, settings)
+    if required_completed_matches is not None:
+        settings = {**settings, "required_completed_matches": required_completed_matches}
+    archive_inspection = None
+    if settings.get("required_completed_matches", 0) != 0:
+        try:
+            archive_inspection = json.loads((out / "rotation-archive-inspection.json").read_text())
+        except (OSError, ValueError, TypeError):
+            pass  # Explicit completion mode remains INCOMPLETE without its reader sidecar.
+    rotation, rotation_gaps = rotation_coverage(reports, processes, settings, archive_inspection,
+                                               manifest.get("assemblySha256"))
     if rotation_gaps:
         incomplete.extend("map rotation: " + gap for gap in rotation_gaps)
     soak = settings.get("soak", False)

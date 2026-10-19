@@ -1,0 +1,1285 @@
+--- a/native/rmlui-poc/projectprime_rmlui.cpp
++++ b/native/rmlui-poc/projectprime_rmlui.cpp
+@@ -32,6 +32,9 @@
+ void FocusElement(const char* id);
+ void QueueHomeAction(const std::string& action);
+ void DirtyVisual();
++void SampleTextCaret(Rml::Vector2f position, float height);
++void InvalidateTextCaret();
++void NotifyProgrammaticTextMutation(Rml::Element* field);
+ Rml::Element* FindElementById(const char* id);
+ bool g_lobby_anchor_dirty = true;
+ struct LobbyAnchor { float x = 0.f; float y = 0.f; };
+@@ -49,6 +52,8 @@
+     void SetClipboardText(const Rml::String& text) override { clipboard = text; }
+     void GetClipboardText(Rml::String& text) override { text = clipboard; }
+     void ClearClipboard() { clipboard.clear(); }
++    void ActivateKeyboard(Rml::Vector2f position, float height) override { SampleTextCaret(position, height); }
++    void DeactivateKeyboard() override { InvalidateTextCaret(); }
+     void JoinPath(Rml::String& translated, const Rml::String& document, const Rml::String& path) override
+     {
+         // The default browser-style resolver removes the leading '/' from
+@@ -158,6 +163,7 @@
+             document.disabled_focus.erase(saved);
+         }
+     }
++    if (!enabled) g_text_input.Unavailable(element);
+     if (enabled) element->RemoveAttribute("disabled");
+     else element->SetAttribute("disabled","disabled");
+     element->SetPseudoClass("disabled",!enabled);
+@@ -168,6 +174,12 @@
+     if (element->HasAttribute("disabled")) SetControlEnabled(document,element,false);
+     for (int i=0; i<element->GetNumChildren(); ++i) NormalizeDisabledControls(document,element->GetChild(i));
+ }
++void SampleTextCaret(Rml::Vector2f position, float height)
++{
++    g_text_input.CaptureCaret(g_text_input.CaretOwner(), position, height);
++}
++void InvalidateTextCaret() { g_text_input.InvalidateCaret(); }
++void NotifyProgrammaticTextMutation(Rml::Element* field) { g_text_input.InvalidateCaret(); g_text_input.ExternalMutation(field); }
+ uint64_t DocumentId(Rml::ElementDocument* document)
+ {
+     for (const auto& entry : g_documents) if (entry.second.element == document) return entry.first;
+@@ -534,6 +546,10 @@
+     }
+ };
+ DocumentActionListener g_action_listener;
++class TextRevisionListener final : public Rml::EventListener {
++    void ProcessEvent(Rml::Event& event) noexcept override { g_text_input.ObserveEditEvent(event); }
++};
++TextRevisionListener g_text_revision_listener;
+ 
+ uint64_t RegisterDocument(Rml::ElementDocument* element, const std::string& path, int layer)
+ {
+@@ -551,6 +567,9 @@
+     g_lobby_anchor_dirty = true;
+     DirtyVisual();
+     element->AddEventListener("click", &g_action_listener);
++    element->AddEventListener("input", &g_text_revision_listener, true);
++    element->AddEventListener("focus", &g_text_revision_listener, true);
++    element->AddEventListener("change", &g_text_revision_listener, true);
+     element->AddEventListener("change", &g_action_listener);
+     element->AddEventListener("keydown", &g_action_listener, true);
+     element->AddEventListener("mouseover", &g_action_listener);
+@@ -653,7 +672,9 @@
+     // frame, rather than causing two timer-driven updates in this frame.
+     for (int pass = 0; pass < 2; ++pass) {
+         g_update_dirty = false;
++        g_text_input.InvalidateCaret(); // timers/layout can move caret without ActivateKeyboard
+         g_context->Update();
++        g_text_input.ValidateAvailability(); // computed CSS/model hidden/disabled/readonly or modal foreground
+         g_updated_since_render = true;
+         g_last_update_time = g_system.GetElapsedTime();
+         ++g_visual_revision;
+@@ -672,6 +693,8 @@
+     // Ordinary controls retain nearest scrolling for keyboard/accessibility.
+     if (element->GetAttribute<Rml::String>("data-focus-scroll", "") != "none")
+         element->ScrollIntoView(Rml::ScrollIntoViewOptions(Rml::ScrollAlignment::Nearest));
++    g_text_input.InvalidateCaret(); // scrolling follows ShowCursor/ActivateKeyboard
++
+ }
+ 
+ int ConvertModifiers(int modifiers)
+@@ -769,7 +792,7 @@
+     Rml::SetTextInputHandler(&g_text_input);
+     g_context = Rml::CreateContext("project-prime-rmlui", {width, height});
+     if (!g_context) { pp_rmlui_shutdown(); return 0; }
+-    g_text_input.Attach(g_context, g_generation.load(), DocumentId);
++    g_text_input.Attach(g_context, g_generation.load(), DocumentId, ForegroundDocument);
+     g_context->SetDensityIndependentPixelRatio(std::max(density, 1.0f));
+     g_model = std::make_unique<PrimeMenuModel>();
+     if (!g_model->Setup(g_context)) { pp_rmlui_shutdown(); return 0; }
+@@ -789,6 +812,9 @@
+     // and render adapter still exist. RemoveContext flushes deferred Close().
+     for (auto& entry : g_documents) {
+         entry.second.element->RemoveEventListener("click", &g_action_listener);
++        entry.second.element->RemoveEventListener("input", &g_text_revision_listener, true);
++        entry.second.element->RemoveEventListener("focus", &g_text_revision_listener, true);
++        entry.second.element->RemoveEventListener("change", &g_text_revision_listener, true);
+     entry.second.element->RemoveEventListener("change", &g_action_listener);
+     entry.second.element->RemoveEventListener("keydown", &g_action_listener, true);
+     entry.second.element->RemoveEventListener("mouseover", &g_action_listener);
+@@ -854,6 +880,7 @@
+     g_renderer->SetViewport(width, height);
+     const float dpi = std::isfinite(density) && density > 0 ? std::max(density, 1.0f) : g_context->GetDensityIndependentPixelRatio();
+     if (g_context->GetDimensions() == Rml::Vector2i(width, height) && g_context->GetDensityIndependentPixelRatio() == dpi) return;
++    g_text_input.InvalidateCaret();
+     g_context->SetDimensions({width, height});
+     g_context->SetDensityIndependentPixelRatio(dpi);
+     g_lobby_anchor_dirty = true;
+@@ -875,6 +902,7 @@
+     const bool stationary = g_pointer_known && x == g_pointer_x && y == g_pointer_y && modifiers == g_pointer_modifiers;
+     g_pointer_known = true; g_pointer_x = x; g_pointer_y = y; g_pointer_modifiers = modifiers;
+     if (!stationary || g_pointer_buttons) DirtyVisual();
++    if (g_pointer_buttons) g_text_input.ExternalMutation(nullptr, true); // drag selection
+     return g_context->ProcessMouseMove(x, y, ConvertModifiers(modifiers)) ? 1 : 0;
+ }
+ 
+@@ -886,6 +914,7 @@
+         if (down) g_pointer_buttons |= 1u << button;
+         else g_pointer_buttons &= ~(1u << button);
+     }
++    g_text_input.ExternalMutation(nullptr, true); // click/double-click selection and focus
+     const bool propagated = down
+         ? g_context->ProcessMouseButtonDown(button, ConvertModifiers(modifiers))
+         : g_context->ProcessMouseButtonUp(button, ConvertModifiers(modifiers));
+@@ -896,6 +925,7 @@
+ {
+     if (!OwnerThread() || !g_context || !std::isfinite(delta_y)) return 0;
+     DirtyVisual();
++    g_text_input.InvalidateCaret();
+     return g_context->ProcessMouseWheel(-delta_y, ConvertModifiers(modifiers)) ? 1 : 0;
+ }
+ 
+@@ -905,6 +935,7 @@
+     const Rml::Input::KeyIdentifier converted = ConvertKey(key);
+     if (converted == Rml::Input::KI_UNKNOWN) return 0;
+     DirtyVisual();
++    if (down) g_text_input.ExternalMutation(nullptr, true); // caret/selection/delete/paste/cut; no text cache
+     const bool propagated = down
+         ? g_context->ProcessKeyDown(converted, ConvertModifiers(modifiers))
+         : g_context->ProcessKeyUp(converted, ConvertModifiers(modifiers));
+@@ -916,6 +947,7 @@
+     if (codepoint == 0 || codepoint > 0x10ffff || (codepoint >= 0xd800 && codepoint <= 0xdfff)) return 0;
+     if (!OwnerThread() || !g_context) return 0;
+     DirtyVisual();
++    g_text_input.ExternalMutation(nullptr, true);
+     return g_context->ProcessTextInput(static_cast<Rml::Character>(codepoint)) ? 1 : 0;
+ }
+ 
+@@ -1030,6 +1062,9 @@
+     const uint64_t restore_document = document->restore_document;
+     const std::string restore_element = document->restore_element;
+     document->element->RemoveEventListener("click", &g_action_listener);
++    document->element->RemoveEventListener("input", &g_text_revision_listener, true);
++    document->element->RemoveEventListener("focus", &g_text_revision_listener, true);
++    document->element->RemoveEventListener("change", &g_text_revision_listener, true);
+     document->element->RemoveEventListener("change", &g_action_listener);
+     document->element->RemoveEventListener("keydown", &g_action_listener, true);
+     document->element->RemoveEventListener("mouseover", &g_action_listener);
+@@ -1060,6 +1095,7 @@
+     DirtyVisual();
+     if (show) document->element->Show(document->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None, Rml::FocusFlag::Keep);
+     else {
++        g_text_input.Unavailable(document->element);
+         document->element->Hide();
+         g_actions.erase(std::remove_if(g_actions.begin(), g_actions.end(), [document_id](const QueuedAction& action) {
+             return action.intent.document_id == document_id;
+@@ -1083,6 +1119,7 @@
+     auto* document = GetDocument(document_id);
+     if (!document || !name) return 0;
+     const std::string text = value ? value : "";
++    g_text_input.InvalidateCaret();
+     const auto previous = document->texts.find(name);
+     if (previous != document->texts.end() && previous->second == text) return 1;
+     const std::string binding(name);
+@@ -1136,6 +1173,7 @@
+     auto* document = GetDocument(document_id);
+     if (!document || !name) return 0;
+     const bool boolean = value != 0;
++    g_text_input.InvalidateCaret();
+     const auto previous = document->booleans.find(name);
+     if (previous != document->booleans.end() && previous->second == boolean) return 1;
+     const std::string binding(name);
+@@ -1154,13 +1192,13 @@
+         auto* element = document->element->GetElementById(binding.substr(8));
+         if (!element) return 0;
+         if (boolean) element->RemoveProperty("display");
+-        else element->SetProperty("display", "none");
++        else { g_text_input.Unavailable(element); element->SetProperty("display", "none"); }
+     } else if (document_id == g_home_id && g_model) g_model->SetBool(name, boolean);
+     else {
+         auto* element = document->element->GetElementById(name);
+         if (!element) return 0;
+         if (boolean) element->RemoveProperty("display");
+-        else element->SetProperty("display", "none");
++        else { g_text_input.Unavailable(element); element->SetProperty("display", "none"); }
+     }
+     document->booleans[name] = boolean;
+     DirtyVisual();
+@@ -1183,7 +1221,7 @@
+         if (ReadFiniteNumbers(previous, &previous_number, 1) && ReadFiniteNumbers(text, &next_number, 1))
+             changed = previous_number != next_number;
+     }
+-    if (changed) { ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
++    if (changed) { g_text_input.InvalidateCaret(); g_text_input.ExternalMutation(element); ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
+     return 1;
+ }
+ PP_EXPORT int pp_rmlui_document_read_field(uint64_t document_id, const char* element_id, unsigned char* buffer, int capacity)
+@@ -1201,6 +1239,9 @@
+     auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).string());
+     if (!replacement) return 0;
+     document->element->RemoveEventListener("click", &g_action_listener);
++    document->element->RemoveEventListener("input", &g_text_revision_listener, true);
++    document->element->RemoveEventListener("focus", &g_text_revision_listener, true);
++    document->element->RemoveEventListener("change", &g_text_revision_listener, true);
+     document->element->RemoveEventListener("change", &g_action_listener);
+     document->element->RemoveEventListener("keydown", &g_action_listener, true);
+     document->element->RemoveEventListener("mouseover", &g_action_listener);
+@@ -1212,6 +1253,9 @@
+     document->disabled_focus.clear();
+     NormalizeDisabledControls(*document,replacement);
+     replacement->AddEventListener("click", &g_action_listener);
++    replacement->AddEventListener("input", &g_text_revision_listener, true);
++    replacement->AddEventListener("focus", &g_text_revision_listener, true);
++    replacement->AddEventListener("change", &g_text_revision_listener, true);
+     replacement->AddEventListener("change", &g_action_listener);
+     replacement->AddEventListener("keydown", &g_action_listener, true);
+     replacement->AddEventListener("mouseover", &g_action_listener);
+@@ -1311,6 +1355,7 @@
+     EnsureUpdated();
+     auto* element = g_accessibility.Resolve(document->element, g_context->GetFocusElement(), generation, document_id, revision, node_key);
+     if (!element) return 0;
++    g_text_input.InvalidateCaret();
+     const int mask = g_accessibility.ActionMask(document_id, node_key);
+     if (action == 0) {
+         if (!(mask & PrimeAccessibilityTree::Focus) || !element->Focus()) return 0;
+@@ -1360,10 +1405,10 @@
+         const int length = static_cast<int>(Rml::StringUtilities::LengthUTF8(text));
+         text.resize(size_t(Rml::StringUtilities::ConvertCharacterOffsetToByteOffset(text, std::min(length, maximum))));
+     }
+-    g_text_input.Cancel();
++    g_text_input.ExternalMutation(nullptr, true);
+     // Accessibility is one user edit. Range SetValue already emits change;
+     // silence that binding side effect before the single explicit DOM event.
+-    { ProgrammaticFieldMutation binding; field->SetValue(text); }
++    { g_text_input.ExternalMutation(field); ProgrammaticFieldMutation binding; field->SetValue(text); }
+     Rml::Dictionary parameters; parameters["value"] = text;
+     element->DispatchEvent("change", parameters);
+     DirtyVisual();
+@@ -1372,10 +1417,14 @@
+ 
+ PP_EXPORT int pp_rmlui_text_input_state(PrimeTextInputState* state)
+ {
++    try {
+     return OwnerThread() && state && g_text_input.State(*state) ? 1 : 0;
++
++    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
+ }
+ PP_EXPORT int pp_rmlui_text_selection_utf16(uint64_t generation, uint64_t document_id, uint64_t focus_epoch, int* start, int* end)
+ {
++    try {
+     if (!OwnerThread() || !start || !end) return 0;
+     PrimeTextInputState state;
+     if (!g_text_input.State(state) || state.generation != generation || state.document_id != document_id || state.focus_epoch != focus_epoch) return 0;
+@@ -1393,12 +1442,32 @@
+         return units;
+     };
+     *start = offset(state.selection_start); *end = offset(state.selection_end); return 1;
++
++    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
+ }
+ PP_EXPORT int pp_rmlui_composition(uint64_t generation, uint64_t document_id, uint64_t focus_epoch,
+     int stage, const char* text, int cursor, int selection_length)
+ {
+     if (!OwnerThread() || !g_text_input.Compose(generation, document_id, focus_epoch, stage, text, cursor, selection_length)) return 0;
+     DirtyVisual(); return 1;
++}
++PP_EXPORT int pp_rmlui_text_edit_state_v1(PrimeTextEditState* state)
++{
++    if (!OwnerThread() || !state) return 0;
++    try {
++        EnsureUpdated(); // settle pending writes/visibility before the revision witness
++        return g_text_input.EditState(*state) ? 1 : 0;
++    } catch (...) { g_text_input.AbandonAfterFailure(); return 0; }
++}
++PP_EXPORT int pp_rmlui_text_edit_v1(const PrimeTextEditRequest* request, const uint8_t* utf8, uint32_t bytes)
++{
++    if (!OwnerThread() || !request) return -1;
++    try {
++        EnsureUpdated(); // a pending owner write invalidates the captured revision
++        const int result = g_text_input.Edit(*request, utf8, bytes);
++        if (result == 1 || result == -7) DirtyVisual();
++        return g_text_input.OwnerFailed() ? -7 : result;
++    } catch (...) { g_text_input.AbandonAfterFailure(); DirtyVisual(); return -7; }
+ }
+ PP_EXPORT int pp_rmlui_hovered_element(unsigned char* buffer, int capacity)
+ {
+--- a/native/rmlui-poc/projectprime_rmlui_api.h
++++ b/native/rmlui-poc/projectprime_rmlui_api.h
+@@ -246,3 +246,8 @@
+ PP_EXPORT int pp_rmlui_text_input_state(PrimeTextInputState* state);
+ PP_EXPORT int pp_rmlui_composition(uint64_t generation, uint64_t document_id, uint64_t focus_epoch, int stage, const char* text, int cursor, int selection_length);
+ PP_EXPORT int pp_rmlui_hovered_element(unsigned char* buffer, int capacity);
++
++// Optional independently discovered edit-range ABI; protocol1/state64 unchanged.
++#include "projectprime_rmlui_text_edit_protocol.h"
++PP_EXPORT int pp_rmlui_text_edit_state_v1(PrimeTextEditState* state);
++PP_EXPORT int pp_rmlui_text_edit_v1(const PrimeTextEditRequest* request, const uint8_t* utf8, uint32_t bytes);
+--- a/native/rmlui-poc/projectprime_rmlui_menu.h
++++ b/native/rmlui-poc/projectprime_rmlui_menu.h
+@@ -471,6 +471,7 @@
+         for (auto it = pending_inputs.begin(); it != pending_inputs.end();) {
+             Rml::Element* element = FindElementById(it->first.c_str());
+             if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
++                NotifyProgrammaticTextMutation(input);
+                 input->SetValue(it->second);
+                 DirtyVisual();
+                 it = pending_inputs.erase(it);
+--- a/native/rmlui-poc/projectprime_rmlui_text_edit_protocol.h
++++ b/native/rmlui-poc/projectprime_rmlui_text_edit_protocol.h
+@@ -0,0 +1,65 @@
++#pragma once
++#include <stdint.h>
++#include <algorithm>
++#include <string>
++#include <vector>
++
++struct PrimeTextEditRequest {
++    uint32_t size = 80, version = 1;
++    uint64_t generation = 0, document_id = 0, focus_epoch = 0, revision = 0, sequence = 0;
++    uint32_t kind = 0, flags = 0;
++    int32_t start = -1, length = 0, selected_start = -1, selected_length = 0;
++    uint64_t reserved = 0;
++};
++struct PrimeTextEditState {
++    uint32_t size = 88, version = 1;
++    uint64_t generation = 0, document_id = 0, focus_epoch = 0, revision = 0;
++    uint32_t capabilities = 0, flags = 0;
++    int32_t length = 0, selection_start = 0, selection_length = 0, marked_start = -1, marked_length = 0;
++    float x = 0, y = 0, width = 0, height = 0;
++    uint32_t reserved = 0;
++};
++static_assert(sizeof(PrimeTextEditRequest) == 80, "text edit request ABI");
++static_assert(sizeof(PrimeTextEditState) == 88, "text edit state ABI");
++
++// Per-call numeric boundary map, not a cached public editable value. No malformed
++// scalar, NUL, oversized field or interior-surrogate endpoint reaches RmlUi.
++struct PrimeTextIndexMap {
++    std::vector<int> bytes, units;
++    bool Read(const std::string& text)
++    {
++        bytes.clear(); units.clear(); bytes.push_back(0); units.push_back(0);
++        if (text.size() > 262144) return false;
++        size_t position = 0; int utf16 = 0;
++        while (position < text.size()) {
++            uint32_t value = static_cast<unsigned char>(text[position++]);
++            int following = 0; uint32_t minimum = 0;
++            if (value == 0) return false;
++            if (value <= 0x7f) {}
++            else if (value >= 0xc2 && value <= 0xdf) { value &= 0x1f; following = 1; minimum = 0x80; }
++            else if (value >= 0xe0 && value <= 0xef) { value &= 0x0f; following = 2; minimum = 0x800; }
++            else if (value >= 0xf0 && value <= 0xf4) { value &= 0x07; following = 3; minimum = 0x10000; }
++            else return false;
++            if (position + following > text.size()) return false;
++            while (following--) {
++                uint32_t next = static_cast<unsigned char>(text[position++]);
++                if ((next & 0xc0) != 0x80) return false;
++                value = (value << 6) | (next & 0x3f);
++            }
++            if (value < minimum || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) return false;
++            utf16 += value > 0xffff ? 2 : 1;
++            if (utf16 > 65536) return false;
++            bytes.push_back(int(position)); units.push_back(utf16);
++        }
++        return true;
++    }
++    int Scalars() const { return int(units.size()) - 1; }
++    bool Range(int start, int length, int& scalar, int& count) const
++    {
++        if (start < 0 || length < 0 || start > units.back() || length > units.back() - start) return false;
++        auto first = std::lower_bound(units.begin(), units.end(), start);
++        auto last = std::lower_bound(units.begin(), units.end(), start + length);
++        if (first == units.end() || last == units.end() || *first != start || *last != start + length) return false;
++        scalar = int(first - units.begin()); count = int(last - first); return true;
++    }
++};
+--- a/native/rmlui-poc/projectprime_rmlui_text_input.h
++++ b/native/rmlui-poc/projectprime_rmlui_text_input.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ #include "projectprime_rmlui_text_protocol.h"
++#include "projectprime_rmlui_text_edit_protocol.h"
++#include <cmath>
+ #include <RmlUi/Core.h>
+ #include <RmlUi/Core/TextInputContext.h>
+ #include <RmlUi/Core/TextInputHandler.h>
+@@ -13,29 +15,56 @@
+ class PrimeTextInputHandler final : public Rml::TextInputHandler {
+ public:
+     using DocumentLookup = uint64_t (*)(Rml::ElementDocument*);
+-    void Attach(Rml::Context* context, uint64_t generation, DocumentLookup lookup)
++    using ForegroundLookup = bool (*)(Rml::ElementDocument*);
++    void Attach(Rml::Context* context, uint64_t generation, DocumentLookup lookup, ForegroundLookup foreground)
+     {
+         Detach();
+-        context_ = context; generation_ = generation; lookup_ = lookup;
++        context_ = context; generation_ = generation; lookup_ = lookup; foreground_ = foreground;
+     }
+     void Detach()
+     {
+-        Cancel(); input_ = nullptr; context_ = nullptr; lookup_ = nullptr;
+-        generation_ = 0; ++focus_epoch_;
+-    }
+-    void OnActivate(Rml::TextInputContext* input) override
+-    {
+-        if (input_ == input) return;
+-        Cancel(); input_ = input; ++focus_epoch_;
+-    }
+-    void OnDeactivate(Rml::TextInputContext* input) override
+-    {
+-        if (input_ == input) { Cancel(); input_ = nullptr; ++focus_epoch_; }
+-    }
+-    void OnDestroy(Rml::TextInputContext* input) override
+-    {
++        Cancel(); input_ = nullptr; field_ = nullptr; context_ = nullptr; lookup_ = nullptr; foreground_ = nullptr; InvalidateCaret(); Advance();
++        generation_ = 0; pending_focus_.reset(); consumed_focus_serial_ = pending_focus_serial_; ++focus_epoch_;
++    }
++    void OnActivate(Rml::TextInputContext* input) noexcept override
++    {
++        try {
++        if (input_ == input && !retired_) {
++            if (pending_focus_.get() == field_) consumed_focus_serial_ = pending_focus_serial_;
++            return;
++        }
++        // Pinned Context::OnFocusChange dispatches the Focus event before
++        // GetFocusElement changes. Only the captured actual target can bind this
++        // new TextInputContext; a stale/missing capture never adopts old focus.
++        auto* target = pending_focus_.get();
++        if (!input || !target || pending_focus_serial_ == consumed_focus_serial_ || !lookup_
++            || !lookup_(target->GetOwnerDocument())) { AbandonAfterFailure(); return; }
++        const uint64_t capture_serial = pending_focus_serial_;
++        consumed_focus_serial_ = capture_serial;
++        Cancel();
++        if (pending_focus_serial_ != capture_serial || pending_focus_.get() != target) { AbandonAfterFailure(); return; }
++        input_ = input; field_ = target;
++        retired_ = false; owner_failed_ = false; last_sequence_ = 0; ++focus_epoch_; Advance();
++        // ActivateKeyboard precedes OnActivate in pinned WidgetTextInput::Focus.
++        if (caret_field_ != field_) InvalidateCaret();
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void OnDeactivate(Rml::TextInputContext* input) noexcept override
++    {
++        try {
++        if (input_ == input) { Cancel(); input_ = nullptr; field_ = nullptr; InvalidateCaret(); ++focus_epoch_; Advance(); }
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void OnDestroy(Rml::TextInputContext* input) noexcept override
++    {
++        try {
++        InvalidateCaret(); // discard even a pre-activation sample for a destroyed field
+         // OnDestroy can run after the element has stopped supporting edits.
+-        if (input_ == input) { input_ = nullptr; ResetComposition(); ++focus_epoch_; }
++        if (input_ == input) { input_ = nullptr; field_ = nullptr; ResetComposition(); InvalidateCaret(); ++focus_epoch_; Advance(); }
++
++        } catch (...) { AbandonAfterFailure(); }
+     }
+     bool State(PrimeTextInputState& result) const
+     {
+@@ -56,12 +85,20 @@
+         return true;
+     }
+     bool Compose(uint64_t generation, uint64_t document, uint64_t focus_epoch, int stage,
++        const char* utf8, int cursor, int selection_length) noexcept
++    {
++        if (internal_depth_) return false;
++        try { return ComposeOwned(generation, document, focus_epoch, stage, utf8, cursor, selection_length); }
++        catch (...) { AbandonAfterFailure(); return false; }
++    }
++    bool ComposeOwned(uint64_t generation, uint64_t document, uint64_t focus_epoch, int stage,
+         const char* utf8, int cursor, int selection_length)
+     {
+         if (!input_ || !document || generation != generation_ || focus_epoch != focus_epoch_
+-            || document != ActiveDocument() || stage < 0 || stage > 3 || cursor < -1 || selection_length < 0) return false;
++            || document != ActiveDocument() || stage < 0 || stage > 3 || cursor < -1 || selection_length < 0 || !CurrentEditable()) return false;
++        InternalMutation mutation(*this);
+         if (stage == 0) return Begin();
+-        if (stage == 3) { Cancel(); return true; }
++        if (stage == 3) { CancelOwned(); return mutation.Current(); }
+         if (!composing_ || !utf8) return false;
+         Rml::String text(utf8);
+         if (text.size() > 262144 || !ValidUtf8(text)) return false;
+@@ -79,28 +116,293 @@
+             }
+         }
+         input_->SetText(text, range_start_, range_end_);
++        if (!mutation.Current()) return false;
+         range_end_ = range_start_ + static_cast<int>(Rml::StringUtilities::LengthUTF8(text));
+         input_->SetCompositionRange(range_start_, range_end_);
++        if (!mutation.Current()) return false;
+         if (stage == 2) {
+             if (range_end_ > range_start_) input_->CommitComposition(text);
++            if (!mutation.Current()) return false;
+             const int final_cursor = range_end_;
+-            ResetComposition(); input_->SetCursorPosition(final_cursor);
++            ResetComposition();
++            if (!mutation.Current()) return false;
++            input_->SetCursorPosition(final_cursor);
+         } else if (cursor < 0) input_->SetSelectionRange(range_start_, range_end_);
+         else input_->SetSelectionRange(range_start_ + cursor, range_start_ + cursor + selection_length);
++        return mutation.Current();
++    }
++    void Cancel() noexcept
++    {
++        if (internal_depth_) { DropComposition(); return; }
++        try { CancelOwned(); } catch (...) { AbandonAfterFailure(); }
++    }
++    void CancelOwned()
++    {
++        InternalMutation mutation(*this);
++        if (composing_ && input_ && ActiveDocument() && composition_revision_ == revision_) {
++            input_->SetText(original_selection_, range_start_, range_end_);
++            if (!mutation.Current()) { DropComposition(); return; }
++            input_->SetSelectionRange(range_start_, range_start_ + original_selection_length_);
++        }
++        ResetComposition();
++    }
++    bool IsComposing() const { return composing_; }
++
++    // Bridge entrypoints call this before external owner mutations. Restoring a
++    // composition is only appropriate before a physical edit, not before a
++    // programmatic replacement or an already-dispatched unknown change event.
++    void ExternalMutation(Rml::Element* target = nullptr, bool restore = false) noexcept
++    {
++        try {
++        if (!input_ || (target && target != field_)) return;
++        if (internal_depth_) { external_during_edit_ = true; Advance(); return; }
++        if (restore) Cancel(); else ResetComposition();
++        InvalidateCaret(); Advance();
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void Unavailable(Rml::Element* ancestor) noexcept
++    {
++        try {
++        for (auto* element = field_; element; element = element->GetParentNode())
++            if (element == ancestor) {
++                ResetComposition(); retired_ = true; InvalidateCaret(); Advance();
++                if (auto* field = field_) field->Blur();
++                return;
++            }
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void ValidateAvailability() noexcept
++    {
++        try {
++        if (input_ && !CurrentEditable()) if (auto* field = field_) field->Blur();
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void ObserveEditEvent(Rml::Event& event) noexcept
++    {
++        try {
++        if (event.GetType() == "focus") {
++            auto* target = event.GetTargetElement();
++            auto* field = dynamic_cast<Rml::ElementFormControl*>(target);
++            if (field) {
++                const auto tag = target->GetTagName();
++                const auto type = target->GetAttribute<Rml::String>("type", "text");
++                if (tag == "textarea" || (tag == "input" && (type == "text" || type == "password" || type == "number"))) {
++                    if (++pending_focus_serial_ == 0) { AbandonAfterFailure(); return; }
++                    pending_focus_ = target->GetObserverPtr();
++                }
++            }
++            return;
++        }
++        if (!internal_depth_ && (event.GetType() == "input" || event.GetType() == "change")) ExternalMutation(event.GetTargetElement());
++
++        } catch (...) { AbandonAfterFailure(); }
++    }
++    void AbandonAfterFailure() noexcept
++    {
++        owner_failed_ = true; retired_ = true; pending_focus_.reset(); consumed_focus_serial_ = pending_focus_serial_;
++        DropComposition(); InvalidateCaret(); Advance();
++    }
++    bool OwnerFailed() const noexcept { return owner_failed_; }
++    void InvalidateCaret() { caret_field_ = nullptr; caret_height_ = 0; }
++    Rml::Element* CaretOwner() const
++    {
++        if (pending_focus_serial_ != consumed_focus_serial_ && pending_focus_) return pending_focus_.get();
++        return ActiveDocument() ? field_ : nullptr;
++    }
++    void CaptureCaret(Rml::Element* field, Rml::Vector2f position, float line_height)
++    {
++        if (!field || !std::isfinite(position.x) || !std::isfinite(position.y)
++            || !std::isfinite(line_height) || line_height <= 0) { InvalidateCaret(); return; }
++        caret_field_ = field; caret_position_ = position; caret_height_ = line_height;
++    }
++    bool EditState(PrimeTextEditState& result)
++    {
++        if (internal_depth_) return false;
++        if (result.size != 88 || result.version != 1 || result.reserved || !CurrentEditable()) return false;
++        PrimeTextIndexMap map;
++        auto* field = ActiveField();
++        if (!map.Read(field->GetValue())) return false;
++        int start = 0, end = 0; input_->GetSelectionRange(start, end);
++        if (start < 0 || end < start || end > map.Scalars()) return false;
++        result = PrimeTextEditState{};
++        result.generation = generation_; result.document_id = ActiveDocument(); result.focus_epoch = focus_epoch_; result.revision = revision_;
++        result.capabilities = 1; // select/replace/marked/commit/cancel, UTF-16 v1
++        if (field->GetAttribute<Rml::String>("type", "") == "password") result.flags |= 1;
++        result.length = map.units.back(); result.selection_start = map.units[start]; result.selection_length = map.units[end] - map.units[start];
++        if (composing_ && composition_revision_ == revision_) {
++            if (range_start_ < 0 || range_end_ < range_start_ || range_end_ > map.Scalars()) return false;
++            result.marked_start = map.units[range_start_]; result.marked_length = map.units[range_end_] - result.marked_start;
++        }
++        if (start == end && caret_field_ == field_ && caret_height_ > 0) {
++            result.flags |= 2; result.x = caret_position_.x; result.y = caret_position_.y;
++            result.width = 0; result.height = caret_height_; // true position/height; width unavailable, not guessed
++        } else {
++            Rml::Rectanglef box;
++            if (input_->GetBoundingBox(box)) {
++                result.flags |= 4; result.x = box.Left(); result.y = box.Top(); result.width = box.Width(); result.height = box.Height();
++            }
++        }
+         return true;
+     }
+-    void Cancel()
+-    {
+-        if (composing_ && input_) {
+-            input_->SetText(original_selection_, range_start_, range_end_);
+-            input_->SetSelectionRange(range_start_, range_start_ + original_selection_length_);
+-        }
+-        ResetComposition();
+-    }
+-    bool IsComposing() const { return composing_; }
++    int Edit(const PrimeTextEditRequest& request, const uint8_t* utf8, uint32_t bytes)
++    {
++        if (internal_depth_) return -7;
++        if (request.size != 80 || request.version != 1 || request.reserved || (request.flags & ~1u) || (request.flags && request.kind != 4) || request.kind < 1 || request.kind > 5
++            || bytes > 262144 || (!utf8 && bytes)) return -4;
++        if (request.generation != generation_ || request.document_id != ActiveDocument() || request.focus_epoch != focus_epoch_) return -1;
++        if (!CurrentEditable()) return -6;
++        if (!request.sequence || request.sequence <= last_sequence_) return -3;
++        if (request.revision != revision_) return -2;
++        if (composing_ && composition_revision_ != revision_) { ResetComposition(); return -2; }
++        Rml::String text = bytes ? Rml::String(reinterpret_cast<const char*>(utf8), bytes) : Rml::String{};
++        Rml::String value = ActiveField()->GetValue();
++        PrimeTextIndexMap existing, inserted;
++        if (!existing.Read(value) || !inserted.Read(text)) return -4;
++        if (request.flags == 1) {
++            if (bytes || request.start != -1 || request.length || request.selected_start != -1 || request.selected_length) return -4;
++            last_sequence_ = request.sequence;
++            if (!composing_) return 1; // AppKit unmark with no marked text is a no-op
++            if (range_start_ < 0 || range_end_ < range_start_ || range_end_ > existing.Scalars()) return -7;
++            int before_start = 0, before_end = 0; input_->GetSelectionRange(before_start, before_end);
++            const int maximum = ActiveField()->GetAttribute<int>("maxlength", -1);
++            InternalMutation mutation(*this);
++            if (maximum >= 0 && existing.Scalars() > maximum) {
++                // Exceptional over-limit preedit: only the EXACT marked range is
++                // read/replaced through the existing owner. No whole-field write.
++                const int old_start = range_start_, old_end = range_end_;
++                const int count = std::min(old_end - old_start, std::max(0, maximum - (existing.Scalars() - (old_end - old_start))));
++                Rml::String marked = value.substr(size_t(existing.bytes[old_start]), size_t(existing.bytes[old_start + count] - existing.bytes[old_start]));
++                value.replace(size_t(existing.bytes[old_start]), size_t(existing.bytes[old_end] - existing.bytes[old_start]), marked);
++                if (!ComposeOwned(generation_, request.document_id, focus_epoch_, 2, marked.c_str(), -1, 0)) return -7;
++                auto mapped = [old_start, old_end, count](int position) {
++                    return position <= old_start ? position : position >= old_end ? position + count - (old_end - old_start) : std::min(position, old_start + count);
++                };
++                before_start = mapped(before_start); before_end = mapped(before_end);
++                if (!mutation.Current()) return -7;
++                input_->SetSelectionRange(before_start, before_end);
++            } else ResetComposition();
++            if (!mutation.Current()) return -7;
++            int after_start = 0, after_end = 0; input_->GetSelectionRange(after_start, after_end);
++            return !external_during_edit_ && ActiveField() && ActiveField()->GetValue() == value
++                && before_start == after_start && before_end == after_end ? 1 : -7;
++        }
++        int begin = 0, removed = 0, selected = 0, selected_length = 0;
++        if (request.kind == 5) {
++            if (bytes || request.start != -1 || request.length || request.selected_start != -1 || request.selected_length) return -4;
++            if (!composing_) return -5;
++            if (range_start_ < 0 || range_end_ < range_start_ || range_end_ > existing.Scalars()) return -7;
++            Rml::String expected = value;
++            expected.replace(size_t(existing.bytes[range_start_]), size_t(existing.bytes[range_end_] - existing.bytes[range_start_]), original_selection_);
++            const int selected_start = range_start_, selected_end = range_start_ + original_selection_length_;
++            last_sequence_ = request.sequence; CancelOwned();
++            if (owner_failed_ || request.focus_epoch != focus_epoch_ || request.document_id != ActiveDocument()) return -7;
++            int after_start = 0, after_end = 0;
++            if (input_) input_->GetSelectionRange(after_start, after_end);
++            return !external_during_edit_ && ActiveField() && ActiveField()->GetValue() == expected
++                && after_start == selected_start && after_end == selected_end ? 1 : -7;
++        }
++        if (request.kind == 1) {
++            if (composing_) return -5;
++            if (bytes || request.selected_start != -1 || request.selected_length || !existing.Range(request.start, request.length, begin, removed)) return -4;
++            last_sequence_ = request.sequence; InternalMutation mutation(*this); input_->SetSelectionRange(begin, begin + removed);
++            if (!mutation.Current()) return -7;
++            int after_start = 0, after_end = 0; input_->GetSelectionRange(after_start, after_end);
++            return mutation.Current() && after_start == begin && after_end == begin + removed ? 1 : -7;
++        }
++        if ((request.kind == 2 && composing_) || (request.kind == 4 && !composing_)) return -5;
++        if (request.start == -1 && request.length == 0) {
++            if (composing_) { begin = range_start_; removed = range_end_ - range_start_; }
++            else { int end = 0; input_->GetSelectionRange(begin, end); removed = end - begin; }
++        } else if (!existing.Range(request.start, request.length, begin, removed)) return -4;
++        if (begin < 0 || removed < 0 || begin > existing.Scalars() || removed > existing.Scalars() - begin) return -4;
++        if (composing_ && (begin != range_start_ || removed != range_end_ - range_start_)) return -4;
++        if (request.kind == 3) {
++            if (!inserted.Range(request.selected_start, request.selected_length, selected, selected_length)) return -4;
++        } else if (request.selected_start != -1 || request.selected_length) return -4;
++        const int maximum = ActiveField()->GetAttribute<int>("maxlength", -1);
++        if (request.kind != 3 && maximum >= 0) {
++            int available = std::max(0, maximum - (existing.Scalars() - removed));
++            text.resize(size_t(inserted.bytes[std::min(inserted.Scalars(), available)]));
++            if (!inserted.Read(text)) return -4;
++        }
++        Rml::String expected = value;
++        expected.replace(size_t(existing.bytes[begin]), size_t(existing.bytes[begin + removed] - existing.bytes[begin]), text);
++        PrimeTextIndexMap expected_map;
++        if (!expected_map.Read(expected)) return -4;
++        last_sequence_ = request.sequence; // consumed before any effect, including a throwing owner
++        try {
++            InternalMutation mutation(*this);
++            if (request.kind == 2) {
++                input_->SetText(text, begin, begin + removed);
++                if (!mutation.Current()) return -7;
++                input_->SetCursorPosition(begin + inserted.Scalars());
++            }
++            else {
++                if (!composing_) {
++                    input_->SetSelectionRange(begin, begin + removed);
++                    if (!mutation.Current() || !Begin()) return -7;
++                }
++                if (!ComposeOwned(generation_, request.document_id, focus_epoch_, request.kind == 3 ? 1 : 2, text.c_str(),
++                    request.kind == 3 ? selected : -1, request.kind == 3 ? selected_length : 0)) return -7;
++            }
++            if (!mutation.Current()) return -7;
++            int after_start = 0, after_end = 0;
++            input_->GetSelectionRange(after_start, after_end);
++            const int selected_start = request.kind == 3 ? begin + selected : begin + inserted.Scalars();
++            const int selected_end = request.kind == 3 ? selected_start + selected_length : selected_start;
++            if (external_during_edit_ || !ActiveField() || ActiveField()->GetValue() != expected
++                || after_start != selected_start || after_end != selected_end) { ResetComposition(); InvalidateCaret(); return -7; }
++            InvalidateCaret(); // text may await widget formatting; do not export a stale pre-layout sample
++            return 1;
++        } catch (...) { AbandonAfterFailure(); return -7; }
++    }
+ 
+ private:
++    struct InternalMutation {
++        PrimeTextInputHandler& owner;
++        Rml::TextInputContext* input;
++        Rml::Element* field;
++        uint64_t focus;
++        explicit InternalMutation(PrimeTextInputHandler& value) : owner(value), input(value.input_), field(value.field_), focus(value.focus_epoch_)
++        { if (owner.internal_depth_++ == 0) owner.external_during_edit_ = false; }
++        bool Current() const
++        { return !owner.owner_failed_ && !owner.external_during_edit_ && owner.input_ == input && owner.field_ == field
++            && owner.focus_epoch_ == focus && owner.ActiveDocument() != 0; }
++        ~InternalMutation() noexcept
++        {
++            if (--owner.internal_depth_ != 0) return;
++            try {
++                owner.Advance();
++                if (!Current()) { if (owner.composition_input_ == input) owner.DropComposition(); }
++                else if (owner.composing_) owner.composition_revision_ = owner.revision_;
++            } catch (...) { owner.AbandonAfterFailure(); }
++        }
++    };
+     Rml::Context* context_ = nullptr;
++    Rml::Element* field_ = nullptr;
++    Rml::ObserverPtr<Rml::Element> pending_focus_;
++    uint64_t pending_focus_serial_ = 0, consumed_focus_serial_ = 0;
++    ForegroundLookup foreground_ = nullptr;
++    uint64_t revision_ = 1, composition_revision_ = 0, last_sequence_ = 0;
++    int internal_depth_ = 0;
++    bool external_during_edit_ = false;
++    bool retired_ = false, owner_failed_ = false;
++    Rml::TextInputContext* composition_input_ = nullptr;
++    Rml::Element* caret_field_ = nullptr;
++    Rml::Vector2f caret_position_{};
++    float caret_height_ = 0;
++    void Advance() { if (++revision_ == 0) { revision_ = 1; retired_ = true; } }
++    bool CurrentEditable()
++    {
++        auto* field = ActiveField();
++        if (!ActiveDocument() || !field || !field->IsVisible(true) || field->IsDisabled() || field->HasAttribute("readonly")) {
++            ResetComposition(); InvalidateCaret(); retired_ = true; return false;
++        }
++        return true;
++    }
+     Rml::TextInputContext* input_ = nullptr;
+     DocumentLookup lookup_ = nullptr;
+     uint64_t generation_ = 0, focus_epoch_ = 0;
+@@ -110,14 +412,14 @@
+ 
+     uint64_t ActiveDocument() const
+     {
+-        if (!context_ || !lookup_ || !input_) return 0;
++        if (!context_ || !lookup_ || !foreground_ || !input_ || retired_) return 0;
+         auto* element = context_->GetFocusElement();
+         auto* document = element ? element->GetOwnerDocument() : nullptr;
+-        return document && document->IsVisible() ? lookup_(document) : 0;
++        return element && element == field_ && element->IsVisible(true) && document && document->IsVisible() && foreground_(document) ? lookup_(document) : 0;
+     }
+     Rml::ElementFormControl* ActiveField() const
+     {
+-        return context_ ? dynamic_cast<Rml::ElementFormControl*>(context_->GetFocusElement()) : nullptr;
++        return context_ && context_->GetFocusElement() == field_ ? dynamic_cast<Rml::ElementFormControl*>(field_) : nullptr;
+     }
+     bool Begin()
+     {
+@@ -133,14 +435,22 @@
+             original_selection_ = value.substr(static_cast<size_t>(begin), static_cast<size_t>(end - begin));
+             original_selection_length_ = range_end_ - range_start_;
+         }
+-        composing_ = true;
++        composing_ = true; composition_input_ = input_; composition_revision_ = revision_;
+         return true;
+     }
++    void DropComposition() noexcept
++    {
++        composing_ = false; composition_input_ = nullptr;
++        range_start_ = range_end_ = original_length_ = original_selection_length_ = 0;
++        original_selection_.clear();
++    }
+     void ResetComposition()
+     {
+-        if (input_) input_->SetCompositionRange(0, 0);
+-        composing_ = false; range_start_ = range_end_ = original_length_ = original_selection_length_ = 0;
+-        original_selection_.clear();
++        // A reentrant focus change must never clear the NEW owner's marker.
++        auto* marked_owner = composition_input_;
++        const bool current = marked_owner && marked_owner == input_ && ActiveDocument() && !owner_failed_;
++        DropComposition();
++        if (current) marked_owner->SetCompositionRange(0, 0);
+     }
+     static bool ValidUtf8(const Rml::String& text)
+     {
+--- a/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs
++++ b/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs
+@@ -8,9 +8,15 @@
+ {
+     public static RmlUiCocoaRange None => new(ulong.MaxValue, 0);
+ }
++internal readonly record struct RmlUiCocoaCandidate(RmlUiTextInputBounds Bounds, int Width, int Height, RmlUiCocoaRange ActualRange, bool ExactCaret);
+ internal sealed record RmlUiCocoaCallbacks(Func<string, int, int, bool> Marked, Func<string, bool> Insert,
+     Action Unmark, Action NewKey, Func<RmlUiCocoaRange> Selection, Func<RmlUiCocoaRange> MarkedRange, Func<bool> Owns,
+-    Func<(RmlUiTextInputBounds Bounds, int Width, int Height)?> Candidate, Action Destroyed);
++    Func<(RmlUiTextInputBounds Bounds, int Width, int Height)?> Candidate, Action Destroyed)
++{
++    internal Func<string, RmlUiCocoaRange, RmlUiCocoaRange, bool>? MarkedWithReplacement { get; init; }
++    internal Func<string, RmlUiCocoaRange, bool>? InsertWithReplacement { get; init; }
++    internal Func<RmlUiCocoaRange, RmlUiCocoaCandidate?>? CandidateForRange { get; init; }
++}
+ internal interface IRmlUiCocoaImeApi
+ {
+     bool Attach(nint view, RmlUiCocoaCallbacks callbacks);
+@@ -26,6 +32,8 @@
+     private readonly Func<bool> _visible;
+     private readonly IRmlUiCocoaImeApi _api;
+     private RmlUiTextInputState? _scope;
++    private RmlUiTextEditState? _editScope;
++    private bool _inEdit;
+     private bool _ownsSequence, _discardSequence, _attached;
+     private int _markedLength, _markedCursor, _markedSelectionLength;
+     private ulong _markedStart;
+@@ -42,12 +50,94 @@
+     {
+         (_host, _visible, _api) = (host, visible, api);
+         host.VerifyOwnerThread();
+-        try { _attached = api.Attach(view, new(Marked, Insert, Unmark, NewKey, Selection, MarkedRange, () => _ownsSequence, Candidate, Destroyed)); }
++        try { _attached = api.Attach(view, new(Marked, Insert, Unmark, NewKey, Selection, MarkedRange, () => _ownsSequence, Candidate, Destroyed)
++            { MarkedWithReplacement = MarkedWithReplacement, InsertWithReplacement = InsertWithReplacement, CandidateForRange = CandidateForRange }); }
+         catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+         { LastFailure = "Cocoa text input adapter is unavailable"; }
+     }
+     private bool Current() => _visible() && _host.Active && _scope is { } scope
+         && _host.TryGetTextInputState(out var current) && current.Document == scope.Document && current.FocusEpoch == scope.FocusEpoch;
++    private static bool Range(RmlUiCocoaRange range, bool unspecified, out int start, out int length)
++    {
++        start = -1; length = 0;
++        if (unspecified && range.Location == ulong.MaxValue && range.Length == 0) return true;
++        if (range.Location > 65536 || range.Length > 65536 || range.Length > 65536 - range.Location) return false;
++        start = (int)range.Location; length = (int)range.Length; return true;
++    }
++    private bool OwnedRevision(out RmlUiTextEditState state)
++    {
++        state = default;
++        return Current() && _editScope is { } scope && _host.TryGetTextEditState(out state)
++            && state.Document == scope.Document && state.FocusEpoch == scope.FocusEpoch && state.Revision == scope.Revision;
++    }
++    private bool RejectMarkedSequence(string failure)
++    {
++        LastFailure = failure;
++        if (_ownsSequence) { CancelCore(false); return true; }
++        if (_visible() && _host.TryGetTextInputState(out var native)) {
++            _scope = native; _editScope = null; _ownsSequence = _discardSequence = true;
++            return true; // original Cocoa marked cache may still produce a later insert
++        }
++        return false;
++    }
++    private bool MarkedWithReplacement(string text, RmlUiCocoaRange selected, RmlUiCocoaRange replacement)
++    {
++        _host.VerifyOwnerThread();
++        if (_inEdit) return _ownsSequence;
++        if (!Range(selected, false, out int selectedStart, out int selectedLength)
++            || !Range(replacement, true, out int start, out int length)) {
++            return RejectMarkedSequence("Cocoa text range is invalid");
++        }
++        if (_ownsSequence && _editScope is null) {
++            if (replacement != RmlUiCocoaRange.None || !Range(selected, false, out int oldStart, out int oldLength))
++            { CancelCore(false); LastFailure = "Cocoa replacement range is unsupported by this native bridge"; return true; }
++            return Marked(text, oldStart, oldLength);
++        }
++        if (_ownsSequence && (_discardSequence || !OwnedRevision(out _))) { CancelCore(false); return true; }
++        if (!_ownsSequence) {
++            if (!_visible() || !_host.TryGetTextEditState(out var state)) {
++                if (replacement == RmlUiCocoaRange.None && Range(selected, false, out int oldStart, out int oldLength))
++                    return Marked(text, oldStart, oldLength);
++                return RejectMarkedSequence("Cocoa replacement range is unsupported by this native bridge");
++            }
++            if (!_host.TryGetTextInputState(out var legacy) || legacy.Document != state.Document || legacy.FocusEpoch != state.FocusEpoch) return false;
++            _editScope = state; _scope = legacy; _ownsSequence = true; _discardSequence = false;
++        }
++        _inEdit = true;
++        try {
++            var result = _host.TextEdit(_editScope!.Value, _host.NextTextEditSequence(), RmlUiTextEditKind.Marked,
++                text, start, length, selectedStart, selectedLength);
++            if (result != RmlUiTextEditResult.Accepted || !_host.TryGetTextEditState(out var updated)
++                || updated.Document != _editScope.Value.Document || updated.FocusEpoch != _editScope.Value.FocusEpoch || updated.MarkedStart < 0)
++            { CancelCore(false); LastFailure = "Cocoa marked-text edit rejected"; return true; }
++            _editScope = updated; _markedStart = (ulong)updated.MarkedStart; _markedLength = updated.MarkedLength;
++            _markedCursor = updated.SelectionStart - updated.MarkedStart; _markedSelectionLength = updated.SelectionLength;
++            return true;
++        } finally { _inEdit = false; }
++    }
++    private bool InsertWithReplacement(string text, RmlUiCocoaRange replacement)
++    {
++        _host.VerifyOwnerThread();
++        if (_inEdit) return _ownsSequence;
++        if (_ownsSequence && _editScope is null) {
++            if (replacement != RmlUiCocoaRange.None) { CancelCore(false); return true; }
++            return Insert(text);
++        }
++        if (!_ownsSequence && replacement == RmlUiCocoaRange.None) return false; // normal GLFW character owner
++        if (_ownsSequence && (_discardSequence || !OwnedRevision(out _))) { CancelCore(false); return true; }
++        if (!_visible() || (!_ownsSequence && !_host.TryGetTextInputState(out _))) return false;
++        if (!Range(replacement, true, out int start, out int length)) { LastFailure = "Cocoa replacement range is invalid"; return true; }
++        if (!_ownsSequence && !_host.TryGetTextEditState(out _)) { LastFailure = "Cocoa replacement range is unsupported by this native bridge"; return true; }
++        RmlUiTextEditState current = _editScope ?? (_host.TryGetTextEditState(out var queried) ? queried : default);
++        _inEdit = true;
++        try {
++            var result = _host.TextEdit(current, _host.NextTextEditSequence(), _ownsSequence ? RmlUiTextEditKind.Commit : RmlUiTextEditKind.Replace,
++                text, start, length);
++            if (result != RmlUiTextEditResult.Accepted) LastFailure = "Cocoa committed-text edit rejected";
++            _scope = null; _editScope = null; _ownsSequence = _discardSequence = false; _markedLength = 0;
++            return true; // suppress original GLFW insertion exactly for this callback, no text/time dedup
++        } finally { _inEdit = false; }
++    }
+     private bool Marked(string text, int cursorUtf16, int selectionUtf16)
+     {
+         try
+@@ -88,7 +178,21 @@
+     }
+     private void Unmark()
+     {
+-        try { _host.VerifyOwnerThread(); CancelCore(false); }
++        try {
++            _host.VerifyOwnerThread();
++            // discardMarkedText may synchronously call unmarkText. Keep the
++            // canceled sequence fenced until its real new-key boundary; it must
++            // not release a delayed insert into GLFW or a replacement focus.
++            if (_discardSequence) return;
++            if (_editScope is { } edit) {
++                if (!OwnedRevision(out _)) { CancelCore(false); return; }
++                var result = _host.TextEdit(edit, _host.NextTextEditSequence(), RmlUiTextEditKind.Commit, commitCurrent: true);
++                if (result != RmlUiTextEditResult.Accepted) { LastFailure = "Cocoa unmark rejected by current text owner"; return; }
++                _scope = null; _editScope = null; _ownsSequence = _discardSequence = false; _markedLength = 0;
++                return;
++            }
++            CancelCore(false); // optional legacy ABI keeps its existing behavior
++        }
+         catch { LastFailure = "Cocoa composition cancellation rejected"; }
+     }
+     private void NewKey()
+@@ -98,7 +202,7 @@
+             _host.VerifyOwnerThread();
+             // The OS input context was discarded on cancellation. A new physical
+             // key starts a new sequence, while delayed asynchronous results remain swallowed.
+-            if (_discardSequence) { _scope = null; _ownsSequence = _discardSequence = false; _markedLength = 0; }
++            if (_discardSequence) { _scope = null; _editScope = null; _ownsSequence = _discardSequence = false; _markedLength = 0; }
+         }
+         catch { LastFailure = "Cocoa key callback arrived off the owner thread"; }
+     }
+@@ -107,6 +211,7 @@
+         try
+         {
+             _host.VerifyOwnerThread();
++            if (_editScope is not null) return OwnedRevision(out var edit) ? new((ulong)edit.SelectionStart, (ulong)edit.SelectionLength) : RmlUiCocoaRange.None;
+             if (_ownsSequence && !_discardSequence) return new(_markedStart + (ulong)_markedCursor, (ulong)_markedSelectionLength);
+             if (_visible() && _host.TryGetTextInputState(out var state))
+                 return _host.TryGetTextSelectionUtf16(state, out int start, out int end)
+@@ -115,13 +220,34 @@
+         catch { LastFailure = "Cocoa selection query rejected"; }
+         return RmlUiCocoaRange.None;
+     }
+-    private RmlUiCocoaRange MarkedRange() => _ownsSequence && !_discardSequence && _markedLength > 0
+-        ? new(_markedStart, (ulong)_markedLength) : RmlUiCocoaRange.None;
++    private RmlUiCocoaRange MarkedRange()
++    {
++        _host.VerifyOwnerThread();
++        if (_editScope is not null) return OwnedRevision(out var state) && state.MarkedStart >= 0
++            ? new((ulong)state.MarkedStart, (ulong)state.MarkedLength) : RmlUiCocoaRange.None;
++        return _ownsSequence && !_discardSequence && _markedLength > 0 ? new(_markedStart, (ulong)_markedLength) : RmlUiCocoaRange.None;
++    }
++    private RmlUiCocoaCandidate? CandidateForRange(RmlUiCocoaRange requested)
++    {
++        _host.VerifyOwnerThread();
++        if (!_visible()) return null;
++        if (_host.TryGetTextEditState(out var edit)) {
++            if ((edit.Flags & 2) != 0 && edit.SelectionLength == 0 && requested.Location == (ulong)edit.SelectionStart && requested.Length == 0)
++                return new(edit.Bounds, _host.FramebufferWidth, _host.FramebufferHeight, new((ulong)edit.SelectionStart, 0), true);
++            if (_host.TryGetTextInputState(out var field) && field.Document == edit.Document && field.FocusEpoch == edit.FocusEpoch
++                && (field.Capabilities & RmlUiTextInputCapabilities.Bounds) != 0)
++                return new(field.Bounds, _host.FramebufferWidth, _host.FramebufferHeight, new(0, (ulong)edit.Length), false);
++            return null;
++        }
++        return Candidate() is { } legacy ? new(legacy.Bounds, legacy.Width, legacy.Height, requested, false) : null;
++    }
+     private (RmlUiTextInputBounds Bounds, int Width, int Height)? Candidate()
+     {
+         try
+         {
+             _host.VerifyOwnerThread();
++            if (_visible() && _host.TryGetTextEditState(out var edit) && (edit.Flags & 6) != 0)
++                return (edit.Bounds, _host.FramebufferWidth, _host.FramebufferHeight);
+             if (_visible() && _host.TryGetTextInputState(out var state) && (state.Capabilities & RmlUiTextInputCapabilities.Bounds) != 0)
+                 return (state.Bounds, _host.FramebufferWidth, _host.FramebufferHeight);
+         }
+@@ -134,7 +260,7 @@
+     public void RefreshCandidatePosition()
+     {
+         _host.VerifyOwnerThread();
+-        if (_ownsSequence && !Current()) Cancel();
++        if (_ownsSequence && (!Current() || _editScope is not null && !OwnedRevision(out _))) Cancel();
+         if (_attached && _visible() && _host.TryGetTextInputState(out _))
+             _api.InvalidateCandidatePosition();
+     }
+@@ -144,7 +270,8 @@
+         _host.VerifyOwnerThread();
+         if (_ownsSequence)
+         {
+-            Dispatch(RmlUiPlatformInputKind.CompositionCancel);
++            if (_editScope is { } edit) _host.TextEdit(edit, _host.NextTextEditSequence(), RmlUiTextEditKind.Cancel);
++            else Dispatch(RmlUiPlatformInputKind.CompositionCancel);
+             _discardSequence = true; _markedLength = 0;
+             if (notify && _attached) _api.DiscardMarkedText();
+         }
+@@ -152,14 +279,14 @@
+     private void Destroyed()
+     {
+         try { CancelCore(false); }
+-        finally { _attached = false; _scope = null; _ownsSequence = _discardSequence = false; }
++        finally { _attached = false; _scope = null; _editScope = null; _ownsSequence = _discardSequence = false; }
+     }
+     public void Dispose()
+     {
+         _host.VerifyOwnerThread();
+         if (!_attached) return;
+         try { Cancel(); } catch { LastFailure = "Cocoa cancellation failed during adapter removal"; }
+-        if (_api.Detach()) { _attached = false; _scope = null; _ownsSequence = _discardSequence = false; }
++        if (_api.Detach()) { _attached = false; _scope = null; _editScope = null; _ownsSequence = _discardSequence = false; }
+         else LastFailure = "Cocoa view class changed; callbacks remain rooted until view destruction";
+     }
+ }
+--- a/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaViewApi.cs
++++ b/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaViewApi.cs
+@@ -89,7 +89,11 @@
+     private static void OnMarked(nint self,nint selector,nint text,RmlUiCocoaRange selection,RmlUiCocoaRange replacement)
+     {
+         var api=Find(self);if(api==null) return;
+-        try { api._callbacks!.Marked(Text(text),checked((int)Math.Min(selection.Location,int.MaxValue)),checked((int)Math.Min(selection.Length,int.MaxValue))); }
++        try {
++            if (api._callbacks!.MarkedWithReplacement is { } ranged) ranged(Text(text), selection, replacement);
++            else if (replacement == RmlUiCocoaRange.None && selection.Location <= int.MaxValue && selection.Length <= int.MaxValue)
++                api._callbacks.Marked(Text(text), (int)selection.Location, (int)selection.Length);
++        }
+         catch { /* Never unwind through AppKit or log composition/password content. */ }
+         api.Original<MarkedMethod>("setMarkedText:selectedRange:replacementRange:")(self,selector,text,selection,replacement);
+     }
+@@ -97,7 +101,8 @@
+     {
+         var api=Find(self);if(api==null) return;
+         bool consumed=api._callbacks!.Owns();
+-        try { consumed=api._callbacks.Insert(Text(text)); } catch { }
++        try { consumed = api._callbacks.InsertWithReplacement is { } ranged
++            ? ranged(Text(text), replacement) : replacement == RmlUiCocoaRange.None && api._callbacks.Insert(Text(text)); } catch { }
+         if(consumed) api.Original<VoidMethod>("unmarkText")(self,sel_registerName("unmarkText"));
+         else api.Original<InsertMethod>("insertText:replacementRange:")(self,selector,text,replacement);
+     }
+@@ -136,7 +141,10 @@
+         var api=Find(self);if(api==null) return default;
+         try
+         {
+-            if(api._callbacks!.Candidate() is { } candidate && candidate.Width>0 && candidate.Height>0)
++            var callback = api._callbacks!;
++            RmlUiCocoaCandidate? position = callback.CandidateForRange is { } ranged ? ranged(range)
++                : callback.Candidate() is { } legacy ? new(legacy.Bounds, legacy.Width, legacy.Height, range, false) : null;
++            if(position is { } candidate && candidate.Width>0 && candidate.Height>0)
+             {
+                 RmlUiCocoaRect bounds=Method<RectMethod>(self,"bounds")(self,sel_registerName("bounds"));
+                 double sx=bounds.Width/candidate.Width,sy=bounds.Height/candidate.Height;
+@@ -146,7 +154,7 @@
+                     bounds.Y+(flipped?b.Y*sy:bounds.Height-(b.Y+b.Height)*sy),b.Width*sx,b.Height*sy);
+                 var window=SendObject(self,"window");
+                 var inWindow=Method<RectViewMethod>(self,"convertRect:toView:")(self,sel_registerName("convertRect:toView:"),local,0);
+-                if(actualRange!=0) Marshal.StructureToPtr(range,actualRange,false);
++                if(actualRange!=0) Marshal.StructureToPtr(candidate.ActualRange,actualRange,false);
+                 return window==0?inWindow:Method<RectArgumentMethod>(window,"convertRectToScreen:")(window,sel_registerName("convertRectToScreen:"),inWindow);
+             }
+         }
+--- a/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiHost.cs
++++ b/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiHost.cs
+@@ -35,6 +35,7 @@
+         private ulong _generation;
+         private ulong _nativeSequence;
+         private ulong _managedSequence;
++        private ulong _textEditSequence;
+         private static readonly string[] NativeControlledBindings =
+         {
+             "home_mode", "multiplayer_mode", "play_create_mode", "play_browser_mode",
+@@ -48,6 +49,7 @@
+         private volatile bool _active;
+         private bool _lifetimeTransition;
+         private bool? _textInputAbi;
++        private bool? _textEditAbi;
+         private bool? _hoverAbi;
+         private bool? _elementBoundsAbi;
+         private bool? _updateStateAbi;
+@@ -124,7 +126,7 @@
+                 _documents.Add(home, new DocumentState(RmlUiDocumentLayer.Page));
+                 _documentOrder.Add(home);
+                 _nativeSequence = _managedSequence = 0;
+-                _textInputAbi = _hoverAbi = _elementBoundsAbi = null;
++                _textInputAbi = _textEditAbi = _hoverAbi = _elementBoundsAbi = null;
+                 _updateStateAbi = null;
+                 _nativeUpdates = _skippedUpdates = _updateStateQueries = 0;
+                 _active = true;
+@@ -500,6 +502,67 @@
+             catch (EntryPointNotFoundException) { return false; }
+         }
+ 
++        internal bool TryGetTextEditState(out RmlUiTextEditState state)
++        {
++            VerifyNativeCallAllowed(); state = default;
++            if (!_active || _protocol == 0 || _textEditAbi == false) return false;
++            var packet = new RmlUiNativeTextEditState { Size = 88, Version = 1 };
++            try
++            {
++                int result = _native.TextEditState(ref packet); _textEditAbi = true;
++                var document = new RmlUiDocumentToken(packet.Generation, packet.DocumentId);
++                if (result != 1 || packet.Size != 88 || packet.Version != 1 || packet.Reserved != 0
++                    || packet.Generation != _generation || packet.FocusEpoch == 0 || packet.Revision == 0
++                    || document != CurrentInputDocument || !IsVisible(document) || packet.Capabilities != 1 || (packet.Flags & ~7u) != 0
++                    || packet.Length < 0 || packet.Length > 65536 || packet.SelectionStart < 0 || packet.SelectionLength < 0
++                    || packet.SelectionStart > packet.Length || packet.SelectionLength > packet.Length - packet.SelectionStart
++                    || packet.MarkedStart < -1 || packet.MarkedLength < 0 || (packet.MarkedStart == -1 && packet.MarkedLength != 0)
++                    || packet.MarkedStart > packet.Length || (packet.MarkedStart >= 0 && packet.MarkedLength > packet.Length - packet.MarkedStart)) return false;
++                if ((packet.Flags & 6) != 0 && (!Single.IsFinite(packet.X) || !Single.IsFinite(packet.Y)
++                    || !Single.IsFinite(packet.Width) || !Single.IsFinite(packet.Height) || packet.Width < 0 || packet.Height <= 0)) return false;
++                state = new(document, packet.FocusEpoch, packet.Revision, packet.Length, packet.SelectionStart, packet.SelectionLength,
++                    packet.MarkedStart, packet.MarkedLength, packet.Flags, new(packet.X, packet.Y, packet.Width, packet.Height));
++                return true;
++            }
++            catch (EntryPointNotFoundException) { _textEditAbi = false; return false; }
++        }
++        // Same engine-thread input owner outlives Cocoa adapter attachments and
++        // focus lifetimes. Never restart generated operation IDs on detach,
++        // focus change, or reinitialization; native replay rejection stays exact.
++        internal ulong NextTextEditSequence()
++        {
++            RequireActive();
++            if (_textEditSequence == ulong.MaxValue)
++                throw new InvalidOperationException("RmlUi text operation sequence is exhausted.");
++            return ++_textEditSequence;
++        }
++
++        internal RmlUiTextEditResult TextEdit(in RmlUiTextEditState scope, ulong sequence, RmlUiTextEditKind kind,
++            string text = "", int start = -1, int length = 0, int selectedStart = -1, int selectedLength = 0, bool commitCurrent = false)
++        {
++            VerifyNativeCallAllowed();
++            if (text is null) return RmlUiTextEditResult.Invalid;
++            if (commitCurrent && (kind != RmlUiTextEditKind.Commit || text.Length != 0 || start != -1 || length != 0 || selectedStart != -1 || selectedLength != 0)) return RmlUiTextEditResult.Invalid;
++            if (!Enum.IsDefined(kind) || sequence == 0 || text is null || text.Length > 65536 || text.Contains('\0')) return RmlUiTextEditResult.Invalid;
++            if (!TryGetTextEditState(out var current)) return RmlUiTextEditResult.Unsupported;
++            if (current.Document != scope.Document || current.FocusEpoch != scope.FocusEpoch) return RmlUiTextEditResult.StaleOwner;
++            if (current.Revision != scope.Revision) return RmlUiTextEditResult.StaleRevision;
++            byte[] bytes;
++            try { bytes = new System.Text.UTF8Encoding(false, true).GetBytes(text); }
++            catch (System.Text.EncoderFallbackException) { return RmlUiTextEditResult.Invalid; }
++            var request = new RmlUiNativeTextEditRequest { Size = 80, Version = 1,
++                Generation = scope.Document.Generation, DocumentId = scope.Document.DocumentId, FocusEpoch = scope.FocusEpoch,
++                Revision = scope.Revision, Sequence = sequence, Kind = kind, Start = start, Length = length,
++                SelectedStart = selectedStart, SelectedLength = selectedLength, Flags = commitCurrent ? 1u : 0u };
++            try
++            {
++                int value = _native.TextEdit(ref request, bytes, (uint)bytes.Length);
++                return Enum.IsDefined(typeof(RmlUiTextEditResult), value) ? (RmlUiTextEditResult)value : RmlUiTextEditResult.OwnerFailure;
++            }
++            catch (EntryPointNotFoundException) { _textEditAbi = false; return RmlUiTextEditResult.Unsupported; }
++            finally { Array.Clear(bytes); }
++        }
++
+         internal bool Compose(in RmlUiPlatformInputEvent input, int stage)
+         {
+             VerifyNativeCallAllowed();
+--- a/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiNativeBridge.cs
++++ b/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiNativeBridge.cs
+@@ -48,6 +48,8 @@
+         int TextSelectionUtf16(ulong generation, ulong document, ulong epoch, out int start, out int end)
+         { start = end = 0; return 0; }
+         int Composition(ulong generation, ulong document, ulong epoch, int stage, string text, int cursor, int selectionLength);
++        int TextEditState(ref RmlUiNativeTextEditState state) => 0;
++        int TextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length) => -5;
+         int HoveredElement(byte[] buffer, int capacity);
+         int DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
+         { x = y = width = height = 0; return 0; }
+@@ -109,6 +111,8 @@
+             => NativeTextSelectionUtf16(generation, document, epoch, out start, out end);
+         int IRmlUiNativeBridge.Composition(ulong generation, ulong document, ulong epoch, int stage,
+             string text, int cursor, int selectionLength) => NativeComposition(generation, document, epoch, stage, text, cursor, selectionLength);
++        int IRmlUiNativeBridge.TextEditState(ref RmlUiNativeTextEditState state) => NativeTextEditState(ref state);
++        int IRmlUiNativeBridge.TextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length) => NativeTextEdit(ref edit, utf8, length);
+         int IRmlUiNativeBridge.HoveredElement(byte[] buffer, int capacity) => NativeHoveredElement(buffer, capacity);
+         int IRmlUiNativeBridge.DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
+             => NativeDocumentElementBounds(document, element, out x, out y, out width, out height);
+@@ -203,6 +207,10 @@
+         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_composition")]
+         private static extern int NativeComposition(ulong generation, ulong document, ulong epoch, int stage,
+             [MarshalAs(UnmanagedType.LPUTF8Str)] string text, int cursor, int selectionLength);
++        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_edit_state_v1")]
++        private static extern int NativeTextEditState(ref RmlUiNativeTextEditState state);
++        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_edit_v1")]
++        private static extern int NativeTextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length);
+         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_hovered_element")]
+         private static extern int NativeHoveredElement([Out] byte[] buffer, int capacity);
+         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_document_element_bounds")]
+--- a/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiTextEdit.cs
++++ b/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiTextEdit.cs
+@@ -0,0 +1,31 @@
++using System;
++using System.Runtime.InteropServices;
++
++namespace MphRead.Mods.Launcher.RmlUi.Host;
++
++internal enum RmlUiTextEditKind : uint { Select = 1, Replace = 2, Marked = 3, Commit = 4, Cancel = 5 }
++internal enum RmlUiTextEditResult { Accepted = 1, StaleOwner = -1, StaleRevision = -2, Duplicate = -3,
++    Invalid = -4, Unsupported = -5, Retired = -6, OwnerFailure = -7 }
++[StructLayout(LayoutKind.Sequential)]
++internal struct RmlUiNativeTextEditRequest
++{
++    public uint Size, Version;
++    public ulong Generation, DocumentId, FocusEpoch, Revision, Sequence;
++    public RmlUiTextEditKind Kind;
++    public uint Flags;
++    public int Start, Length, SelectedStart, SelectedLength;
++    public ulong Reserved;
++}
++[StructLayout(LayoutKind.Sequential)]
++internal struct RmlUiNativeTextEditState
++{
++    public uint Size, Version;
++    public ulong Generation, DocumentId, FocusEpoch, Revision;
++    public uint Capabilities, Flags;
++    public int Length, SelectionStart, SelectionLength, MarkedStart, MarkedLength;
++    public float X, Y, Width, Height;
++    public uint Reserved;
++}
++internal readonly record struct RmlUiTextEditState(RmlUiDocumentToken Document, ulong FocusEpoch, ulong Revision,
++    int Length, int SelectionStart, int SelectionLength, int MarkedStart, int MarkedLength,
++    uint Flags, RmlUiTextInputBounds Bounds);

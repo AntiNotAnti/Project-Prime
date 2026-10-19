@@ -11,6 +11,9 @@
 // Version 1 is an owner-thread ABI. Strings are UTF-8; IDs are opaque and never
 // reused within this process. The consumer must reject a different version.
 constexpr uint32_t PP_RMLUI_PROTOCOL_VERSION = 1;
+// Action arguments are append-only; the packet layout and ABI version remain unchanged.
+constexpr uint32_t PP_RMLUI_REPLAY_ACTION_COUNT = 307;
+constexpr uint32_t PP_RMLUI_STUDIO_ACTION_COUNT = 224;
 enum class PrimeIntentKind : uint32_t {
     Navigate = 1, Quit = 2, OpenStudio = 3, StageSelect = 4, StagePreview = 5,
     HomeDrawerOpen = 6, HomeDrawerClose = 7, HomeDeploy = 8,
@@ -78,6 +81,12 @@ enum class PrimeIntentKind : uint32_t {
     AdventureConfirmNewRun = 124,
     AdventureCancelNewRun = 125,
     AdventureRefresh = 126,
+    AdventureCopy = 127,
+    AdventureCopyDestination = 128,
+    AdventureConfirmCopy = 129,
+    AdventureArchive = 130,
+    AdventureConfirmArchive = 131,
+    AdventureCancelSaveChange = 132,
     OfflineChoice = 140,
     OfflineRuleToggle = 141,
     OfflineTrainingToggle = 142,
@@ -100,6 +109,7 @@ enum class PrimeIntentKind : uint32_t {
     ReplayAction = 170,
     InGameAction = 180,
     LicenseAction = 190,
+    LicenseOpen = 191,
     StudioAction = 200,
     CommunityRefresh = 210,
     CommunityTab = 211,
@@ -130,7 +140,12 @@ enum class PrimeIntentKind : uint32_t {
     SetupRelease = 261,
     HudAction = 270,
     HudElement = 271,
-    HudProperty = 272
+    HudProperty = 272,
+    HunterPreviewReset = 273,
+    CampaignShipAction = 274,
+    HunterLoadoutDefault = 275,
+    CommunityTransferAction = 276,
+    HunterRandom = 277
 };
 // Navigate arguments: Home=0 Play=1 Offline=2 HunterLicense=3 Community=4
 // Theatre=5 Settings=6 News=7 Adventure=8 Social=9.
@@ -234,4 +249,10 @@ PP_EXPORT int pp_rmlui_document_set_enabled(uint64_t document_id, const char* el
 #include "projectprime_rmlui_text_protocol.h"
 PP_EXPORT int pp_rmlui_text_input_state(PrimeTextInputState* state);
 PP_EXPORT int pp_rmlui_composition(uint64_t generation, uint64_t document_id, uint64_t focus_epoch, int stage, const char* text, int cursor, int selection_length);
+PP_EXPORT int pp_rmlui_hovered_action(unsigned char* buffer, int capacity);
 PP_EXPORT int pp_rmlui_hovered_element(unsigned char* buffer, int capacity);
+
+// Optional independently discovered edit-range ABI; protocol1/state64 unchanged.
+#include "projectprime_rmlui_text_edit_protocol.h"
+PP_EXPORT int pp_rmlui_text_edit_state_v1(PrimeTextEditState* state);
+PP_EXPORT int pp_rmlui_text_edit_v1(const PrimeTextEditRequest* request, const uint8_t* utf8, uint32_t bytes);

@@ -23,10 +23,6 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class CareerReportOutbox
     {
-        private const string DefaultUrl =
-            "https://hwcjaygoistufktorbmf.supabase.co/functions/v1/career-report";
-        private const string PublishableKey =
-            "sb_publishable_EVT45OPl638kA_j8vZ0ebg_sw3aWaVz";
 
         private static readonly HttpClient Http = new()
         {
@@ -43,15 +39,25 @@ namespace MphRead.Mods.Network
         private static string DirectoryPath => Path.Combine(
             Platform.AppPaths.UserDataDirectory, "career-outbox");
 
-        private static string ReportUrl =>
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_CAREER_REPORT_URL")
-            ?? DefaultUrl;
+        private static Uri ReportUrl => BackendServiceConfiguration.Capture().CareerReportUri;
 
         private static string ServerKey =>
             Environment.GetEnvironmentVariable("PROJECT_PRIME_CAREER_SERVER_KEY")
             ?? "";
 
         public static bool Enabled => ServerKey.Length >= 32;
+
+        // Keep reporter credentials inside the existing credential owner.
+        internal static bool AuthorizeSocialReport(HttpRequestMessage request)
+        {
+            if (!Enabled) return false;
+            var backend = BackendServiceConfiguration.Capture();
+            if (!backend.Owns(request.RequestUri) || request.RequestUri?.Scheme != Uri.UriSchemeHttps) return false;
+            backend.AddApiKey(request);
+            request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
+            return true;
+        }
+
 
         public static void Start()
         {
@@ -152,9 +158,10 @@ namespace MphRead.Mods.Network
             {
                 try
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Get, ReportUrl);
+                    var backend = BackendServiceConfiguration.Capture();
+                    using var request = new HttpRequestMessage(HttpMethod.Get, backend.CareerReportUri);
+                    backend.AddReportApiKey(request);
                     request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
-                    request.Headers.TryAddWithoutValidation("apikey", PublishableKey);
                     using HttpResponseMessage response = await Http.SendAsync(request)
                         .ConfigureAwait(false);
                     string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -235,9 +242,10 @@ namespace MphRead.Mods.Network
 
                     try
                     {
-                        using var request = new HttpRequestMessage(HttpMethod.Post, ReportUrl);
+                        var backend = BackendServiceConfiguration.Capture();
+                        using var request = new HttpRequestMessage(HttpMethod.Post, backend.CareerReportUri);
+                        backend.AddReportApiKey(request);
                         request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
-                        request.Headers.TryAddWithoutValidation("apikey", PublishableKey);
                         request.Content = new ByteArrayContent(bytes);
                         request.Content.Headers.ContentType =
                             new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");

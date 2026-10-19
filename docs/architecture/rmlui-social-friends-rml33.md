@@ -42,6 +42,24 @@ stale completions, owner-thread checks and error redaction. The no-game-assets
 CI job runs it. Live menu tests verify authenticated Home counts and the
 disabled Social route behavior when the service is absent.
 
+## Account lease hardening, 2026-10-17
+
+The current production service preserves the auth owner's opaque account lease
+when projecting a native social directory. The witness is internal and ignored
+by JSON serialization. Every controller owner entry checks the cached lease;
+account replacement or expiry immediately clears private friends, requests,
+blocked rows, lookup selection, self ID and pending confirmations, cancels active
+work and retires its completion generation. A late initial/refresh read also
+requires a current lease before adoption. HTTPS remains on the existing worker.
+
+A source-only build of the actual controller and the Social acceptance fixtures
+passed 40 checks: 20 existing Social checks, 8 expected-self mutation checks and
+12 new lease retirement checks. The new cases include cached blocked/request
+rows, confirmation admission, a cancellation-ignoring late lookup/mutation,
+retired read completion and witness serialization. Log:
+`/tmp/prime-social-lease-source.log`. The coordinated production build and real
+account/device acceptance remain separate validation.
+
 ## Outstanding
 
 Real backend/account/device authentication, rate limits, privacy and server

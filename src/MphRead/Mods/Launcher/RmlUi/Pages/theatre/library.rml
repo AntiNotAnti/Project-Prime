@@ -12,19 +12,20 @@
             <div id="theatre_summary">SCANNING REPLAY LIBRARY</div>
         </div>
         <div class="theatre_search_bar">
-            <input id="theatre_search" class="play_input" type="text" maxlength="512" placeholder="Search replay names, maps and details"/>
+            <input id="theatre_search" class="play_input" type="text" maxlength="512" placeholder="Search replays, maps, players and named moments"/>
             <button id="theatre_search_submit" class="play_action" data-action="theatre:search">SEARCH</button>
             <button id="theatre_clear_search" class="play_action" data-action="theatre:clear-search">CLEAR</button>
         </div>
         <div class="theatre_toolbar">
             <button id="theatre_next_filter" class="play_action" data-action="theatre:next-filter">
-                <span id="theatre_filter_label">ALL REPLAYS</span>
+                SMART VIEW // <span id="theatre_filter_label">ALL REPLAYS</span>
             </button>
             <button id="theatre_next_sort" class="play_action" data-action="theatre:next-sort">
                 <span id="theatre_sort_label">NEWEST FIRST</span>
             </button>
             <button id="theatre_refresh" class="play_action" data-action="theatre:refresh">REFRESH</button>
         </div>
+        <p class="theatre_hint">14 smart views // Same Map and Same Players use your selected replay. Named bookmarks and highlights power the annotation views; duration views use known recording lengths.</p>
         <div class="theatre_columns">
             <div class="theatre_library">
                 <div id="theatre_empty" class="theatre_notice"/>
@@ -70,16 +71,39 @@
                 <h2 id="theatre_selected_title">SELECT A REPLAY</h2>
                 <div id="theatre_hero" class="theatre_hint">ARCHIVE STANDBY</div>
                 <div id="theatre_metadata">Choose a recording to see its metadata.</div>
-                <div id="theatre_no_preview" class="theatre_hint">Previews are available in full Replay Studio.</div>
+                <div id="theatre_no_preview" class="theatre_hint">Watch recordings or open Prime Studio to edit.</div>
                 <div class="theatre_actions">
                     <button id="theatre_watch" class="play_action primary" data-action="theatre:watch">WATCH REPLAY</button>
                     <button id="theatre_favorite" class="play_action" data-action="theatre:favorite">TOGGLE FAVORITE</button>
                 </div>
                 <div class="theatre_actions">
-                    <button id="theatre_studio" class="play_action" data-action="theatre:studio">OPEN FULL REPLAY STUDIO</button>
-                    <button id="theatre_import" class="play_action" data-action="theatre:import">IMPORT / ADVANCED TOOLS</button>
+                    <button id="theatre_studio" class="play_action" data-action="theatre:studio">OPEN IN PRIME STUDIO</button>
                 </div>
-                <p class="theatre_hint">Studio handles virtual clips, recovery, integrity checks, video export, thumbnails, and file editing.</p>
+                <div class="theatre_file_tools">
+                  <h2>LIBRARY TOOLS</h2>
+                  <div class="theatre_actions">
+                    <button id="theatre_validate" class="play_action" data-action="theatre:validate">CHECK INTEGRITY</button>
+                    <button id="theatre_recover" class="play_action" data-action="theatre:recover">RECOVER RECORDING</button>
+                    <button id="theatre_export" class="play_action" data-action="theatre:export">EXPORT REPLAY FILE</button>
+                    <button id="theatre_reveal" class="play_action" data-action="theatre:reveal">OPEN LIBRARY FOLDER</button>
+                  </div>
+                  <label for="theatre_rename">DISPLAY NAME</label><input id="theatre_rename" type="text" maxlength="100"/>
+                  <button id="theatre_rename_apply" class="play_action" data-action="theatre:rename">SAVE NAME</button>
+                  <label for="theatre_tags">TAGS // COMMA SEPARATED</label><input id="theatre_tags" type="text" maxlength="1024"/>
+                  <label for="theatre_collections">COLLECTIONS // COMMA SEPARATED</label><input id="theatre_collections" type="text" maxlength="1024"/>
+                  <button id="theatre_organize" class="play_action" data-action="theatre:organize">SAVE ORGANIZATION</button>
+                  <button id="theatre_delete" class="play_action" data-action="theatre:delete">DELETE RECORDING</button>
+                  <div id="theatre_delete_confirmation">
+                    <p id="theatre_delete_prompt"/>
+                    <button id="theatre_confirm_delete" class="play_action" data-action="theatre:confirm-delete">CONFIRM DELETE</button>
+                    <button id="theatre_cancel_delete" class="play_action" data-action="theatre:cancel-delete">KEEP RECORDING</button>
+                  </div>
+                  <h2>IMPORT REPLAY FILE</h2>
+                  <p class="theatre_hint">Enter an absolute .ppdemo, .ppreplay portable bundle or legacy replay path. A verified copy and its camera, organization and reel are added to this library. Bundled exact custom maps use the existing map installer; the source is preserved.</p>
+                  <input id="theatre_import_path" type="text" maxlength="4096"/>
+                  <button id="theatre_import_path_apply" class="play_action" data-action="theatre:import-path">IMPORT VERIFIED COPY</button>
+                  <p id="theatre_workflow_hint" class="theatre_hint">Watch and organize recordings here. Open Prime Studio for replay editing and export.</p>
+                </div>
             </div>
         </div>
         <div id="theatre_status" class="theatre_notice"/>

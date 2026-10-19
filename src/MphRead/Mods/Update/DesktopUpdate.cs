@@ -108,6 +108,11 @@ namespace MphRead.Mods.Update
             CancellationToken cancel = default)
         {
             LastError = null;
+            if (DesktopInstallationUse.UpdateBlockedReason(AppContext.BaseDirectory, DesktopInstallationUse.IsStudioProcess) is { } blocked)
+            {
+                LastError = blocked;
+                return false;
+            }
             if (update.AssetUrl.Length == 0)
             {
                 LastError = "this release has no package for this platform";
@@ -213,6 +218,14 @@ namespace MphRead.Mods.Update
         public static bool Launch(IReadOnlyList<string>? relaunchArgs = null)
         {
             LastError = null;
+            bool studio = DesktopInstallationUse.IsStudioProcess;
+            if (DesktopInstallationUse.UpdateBlockedReason(AppContext.BaseDirectory, studio) is { } blocked)
+            {
+                LastError = blocked;
+                return false;
+            }
+            if (studio && (relaunchArgs == null || !relaunchArgs.Contains("--studio", StringComparer.Ordinal)))
+                relaunchArgs = new[] { "--studio" }.Concat(relaunchArgs ?? Array.Empty<string>()).ToArray();
             // Process.Start only proves that Windows created a process. It does
             // not prove the self-contained staged executable reached its apply
             // entry point. Do not close the running game until it acknowledges.
@@ -465,7 +478,10 @@ namespace MphRead.Mods.Update
 
         private static void StartInstalled(string target, IReadOnlyList<string>? args)
         {
-            string binary = Path.Combine(target, UpdateCheck.BinaryName());
+            bool studio = args?.Contains("--studio", StringComparer.Ordinal) == true;
+            string pairedStudio = Path.Combine(target, OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio");
+            bool studioHost = studio && File.Exists(pairedStudio);
+            string binary = studioHost ? pairedStudio : Path.Combine(target, UpdateCheck.BinaryName());
             MakeExecutable(binary);
             var start = new ProcessStartInfo(binary)
             {
@@ -473,7 +489,8 @@ namespace MphRead.Mods.Update
                 UseShellExecute = false
             };
             if (args != null)
-                foreach (string arg in args) start.ArgumentList.Add(arg);
+                foreach (string arg in args)
+                    if (!studioHost || arg != "--studio") start.ArgumentList.Add(arg);
             using Process? process = Process.Start(start);
             if (process == null) throw new IOException("Windows did not create the updated process.");
         }
@@ -524,6 +541,10 @@ namespace MphRead.Mods.Update
         public static void Clean()
         {
             if (OperatingSystem.IsMacOS()) { return; }
+            // A newly opened companion must not sweep the other application's
+            // download or acknowledged helper out from under its update.
+            if (OperatingSystem.IsWindows()
+                && DesktopInstallationUse.OtherApplicationRunning(AppContext.BaseDirectory, DesktopInstallationUse.IsStudioProcess)) return;
             // A crash can leave an interrupted copy journal. Restore the
             // previous release before clearing its staging payload, otherwise
             // recovery evidence can be destroyed or an installation mixed.

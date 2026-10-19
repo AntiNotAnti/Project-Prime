@@ -9,7 +9,7 @@ namespace MphRead.Mods.Replay;
 
 /// <summary>Explicit mutable asset values, never geometry or native handles.
 /// The field order below is the version-1 asset component wire contract.</summary>
-internal static class ReplayAssetCheckpoint
+internal static partial class ReplayAssetCheckpoint
 {
     private static readonly PropertyInfo[] NodeFields = Properties<Node>(
         "Enabled", "AnimIgnoreParent", "AnimIgnoreChild", "Scale", "Angle", "Position",

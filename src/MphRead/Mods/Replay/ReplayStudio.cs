@@ -695,7 +695,12 @@ namespace MphRead.Mods.Replay
         IReadOnlyList<ReplayVideoSegment>? Segments = null,
         string PresetName = "",
         bool? GameHud = null,
-        bool? ReplayOverlay = null)
+        bool? ReplayOverlay = null,
+        string EncoderExecutable="ffmpeg",string EncoderCodec="libx264"
+#if !ANDROID && !MPHREAD_SERVER
+        ,ReplayExportAudioInput? Audio=null
+#endif
+        )
     {
         // Version 2 manifests only knew CleanHud. Preserve that meaning:
         // game HUD followed !CleanHud and replay presentation UI was never exported.

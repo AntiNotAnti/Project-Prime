@@ -7,6 +7,8 @@ static void Require(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
+ApplicationHeaderCheck.Run(Require);
+
 Require(Marshal.SizeOf<RmlUiNativeIntent>() == RmlUiIntentRegistry.NativeIntentSize, "ABI structure size changed");
 var protocolProbe = new FakeBridge();
 protocolProbe.Initialize(640, 360, 1, ".");
@@ -28,9 +30,11 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.HudAction => 45,
         RmlUiIntentKind.HudElement => 14,
         RmlUiIntentKind.HudProperty => 8,
-        RmlUiIntentKind.SocialAction => 53,
+        RmlUiIntentKind.CampaignShipAction => 11,
+        RmlUiIntentKind.CommunityTransferAction => 4,
+        RmlUiIntentKind.SocialAction => 54,
         RmlUiIntentKind.NewsAction => 12,
-        RmlUiIntentKind.CommunityTab => 3,
+        RmlUiIntentKind.CommunityTab => 5,
         RmlUiIntentKind.CommunitySort => 3,
         RmlUiIntentKind.CommunityLifecycle => 4,
         RmlUiIntentKind.CommunityPage => 2,
@@ -48,32 +52,32 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.PlayQueueAction => 4,
         RmlUiIntentKind.PlayServer => 8,
         RmlUiIntentKind.HunterRotate or RmlUiIntentKind.HunterZoom => 2,
-        RmlUiIntentKind.InGameAction => 27,
-        RmlUiIntentKind.LicenseAction => 21,
-        RmlUiIntentKind.StudioAction => 5,
+        RmlUiIntentKind.InGameAction => 34,
+        RmlUiIntentKind.LicenseAction => 30,
+        RmlUiIntentKind.StudioAction => 224,
         RmlUiIntentKind.TheatreAction => 25,
         RmlUiIntentKind.TheatreEntry => 8,
         RmlUiIntentKind.TheatreThumbnail => 3,
-        RmlUiIntentKind.ReplayAction => 13,
+        RmlUiIntentKind.ReplayAction => RmlUiIntentRegistry.ReplayActionCount,
         RmlUiIntentKind.OfflineSelectArena => 16,
         RmlUiIntentKind.OfflineArenaPage => 2,
         RmlUiIntentKind.LobbyRulesToggle => 16,
         RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => 8,
         RmlUiIntentKind.LobbyMapSelect => 6,
-        RmlUiIntentKind.LobbyMapCategory => 2,
+        RmlUiIntentKind.LobbyMapCategory => 5,
         RmlUiIntentKind.LobbyTeamSelect => 4,
         RmlUiIntentKind.HunterSelect => 7,
         RmlUiIntentKind.HunterSuit => 4,
         RmlUiIntentKind.HunterPreviewMode => 4,
         RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
-        RmlUiIntentKind.AdventureSelectSlot => 3,
+        RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => 3,
         RmlUiIntentKind.OfflineChoice => 16,
         RmlUiIntentKind.OfflineRuleToggle => 12,
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1
     };
-    int first = kind == RmlUiIntentKind.AdventureSelectSlot ? 1 : 0;
+    int first = kind is RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination ? 1 : 0;
     for (int index = 0; index < count; index++)
     {
         int argument = kind is RmlUiIntentKind.OfflineArenaPage or RmlUiIntentKind.CommunityPage or RmlUiIntentKind.CommunityRevisionPage ? (index == 0 ? -1 : 1)
@@ -85,9 +89,26 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
     }
     Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
+string[] studioBuildActions =
+{
+    "build-validate", "build-runtime", "build-package", "build-play-camera",
+    "build-play-selection", "build-navigation", "build-audit", "build-cancel",
+    "build-problems-previous", "build-problems-next", "build-budgets-previous", "build-budgets-next",
+    "build-problem-0", "build-problem-1", "build-problem-2", "build-problem-3",
+    "build-problem-4", "build-problem-5", "build-problem-6", "build-problem-7",
+    "build-clear", "build-play-team-a", "build-play-team-b", "build-panel"
+};
+for (int index = 0; index < studioBuildActions.Length; index++)
+{
+    string action = "studio:" + studioBuildActions[index];
+    Require(RmlUiIntentRegistry.TryParseLegacy(action, new(1, 1), 1, out var parsed)
+        && parsed.Kind == RmlUiIntentKind.StudioAction && parsed.Argument == 200 + index,
+        $"Studio build action index changed: {action}");
+}
 foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:16",
     "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",
-    "lobby:map-select:6", "lobby:map-category:2", "route:unexpected", "quit:extra" })
+    "lobby:map-select:6", "lobby:map-category:5", "route:unexpected", "quit:extra",
+    "campaign-ship:-1", "campaign-ship:01", "campaign-ship:11" })
     Require(!RmlUiIntentRegistry.TryParseLegacy(bad, new(1, 1), 1, out _), "Invalid legacy intent accepted");
 
 var native = new FakeBridge();
@@ -334,6 +355,31 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
         && !host.IsAlive(homePage)
         && composed.ReadField("play_player_name") == "Hunter λ",
         "Composed Play page lost the entered player or leaked Home");
+    composed.SetBool("party_queue_open", true);
+    composed.SetBool("party_queue_can_accept", true);
+    composed.SetBool("party_queue_can_decline", true);
+    composed.SetBool("party_queue_can_leave", true);
+    composed.SetText("party_queue_status", "SERVER RESERVED A PARTY SEAT");
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    var queuePage = composedManager.Top;
+    Require(queuePage != playPage && composedManager.ModalCount == 1
+        && host.CurrentInputDocument == queuePage,
+        "Party queue did not acquire modal input above the existing Play route");
+    var queueAccept = new RmlUiIntent(RmlUiIntentKind.PlayQueueAction, 1, queuePage, 1);
+    Require(composed.HandleIntent(queueAccept, out var queueForward)
+        && queueForward == queueAccept, "Queue Accept was not forwarded through composed admission");
+    Require(composed.HandleIntent(queueAccept, out var queueDuplicate) && queueDuplicate.Kind == 0,
+        "A duplicate queue sequence was forwarded twice");
+    Require(composed.HandleIntent(new(RmlUiIntentKind.PlayCancel, 0, playPage, 1), out var queueBackground)
+        && queueBackground.Kind == 0, "Background Play cancelled a foreground Party queue");
+    Require(composed.Back(out var queueBack) && queueBack.Kind == RmlUiIntentKind.PlayQueueAction
+        && queueBack.Argument == 3 && queueBack.Document == queuePage,
+        "Queue Back did not request Leave on the exact modal document");
+    composed.SetBool("party_queue_open", false);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    Require(!host.IsAlive(queuePage) && composedManager.ModalCount == 0 && composedManager.Top == playPage
+        && host.CurrentInputDocument == playPage,
+        "Settled Party queue leaked its modal or lost the existing Play input owner");
     composed.SetField("play_create_player_name", "Cosmic Pilot");
     composed.SetBool("lobby_mode", true);
     composed.Flush();
@@ -418,6 +464,70 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     composed.Flush();
     Require(composedManager.ModalCount == 0 && !host.IsAlive(trainingPage),
         "Retired training options cannot retain input or old focus state");
+    // Local rules share the production page manager, but own separate editable fields.
+    host.FocusDocument(offlinePage, "offline_rules_open");
+    composed.SetField("offline_point_goal", "7");
+    composed.SetField("offline_time_limit", "7:00");
+    composed.SetField("offline_time_goal", "3:00");
+    composed.SetText("offline_rules_error", "SYNTHETIC DRAFT ERROR");
+    composed.SetText("offline_rule8_label", "LOW TIER // OFF");
+    composed.SetBool("offline_point_goal_visible", true);
+    composed.SetBool("offline_rules_open", true);
+    composed.Flush();
+    host.Update();
+    composed.AfterUpdate();
+    var offlineRulesPage = composedManager.Top;
+    Require(composedManager.ModalCount == 1 && offlineRulesPage != offlinePage
+        && host.IsAlive(offlineRulesPage) && host.FocusedElement() == "offline_rules_cancel",
+        "Native local rules must open one foreground modal and focus Cancel");
+    Require(host.ReadField(offlineRulesPage, "offline_point_goal") == "7"
+        && host.ReadField(offlineRulesPage, "offline_time_limit") == "7:00"
+        && host.ReadField(offlineRulesPage, "offline_time_goal") == "3:00"
+        && host.ReadField(offlinePage, "offline_point_goal") == "",
+        "Local rule seeds belong to their modal, never the underlying Offline document");
+    Require(native.Texts[(offlineRulesPage.DocumentId, "offline_rules_error")] == "SYNTHETIC DRAFT ERROR"
+        && native.Texts[(offlineRulesPage.DocumentId, "offline_rule_8")] == "LOW TIER // OFF"
+        && native.Bools[(offlineRulesPage.DocumentId, "visible:offline_point_goal_row")]
+        && !native.Texts.ContainsKey((offlineRulesPage.DocumentId, "offline_rule_5")),
+        "Composed local rules project current labels/errors/visibility and omit the retired mode toggle");
+    host.SetField(offlineRulesPage, "offline_point_goal", "19");
+    host.SetField(offlineRulesPage, "offline_time_limit", "9:30");
+    Require(composed.ReadField("offline_point_goal") == "19"
+        && composed.ReadField("offline_time_limit") == "9:30",
+        "User-edited local rules are read from the actual active modal");
+    var coveredRulesStart = new RmlUiIntent(RmlUiIntentKind.OfflineLaunchMatch, 0, offlinePage, 70);
+    Require(composed.HandleIntent(coveredRulesStart, out var rejectedRulesStart) && rejectedRulesStart == default,
+        "Covered Offline Start cannot bypass a foreground rules draft");
+    var liveLocalRule = new RmlUiIntent(RmlUiIntentKind.OfflineRuleToggle, 8, offlineRulesPage, 71);
+    Require(composed.HandleIntent(liveLocalRule, out var forwardedLocalRule) && forwardedLocalRule == liveLocalRule
+        && composed.HandleIntent(liveLocalRule, out var duplicateLocalRule) && duplicateLocalRule == default,
+        "Only a fresh foreground local-rule sequence reaches the controller");
+    Require(composed.Back(out var cancelLocalRules)
+        && cancelLocalRules.Kind == RmlUiIntentKind.OfflineCancelRules
+        && cancelLocalRules.Document == offlineRulesPage,
+        "Back forwards Cancel to the rules modal before leaving Offline");
+    composed.SetBool("offline_rules_open", false);
+    composed.Flush();
+    Require(!host.IsAlive(offlineRulesPage) && composedManager.ModalCount == 0
+        && host.FocusedElement() == "offline_rules_open"
+        && composed.ReadField("offline_point_goal") == ""
+        && composed.ReadField("offline_time_limit") == ""
+        && composed.ReadField("offline_time_goal") == "",
+        "Cancel retires local rules, restores initiating focus and clears cached field drafts");
+    composed.SetField("offline_point_goal", "12");
+    composed.SetField("offline_time_limit", "8:00");
+    composed.SetField("offline_time_goal", "4:00");
+    composed.SetBool("offline_rules_open", true);
+    composed.Flush();
+    var reopenedOfflineRules = composedManager.Top;
+    Require(reopenedOfflineRules != offlineRulesPage
+        && host.ReadField(reopenedOfflineRules, "offline_point_goal") == "12"
+        && host.ReadField(reopenedOfflineRules, "offline_time_limit") == "8:00"
+        && host.ReadField(reopenedOfflineRules, "offline_time_goal") == "4:00"
+        && !composed.HandleIntent(new(RmlUiIntentKind.OfflineApplyRules, 0, offlineRulesPage, 72), out _),
+        "Reopened rules use fresh controller seeds and reject the retired editor document");
+    composed.SetBool("offline_rules_open", false);
+    composed.Flush();
     composed.SetBool("offline_mode", false);
     composed.SetBool("adventure_mode", true);
     composed.Flush();
@@ -450,6 +560,43 @@ using (var composed = new RmlUiLauncherPages(host, composedManager))
     Require(composed.Back(out var backAdventure) && backAdventure.Kind == RmlUiIntentKind.Navigate
         && backAdventure.Argument == (int)RmlUiRouteArgument.Offline,
         "Back from Adventure returns to Offline activities after confirmation dismissal");
+    composed.SetBool("adventure_management_confirmation", true);
+    composed.SetBool("adventure_copy_confirmation", true);
+    composed.SetBool("adventure_confirmation_open", true);
+    composed.SetBool("adventure_can_copy", false);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_cancel_save_change",
+        "Adventure copy proposal initially focuses its safe cancellation action");
+    composed.SetBool("adventure_confirmation_open", false);
+    composed.SetBool("adventure_can_copy", true);
+    composed.Flush();
+    // Model the native fallback while the old parent disabled binding is still applied.
+    host.FocusDocument(adventurePage, "adventure_slot1");
+    host.Update(); composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_copy",
+        "Adventure Copy restores initiating focus after fresh parent bindings apply");
+    composed.SetBool("adventure_copy_confirmation", false);
+    composed.SetBool("adventure_archive_confirmation", true);
+    composed.SetBool("adventure_confirmation_open", true);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    composed.SetBool("adventure_confirmation_open", false);
+    composed.SetBool("adventure_can_archive", false);
+    composed.SetBool("adventure_slot2_selected", true);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_slot2",
+        "Adventure Archive returns to its selected slot when the resulting empty slot disables Archive");
+    host.FocusDocument(adventurePage, "adventure_slot3");
+    composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_slot3",
+        "Adventure restoration is consumed and does not trap later user focus");
+    composed.SetBool("adventure_save_busy", true);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_cancel_save_work",
+        "Pending asynchronous save work moves native focus to its visible safe cancellation action");
+    composed.SetBool("adventure_save_busy", false);
+    composed.Flush(); host.Update(); composed.AfterUpdate();
+    Require(host.FocusedElement() == "adventure_slot2",
+        "Completed or canceled asynchronous save work releases Cancel and restores the selected slot");
     composed.SetBool("adventure_mode", false);
     composed.SetBool("theatre_mode", true);
     composed.Flush();
@@ -504,6 +651,8 @@ using (var cleanupHost = new RmlUiHost(cleanupBridge))
     Require(cleanupHost.Initialize(640, 360, 1, "."), "Faulted presentation teardown prevented reinitialization");
 }
 SchedulerCheck.Run();
+DesktopImeCheck.Run();
+RangeImeAcceptance.Run();
 Console.WriteLine("RmlUi runtime checks passed: typed ABI, owner thread, immutable revisioned snapshots, cancellation, document lifecycle, DPI, Unicode, clipboard, resilient teardown, and 100 reinitializations.");
 if (args.Length != 0)
 {
@@ -535,6 +684,40 @@ sealed class FakeBridge : IRmlUiNativeBridge
     private string _focusedElement = "name";
     private bool _composing;
     public int CompositionCalls, CompositionCursor;
+    public readonly List<int> CompositionStages = new();
+    public bool EditEnabled;
+    public ulong EditRevision = 1;
+    public int EditLength = 12, EditStart = 2, EditSelectionLength = 3, EditMarkedStart = -1, EditMarkedLength;
+    public int EditCalls;
+    public RmlUiNativeTextEditRequest LastEdit;
+    public string LastPayload = "";
+    public Func<RmlUiNativeTextEditState, RmlUiNativeTextEditState>? FilterEditPacket;
+    public int TextEditState(ref RmlUiNativeTextEditState state)
+    {
+        if (!EditEnabled || TextInputActive() == 0) return 0;
+        state = new() { Size = 88, Version = 1, Generation = _generation,
+            DocumentId = _focusedDocument == 0 ? _home : _focusedDocument, FocusEpoch = _focusEpoch, Revision = EditRevision,
+            Capabilities = 1, Flags = 2, X = 15, Y = 20, Width = 0, Height = 18, Length = EditLength,
+            SelectionStart = EditStart, SelectionLength = EditSelectionLength, MarkedStart = EditMarkedStart, MarkedLength = EditMarkedLength };
+        if (FilterEditPacket is { } filter) state = filter(state);
+        return 1;
+    }
+    public int TextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length)
+    {
+        if (!EditEnabled) return -5;
+        if (edit.Revision != EditRevision) return -2;
+        LastEdit = edit; LastPayload = new UTF8Encoding(false, true).GetString(utf8); EditCalls++;
+        int start = edit.Start == -1 ? EditMarkedStart >= 0 ? EditMarkedStart : EditStart : edit.Start;
+        int removed = edit.Start == -1 ? EditMarkedStart >= 0 ? EditMarkedLength : EditSelectionLength : edit.Length;
+        if (edit.Kind == RmlUiTextEditKind.Marked) {
+            EditLength += LastPayload.Length - removed; EditMarkedStart = start; EditMarkedLength = LastPayload.Length;
+            EditStart = start + edit.SelectedStart; EditSelectionLength = edit.SelectedLength;
+        } else if (edit.Kind is RmlUiTextEditKind.Replace or RmlUiTextEditKind.Commit) {
+            if (edit.Flags == 0) { EditLength += LastPayload.Length - removed; EditStart = start + LastPayload.Length; EditSelectionLength = 0; }
+            EditMarkedStart = -1; EditMarkedLength = 0;
+        } else if (edit.Kind == RmlUiTextEditKind.Cancel) { EditMarkedStart = -1; EditMarkedLength = 0; }
+        EditRevision++; return 1;
+    }
     public uint ProtocolVersion() => Legacy ? throw new EntryPointNotFoundException() : 1u;
     public ulong Generation() => _generation;
     public ulong HomeDocument() => _home;
@@ -619,6 +802,7 @@ sealed class FakeBridge : IRmlUiNativeBridge
     {
         if (generation != _generation || !Documents.Contains(document) || epoch != _focusEpoch || TextInputActive() == 0) return 0;
         CompositionCalls++; CompositionCursor = cursor;
+        CompositionStages.Add(stage);
         if (stage == 0) _composing = true;
         else if (stage is 2 or 3) _composing = false;
         return 1;

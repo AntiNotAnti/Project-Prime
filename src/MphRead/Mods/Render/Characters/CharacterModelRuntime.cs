@@ -1,3 +1,4 @@
+using CharacterSourcePreviewLease = MphRead.Mods.Render.Characters.CharacterModelPack.SourcePreviewLease;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,8 +51,12 @@ namespace MphRead.Mods.Render.Characters
         RepeatMode WrapS = RepeatMode.Repeat,
         RepeatMode WrapT = RepeatMode.Repeat,
         MaterialMapBindings MaterialMaps = default,
-        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false)
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, IReadOnlyList<int>? SourceJointPalette = null, float[]? SourceMatrixPalette = null, string? SourceMaterialName = null, int SourcePrimitiveOrdinal = -1)
     {
+        // GPU Weighted4 consumes only its matrix stack. Keep raw source skin matrices
+        // intact and reuse a separate bounded world-composed buffer for submission.
+        internal float[]? SourcePresentationPalette { get; } = SourceMatrixPalette == null
+            ? null : new float[SourceMatrixPalette.Length];
         internal int? GetAlbedo(Scene scene, int recolor) => AlbedoPalette?.GetBinding(scene, recolor) ?? AlbedoBinding;
     }
 
@@ -90,14 +95,76 @@ namespace MphRead.Mods.Render.Characters
         public IReadOnlyList<CharacterWeightedRenderSegment> Segments { get; }
         public IReadOnlyList<CharacterWeightedRenderJoint> Joints { get; }
         public float[] MatrixPalette { get; }
+        private readonly CharacterWeightedModelData? _sourceGeometry;
+        internal bool IsSourcePreview => _sourceGeometry?.SourceRig != null;
+        internal CharacterSourceRig? SourceRig => _sourceGeometry?.SourceRig;
+        internal CharacterSourceCannonRecipe? SourceCannon => _sourceGeometry?.SourceCannon;
+        internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
+        {
+            if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");
+            // Capture immutable draw-only input; no gameplay clock or native pose writes.
+            if(SourceCannon!=null && localPose!=null)throw new InvalidDataException("Fixed source cannon pose cannot be overridden.");
+            var captured = (SourceCannon==null?localPose:_sourceGeometry.SourceAuthoringPose)?.ToArray();
+            var full = rig.Evaluate(captured, _sourceGeometry.Joints);
+            var palettes = _sourceGeometry.Primitives.Select(p=>CharacterSourceRig.GatherSegmentPalette(p,full)).ToArray();
+            for(int i=0;i<Segments.Count;i++)
+            {
+                if(Segments[i].SourceMatrixPalette is not { } buffer || buffer.Length!=palettes[i].Length)
+                    throw new InvalidDataException("Source segment palette contract changed.");
+                Array.Copy(palettes[i],buffer,palettes[i].Length);
+            }
+        }
+        internal void PrepareSourcePreviewPresentation(Matrix4 presentationPose)
+        {
+            if (!IsSourcePreview) throw new InvalidOperationException("Native palettes already contain their owner pose.");
+            // The existing preview owner supplies positive uniform zoom and rotation.
+            // Preserve the shader's normalized mat3 normal convention; no new
+            // nonuniform-scale, mirrored, perspective or world-clock contract.
+            for (int row = 0; row < 4; row++)
+                for (int column = 0; column < 4; column++)
+                    if (!float.IsFinite(presentationPose[row, column])
+                        || MathF.Abs(presentationPose[row, column]) > 100000)
+                        throw new InvalidDataException("Invalid source presentation transform.");
+            Vector3 x = presentationPose.Row0.Xyz, y = presentationPose.Row1.Xyz, z = presentationPose.Row2.Xyz;
+            float scaleSquared = x.LengthSquared;
+            float tolerance = scaleSquared * .00001f;
+            if (scaleSquared < .00000001f || MathF.Abs(y.LengthSquared - scaleSquared) > tolerance
+                || MathF.Abs(z.LengthSquared - scaleSquared) > tolerance
+                || MathF.Abs(Vector3.Dot(x, y)) > tolerance || MathF.Abs(Vector3.Dot(x, z)) > tolerance
+                || MathF.Abs(Vector3.Dot(y, z)) > tolerance || Vector3.Dot(Vector3.Cross(x, y), z) <= 0
+                || presentationPose.M14 != 0 || presentationPose.M24 != 0 || presentationPose.M34 != 0
+                || presentationPose.M44 != 1)
+                throw new InvalidDataException("Source presentation requires positive uniform scale and an affine rotation.");
+            Matrix4 sourcePresentation=SourceCannon==null?presentationPose:SourceCannon.ToCannon*presentationPose;
+            for (int segmentIndex = 0; segmentIndex < Segments.Count; segmentIndex++)
+            {
+                CharacterWeightedRenderSegment segment = Segments[segmentIndex];
+                if (segment.SourceMatrixPalette is not { Length: > 0 and <= 512 } raw
+                    || raw.Length % 16 != 0 || segment.SourceJointPalette?.Count * 16 != raw.Length
+                    || segment.SourcePresentationPalette is not { } target || target.Length != raw.Length
+                    || ReferenceEquals(raw, target))
+                    throw new InvalidDataException("Source presentation palette exceeds the 32-slot contract.");
+                for (int offset = 0; offset < raw.Length; offset += 16)
+                {
+                    var skin = new Matrix4(raw[offset], raw[offset+1], raw[offset+2], raw[offset+3],
+                        raw[offset+4], raw[offset+5], raw[offset+6], raw[offset+7],
+                        raw[offset+8], raw[offset+9], raw[offset+10], raw[offset+11],
+                        raw[offset+12], raw[offset+13], raw[offset+14], raw[offset+15]);
+                    // OpenTK row-vector order; GL's transpose=false interpretation
+                    // supplies world * skin to the existing column-vector shader.
+                    WriteMatrix(target, offset, skin * sourcePresentation);
+                }
+            }
+        }
         public int VertexCount { get; }
         public int IndexCount { get; }
 
         public CharacterWeightedRenderModel(CharacterModelAsset asset,
             IReadOnlyList<CharacterWeightedRenderSegment> segments,
             IReadOnlyList<CharacterWeightedRenderJoint> joints,
-            int vertexCount, int indexCount)
+            int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null)
         {
+            _sourceGeometry = sourceGeometry;
             Asset = asset;
             Segments = segments;
             Joints = joints;
@@ -108,6 +175,7 @@ namespace MphRead.Mods.Render.Characters
 
         public void UpdatePalette(Model nativeModel)
         {
+            if(IsSourcePreview) throw new InvalidOperationException("Source preview requires its complete source pose.");
             for (int i = 0; i < Joints.Count; i++)
             {
                 CharacterWeightedRenderJoint joint = Joints[i];
@@ -142,20 +210,72 @@ namespace MphRead.Mods.Render.Characters
     /// file contract are process-local, while display-list/native-buffer handles
     /// are owned by the scene/context that created them.
     /// </summary>
-    internal static class CharacterModelRuntime
+    internal sealed class CharacterSourcePreviewInstance
     {
+        internal readonly string? MaterialAnchorName;
+        internal readonly CharacterModelPart Part;
+        internal object? PublishedContext;
+        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped)
+            =>(MaterialAnchorName,Part)=(materialAnchorName,part);
+    }
+
+    internal static partial class CharacterModelRuntime
+    {
+        private sealed record SourceEntry(CharacterWeightedRenderModel Model,CharacterSourcePreviewLease Lease,Model NativeModel,
+            SourceMaterialAttachment? Attachment);
+        // Minted only from the actual decoded source and current scene resource owner.
+        // The native material is a draw/sampler anchor, never source material identity.
+        private sealed class SourceMaterialAttachment
+        {
+            internal readonly Scene Scene;
+            internal readonly SceneResources Resources;
+            internal readonly CharacterSourcePreviewLease Lease;
+            internal readonly CharacterModelAsset Asset;
+            internal readonly Model NativeModel;
+            internal readonly CharacterWeightedModelData Geometry;
+            internal readonly int AnchorIndex;
+            private readonly Material _anchor;
+            private readonly string _anchorName;
+            internal SourceMaterialAttachment(Scene scene,SceneResources resources,CharacterSourcePreviewLease lease,
+                CharacterModelAsset asset,Model nativeModel,CharacterWeightedModelData geometry,string anchorName)
+            {
+                if(string.IsNullOrWhiteSpace(anchorName)||anchorName.Length>128||geometry.SourceRig==null)
+                    throw new InvalidDataException("Explicit source material attachment required.");
+                var anchors=nativeModel.Materials.Select((m,i)=>(m,i)).Where(x=>x.m.Name==anchorName).ToArray();
+                if(anchors.Length!=1||!CanUseAuthoredTexcoords(anchors[0].m.TexgenMode,true)
+                    ||geometry.Primitives.Any(p=>string.IsNullOrWhiteSpace(p.MaterialName)||p.Albedo==null))
+                    throw new InvalidDataException("Unique existing native UV anchor and each source albedo required.");
+                (Scene,Resources,Lease,Asset,NativeModel,Geometry,AnchorIndex,_anchor,_anchorName)=
+                    (scene,resources,lease,asset,nativeModel,geometry,anchors[0].i,anchors[0].m,anchorName);
+                RequireCurrent(scene,resources,lease,asset,nativeModel,geometry.SourceRig);
+            }
+            internal void RequireCurrent(Scene scene,SceneResources resources,CharacterSourcePreviewLease lease,
+                CharacterModelAsset asset,Model nativeModel,CharacterSourceRig? rig)
+            {
+                lease.RequireCurrent(asset);
+                if(!ReferenceEquals(Scene,scene)||!ReferenceEquals(Resources,resources)||!ReferenceEquals(Lease,lease)
+                    ||!ReferenceEquals(Asset,asset)||!ReferenceEquals(NativeModel,nativeModel)
+                    ||!ReferenceEquals(Geometry.SourceRig,rig)||AnchorIndex>=nativeModel.Materials.Count
+                    ||!ReferenceEquals(nativeModel.Materials[AnchorIndex],_anchor)||_anchor.Name!=_anchorName
+                    ||!CanUseAuthoredTexcoords(_anchor.TexgenMode,true))
+                    throw new InvalidDataException("Source attachment identity retired or mismatched.");
+            }
+        }
         private sealed class SceneResources
         {
             public readonly TextureAssetQuality TextureQuality = RenderOptions.TextureQuality;
             public readonly string SamplingKey = TextureSamplingPolicy.RuntimeKey;
-            public readonly Dictionary<(string Path, int NativeModelId), CharacterRigidRenderModel> RigidModels = new();
-            public readonly Dictionary<(string Path, int NativeModelId), CharacterWeightedRenderModel> WeightedModels = new();
-            public readonly HashSet<(string Path, int NativeModelId)> Failed = new();
+            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance), CharacterRigidRenderModel> RigidModels = new();
+            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance), CharacterWeightedRenderModel> WeightedModels = new();
+            public readonly Dictionary<(CharacterSourceCacheKey Source,int NativeModelId,CharacterSourcePreviewInstance Instance),SourceEntry> SourceModels = new();
+            public readonly HashSet<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance)> Failed = new();
 
             public void Release()
             {
                 foreach (CharacterRigidRenderModel model in RigidModels.Values) model.Release();
                 foreach (CharacterWeightedRenderModel model in WeightedModels.Values) model.Release();
+                foreach (var entry in SourceModels.Values) entry.Model.Release();
+                SourceModels.Clear();
                 RigidModels.Clear();
                 WeightedModels.Clear();
                 Failed.Clear();
@@ -169,23 +289,49 @@ namespace MphRead.Mods.Render.Characters
         private static string? _packIssue;
         private static bool _packIssueLogged;
 
+        /// <summary>
+        /// An explicit private acceptance input is resolved per seat. It is
+        /// never stored as process-global character selection and never turns
+        /// a Hunter-only replacement into an extra character automatically.
+        /// </summary>
+        internal static bool TryResolvePrivateAppearance(CharacterModelPack pack, Hunter hunter,
+            CharacterModelPart part, int lod, PrivateCharacterAppearance? appearance,
+            bool allowPrivatePreview, out CharacterModelAsset asset)
+        {
+            asset = null!;
+            if (appearance == null) return pack.TryResolve(hunter, part, lod, out asset);
+            if (!allowPrivatePreview || Mods.Network.NetSession.Active || Mods.Network.DemoPlayback.IsActive)
+                return false;
+            return pack.TryResolvePrivate(hunter, appearance.Value, part, lod, out asset);
+        }
+
+        internal static (string Path, int NativeModelId, PrivateCharacterAppearance? Appearance)
+            ModelCacheKey(CharacterModelAsset asset, int nativeModelId)
+            => (asset.ModelPath, nativeModelId, asset.PrivateAppearance);
+
         public static bool TryGetRigid(Scene scene, Hunter hunter, CharacterModelPart part,
-            Model nativeModel, out CharacterRigidRenderModel model, int lod = 0)
+            Model nativeModel, out CharacterRigidRenderModel model, int lod = 0,
+            CharacterModelPack? privatePack = null, PrivateCharacterAppearance? privateAppearance = null,
+            bool allowPrivatePreview = false)
         {
             model = null!;
             if (Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
+            bool privateRequest = privatePack != null || privateAppearance != null || allowPrivatePreview;
+            if (privateRequest && (!allowPrivatePreview || privatePack == null || scene.Services.IsReplica
+                || Mods.Network.NetSession.Active || Mods.Network.DemoPlayback.IsActive)) return false;
 
-            CharacterModelPack pack = GetPack();
-            if (_packIssue != null && !_packIssueLogged)
+            CharacterModelPack pack = privatePack ?? GetPack();
+            if (privatePack == null && _packIssue != null && !_packIssueLogged)
             {
                 _packIssueLogged = true;
                 DebugLog.Line("render", "HD character model pack disabled: " + _packIssue);
             }
-            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)
+            if (!TryResolvePrivateAppearance(pack, hunter, part, lod, privateAppearance,
+                    allowPrivatePreview, out CharacterModelAsset asset)
                 || asset.Skinning != CharacterSkinningMode.RigidNodes)
                 return false;
 
-            var key = (asset.ModelPath, nativeModel.Id);
+            var key = ModelCacheKey(asset, nativeModel.Id);
             SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
             if (resources.TextureQuality != RenderOptions.TextureQuality
                 || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey)
@@ -219,17 +365,23 @@ namespace MphRead.Mods.Render.Characters
         }
 
         public static bool TryGetWeighted(Scene scene, Hunter hunter, CharacterModelPart part,
-            Model nativeModel, out CharacterWeightedRenderModel model, int lod = 0)
+            Model nativeModel, out CharacterWeightedRenderModel model, int lod = 0,
+            CharacterModelPack? privatePack = null, PrivateCharacterAppearance? privateAppearance = null,
+            bool allowPrivatePreview = false)
         {
             model = null!;
             if (Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
+            bool privateRequest = privatePack != null || privateAppearance != null || allowPrivatePreview;
+            if (privateRequest && (!allowPrivatePreview || privatePack == null || scene.Services.IsReplica
+                || Mods.Network.NetSession.Active || Mods.Network.DemoPlayback.IsActive)) return false;
 
-            CharacterModelPack pack = GetPack();
-            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)
-                || asset.Skinning != CharacterSkinningMode.Weighted4)
+            CharacterModelPack pack = privatePack ?? GetPack();
+            if (!TryResolvePrivateAppearance(pack, hunter, part, lod, privateAppearance,
+                    allowPrivatePreview, out CharacterModelAsset asset)
+                || asset.Skinning != CharacterSkinningMode.Weighted4 || asset.PoseSource != CharacterPoseSource.Native)
                 return false;
 
-            var key = (asset.ModelPath, nativeModel.Id);
+            var key = ModelCacheKey(asset, nativeModel.Id);
             SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
             if (resources.TextureQuality != RenderOptions.TextureQuality
                 || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey)
@@ -261,6 +413,112 @@ namespace MphRead.Mods.Render.Characters
                     $"HD weighted character fallback for {hunter}/{part}/lod{asset.Lod}: {ex.Message}");
                 return false;
             }
+        }
+
+        internal static bool TryGetSourcePreview(Scene scene,Hunter hunter,CharacterModelPart part,Model nativeModel,
+            CharacterModelPack privatePack,PrivateCharacterAppearance appearance,CharacterSourcePreviewInstance instance,bool allowSourcePreview,
+            out CharacterWeightedRenderModel model)
+        {
+            model=null!;
+            if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
+            {if(instance!=null)ReleaseSourcePreview(scene,instance);DebugLog.Line("render",CharacterSourceRootWitness.UnsupportedPlatformMessage);return false;}
+            if(instance==null||Headless.Active||!RenderOptions.CharacterModelReplacements||!allowSourcePreview
+                ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
+                ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
+                ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset))
+            {if(instance!=null)ReleaseSourcePreview(scene,instance);return false;}
+            var resources=_scenes.GetValue(scene,_=>new SceneResources());
+            if(resources.TextureQuality!=RenderOptions.TextureQuality||resources.SamplingKey!=TextureSamplingPolicy.RuntimeKey)
+            {Release(scene);resources=_scenes.GetValue(scene,_=>new SceneResources());}
+            if(instance.MaterialAnchorName!=null && instance.PublishedContext!=null
+                &&!ReferenceEquals(instance.PublishedContext,resources))
+            {ReleaseSourcePreview(scene,instance);return false;}
+            // Reuse immutable GPU/CPU data without filesystem IO. Exact pack,
+            // asset, lease generation, native model and current context owner
+            // are checked here. Explicit refresh retires old generations.
+            foreach(var previous in resources.SourceModels.Keys.Where(k=>ReferenceEquals(k.Instance,instance)).ToArray())
+            {
+                var entry=resources.SourceModels[previous];
+                if(ReferenceEquals(entry.Lease.CacheIdentity,privatePack)&&ReferenceEquals(entry.Model.Asset,asset)
+                    &&ReferenceEquals(entry.NativeModel,nativeModel))
+                {
+                    try{entry.Lease.RequireCurrent(asset);
+                        entry.Attachment?.RequireCurrent(scene,resources,entry.Lease,asset,nativeModel,entry.Model.SourceRig);
+                        model=entry.Model;return true;}
+                    catch(InvalidDataException){}
+                }
+                resources.SourceModels.Remove(previous);entry.Model.Release();
+            }
+            // An explicitly attached instance is never resurrected after retirement.
+            if(instance.MaterialAnchorName!=null&&instance.PublishedContext!=null)return false;
+            if(resources.SourceModels.Count>=CharacterModelPack.MaximumModels
+                ||!privatePack.TryCreateSourcePreviewLease(asset,out var lease))return false;
+            var key=(lease.CacheKey,nativeModel.Id,instance);
+            try
+            {
+                var candidate=CompileWeighted(scene,asset,nativeModel,lease,instance.MaterialAnchorName,resources,out var attachment);
+                try
+                {
+                    lease.Require(asset); // Strong bounded proof before publish.
+                    if(!_scenes.TryGetValue(scene,out var current)||!ReferenceEquals(current,resources))
+                        throw new InvalidDataException("Source compilation context owner retired.");
+                    attachment?.RequireCurrent(scene,resources,lease,asset,nativeModel,candidate.SourceRig);
+                    candidate.UpdateSourcePreviewPalette();
+                    resources.SourceModels.Add(key,new(candidate,lease,nativeModel,attachment));
+                    if(attachment!=null)instance.PublishedContext=resources;
+                    model=candidate;return true;
+                }
+                catch{candidate.Release();throw;}
+            }
+            catch(Exception ex)when(ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException
+                or InvalidOperationException or JsonException or FormatException or OverflowException or KeyNotFoundException)
+            {model=null!;DebugLog.Line("render","Private source preview rejected: "+ex.Message);return false;}
+        }
+
+        internal static bool TryLoadSourceClip(Scene scene,CharacterSourcePreviewInstance instance,
+            CharacterWeightedRenderModel model,int ordinal,out CharacterSourceClip clip)
+        {
+            clip=null!;
+            if(model.SourceCannon!=null)return false;
+            if(!_scenes.TryGetValue(scene,out var resources)||!ReferenceEquals(instance.PublishedContext,resources))return false;
+            var entries=resources.SourceModels.Where(e=>ReferenceEquals(e.Key.Instance,instance)&&ReferenceEquals(e.Value.Model,model)).ToArray();
+            if(entries.Length!=1||entries[0].Value.Attachment is not { } attachment)return false;
+            var entry=entries[0].Value;
+            try
+            {
+                attachment.RequireCurrent(scene,resources,entry.Lease,model.Asset,entry.NativeModel,model.SourceRig);
+                clip=CharacterSourceClip.Load(entry.Lease,model.Asset,model.SourceRig!,ordinal);
+                attachment.RequireCurrent(scene,resources,entry.Lease,model.Asset,entry.NativeModel,model.SourceRig);return true;
+            }
+            catch(Exception e)when(e is IOException or InvalidDataException or InvalidOperationException or ArgumentException
+                or NotSupportedException or JsonException or FormatException or OverflowException or KeyNotFoundException){clip=null!;return false;}
+        }
+        internal static bool IsSourceClipCurrent(Scene scene,CharacterSourcePreviewInstance instance,
+            CharacterWeightedRenderModel model,CharacterSourceClip clip)
+        {
+            if(!_scenes.TryGetValue(scene,out var resources)||!ReferenceEquals(instance.PublishedContext,resources))return false;
+            foreach(var entry in resources.SourceModels.Where(e=>ReferenceEquals(e.Key.Instance,instance)&&ReferenceEquals(e.Value.Model,model)).Select(e=>e.Value))
+                if(entry.Attachment is { } attachment && clip.Matches(entry.Lease,model.Asset,model.SourceRig!))
+                {try{attachment.RequireCurrent(scene,resources,entry.Lease,model.Asset,entry.NativeModel,model.SourceRig);return true;}catch(InvalidDataException){return false;}}
+            return false;
+        }
+
+        // Existing explicit editor/acceptance owner calls this on user refresh,
+        // never from a frame or watcher. It retires this scene's matching GPU
+        // entries immediately; other scenes reject the old generation on reuse.
+        internal static bool RefreshSourcePreview(Scene scene,CharacterModelPack pack)
+        {
+            bool valid=pack.RefreshSourcePreviewProof();
+            if(_scenes.TryGetValue(scene,out var resources))
+                foreach(var key in resources.SourceModels.Keys.Where(k=>ReferenceEquals(k.Source.Pack,pack)).ToArray())
+                    if(resources.SourceModels.Remove(key,out var entry))entry.Model.Release();
+            return valid;
+        }
+        internal static void ReleaseSourcePreview(Scene scene,CharacterSourcePreviewInstance instance)
+        {
+            if(!_scenes.TryGetValue(scene,out var resources))return;
+            foreach(var key in resources.SourceModels.Keys.Where(k=>ReferenceEquals(k.Instance,instance)).ToArray())
+                if(resources.SourceModels.Remove(key,out var entry))entry.Model.Release();
         }
 
         public static void Release(Scene scene)
@@ -368,12 +626,23 @@ namespace MphRead.Mods.Render.Characters
             => embeddedAlbedo || mode is TexgenMode.None or TexgenMode.Texcoord;
 
         private static CharacterWeightedRenderModel CompileWeighted(
-            Scene scene, CharacterModelAsset asset, Model nativeModel)
+            Scene scene, CharacterModelAsset asset, Model nativeModel, CharacterSourcePreviewLease? sourceLease = null)
+            => CompileWeighted(scene,asset,nativeModel,sourceLease,null,null,out _);
+
+        private static CharacterWeightedRenderModel CompileWeighted(Scene scene,CharacterModelAsset asset,Model nativeModel,
+            CharacterSourcePreviewLease? sourceLease,string? sourceAnchor,SceneResources? resources,out SourceMaterialAttachment? attachment)
         {
+            attachment=null;
 #if MPHREAD_SERVER
             throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
 #else
-            CharacterWeightedModelData geometry = CharacterWeightedModelLoader.Load(asset);
+            CharacterWeightedModelData geometry = sourceLease==null ? CharacterWeightedModelLoader.Load(asset)
+                : CharacterWeightedModelLoader.LoadSourcePreview(asset,sourceLease);
+            if(sourceAnchor!=null)
+            {
+                if(sourceLease==null||resources==null)throw new InvalidDataException("Source attachment owner absent.");
+                attachment=new(scene,resources,sourceLease,asset,nativeModel,geometry,sourceAnchor);
+            }
             var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
                 .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
             var materialIndices = nativeModel.Materials.Select((material, index) => (Name: material.Name, Index: index))
@@ -383,19 +652,22 @@ namespace MphRead.Mods.Render.Characters
             var joints = new List<CharacterWeightedRenderJoint>(geometry.Joints.Count);
             foreach (CharacterWeightedJoint joint in geometry.Joints)
             {
-                if (!nodeIndices.TryGetValue(joint.TargetNode, out int nativeNodeIndex))
+                int nativeNodeIndex=-1;
+                if (sourceLease==null && !nodeIndices.TryGetValue(joint.TargetNode, out nativeNodeIndex))
                     throw new InvalidDataException(
                         $"Native model no longer contains weighted target node '{joint.TargetNode}'.");
                 joints.Add(new(nativeNodeIndex, joint.InverseBind));
             }
 
+            string compiledAssetKey=sourceLease?.SourceCannon is { } cannon?asset.ModelPath+"/viewModel/"+cannon.ReceiptSha256:asset.ModelPath;
             var compiled = new List<CharacterWeightedRenderSegment>(geometry.Primitives.Count);
             try
             {
                 foreach (CharacterWeightedPrimitive primitive in geometry.Primitives)
                 {
-                    if (String.IsNullOrWhiteSpace(primitive.MaterialName)
-                        || !materialIndices.TryGetValue(primitive.MaterialName, out int materialIndex))
+                    int materialIndex=attachment?.AnchorIndex ?? -1;
+                    if (attachment==null && (String.IsNullOrWhiteSpace(primitive.MaterialName)
+                        || !materialIndices.TryGetValue(primitive.MaterialName, out materialIndex)))
                         throw new InvalidDataException(
                             $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
                             + $"does not match a native material in {nativeModel.Name}.");
@@ -409,7 +681,7 @@ namespace MphRead.Mods.Render.Characters
                     if (primitive.Albedo != null)
                     {
                         int binding = scene.GetCharacterModelTexture(
-                            asset.ModelPath + "/" + compiled.Count, primitive.Albedo.Image,
+                            compiledAssetKey + "/" + compiled.Count, primitive.Albedo.Image,
                             asset.Part == CharacterModelPart.ViewModel
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter,
                             primitive.Albedo.Opaque);
@@ -418,7 +690,7 @@ namespace MphRead.Mods.Render.Characters
                         albedo = binding;
                     }
                     MaterialMapBindings maps = primitive.MaterialMaps == null ? default
-                        : scene.GetCharacterModelMaterialMaps(asset.ModelPath + "/" + compiled.Count,
+                        : scene.GetCharacterModelMaterialMaps(compiledAssetKey + "/" + compiled.Count,
                             primitive.MaterialMaps, asset.Part == CharacterModelPart.ViewModel
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter);
                     int list = CompileWeightedList(primitive);
@@ -427,10 +699,13 @@ namespace MphRead.Mods.Render.Characters
                         primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps,
                         primitive.Albedo?.Recolors?.Count > 0 && albedo.HasValue
                             ? new CharacterAlbedoPalette(primitive.Albedo, asset.Part == CharacterModelPart.ViewModel
-                                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
+                                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false,
+                        primitive.JointPalette==null?null:Array.AsReadOnly(primitive.JointPalette.ToArray()),
+                        primitive.JointPalette==null?null:new float[16*primitive.JointPalette.Length],
+                        sourceLease==null?null:primitive.MaterialName,sourceLease==null?-1:primitive.SourcePrimitiveOrdinal>=0?primitive.SourcePrimitiveOrdinal:compiled.Count));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
-                    geometry.VertexCount, geometry.IndexCount);
+                    geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry);
             }
             catch
             {

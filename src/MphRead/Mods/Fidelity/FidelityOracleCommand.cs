@@ -15,6 +15,12 @@ internal static class FidelityOracleCommand
             int index = Array.IndexOf(args, "-fidelityoracle");
             string command = args.ElementAtOrDefault(index + 1) ?? "list";
             string? Option(string name) { int at = Array.IndexOf(args, name); return at < 0 ? null : args.ElementAtOrDefault(at + 1); }
+            if (command is "help" or "--help" or "-h")
+            {
+                Console.WriteLine("Use list, run, verify or record SCENARIO. all keeps the regression catalog; capture-only diagnostics require an explicit run with -allow-content. "
+                    + "Run " + FidelityContentScenarios.CadenceScenario + " for accepted-shot deltas; verify/record are disabled for that capture-only producer.");
+                return 0;
+            }
             if (command == "list")
             {
                 Console.WriteLine(JsonSerializer.Serialize(FidelityScenarios.All.Concat(FidelityContentScenarios.All), FidelityOracle.Json)); return 0;
@@ -22,8 +28,11 @@ internal static class FidelityOracleCommand
             string id = args.ElementAtOrDefault(index + 2) ?? throw new ArgumentException("Choose a scenario or all.");
             bool allowContent = args.Contains("-allow-content");
             var catalog = FidelityScenarios.All.Concat(FidelityContentScenarios.All);
-            var scenarios = id == "all" ? catalog.Where(s => allowContent || s.Content == "none").ToArray() : catalog.Where(s => s.Id == id).ToArray();
+            var scenarios = id == "all" ? catalog.Where(s => !FidelityContentScenarios.CaptureOnly(s)
+                && (allowContent || s.Content == "none")).ToArray() : catalog.Where(s => s.Id == id).ToArray();
             if (scenarios.Length == 0) throw new ArgumentException("Unknown scenario.");
+            if (command != "run" && scenarios.Any(FidelityContentScenarios.CaptureOnly))
+                throw new InvalidOperationException("Capture-only diagnostics require explicit run; verify/record cannot create or consume a regression baseline.");
             string directory = Path.GetFullPath(Option("-baselines") ?? Path.Combine(AppPaths.ResourceDirectory, "fidelity-baselines"), ConsoleSetup.LaunchDirectory);
             string revision = Option("-engine-revision") ?? "working-tree";
             int hz = int.Parse(Option("-presentation-hz") ?? "60", System.Globalization.CultureInfo.InvariantCulture);

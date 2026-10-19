@@ -257,9 +257,7 @@ namespace MphRead.Mods
             catch { }
         }
 
-        private static string MapCacheRoot() => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ProjectPrime", "map-cache");
+        private static string MapCacheRoot() => MapGen.MapBuildScheduler.Shared.CacheDirectory;
 
         private static string SafeThumbnailRoot()
         {

@@ -121,6 +121,7 @@ namespace MphRead.Mods.Launcher.Gui
         private IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> _viewportMaterials = new Dictionary<(bool, int), MapViewportMaterial>();
         private void InvalidateDocument(MapDocumentChange change)
         {
+            NativeOverlaySelectionChanged();
             if((change.Domains&MapChangeDomain.Geometry)!=0)
             {
                 if(_subPreview!=null)CancelInteraction();
@@ -138,6 +139,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             CancelInteraction();
             Document.Invalidated -= InvalidateDocument;
+        }
+        internal void ReattachDocument()
+        {
+            Document.Invalidated -= InvalidateDocument; Document.Invalidated += InvalidateDocument;
+            InvalidateDocument(new(MapChangeDomain.All));
         }
 
         public void SetImported(BuiltMap map)
@@ -189,6 +195,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void ClearSubSelection()
         {
+            NativeOverlaySelectionChanged();
             SubSelection.Clear();InvalidateVisual();
         }
 
@@ -239,7 +246,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if (Document.Selection.Contains(item.Id)) transforms[item.Id] = PreviewTransform(item);
             var meshes = Cache.VisibleMeshes(Camera,layout);
             if (_subPreview != null) meshes = meshes.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
-            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
+            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker, Overlay=NativeOverlayFrame() };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;
@@ -621,6 +628,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (NativePresentationLeased) { e.Handled = true; return; }
             if (_keyboardTransform && _subPreview != null) { var preview=_subPreview;_subPreview=null;preview.Commit(Document,Tool);CancelInteraction();e.Handled=true;return; }
             if (_drag || _boxSelect || _orbit || _pan) { e.Handled=true; return; }
             base.OnPointerPressed(e);Focus();_last=_start=e.GetPosition(this);var props=e.GetCurrentPoint(this).Properties;
@@ -695,6 +703,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerMoved(PointerEventArgs e)
         {
+            if (NativePresentationLeased) { e.Handled = true; return; }
             base.OnPointerMoved(e);Point p=e.GetPosition(this);var delta=p-_last;_last=p;
             if (_paintStroke != null)
             {
@@ -713,33 +722,12 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if(_pan){Vector move=(-right*(float)delta.X+up*(float)delta.Y)*distance/500;CameraPosition+=move;CameraTarget+=move;}
             if(_drag && (!_keyboardTransform || _numericTransform.Length==0))
-            {
-                var full=p-_start;_preview=(right*(float)full.X-up*(float)full.Y)*distance/500;
-                if (LocalAxes && ActiveSelection?.Value is MapGeometry activeGeometry)
-                { var r = activeGeometry.Transform.Rotation; _preview = Vector.Transform(_preview, Quaternion.Inverse(new Quaternion(r[0],r[1],r[2],r[3]))); }
-                if(_axis>=0){float value=_preview[_axis];_preview=Vector.Zero;_preview[_axis]=value;}
-                else if(Axes!="Free"){for(int i=0;i<3;i++)if(!Axes.Contains("XYZ"[i]))_preview[i]=0;}
-                else if(_subPreview==null&&(View=="Perspective"||View=="Top"))_preview.Y=0;
-                else if(_subPreview==null&&View=="Front")_preview.Z=0;
-                else if(_subPreview==null&&View=="Side")_preview.X=0;
-                if(Snap>0)for(int i=0;i<3;i++)_preview[i]=MathF.Round(_preview[i]/Snap)*Snap;
-                _rotation=MathF.Round((float)full.X/Math.Max(1,AngleSnap))*Math.Max(1,AngleSnap);
-                float scaleStep=float.IsFinite(ScaleSnap)&&ScaleSnap>0?ScaleSnap:.01f;
-                _scale=Math.Max(scaleStep,1+MathF.Round((float)full.X/100/scaleStep)*scaleStep);
-                if(Tool!="Move")_preview=Vector.Zero;
-                if(_subPreview!=null&&Tool=="Move"&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&ActiveSelection?.Value is MapMesh snappingMesh)
-                {
-                    var r=snappingMesh.Transform.Rotation;var orientation=new Quaternion(r[0],r[1],r[2],r[3]);
-                    var worldDelta=LocalAxes?Vector.Transform(_preview,orientation):_preview;var desired=_subPreview.Pivot+worldDelta;
-                    var hit=MapLayoutCommands.NearestSurface(desired,Cache.SurfaceNear(desired),new HashSet<Guid>{snappingMesh.Id});
-                    if(hit is {} contact){worldDelta=contact.Point-_subPreview.Pivot;_preview=LocalAxes?Vector.Transform(worldDelta,Quaternion.Inverse(orientation)):worldDelta;}
-                }
-                _subPreview?.Update(Tool,_preview,_rotation,_scale,LocalAxes,TurnAxis,ScaleAxes);
-            }
+                UpdateTransformDrag(p-_start,e.KeyModifiers,right,up,distance);
             InvalidateVisual();
         }
         internal void CancelInteraction()
         {
+            CancelNativeTransform();
             _paintStroke = null; _paintMesh = Guid.Empty; _painted.Clear();
             _subPreview=null;_keyboardTransform=false;_numericTransform="";
             _drag=_orbit=_pan=_boxSelect=false;
@@ -755,6 +743,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
+            if (NativePresentationLeased) { e.Handled = true; return; }
             var buttons=e.GetCurrentPoint(this).Properties;
             if (((_drag||_boxSelect)&&buttons.IsLeftButtonPressed)
                 ||(_orbit&&buttons.IsRightButtonPressed)||(_pan&&buttons.IsMiddleButtonPressed))return;
@@ -782,12 +771,14 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
         {
+            if (NativePresentationLeased) { e.Handled = true; return; }
             float distance = Math.Clamp(Vector.Distance(CameraPosition, CameraTarget) * (float)Math.Pow(.88, e.Delta.Y), .25f, 5000);
             CameraPosition = CameraTarget - Camera.Basis().Forward * distance;
             InvalidateVisual(); e.Handled = true;
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (NativePresentationLeased) { e.Handled = true; return; }
             if (ReadOnlyPreview) { if(e.Key==Key.F)FrameAll(); e.Handled=true; return; }
             bool control=(e.KeyModifiers & (KeyModifiers.Control|KeyModifiers.Meta))!=0;
             bool shift=e.KeyModifiers.HasFlag(KeyModifiers.Shift);

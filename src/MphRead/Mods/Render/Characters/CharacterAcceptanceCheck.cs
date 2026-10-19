@@ -17,7 +17,7 @@ using OpenTK.Windowing.Desktop;
 namespace MphRead.Mods.Render.Characters;
 
 /// <summary>Real simulation/render acceptance with scene-owned input, unaffected by desktop focus.</summary>
-internal static class CharacterAcceptanceCheck
+internal static partial class CharacterAcceptanceCheck
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
@@ -45,7 +45,7 @@ internal static class CharacterAcceptanceCheck
         return node.ParentIndex < 0 ? local : local * NativeRestTransform(model, node.ParentIndex);
     }
 
-    internal static int Run(string room, string output, bool lodSweep = false, bool morphSweep = false, bool materialSweep = false, Hunter hunter = Hunter.Samus, string? muzzleAudit = null, bool fidelitySweep = false)
+    internal static int Run(string room, string output, bool lodSweep = false, bool morphSweep = false, bool materialSweep = false, Hunter hunter = Hunter.Samus, string? muzzleAudit = null, bool fidelitySweep = false, CharacterModelPack? sourceRigPreviewPack = null, PrivateCharacterAppearance? sourceRigAppearance = null, int? sourceRigClipOrdinal = null, string? sourceRigMaterialAnchor = null)
     {
         string directory = Path.GetFullPath(output);
         Directory.CreateDirectory(directory);
@@ -109,6 +109,11 @@ internal static class CharacterAcceptanceCheck
             preview.SideScene = true;
             preview.OnLoad(); preview.OnResize();
             Preview(preview, window, directory, "launcher-before", failures, hunter);
+            Require((sourceRigPreviewPack != null || (sourceRigClipOrdinal == null && sourceRigMaterialAnchor == null)), "Raw source controls require explicit private pack.");
+            Require((sourceRigPreviewPack == null) == (sourceRigAppearance == null), "Source preview requires both explicit pack and appearance.");
+            if (sourceRigPreviewPack != null && sourceRigAppearance is { } sourceAppearance)
+                CheckSourceRigPreview(preview, window, Path.Combine(directory, "private-source-rig"),
+                    sourceRigPreviewPack, hunter, sourceAppearance, sourceRigClipOrdinal, sourceRigMaterialAnchor);
             Scene.LauncherPreview = false; Scene.PreviewWanted = false;
 
             scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });

@@ -23,6 +23,11 @@ source variants. Report fields `missingVariants`,
 expose why a complete-set audit failed. Native renderer validation
 must independently pass for every supplied pack.
 
+CPP-08 adds a private catalog appearance binding to newly staged packs. The
+matrix distinguishes that binding from older native-Hunter packs; passing five
+legacy packs does not prove independent extra-character identity or selection.
+The strict-set flag continues to report source coverage only.
+
 No report from this slice marks `fullPortReady` or
 `onlineMultiplayerEnabled` true. First-person/morph model,
 animations, new Trooper mechanics, real hardware and multiplayer/replay

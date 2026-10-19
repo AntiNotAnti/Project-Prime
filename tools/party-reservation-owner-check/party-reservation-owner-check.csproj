@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/BackendServiceConfiguration.cs" Link="BackendServiceConfiguration.cs" />
+    <Analyzer Include="../../src/MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll" />
+    <Compile Include="../group-reservation-check/Registry.generated.cs" Link="Registry.generated.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/NetPacketAttribute.cs" Link="NetPacketAttribute.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/PartyReservationPackets.cs" Link="PartyReservationPackets.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/LobbyQueuePackets.cs" Link="LobbyQueuePackets.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/DedicatedServerPartyReservations.cs" Link="DedicatedServerPartyReservations.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/DedicatedServerWaitlist.cs" Link="DedicatedServerWaitlist.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/DedicatedServerSocialMembership.cs" Link="DedicatedServerSocialMembership.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/LobbyWaitlist.cs" Link="LobbyWaitlist.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/LobbyWaitlistGroups.cs" Link="LobbyWaitlistGroups.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/SocialPartyReservationRelay.cs" Link="SocialPartyReservationRelay.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/SocialLobbyMembershipRelay.cs" Link="SocialLobbyMembershipRelay.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/SocialLobbyMembershipPump.cs" Link="SocialLobbyMembershipPump.cs" />
+  </ItemGroup>
+  <Target Name="CheckRegistry" BeforeTargets="BeforeBuild"><Exec Command="python3 &quot;$(MSBuildProjectDirectory)/../group-reservation-check/check_registry.py&quot;" /></Target>
+</Project>

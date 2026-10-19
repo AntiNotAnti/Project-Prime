@@ -36,6 +36,12 @@ int cap = int.Parse(Value("-hz", "60"));
 int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
 Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
+bool poseCheck = args.Contains("-posecheck");
+bool posePixels = args.Contains("-pose-pixels");
+string poseScenario = DisplayPosePlan.ResolveScenario(args.Contains("-pose-scenario")
+    ? Value("-pose-scenario", "") : null, poseCheck);
+if (posePixels && !poseCheck)
+    throw new ArgumentException("-pose-pixels requires -posecheck; isolated pixels are a separate opt-in capture stage.");
 PlayerOutlineStyle outlines = Enum.Parse<PlayerOutlineStyle>(Value("-outlines", "Off"), true);
 Vector3? VectorArg(string name)
 {
@@ -55,6 +61,9 @@ if (args.Contains("-bombcheck") && (players < 4 || shots == null || outlines != 
     throw new ArgumentException("-bombcheck requires -players 4..8, -shots, and -outlines Off.");
 if (args.Contains("-impactcheck") && (players < 2 || shots == null || outlines != PlayerOutlineStyle.Off))
     throw new ArgumentException("-impactcheck requires -players 2..8, -shots, and -outlines Off.");
+if (poseCheck && (players != 2 || shots == null || seconds != 24 || !DisplayPosePlan.OutputRates.Contains(cap)
+    || args.Any(a => a is "-resourcestress" or "-windowcycle" or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile" or "-glgpu" or "-camera" or "-facing")))
+    throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240; separate from other capture/performance modes.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
@@ -79,7 +88,7 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "m
     ResourceAttribution.DisableMusic();
 CheckWindow CreateWindow(string[] options)
 {
-    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario);
     try
     {
         value.ConfigureResourceStress(options);
@@ -89,13 +98,14 @@ CheckWindow CreateWindow(string[] options)
     catch { value.Dispose(); throw; }
 }
 if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"));
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario);
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
 {
     window.Run();
-    var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult() : window.Result())!;
+    var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult()
+        : poseCheck ? window.DisplayPoseResult() : window.Result())!;
     if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
         ? window.CleanupAndInspect() : window.CleanupTransitionGcAndInspect(args.Contains("-transition-rebind")));
     if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
@@ -106,9 +116,9 @@ try
 }
 catch (Exception ex)
 {
-    if (window.ResourceStressEnabled)
+    if (window.ResourceStressEnabled || poseCheck)
     {
-        var result=JsonSerializer.SerializeToNode(window.ResourceStressResult())!;
+        var result=JsonSerializer.SerializeToNode(poseCheck ? window.DisplayPoseResult() : window.ResourceStressResult())!;
         result["error"]=ex.ToString();
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         File.WriteAllText(output,result.ToJsonString(new JsonSerializerOptions { WriteIndented=true })+"\n");
@@ -186,11 +196,14 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         _windowCycle = windowCycle; _requestedPixels = pixels;
         _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck; _impactCheck = impactCheck; _stableHud = stableHud;
+        _poseCheck = poseCheck;
+        _posePixels = posePixels;
+        _poseScenario = poseScenario;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -204,13 +217,14 @@ sealed partial class CheckWindow : RenderWindow
         typeof(Scene).GetField("_mouseState", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(Scene, SyntheticInput.CreateMouse());
         Scene.Random.SetRng1(12345); Scene.Random.SetRng2(98765);
+        ObserveAssignedWorkloadSeeds();
         PlayerEntity.MaxPlayers = players;
-        for (int i = 0; i < players; i++) AddPlayer(i == 0 ? hunter : (Hunter)(i % 7));
+        for (int i = 0; i < players; i++) AddPlayer(poseCheck || i == 0 ? hunter : (Hunter)(i % 7));
         PlayerEntity.PlayerCount = players;
         PlayerEntity.MainPlayerIndex = 0;
         foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
         if (idle) Scene.Players.Main.IsBot = false;
-        if (bombCheck || impactCheck) foreach (var player in PlayerEntity.Players) player.IsBot = false;
+        if (bombCheck || impactCheck || poseCheck) foreach (var player in PlayerEntity.Players) player.IsBot = false;
         typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
         AddRoom(room, GameMode.Battle, playerCount: players);
     }
@@ -252,6 +266,7 @@ sealed partial class CheckWindow : RenderWindow
             _resourceDrainSamples.Add(new { phase="workload-start", memory=ResourceAttribution.MemorySample(), audio=AudioShutdownSummary() });
         }
         ObserveWindowState();
+        if (_poseCheck) InitializeDisplayPose();
     }
 
     private void StabilizeCaptureKillFeed()
@@ -292,6 +307,13 @@ sealed partial class CheckWindow : RenderWindow
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         ObserveWindowState();
+        if (_poseCheck)
+        {
+            BeforeDisplayPoseFrame();
+            base.OnRenderFrame(new FrameEventArgs(1.0 / _cap));
+            AfterDisplayPoseFrame();
+            return;
+        }
         if (ResourceStressEnabled)
         {
             if (_resourceArm == "studio")
@@ -356,6 +378,8 @@ sealed partial class CheckWindow : RenderWindow
         long now = Stopwatch.GetTimestamp();
         if (!_measuring && Scene.FrameCount >= 240)
         {
+            ObserveWorkloadStart(); // Receipt work stays outside measured intervals/allocations.
+            now = Stopwatch.GetTimestamp();
             _measuring = true; _measureStarted = now;
             _allocated = GC.GetTotalAllocatedBytes(false);
             _collections = Enumerable.Range(0, 3).Select(GC.CollectionCount).ToArray();
@@ -394,6 +418,7 @@ sealed partial class CheckWindow : RenderWindow
         {
             if (_windowCycle && (_windowStage != 4 || FramebufferSize.X <= 0 || FramebufferSize.Y <= 0 || !IsVisible))
                 throw new InvalidOperationException("Native window cycle did not recover a visible framebuffer.");
+            ObserveWorkloadEnd(); // Final observation follows the last measured interval.
             Complete = true; Close();
         }
         if (_wall.Elapsed.TotalSeconds > (_shots == null ? _seconds + 45 : _seconds * 5 + 45))
@@ -612,10 +637,10 @@ sealed partial class CheckWindow : RenderWindow
             frameIntervalP50Ms = P(50), frameIntervalP95Ms = P(95), frameIntervalP99Ms = P(99),
             onePercentLowEstimateFps = P(99) > 0 ? 1000 / P(99) : 0,
             pointOnePercentLowEstimateFps = _intervals.Count >= 1000 && P(99.9) > 0 ? (double?)(1000 / P(99.9)) : null,
-            allocatedBytes = GC.GetTotalAllocatedBytes(false) - _allocated,
+            allocatedBytes = GC.GetTotalAllocatedBytes(false) - _allocated - _receiptEndAllocationOverhead,
             gcCollections = Enumerable.Range(0, 3).Select(i => GC.CollectionCount(i) - _collections[i]).ToArray(),
             managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
             simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
-            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, bombVisibility = _bombVisibility?.Evidence, impactPresentation = _impactPresentation?.Evidence, windowEvents = _windowEvents, complete = Complete };
+            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, bombVisibility = _bombVisibility?.Evidence, impactPresentation = _impactPresentation?.Evidence, windowEvents = _windowEvents, complete = Complete, observedWorkload = ObservedWorkloadReceipt() };
     }
 }

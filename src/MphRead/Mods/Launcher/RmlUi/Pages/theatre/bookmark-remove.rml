@@ -1,0 +1,6 @@
+<rml><head><title>Remove bookmark</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="theatre.rcss"/></head>
+<body template="prime-dialog"><div id="replay_bookmark_remove_panel" class="prime_dialog">
+<h2>REMOVE THIS BOOKMARK?</h2><p id="replay_bookmark_remove_replay"/><p id="replay_bookmark_remove_name"/><p>The replay recording and other bookmarks are preserved.</p>
+<p id="replay_bookmark_remove_error" class="bookmark_error"/>
+<div class="theatre_actions"><button id="replay_bookmark_remove_cancel" class="play_action" data-action="replay:bookmark-cancel">CANCEL</button><button id="replay_bookmark_remove_confirm" class="play_action danger" data-action="replay:bookmark-confirm-remove">REMOVE BOOKMARK</button></div>
+</div></body></rml>

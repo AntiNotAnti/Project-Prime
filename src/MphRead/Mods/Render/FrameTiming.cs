@@ -88,6 +88,12 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static bool Active { get; private set; }
 
+        /// <summary>
+        /// Presentation history fence for a reset or discarded wall-clock
+        /// interval. This is never a simulation, network, or replay identity.
+        /// </summary>
+        internal static long PresentationGeneration { get; private set; }
+
         private static double _accumulator;
 
         /// <summary>
@@ -164,6 +170,7 @@ namespace MphRead.Mods.Render
 
         public static void Reset()
         {
+            PresentationGeneration++;
             _accumulator = 0;
             StepsThisFrame = 0;
             Active = false;
@@ -182,6 +189,7 @@ namespace MphRead.Mods.Render
                 // A stall is not a debt. Run one step so the game does not
                 // stop dead, and start the accumulator over.
                 Stalls++;
+                PresentationGeneration++;
                 _accumulator = 0;
                 StepsThisFrame = 1;
                 TotalSteps++;
@@ -201,6 +209,7 @@ namespace MphRead.Mods.Render
                 // Past the ceiling: throw the rest away rather than owe it.
                 int owed = (int)(_accumulator / StepSeconds);
                 DroppedSteps += owed;
+                PresentationGeneration++;
                 _accumulator -= owed * StepSeconds;
             }
             StepsThisFrame = steps;

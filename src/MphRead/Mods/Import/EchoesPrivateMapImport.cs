@@ -98,6 +98,37 @@ public static class EchoesPrivateMapImport
 
 
 
+    /// <summary>New source-static identity; historical visual/cannon/routed maps stay unchanged.
+    /// Exact per-corner primary UVs are retained. Current MapMesh has one UV channel and flat
+    /// normals, so this remains an explicitly labelled fallback-material static preview.</summary>
+    public static MapDefinition ReadStaticSpiresPlaytest(string isoPath)
+    {
+        var source = EchoesStaticVisualLayer.ReadVerifiedSpires(isoPath);
+        return EchoesStaticVisualLayer.Append(source, source.CreateParent(), (_, _) => 0,
+            (model, material, corner) => EchoesStaticVisualLayer.PrimarySourceUv(source, model, material, corner));
+    }
+
+    public static string InstallStaticSpiresPlaytest(string isoPath, string userMapDirectory) =>
+        InstallLocalDefinition(ReadStaticSpiresPlaytest(isoPath), userMapDirectory);
+
+    public static int RunStaticSpiresCommand(string? isoPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(isoPath))
+                throw new ArgumentException("Usage: -importechoesstatics <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>");
+            string file = InstallStaticSpiresPlaytest(isoPath, CustomRooms.UserMapDirectory);
+            Console.WriteLine("[echoes] Installed private STATIC ECHOES SPIRES: " + file);
+            Console.WriteLine("[echoes] Seven source pillar models, unchanged original collision, fallback material and primary source UVs. Offline solo Battle only.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[echoes] Source static import refused: " + ex.Message);
+            return 1;
+        }
+    }
+
     public static string InstallLocalDefinition(MapDefinition definition, string userMapDirectory) =>
         InstallLocalDefinitions(new[] { definition }, userMapDirectory)[0];
 
@@ -127,12 +158,13 @@ public static class EchoesPrivateMapImport
         foreach (MapDefinition map in requests)
         {
             ArgumentNullException.ThrowIfNull(map);
-            bool routed = map.Name.StartsWith("ROUTED ECHOES ", StringComparison.Ordinal);
+            bool staticPreview = map.Name == "STATIC ECHOES SPIRES";
+            bool routed = staticPreview || map.Name.StartsWith("ROUTED ECHOES ", StringComparison.Ordinal);
             bool cannonPlaytest = !routed &&
                 map.Name.StartsWith("CANNON ECHOES ", StringComparison.Ordinal);
             bool sourceVisuals = !routed && !cannonPlaytest &&
                 map.Name.StartsWith("VISUAL ECHOES ", StringComparison.Ordinal);
-            string prefix = routed ? "ROUTED ECHOES " :
+            string prefix = staticPreview ? "STATIC ECHOES " : routed ? "ROUTED ECHOES " :
                 cannonPlaytest ? "CANNON ECHOES " :
                 sourceVisuals ? "VISUAL ECHOES " : "LOCAL ECHOES ";
             EchoesArenaSources.Arena arena = EchoesArenaSources.All.FirstOrDefault(x =>
@@ -159,7 +191,8 @@ public static class EchoesPrivateMapImport
             };
             if (sourceVisuals) filename = "visual-" + filename;
             if (cannonPlaytest) filename = "cannon-" + filename;
-            if (routed) filename = "routed-" + filename;
+            if (staticPreview) filename = "static-" + filename;
+            else if (routed) filename = "routed-" + filename;
             if (!filenames.Add(filename))
                 throw new InvalidDataException("Duplicate local Echoes filename.");
 
@@ -172,7 +205,19 @@ public static class EchoesPrivateMapImport
             if (compiled.Faces.Count == 0 || compiled.Solid.Count == 0 || compiled.Entities.Count < 2)
                 throw new InvalidDataException(arena.Name + " has no viable geometry or spawns.");
             if (routed)
-                MapNodePacker.Analyze(compiled.Solid, MapNodePacker.EffectiveLinks(map));
+            {
+                var graph = MapNodePacker.Analyze(compiled.Solid, MapNodePacker.EffectiveLinks(map));
+                // Counts alone cannot prove a route survived endpoint snapping.
+                // Use the compiler's exact final remap, never a second nearest
+                // lookup that could select a different node on a tie.
+                if (graph.AuthoredLinks.Count != map.NavigationLinks.Count ||
+                    graph.AuthoredLinks.Where((report, index) =>
+                        report.Ordinal != index || report.LinkId != map.NavigationLinks[index].Id ||
+                        !report.Encoded || report.Refusal != MapNodePacker.NavigationLinkRefusal.None ||
+                        report.FromNode == report.ToNode || report.Bidirectional).Any())
+                    throw new InvalidDataException(arena.Name +
+                        " has an authored cannon route that was not encoded as a directed native edge.");
+            }
 
             byte[] bytes = Encoding.UTF8.GetBytes(map.Serialize());
             if (bytes.LongLength is 0 or > MapPackageReader.MaxProjectBytes)
@@ -203,7 +248,7 @@ public static class EchoesPrivateMapImport
         try
         {
             if (string.IsNullOrWhiteSpace(isoPath))
-                throw new ArgumentException("Usage: -importechoesroutes <path-to-owned-Echoes.iso-or-gcm>");
+                throw new ArgumentException("Usage: -importechoesroutes <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>");
             var files = InstallRoutedCannonPlaytests(isoPath, CustomRooms.UserMapDirectory);
             Console.WriteLine("[echoes] Installed " + files.Count +
                 " solo-only cannon bot-route playtests. Restart to load them.");
@@ -222,7 +267,7 @@ public static class EchoesPrivateMapImport
         try
         {
             if (string.IsNullOrWhiteSpace(isoPath))
-                throw new ArgumentException("Usage: -importechoescannons <path-to-owned-Echoes.iso-or-gcm>");
+                throw new ArgumentException("Usage: -importechoescannons <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>");
             var installed = InstallCannonPlaytests(isoPath, CustomRooms.UserMapDirectory);
             Console.WriteLine("[echoes] Installed " + installed.Count +
                 " experimental solo-only orb-cannon variants; restart to discover them.");
@@ -242,7 +287,7 @@ public static class EchoesPrivateMapImport
         try
         {
             if (string.IsNullOrWhiteSpace(isoPath))
-                throw new ArgumentException("Usage: -importechoesvisuals <path-to-owned-Echoes.iso-or-gcm>");
+                throw new ArgumentException("Usage: -importechoesvisuals <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>");
             var installed = InstallVisualPreviews(isoPath, CustomRooms.UserMapDirectory);
             Console.WriteLine("[echoes] Installed " + installed.Count +
                 " local-only world-model preview maps. Restart the game to discover them.");
@@ -263,8 +308,8 @@ public static class EchoesPrivateMapImport
         {
             if (string.IsNullOrWhiteSpace(isoPath))
                 throw new ArgumentException(single
-                    ? "Usage: -importechoesspires <path-to-owned-Echoes.iso-or-gcm>"
-                    : "Usage: -importechoesarenas <path-to-owned-Echoes.iso-or-gcm>");
+                    ? "Usage: -importechoesspires <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>"
+                    : "Usage: -importechoesarenas <path-to-owned-GameCube-Echoes.iso-or-gcm-or-rvz>");
             IReadOnlyList<string> paths = single
                 ? new[] { InstallSpires(isoPath, CustomRooms.UserMapDirectory) }
                 : InstallAllArenas(isoPath, CustomRooms.UserMapDirectory);

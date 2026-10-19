@@ -15,9 +15,7 @@ internal static class CommunityTransferSession
     private static readonly Lazy<CommunityTransferManager> SharedQueue = new(() =>
         new CommunityTransferManager(
             Path.Combine(LauncherPrefs.Directory, "community-transfers"),
-            new DelegateCommunityCredentialSource(
-                HunterLicenseClient.GetCommunityMapTicketAsync,
-                HunterLicenseClient.RefreshCommunityMapTicketAsync)));
+            HunterLicenseClient.CommunityUploadCredentials));
 
     internal static CommunityTransferManager Shared => SharedQueue.Value;
 }

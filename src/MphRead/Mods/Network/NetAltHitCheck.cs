@@ -130,14 +130,67 @@ public static class NetAltHitCheck
                 "authority caps reported boost to Samus legal maximum");
             shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
 
+            var doubleTimer = typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            Check(NetSession.IsAuthority && !shooter.OwningScene.Services.IsReplica
+                && !shooter.ModUsesTimedGrantPresentation && !shooter.DoubleDamage,
+                "Double Damage fixture begins under native authority without a grant");
             victim.Health = 199;
             shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: true, boostActive: true);
             shooter.ModApplyReportedBoostState(fresh: true);
+            Check(!shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 0,
+                "spoofed true owner bit cannot grant authority Double Damage");
             exactHealth = victim.Health;
             shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
-            Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage * 2,
-                "full boost receives Double Damage exactly once");
+            Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage,
+                "spoofed true owner bit leaves full boost damage unmultiplied");
             shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+
+            ItemInstanceEntity? doubleItem = null;
+            TimedGrantRecord? fixtureGrant = null;
+            try
+            {
+                // Seed an actual native item and invoke the same authority
+                // reservation/application adapters as PickUpItems. This is an
+                // adapter fixture, not independent collision or UDP pickup proof.
+                doubleItem = ItemSpawnEntity.SpawnItem(ItemType.DoubleDamage, shooter.Position,
+                    shooter.NodeRef, 6000, shooter.OwningScene);
+                Check(doubleItem != null && NetPowerUpLedger.TrySpawnKey(doubleItem, out _),
+                    "native Double Damage fixture item has an authority spawn identity");
+                Check(NetPowerUpLedger.TryNativeContact(shooter, doubleItem!),
+                    "actual authority adapter reserves the native Double Damage item");
+                NetPowerUpLedger.TrySpawnKey(doubleItem!, out var spawn);
+                int matchingGrants = 0;
+                foreach (var grant in NetPowerUpLedger.Ledger!.History)
+                    if (grant.Spawn == spawn && grant.Life == ShotKey.For(shooter.SlotIndex, 0)
+                        && grant.Type == TimedPowerUp.DoubleDamage && grant.EndReason == TimedGrantEnd.Active)
+                    { matchingGrants++; fixtureGrant = grant; }
+                Check(matchingGrants == 1, "native reservation records exactly one current-life Double Damage grant");
+                shooter.ApplyNativeTimedPickup(doubleItem!);
+                Check(shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 1800
+                    && doubleItem!.DespawnTimer == 0,
+                    "native application starts the full timer and consumes its actual item");
+                victim.Health = 199;
+                shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: false, boostActive: true);
+                shooter.ModApplyReportedBoostState(fresh: true);
+                Check(shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 1800,
+                    "false owner bit cannot cancel a legitimate native Double Damage grant");
+                exactHealth = victim.Health;
+                shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
+                Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage * 2,
+                    "full boost receives Double Damage exactly once");
+            }
+            finally
+            {
+                if (fixtureGrant != null) NetPowerUpLedger.RetireSlot(shooter.SlotIndex, TimedGrantEnd.Retired);
+                doubleTimer.SetValue(shooter, (ushort)0);
+                NetShotSourceJournal.SetDouble(shooter, 0);
+                shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+                shooter.ModApplyReportedBoostState(fresh: false);
+                if (doubleItem != null) { doubleItem.Destroy(); shooter.OwningScene.RemoveEntity(doubleItem); }
+            }
+            Check(!shooter.DoubleDamage && !shooter.Flags1.TestFlag(PlayerFlags1.Boosting)
+                && fixtureGrant?.EndReason == TimedGrantEnd.Retired,
+                "fixture retires grant, native timer, item and boost before later contact cases");
 
             shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: false, boostActive: true);
             shooter.ModApplyReportedBoostState(fresh: false);

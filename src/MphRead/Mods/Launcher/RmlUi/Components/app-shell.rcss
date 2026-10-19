@@ -105,8 +105,7 @@ color: #ffffff;
 
 .lobby #nav_hunters,
 .lobby #nav_community,
-.lobby #nav_studio,
-.lobby #profile {
+.lobby #nav_studio {
 opacity: 0.34;
     cursor: default;
 }
@@ -188,12 +187,19 @@ nav-left: #nav_play; nav-right: #nav_community;
 }
 
 #nav_community {
-nav-left: #nav_hunters; nav-right: #nav_studio;
+nav-left: #nav_hunters; nav-right: #nav_theatre;
+}
+
+#nav_theatre {
+nav-left: #nav_community; nav-right: #nav_studio;
 }
 
 #nav_studio {
-nav-left: #nav_community; nav-right: #profile;
+nav-left: #nav_theatre; nav-right: #profile;
 }
+
+#nav_studio_home { nav-right: #nav_theatre; }
+.studio-application #nav_theatre { nav-left: #nav_studio_home; nav-right: #header_settings; }
 
 #profile {
 nav-left: #nav_studio;
@@ -448,3 +454,52 @@ color: #6b879c;
 #profile { min-width: 85dp; }
 @media (max-width: 1100dp) { #primary_nav .nav { width: 88dp; } #brand { width: auto; } #account_cluster { width: auto; } .brand_title { font-size: 16dp; } #header_settings, #profile { font-size: 11dp; padding: 8dp; min-width: 0dp; } }
 @media (max-width: 800dp) { #brand { display: none; } #primary_nav { flex: 1; } #account_cluster { flex: 0 0 auto; } #primary_nav .nav { width: 74dp; } }
+
+/* Five game destinations and two Studio destinations share the same compact header. */
+#primary_nav .nav { box-sizing:border-box; width:108dp; min-width:0; padding:0 5dp; margin:0 2dp; font-size:14dp; letter-spacing:0; white-space:nowrap; }
+#nav_studio { width:124dp; }
+.studio-application #brand { display:flex; }
+.studio-application .brand_title { font-size:17dp; line-height:20dp; letter-spacing:0; }
+.studio-application #primary_nav .nav { width:136dp; }
+.studio-application #account_cluster { flex:0 0 auto; width:auto; }
+@media (max-width:1100dp) {
+    #topbar { padding-left:18dp; padding-right:18dp; }
+    #primary_nav .nav { width:86dp; padding:0 3dp; font-size:12dp; }
+    #primary_nav #nav_studio { width:106dp; }
+    #profile { max-width:105dp; }
+}
+@media (max-width:800dp) {
+    #topbar { padding-left:10dp; padding-right:10dp; }
+    #primary_nav { flex:1; }
+    #primary_nav .nav { width:66dp; font-size:11dp; margin:0 1dp; padding:0 2dp; }
+    #primary_nav #nav_studio { width:88dp; }
+    #profile { max-width:70dp; padding:6dp; font-size:9dp; }
+    #header_settings { padding:6dp; font-size:9dp; margin-left:3dp; }
+    .studio-application #brand { flex:1; width:145dp; }
+    .studio-application #primary_nav { flex:0 0 auto; }
+    .studio-application #primary_nav .nav { width:94dp; font-size:11dp; }
+    .studio-application .brand_title { font-size:13dp; line-height:16dp; }
+}
+@media (max-width:540dp) {
+    #topbar { padding-left:5dp; padding-right:5dp; }
+    #primary_nav .nav,#primary_nav #nav_studio { flex:1; width:auto; margin:0; padding:0 1dp; font-size:8dp; }
+    #profile { display:none; }
+    #header_settings { font-size:8dp; padding:5dp; margin-left:2dp; }
+    .studio-application #brand { flex:1; width:94dp; }
+    .studio-application .brand_title { font-size:10dp; line-height:12dp; }
+    .studio-application .brand_subtitle { display:none; }
+    .studio-application #primary_nav .nav { flex:0 0 auto; width:74dp; font-size:9dp; }
+}
+
+/* The application owner selects one tab; page-local default colors cannot
+   leave Play highlighted after another destination takes the foreground. */
+#primary_nav .nav { color:#9bb5c8; background-color:rgba(0,0,0,0); border-bottom-color:rgba(0,0,0,0); }
+#primary_nav .nav.active { color:#ffffff; background-color:#0b2942; border-bottom-color:#78caff; }
+#primary_nav .nav:hover,#primary_nav .nav:focus { color:#ffffff; background-color:rgba(43,158,247,10%); border-bottom-color:#2b9ef7; }
+
+#build_info .build_version_link { padding:0dp; margin:0dp; border-width:0dp; background-color:transparent; text-align:left; color:#49caff; }
+#build_info .build_version_link:hover, #build_info .build_version_link:focus { color:#d9f6ff; }
+
+/* Auto margin anchors Quit at the trailing edge even when the optional
+   lobby-status node still participates in the footer's flex layout. */
+#footer_actions { margin-left: auto; flex: 0 0 auto; justify-content: flex-end; }

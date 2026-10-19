@@ -930,6 +930,7 @@ namespace MphRead.Entities
         private Vector3 _drawPreviousTarget, _drawCurrentTarget;
         private Vector3 _drawPreviousUp = Vector3.UnitY, _drawCurrentUp = Vector3.UnitY;
         private float _drawPreviousFov, _drawCurrentFov;
+        private long _drawPreviousFovGeneration, _drawCurrentFovGeneration;
         private bool _drawStateValid;
 
         public void Reset()
@@ -954,6 +955,7 @@ namespace MphRead.Entities
             _drawPreviousTarget = _drawCurrentTarget = Target;
             _drawPreviousUp = _drawCurrentUp = UpVector;
             _drawPreviousFov = _drawCurrentFov = Fov;
+            _drawPreviousFovGeneration = _drawCurrentFovGeneration = Mods.Render.FrameTiming.PresentationGeneration;
             _drawStateValid = true;
         }
 
@@ -968,15 +970,22 @@ namespace MphRead.Entities
             _drawPreviousTarget = _drawCurrentTarget;
             _drawPreviousUp = _drawCurrentUp;
             _drawPreviousFov = _drawCurrentFov;
+            _drawPreviousFovGeneration = _drawCurrentFovGeneration;
             _drawCurrentPosition = Position;
             _drawCurrentTarget = Target;
             _drawCurrentUp = UpVector;
             _drawCurrentFov = Fov;
+            _drawCurrentFovGeneration = Mods.Render.FrameTiming.PresentationGeneration;
         }
 
-        internal Vector3 ModGetDrawPosition(double alpha)
+        private bool ModCanSampleLiveHistory(double alpha)
+            => _drawPreviousFovGeneration == Mods.Render.FrameTiming.PresentationGeneration
+                && _drawCurrentFovGeneration == Mods.Render.FrameTiming.PresentationGeneration
+                && double.IsFinite(alpha);
+
+        internal Vector3 ModGetDrawPosition(double alpha, bool fenceLiveClock = false)
         {
-            if (!_drawStateValid) return Position;
+            if (!_drawStateValid || fenceLiveClock && !ModCanSampleLiveHistory(alpha)) return Position;
             float t = (float)Math.Clamp(alpha, 0.0, 1.0);
             return Vector3.Lerp(_drawPreviousPosition, _drawCurrentPosition, t);
         }
@@ -1026,9 +1035,9 @@ namespace MphRead.Entities
         /// where the target may be an authored world-space point.
         /// </summary>
         internal bool ModGetFirstPersonDrawPose(double alpha, out Vector3 position,
-            out Vector3 target, out Vector3 up, out float fov)
+            out Vector3 target, out Vector3 up, out float fov, bool fenceLiveClock = false)
         {
-            if (!_drawStateValid)
+            if (!_drawStateValid || fenceLiveClock && !ModCanSampleLiveHistory(alpha))
             {
                 position = Position;
                 Vector3 facingNow = Target - Position;
@@ -1108,9 +1117,15 @@ namespace MphRead.Entities
                 && (target - position).LengthSquared >= 0.000001f;
         }
 
-        internal float ModGetDrawFov(double alpha)
+        internal float ModGetDrawFov(double alpha, bool fenceLiveClock = false)
         {
             if (!_drawStateValid) return Fov;
+            // Live responsive scopes share the completed camera history, but
+            // must not reveal an old scope state after focus recovery or a
+            // discarded clock interval. Await two endpoints from the new
+            // presentation generation. Replay keeps its existing explicit
+            // seek/lifetime reset owner and does not opt into this live fence.
+            if (fenceLiveClock && !ModCanSampleLiveHistory(alpha)) return Fov;
             float t = (float)Math.Clamp(alpha, 0.0, 1.0);
             return _drawPreviousFov + (_drawCurrentFov - _drawPreviousFov) * t;
         }

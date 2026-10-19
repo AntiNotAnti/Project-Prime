@@ -289,10 +289,19 @@ def main():
     parser.add_argument("--character", choices=sorted(CHARACTERS), required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--validate", action="store_true")
+    parser.add_argument("--palette-plan", type=Path, help="With --validate, write a private <=32-joint draw preflight; no GLB/runtime acceptance")
     parser.add_argument("--animate-source", action="store_true",
                         help="Bake five-pose source-local diagnostic animation clips; never a gameplay rig")
     parser.add_argument("--clip", help="Limit source-motion preview to an exact sampled primitive name")
     args = parser.parse_args(userargs)
+    if args.palette_plan:
+        if not args.validate or args.animate_source or args.clip:
+            parser.error("--palette-plan requires --validate and cannot claim source-motion baking")
+        from source_palette import write_private_plan
+        plan = write_private_plan(args.root, args.character, args.palette_plan)
+        print("Private source-rig palette preflight:", len(plan["sourceRig"]["Bones"]),
+              "source bones,", len(plan["batches"]), "bounded draw batches; runtime acceptance false")
+        return
     if args.clip and not args.animate_source:
         parser.error("--clip requires --animate-source")
     vertices, uvs, faces, face_uvs, skeleton, weights, motions = load_inputs(

@@ -64,6 +64,9 @@ namespace MphRead.Mods.Input
 
         public static void Poll()
         {
+            // No physical input belongs to a server or synthetic headless
+            // client. Avoid mapping discovery and native GLFW loading there.
+            if (Headless.Active) return;
             if (OperatingSystem.IsAndroid())
             {
                 // The Android head has no GLFW at all -- its window is an

@@ -1,0 +1,50 @@
+<rml>
+<head>
+    <title>Community revision history</title>
+    <link type="text/rcss" href="../../themes/prime.rcss" />
+    <link type="text/rcss" href="../../components/controls.rcss" />
+    <link type="text/rcss" href="native-revisions.rcss" />
+</head>
+<body>
+<div id="community_history" role="dialog" aria-labelledby="community_history_title">
+    <div class="eyebrow">COMMUNITY // IMMUTABLE REVISION HISTORY</div>
+    <h1 id="community_history_title">REVISION HISTORY</h1>
+    <p id="community_history_status" role="status" />
+    <p id="community_history_confirmation" role="alert" />
+    <div id="community_history_scroll">
+        <p id="community_history_detail" role="group" />
+        <div class="community_history_actions">
+            <button id="community_history_install" data-action="community:detail:0">INSTALL EXACT PUBLISHED REVISION</button>
+            <button id="community_history_cancel_install" data-action="community:cancel-work">CANCEL INSTALL HANDOFF</button>
+            <div id="community_history_owner_actions" role="group">
+                <button id="community_history_promote" data-action="community:creator:0">MAKE CURRENT PUBLIC REVISION</button>
+                <button id="community_history_publish" data-action="community:visibility:0">PUBLISH RETAINED REVISION</button>
+                <button id="community_history_unlist" data-action="community:creator:1">UNLIST REVISION</button>
+                <button id="community_history_draft" data-action="community:creator:2">MAKE PRIVATE DRAFT</button>
+                <button id="community_history_delete" data-action="community:creator:3">DELETE REVISION</button>
+                <button id="community_history_restore" data-action="community:creator:4">RESTORE REVISION</button>
+            </div>
+        </div>
+        <div class="community_history_rows">
+            <button id="community_history_row0" data-action="community:revision:0"><span id="community_history_label0" /></button>
+            <button id="community_history_row1" data-action="community:revision:1"><span id="community_history_label1" /></button>
+            <button id="community_history_row2" data-action="community:revision:2"><span id="community_history_label2" /></button>
+            <button id="community_history_row3" data-action="community:revision:3"><span id="community_history_label3" /></button>
+            <button id="community_history_row4" data-action="community:revision:4"><span id="community_history_label4" /></button>
+            <button id="community_history_row5" data-action="community:revision:5"><span id="community_history_label5" /></button>
+            <button id="community_history_row6" data-action="community:revision:6"><span id="community_history_label6" /></button>
+            <button id="community_history_row7" data-action="community:revision:7"><span id="community_history_label7" /></button>
+        </div>
+    </div>
+    <div class="community_history_footer">
+        <span id="community_history_page" />
+        <button id="community_history_previous" data-action="community:revision-page:previous">PREVIOUS</button>
+        <button id="community_history_next" data-action="community:revision-page:next">NEXT</button>
+        <button id="community_history_confirm" data-action="community:confirm">CONFIRM PUBLIC REVISION</button>
+        <button id="community_history_dismiss" data-action="community:cancel">CANCEL CHANGE</button>
+        <button id="community_history_refresh" data-action="community:refresh">REFRESH</button>
+        <button id="community_history_close" data-action="community:cancel">BACK TO PROJECTS</button>
+    </div>
+</div>
+</body>
+</rml>

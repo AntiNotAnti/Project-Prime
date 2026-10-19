@@ -33,6 +33,7 @@ public readonly record struct WorldBootstrapIdentity(MatchStartIdentity Start, u
 public static partial class NetSession
 {
     private static WorldBootstrapIdentity? _appliedBootstrap, _receivingBootstrap, _confirmedBootstrap;
+    internal static WorldBootstrapIdentity? ConfirmedWorldBootstrap => _confirmedBootstrap;
     private static readonly NetReplicationReceiver _bootstrapReceiver = new();
     private static readonly byte[] _bootstrapFast = new byte[1200];
     private static int _bootstrapFastLength;

@@ -1,0 +1,2 @@
+[net] server map:  (None, 0 s left)
+PASS: architecture, owner position, full snapshots and v20 byte fixture

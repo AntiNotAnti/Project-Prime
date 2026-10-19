@@ -595,6 +595,8 @@ namespace MphRead.Effects
         // it so a late-latched view cannot leave their emitter at the previous
         // 60 Hz pose.
         internal Matrix4? DrawTransformOverride { get; set; }
+        // World-attached overrides retain the existing world projection.
+        internal bool DrawTransformUsesViewModel { get; set; }
 
         public bool IsFinished
         {
@@ -915,6 +917,69 @@ namespace MphRead.Effects
     [SuppressMessage("Style", "IDE0060:Remove unused parameter")]
     public class EffectParticle : EffectFuncBase
     {
+        // Value histories are owned by the existing pooled particle. They are
+        // excluded from the frozen replay schema and cannot retain a removed
+        // particle in a second render registry.
+        private Mods.Render.ParticleDrawHistory _drawHistory;
+        private Mods.Render.ParticleDrawPose _drawPose;
+        private bool _drawPoseActive;
+        private bool _canonicalDrawPass;
+        private ParticleDrawCache _canonicalDrawCache;
+        private readonly record struct ParticleDrawCache(Vector3 Vec1, Vector3 Vec2, Vector3 Vec3,
+            bool Visible, Vector3 Color, Vector2 Uv0, Vector3 V0, Vector2 Uv1, Vector3 V1,
+            Vector2 Uv2, Vector3 V2, Vector2 Uv3, Vector3 V3, bool Node, BillboardMode Billboard, Matrix4 Transform);
+        private Mods.Render.ParticleDrawPose CanonicalDrawPose => new(Position, Speed,
+            new Vector3(Red, Green, Blue), Alpha, Scale, Rotation);
+        private Mods.Render.ParticleDrawLifetime DrawLifetime(long scene, long timeline)
+            => new(scene, timeline, Owner, CreationTime, ParticleId, DrawId, SetVecsId, (uint)Owner.Flags);
+        internal void ModResetDrawState()
+        {
+            _drawHistory = default;
+            _drawPoseActive = false;
+            _canonicalDrawPass = false;
+        }
+        internal void ModBeginCanonicalDraw() => _canonicalDrawPass = true;
+        internal void ModCaptureDrawState(long sceneGeneration, long timelineGeneration, ulong effectFrame)
+            => _drawHistory.Capture(CanonicalDrawPose, DrawLifetime(sceneGeneration, timelineGeneration), effectFrame);
+        internal bool ModPrepareDraw(long sceneGeneration, long timelineGeneration, ulong effectFrame,
+            double alpha, bool interpolate)
+        {
+            _canonicalDrawPass = false;
+            _drawPose = interpolate
+                ? _drawHistory.Sample(CanonicalDrawPose, DrawLifetime(sceneGeneration, timelineGeneration), effectFrame, alpha)
+                : CanonicalDrawPose;
+            _drawPoseActive = _drawPose != CanonicalDrawPose || Owner.PresentationTransform != Owner.Transform;
+            if (_drawPoseActive)
+                _canonicalDrawCache = new(EffectVec1, EffectVec2, EffectVec3, ShouldDraw, Color,
+                    Texcoord0, Vertex0, Texcoord1, Vertex1, Texcoord2, Vertex2, Texcoord3, Vertex3,
+                    DrawNode, BillboardMode, NodeTransform);
+            return _drawPoseActive;
+        }
+        internal void ModFinishDraw()
+        {
+            _canonicalDrawPass = false;
+            if (!_drawPoseActive) return;
+            _drawPoseActive = false;
+            // Packets own their sampled geometry. The existing archive slots
+            // keep the exact current-state geometry computed before this scope,
+            // including fields a nondrawing canonical pose does not overwrite.
+            var cache = _canonicalDrawCache;
+            EffectVec1 = cache.Vec1; EffectVec2 = cache.Vec2; EffectVec3 = cache.Vec3;
+            ShouldDraw = cache.Visible; Color = cache.Color;
+            Texcoord0 = cache.Uv0; Vertex0 = cache.V0;
+            Texcoord1 = cache.Uv1; Vertex1 = cache.V1;
+            Texcoord2 = cache.Uv2; Vertex2 = cache.V2;
+            Texcoord3 = cache.Uv3; Vertex3 = cache.V3;
+            DrawNode = cache.Node; BillboardMode = cache.Billboard; NodeTransform = cache.Transform;
+        }
+        private Vector3 DrawPosition => _drawPoseActive ? _drawPose.Position : Position;
+        private Matrix4 DrawOwnerTransform => _canonicalDrawPass ? Owner.Transform : Owner.PresentationTransform;
+        private Vector3 DrawSpeed => _drawPoseActive ? _drawPose.Speed : Speed;
+        private Vector3 DrawColor => _drawPoseActive ? _drawPose.Color : new Vector3(Red, Green, Blue);
+        private float DrawAlpha => _drawPoseActive ? _drawPose.Alpha : Alpha;
+        private float DrawScale => _drawPoseActive ? _drawPose.Scale : Scale;
+        private float DrawRotation => _drawPoseActive ? _drawPose.Rotation : Rotation;
+
         public float CreationTime { get; set; }
         public float ExpirationTime { get; set; }
         public float Lifespan { get; set; }
@@ -1112,7 +1177,7 @@ namespace MphRead.Effects
             Debug.Assert(false, "SetVecsD4 was called");
             // todo?: if this needs to be implemented, revisit what it actually does and make it work in the shader
             Matrix4 viewMatrix = Matrix4.Identity;
-            var vec1 = Vector3.Normalize(Speed);
+            var vec1 = Vector3.Normalize(DrawSpeed);
             var vec2 = new Vector3(viewMatrix.M13, viewMatrix.M23, viewMatrix.M33);
             var vec3 = Vector3.Cross(vec2, vec1);
             if (vec3.LengthSquared < Fixed.ToFloat(64))
@@ -1159,14 +1224,14 @@ namespace MphRead.Effects
 
         private void DrawB8(float scaleFactor)
         {
-            if (Alpha > 0)
+            if (DrawAlpha > 0)
             {
                 ShouldDraw = true;
-                Color = new Vector3(Red, Green, Blue);
-                Vector3 ev1 = EffectVec1 * Scale;
-                Vector3 ev2 = EffectVec2 * Scale;
+                Color = DrawColor;
+                Vector3 ev1 = EffectVec1 * DrawScale;
+                Vector3 ev2 = EffectVec2 * DrawScale;
 
-                Vector3 position = Matrix.Vec3MultMtx4(Position, Owner.PresentationTransform.ClearTranslation());
+                Vector3 position = Matrix.Vec3MultMtx4(DrawPosition, DrawOwnerTransform.ClearTranslation());
                 float v19 = position.X + (-ev1.X / 2) + (ev2.X / 2);
                 float v22 = position.Y + (-ev1.Y / 2) + (ev2.Y / 2);
                 float v23 = position.Z + (-ev1.Z / 2) + (ev2.Z / 2);
@@ -1212,21 +1277,21 @@ namespace MphRead.Effects
 
         private void DrawC4(float scaleFactor)
         {
-            if (Speed.LengthSquared > Fixed.ToFloat(128))
+            if (DrawSpeed.LengthSquared > Fixed.ToFloat(128))
             {
-                EffectVec1 = Vector3.Normalize(Speed);
+                EffectVec1 = Vector3.Normalize(DrawSpeed);
                 DrawShared(scaleFactor, skipIfZeroSpeed: true);
             }
         }
 
         private void DrawCC(float scaleFactor)
         {
-            if (Alpha > 0)
+            if (DrawAlpha > 0)
             {
                 ShouldDraw = true;
-                Color = new Vector3(Red, Green, Blue);
-                float angle1 = MathHelper.DegreesToRadians(Rotation);
-                float angle2 = MathHelper.DegreesToRadians(Rotation + 90);
+                Color = DrawColor;
+                float angle1 = MathHelper.DegreesToRadians(DrawRotation);
+                float angle2 = MathHelper.DegreesToRadians(DrawRotation + 90);
                 float sin1 = MathF.Sin(angle1);
                 float cos1 = MathF.Cos(angle1);
                 float sin2 = MathF.Sin(angle2);
@@ -1235,15 +1300,15 @@ namespace MphRead.Effects
                 Vector3 vec1 = EffectVec1;
                 Vector3 vec2 = EffectVec2;
 
-                float v20 = (vec1.X * sin2 + vec2.X * cos2) * Scale;
-                float v24 = (vec1.Y * sin2 + vec2.Y * cos2) * Scale;
-                float v25 = (vec1.Z * sin2 + vec2.Z * cos2) * Scale;
+                float v20 = (vec1.X * sin2 + vec2.X * cos2) * DrawScale;
+                float v24 = (vec1.Y * sin2 + vec2.Y * cos2) * DrawScale;
+                float v25 = (vec1.Z * sin2 + vec2.Z * cos2) * DrawScale;
 
-                float v26 = (vec1.X * sin1 + vec2.X * cos1) * Scale;
-                float v28 = (vec1.Y * sin1 + vec2.Y * cos1) * Scale;
-                float v29 = (vec1.Z * sin1 + vec2.Z * cos1) * Scale;
+                float v26 = (vec1.X * sin1 + vec2.X * cos1) * DrawScale;
+                float v28 = (vec1.Y * sin1 + vec2.Y * cos1) * DrawScale;
+                float v29 = (vec1.Z * sin1 + vec2.Z * cos1) * DrawScale;
 
-                Vector3 position = Matrix.Vec3MultMtx4(Position, Owner.PresentationTransform.ClearTranslation());
+                Vector3 position = Matrix.Vec3MultMtx4(DrawPosition, DrawOwnerTransform.ClearTranslation());
                 float v27 = position.X + (-v20 / 2) + (v26 / 2);
                 float v30 = position.Y + (-v24 / 2) + (v28 / 2);
                 float v31 = position.Z + (-v25 / 2) + (v29 / 2);
@@ -1294,30 +1359,30 @@ namespace MphRead.Effects
 
         private void DrawDC(float scaleFactor)
         {
-            if (Alpha > 0)
+            if (DrawAlpha > 0)
             {
                 ShouldDraw = true;
                 DrawNode = true;
-                Color = new Vector3(Red, Green, Blue);
+                Color = DrawColor;
                 Vector4 ev4;
                 if (Owner.Flags.TestFlag(EffElemFlags.UseTransform))
                 {
-                    ev4 = new Vector4(Position + Owner.PresentationTransform.Row3.Xyz, 1);
+                    ev4 = new Vector4(DrawPosition + DrawOwnerTransform.Row3.Xyz, 1);
                 }
                 else
                 {
-                    ev4 = new Vector4(Position, 1);
+                    ev4 = new Vector4(DrawPosition, 1);
                 }
                 if (BillboardMode == BillboardMode.Sphere)
                 {
-                    NodeTransform = Matrix4.CreateScale(Scale) * Matrix4.CreateTranslation(new Vector3(ev4));
+                    NodeTransform = Matrix4.CreateScale(DrawScale) * Matrix4.CreateTranslation(new Vector3(ev4));
                 }
                 else
                 {
                     Debug.Assert(false, "DrawDC was called with non-billboard");
-                    var ev1 = new Vector4(EffectVec1 * Scale);
-                    var ev2 = new Vector4(EffectVec2 * Scale);
-                    var ev3 = new Vector4(EffectVec3 * Scale);
+                    var ev1 = new Vector4(EffectVec1 * DrawScale);
+                    var ev2 = new Vector4(EffectVec2 * DrawScale);
+                    var ev3 = new Vector4(EffectVec3 * DrawScale);
                     NodeTransform = new Matrix4(ev1, ev2, ev3, ev4);
                 }
             }
@@ -1325,13 +1390,13 @@ namespace MphRead.Effects
 
         private void DrawShared(float scaleFactor, bool skipIfZeroSpeed)
         {
-            if (Alpha > 0 && (!skipIfZeroSpeed || Speed.LengthSquared > 0))
+            if (DrawAlpha > 0 && (!skipIfZeroSpeed || DrawSpeed.LengthSquared > 0))
             {
                 ShouldDraw = true;
-                Color = new Vector3(Red, Green, Blue);
+                Color = DrawColor;
                 Vector3 cross = Vector3.Cross(EffectVec1, EffectVec2).Normalized();
-                Vector3 ev1 = EffectVec1 * Scale;
-                cross *= Rotation;
+                Vector3 ev1 = EffectVec1 * DrawScale;
+                cross *= DrawRotation;
                 float v20 = -ev1.X / 2 + cross.X / 2;
                 float v21 = -ev1.Y / 2 + cross.Y / 2;
                 float v22 = -ev1.Z / 2 + cross.Z / 2;
@@ -1425,12 +1490,39 @@ namespace MphRead.Effects
                     texcoordMtx = Matrix4.CreateScale(material.ScaleS, material.ScaleT, 1.0f) * texcoordMtx;
                     texcoordMtx = Matrix4.CreateRotationZ(material.RotateZ) * texcoordMtx;
                 }
-                material.CurrentDiffuse = Color;
-                material.CurrentAlpha = Alpha;
+                bool sampled = _drawPoseActive && _drawPose != CanonicalDrawPose;
+                Vector3 canonicalDiffuse = material.CurrentDiffuse;
+                float canonicalAlpha = material.CurrentAlpha;
                 Debug.Assert(model.NodeMatrixIds.Count == 0);
-                scene.UpdateMaterials(model, 0); // probably not necessary unless the model has texture animation
-                scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
-                    transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode);
+                if (!sampled || _canonicalDrawCache.Visible)
+                {
+                    material.CurrentDiffuse = new Vector3(Red, Green, Blue);
+                    material.CurrentAlpha = Alpha;
+                    scene.UpdateMaterials(model, 0);
+                    canonicalDiffuse = material.CurrentDiffuse;
+                    canonicalAlpha = material.CurrentAlpha;
+                }
+                RenderMode canonicalMode = material.RenderMode;
+                try
+                {
+                    if (sampled)
+                    {
+                        material.CurrentDiffuse = Color;
+                        material.CurrentAlpha = DrawAlpha;
+                        scene.UpdateMaterials(model, 0);
+                    }
+                    scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
+                        transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode);
+                }
+                finally
+                {
+                    if (sampled)
+                    {
+                        material.CurrentDiffuse = canonicalDiffuse;
+                        material.CurrentAlpha = canonicalAlpha;
+                        material.RenderMode = canonicalMode;
+                    }
+                }
             }
             else
             {
@@ -1467,19 +1559,19 @@ namespace MphRead.Effects
                 {
                     if (BillboardMode != BillboardMode.None)
                     {
-                        Vector3 position = Matrix.Vec3MultMtx4(Position, Owner.PresentationTransform.ClearTranslation());
-                        transform = Matrix4.CreateTranslation(position + Owner.PresentationTransform.Row3.Xyz);
+                        Vector3 position = Matrix.Vec3MultMtx4(DrawPosition, DrawOwnerTransform.ClearTranslation());
+                        transform = Matrix4.CreateTranslation(position + DrawOwnerTransform.Row3.Xyz);
                     }
                     else
                     {
-                        transform = Matrix4.CreateTranslation(Position) * Owner.PresentationTransform;
+                        transform = Matrix4.CreateTranslation(DrawPosition) * DrawOwnerTransform;
                     }
                 }
                 else
                 {
-                    transform = Matrix4.CreateTranslation(Position);
+                    transform = Matrix4.CreateTranslation(DrawPosition);
                 }
-                scene.AddRenderItem(RenderItemType.Particle, Alpha, scene.GetNextPolygonId(), Color, xRepeat, yRepeat,
+                scene.AddRenderItem(RenderItemType.Particle, DrawAlpha, scene.GetNextPolygonId(), Color, xRepeat, yRepeat,
                     scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode);
             }
         }

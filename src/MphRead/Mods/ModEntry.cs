@@ -34,6 +34,19 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (HasFlag(args, "replayexportworker"))
+            {
+                string? ticket = ValueAfter(args, "replayexportworker");
+                if (string.IsNullOrWhiteSpace(ticket))
+                {
+                    Console.Error.WriteLine("[replayexportworker] An absolute ticket path is required.");
+                    Environment.ExitCode = 1;
+                }
+                else Environment.ExitCode = Replay.ReplayDetachedExportWorker.Run(ticket);
+                return true;
+            }
+#endif
             // The update worker must reach its copy routine without loading game
             // settings, renderer or launcher state from the temporary stage.
             // Older builds pass only the target and PID; newer builds also pass
@@ -169,6 +182,12 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "mapdirectory") is { } mapDirectory)
                 MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
+            if (HasFlag(args, "importechoesstatics"))
+            {
+                Environment.ExitCode = Import.EchoesPrivateMapImport.RunStaticSpiresCommand(
+                    ValueAfter(args, "importechoesstatics"));
+                return true;
+            }
             if (HasFlag(args, "importechoesroutes"))
             {
                 Environment.ExitCode = Import.EchoesPrivateMapImport.RunRoutedCannonPlaytestsCommand(
@@ -275,6 +294,9 @@ namespace MphRead.Mods
             }
             if (HasFlag(args, "windowcheck"))
             {
+#if MPHREAD_RMLUI_GL_SMOKE && !ANDROID && !MPHREAD_SERVER
+                Launcher.Gui.Shell.StudioWindow = HasFlag(args, "studio") || HasFlag(args, "primestudio");
+#endif
                 Environment.ExitCode = Diagnostics.LauncherWindowCheck.Run();
                 return true;
             }
@@ -665,19 +687,12 @@ namespace MphRead.Mods
                 }
             }
 
-            if (HasFlag(args, "mapstudio"))
+            if (HasFlag(args, "studio") || HasFlag(args, "primestudio") || HasFlag(args, "mapstudio"))
             {
-#if MPHREAD_SHELL
-                MapGen.CustomRooms.DeferInitialRegistration = true;
-                Launcher.Gui.Shell.OpenStudioOnStart = true;
-                Launcher.Gui.Shell.StudioWindow = true;
-                WindowMode.ForceStartup(WindowStartMode.Windowed);
-                Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
-                if (Launcher.ClientInstanceGuard.TryAcquireForProcess(
-                    TimeSpan.FromSeconds(5)))
-                    Launcher.Gui.Shell.Run();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                Launcher.Gui.Shell.RunPrimeStudio(args, mapPlaceholder: HasFlag(args, "mapstudio"));
 #else
-                Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
+                Console.WriteLine("[studio] Prime Studio requires the native desktop build.");
                 Environment.ExitCode = 1;
 #endif
                 return true;

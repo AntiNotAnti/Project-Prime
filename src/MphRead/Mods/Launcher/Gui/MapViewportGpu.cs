@@ -40,6 +40,7 @@ internal sealed partial class MapViewport
     }
     internal void DrawInWindow(UiSurface surface, int width, int height)
     {
+        if (NativePresentationLeased) return;
         if (_renderer == null || Bounds.Width <= 0 || Bounds.Height <= 0) return;
         var origin = this.TranslatePoint(new Point(0, 0), surface.Root);
         var far = this.TranslatePoint(new Point(Bounds.Width, Bounds.Height), surface.Root);
@@ -55,6 +56,19 @@ internal sealed partial class MapViewport
             ReleaseRenderer(); UiSurface.Current?.Invalidate();
             Console.Error.WriteLine("[map] Editor renderer failed: " + ex);
             Mods.DebugLog.Line("map", "Editor renderer failed: " + ex.Message);
+        }
+    }
+    internal bool DrawNative(MapViewportLayout layout, int width, int height)
+    {
+        if (!NativePresentationLeased) return false;
+        PrepareRenderer();
+        if (_renderer == null) return false;
+        try { _renderer.DrawEditorFrame(BuildRenderFrame(layout), new(width, height)); return true; }
+        catch (Exception error)
+        {
+            _rendererFailed = true; ReleaseRenderer();
+            Console.Error.WriteLine("[map] Native editor renderer failed: " + error);
+            return false;
         }
     }
     internal byte[] CaptureGpuPreview(byte[] overlay)

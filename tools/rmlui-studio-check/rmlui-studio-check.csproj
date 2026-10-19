@@ -3,5 +3,18 @@
     <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-  <ItemGroup><ProjectReference Include="../../src/MphRead/MphRead.csproj"/></ItemGroup>
+  <ItemGroup>
+    <Content Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/studio/native-entry.rml" Link="native-entry.rml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioEntryController.cs" Link="NativeStudioEntryController.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioEditorController.cs" Link="NativeStudioEditorController.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioBuild.cs" Link="NativeStudioBuild.cs"/>
+    <Compile Include="../../src/MphRead/Mods/MapGen/Validation/MapDiagnostic.cs" Link="MapDiagnostic.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioEditorDetails.cs" Link="NativeStudioEditorDetails.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioProjectChanges.cs" Link="NativeStudioProjectChanges.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioProjectFiles.cs" Link="NativeStudioProjectFiles.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs" Link="RmlUiIntent.cs"/>
+  <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioResources.cs" Link="NativeStudioResources.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioModeling.cs" Link="NativeStudioModeling.cs"/>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/NativeStudioModelingController.cs" Link="NativeStudioModelingController.cs"/>
+  </ItemGroup>
 </Project>

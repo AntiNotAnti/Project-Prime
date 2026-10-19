@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidApkAssets.cs" Link="RmlUiAndroidApkAssets.cs" />
+  </ItemGroup>
+</Project>

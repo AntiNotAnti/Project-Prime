@@ -1,0 +1,10 @@
+<rml><head><title>Adventure journal</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="../../components/controls.rcss"/><link type="text/rcss" href="journal.rcss"/></head><body>
+<div class="journal-panel"><div class="journal-header"><div class="eyebrow">ADVENTURE JOURNAL</div><h1 id="journal_section">MISSION MAP</h1><div id="journal_summary"/>
+<div class="journal-actions"><button id="journal_map" data-action="ingame:journal-map">MISSION MAP</button><button id="journal_scans" data-action="ingame:journal-scans">SCAN LOGBOOK</button><button id="journal_category" data-action="ingame:journal-category">ALL CATEGORIES</button></div></div>
+<div class="journal-entries" role="list"><p id="journal_empty" role="status"/>
+<div id="journal_row0" class="journal-entry" role="listitem"><h2 id="journal_title0"/><p id="journal_detail0"/></div>
+<div id="journal_row1" class="journal-entry" role="listitem"><h2 id="journal_title1"/><p id="journal_detail1"/></div>
+<div id="journal_row2" class="journal-entry" role="listitem"><h2 id="journal_title2"/><p id="journal_detail2"/></div>
+<div id="journal_row3" class="journal-entry" role="listitem"><h2 id="journal_title3"/><p id="journal_detail3"/></div></div>
+<div class="journal-footer"><button id="journal_previous" data-action="ingame:journal-previous">PREVIOUS</button><span id="journal_page" role="status"/><button id="journal_next" data-action="ingame:journal-next">NEXT</button><button id="journal_close" class="primary" data-action="ingame:journal-back">BACK TO PAUSE</button></div>
+</div></body></rml>

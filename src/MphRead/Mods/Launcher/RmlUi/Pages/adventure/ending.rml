@@ -1,0 +1,26 @@
+<rml>
+<head>
+    <title>Adventure ending</title>
+    <link type="text/rcss" href="../../themes/prime.rcss" />
+    <link type="text/rcss" href="../../components/controls.rcss" />
+    <link type="text/rcss" href="ending.rcss" />
+</head>
+<body>
+    <div id="campaign_ending_page">
+        <div class="eyebrow">ADVENTURE // MISSION RECEIPT</div>
+        <h1 id="campaign_ending_heading">MISSION COMPLETE</h1>
+        <button id="campaign_ending_continue" class="play_action primary" data-action="route:adventure">RETURN TO CAMPAIGN FILE SELECT</button>
+        <div id="campaign_ending_scroll">
+            <div class="campaign_ending_summary">
+                <h2 id="campaign_ending_result" />
+                <p id="campaign_ending_detail" />
+                <p id="campaign_ending_slot" class="eyebrow" />
+                <p id="campaign_ending_save" />
+                <p id="campaign_ending_totals" />
+            </div>
+            <h2>PROJECT PRIME // CREDITS</h2>
+            <p id="campaign_ending_credits" />
+        </div>
+    </div>
+</body>
+</rml>

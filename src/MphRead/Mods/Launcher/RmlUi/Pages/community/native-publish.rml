@@ -1,0 +1,40 @@
+<rml>
+<head>
+    <title>Publish captured Studio project</title>
+    <link type="text/rcss" href="../../themes/prime.rcss" />
+    <link type="text/rcss" href="../../components/controls.rcss" />
+    <link type="text/rcss" href="native-publish.rcss" />
+</head>
+<body>
+<div id="community_publish" role="dialog" aria-labelledby="community_publish_title">
+    <div class="eyebrow">STUDIO // CAPTURED COMMUNITY PUBLICATION</div>
+    <h1 id="community_publish_title">CURRENT EDITOR PROJECT</h1>
+    <p id="community_publish_status" role="status" />
+    <p id="community_publish_confirmation" role="alert" />
+    <div id="community_publish_scroll">
+        <p id="community_publish_parent" role="group" />
+        <p role="group">The Studio owner captured the current authoring settings, including unsaved edits. This page cannot edit or save the Studio document. Referenced assets are validated when packaging.</p>
+        <div class="community_publish_choices" role="group" aria-label="Visibility">
+            <button id="community_publish_draft" data-action="community:visibility:2">PRIVATE DRAFT</button>
+            <button id="community_publish_unlisted" data-action="community:visibility:1">UNLISTED</button>
+            <button id="community_publish_published" data-action="community:visibility:0">PUBLISHED</button>
+        </div>
+        <p role="group">Private draft: visible to your verified creator account. Unlisted: excluded from discovery. Published: public and discoverable.</p>
+        <label for="community_publish_notes">RELEASE NOTES // OPTIONAL, 4,000 CHARACTERS MAXIMUM</label>
+        <textarea id="community_publish_notes" maxlength="4000" rows="4" />
+        <p id="community_publish_hash" role="group" />
+        <p id="community_publish_transfer" role="status" />
+        <p id="community_publish_conflict" role="alert">The server requires parent-conflict review. The exact upload archive is retained. Close this dialog and inspect My Uploads before choosing any further publication action. No stale-parent override is performed here.</p>
+    </div>
+    <div class="community_publish_footer">
+        <button id="community_publish_prepare" data-action="community:upload:0">REVIEW QUEUE REQUEST</button>
+        <button id="community_publish_confirm" data-action="community:confirm">CONFIRM DURABLE UPLOAD</button>
+        <button id="community_publish_cancel_prepare" data-action="community:upload:1">CANCEL PREPARATION WAIT</button>
+        <button id="community_publish_pause" data-action="community:detail:0">PAUSE UPLOAD</button>
+        <button id="community_publish_resume" data-action="community:detail:1">VERIFY ACCOUNT AND RESUME</button>
+        <button id="community_publish_refresh" data-action="community:refresh">REFRESH PARENT</button>
+        <button id="community_publish_close" data-action="community:cancel">BACK</button>
+    </div>
+</div>
+</body>
+</rml>

@@ -45,6 +45,7 @@ internal static class NetCheckSimulation
             // Player and run an uninitialized reticle during authority respawn.
             SpectatorMode.TakeCameraRequest();
             scene.OnSimulationFrame();
+            NetCheckClient.MaintainWorldRecording(scene);
             if (!spectated && spectateAt >= 0 && now >= spectateAt)
             {
                 SpectatorMode.Start();

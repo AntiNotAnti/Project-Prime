@@ -1,0 +1,2 @@
+Display pose archival schema A4512223EC0CC49516DB00DD3733168DA6969DEA059E9DDE84B31062ADEA675A; legacy snapshot SHA-256 64a16aac610f36c686ae6055fdfde3d2c94819fd1e1cddd7457cabf9138ae4f1; bound/reflection field-block roundtrip exact.
+DISPLAY POSE INTEGRATION PASS 69 checks; content-free actual scene/entity/Draw-used actor selector hooks, no full Draw/3D/device acceptance.

@@ -418,8 +418,8 @@ min-width: 62dp; font-size: 7dp;
 #lobby_map_preview { text-align: left; color: #b8d7ed; background-color: rgba(3,13,23,94%); }
 
 /* Keep the preview below the rules as text and display density change. */
-#lobby_left_panels { position: absolute; left: 32dp; top: 94dp; width: 238dp; }
-#lobby_left_panels #lobby_match_panel, #lobby_left_panels #lobby_map_preview { position: relative; left: 0dp; top: 0dp; width: 100%; display: block; }
+#lobby_left_panels { position: absolute; left: 32dp; top: 94dp; bottom: 58dp; width: 238dp; overflow-y: auto; overflow-x: hidden; }
+#lobby_left_panels #lobby_match_panel, #lobby_left_panels #lobby_map_preview { position: relative; left: 0dp; top: 0dp; width: 100%; display: block; box-sizing: border-box; }
 #lobby_left_panels #lobby_map_preview { margin-top: 12dp; min-height: 0dp; }
 .lobby_small_button { display: block; text-align: center; }
 @media (max-width: 1500dp) { #lobby_left_panels { left: 24dp; width: 216dp; } }
@@ -540,3 +540,79 @@ min-width: 62dp; font-size: 7dp;
 #lobby_brief { top: 12dp; padding: 7dp 13dp; }
 .lobby_brief_title { margin-top: 3dp; margin-bottom: 4dp; }
 .lobby_brief_detail { display: none; }
+
+
+/* Mirror the established left rail's outer width and chamber clearance. */
+#lobby_roster_panel, #lobby_chat_panel {
+    box-sizing: border-box;
+    right: 32dp;
+    width: 238dp;
+}
+
+/* Keep the input and SEND inside the compact panel's pointer hit areas. */
+#lobby_chat_panel { display: flex; flex-direction: column; }
+#lobby_chat_panel > .eyebrow { flex-shrink: 0; }
+#lobby_chat_history { flex: 1; min-height: 0; height: auto; margin-bottom: 4dp; }
+#lobby_chat_status { flex-shrink: 0; max-height: 28dp; overflow: hidden; }
+.lobby_chat_compose { flex-shrink: 0; min-width: 0; }
+#lobby_chat_input { box-sizing: border-box; flex: 1; min-width: 0; width: auto; }
+#lobby_chat_send { box-sizing: border-box; flex-shrink: 0; width: 42dp; }
+@media (max-width: 1500dp) {
+    #lobby_roster_panel, #lobby_chat_panel { right: 24dp; width: 216dp; }
+}
+@media (max-width: 1180dp) {
+    #lobby_roster_panel, #lobby_chat_panel { width: 190dp; }
+}
+@media (max-width: 900dp) {
+    #lobby_roster_panel, #lobby_chat_panel { right: 14dp; width: 170dp; }
+}
+
+/* Empty capacity controls use the same indexed display action as the roster.
+   Their visibility and permissions are supplied by fresh authoritative state. */
+.lobby_roster_add_bot {
+    display: block;
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 22dp;
+    padding: 2dp 4dp;
+    text-align: left;
+    background-color: transparent;
+    border: 1dp transparent;
+}
+.lobby_roster_add_bot b, .lobby_roster_add_bot span {
+    display: block;
+    pointer-events: none;
+}
+.lobby_roster_add_bot b {
+    color: #d9e7f3;
+    font-size: 12dp;
+    line-height: 12dp;
+    font-weight: bold;
+}
+.lobby_roster_add_bot span {
+    margin-top: 1dp;
+    color: #90cbed;
+    font-size: 8dp;
+    line-height: 8dp;
+}
+.lobby_roster_add_bot:hover, .lobby_roster_add_bot:focus {
+    background-color: #17364c;
+    border-color: #72c7ff;
+}
+@media (max-height: 760dp) {
+    .lobby_roster_add_bot b { font-size: 10dp; line-height: 10dp; }
+    .lobby_roster_add_bot span { font-size: 7dp; line-height: 7dp; }
+}
+.lobby_roster_row.empty .lobby_roster_copy,
+.lobby_roster_row.empty .lobby_roster_meta { display: none; }
+
+/* The platform pages belong to the Play section of the persistent shell. */
+#nav_play {
+    color: #ffffff;
+    background-color: rgba(28,114,225,12%);
+    border-bottom-color: #72c7ff;
+}
+
+/* Leave room for the real preview caption above the footer. */
+#lobby_left_panels { bottom: 32dp; }

@@ -45,6 +45,9 @@ uniform float right_darken;
 uniform float beam_intensity;
 uniform float background_softness;
 uniform float lobby_mode;
+uniform float home_party_mode;
+uniform float home_layout_mode;
+uniform vec4 home_pad_geometry[4];
 uniform vec4 lobby_occupancy_a;
 uniform vec4 lobby_occupancy_b;
 uniform vec4 lobby_pad_geometry[8];
@@ -93,7 +96,8 @@ void main()
 {
     vec2 uv = chamber_uv;
     // Shared with the centered solo preview and lobby formation.
-    float stageHeroX = 0.5;
+    float stageHeroX = home_layout_mode > 0.5 ? home_pad_geometry[0].x : 0.5;
+    vec2 roomUv = uv + vec2(0.5 - stageHeroX, 0.0);
     float aspect = max(resolution.x / max(resolution.y, 1.0), 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
@@ -106,7 +110,7 @@ void main()
 
     // Distant central bay. It is intentionally broad and low-detail so Hunter
     // silhouettes remain the only detailed subject in the middle of the frame.
-    float bay = box_mask(uv, vec2(0.305, 0.14), vec2(0.855, 0.72), 0.035);
+    float bay = box_mask(roomUv, vec2(0.225, 0.14), vec2(0.775, 0.72), 0.035);
     col += mix(activity_accent, hunter_halo, 0.64) * bay * 0.075 * structure_amount;
 
     // Neutral torso-level lift keeps the selected Hunter readable without
@@ -117,32 +121,32 @@ void main()
     col += heroAmbient * torsoLift * (0.15 + 0.05 * hero_light);
 
     // Recessed inner wall panels add a second depth plane behind the hero.
-    float leftRecess = box_mask(uv, vec2(0.355, 0.30), vec2(0.455, 0.69), 0.014);
-    float rightRecess = box_mask(uv, vec2(0.775, 0.30), vec2(0.855, 0.69), 0.014);
+    float leftRecess = box_mask(roomUv, vec2(0.275, 0.30), vec2(0.375, 0.69), 0.014);
+    float rightRecess = box_mask(roomUv, vec2(0.625, 0.30), vec2(0.725, 0.69), 0.014);
     float recess = min(1.0, leftRecess + rightRecess);
     col *= 1.0 - recess * 0.10 * structure_amount;
-    float innerEdges = line(uv.x - 0.355, 0.0022) + line(uv.x - 0.455, 0.0022)
-        + line(uv.x - 0.775, 0.0022) + line(uv.x - 0.855, 0.0022);
-    float innerGate = smoothstep(0.27, 0.34, uv.y) * (1.0 - smoothstep(0.68, 0.74, uv.y));
+    float innerEdges = line(roomUv.x - 0.275, 0.0022) + line(roomUv.x - 0.375, 0.0022)
+        + line(roomUv.x - 0.625, 0.0022) + line(roomUv.x - 0.725, 0.0022);
+    float innerGate = smoothstep(0.27, 0.34, roomUv.y) * (1.0 - smoothstep(0.68, 0.74, roomUv.y));
     col += mix(activity_secondary, hunter_rim, 0.42) * innerEdges * innerGate * 0.043 * structure_amount;
 
     // A deeper, deliberately asymmetric wall plane prevents the chamber from
     // reading as a row of evenly spaced primitives. These broad silhouettes
     // sit behind the lit ribs and leave the hero bay visually open.
-    float farLeftWall = box_mask(uv, vec2(0.245, 0.23), vec2(0.325, 0.70), 0.020);
-    float farRightWall = box_mask(uv, vec2(0.870, 0.18), vec2(0.945, 0.66), 0.020);
+    float farLeftWall = box_mask(roomUv, vec2(0.245, 0.23), vec2(0.325, 0.70), 0.020);
+    float farRightWall = box_mask(roomUv, vec2(0.870, 0.18), vec2(0.945, 0.66), 0.020);
     float farWall = min(1.0, farLeftWall + farRightWall);
     col = mix(col, base_bottom * 0.58, farWall * 0.52 * structure_amount);
-    float farCrossbeam = box_mask(uv, vec2(0.255, 0.285), vec2(0.930, 0.302), 0.008);
+    float farCrossbeam = box_mask(roomUv, vec2(0.255, 0.285), vec2(0.930, 0.302), 0.008);
     col = mix(col, base_bottom * 0.44, farCrossbeam * 0.70 * structure_amount);
     col += activity_accent * farCrossbeam * 0.020 * structure_amount;
 
-    // Far gantries oscillate on a slower depth plane than the service light.
-    float gantryTravel = sin(time_value * 0.065) * 0.022;
-    float gantryGate = box_mask(uv, vec2(0.22, 0.17), vec2(0.88, 0.65), 0.025);
-    float gantry = line(abs(uv.x - 0.5) - (0.255 + gantryTravel + (uv.y - 0.3) * 0.13), 0.010);
+    // Architecture stays anchored; reflected light supplies the movement.
+    float gantryTravel = 0.0;
+    float gantryGate = box_mask(roomUv, vec2(0.22, 0.17), vec2(0.88, 0.65), 0.025);
+    float gantry = line(abs(roomUv.x - 0.5) - (0.255 + gantryTravel + (roomUv.y - 0.3) * 0.13), 0.010);
     col = mix(col, base_bottom, gantry * gantryGate * 0.58);
-    float gantryEdge = line(abs(uv.x - 0.5) - (0.244 + gantryTravel + (uv.y - 0.3) * 0.13), 0.0012);
+    float gantryEdge = line(abs(roomUv.x - 0.5) - (0.244 + gantryTravel + (roomUv.y - 0.3) * 0.13), 0.0012);
     col += hunter_rim * gantryEdge * gantryGate * 0.16;
 
     // Sequenced vertical power conduits: staggered cycles, restrained surges.
@@ -150,8 +154,8 @@ void main()
     for (int channel = 0; channel < 4; channel++) {
         float fi = float(channel);
         float cx = 0.285 + fi * 0.145;
-        float travel = 0.5 + 0.5 * sin(energy_time * 0.7 - uv.y * 12.0 + fi * 1.6);
-        float conduit = line(uv.x - cx, 0.0013) * box_mask(uv, vec2(0.20, 0.22), vec2(0.86, 0.70), 0.025);
+        float travel = 0.5 + 0.5 * sin(energy_time * 0.7 - roomUv.y * 12.0 + fi * 1.6);
+        float conduit = line(roomUv.x - cx, 0.0013) * box_mask(roomUv, vec2(0.20, 0.22), vec2(0.86, 0.70), 0.025);
         col += mix(activity_secondary, hunter_rim, 0.7) * conduit * (0.035 + pow(travel, 5.0) * (0.26 + surge * 0.16));
     }
 
@@ -164,50 +168,50 @@ void main()
     float spire = hunter_weights_b.y;
     float weavel = hunter_weights_b.z;
     float scanY = 0.44 + sin(time_value * 0.32) * 0.17;
-    float tactical = line(uv.y - scanY - abs(uv.x - 0.5) * 0.23, 0.0018);
-    float bio = pow(0.5 + 0.5 * sin(uv.y * 27.0 + sin(time_value * 1.7) * 2.0 + energy_time), 6.0);
-    float electric = pow(0.5 + 0.5 * sin(uv.y * 35.0 - energy_time * 3.0), 14.0);
-    float thermal = 0.5 + 0.5 * sin(uv.x * 28.0 + sin(time_value * 0.3 + uv.y * 8.0));
-    float motifGate = ellipse_mask(uv, vec2(0.5, 0.47), vec2(0.34, 0.34));
-    float sideGate = smoothstep(0.10, 0.22, abs(uv.x - 0.5));
+    float tactical = line(roomUv.y - scanY - abs(roomUv.x - 0.5) * 0.23, 0.0018);
+    float bio = pow(0.5 + 0.5 * sin(roomUv.y * 27.0 + sin(time_value * 1.7) * 2.0 + energy_time), 6.0);
+    float electric = pow(0.5 + 0.5 * sin(roomUv.y * 35.0 - energy_time * 3.0), 14.0);
+    float thermal = 0.5 + 0.5 * sin(roomUv.x * 28.0 + sin(time_value * 0.3 + roomUv.y * 8.0));
+    float motifGate = ellipse_mask(roomUv, vec2(0.5, 0.47), vec2(0.34, 0.34));
+    float sideGate = smoothstep(0.10, 0.22, abs(roomUv.x - 0.5));
     col += hunter_rim * motifGate * (trace * tactical * 0.40 + kanden * bio * sideGate * 0.10
         + sylux * electric * sideGate * 0.18 + samus * surge * 0.065
-        + noxus * thermal * 0.030 + spire * thermal * smoothstep(0.4, 0.78, uv.y) * 0.13
-        + weavel * tactical * sideGate * (0.18 + step(0.5, uv.x) * 0.15));
+        + noxus * thermal * 0.030 + spire * thermal * smoothstep(0.4, 0.78, roomUv.y) * 0.13
+        + weavel * tactical * sideGate * (0.18 + step(0.5, roomUv.x) * 0.15));
 
     // Vertical chamber ribs and recessed side panels.
     for (int i = 0; i < 7; i++)
     {
         float fi = float(i);
         float x = 0.16 + fi * 0.135;
-        float rib = line(uv.x - x, 0.0018 + 0.001 * uv.y);
-        float gate = smoothstep(0.10, 0.20, uv.y) * (1.0 - smoothstep(0.76, 0.90, uv.y));
+        float rib = line(roomUv.x - x, 0.0018 + 0.001 * roomUv.y);
+        float gate = smoothstep(0.10, 0.20, roomUv.y) * (1.0 - smoothstep(0.76, 0.90, roomUv.y));
         col += mix(activity_accent, hunter_halo, 0.25) * rib * gate * 0.065 * structure_amount;
     }
 
     // Angled architectural braces. The opposing slopes frame the hero instead
     // of crossing the torso.
-    float leftBrace = line((uv.x - 0.17) - (0.64 - uv.y) * 0.26, 0.006);
-    float rightBrace = line((0.91 - uv.x) - (0.64 - uv.y) * 0.22, 0.006);
-    float braceGate = smoothstep(0.16, 0.30, uv.y) * (1.0 - smoothstep(0.66, 0.82, uv.y));
+    float leftBrace = line((roomUv.x - 0.17) - (0.64 - roomUv.y) * 0.26, 0.006);
+    float rightBrace = line((0.91 - roomUv.x) - (0.64 - roomUv.y) * 0.22, 0.006);
+    float braceGate = smoothstep(0.16, 0.30, roomUv.y) * (1.0 - smoothstep(0.66, 0.82, roomUv.y));
     col += activity_secondary * (leftBrace + rightBrace) * braceGate
         * 0.092 * structure_amount;
 
     // A very slow light sweep crosses only the distant architecture. Reduce
     // Motion supplies time_value == 0, which freezes this at a stable position.
     float sweepCenter = time_value > 0.0
-        ? mod(time_value * 0.045, 1.16) - 0.08
+        ? 0.5 + sin(time_value * 0.12) * 0.38
         : 0.53;
-    float wallSweep = 1.0 - smoothstep(0.015, 0.095, abs(uv.x - sweepCenter));
-    float wallSweepGate = box_mask(uv, vec2(0.29, 0.27), vec2(0.91, 0.70), 0.035);
+    float wallSweep = 1.0 - smoothstep(0.015, 0.095, abs(roomUv.x - sweepCenter));
+    float wallSweepGate = box_mask(roomUv, vec2(0.29, 0.27), vec2(0.91, 0.70), 0.035);
     col += vec3(0.17, 0.25, 0.32) * wallSweep * wallSweepGate
         * 0.24 * energy * structure_amount;
 
     // Operational pulse travels through the architectural seam, not over the
     // model. Activity-specific intensity/speed makes browser, training, and
     // lobby meaningfully different while Reduce Motion locks time to zero.
-    float signalGate = box_mask(uv, vec2(0.31, 0.275), vec2(0.855, 0.305), 0.008);
-    float signalPhase = sin(uv.x * 36.0 - time_value * 0.45 - energy_time * 0.65);
+    float signalGate = box_mask(roomUv, vec2(0.31, 0.275), vec2(0.855, 0.305), 0.008);
+    float signalPhase = sin(roomUv.x * 36.0 - time_value * 0.45 - energy_time * 0.65);
     float activeSignal = 0.5 + 0.5 * signalPhase;
     col += mix(activity_secondary, hunter_rim, 0.44)
         * signalGate * activeSignal * (0.045 + 0.040 * energy);
@@ -234,8 +238,8 @@ void main()
     col += heroKeyColor * heroKey * (0.040 + 0.020 * hero_light);
 
     // Soft volumetric shafts from above.
-    float shaftA = max(0.0, 1.0 - abs((uv.x - 0.58) * 6.4 + (uv.y - 0.15) * 0.55));
-    float shaftB = max(0.0, 1.0 - abs((uv.x - 0.70) * 7.1 - (uv.y - 0.12) * 0.45));
+    float shaftA = max(0.0, 1.0 - abs((roomUv.x - 0.43) * 6.4 + (uv.y - 0.15) * 0.55));
+    float shaftB = max(0.0, 1.0 - abs((roomUv.x - 0.63) * 7.1 - (uv.y - 0.12) * 0.45));
     float shaftGate = (1.0 - smoothstep(0.20, 0.86, uv.y)) * smoothstep(0.04, 0.18, uv.y);
     col += activity_secondary * (shaftA + shaftB) * shaftGate
         * 0.028 * beam_intensity * energy;
@@ -321,8 +325,33 @@ void main()
     }
     else
     {
+        // Home's smaller party pedestals have separate horizontal bounds
+        // and depth rows. The original foreground hero pad remains below them.
+        if (home_party_mode > 0.5)
+        {
+            for (int seat = 0; seat < 3; seat++)
+            {
+                vec4 pad = /* HOME_PARTY_PAD_GEOMETRY */;
+                if (home_layout_mode > 0.5) pad = home_pad_geometry[seat + 1];
+                vec2 foot = (uv - pad.xy) / pad.zw;
+                float q = dot(foot, foot);
+                float body = 1.0 - smoothstep(0.64, 0.98, q);
+                float edge = smoothstep(0.71, 0.82, q)
+                    * (1.0 - smoothstep(0.93, 1.05, q));
+                vec3 metal = mix(vec3(0.017, 0.033, 0.047), vec3(0.043, 0.075, 0.095),
+                    clamp((1.0 - foot.y) * 0.34, 0.0, 1.0));
+                col = mix(col, metal, body * 0.85);
+                col += vec3(0.075, 0.118, 0.150) * edge * 0.18;
+                col += activity_secondary * edge * floor_glow * 0.18;
+                float rings = max(1.0 - smoothstep(0.026, 0.052, abs(q - 0.22)),
+                    1.0 - smoothstep(0.025, 0.050, abs(q - 0.43)));
+                col += activity_secondary * rings * floor_glow * 0.055;
+            }
+        }
+
         // The solo pad shares the preview's horizontal center.
         vec4 soloPad = vec4(0.5, 0.805, 0.235, 0.060);
+        if (home_layout_mode > 0.5) soloPad = home_pad_geometry[0];
         vec2 platformDelta = (uv - soloPad.xy) / soloPad.zw;
         float platformQ = dot(platformDelta, platformDelta);
         float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
@@ -350,9 +379,11 @@ void main()
     // Low chamber haze.
     float lowFog = smoothstep(0.52, 0.92, uv.y)
         * (1.0 - smoothstep(0.88, 1.0, uv.y));
-    float fogWave = 1.0;
-    if (time_value > 0.0)
-        fogWave += sin(uv.x * 8.0 + time_value * 0.18) * 0.10;
+    // Two continuous low-frequency fields carry haze across the same room.
+    // Both clocks freeze under Reduce Motion; there are no scrolling textures.
+    float flow = sin(roomUv.x * 9.0 + uv.y * 5.0 - time_value * 0.14);
+    float eddy = sin(roomUv.x * 17.0 - uv.y * 8.0 + time_value * 0.09 + flow * 0.7);
+    float fogWave = 1.0 + flow * 0.10 + eddy * 0.055;
     vec3 fogColor = mix(activity_accent, vec3(0.16, 0.24, 0.31), 0.58);
     col = mix(col, fogColor, lowFog * fog_amount * 0.16 * fogWave);
 
@@ -366,8 +397,8 @@ void main()
     // Soft moving light shafts add depth behind
     // the hero. All animation uses the same reduced-motion-aware clock.
     float drift = sin(time_value * 0.23) * 0.040;
-    float shafts = exp(-pow((uv.x - 0.36 - drift + uv.y * 0.07) * 29.0, 2.0))
-        + exp(-pow((uv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
+    float shafts = exp(-pow((roomUv.x - 0.34 - drift + uv.y * 0.07) * 29.0, 2.0))
+        + exp(-pow((roomUv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
     float reactorShaftGate = smoothstep(0.18, 0.30, uv.y) * (1.0 - smoothstep(0.64, 0.84, uv.y));
     col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.34 * energy;
     // Slowly rising energy dust, with a soft halo around each bright core.
@@ -404,7 +435,7 @@ void main()
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
-";
+".Replace("/* HOME_PARTY_PAD_GEOMETRY */", MphRead.Mods.Launcher.LauncherHomePartyPads.ShaderSelection);
 
     }
 }

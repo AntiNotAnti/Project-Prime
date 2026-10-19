@@ -504,6 +504,9 @@ public static class NetFireEvents
             var result = player.ModSpawnAcceptedShot(fire, out var timedEmission, modifiers);
             if (result != BeamResultFlags.NoSpawn)
             {
+                // Accepted remote emissions bypass the local TryFireWeapon diagnostic.
+                if (!player.SceneServices.IsReplica)
+                    NetDamage.NoteFired(player, fire.Direction, fire.Aim);
                 NetShotProof.Fired(key);
                 NetTimedShotProof.Complete(timedAttempt, timedEmission);
             }
@@ -604,6 +607,11 @@ public static class NetFireEvents
             return player.OwningScene.ReplayPoses?.TryActiveFire(player, out fire) == true
                 && fire.Kind == FireEventKind.TurretFire;
         }
+        // A live observer never authors a remote autonomous turret, even before
+        // its first carrier or after a stream reset. Published authority
+        // emissions use the exact accepted scope above.
+        if (NetSession.IsClient && !NetSession.IsAuthority
+            && player.SlotIndex != NetSession.LocalSlot) return false;
         return !UsesEvents(player) ? CanAuthor(player)
             : For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
     }
@@ -740,6 +748,15 @@ public static class NetFireEvents
     }
     internal static void Commit(PlayerEntity player)
     {
+        // Accepted playback commits this source once without borrowing outgoing
+        // author history, consuming a native pending event, or rebasing its
+        // source frame through For while an authority emission is in scope.
+        if (NetSession.Active && !player.SceneServices.IsReplica
+            && (uint)player.SlotIndex < 8 && _slots[player.SlotIndex].PlayingAccepted)
+        {
+            NetCampaignEvidence.Committed(player, _slots[player.SlotIndex].Active);
+            return;
+        }
         if (NetCampaignEvidence.Enabled && NetSession.Active && !player.SceneServices.IsReplica
             && (uint)player.SlotIndex < 8)
             NetCampaignEvidence.Committed(player, For(player.SlotIndex).Active);

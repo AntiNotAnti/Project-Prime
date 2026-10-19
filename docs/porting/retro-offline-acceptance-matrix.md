@@ -21,6 +21,14 @@ python3 tools/retro-character-preview/acceptance_matrix.py \
 
 The report is a local JSON record of source identity, fallback Hunter, asset SHA, bounded GLB skin/material checks, native renderer validator process exit status and diagnostics. It keeps the physical-device/manual acceptance tasks visible. There is no automatic game launch, no upload and no automatic install.
 
+CPP-08 staging also binds canonical `characterId` and `skinSource` to the native
+parent and the exact contained provenance receipt. Each result includes
+`bindingKind`: `private-catalog-appearance` for that binding, or
+`legacy-native-hunter` for older packs. The latter retain their previous behavior
+and do not prove independent native/extra seat selection. Partial bindings,
+parent/skin/source mismatches, altered receipts and unperformed acceptance claims
+fail preflight. Receipt hashes witness local consistency, not source ownership.
+
 The command returns nonzero when any supplied pack fails its structural or game-model validation, or the native validator was not provided. The report always declares `fullPortReady=false` because successful native biped model validation does not prove completeness of first-person, alternate form, new gameplay, network compatibility, replays or Echoes maps.
 
 ## Required manual acceptance before enabling new playable IDs
@@ -31,4 +39,10 @@ The command returns nonzero when any supplied pack fails its structural or game-
 - Test each of the six Echoes arenas with owned source media, including collision/visual parity, one-way routes, jump pads, moving interactions, bots, live multiplayer and replay seek.
 - Run supported platform CI and dedicated-server matrix without changed vanilla Hunter IDs, game assets in Git history, or altered legacy replay behavior.
 
-The PRs through PORT-25 bring offline body preview authoring and native biped **presentation** validation to a manual-test stage. They do not constitute the complete playable Dark Samus/Trooper port or final arena acceptance. Actual source game media, a real Blender export and a compiled Project Prime client are required to produce genuine results.
+The PORT-25 runner validates the existing private body candidate contract. The
+CPP-08 identity input has no public selector or scene activation path; ordinary
+Hunter-only lookups cannot activate an identity-keyed pack. Actual visual
+inspection requires an explicit private consumer in a later slice. Real source
+media, a Blender export and a compiled Project Prime client are required to
+produce native-rig validation evidence. Those results still do not constitute
+the complete playable Dark Samus/Trooper port or final arena acceptance.

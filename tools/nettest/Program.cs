@@ -49,6 +49,13 @@ namespace MphRead.NetTest
                     + "  --campaign-native-scene <assets> <json> Load actual single-player room, simulate, verify save.\n"
                     + "  --foreground-binding              Test eligible facade release and cancelled room publication.\n"
                     + "  --lifecycle-soak                  Test 10/100/500 device-free save/bot-owner handoffs.\n"
+                    + "  --party-join-ownership            Test actual content-free client lifecycle and stale candidate cleanup.\n"
+                    + "  --android-local-cycle-integration Test actual content-free scene retirement and foreground release.\n"
+                    + "  --match-rotations                 Test consecutive server generations and stale/reordered round packets.\n"
+                    + "  --display-pose-integration        Test display pose isolation across lifecycle discontinuities.\n"
+                    + "  --particle-presentation           Test read-only fractional particle geometry and continuity.\n"
+                    + "  --beam-presentation               Test read-only beam head, trail and model-pose coherence.\n"
+                    + "  --specialized-presentation        Test read-only specialized Hunter chain-pose coherence.\n"
                     + "  --asset-lifecycle <filesystem> <count> <replay|-> <json> Test loaded world/save/replica ownership.\n"
                     + "  --shot-source-journal              Test independent authority resources and grant chronology.\n"
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
@@ -100,6 +107,9 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--browser-join") return BrowserJoinTests.Run();
             if (args.Length > 0 && args[0] == "--map-vote-ready") return MapVoteReadyTests.Run();
             if (args.Length > 0 && args[0] == "--animation-sampling") return AnimationSamplingTests.Run();
+            if (args.Length > 0 && args[0] == "--particle-presentation") return ParticlePresentationTests.Run();
+            if (args.Length > 0 && args[0] == "--beam-presentation") return BeamPresentationTests.Run();
+            if (args.Length > 0 && args[0] == "--specialized-presentation") return SpecializedPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--shot-pose-bounds") return ShotPoseBoundsTests.Run();
             if (args.Length > 0 && args[0] == "--replay-shot-payload") return ReplayShotPayloadTests.Run();
             if (args.Length > 0 && args[0] == "--q3-mover-source") return Q3MoverSourceTests.Run();
@@ -463,6 +473,13 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--alt-hits") return AltFormHitTests.Run();
             if (args.Length > 0 && args[0] == "--continuous-targets") return ContinuousTargetTests.Run();
+            if (args.Length > 0 && args[0] == "--rotation-evidence") return RotationEvidenceTests.Run();
+            if (args.Length > 0 && args[0] == "--headless-gamepad") return HeadlessGamepadTests.Run();
+            if (args.Length > 0 && args[0] == "--radar-history") return HeadlessRadarHistoryTests.Run(headless: false);
+            if (args.Length > 0 && args[0] == "--headless-radar") return HeadlessRadarHistoryTests.Run(headless: true);
+            if (args.Length > 0 && args[0] == "--scene-entity-index") return SceneEntityIndexTests.Run();
+            if (args.Length == 3 && args[0] == "--inspect-rotation-archive") return RotationArchiveInspection.Run(args[1], args[2]);
+            if (args.Length == 1 && args[0] == "--rotation-archive-inspection-tests") return RotationArchiveInspection.RunTests();
             if (args.Length > 1 && args[0] == "--transport-profile-json") return TransportProfile.Run(args[1]);
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance-evidence") return ServerPerformanceEvidenceTests.Run(args);
@@ -475,6 +492,10 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();
+            if (args.Length > 0 && args[0] == "--party-join-ownership") return PartyJoinOwnershipTests.Run();
+            if (args.Length > 0 && args[0] == "--android-local-cycle-integration") return AndroidLocalSceneIntegrationTests.Run();
+            if (args.Length > 0 && args[0] == "--match-rotations") return MatchRotationTests.Run();
+            if (args.Length > 0 && args[0] == "--display-pose-integration") return DisplayPoseIntegrationTests.Run();
             if (args.Length > 0 && args[0] == "--lobby-community-selection") { NetLobbyTest.CustomMapDownloadScenario(lobbySelectionOnly: true); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map-download") { NetLobbyTest.CustomMapDownloadScenario(); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map") { NetLobbyTest.CustomMapReadinessScenario(); Console.WriteLine("Custom map readiness passed."); return 0; }

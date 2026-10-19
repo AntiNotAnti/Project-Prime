@@ -24,6 +24,7 @@ public static class HudProfiles
     public static HudRuntimeProfile Runtime => System.Threading.Volatile.Read(ref _runtime);
     public static int Generation { get; private set; }
     public static string? LoadWarning { get; private set; }
+    internal static string? StorageDirectory => _store?.DirectoryPath;
     public static HudProfile CopyCurrent() => _current.DeepClone();
     public static void Load(string directory)
     {

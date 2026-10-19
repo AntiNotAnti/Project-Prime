@@ -1,35 +1,149 @@
 <rml>
 <head>
   <title>Project Prime Hunter License</title>
-  <link type="text/template" href="../../components/app-shell.rml"/>
   <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="../../components/controls.rcss"/>
   <link type="text/rcss" href="native-overview.rcss"/>
 </head>
-<body template="prime-shell">
+<body>
 <div id="native_license" class="native_license">
-  <div class="eyebrow">HUNTER LICENSE // CAREER</div>
-  <h1>YOUR PROFILE. YOUR LEGACY.</h1>
-  <p id="native_license_status" role="status">SYNC TO LOAD SERVER ACCEPTED CAREER DATA</p>
-  <div class="native_license_summary">
-    <h2 id="native_license_name">LOCAL HUNTER</h2>
-    <p id="native_license_hunter">FAVORITE HUNTER // UNKNOWN</p>
-    <p id="native_license_visibility">PUBLIC VISIBILITY // UNKNOWN</p>
-    <p id="native_license_rank">RANK // UNVERIFIED</p>
+  <div class="license_heading"><div><span class="license_kicker">METROID PRIME HUNTERS</span><h1>HUNTER LICENSE</h1></div><button id="native_license_close" data-action="license:back">CLOSE</button></div>
+  <div class="license_spread">
+  <div id="native_license_card">
+    <div class="card_header"><b>HUNTER'S LICENSE</b><span>PROJECT PRIME</span></div>
+    <div class="card_identity">
+      <div class="card_portrait"><img id="native_license_portrait" style="display:none"/><span id="native_license_portrait_label">HUNTER</span></div>
+      <div class="card_holder"><span class="card_label">HUNTER NAME</span><h2 id="native_license_name">LOCAL HUNTER</h2><p id="native_license_hunter">FAVORITE HUNTER // UNKNOWN</p><p id="native_license_rank" role="status">RANK // UNVERIFIED</p><div id="native_license_star_row" class="card_star_row" style="display:none"><span id="native_license_stars_fallback" role="status"/><div id="native_license_star_images" style="display:none"><img id="native_license_star1"/><img id="native_license_star2"/><img id="native_license_star3"/><img id="native_license_star4"/><img id="native_license_star5"/></div></div></div>
+    </div>
+    <div class="card_points"><div class="card_points_row"><span>RANKING POINTS</span><b role="status" id="native_license_points">UNVERIFIED</b></div><span id="native_license_rank_progress" role="status">SYNC LICENSE TO VERIFY STAR RANK</span></div>
+    <div class="card_records">
+      <div class="card_stat"><span role="status" id="native_license_card_title0"/><b role="status" id="native_license_card_value0">SYNC REQUIRED</b></div>
+      <div class="card_stat"><span role="status" id="native_license_card_title1"/><b role="status" id="native_license_card_value1">SYNC REQUIRED</b></div>
+      <div class="card_stat"><span role="status" id="native_license_card_title2"/><b role="status" id="native_license_card_value2">SYNC REQUIRED</b></div>
+    </div>
+    <div class="card_tabs">
+      <button id="native_license_card_tab0" data-action="license:card-record">RECORD</button>
+      <button id="native_license_card_tab1" data-action="license:card-combat">COMBAT</button>
+      <button id="native_license_card_tab2" data-action="license:card-skill">SKILL</button>
+      <button id="native_license_card_tab3" data-action="license:card-objectives">OBJECTIVES</button>
+      <button id="native_license_card_tab4" data-action="license:card-time">TIME</button>
+    </div>
+    <p id="native_license_visibility" class="card_visibility">PUBLIC VISIBILITY // UNKNOWN</p>
   </div>
-  <div class="native_license_stats">
-    <div><span>MATCHES</span><strong id="native_license_matches">NOT VERIFIED</strong></div>
-    <div><span>WINS</span><strong id="native_license_wins">NOT VERIFIED</strong></div>
-    <div><span>LOSSES</span><strong id="native_license_losses">NOT VERIFIED</strong></div>
-    <div><span>KILLS</span><strong id="native_license_kills">NOT VERIFIED</strong></div>
-    <div><span>DEATHS</span><strong id="native_license_deaths">NOT VERIFIED</strong></div>
-    <div><span>ASSISTS</span><strong id="native_license_assists">NOT VERIFIED</strong></div>
+  <div id="native_license_details">
+  <div class="native_license_tabs">
+    <button id="native_license_tab_overview" class="selected" data-action="license:overview">OVERVIEW</button>
+    <button id="native_license_tab_account" data-action="license:account">ACCOUNT</button>
+    <button id="native_license_tab_emblems" data-action="license:emblems">EMBLEMS</button>
+    <button id="native_license_tab_titles" data-action="license:titles">TITLES</button>
+    <button id="native_license_tab_stats" data-action="license:stats">STATS</button>
+    <button id="native_license_tab_history" data-action="license:history">MATCH HISTORY</button>
+    <button id="native_license_tab_achievements" data-action="license:achievements">ACHIEVEMENTS</button>
+    <button id="native_license_tab_comparison" data-action="license:comparison">BENCHMARK</button>
   </div>
-  <p id="native_license_recent">RECENT MATCHES // UNKNOWN</p>
-  <p class="native_license_note">Only server-accepted eligible career records are counted. The native overview never shows private account tokens, passwords or email.</p>
+  <div id="native_license_face_overview" class="native_license_face">
+    <h2>CAREER RECORD</h2>
+    <div class="native_license_stats">
+      <div><span>MATCHES</span><strong id="native_license_matches">NOT VERIFIED</strong></div>
+      <div><span>WINS</span><strong id="native_license_wins">NOT VERIFIED</strong></div>
+      <div><span>LOSSES</span><strong id="native_license_losses">NOT VERIFIED</strong></div>
+      <div><span>KILLS</span><strong id="native_license_kills">NOT VERIFIED</strong></div>
+      <div><span>DEATHS</span><strong id="native_license_deaths">NOT VERIFIED</strong></div>
+      <div><span>ASSISTS</span><strong id="native_license_assists">NOT VERIFIED</strong></div>
+      <div><span>WIN RATE</span><strong id="native_license_win_rate">NOT VERIFIED</strong></div>
+      <div><span>K/D RATIO</span><strong id="native_license_kd">NOT VERIFIED</strong></div>
+      <div><span>PLAY TIME</span><strong id="native_license_play_time">NOT VERIFIED</strong></div>
+      <div><span>TIES</span><strong id="native_license_ties">NOT VERIFIED</strong></div>
+    </div>
+    <p id="native_license_recent">RECENT MATCHES // UNKNOWN</p>
+  </div>
+  <div id="native_license_face_stats" class="native_license_face">
+    <h2>CAREER STATS</h2>
+    <p id="native_license_metrics" class="native_license_metrics">CAREER DATA NOT VERIFIED</p>
+  </div>
+  <div id="native_license_face_history" class="native_license_face">
+    <h2>MATCH HISTORY</h2>
+    <p id="native_license_history_page">SYNC TO LOAD RECENT MATCHES</p>
+    <p id="native_license_history_empty">Sync your license to view accepted matches.</p>
+    <div id="native_license_match_0" class="native_license_match"><h3 id="native_license_match_label_0"/><p id="native_license_match_detail_0"/></div>
+    <div id="native_license_match_1" class="native_license_match"><h3 id="native_license_match_label_1"/><p id="native_license_match_detail_1"/></div>
+    <div id="native_license_match_2" class="native_license_match"><h3 id="native_license_match_label_2"/><p id="native_license_match_detail_2"/></div>
+    <div id="native_license_match_3" class="native_license_match"><h3 id="native_license_match_label_3"/><p id="native_license_match_detail_3"/></div>
+    <div id="native_license_match_4" class="native_license_match"><h3 id="native_license_match_label_4"/><p id="native_license_match_detail_4"/></div>
+    <div id="native_license_match_5" class="native_license_match"><h3 id="native_license_match_label_5"/><p id="native_license_match_detail_5"/></div>
+    <div id="native_license_match_6" class="native_license_match"><h3 id="native_license_match_label_6"/><p id="native_license_match_detail_6"/></div>
+    <div id="native_license_match_7" class="native_license_match"><h3 id="native_license_match_label_7"/><p id="native_license_match_detail_7"/></div>
+    <div class="native_license_paging">
+      <button id="native_license_previous_page" data-action="license:previous-page">PREVIOUS</button>
+      <button id="native_license_next_page" data-action="license:next-page">NEXT</button>
+    </div>
+  </div>
+  <div id="native_license_face_achievements" class="native_license_face">
+    <h2>ACHIEVEMENTS</h2>
+    <p>Milestones are derived from accepted career totals.</p>
+    <p id="native_license_achievement_0"/><p id="native_license_achievement_1"/>
+    <p id="native_license_achievement_2"/><p id="native_license_achievement_3"/>
+    <p id="native_license_achievement_4"/><p id="native_license_achievement_5"/>
+    <p id="native_license_achievement_6"/>
+  </div>
+  <div id="native_license_face_comparison" class="native_license_face">
+    <h2>PER-MATCH BENCHMARK</h2>
+    <p id="native_license_comparison_metrics" class="native_license_metrics">CAREER DATA NOT VERIFIED</p>
+  </div>
+  <div id="native_license_face_account" class="native_license_face native_license_account">
+    <h2>SECURE YOUR HUNTER LICENSE</h2>
+    <p id="native_license_account_state">ACCOUNT NOT VERIFIED</p>
+    <p id="native_license_account_methods">SIGN-IN METHODS // NOT VERIFIED</p>
+    <p>Link recovery methods to this same Hunter identity and career. Verify your email before setting a password. Linked email does not confirm a password is configured.</p>
+    <label for="native_license_email">EMAIL</label>
+    <input id="native_license_email" type="text" maxlength="254" disabled="disabled"/>
+    <label for="native_license_password">PASSWORD</label>
+    <input id="native_license_password" type="password" maxlength="128" disabled="disabled"/>
+    <label for="native_license_confirmation">CONFIRM PASSWORD</label>
+    <input id="native_license_confirmation" type="password" maxlength="128" disabled="disabled"/>
+    <p>All fields clear after submission and when leaving this tab. Passwords are never saved to disk.</p>
+    <div class="native_license_account_actions">
+      <button id="native_license_send_verification" data-action="license:send-verification">SEND EMAIL VERIFICATION</button>
+      <button id="native_license_finish_password" data-action="license:finish-password">I VERIFIED // SET PASSWORD</button>
+      <button id="native_license_link_google" data-action="license:link-google">LINK GOOGLE</button>
+      <button id="native_license_link_github" data-action="license:link-github">LINK GITHUB</button>
+      <button id="native_license_link_discord" data-action="license:link-discord">LINK DISCORD</button>
+      <button id="native_license_refresh_account" data-action="license:refresh-account">REFRESH LINK STATUS</button>
+    </div>
+    <p>Finish provider linking in your browser, then refresh here. The browser flow keeps your existing game identity.</p>
+    <h2>RECOVER AN EXISTING LICENSE</h2>
+    <p id="native_license_recovery_hint">SYNC LICENSE TO VERIFY RECOVERY ELIGIBILITY</p>
+    <button id="native_license_recover" data-action="license:recover">SIGN IN // RECOVER LICENSE</button>
+  <div class="native_license_privacy">
+    <h2>PUBLIC HUNTER PROFILE</h2>
+    <p>Your Hunter name and lifetime career statistics are public by default. Hide your name and profile while keeping your career totals and anonymous leaderboard totals.</p>
+    <p>Private match history, email and sign-in credentials are never public.</p>
+    <p id="native_license_privacy_status" role="status">SYNC LICENSE TO VERIFY PUBLIC VISIBILITY</p>
+    <button id="native_license_hide_profile" data-action="license:hide-profile" disabled="disabled">HIDE PUBLIC PROFILE</button>
+    <button id="native_license_show_profile" data-action="license:show-profile" disabled="disabled">SHOW PUBLIC PROFILE</button>
+    <div id="native_license_publish_confirmation">
+      <p>Publish your Hunter name and lifetime career statistics on the public website?</p>
+      <button id="native_license_publish_confirm" data-action="license:confirm-public">CONFIRM // PUBLISH PROFILE</button>
+      <button id="native_license_publish_cancel" data-action="license:cancel-public">KEEP PRIVATE</button>
+    </div>
+    <p class="native_license_privacy_note">Use ACCOUNT to secure or recover your license. Showing a private profile requires confirmation.</p>
+  </div>
+  </div>
+  <div id="native_license_face_emblems" class="native_license_face">
+    <h2>EMBLEMS</h2><p>The identity catalog is not yet available from the account service. Career and cosmetic loadouts are connected.</p>
+  </div>
+  <div id="native_license_face_titles" class="native_license_face">
+    <h2>TITLES</h2><p>The title catalog is not yet available from the account service. No title inventory has been returned.</p>
+  </div>
+  <p class="native_license_note">Career totals count only accepted, eligible matches. History shows matches returned by the license service, each labeled CAREER or UNRANKED.</p>
+  </div>
+  </div>
   <div class="native_license_footer">
+    <p id="native_license_status" role="status">SYNC TO LOAD CAREER DATA</p>
     <button id="native_license_refresh" data-action="license:refresh">SYNC LICENSE</button>
-    <button id="native_license_account" data-action="license:account">FULL HUNTER LICENSE</button>
-    <button id="native_license_close" data-action="license:back">BACK</button>
+    <button id="native_license_cancel_refresh" data-action="license:cancel-refresh">CANCEL SYNC</button>
+    <button id="native_license_account" data-action="license:account">ACCOUNT</button>
+
   </div>
 </div>
 </body>

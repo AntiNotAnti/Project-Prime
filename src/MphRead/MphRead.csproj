@@ -171,6 +171,7 @@
     <!-- Original Project Prime combat-feedback stingers. Embedded so single-file
          releases and Android all carry the same defaults without loose assets. -->
     <EmbeddedResource Include="Assets\Sounds\Combat\*.wav" />
+    <EmbeddedResource Include="Assets\Sounds\Menu\*.mp3" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
@@ -277,9 +278,11 @@
     <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
+    <InternalsVisibleTo Include="external-import-check" />
     <InternalsVisibleTo Include="map-editor-check" />
     <InternalsVisibleTo Include="theatre-storage-check" />
     <InternalsVisibleTo Include="replay-sidecar-check" />
+    <InternalsVisibleTo Include="rmlui-license-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
@@ -360,13 +363,19 @@
   </ItemGroup>
   <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <!-- Only authored resources, not historical service presenters, are restored. -->
-    <None Update="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss"
+    <None Update="Mods/Launcher/RmlUi/Pages/startup/startup-background.tga"
+          Link="rmlui/pages/startup/startup-background.tga"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Re-include under these globs so RecursiveDir is relative to Pages,
+         Components or Themes, rather than the SDK's project-wide None glob. -->
+    <None Remove="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss;Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss;Mods/Launcher/RmlUi/Themes/**/*.rcss" />
+    <None Include="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss"
           Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <None Update="Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss"
+    <None Include="Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss"
           Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <None Update="Mods/Launcher/RmlUi/Themes/**/*.rcss"
+    <None Include="Mods/Launcher/RmlUi/Themes/**/*.rcss"
           Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Assets/Fonts/NotoSansJP-Regular.ttf;Assets/Fonts/NotoSansJP-OFL.txt;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt"
@@ -379,7 +388,9 @@
   <ItemGroup Condition="'$(MphReadServer)' == 'true'">
     <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/RmlUi/Core/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
   </ItemGroup>
-  <!-- Phase 02 developer-only RmlUi GL2 smoke path. Shipping clients still use Avalonia. -->
+  <!-- Native desktop packages explicitly enable this compatibility-named flag
+       and stage the pinned GL2 bridge. Such clients use RmlUi by default.
+       Keep enablement explicit until every ordinary package also stages it. -->
   <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <DefineConstants>$(DefineConstants);MPHREAD_RMLUI_GL_SMOKE;MPHREAD_RMLUI</DefineConstants>
   </PropertyGroup>

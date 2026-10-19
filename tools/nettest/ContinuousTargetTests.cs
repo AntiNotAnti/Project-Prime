@@ -63,7 +63,7 @@ internal static class ContinuousTargetTests
             authority = owner; authority.Phase++;
             Check(NetContinuousTargetDiagnostics.Compare(owner, authority) == ContinuousTargetDivergence.PhaseDisagreement, "phase classification");
             HealthShotTests.Session();
-            foreach (var profile in new[] { (0,0), (100,20), (250,40), (320,80), (400,80) })
+            foreach (var profile in new[] { (0,0), (45,20), (100,20), (150,20), (250,40), (320,80), (350,20), (400,80), (750,20) })
             foreach (double loss in new[] { 0, .01, .02, .05 })
             {
                 var queue = new NetFaultQueue<IntentPacket>(431, profile.Item1 / 2.0, profile.Item2, loss, .03, .01);
@@ -94,7 +94,7 @@ internal static class ContinuousTargetTests
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 10000; i++) Eval(new(0, 0, 5));
             Check(GC.GetAllocatedBytesForCurrentThread() == before, "zero warmed predicate allocations");
-            Console.WriteLine("PASS: protocol 19, targeting geometry, retention, classified traces, 20 impairment profiles, zero warmed allocations");
+            Console.WriteLine("PASS: protocol 19, targeting geometry, retention, classified traces, 36 impairment profiles, zero warmed allocations");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

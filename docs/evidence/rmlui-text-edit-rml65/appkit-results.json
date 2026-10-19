@@ -1,0 +1,12 @@
+[
+  {
+    "step": "actual-appkit",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/appkit-check/bin/Release/net10.0/appkit-check.dll",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/assets"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/actual-appkit.log"
+  }
+]

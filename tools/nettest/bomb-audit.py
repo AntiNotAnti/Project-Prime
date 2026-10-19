@@ -22,6 +22,10 @@ KEY_FIELDS = ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId"
 EVENT_KINDS = {"Placed", "Refused", "DetonateAccepted", "Detonated", "Removed"}
 TERMINALS = {"Detonated", "Removed"}
 RESOLUTIONS = {"Placed", "Refused", "DetonateAccepted"}
+# NetBombProtocol.BombEvent: protocol51 introduced the native owner-contact
+# jump flag in a detonation's reason byte. Other kinds retain refusal semantics.
+OWNER_JUMP = 1
+EVENT_REASON_CONTRACT = "BombEvent protocol51+: Refused1..7; Detonated0|OwnerJump1; other kinds0"
 
 
 def integer(value, maximum=2**32 - 1, minimum=0):
@@ -84,8 +88,10 @@ def rows(report, name, finding):
                     seq = integer(row["Sequence"], 2**64-1, 1)
                     if row["Kind"] not in EVENT_KINDS or stage != ("authority" if name == "server" else "applied"):
                         raise ValueError("invalid event kind/stage")
-                    integer(row["Reason"], 7)
-                    if (row["Kind"] == "Refused") != (row["Reason"] != 0):
+                    reason = integer(row["Reason"], 7)
+                    valid_reason = (reason > 0 if row["Kind"] == "Refused" else
+                                    (reason & ~OWNER_JUMP) == 0 if row["Kind"] == "Detonated" else reason == 0)
+                    if not valid_reason:
                         raise ValueError("event refusal reason inconsistent with kind")
                     payload = state(row["State"], row["Kind"] in {"Refused", "DetonateAccepted"})
                     if key(row["Key"]) != payload[0]:
@@ -824,6 +830,7 @@ def audit(server, peers, manifest, summary=None, kinds=KINDS, logs=None, visibil
     live_status,live_metrics = live_pixels(peers,parsed,placements,authority["damage"],kinds,manifest,live_visibility_reports,finding,authority["events"])
     return dict(status="FAIL" if any(f["status"] == "FAIL" for f in findings) else "INCOMPLETE" if any(f["status"] == "INCOMPLETE" for f in findings) else "PASS",
                 gameplayStatus=gameplay,visibilityStatus=live_status,liveVisibilityStatus=live_status,
+                eventReasonContract=EVENT_REASON_CONTRACT,
                 liveVisibilityCoverage=live_metrics,
                 renderFixtureStatus=render_status, scope=dict(authorityMatches=1,requiredKinds=list(kinds),
                 checked="request admission, exact bomb lifecycle/event/state parity, health and bounded reliable drain",

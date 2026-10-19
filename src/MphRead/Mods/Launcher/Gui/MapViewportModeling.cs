@@ -42,7 +42,7 @@ internal sealed partial class MapViewport
         }
     }
     private Vector SubWorld(MapMesh mesh, int index) => _subPreview?.World(index) ?? MapMeshEditing.VertexWorld(mesh,index);
-    private void SubChanged() { SelectionChanged?.Invoke(); InvalidateVisual(); }
+    private void SubChanged() { NativeOverlaySelectionChanged(); SelectionChanged?.Invoke(); InvalidateVisual(); }
     private void BeginSubInteraction(PointerPressedEventArgs e)
     {
         var mesh = (MapMesh)ActiveSelection!.Value;
@@ -71,30 +71,34 @@ internal sealed partial class MapViewport
     private static void SelectElements<T>(HashSet<T> set, IEnumerable<T> values, bool toggle) where T:notnull
     { foreach(var value in values) if(!toggle || !set.Remove(value)) set.Add(value); }
     private bool PickSubElement(Point point, bool add, bool toggle, bool linked)
+        => PickSubElement(Layout,point,add,toggle,linked);
+    private bool PickSubElement(MapViewportLayout layout, Point point, bool add, bool toggle, bool linked, double pixelPerClientX=1,double pixelPerClientY=1)
     {
         if (ActiveSelection?.Value is not MapMesh mesh) return false;
         int face=-1, vertex=-1; MapEdge? edge=null;
         if (ElementMode=="Face")
         {
-            var hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
+            var hit=MapViewportPicking.PickHit(BuildRenderFrame(layout),point.X,point.Y,false);
             if(hit is not {} picked || picked.ObjectId!=mesh.Id)return false;
             face=picked.FaceIndex;
         }
         else
         {
-            var projected=mesh.Vertices.Select((_,i)=>Project(SubWorld(mesh,i))).ToArray();
+            var projected=mesh.Vertices.Select((_,i)=>Project(layout,SubWorld(mesh,i))).ToArray();
+            Point Logical(Point p)=>new(p.X/pixelPerClientX,p.Y/pixelPerClientY);
+            Point logicalPoint=Logical(point);
             double best=ElementMode=="Vertex"?12:10;
             if(ElementMode=="Vertex")
             {
                 for(int i=0;i<projected.Length;i++)
-                    if(projected[i] is {} p && Distance(p.Point,point)<best) {best=Distance(p.Point,point);vertex=i;}
+                    if(projected[i] is {} p && Distance(Logical(p.Point),logicalPoint)<best) {best=Distance(Logical(p.Point),logicalPoint);vertex=i;}
                 if(vertex<0)return false;
             }
             else
             {
                 foreach(var candidate in new MapMeshTopology(mesh).Edges)
                     if(projected[candidate.A] is {} a && projected[candidate.B] is {} b)
-                    {double distance=PointSegmentDistance(point,a.Point,b.Point);if(distance<best){best=distance;edge=candidate;}}
+                    {double distance=PointSegmentDistance(logicalPoint,Logical(a.Point),Logical(b.Point));if(distance<best){best=distance;edge=candidate;}}
                 if(edge==null)return false;
             }
         }

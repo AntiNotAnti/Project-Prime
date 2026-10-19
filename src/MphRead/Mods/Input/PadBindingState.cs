@@ -266,6 +266,24 @@ namespace MphRead.Mods.Input
             Array.Copy(Modifiers, copy.Modifiers, Modifiers.Length);
             copy.Preset = Preset; copy.Revision = Revision; return copy;
         }
+        // Preserve legacy alternatives beyond the two displayed slots as well as
+        // per-slot modifiers. The current runtime retains its owner identity.
+        internal void CopyFrom(PadBindingState source)
+        {
+            if (ReferenceEquals(this, source)) return;
+            Array.Copy(source._current, _current, _current.Length);
+            Array.Copy(source.Primary, Primary, Primary.Length);
+            Array.Copy(source.Secondary, Secondary, Secondary.Length);
+            Array.Copy(source.Modifiers, Modifiers, Modifiers.Length);
+            Preset = source.Preset; Revision++;
+        }
+
+        internal void CopyActionFrom(PadBindingState source, PadAction action)
+        {
+            int i=(int)action;_current[i]=source._current[i];Primary[i]=source.Primary[i];Secondary[i]=source.Secondary[i];
+            Modifiers[i,0]=source.Modifiers[i,0];Modifiers[i,1]=source.Modifiers[i,1];Revision++;
+        }
+
         private void ResetGameplay()
         {
             foreach (PadAction action in GameplayActionOrder)

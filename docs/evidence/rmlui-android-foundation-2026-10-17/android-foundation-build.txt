@@ -1,0 +1,11 @@
+Root-coordinated real Android foundation build, before Pause/Journal route wiring:
+Target: src/MphRead.Android/MphRead.Android.csproj, net10.0-android36.0 Release
+Property: MphReadRmlUiAndroidExperiment=true
+MphReadRmlUiAndroidPackage omitted
+Original full log: /tmp/prime-rml55-android-foundation-build.log
+
+39 Warning(s)
+0 Error(s)
+Time Elapsed 00:02:35.74
+
+Scope: real Android C#/Host API compilation including the production input queue, draw-list session and AssetManager extraction adapter. Existing SDK/JDK/XML/nullability warnings remained. This precedes the native Pause route edits, does not package/verify a RmlUi native bundle, and is not startup, EGL/GLES, touch/IME, rotation/resume or physical-device acceptance.

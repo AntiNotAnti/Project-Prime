@@ -184,6 +184,9 @@ Deno.serve(async (req: Request) => {
     return json(200, { accepted: false, reason: "BotAssistedMatch" });
   }
 
+  const matchTicks = integer(incoming.played_ticks, 0, 5184000);
+  if (matchTicks == null) return json(400, { error: "invalid_match_ticks" });
+
   const matchEpoch = Math.floor(Date.parse(incoming.ended_at_utc) / 1000);
   if (!Number.isFinite(matchEpoch) || matchEpoch > Math.floor(Date.now() / 1000) + 300) {
     return json(400, { error: "invalid_match_time" });
@@ -203,7 +206,7 @@ Deno.serve(async (req: Request) => {
     const ticks = integer(p?.played_ticks, 0, 5184000);
     const metrics = p?.metrics;
     if (clientId == null || hunter == null || team == null || standing == null
-      || teamStanding == null || ticks == null || !metrics
+      || teamStanding == null || ticks == null || ticks > matchTicks || !metrics
       || normalizePlayerName(p.display_name) === null
       || !Array.isArray(metrics.beam_kills) || metrics.beam_kills.length !== 9) {
       return json(400, { error: "invalid_participant" });

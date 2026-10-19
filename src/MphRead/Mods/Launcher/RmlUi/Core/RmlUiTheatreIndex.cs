@@ -4,11 +4,26 @@ using System.Linq;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
+/// <summary>Immutable local descriptor/source facts captured by the library worker.</summary>
+public readonly record struct RmlUiVirtualReplayWitness(string DescriptorSha256,
+    string SourcePath, long SourceBytes, long SourceLastWriteTicks);
+
 /// <summary>Metadata from the existing replay library, never a native-supplied path.</summary>
 public readonly record struct RmlUiReplayEntry(
     string Path, string Title, string Detail, string Room,
     long RecordedTicks, long Bytes, long LastWriteTicks,
-    bool Favorite, bool Clip, bool Recoverable, bool Playable);
+    bool Favorite, bool Clip, bool Recoverable, bool Playable)
+{
+    public string Tags { get; init; } = "";
+    public string Collections { get; init; } = "";
+    public RmlUiVirtualReplayWitness? VirtualWitness { get; init; }
+    public uint? DurationFrames { get; init; }
+    public string? PlayerNamesText { get; init; }
+    public string[] PlayerNameTokens { get; init; } = Array.Empty<string>();
+    public int? BookmarkCount { get; init; }
+    public int? HighlightCount { get; init; }
+    public string AnnotationNames { get; init; } = "";
+}
 
 /// <summary>
 /// Bounded search, filtering, paging and selection over one immutable library
@@ -17,8 +32,14 @@ public readonly record struct RmlUiReplayEntry(
 public sealed class RmlUiTheatreIndex
 {
     public const int PageSize = 8;
+    private static readonly string[] FilterLabels = { "ALL REPLAYS", "FULL MATCHES", "CLIPS", "FAVORITES",
+        "RECENT", "RECOVERABLE", "SAME MAP", "TAGGED / COLLECTED", "SAME PLAYERS",
+        "ANNOTATED", "HAS HIGHLIGHTS", "HAS BOOKMARKS", "LONG SESSIONS // 10 MIN+", "SHORT CLIPS // UNDER 60 SEC" };
     private RmlUiReplayEntry[] _all = Array.Empty<RmlUiReplayEntry>();
     private RmlUiReplayEntry[] _filtered = Array.Empty<RmlUiReplayEntry>();
+    // Filter context only: an empty intermediate view must not restore this
+    // replay as an actionable selection. Refresh retires replaced source facts.
+    private RmlUiReplayEntry? _filterAnchor;
     private string _selected = "";
     private string _search = "";
     private int _filter, _sort, _page;
@@ -30,16 +51,15 @@ public sealed class RmlUiTheatreIndex
     public bool CanPrevious => _page > 0;
     public bool CanNext => _page + 1 < Pages;
     public string Search => _search;
-    public string FilterLabel => new[] { "ALL REPLAYS", "FULL MATCHES", "CLIPS", "FAVORITES",
-        "RECENT", "RECOVERABLE" }[_filter];
+    public string FilterLabel => FilterLabels[_filter];
     public string SortLabel => new[] { "NEWEST FIRST", "OLDEST FIRST",
-        "NAME A–Z", "LARGEST FIRST" }[_sort];
+        "NAME A–Z", "LARGEST FIRST", "LONGEST FIRST" }[_sort];
 
     public RmlUiReplayEntry? Selected
     {
         get
         {
-            foreach (var row in _all)
+            foreach (var row in _filtered)
                 if (String.Equals(row.Path, _selected, StringComparison.OrdinalIgnoreCase))
                     return row;
             return null;
@@ -62,15 +82,29 @@ public sealed class RmlUiTheatreIndex
                 && x.Title != null && x.Bytes >= 0 && x.LastWriteTicks >= 0)
             .GroupBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
             .Select(x => x.First())
+            .Select(x => x with
+            {
+                DurationFrames = x.DurationFrames is > 0 ? x.DurationFrames : null,
+                PlayerNameTokens = (x.PlayerNamesText ?? "").Split(' ',
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                AnnotationNames = x.AnnotationNames ?? ""
+            })
             .OrderByDescending(x => x.RecordedTicks)
             .Take(8192).ToArray();
-        if (Selected == null) _selected = "";
+        if (_filterAnchor is { } anchor && !_all.Any(row =>
+            String.Equals(row.Path, anchor.Path, StringComparison.OrdinalIgnoreCase)
+            && String.Equals(row.Room, anchor.Room, StringComparison.OrdinalIgnoreCase)
+            && String.Equals(row.PlayerNamesText, anchor.PlayerNamesText, StringComparison.Ordinal)
+            && row.Bytes == anchor.Bytes && row.LastWriteTicks == anchor.LastWriteTicks
+            && row.VirtualWitness == anchor.VirtualWitness))
+            _filterAnchor = null;
         Rebuild();
     }
 
     public bool SearchFor(string text)
     {
         if (text == null || text.Length > 512) return false;
+        if (_filter is not (6 or 8)) CaptureFilterAnchor();
         _search = text.Trim();
         _page = 0;
         Rebuild();
@@ -79,7 +113,8 @@ public sealed class RmlUiTheatreIndex
 
     public bool NextFilter()
     {
-        _filter = (_filter + 1) % 6;
+        if (_filter is not (6 or 8)) CaptureFilterAnchor();
+        _filter = (_filter + 1) % FilterLabels.Length;
         _page = 0;
         Rebuild();
         return true;
@@ -87,7 +122,7 @@ public sealed class RmlUiTheatreIndex
 
     public bool NextSort()
     {
-        _sort = (_sort + 1) % 4;
+        _sort = (_sort + 1) % 5;
         _page = 0;
         Rebuild();
         return true;
@@ -106,10 +141,37 @@ public sealed class RmlUiTheatreIndex
         RmlUiReplayEntry? row = Entry(slot);
         if (!row.HasValue || Launched) return false;
         _selected = row.Value.Path;
+        // With no remembered map, explicitly selecting a visible row supplies
+        // the context. Once active, searches and refreshes cannot retarget it.
+        if (_filter is 6 or 8 && !_filterAnchor.HasValue)
+        {
+            CaptureFilterAnchor();
+            Rebuild();
+        }
+        return true;
+    }
+
+    public bool SelectPath(string path)
+    {
+        if (Launched || !_all.Any(row => String.Equals(row.Path, path, StringComparison.Ordinal) && row.Playable)) return false;
+        _filter = 0; _search = ""; _filterAnchor = null;
+        _selected = path;
+        Rebuild();
+        int index = Array.FindIndex(_filtered, row => String.Equals(row.Path, path, StringComparison.Ordinal));
+        if (index < 0) return false;
+        _page = index / PageSize;
         return true;
     }
 
     public void MarkLaunched() => Launched = true;
+    public void MarkReturned() => Launched = false;
+
+    private void CaptureFilterAnchor()
+    {
+        if (Selected is { } selected)
+            _filterAnchor = String.IsNullOrWhiteSpace(selected.Room)
+                && String.IsNullOrWhiteSpace(selected.PlayerNamesText) ? null : selected;
+    }
 
     private void Rebuild()
     {
@@ -119,7 +181,11 @@ public sealed class RmlUiTheatreIndex
             string term = _search;
             rows = rows.Where(x => x.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || x.Room.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || x.Detail.Contains(term, StringComparison.OrdinalIgnoreCase));
+                || x.Detail.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (x.Tags?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (x.Collections?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (x.PlayerNamesText?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                || x.AnnotationNames.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
         long recentTicks = DateTime.Now.AddDays(-7).Ticks;
         rows = _filter switch
@@ -129,6 +195,20 @@ public sealed class RmlUiTheatreIndex
             3 => rows.Where(x => x.Favorite),
             4 => rows.Where(x => x.RecordedTicks >= recentTicks),
             5 => rows.Where(x => x.Recoverable),
+            6 => _filterAnchor is { } anchor && !String.IsNullOrWhiteSpace(anchor.Room) ? rows.Where(x =>
+                String.Equals(x.Room, anchor.Room, StringComparison.OrdinalIgnoreCase)) : rows,
+            7 => rows.Where(x => !String.IsNullOrWhiteSpace(x.Tags)
+                || !String.IsNullOrWhiteSpace(x.Collections)),
+            // Preserve the original library's name-token substring semantics.
+            // This view is browsing context, never player/account identity.
+            8 => _filterAnchor is { PlayerNameTokens.Length: > 0 } people ? rows.Where(x =>
+                x.PlayerNamesText != null && people.PlayerNameTokens.Any(token =>
+                    x.PlayerNamesText.Contains(token, StringComparison.OrdinalIgnoreCase))) : rows,
+            9 => rows.Where(x => x.BookmarkCount > 0 || x.HighlightCount > 0),
+            10 => rows.Where(x => x.HighlightCount > 0),
+            11 => rows.Where(x => x.BookmarkCount > 0),
+            12 => rows.Where(x => x.DurationFrames >= 36000),
+            13 => rows.Where(x => x.Clip && x.DurationFrames is > 0 and < 3600),
             _ => rows
         };
         rows = _sort switch
@@ -136,15 +216,22 @@ public sealed class RmlUiTheatreIndex
             1 => rows.OrderBy(x => x.RecordedTicks),
             2 => rows.OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase),
             3 => rows.OrderByDescending(x => x.Bytes),
+            4 => rows.OrderByDescending(x => x.DurationFrames.HasValue).ThenByDescending(x => x.DurationFrames),
             _ => rows.OrderByDescending(x => x.RecordedTicks)
         };
         _filtered = rows.ToArray();
         _page = Math.Clamp(_page, 0, Pages - 1);
+        // The detail/actions must describe a replay in this filtered snapshot.
+        // Paging may keep a selected path on another page; search/filter/refresh
+        // must replace a hidden or removed path with a currently shown row.
+        if (!_filtered.Any(row => String.Equals(row.Path, _selected, StringComparison.OrdinalIgnoreCase)))
+            _selected = Entry(0)?.Path ?? "";
     }
 
     public bool SelectedUnchanged(RmlUiReplayEntry expected)
         => Selected is { } row && row.Path == expected.Path
             && row.Bytes == expected.Bytes
             && row.LastWriteTicks == expected.LastWriteTicks
+            && row.VirtualWitness == expected.VirtualWitness
             && !Launched;
 }

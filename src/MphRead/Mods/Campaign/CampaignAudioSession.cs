@@ -7,7 +7,8 @@ namespace MphRead.Mods.Campaign
     {
         Dock,
         StarMap,
-        Ending
+        Ending,
+        EndingResults
     }
 
     /// <summary>
@@ -22,6 +23,8 @@ namespace MphRead.Mods.Campaign
             {
                 CampaignAudioPage.StarMap => SeqId.SHIP,
                 CampaignAudioPage.Ending => SeqId.CREDITS,
+                // Original post-credits result pages 49/50 use RESULTS.
+                CampaignAudioPage.EndingResults => SeqId.RESULTS,
                 CampaignAudioPage.Dock when planet.HasValue => planet.Value switch
                 {
                     CampaignPlanet.Alinos => SeqId.SHIP_LAND1,
@@ -38,7 +41,7 @@ namespace MphRead.Mods.Campaign
         {
             CampaignAudioPage.Dock => Sound.UiFeedbackCue.CampaignDock,
             CampaignAudioPage.StarMap => Sound.UiFeedbackCue.CampaignStarMap,
-            CampaignAudioPage.Ending => Sound.UiFeedbackCue.CampaignEnding,
+            CampaignAudioPage.Ending or CampaignAudioPage.EndingResults => Sound.UiFeedbackCue.CampaignEnding,
             _ => Sound.UiFeedbackCue.Error
         };
     }

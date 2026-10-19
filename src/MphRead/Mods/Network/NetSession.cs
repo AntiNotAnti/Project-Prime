@@ -29,7 +29,7 @@ namespace MphRead.Mods.Network
 
     /// <summary>
     /// Where a finished snapshot goes when this process has no socket to send
-    /// it on. See <see cref="NetSession.StartServerAuthority"/>.
+    /// it on. See <see cref="NetSession.StartServerAuthority(SnapshotSink, Action)"/>.
     /// </summary>
     public delegate void SnapshotSink(ReadOnlySpan<byte> payload);
     internal delegate void SemanticSink(PacketType type, ReadOnlySpan<byte> payload);
@@ -61,6 +61,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public static partial class NetSession
     {
+        internal static readonly object ClientLifecycleGate = new();
         private static NetTransport? _transport;
         private static bool _playback;
         private static readonly List<RemotePeer> _peers = new();
@@ -224,75 +225,87 @@ namespace MphRead.Mods.Network
         /// to it rather than looped through a UDP socket.
         /// </param>
         public static void StartServerAuthority(SnapshotSink sink, Action matchEnded)
+            => StartServerAuthority(sink, matchEnded, authorityPublished: null);
+
+        internal static void StartServerAuthority(SnapshotSink sink, Action matchEnded, Action? authorityPublished)
         {
-            StopMatchRuntime();
-            Array.Clear(SlotSpectating);
-            Role = NetRole.Server;
-            _snapshotSink = sink;
-            _serverMatchEnded = matchEnded;
-            IsAuthority = true;
-            // The machine running the match gets a net log too, when it has
-            // been asked for one.
-            //
-            // It is the only machine with the numbers that matter for "my shot
-            // went through him": the rewind depth it served, what the ceiling
-            // refused, and every hit claim it rescued or refused. Without this
-            // the per-rescue EVENT lines are written by a NetLog that was
-            // never opened, and the 30-second summary in the server's console
-            // is the whole of what anybody can read. Gated on -debuglog rather
-            // than always on, because a dedicated server runs for weeks.
-            if (Mods.DebugLog.Active)
+            lock (ClientLifecycleGate)
             {
-                NetLog.Open("server");
+                StopMatchRuntime();
+                Array.Clear(SlotSpectating);
+                Role = NetRole.Server;
+                _snapshotSink = sink;
+                _serverMatchEnded = matchEnded;
+                IsAuthority = true;
+                // Register the exact published incarnation before diagnostics or
+                // later initialization can fail. The callback only captures it.
+                authorityPublished?.Invoke();
+                // The machine running the match gets a net log too, when it has
+                // been asked for one.
+                //
+                // It is the only machine with the numbers that matter for "my shot
+                // went through him": the rewind depth it served, what the ceiling
+                // refused, and every hit claim it rescued or refused. Without this
+                // the per-rescue EVENT lines are written by a NetLog that was
+                // never opened, and the 30-second summary in the server's console
+                // is the whole of what anybody can read. Gated on -debuglog rather
+                // than always on, because a dedicated server runs for weeks.
+                if (Mods.DebugLog.Active)
+                {
+                    NetLog.Open("server");
+                }
+                // Not 0. Slot 0 is a player's slot like any other here, and a
+                // server that called itself slot 0 would exempt that slot from
+                // every "this one is somebody else's" test in the engine -- which
+                // is precisely the set of tests that makes a puppet a puppet.
+                LocalSlot = -1;
+                NetFrame = 0;
+                LastError = null;
+                NetUnlagged.Reset();
+                NetHitPrediction.Reset();
+                NetHitClaims.Reset();
+                NetSmoothing.Reset();
             }
-            // Not 0. Slot 0 is a player's slot like any other here, and a
-            // server that called itself slot 0 would exempt that slot from
-            // every "this one is somebody else's" test in the engine -- which
-            // is precisely the set of tests that makes a puppet a puppet.
-            LocalSlot = -1;
-            NetFrame = 0;
-            LastError = null;
-            NetUnlagged.Reset();
-            NetHitPrediction.Reset();
-            NetHitClaims.Reset();
-            NetSmoothing.Reset();
         }
 
         public static void StartClient(string address, int port = NetConfig.DefaultPort, Guid ownerToken = default,
             bool spectate = false)
         {
-            Stop();
-            try
+            lock (ClientLifecycleGate)
             {
-                _ownerToken = ownerToken;
-                _lastServerPacket = Clock;
-                _transport = new NetTransport(0);
-                _transport.EnableRealtimeStateCoalescing();
-                // The server measures everyone's round trip by pinging them,
-                // so the reply must not wait for a frame boundary: see
-                // NetTransport.AnswerPingsImmediately.
-                _transport.AnswerPingsImmediately();
-                // Resolve rather than Parse: IPAddress.Parse only accepts a
-                // literal, so a hostname threw here and the join silently
-                // failed -- the session stayed offline while the launcher
-                // reported nothing wrong.
-                _hostEndPoint = new IPEndPoint(ResolveIPv4(address), port);
-                Role = NetRole.Client;
-                LocalSlot = -1; // assigned by the host's Welcome
-                NetFrame = 0;
-                LastError = null;
-                SpectatorMode.SetSessionPreference(spectate, announce: false);
-                NetLog.Open(PlayerName);
-                NetLog.Event($"joining {address}:{port} as \"{PlayerName}\"");
-                SendHello();
-                SendIdentify();
-                Console.WriteLine($"[net] joining {address}:{port} as \"{PlayerName}\"");
-            }
-            catch (Exception ex)
-            {
-                LastError = ex.Message;
-                Console.WriteLine($"[net] join failed: {ex.Message}");
-                Role = NetRole.Offline;
+                Stop();
+                try
+                {
+                    _ownerToken = ownerToken;
+                    _lastServerPacket = Clock;
+                    _transport = new NetTransport(0);
+                    _transport.EnableRealtimeStateCoalescing();
+                    // The server measures everyone's round trip by pinging them,
+                    // so the reply must not wait for a frame boundary: see
+                    // NetTransport.AnswerPingsImmediately.
+                    _transport.AnswerPingsImmediately();
+                    // Resolve rather than Parse: IPAddress.Parse only accepts a
+                    // literal, so a hostname threw here and the join silently
+                    // failed -- the session stayed offline while the launcher
+                    // reported nothing wrong.
+                    _hostEndPoint = new IPEndPoint(ResolveIPv4(address), port);
+                    Role = NetRole.Client;
+                    LocalSlot = -1; // assigned by the host's Welcome
+                    NetFrame = 0;
+                    LastError = null;
+                    SpectatorMode.SetSessionPreference(spectate, announce: false);
+                    NetLog.Open(PlayerName);
+                    NetLog.Event($"joining {address}:{port} as \"{PlayerName}\"");
+                    SendHello();
+                    SendIdentify();
+                    Console.WriteLine($"[net] joining {address}:{port} as \"{PlayerName}\"");
+                }
+                catch (Exception ex)
+                {
+                    LastError = ex.Message;
+                    Console.WriteLine($"[net] join failed: {ex.Message}");
+                    Role = NetRole.Offline;
+                }
             }
         }
 
@@ -309,13 +322,16 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void StartPlayback()
         {
-            Stop();
-            _playback = true;
-            _transport = new NetTransport(0, playbackOnly: true);
-            Role = NetRole.Client;
-            LocalSlot = -1;
-            NetFrame = 0;
-            LastError = null;
+            lock (ClientLifecycleGate)
+            {
+                Stop();
+                _playback = true;
+                _transport = new NetTransport(0, playbackOnly: true);
+                Role = NetRole.Client;
+                LocalSlot = -1;
+                NetFrame = 0;
+                LastError = null;
+            }
         }
 
         /// <summary>
@@ -405,92 +421,100 @@ namespace MphRead.Mods.Network
 
         private static void Stop(bool preserveRoomPrewarm)
         {
-            NetPowerUpLedger.Reset();
-            NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
-            NetTelemetry.FullSessionReset();
-            ResetLobbySession();
-            if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
-            _playback = false;
-            NetPlayerSetup.Reset();
-            SpectatorMode.Reset();
-            DemoRecorder.Stop();
-            NetCosmetics.Live.Reset();
-            ReplayCapture.Reset();
-            NetMatchSync.Reset();
-            NetSlotManager.Reset();
-            NetDamage.Reset();
-            NetRoomChange.Reset();
-            NetMatchEnd.Reset();
-            NetPlayerBridge.Reset();
-            Chat.ChatBox.Clear();
-            IsAuthority = false;
-            _snapshotSink = null; ReplayWorldSink = null; ReplayShotSink = null;
-            ConfirmedImpactSink = null; NetConfirmedImpacts.Reset();
-            MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
-            _serverMatchEnded = null;
-            if (_transport != null)
+            lock (ClientLifecycleGate)
             {
-                if (Role == NetRole.Client && _hostEndPoint != null)
+                // A full disconnect retires any unacknowledged selection. Round
+                // resets and socket rebinds deliberately retain current intent.
+                _desiredHunter = _localHunter;
+                NetClientJoinOwnership.RetireIncarnation();
+                ClearNativePartyReservation();
+                NetPowerUpLedger.Reset();
+                NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
+                NetTelemetry.FullSessionReset();
+                ResetLobbySession();
+                if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
+                _playback = false;
+                NetPlayerSetup.Reset();
+                SpectatorMode.Reset();
+                DemoRecorder.Stop();
+                NetCosmetics.Live.Reset();
+                ReplayCapture.Reset();
+                NetMatchSync.Reset();
+                NetSlotManager.Reset();
+                NetDamage.Reset();
+                NetRoomChange.Reset();
+                NetMatchEnd.Reset();
+                NetPlayerBridge.Reset();
+                Chat.ChatBox.Clear();
+                IsAuthority = false;
+                _snapshotSink = null; ReplayWorldSink = null; ReplayShotSink = null;
+                ConfirmedImpactSink = null; NetConfirmedImpacts.Reset();
+                MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
+                _serverMatchEnded = null;
+                if (_transport != null)
                 {
-                    _transport.Send(_hostEndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+                    if (Role == NetRole.Client && _hostEndPoint != null)
+                    {
+                        _transport.Send(_hostEndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+                    }
+                    _transport.Dispose();
+                    _transport = null;
                 }
-                _transport.Dispose();
-                _transport = null;
+                _peers.Clear();
+                _hostEndPoint = null;
+                Role = NetRole.Offline;
+                // Whatever the last server was being asked, it was not this one's
+                // question: a vote left standing here would draw a prompt over
+                // the next match.
+                MapVote.Reset();
+                ConnectionLost = false;
+                LocalSlot = 0;
+                Array.Clear(RemoteStateValid);
+                Array.Clear(RemoteIntentValid);
+                Array.Clear(RemoteIntentArrived);
+                ContinuousPhase.Reset();
+                NetContinuousTargeting.Reset();
+                NetContinuousTargetDiagnostics.Reset();
+                Array.Clear(SlotPing);
+                MatchContainsBots = false;
+                Array.Clear(_lastSlotIntentFrame);
+                _lastServerPacket = 0;
+                _lastClientMaintenance = 0;
+                _lastConnectionProbe = 0;
+                ConnectionProbes = 0;
+                ReAnnouncements = 0;
+                LongestServerSilence = 0;
+                AuthorityFrames = 0;
+                Refused = false;
+                SnapshotStreamResets = 0;
+                _hasSnapshot = false;
+                _hasRoster = false;
+                NetPlayerLifecycle.Reset();
+                _reAnnounced = false;
+                Array.Clear(SlotOccupied);
+                Array.Clear(SlotIsBot);
+                Array.Clear(SlotBotLevel);
+                Array.Clear(SlotDamageReduction);
+                SnapshotsReceived = 0;
+                SnapshotsSent = 0;
+                SnapshotsOutOfOrder = 0;
+                IntentsOutOfOrder = 0;
+                _hasSnapshot = false;
+                _lastSnapshotFrame = 0;
+                SnapshotArrived = 0;
+                AppliedSnapshotFrame = 0;
+                StatesApplied = 0;
+                IntentsReceived = 0;
+                ServerMatch = null;
+                // The position history is indexed by frame, and the frame counter
+                // restarts here. Keeping it would let a rewind land on a cell
+                // stamped with the same number from the previous match, which is
+                // a shot resolved against a room nobody is standing in.
+                NetUnlagged.Reset();
+                NetHitPrediction.Reset();
+                NetHitClaims.Reset();
+                NetSmoothing.Reset();
             }
-            _peers.Clear();
-            _hostEndPoint = null;
-            Role = NetRole.Offline;
-            // Whatever the last server was being asked, it was not this one's
-            // question: a vote left standing here would draw a prompt over
-            // the next match.
-            MapVote.Reset();
-            ConnectionLost = false;
-            LocalSlot = 0;
-            Array.Clear(RemoteStateValid);
-            Array.Clear(RemoteIntentValid);
-            Array.Clear(RemoteIntentArrived);
-            ContinuousPhase.Reset();
-            NetContinuousTargeting.Reset();
-            NetContinuousTargetDiagnostics.Reset();
-            Array.Clear(SlotPing);
-            MatchContainsBots = false;
-            Array.Clear(_lastSlotIntentFrame);
-            _lastServerPacket = 0;
-            _lastClientMaintenance = 0;
-            _lastConnectionProbe = 0;
-            ConnectionProbes = 0;
-            ReAnnouncements = 0;
-            LongestServerSilence = 0;
-            AuthorityFrames = 0;
-            Refused = false;
-            SnapshotStreamResets = 0;
-            _hasSnapshot = false;
-            _hasRoster = false;
-            NetPlayerLifecycle.Reset();
-            _reAnnounced = false;
-            Array.Clear(SlotOccupied);
-            Array.Clear(SlotIsBot);
-            Array.Clear(SlotBotLevel);
-            Array.Clear(SlotDamageReduction);
-            SnapshotsReceived = 0;
-            SnapshotsSent = 0;
-            SnapshotsOutOfOrder = 0;
-            IntentsOutOfOrder = 0;
-            _hasSnapshot = false;
-            _lastSnapshotFrame = 0;
-            SnapshotArrived = 0;
-            AppliedSnapshotFrame = 0;
-            StatesApplied = 0;
-            IntentsReceived = 0;
-            ServerMatch = null;
-            // The position history is indexed by frame, and the frame counter
-            // restarts here. Keeping it would let a rewind land on a cell
-            // stamped with the same number from the previous match, which is
-            // a shot resolved against a room nobody is standing in.
-            NetUnlagged.Reset();
-            NetHitPrediction.Reset();
-            NetHitClaims.Reset();
-            NetSmoothing.Reset();
         }
 
         /// <summary>
@@ -511,7 +535,7 @@ namespace MphRead.Mods.Network
             }
             if (!PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(PlayerName),
                 _scratch.AsSpan(2, PlayerNameCodec.MaxWireBytes), out int count)) return;
-            _scratch[0] = (byte)LocalHunter;
+            _scratch[0] = (byte)IdentifyHunter();
             _scratch[1] = (byte)PlayerColors.Clamp(LocalColor);
             _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 2));
             SendCosmetics();
@@ -548,8 +572,35 @@ namespace MphRead.Mods.Network
             _transport.Send(_hostEndPoint, PacketType.CosmeticState, _scratch.AsSpan(0, CosmeticStatePacket.Size));
         }
 
-        /// <summary>The hunter this machine plays, announced in Identify.</summary>
-        public static Hunter LocalHunter { get; set; } = Hunter.Samus;
+        private static Hunter _localHunter = Hunter.Samus;
+        private static Hunter _desiredHunter = Hunter.Samus;
+
+        /// <summary>The current local selection or server-acknowledged hunter.
+        /// Explicit selection changes the outgoing request; a roster echo only
+        /// changes the accepted value used to build the local world.</summary>
+        public static Hunter LocalHunter
+        {
+            get => _localHunter;
+            set { _localHunter = value; _desiredHunter = value; }
+        }
+
+        private static Hunter IdentifyHunter()
+        {
+            // MatchState may arrive before SessionState on a new stream. Never
+            // sanitize a new round against the previous session's rules. For a
+            // matching stream, SessionState also carries current lobby edits.
+            bool? lowTier = ServerSession is { } session
+                && (ServerMatch is not { } current
+                    || (session.MatchId == current.MatchId
+                        && session.AuthorityEpoch == current.AuthorityEpoch))
+                ? session.Match.LowTier
+                : ServerMatch is { } match
+                    ? ((MatchModifierFlags)match.RuleBits & MatchModifierFlags.LowTier) != 0
+                    : null;
+            if (lowTier.HasValue)
+                _desiredHunter = Mods.Multiplayer.HunterRules.Sanitize(_desiredHunter, lowTier.Value);
+            return _desiredHunter;
+        }
 
         /// <summary>
         /// The suit this machine asked for, 0-3, announced with the hunter.
@@ -651,18 +702,25 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void RebindSocket()
         {
-            if (Role != NetRole.Client || _transport == null)
+            lock (ClientLifecycleGate)
             {
-                return;
+                if (Role != NetRole.Client || _transport == null)
+                {
+                    return;
+                }
+                NetClientJoinOwnership.RetireIncarnation();
+                int wasPort = _transport.LocalPort;
+                ClearNativePartyReservation();
+                _transport.Dispose();
+                _transport = new NetTransport(0);
+                _transport.EnableRealtimeStateCoalescing();
+                _transport.AnswerPingsImmediately();
+                // Keep the existing admission retry active until this endpoint gets a Welcome.
+                _reAnnounced = true;
+                Console.WriteLine($"[net] rebound the socket: {wasPort} -> {_transport.LocalPort}");
+                SendHello();
+                SendIdentify();
             }
-            int wasPort = _transport.LocalPort;
-            _transport.Dispose();
-            _transport = new NetTransport(0);
-            _transport.EnableRealtimeStateCoalescing();
-            _transport.AnswerPingsImmediately();
-            Console.WriteLine($"[net] rebound the socket: {wasPort} -> {_transport.LocalPort}");
-            SendHello();
-            SendIdentify();
         }
 
         /// <summary>
@@ -854,6 +912,8 @@ namespace MphRead.Mods.Network
             }
             switch (packet.Type)
             {
+                case PacketType.PartyReservationState when Role == NetRole.Client:
+                    ReceiveNativePartyReservation(packet); break;
                 case PacketType.SessionState when Role == NetRole.Client:
                     if (_playback ? SessionStatePacket.TryReadArchived(packet.Payload, out var session)
                         : SessionStatePacket.TryRead(packet.Payload, out session, validateDefinition: false)) ApplySessionState(session);
@@ -1565,7 +1625,7 @@ namespace MphRead.Mods.Network
                 if (Enum.IsDefined(typeof(Hunter), roster.Hunters[i]))
                 {
                     SlotHunter[slot] = (Hunter)roster.Hunters[i];
-                    if (slot == LocalSlot) LocalHunter = SlotHunter[slot];
+                    if (slot == LocalSlot) _localHunter = SlotHunter[slot];
                 }
                 // What they asked for. PlayerColors decides what they get,
                 // every frame, from every slot's answer at once.
@@ -1616,26 +1676,27 @@ namespace MphRead.Mods.Network
             }
             bool newMatch = !previous.HasValue || state.MatchId != previous.Value.MatchId;
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
-            if (newMatch || newEpoch) NetPowerUpLedger.Reset();
+            if (newMatch || newEpoch)
+            {
+                // SessionState and MatchState can overtake each other. The
+                // accepted authoritative stream owns one complete reset in
+                // either order; a client cannot carry old damage/intent/slow
+                // lanes into the first frame of the new round.
+                ResetMatchState(preserveRoomChange: true);
+                NetPowerUpLedger.Reset();
+            }
             ServerMatch = state;
             if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey) ReplayCapture.Reset();
             ReplayCapture.AcceptedMatch(state);
             if (newMatch) ReplayCapture.Event(ReplayEventType.MatchStarted);
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);
+            if (state.Ending && GameState.Current.Owner is { } endingScene)
+                NetCampaignEvidence.CaptureRotationLifecycle(endingScene);
             if (newMatch || newEpoch)
             {
                 NetBombs.Reset();
-                _hasSnapshot = false;
-                _lastSnapshotFrame = SnapshotArrived = AppliedSnapshotFrame = 0;
                 _hasRoster = false;
                 MatchContainsBots = false;
-                Array.Clear(_lastSlotIntentFrame);
-                Array.Clear(RemoteIntentValid);
-                Array.Clear(RemoteStateValid);
-                NetSmoothing.NoteRoomChanged();
-                NetUnlagged.Reset();
-                NetHitPrediction.ForgetPending();
-                NetHitClaims.ForgetPending();
                 if (newEpoch && previous.HasValue)
                 {
                     // A new simulation may restart its occupant/life counters.
@@ -1653,8 +1714,6 @@ namespace MphRead.Mods.Network
                         SendHello();
                     }
                 }
-                else if (newMatch) NetPlayerLifecycle.ResetLives();
-                if (newMatch) NetTelemetry.NewMatch();
                 ClearPostMatchReport();
                 SnapshotStreamResets++;
             }
@@ -1717,28 +1776,46 @@ namespace MphRead.Mods.Network
 
         private static void ApplyPostMatchReport(PostMatchReportPacket report)
         {
-            if (report.MatchId != CurrentMatchId)
+            if (report.MatchId == 0 || report.MatchId != CurrentMatchId)
             {
                 return;
             }
 
+            int count = Math.Min(report.Count, (byte)PlayerEntity.SlotCapacity);
+            bool current = false;
+            for (int i = 0; i < count; i++)
+            {
+                int slot = report.Slots[i];
+                if ((uint)slot < PlayerEntity.SlotCapacity && report.Generations[i] != 0
+                    && report.Generations[i] == NetPlayerLifecycle.Generation(slot))
+                {
+                    current = true;
+                    break;
+                }
+            }
+            // An old occupant's delayed result is not a replacement for the
+            // current report, even when the numeric match has not changed.
+            if (!current) return;
+
             _postMatchReportMatchId = report.MatchId;
-            _postMatchReportCount = Math.Min(report.Count, (byte)PlayerEntity.SlotCapacity);
+            _postMatchReportCount = 0;
             Array.Clear(_postMatchReportSlots);
             Array.Clear(_postMatchReportTeams);
             Array.Clear(_postMatchReportNames);
 
-            for (int i = 0; i < _postMatchReportCount; i++)
+            for (int i = 0; i < count; i++)
             {
                 int slot = report.Slots[i];
-                if ((uint)slot >= PlayerEntity.SlotCapacity)
+                if ((uint)slot >= PlayerEntity.SlotCapacity || report.Generations[i] == 0
+                    || report.Generations[i] != NetPlayerLifecycle.Generation(slot))
                 {
                     continue;
                 }
 
-                _postMatchReportSlots[i] = (byte)slot;
-                _postMatchReportTeams[i] = report.Teams[i];
-                _postMatchReportNames[i] = String.IsNullOrWhiteSpace(report.Names[i])
+                int row = _postMatchReportCount++;
+                _postMatchReportSlots[row] = (byte)slot;
+                _postMatchReportTeams[row] = report.Teams[i];
+                _postMatchReportNames[row] = String.IsNullOrWhiteSpace(report.Names[i])
                     ? GameState.Nicknames[slot]
                     : report.Names[i];
 

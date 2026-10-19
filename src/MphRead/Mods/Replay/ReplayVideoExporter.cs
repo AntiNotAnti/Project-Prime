@@ -15,7 +15,7 @@ namespace MphRead.Mods.Replay
     /// </summary>
     internal enum ReplayExportState { Idle, Queued, Seeking, Rendering, Encoding, Completed, Failed, Cancelled }
 
-    internal static class ReplayVideoExporter
+    internal static partial class ReplayVideoExporter
     {
         private static ReplayVideoExportManifest? _job;
         private static ReplayVideoSegment[] _segments = Array.Empty<ReplayVideoSegment>();
@@ -31,12 +31,15 @@ namespace MphRead.Mods.Replay
         private static bool _previousDirector;
         private static bool _previousTrack;
         private static bool _cameraStateSaved;
+        private static object? _renderPlaybackOwner;
+        private static ReplayExportPresentation? _previousPresentation, _ownedPresentation;
 
         private static ReplayEncoderJob? _encoder;
         private static ReplayVideoExportManifest? _encodingJob;
         private static ReplayExportState _state;
         public static ReplayExportState State { get { PollEncoder(); return _state; } }
-        internal static bool HasOwnedJob => _job != null || _encoder != null;
+        internal static bool HasOwnedJob => _job != null || _encoder != null || HasAudioWork;
+        internal static ReplayVideoExportManifest? OwnedManifest => _job ?? _encodingJob;
         public static bool Active { get { PollEncoder(); return HasOwnedJob; } }
         public static bool Rendering => _job != null;
         internal static bool IncludeGameHud => _job?.IncludeGameHud ?? true;
@@ -61,6 +64,8 @@ namespace MphRead.Mods.Replay
 
         public static bool Start(ReplayVideoExportManifest job)
         {
+            if (ReplayExportQueue.ValidateOwnedStart(job) is { } ownerError)
+            { Status = ownerError; return false; }
             if (!ReplayExportRates.IsSupported(job.Fps) || job.Width is < 64 or > 3840 || job.Height is < 64 or > 2160)
             {
                 Status = "Unsupported export dimensions or frame rate."; return false;
@@ -70,7 +75,8 @@ namespace MphRead.Mods.Replay
                 Status = "A video export is already active.";
                 return false;
             }
-            if (!DemoPlayback.IsActive || DemoPlayback.PlaybackPath == null
+            if (!DemoPlayback.IsActive || DemoPlayback.PresentationScene is not { } presented || !DemoPlayback.Owns(presented)
+                || DemoPlayback.PlaybackPath == null
                 || !ReplayPathComparer.Same(DemoPlayback.PlaybackPath, job.Replay))
             {
                 Status = "Open the replay that belongs to this render job first.";
@@ -100,6 +106,9 @@ namespace MphRead.Mods.Replay
             _previousDirector = ReplayCamera.Director;
             _previousTrack = ReplayCamera.PlayTrack;
             _cameraStateSaved = true;
+            _renderPlaybackOwner = DemoPlayback.PlaybackOwner;
+            _previousPresentation = ReplayExportPresentation.Capture();
+            ReplayExportQueue.PresentationFor(job)?.Apply();
 
             _job = job;
             _directory = Path.GetDirectoryName(job.FramePattern)
@@ -123,27 +132,45 @@ namespace MphRead.Mods.Replay
             _totalFrames = EstimateFrames(job.Fps, _segments);
             LastOutput = null; LastError = null; _state = ReplayExportState.Seeking;
             Status = "Seeking to render start...";
+            BeginAudioWork(job);
             _sampler = new(_segments[0].StartFrame, _segments[0].EndFrame, job.Fps);
             ApplySegmentCamera(_segments[0], job);
+            _ownedPresentation = ReplayExportPresentation.Capture();
             ReplayController.Seek(_segments[0].StartFrame, resume: false);
             return true;
         }
 
         public static void Cancel()
         {
+            // Only Start's acquired playback lease authorizes a render retry receipt.
+            // Detached metadata cleared during cancellation does not gain a new strong owner.
+            var cancelled = _renderPlaybackOwner != null ? _job : null;
             _job = null;
             _segments = Array.Empty<ReplayVideoSegment>();
             _segmentIndex = 0;
             RestoreCameraState();
+            CancelAudioWork();
             _encoder?.Cancel();
-            if (_encoder == null) _state = ReplayExportState.Cancelled;
+            if (_encoder == null && !HasAudioWork) _state = ReplayExportState.Cancelled;
             Status = "Video export cancelled.";
+            ReplayExportQueue.NoteCancelled(cancelled);
+        }
+        internal static bool CancelOwnedExact(ReplayVideoExportManifest exact)
+        {
+            PollEncoder();
+            if (!ReferenceEquals(OwnedManifest, exact)) return false;
+            Cancel(); return true;
         }
 
         public static void AfterSceneDraw(Scene scene)
         {
+            // Only this replay's replica or its registered foreground shell can submit its finished picture.
+            var presented = DemoPlayback.Owns(scene) ? scene : DemoPlayback.Presentation(scene);
+            if (presented == null || !ReferenceEquals(presented, DemoPlayback.PresentationScene)
+                || !DemoPlayback.Owns(presented)) return;
             PollEncoder();
-            CaptureReplayThumbnails(scene);
+            // RenderWindow passes its shell; draw/capture belongs to the actual replay replica.
+            scene = presented; CaptureReplayThumbnails(scene);
 
             if (_job == null)
             {
@@ -151,10 +178,17 @@ namespace MphRead.Mods.Replay
                 return; // the framebuffer was drawn before the queued job took ownership
             }
 
-            if (_job != null && !DemoPlayback.IsActive)
+            if (_job != null && (!DemoPlayback.IsActive || presented == null || !DemoPlayback.Owns(presented)
+                || !ReferenceEquals(_renderPlaybackOwner, DemoPlayback.PlaybackOwner)))
             {
-                Cancel();
+                Fail("The replay owner changed during export. The original render stopped.");
                 return;
+            }
+            if (_job is { } owned)
+            {
+                string? ownershipError = ReplayExportQueue.ValidateOwnedFrame(owned);
+                if (ownershipError != null || _ownedPresentation?.Matches() == false)
+                { Fail(ownershipError ?? "The camera changed during export. The original render stopped."); return; }
             }
 
             ReplayVideoExportManifest? job = _job;
@@ -240,6 +274,7 @@ namespace MphRead.Mods.Replay
             ReplayVideoSegment next = _segments[_segmentIndex];
             _sampler = new(next.StartFrame, next.EndFrame, job.Fps);
             ApplySegmentCamera(next, job);
+            _ownedPresentation = ReplayExportPresentation.Capture();
             Status = $"Seeking reel segment {_segmentIndex + 1}/{_segments.Length}...";
             ReplayController.Seek(next.StartFrame, resume: false);
         }
@@ -299,10 +334,12 @@ namespace MphRead.Mods.Replay
 
             RestoreCameraState();
             Status = $"Rendered {_written} frames.";
-#if !ANDROID
+#if !ANDROID && !MPHREAD_SERVER
+            FinishWithOfflineAudio(job);
+#elif !ANDROID
             _state = ReplayExportState.Encoding;
             _encodingJob = job;
-            _encoder = new ReplayEncoderJob("ffmpeg", "-progress pipe:1 -nostats " + job.FfmpegArguments, _directory ?? "");
+            _encoder = new ReplayEncoderJob(job.EncoderExecutable, "-progress pipe:1 -nostats " + job.FfmpegArguments, _directory ?? "");
 #else
             _state = ReplayExportState.Completed;
             LastOutput = _directory;
@@ -313,6 +350,7 @@ namespace MphRead.Mods.Replay
 
         private static void PollEncoder()
         {
+            if(PollAudioWork())return;
             if (_encoder?.Completion.IsCompleted != true) return;
             var result = _encoder.Completion.GetAwaiter().GetResult();
             if (!result.Cancelled && result.Error == null && !File.Exists(_encodingJob?.SuggestedOutput))
@@ -321,6 +359,7 @@ namespace MphRead.Mods.Replay
             _state = result.Cancelled ? ReplayExportState.Cancelled
                 : result.Error == null ? ReplayExportState.Completed : ReplayExportState.Failed;
             LastError = result.Error;
+            if (result.Cancelled) ReplayExportQueue.NoteCancelled(_encodingJob);
             if (_state == ReplayExportState.Failed) ReplayExportQueue.NoteFailure(_encodingJob, result.Error!);
             LastOutput = _state == ReplayExportState.Completed ? _encodingJob?.SuggestedOutput : null;
             _encodingJob = null;
@@ -330,6 +369,7 @@ namespace MphRead.Mods.Replay
         }
         private static void Fail(string message)
         {
+            CancelAudioWork(failure:true);
             ReplayExportQueue.NoteFailure(_job, message);
             _job = null; _segments = Array.Empty<ReplayVideoSegment>();
             RestoreCameraState(); LastError = message; Status = message; _state = ReplayExportState.Failed;
@@ -340,11 +380,20 @@ namespace MphRead.Mods.Replay
         {
             if (!_cameraStateSaved)
                 return;
-            ReplayCamera.SetProfile(_previousProfile);
-            ReplayCamera.SetMode(_previousMode);
-            ReplayCamera.Director = _previousDirector;
-            ReplayCamera.PlayTrack = _previousTrack;
+            // Never apply an old job's presentation state to a newly opened replay.
+            if (ReferenceEquals(_renderPlaybackOwner, DemoPlayback.PlaybackOwner))
+            {
+                if (_previousPresentation != null) _previousPresentation.Apply();
+                else
+                {
+                    ReplayCamera.SetProfile(_previousProfile);
+                    ReplayCamera.SetMode(_previousMode);
+                    ReplayCamera.Director = _previousDirector;
+                    ReplayCamera.PlayTrack = _previousTrack;
+                }
+            }
             _cameraStateSaved = false;
+            _renderPlaybackOwner = null; _previousPresentation = _ownedPresentation = null;
         }
 
         // Three scene stills turn the replay library into a visual browser. They are

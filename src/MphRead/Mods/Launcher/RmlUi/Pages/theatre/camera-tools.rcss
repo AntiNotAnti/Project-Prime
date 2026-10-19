@@ -1,0 +1,32 @@
+#replay_camera_tools_panel, #replay_camera_tools_confirm_panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:760dp; max-width:92%; max-height:92%; overflow-y:auto; box-sizing:border-box; padding:12dp; background-color:#081523; border:1dp #41667f; }
+#replay_camera_tools_panel h2, #replay_camera_tools_panel h3, #replay_camera_tools_panel p, #replay_camera_tools_panel label, #replay_camera_tools_panel input, #replay_camera_tools_confirm_panel h2, #replay_camera_tools_confirm_panel h3, #replay_camera_tools_confirm_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
+#replay_camera_tools_destination { width:96%; min-height:34dp; color:#edf7ff; background-color:#14283a; border:1dp #29485e; }
+
+.camera_curve { display:block; height:64dp; width:100%; background-color:#101f30; margin:6dp 0; }
+.curve_point { display:inline-block; width:1.5625%; height:3dp; background-color:#58cadf; vertical-align:top; }
+.curve_y_0 { margin-top:60dp; }
+.curve_y_1 { margin-top:56dp; }
+.curve_y_2 { margin-top:52dp; }
+.curve_y_3 { margin-top:48dp; }
+.curve_y_4 { margin-top:44dp; }
+.curve_y_5 { margin-top:40dp; }
+.curve_y_6 { margin-top:36dp; }
+.curve_y_7 { margin-top:32dp; }
+.curve_y_8 { margin-top:28dp; }
+.curve_y_9 { margin-top:24dp; }
+.curve_y_10 { margin-top:20dp; }
+.curve_y_11 { margin-top:16dp; }
+.curve_y_12 { margin-top:12dp; }
+.curve_y_13 { margin-top:8dp; }
+.curve_y_14 { margin-top:4dp; }
+.curve_y_15 { margin-top:0dp; }
+
+.camera_curve { position:relative; overflow:hidden; }
+.curve_key, .curve_handle, .curve_ghost { position:absolute; width:8dp; height:8dp; padding:0; border:0; overflow:hidden; font-size:1dp; }
+.curve_key { background-color:#f1d376; }
+.curve_in { background-color:#58cadf; }
+.curve_out { background-color:#df9b4a; }
+.curve_ghost { background-color:#ffffff; pointer-events:none; }
+
+.curve_selection { position:absolute; display:none; border:1dp #64d7fa; background-color:#64d7fa35; pointer-events:none; }
+.curve_key.selected { background-color:#64d7fa; }

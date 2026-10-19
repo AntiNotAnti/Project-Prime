@@ -1,0 +1,31 @@
+# Native Community publication from Studio
+
+The native Studio publication command synchronously asks the retained editor owner for `CommunityStudioPublishIntent`. It captures the actual current authoring definition, including unsaved edits. The RmlUi dialog receives a detached handoff, never a `MapDocument`, editor control, saved catalog substitute or a second document writer.
+
+`NativeCommunityPublishController` presents the verified project parent, private-draft/unlisted/published choices and optional release notes. Confirmation freezes those choices. The adapter rechecks the same authenticated session, account and expected parent, then uses the existing intent, package scheduler, validator and persistent transfer manager. Referenced asset files are fingerprinted during packaging; the page does not claim that external asset bytes were captured when the editor command ran. The package SHA-256 appears after the validated build.
+
+The queue receipt is distinct from verified publication. The native page reads bounded transfer progress, can pause or explicitly verify the account and resume, and reports success only after an exact completed package is found in fresh owned revision history. The current parent may advance after queue admission; the existing upload contract preserves its expected parent and enters `NeedsReview` on conflict. This dialog never silently enables `AllowStaleParent`. Existing conflict review/override and the complete transfer library remain separate migration work.
+
+A durably Completed receipt remains terminal if a notification subscriber or later archive cleanup fails. Notifications isolate individual observer failures. Failed cleanup may retain private archive bytes; explicit Forget can remove them when filesystem access recovers without revising the accepted publication outcome.
+
+An explicit exact-download request can separately readmit a completed download whose verified cache archive is missing or corrupt. It preserves the job ID and immutable package identity, advances a private persisted attempt generation and obtains the existing exclusive job lease. Worker completion, failure and progress from an older attempt cannot overwrite that repaired attempt. This path does not relax the generic Completed update guard or upload admission.
+
+Closing or cancelling the page retires its asynchronous UI work and private witnesses. An already admitted upload remains owned by the shared durable queue. Cancellation cannot recall HTTP accepted by the server, and an unverifiable outcome is labelled accordingly. A session change clears native parent/hash/confirmation and the actual editable release-notes field.
+
+## Same-account durable uploads
+
+The shared transfer owner stores a versioned, noncredential verified account subject for each upload. A native modal supplies its original witness through parent lookup, package work and queue admission. Older callers of `CommunityStudioPublishIntent.QueueAsync` capture their witness before catalog lookup or building. The queue never adopts whichever account happens to be current after that work.
+
+Both original and refresh ticket acquisition independently verify the expected subject and mint under the existing auth gate. Receipt admission and acceptance of a successful HTTP result run as short transactions under the same verified-account gate and existing index lock. Account replacement during HTTP cannot mark the upload completed or delete its frozen archive. Authorization failures persist a fixed `NeedsAuthorization` message, never raw auth exceptions or credentials. The page separately uses a transient opaque session lease and conservatively retires on session refresh; durable jobs use the stable verified subject so the same account can reauthenticate.
+
+The original `jobs-v1.json` path, atomic writer, private archive paths, index lock and cross-process job leases remain authoritative. The file now carries schema 2 with an explicit stored-entry envelope. Only this private envelope serializes the account subject/version; ordinary transfer/page DTO JSON excludes account carriers and session objects. Schema-1 downloads and terminal receipts are preserved. Every unfinished historical upload without an account witness becomes `NeedsAuthorization`; automatic startup and Resume cannot guess its owner. Explicit `ReauthorizeUploadAsync` verifies the retained archive and current account, and moves it only to Paused. Resume is a separate action.
+
+Older binaries reject schema 2. All processes using the shared queue must be updated before use; an HTTP request already sent by an older running process cannot be withdrawn by a schema upgrade. No user queue is migrated or touched by the test fixtures.
+
+## Verification
+
+`tools/rmlui-community-publish-check` links the portable controller and currently passes 44 synthetic checks for immutable confirmation, exact receipts, malformed responses, progress and result separation, owner-thread access, cancellation, account retirement and JSON redaction. It uses no disk, HTTP or account service.
+
+`tools/community-transfer-account-check` passed 49 checks against the rebuilt application, using only temporary storage and scripted loopback HTTP. It covers schema preservation, original-subject admission/retry/result fences, retained archives, explicit reauthorization and same-account restart. It also exercises an actual archive-deletion failure and an observer exception without revising the Completed outcome. The existing `tools/community-transfer-check` baseline passed 61 checks, including missing/corrupt-cache recovery, stale-attempt completion/failure/progress, frozen Studio publication and cross-process transfer lifecycle. Both processes exited 0 with isolated working/user-data directories; no user queue or live backend was accessed.
+
+`CommunityPublishGlAcceptance` uses the actual native page with synthetic source/account/queue authorities. Its pending acceptance includes pointer confirmation, UTF-8 release notes, foreground/duplicate fences, pause/resume, field retirement, fixed footer and Back focus at 640×360, 1280×720 and 1920×1080. It performs no package build or backend writes. These fixtures do not certify a live Community deployment or real authored-map publication.

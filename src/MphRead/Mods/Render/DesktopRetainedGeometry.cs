@@ -129,6 +129,7 @@ internal static class DesktopRetainedGeometry
     [ThreadStatic] private static HashSet<int>? _roomCandidates;
     [ThreadStatic] private static Capture? _capture;
     [ThreadStatic] private static bool _worldScope;
+    internal static bool WorldScopeActive => _worldScope;
     [ThreadStatic] private static bool _bindingsCaptured;
     [ThreadStatic] private static int _arrayBinding, _elementBinding;
     [ThreadStatic] private static long _uploadedBytes;

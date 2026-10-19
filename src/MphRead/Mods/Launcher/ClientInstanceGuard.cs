@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using MphRead.Mods.Update;
 
 namespace MphRead.Mods.Launcher;
 
@@ -16,7 +17,8 @@ internal static class ClientInstanceGuard
     internal sealed class Lease : IDisposable
     {
         private Mutex? _mutex;
-        internal Lease(Mutex mutex) => _mutex = mutex;
+        private IDisposable? _installation;
+        internal Lease(Mutex mutex, IDisposable? installation = null) { _mutex = mutex; _installation = installation; }
         public void Dispose()
         {
             Mutex? mutex = Interlocked.Exchange(ref _mutex, null);
@@ -24,6 +26,7 @@ internal static class ClientInstanceGuard
             try { mutex.ReleaseMutex(); }
             catch (ApplicationException) { }
             mutex.Dispose();
+            Interlocked.Exchange(ref _installation, null)?.Dispose();
         }
     }
 
@@ -36,20 +39,14 @@ internal static class ClientInstanceGuard
     /// was too early: a rapid relaunch could still collide with the old audio
     /// backend for the last few seconds of process teardown.
     /// </summary>
-    internal static bool TryAcquireForProcess(TimeSpan timeout)
+    internal static bool TryAcquireForProcess(TimeSpan timeout, bool studio = false)
     {
         lock (Gate)
         {
             if (_processLease != null) return true;
             try
             {
-                using var sha = SHA256.Create();
-                string root = Path.GetFullPath(AppContext.BaseDirectory)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .ToUpperInvariant();
-                string suffix = Convert.ToHexString(
-                    sha.ComputeHash(Encoding.UTF8.GetBytes(root))).Substring(0, 16);
-                var mutex = new Mutex(false, "ProjectPrime.InteractiveClient." + suffix);
+                var mutex = new Mutex(false, DesktopInstallationUse.MutexName(AppContext.BaseDirectory, studio));
                 bool owned;
                 try { owned = mutex.WaitOne(timeout); }
                 catch (AbandonedMutexException) { owned = true; }
@@ -60,7 +57,23 @@ internal static class ClientInstanceGuard
                         "another interactive Project Prime client is still running; duplicate launch suppressed");
                     return false;
                 }
-                _processLease = new Lease(mutex);
+                IDisposable? installation = null;
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        ReleaseInstallation.Recover(AppContext.BaseDirectory);
+                        try { installation = DesktopInstallationUse.Acquire(AppContext.BaseDirectory); }
+                        catch (UnauthorizedAccessException) { } // Read-only installations cannot update in place.
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    mutex.ReleaseMutex(); mutex.Dispose();
+                    DebugLog.Line("startup", "installation update is in progress or requires recovery: " + ex.Message);
+                    return false;
+                }
+                _processLease = new Lease(mutex, installation);
                 return true;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException

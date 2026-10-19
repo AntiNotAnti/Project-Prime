@@ -51,17 +51,33 @@ namespace MphRead.Droid
     /// draw. So the thread waits for the next 60 Hz tick instead of rendering
     /// more often than the game ticks.
     /// </summary>
-    internal sealed class GameView : SurfaceView, ISurfaceHolderCallback
+    internal sealed partial class GameView : SurfaceView, ISurfaceHolderCallback
     {
         private readonly RenderLoop _loop;
 
         public GameView(Context context, TouchControls controls, AndroidInput input,
             Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
-            Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
+            Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            , RmlUiAndroidPauseOptions? nativePause = null
+            , RmlUiAndroidLauncherOptions? nativeLauncher = null
+#endif
+            )
             : base(context)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            Func<RmlUiAndroidPauseRoute?> pauseFactory = () => nativePause == null ? null : new(nativePause.AssetRoot,
+                (scene, root) => new RmlUiAndroidPausePresentation((Scene)scene, root),
+                notification => nativePause.Notified(this, notification),
+                line => Console.WriteLine("[android/rmlui] " + line));
+            var launcher = nativeLauncher == null ? null : new RmlUiAndroidLauncherSession(this, nativeLauncher);
+#endif
             _loop = new RenderLoop(controls, input, build, onEnd, onLoaded, onError,
-                onPauseMenu, onSoftKeyboard);
+                onPauseMenu, onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                , pauseFactory, nativePause?.Density ?? 1, launcher, options => new RmlUiAndroidLauncherSession(this, options)
+#endif
+                );
             Holder?.AddCallback(this);
             // So this view can receive key events at all: from a keyboard
             // plugged into the phone, from one paired over Bluetooth, from the
@@ -124,6 +140,9 @@ namespace MphRead.Droid
 
         public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (TryNativePauseKey(e)) return true;
+#endif
             // The pad first: its buttons are their own key codes and overlap
             // nothing a keyboard sends, so this only ever claims events a
             // keyboard could not have produced. A fallback in practice --
@@ -145,6 +164,9 @@ namespace MphRead.Droid
 
         public override bool OnKeyUp(Keycode keyCode, KeyEvent? e)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (TryNativePauseKey(e)) return true;
+#endif
             if (GamepadBridge.HandleKey(keyCode, e, down: false))
             {
                 return true;
@@ -261,6 +283,10 @@ namespace MphRead.Droid
 
         public void Stop()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.RequestStop();
+            _nativeLauncher?.RequestStop();
+#endif
             _loop.RequestStop();
         }
 
@@ -276,6 +302,10 @@ namespace MphRead.Droid
 
         public void OnPause()
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.SuspendInput();
+            _nativeLauncher?.SuspendInput();
+#endif
             _loop.SetPaused(true);
         }
 
@@ -294,11 +324,18 @@ namespace MphRead.Droid
 
         public void SurfaceChanged(ISurfaceHolder holder, Format format, int width, int height)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _loop.SetNativePauseDensity(Resources?.DisplayMetrics?.Density ?? 1);
+#endif
             _loop.SurfaceReady(holder, width, height);
         }
 
         public void SurfaceDestroyed(ISurfaceHolder holder)
         {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.SuspendInput();
+            _nativeLauncher?.SuspendInput();
+#endif
             _loop.SurfaceGone();
         }
 
@@ -306,7 +343,7 @@ namespace MphRead.Droid
         /// The GL context, the thread that owns it, and the game loop that
         /// runs on it.
         /// </summary>
-        private sealed class RenderLoop
+        private sealed partial class RenderLoop
         {
             /// <summary>
             /// Density-independent pixels of drag per unit of mouse movement.
@@ -334,7 +371,7 @@ namespace MphRead.Droid
 
             private readonly TouchControls _controls;
             private readonly AndroidInput _input;
-            private readonly Func<AndroidInput, Vector2i, Scene> _build;
+            private Func<AndroidInput, Vector2i, Scene> _build;
             private readonly Action _onEnd;
             private readonly Action _onLoaded;
             private readonly Action<string> _onError;
@@ -383,6 +420,7 @@ namespace MphRead.Droid
             private EGLConfig? _config;
             private EGLSurface? _eglSurface;
             private EGLContext? _context;
+            private bool _contextBindingsReady;
             private ISurfaceHolder? _boundTo;
             private Vector2i _size;
             private readonly AndroidFramePacer _framePacer = new(FrameTiming.MaxCap);
@@ -395,8 +433,19 @@ namespace MphRead.Droid
 
             public RenderLoop(TouchControls controls, AndroidInput input,
                 Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
-                Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
+                Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                , Func<RmlUiAndroidPauseRoute?> nativePauseFactory, float nativeDensity, RmlUiAndroidLauncherSession? nativeLauncher
+                , Func<RmlUiAndroidLauncherOptions, RmlUiAndroidLauncherSession> nativeLauncherFactory
+#endif
+                )
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePauseFactory = nativePauseFactory; _nativePause = nativePauseFactory();
+                _nativeLauncher = nativeLauncher; _nativeLauncherFactory = nativeLauncherFactory;
+                _nativeCycle = nativeLauncher == null ? null : new();
+                SetNativePauseDensity(nativeDensity);
+#endif
                 _onPauseMenu = onPauseMenu;
                 _onSoftKeyboard = onSoftKeyboard;
                 _controls = controls;
@@ -414,6 +463,11 @@ namespace MphRead.Droid
                 lock (_lock)
                 {
                     _stopping = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    _nativeCycle?.Stop();
+                    _nativePause?.RequestStop();
+                    _nativeLauncher?.RequestStop();
+#endif
                     Monitor.PulseAll(_lock);
                 }
             }
@@ -500,10 +554,42 @@ namespace MphRead.Droid
                 }
                 finally
                 {
-                    _performanceHints?.Dispose();
-                    _performanceHints = null;
-                    try { ReleaseSurface(); }
-                    finally { DestroyContext(); }
+                    try
+                    {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        // An exception can unwind Loop before its ordinary
+                        // End path. Retain and retire the exact registered
+                        // candidate before native/context teardown.
+                        if (Scene is { } unfinished) RetireTerminalNativeScene(unfinished);
+#endif
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            try { _performanceHints?.Dispose(); }
+                            catch (Exception error) { Console.WriteLine("[android] performance hint cleanup: " + error.Message); }
+                            finally { _performanceHints = null; }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                            try { _nativeLauncher?.DisposeOwner(); }
+                            finally { _nativePause?.DisposeOwner(); }
+#endif
+                        }
+                        finally
+                        {
+                            try { ReleaseSurface(); }
+                            finally
+                            {
+                                try { DestroyContext(); }
+                                finally
+                                {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                                    _nativeStopped.TrySetResult();
+#endif
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -571,8 +657,19 @@ namespace MphRead.Droid
                             _resetPacingOnResume = false;
                         }
                     }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    if (_nativeCycle != null && _nativeCycle.Current.Phase is not (RmlUiAndroidLocalPhase.Match or RmlUiAndroidLocalPhase.Loading))
+                    {
+                        if (!ProcessNativeLocalMode()) break;
+                        continue;
+                    }
+#endif
                     if (Scene == null)
                     {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        if (_nativeCycle != null && _nativeCycle.Current.Phase != RmlUiAndroidLocalPhase.Loading)
+                            throw new InvalidOperationException("The local host has no admitted scene build in this phase.");
+#endif
                         if (_ended)
                         {
                             break;
@@ -582,6 +679,9 @@ namespace MphRead.Droid
                     }
                     if (!DrawFrame())
                     {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        if (_nativeCycle?.Current.Phase == RmlUiAndroidLocalPhase.AwaitingHomeAck) continue;
+#endif
                         break;
                     }
                 }
@@ -622,6 +722,10 @@ namespace MphRead.Droid
                         Scene.OnResize();
                     }
                 }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.SurfaceReady();
+                _nativeLauncher?.SurfaceReady();
+#endif
                 return true;
             }
 
@@ -641,10 +745,17 @@ namespace MphRead.Droid
                 // renderer's translucency passes mark faces in the stencil
                 // buffer, and a config without one draws the transparent
                 // surfaces wrong rather than failing.
+                int surfaceTypes = EGL14.EglWindowBit;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                // A cyclic local View may retire after Android has taken its
+                // window surface. Its one context must also support the
+                // bounded cleanup pbuffer when surfaceless binding is absent.
+                if (_nativeCycle != null) surfaceTypes |= EGL14.EglPbufferBit;
+#endif
                 int[] attributes =
                 {
                     EGL14.EglRenderableType, OpenGlEs3Bit,
-                    EGL14.EglSurfaceType, EGL14.EglWindowBit,
+                    EGL14.EglSurfaceType, surfaceTypes,
                     EGL14.EglRedSize, 8,
                     EGL14.EglGreenSize, 8,
                     EGL14.EglBlueSize, 8,
@@ -748,10 +859,11 @@ namespace MphRead.Droid
                 // buffers, textures, uniform locations -- belongs to a context.
                 // This one outlives the surface, so the reset only belongs with
                 // a *new* context, which is the first surface after one.
-                if (Scene == null)
+                if (!_contextBindingsReady)
                 {
                     EsBindings.Load();
                     GlEs.Reset();
+                    _contextBindingsReady = true;
                     // Something rather than whatever was in the buffer, for the
                     // seconds the room takes to load.
                     GL.ClearColor(new OpenTK.Mathematics.Color4(10 / 255f, 12 / 255f, 16 / 255f, 1f));
@@ -764,6 +876,10 @@ namespace MphRead.Droid
 
             private void ReleaseSurface()
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.SurfaceLost();
+                _nativeLauncher?.SurfaceLost();
+#endif
                 EGLSurface? surface;
                 lock (_lock)
                 {
@@ -815,6 +931,7 @@ namespace MphRead.Droid
                     Console.WriteLine($"[android] tearing the context down failed: {ex.Message}");
                 }
                 _context = null;
+                _contextBindingsReady = false;
                 _config = null;
                 _display = null;
             }
@@ -874,8 +991,14 @@ namespace MphRead.Droid
                     // the process down from a thread nobody is watching.
                     Console.WriteLine($"[android] the match could not start: {ex}");
                     MphRead.Mods.Network.NetSession.ReportMatchLoadFailed(ex.Message);
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    if (Scene is { } failed) RetireTerminalNativeScene(failed);
+#endif
                     Scene = null;
                     _ended = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    _nativeCycle?.Fault();
+#endif
                     _onError(ex.Message);
                     lock (_lock)
                     {
@@ -886,6 +1009,13 @@ namespace MphRead.Droid
                 _clock.Start();
                 _framePacer.Reset(_clock.Elapsed.TotalSeconds);
                 FrameTiming.Reset();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_nativeLoading is { } loading)
+                {
+                    _nativeSceneGeneration = Scene!.LifetimeGeneration;
+                    if (!_nativeCycle!.MarkMatchReady(loading)) { RequestStop(); return; }
+                }
+#endif
                 _onLoaded();
             }
 
@@ -939,6 +1069,9 @@ namespace MphRead.Droid
                 MphRead.Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                ProcessNativePause();
+#endif
                 GameState.ApplyPause();
                 int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
                     ? 0 : FrameTiming.Advance(elapsed);
@@ -1001,6 +1134,9 @@ namespace MphRead.Droid
                 }
                 bool gameplayOwnsPresentationAim =
                     !inputOwnershipChanged
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    && _nativePause?.OwnsInput != true
+#endif
                     && !MphRead.Mods.Input.GamepadContexts.MenuVisible
                     && !MphRead.Mods.Input.GamepadContexts.TextEntryActive
                     && !MphRead.Mods.Chat.ChatBox.Composing
@@ -1135,6 +1271,14 @@ namespace MphRead.Droid
 
             private void DrawUi()
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (DrawNativePause())
+                {
+                    AndroidUiOverlay.Visible = false;
+                    MphRead.Scene.LauncherPreview = false;
+                    return;
+                }
+#endif
                 AndroidUiSurface? surface = AndroidUiSurface.Current;
                 SayUi();
                 if (surface == null || !surface.Visible)
@@ -1258,7 +1402,14 @@ namespace MphRead.Droid
 
             private void End(Scene scene, bool keepSession = false)
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (!keepSession && TryEndNativeLocalScene(scene)) return;
+                if (RetireTerminalNativeScene(scene)) { _ended = true; _onEnd(); return; }
+#endif
                 _ended = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.DisposeOwner();
+#endif
                 scene.DoCleanup();
                 Scene = null;
                 // Whatever the session asked to have saved, before anything
@@ -1332,6 +1483,13 @@ namespace MphRead.Droid
             /// </summary>
             private void ApplyInput()
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_nativePause?.OwnsInput == true)
+                {
+                    _input.BeginFrame(); _input.CommitFrame();
+                    return;
+                }
+#endif
                 // Before the check below, and before the spectator's early
                 // return in CollectInput: chat and instant clips are app-level
                 // actions and remain useful while watching somebody else.

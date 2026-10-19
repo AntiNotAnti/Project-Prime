@@ -105,9 +105,19 @@ namespace MphRead.Mods.MapGen
             return (graph.Bytes, graph.Positions.Length, graph.Edges);
         }
 
+        public enum NavigationLinkRefusal { None, CollapsedEndpoints, MissingEncodedEdge }
+
+        /// <summary>Final native-node indices chosen for one authored input;
+        /// reports do not change the historical graph or its packed bytes.</summary>
+        public sealed record NavigationLinkReport(int Ordinal, Guid LinkId,
+            int FromNode, int ToNode, bool Bidirectional, bool Encoded,
+            NavigationLinkRefusal Refusal);
+
         public sealed record NavigationGraph(byte[] Bytes, Vector3[] Positions, int[][] Neighbours, int[] Components, int Edges)
         {
             public NodeType[] Types { get; init; } = Array.Empty<NodeType>();
+            public IReadOnlyList<NavigationLinkReport> AuthoredLinks { get; init; }
+                = Array.Empty<NavigationLinkReport>();
         }
 
         public static NavigationGraph Analyze(IReadOnlyList<BuiltFace> solid, IReadOnlyList<MapNavigationLink>? links = null, CancellationToken cancellation = default)
@@ -134,6 +144,7 @@ namespace MphRead.Mods.MapGen
             }
             if(nodes.Count==0||nodes.Count>MaxNodes)throw new MapAuthoringException("FP-MAP-007",nodes.Count==0?"No walkable navigation floor was found.":"Navigation could not fit its 700-node routing budget; simplify disconnected geometry.");
             ClassifyAutoNodeTypes(nodes);
+            var authored = new List<(Guid Id, int From, int To, bool Bidirectional)>();
             if(links!=null)
                 foreach(var link in links)
                 {
@@ -145,6 +156,7 @@ namespace MphRead.Mods.MapGen
                     }
                     int from=Nearest(link.From),to=Nearest(link.To);
                     if(from<0||to<0)throw new MapAuthoringException("FP-MAP-007","Navigation link endpoint is more than 12 units from a walkable node.");
+                    authored.Add((link.Id, from, to, link.Bidirectional));
                     if(from==to)continue;
                     void ConnectLink(int a,int b)
                     {
@@ -162,7 +174,17 @@ namespace MphRead.Mods.MapGen
             // PlayerAi finds the first index of each node type and therefore expects
             // native-style type grouping. Reorder only after all graph edits, remapping
             // every edge so authored one-way traversal remains intact.
-            nodes=OrderNodesByType(nodes);
+            nodes=OrderNodesByType(nodes, out int[] finalNodeIndices);
+            var linkReports = authored.Select((link, ordinal) =>
+            {
+                int from = finalNodeIndices[link.From], to = finalNodeIndices[link.To];
+                var refusal = from == to ? NavigationLinkRefusal.CollapsedEndpoints
+                    : nodes[from].Neighbours.Contains(to)
+                        && (!link.Bidirectional || nodes[to].Neighbours.Contains(from))
+                        ? NavigationLinkRefusal.None : NavigationLinkRefusal.MissingEncodedEdge;
+                return new NavigationLinkReport(ordinal, link.Id, from, to,
+                    link.Bidirectional, refusal == NavigationLinkRefusal.None, refusal);
+            }).ToArray();
             int edges = nodes.Sum(n => n.Neighbours.Count);
             if (Environment.GetEnvironmentVariable("FP_NODEDEBUG") != null)
             {
@@ -190,7 +212,8 @@ namespace MphRead.Mods.MapGen
             return new(Write(nodes, spacing, cancellation), nodes.Select(n => n.Position).ToArray(),
                 nodes.Select(n => n.Neighbours.ToArray()).ToArray(), components, edges)
             {
-                Types = nodes.Select(n => n.Type).ToArray()
+                Types = nodes.Select(n => n.Type).ToArray(),
+                AuthoredLinks = Array.AsReadOnly(linkReports)
             };
         }
 
@@ -243,11 +266,11 @@ namespace MphRead.Mods.MapGen
             node.Type=type.Value;
         }
 
-        private static List<Node> OrderNodesByType(List<Node> nodes)
+        private static List<Node> OrderNodesByType(List<Node> nodes, out int[] remap)
         {
             int[] order=Enumerable.Range(0,nodes.Count)
                 .OrderBy(i=>(int)nodes[i].Type).ThenBy(i=>i).ToArray();
-            var remap=new int[nodes.Count];
+            remap=new int[nodes.Count];
             for(int i=0;i<order.Length;i++)remap[order[i]]=i;
             var result=new List<Node>(nodes.Count);
             foreach(int old in order)

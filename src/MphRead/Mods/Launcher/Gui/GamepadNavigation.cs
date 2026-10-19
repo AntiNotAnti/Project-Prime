@@ -15,6 +15,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Control? _root;
         private ControllerKeyboard? _keyboard;
         public GamepadNavigation() { _router.Action += Dispatch; }
+        public void Reset() => _router.Reset();
         public void Update(Control root)
         {
             if (!GamepadContexts.Focused) { _router.Reset(); return; }

@@ -35,7 +35,7 @@ namespace MphRead.Mods.Replay
     /// list of source ranges and presentation choices, so reordering/trimming
     /// never rewrites packet data.
     /// </summary>
-    internal static class ReplayReels
+    internal static partial class ReplayReels
     {
         public const string Extension = ".reel.json";
         private static readonly JsonSerializerOptions JsonOptions = new()
@@ -242,7 +242,7 @@ namespace MphRead.Mods.Replay
         public static bool IsSupported(int fps) => Array.IndexOf(Supported, fps) >= 0;
     }
 
-    internal static class ReplayExportQueue
+    internal static partial class ReplayExportQueue
     {
         // One active render/encoder is owned separately by ReplayVideoExporter.
         internal const int MaximumPending = 8;
@@ -258,7 +258,8 @@ namespace MphRead.Mods.Replay
         {
             lock (Gate)
             {
-                if (job != null) _failed = job;
+                if (job != null) { _failed = job; _nativeRetry = job; }
+                _ownershipRevision++;
                 Failures.Add(DateTime.Now.ToString("HH:mm") + " · " + (error.Length > 180 ? error[..180] + "…" : error));
                 if (Failures.Count > 5) Failures.RemoveAt(0);
                 _failureSnapshot = Failures.ToArray();
@@ -287,6 +288,7 @@ namespace MphRead.Mods.Replay
             {
                 if (!CheckCapacityLocked()) return false;
                 Pending.Enqueue(manifest);
+                _ownershipRevision++;
                 _last = manifest;
                 _status = $"Queued {Pending.Count} export{(Pending.Count == 1 ? "" : "s")}.";
                 return true;
@@ -310,15 +312,24 @@ namespace MphRead.Mods.Replay
                 if (_starting || (currentActive ?? isActive)()) return true;
                 if (Pending.Count == 0) return false;
                 next = Pending.Dequeue();
+                _ownershipRevision++;
                 _last = next;
                 _starting = true;
             }
             try
             {
                 // Renderer/encoder work never runs while the queue gate is held.
+                string? ownerError = ValidateOwnedStart(next);
+                if (ownerError != null)
+                {
+                    NoteFailure(next, ownerError);
+                    lock (Gate) _status = ownerError;
+                    return false;
+                }
                 if (!start(next))
                 {
                     string failure = getStatus();
+                    NoteFailure(next, failure);
                     lock (Gate) _status = failure;
                     return false;
                 }
@@ -349,6 +360,7 @@ namespace MphRead.Mods.Replay
                 }
                 if (!CheckCapacityLocked()) return false;
                 Pending.Enqueue(retry);
+                _ownershipRevision++;
                 _status = "Last export queued again.";
                 return true;
             }
@@ -357,9 +369,12 @@ namespace MphRead.Mods.Replay
         internal static void NoteFinished(string status)
         {
             lock (Gate)
+            {
+                _ownershipRevision++;
                 _status = Pending.Count == 0
                     ? status
                     : $"{status} {Pending.Count} export{(Pending.Count == 1 ? "" : "s")} queued.";
+            }
         }
 
         public static void ClearPending()
@@ -368,6 +383,7 @@ namespace MphRead.Mods.Replay
             lock (Gate)
             {
                 Pending.Clear();
+                _ownershipRevision++;
                 _status = active
                     ? "Pending exports cleared; current render continues."
                     : "Export queue cleared.";

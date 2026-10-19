@@ -11,7 +11,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render.Characters
 {
-    internal static class CharacterModelAuthoring
+    internal static partial class CharacterModelAuthoring
     {
         private static readonly JsonSerializerOptions Json = new()
         {
@@ -179,41 +179,40 @@ namespace MphRead.Mods.Render.Characters
             {
                 CharacterModelPack pack = CharacterModelPack.Load(Path.GetFullPath(root));
                 int found = 0;
-                foreach (Hunter hunter in Enum.GetValues<Hunter>())
+                foreach (CharacterModelAsset entry in pack.Assets)
                 {
-                    foreach (CharacterModelPart part in Enum.GetValues<CharacterModelPart>())
+                    Hunter hunter = entry.Hunter;
+                    CharacterModelPart part = entry.Part;
+                    int lod = entry.Lod;
+                    if (!CharacterModelRuntime.TryResolvePrivateAppearance(pack, hunter, part, lod,
+                        entry.PrivateAppearance, allowPrivatePreview: true, out CharacterModelAsset asset))
+                        throw new InvalidDataException("Private appearance cannot be published through a live or replay session.");
+                    found++;
+                    Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
+                    if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
+                        throw new InvalidDataException(rigIssue);
+                    if (asset.Skinning == CharacterSkinningMode.Weighted4)
                     {
-                        for (int lod = 0; lod <= CharacterModelPack.MaximumLod; lod++)
-                        {
-                            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)) continue;
-                            found++;
-                            Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
-                            if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
-                                throw new InvalidDataException(rigIssue);
-                            if (asset.Skinning == CharacterSkinningMode.Weighted4)
-                            {
-                                CharacterWeightedModelData geometry =
-                                    CharacterWeightedModelLoader.Load(asset);
-                                ValidateMaterials(native, geometry);
-                                Console.WriteLine(
-                                    $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
-                                    + $"weighted4, {geometry.Joints.Count} joints, "
-                                    + $"{geometry.Primitives.Count} primitives, "
-                                    + $"{geometry.VertexCount} vertices, "
-                                    + $"{geometry.IndexCount / 3} triangles");
-                            }
-                            else
-                            {
-                                CharacterRigidModelData geometry =
-                                    CharacterRigidModelLoader.Load(asset);
-                                ValidateMaterials(native, geometry);
-                                Console.WriteLine(
-                                    $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
-                                    + $"rigid, {geometry.Primitives.Count} primitives, "
-                                    + $"{geometry.VertexCount} vertices, "
-                                    + $"{geometry.IndexCount / 3} triangles");
-                            }
-                        }
+                        CharacterWeightedModelData geometry =
+                            CharacterWeightedModelLoader.Load(asset);
+                        ValidateMaterials(native, geometry);
+                        Console.WriteLine(
+                            $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
+                            + $"weighted4, {geometry.Joints.Count} joints, "
+                            + $"{geometry.Primitives.Count} primitives, "
+                            + $"{geometry.VertexCount} vertices, "
+                            + $"{geometry.IndexCount / 3} triangles");
+                    }
+                    else
+                    {
+                        CharacterRigidModelData geometry =
+                            CharacterRigidModelLoader.Load(asset);
+                        ValidateMaterials(native, geometry);
+                        Console.WriteLine(
+                            $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
+                            + $"rigid, {geometry.Primitives.Count} primitives, "
+                            + $"{geometry.VertexCount} vertices, "
+                            + $"{geometry.IndexCount / 3} triangles");
                     }
                 }
                 if (found == 0) throw new InvalidDataException("Character model pack contains no resolvable models.");

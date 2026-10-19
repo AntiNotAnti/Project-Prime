@@ -24,11 +24,13 @@ namespace MphRead.Mods.Network
         private static string _requested = "";
         private static bool _loadPending;
         private static ushort _requestedMatch;
+        private static ulong _requestedEpoch;
         private static MatchDefinition _requestedDefinition;
-        internal static bool CanApplyConfiguration(ushort match) => !_loadPending
-            && (_loadedMatch == 0 || _loadedMatch == match);
+        internal static bool CanApplyConfiguration(ushort match, ulong epoch) => !_loadPending
+            && (_loadedMatch == 0 || (_loadedMatch == match && _loadedEpoch == epoch));
         public static bool GameplayReady => !_loadPending
-            && (_loadedMatch == 0 || _loadedMatch == NetSession.CurrentMatchId);
+            && (_loadedMatch == 0 || (_loadedMatch == NetSession.CurrentMatchId
+                && _loadedEpoch == NetSession.AuthorityEpoch));
         private static uint _requestedFrame;
         /// <summary>
         /// The server's match number this client has loaded a room for.
@@ -42,6 +44,7 @@ namespace MphRead.Mods.Network
         /// slot rebuilt, every score back to zero.
         /// </summary>
         private static ushort _loadedMatch;
+        private static ulong _loadedEpoch;
         private static uint _loadedFrame;
 
         // Clients complete a room rotation on different frames. For the first
@@ -68,8 +71,10 @@ namespace MphRead.Mods.Network
             _requested = "";
             _requestedFrame = 0;
             _requestedMatch = 0;
+            _requestedEpoch = 0;
             _requestedDefinition = default;
             _loadedMatch = 0;
+            _loadedEpoch = 0;
             _loadedFrame = 0;
         }
 
@@ -90,22 +95,33 @@ namespace MphRead.Mods.Network
                 return;
             }
             ushort match = state!.Value.MatchId;
+            ulong epoch = state.Value.AuthorityEpoch;
             // Session configuration and match state can arrive in either order.
             // Never load a room against the preceding match's package identity.
             if (NetSession.ServerSession is not { } session || session.MatchId != match
+                || session.AuthorityEpoch != epoch
                 || !session.Match.RoomKey.Equals(wanted, StringComparison.OrdinalIgnoreCase)) return;
             if (_loadPending)
             {
-                if (_requestedMatch == match) LoadAtBarrier(scene);
-                return;
+                if (_requestedMatch == match && _requestedEpoch == epoch)
+                {
+                    LoadAtBarrier(scene);
+                    return;
+                }
+                // A new authoritative transition can supersede a fade that
+                // has not rebuilt its world yet. Do not strand the new round
+                // behind a request belonging to the preceding stream.
+                _loadPending = false;
+                _requested = "";
             }
             string current = Metadata.GetRoomById(scene.RoomId, noThrow: true)?.Name ?? "";
             // A joiner arrives already on the server's map and must not
             // immediately reload it, so the first match number seen is adopted
             // rather than acted on.
-            if (current == wanted && (_loadedMatch == 0 || _loadedMatch == match))
+            if (current == wanted && (_loadedMatch == 0 || (_loadedMatch == match && _loadedEpoch == epoch)))
             {
                 _loadedMatch = match;
+                _loadedEpoch = epoch;
                 _requested = "";
                 return;
             }
@@ -113,7 +129,7 @@ namespace MphRead.Mods.Network
             // TransitionState only flips once it does, so without our own
             // note of what was asked for this would restart the fade every
             // frame and never reach the room.
-            if (_requested == wanted && _loadedMatch == match
+            if (_requested == wanted && _loadedMatch == match && _loadedEpoch == epoch
                 && NetSession.NetFrame - _requestedFrame < 300)
             {
                 return;
@@ -133,6 +149,7 @@ namespace MphRead.Mods.Network
             _requestedFrame = NetSession.NetFrame;
             _loadPending = true;
             _requestedMatch = match;
+            _requestedEpoch = epoch;
             _requestedDefinition = session.Match.NormalizeLegacy();
             Console.WriteLine(current == wanted
                 ? $"[net] server started a new match on {wanted}; loading it"
@@ -172,6 +189,7 @@ namespace MphRead.Mods.Network
             // Loading is synchronous from here through AfterRebuild. Allow the
             // authority's initial Spawn while constructing the requested room.
             _loadedMatch = _requestedMatch;
+            _loadedEpoch = _requestedEpoch;
             _loadPending = false;
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
             Hunter acknowledgedLocalHunter = NetSession.Active && NetSession.LocalSlot >= 0
@@ -250,6 +268,7 @@ namespace MphRead.Mods.Network
         public static void AfterRebuild(Scene scene)
         {
             _loadedMatch = _requestedMatch;
+            _loadedEpoch = _requestedEpoch;
             _loadedFrame = Math.Max(NetSession.NetFrame, 1);
             _loadPending = false;
             _requested = "";
@@ -362,12 +381,7 @@ namespace MphRead.Mods.Network
         {
             if (!_loadPending) return;
             scene.GameState.ResetRoundState();
-            MatchDefinition match = _requestedDefinition;
-            scene.GameState.ConfigureMatchMode(match.Mode, applyDefaults: false);
-            match.ApplyModifiers(scene.GameState);
-            scene.GameState.PointGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? 0 : match.PointGoal;
-            scene.GameState.TimeGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? match.PointGoal : 0;
-            scene.GameState.MatchTime = match.TimeLimitSeconds == 0 ? -1 : match.TimeLimitSeconds;
+            _requestedDefinition.ApplyInitialConfiguration(scene.GameState);
             NetMatchEnd.Reset();
         }
     }

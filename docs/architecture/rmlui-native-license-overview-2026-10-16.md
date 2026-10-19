@@ -13,14 +13,17 @@ its RML data model.
   are never passed to native markup.
 - Null/unavailable public visibility stays **UNKNOWN/UNAVAILABLE**, never
   inferred as public or private.
-- The refresh operation is cancellable and generation-fenced. Failed refreshes
-  preserve previously verified data but show that the service is unavailable.
+- The refresh operation is cancellable and generation-fenced. RML-39 supersedes
+  the original stale-record retention policy: each refresh clears the previous
+  identity and career record until authentication succeeds again. Service
+  failures show a generic unavailable status without private response bodies.
 - The local native Hunter picker opens this overview through Full Hunter
   License, and Account actions fall back to the current secured account page.
 - The default Avalonia launcher remains intact. This page is opt-in desktop.
 - No client may submit career scores or mutate server reputation.
 
 The no-game-assets `tools/rmlui-license-check` fixture validates current
-owner-thread updates, cancellation, stale replies, failed refresh retention,
-and verified-only presentation. It does not claim native full License tabs,
+owner-thread updates, cancellation, stale replies, account retirement,
+and verified-only presentation. [RML-39](rmlui-license-career-rml39.md) adds native
+Stats, paginated History, Achievements and Benchmark. It does not claim native full License tabs,
 secure-account/verification parity, public opt-out mutation, or Android IME.

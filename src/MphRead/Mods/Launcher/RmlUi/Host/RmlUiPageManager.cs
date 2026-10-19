@@ -29,6 +29,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private bool _visible = true;
 
         public RmlUiPageManager(RmlUiHost host) => _host = host ?? throw new ArgumentNullException(nameof(host));
+        public event Action<RmlUiIntent>? IntentAccepted;
         public RmlUiDocumentToken Page { get { Reconcile(); return _page?.Document ?? default; } }
         public RmlUiDocumentToken Top { get { Reconcile(); return _modals.Count > 0 ? _modals[^1].Document : Page; } }
         public string? PageKey { get { Reconcile(); return _page?.Spec.Key; } }
@@ -107,6 +108,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 || intent.Sequence <= target.LastSequence || !RmlUiIntentRegistry.IsValid(intent.Kind, intent.Argument))
                 return false;
             target.LastSequence = intent.Sequence;
+            IntentAccepted?.Invoke(intent);
             return true;
         }
 

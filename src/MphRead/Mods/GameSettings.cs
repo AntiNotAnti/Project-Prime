@@ -171,7 +171,10 @@ namespace MphRead.Mods
             if (!state.Multiplayer) return;
             if (Network.NetSession.Active)
             {
-                Network.NetSession.ActiveMatchDefinition?.ApplyModifiers(state);
+                // Scene.Setup just applied engine defaults. Restore the frozen
+                // goals and timer as well as modifiers before the first spawn
+                // allocates resources (including Survival's spare lives).
+                Network.NetSession.ActiveMatchDefinition?.ApplyInitialConfiguration(state);
                 return;
             }
 

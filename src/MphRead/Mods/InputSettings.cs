@@ -830,10 +830,13 @@ namespace MphRead.Mods
             }
         }
 
-        public static void Save()
+        public static void Save() => _ = TrySave();
+
+        /// <summary>Report persistence failure to transactional settings owners.</summary>
+        public static bool TrySave()
         {
             using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
-            if (settingsWrite == null) return;
+            if (settingsWrite == null) return false;
             try
             {
                 var lines = new List<string>
@@ -917,6 +920,7 @@ namespace MphRead.Mods
                     if (split > 0 && !keys.Contains(original[..split].Trim())) lines.Add(original);
                 }
                 File.WriteAllLines(Path, lines);
+                return true;
             }
             catch (Exception)
             {
@@ -924,6 +928,7 @@ namespace MphRead.Mods
                 // guaranteed to be writable, and losing a rebind is a far
                 // smaller thing than taking down the window that made it --
                 // which, from the pause menu, is the thread the menu runs on.
+                return false;
             }
         }
 

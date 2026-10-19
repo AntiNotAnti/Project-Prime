@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
@@ -33,6 +34,36 @@ static void PublishReceipt(string path, string contents)
     }
 }
 
+// The synthetic local service has one fixture account. Durable uploads still
+// require the same independently verified account capability as production.
+static ICommunityCredentialSource FixtureCredentials(string secret)
+{
+    Guid subject = Guid.Parse("697550fd-eb55-4644-8904-2b25a2bc30a9");
+    return new DelegateCommunityAccountCredentialSource(
+        (expected, cancellation) =>
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (expected != null && !expected.Matches(subject))
+                throw new InvalidOperationException("Fixture account changed.");
+            return Task.FromResult(new CommunityTransferAccount(subject));
+        },
+        (expected, refresh, cancellation) =>
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (!expected.Matches(subject))
+                throw new InvalidOperationException("Fixture account changed.");
+            return Task.FromResult(secret);
+        },
+        (expected, commit, cancellation) =>
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (!expected.Matches(subject))
+                throw new CommunityTransferAuthorizationException();
+            commit();
+            return Task.CompletedTask;
+        });
+}
+
 // The child mode is a REAL second dotnet process. It intentionally opens the
 // same durable manager directory to prove index fencing and per-job ownership,
 // not just two objects that happen to share one managed lock.
@@ -40,8 +71,7 @@ if (args.Length == 6 && args[0] == "--crossprocess-stalled-owner")
 {
     string directory=args[1], endpoint=args[2], package=args[3],
         secret=args[4], receipt=args[5];
-    var credentials = new DelegateCommunityCredentialSource(
-        ct => Task.FromResult(secret), ct => Task.FromResult(secret));
+    var credentials = FixtureCredentials(secret);
     await using var manager = new CommunityTransferManager(directory, credentials);
     Guid id=await manager.EnqueueUploadAsync(endpoint,package,publish:null,
         listed:true,draft:false);
@@ -58,8 +88,7 @@ if (args.Length == 9 && args[0] == "--crossprocess-child")
         package = args[3], exactHash = args[4],
         secret = args[5], rendezvous = args[6],
         receipt = args[7], stage = args[8];
-    var credentials = new DelegateCommunityCredentialSource(
-        ct => Task.FromResult(secret), ct => Task.FromResult(secret));
+    var credentials = FixtureCredentials(secret);
     await using var manager = new CommunityTransferManager(directory, credentials);
     PublishReceipt(rendezvous + ".ready", "ready");
 
@@ -216,9 +245,7 @@ try
     const string secret = "prime-community-transfer-fixture-admin";
     service = MapCommunityServer.ServeAsync(endpoint,
         Path.Combine(root, "server"), secret, stop.Token);
-    var credentials = new DelegateCommunityCredentialSource(
-        ct => Task.FromResult(secret),
-        ct => Task.FromResult(secret));
+    var credentials = FixtureCredentials(secret);
     string jobsDir = Path.Combine(root, "jobs");
     Guid uploadId, downloadId;
     CommunityMap published;
@@ -307,14 +334,18 @@ try
         File.Delete(archive);
         File.WriteAllBytes(Path.Combine(jobsDir, "partials", hash + ".part"),
             bytes.AsSpan(0, prefixBytes).ToArray());
-        var index = JsonSerializer.Deserialize<TransferIndexFixture>(
-            File.ReadAllText(indexFile), MapPackageReader.JsonOptions)
+        var index = JsonNode.Parse(File.ReadAllText(indexFile))
             ?? throw new InvalidDataException("Missing durable transfer index.");
-        CommunityTransferJob[] recovered = index.Jobs.Select(job => job.Id == downloadId
-            ? job with { State = state, AcknowledgedBytes = prefixBytes }
-            : job).ToArray();
-        File.WriteAllText(indexFile, JsonSerializer.Serialize(
-            new TransferIndexFixture(index.Schema, recovered), MapPackageReader.JsonOptions));
+        foreach (JsonNode? envelope in index["jobs"]!.AsArray())
+        {
+            // Preserve the private schema-two account binding of unrelated
+            // uploads while changing only the simulated download receipt.
+            JsonNode receipt = envelope!["receipt"] ?? envelope;
+            if (receipt["id"]!.GetValue<Guid>() != downloadId) continue;
+            receipt["state"] = (int)state;
+            receipt["acknowledgedBytes"] = prefixBytes;
+        }
+        File.WriteAllText(indexFile, index.ToJsonString(MapPackageReader.JsonOptions));
     }
 
     SimulateInterrupted(CommunityTransferState.Paused, Math.Min(64, bytes.Length / 2));
@@ -345,15 +376,39 @@ try
     // private archive, or when a local file was damaged between app sessions.
     await using (var cacheRecovery = new CommunityTransferManager(jobsDir, credentials))
     {
+        var attemptProperty = typeof(CommunityTransferJob).GetProperty("Attempt", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var attemptUpdate = typeof(CommunityTransferManager).GetMethod("UpdateAttempt", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var attemptProgress = typeof(CommunityTransferManager).GetMethod("Progress", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        long previousAttempt = (long)attemptProperty.GetValue(cacheRecovery.GetJob(downloadId))!;
+        bool oldAttemptFenced = false;
+        Action<CommunityTransferJob> staleWorker = receipt =>
+        {
+            if (receipt.Id != downloadId || receipt.State != CommunityTransferState.Queued) return;
+            long nextAttempt = (long)attemptProperty.GetValue(receipt)!;
+            if (nextAttempt <= previousAttempt) return;
+            attemptUpdate.Invoke(cacheRecovery, new object[] { downloadId, previousAttempt,
+                (Func<CommunityTransferJob, CommunityTransferJob>)(job => job with { State = CommunityTransferState.Completed, AcknowledgedBytes = job.TotalBytes }), true });
+            attemptUpdate.Invoke(cacheRecovery, new object[] { downloadId, previousAttempt,
+                (Func<CommunityTransferJob, CommunityTransferJob>)(job => job with { State = CommunityTransferState.Failed, Error = "SYNTHETIC STALE WORKER" }), true });
+            attemptProgress.Invoke(cacheRecovery, new object[] { downloadId, previousAttempt, receipt.TotalBytes, receipt.TotalBytes });
+            var fresh = cacheRecovery.GetJob(downloadId);
+            oldAttemptFenced = fresh.State == CommunityTransferState.Queued && fresh.AcknowledgedBytes == 0
+                && (long)attemptProperty.GetValue(fresh)! == nextAttempt;
+        };
+        cacheRecovery.Changed += staleWorker;
         string exact = Path.Combine(jobsDir, "archives", hash + ".ppmap");
         File.Delete(exact);
         Guid afterEviction = cacheRecovery.EnqueueDownload(endpoint, published);
         Check(afterEviction == downloadId, "evicted archive reuses its stable job identity");
+        Check(oldAttemptFenced, "explicit exact-cache readmission fences stale completion, failure and progress from the previous attempt");
+        cacheRecovery.Changed -= staleWorker;
         Check((await cacheRecovery.WaitAsync(afterEviction)).State ==
             CommunityTransferState.Completed
             && File.ReadAllBytes(cacheRecovery.VerifiedArchivePath(downloadId)!)
                 .SequenceEqual(bytes),
             "missing completed archive is downloaded and verified again");
+        Check((long)attemptProperty.GetValue(cacheRecovery.GetJob(downloadId))! > previousAttempt,
+            "repaired exact download persists a fresh attempt generation");
 
         File.WriteAllBytes(exact, new byte[] { 1, 2, 3, 4 });
         Guid afterCorruption = cacheRecovery.EnqueueDownload(endpoint, published);
@@ -710,5 +765,3 @@ finally
     try { Directory.Delete(root, recursive: true); }
     catch (IOException) { }
 }
-
-internal sealed record TransferIndexFixture(int Schema, CommunityTransferJob[] Jobs);

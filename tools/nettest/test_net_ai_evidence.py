@@ -42,6 +42,88 @@ def fixture():
 
 
 class AiEvidenceTests(unittest.TestCase):
+    def lifetime_claims(self, value):
+        return dict(ClientDeclared=value, ClientDeclaredScope='ProcessLifetime',
+                    ClientDeclaredCountingUnit='New client claim declarations; excludes retries and survives match reset')
+
+    def test_lifetime_client_declarations_survive_final_round_zero(self):
+        reports, _ = fixture()
+        for slot, value in enumerate((7, 2)):
+            peer = reports[f'peer-{slot}.json']
+            peer['HitClaims']['Declared'] = 0
+            peer['CampaignClaims'] = self.lifetime_claims(value)
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['metrics']['declaredClientClaims'], 9)
+        self.assertEqual([c['declaredClaimsScope'] for c in result['clients']], ['ProcessLifetime'] * 2)
+
+    def test_old_final_round_zero_stays_incomplete(self):
+        reports, _ = fixture()
+        for slot in range(2):
+            reports[f'peer-{slot}.json']['HitClaims']['Declared'] = 0
+            reports[f'peer-{slot}.json']['CampaignClaims'] = {'Received': 0, 'Applied': 0}
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'INCOMPLETE')
+        self.assertEqual(result['metrics']['declaredClientClaims'], 0)
+        self.assertTrue(all(c['declaredClaimsScope'] == 'LegacyPerMatch' for c in result['clients']))
+
+    def test_zero_lifetime_cannot_fall_back_to_positive_legacy(self):
+        reports, _ = fixture()
+        for slot in range(2):
+            reports[f'peer-{slot}.json']['HitClaims']['Declared'] = 0
+            reports[f'peer-{slot}.json']['CampaignClaims'] = self.lifetime_claims(0)
+        self.assertEqual(self.audit(reports)['status'], 'INCOMPLETE')
+        reports['peer-0.json']['HitClaims']['Declared'] = 1
+        self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_lifetime_count_rejects_bool_negative_fraction_overflow_and_null(self):
+        for value in (True, False, -1, 0.5, '2', None, 2**63):
+            with self.subTest(value=value):
+                reports, _ = fixture()
+                reports['peer-0.json']['CampaignClaims'] = self.lifetime_claims(value)
+                self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_partial_or_forged_lifetime_scope_never_falls_back(self):
+        for field in ('ClientDeclared', 'ClientDeclaredScope', 'ClientDeclaredCountingUnit'):
+            reports, _ = fixture()
+            claims = self.lifetime_claims(3)
+            del claims[field]
+            reports['peer-0.json']['CampaignClaims'] = claims
+            self.assertEqual(self.audit(reports)['status'], 'FAIL')
+        for field in ('ClientDeclaredScope', 'ClientDeclaredCountingUnit'):
+            for value in (True, None, 'PerMatch', 'retried packets'):
+                reports, _ = fixture()
+                reports['peer-0.json']['CampaignClaims'] = self.lifetime_claims(3)
+                reports['peer-0.json']['CampaignClaims'][field] = value
+                self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_malformed_client_campaign_object_fails(self):
+        for value in (True, 3, [], None, 'claims'):
+            reports, _ = fixture()
+            reports['peer-0.json']['CampaignClaims'] = value
+            self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_mixed_old_and_new_reports_keep_per_client_scope(self):
+        reports, _ = fixture()
+        reports['peer-0.json']['HitClaims']['Declared'] = 0
+        reports['peer-0.json']['CampaignClaims'] = self.lifetime_claims(7)
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(result['metrics']['declaredClientClaims'], 9)
+        self.assertEqual([c['declaredClaimsScope'] for c in result['clients']], ['ProcessLifetime', 'LegacyPerMatch'])
+        reports['peer-0.json']['CampaignClaims']['ClientDeclared'] = True
+        self.assertEqual(self.audit(reports)['status'], 'FAIL')
+
+    def test_authority_counter_is_not_a_client_declaration_fallback(self):
+        reports, _ = fixture()
+        for slot in range(2):
+            peer = reports[f'peer-{slot}.json']
+            peer['HitClaims']['Declared'] = 0
+            peer['CampaignClaims'] = {'Received': 300, 'Applied': 200}
+        result = self.audit(reports)
+        self.assertEqual(result['status'], 'INCOMPLETE')
+        self.assertEqual(result['metrics']['declaredClientClaims'], 0)
+
     def test_invalid_spatial_sample_counters_required_and_zero(self):
         for field in ('InvalidPositionSamples', 'InvalidDistanceSamples'):
             for value in (1, None, True, -1, 0.5, '0'):

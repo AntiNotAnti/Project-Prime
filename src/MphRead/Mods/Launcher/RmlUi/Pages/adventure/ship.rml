@@ -1,0 +1,40 @@
+<rml>
+<head>
+    <title>Campaign gunship</title>
+    <link type="text/rcss" href="../../themes/prime.rcss" />
+    <link type="text/rcss" href="../../components/controls.rcss" />
+    <link type="text/rcss" href="ship.rcss" />
+</head>
+<body>
+    <div id="ship_page">
+        <div class="eyebrow">ADVENTURE // SHIP NAVIGATION</div>
+        <h1 id="ship_title">HUNTER GUNSHIP</h1>
+        <p id="ship_identity" class="eyebrow" role="group" />
+        <div id="ship_scroll">
+            <p id="ship_status" role="status" />
+            <p id="ship_error" role="status" />
+            <p id="ship_verified">Docked campaign save verified. Exit Ship to return on foot, or Launch Ship to select an unlocked planet.</p>
+            <p id="ship_detail" role="group" />
+            <div id="ship_dock_face">
+                <button id="ship_open_map" class="play_action primary" data-action="campaign-ship:0">LAUNCH SHIP / OPEN STAR MAP</button>
+                <button id="ship_exit" class="play_action" data-action="campaign-ship:2">EXIT SHIP / RETURN TO SURFACE</button>
+            </div>
+            <div id="ship_map_face">
+                <div class="ship_planets">
+                    <button id="ship_planet_0" class="ship_planet" data-action="campaign-ship:5"><span id="ship_planet_label_0" /></button>
+                    <button id="ship_planet_1" class="ship_planet" data-action="campaign-ship:6"><span id="ship_planet_label_1" /></button>
+                    <button id="ship_planet_2" class="ship_planet" data-action="campaign-ship:7"><span id="ship_planet_label_2" /></button>
+                    <button id="ship_planet_3" class="ship_planet" data-action="campaign-ship:8"><span id="ship_planet_label_3" /></button>
+                    <button id="ship_planet_4" class="ship_planet" data-action="campaign-ship:9"><span id="ship_planet_label_4" /></button>
+                </div>
+                <button id="ship_land" class="play_action primary" data-action="campaign-ship:3">LAND SHIP</button>
+                <button id="ship_cockpit" class="play_action" data-action="campaign-ship:1">RETURN TO COCKPIT</button>
+            </div>
+        </div>
+        <div class="ship_footer">
+            <button id="ship_refresh" class="play_action" data-action="campaign-ship:4">REFRESH</button>
+            <button id="ship_back" class="play_action" data-action="route:adventure">RETURN TO CAMPAIGN FILE SELECT</button>
+        </div>
+    </div>
+</body>
+</rml>

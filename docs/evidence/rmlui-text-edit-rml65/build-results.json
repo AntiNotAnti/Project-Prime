@@ -1,0 +1,133 @@
+[
+  {
+    "step": "configure",
+    "command": [
+      "/opt/homebrew/bin/cmake",
+      "-S",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_",
+      "-B",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/build",
+      "-G",
+      "Unix Makefiles",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_OSX_ARCHITECTURES=arm64"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/configure.log"
+  },
+  {
+    "step": "native-build",
+    "command": [
+      "/opt/homebrew/bin/cmake",
+      "--build",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/build",
+      "--parallel",
+      "2"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/native-build.log"
+  },
+  {
+    "step": "cpu-check",
+    "command": [
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/build/PrimeTextEditCpuCheck",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/assets"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cpu-check.log"
+  },
+  {
+    "step": "managed-tests-restore",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "restore",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-tests/managed-tests.csproj",
+      "--source",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/empty-packages"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-tests-restore.log"
+  },
+  {
+    "step": "managed-tests-build",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-tests/managed-tests.csproj",
+      "-c",
+      "Release",
+      "--no-restore"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-tests-build.log"
+  },
+  {
+    "step": "appkit-check-restore",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "restore",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/appkit-check/appkit-check.csproj",
+      "--source",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/empty-packages"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/appkit-check-restore.log"
+  },
+  {
+    "step": "appkit-check-build",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/appkit-check/appkit-check.csproj",
+      "-c",
+      "Release",
+      "--no-restore"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/appkit-check-build.log"
+  },
+  {
+    "step": "cocoa-cpu-check-restore",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "restore",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cocoa-cpu-check/cocoa-cpu-check.csproj",
+      "--source",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/empty-packages"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cocoa-cpu-check-restore.log"
+  },
+  {
+    "step": "cocoa-cpu-check-build",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "build",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cocoa-cpu-check/cocoa-cpu-check.csproj",
+      "-c",
+      "Release",
+      "--no-restore"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cocoa-cpu-check-build.log"
+  },
+  {
+    "step": "managed-check",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-tests/bin/Release/net10.0/managed-tests.dll"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/managed-check.log"
+  },
+  {
+    "step": "actual-cocoa-cpu",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check.dll",
+      "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/assets"
+    ],
+    "exitCode": 0,
+    "log": "/private/tmp/prime-rml62-ime-review-cocoa-host-sequence-fixed-qgaehuv_/actual-cocoa-cpu.log"
+  }
+]

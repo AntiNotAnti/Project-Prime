@@ -1,0 +1,7 @@
+# Reliable send receipt retention
+
+This isolated fixture references an explicit immutable `PrimeReferenceDirectory`. It has no application ProjectReference and links no replacement owner or facade. The default run calls the actual compiled NetConnection/NetReliableChannel owners with controlled headers and clocks: sequence wrap, mixed traffic, eight independent endpoint objects, three-copy delivery with lost/reordered ACKs, retry, supersession, incarnation fences, retained RTT sampling, exact-once acknowledgment, existing40-event capacity and15second lifetime, and the new64-per-event receipt bound. These are owner contracts, not gameplay or network impairment acceptance.
+
+`--udp-saturation` additionally uses an ephemeral local NetTransport and UDP sink. It deliberately withholds every ACK and uses the existing maintenance boundary to create deterministic expedited receipt pressure. It checks that exactly64 copies reach the socket and the65th attempt takes the existing connection-failure path without a physical send. It does not create a NetSession, Scene, account, server match or backend call. This local socket mode requires the coordinator's UDP lease.
+
+`run_check.py IMMUTABLE_COMPILED_CLIENT EXPECTED_DLL_SHA [owner|udp]` builds only a private direct-reference fixture and writes durable evidence under `artifacts/cpp05-reliable-attempt-owner`. It uses fresh absolute cwd/userdata and removes inherited game/service environment variables. Original64 failure receipts stay separate and unchanged.

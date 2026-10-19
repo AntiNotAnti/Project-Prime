@@ -110,6 +110,45 @@ using (var canceled = new LauncherCosmeticDraftController(canceledStore, Hunter.
     canceledStore.Finish("IGNORED STALE RESULT");
     Check(canceledStore.Cancelled, "retiring native page cancels in-flight account synchronization");
 }
+var defaultStore = new CosmeticFake();
+var equippedCustom = new CosmeticLoadout("skin.samus.obsidian", "armor.phase", "death.cryo_shatter");
+defaultStore.ExternalChange(Hunter.Samus, equippedCustom);
+using (var defaults = new LauncherCosmeticDraftController(defaultStore, Hunter.Samus))
+{
+    Check(defaults.SetDefaultLoadout() && defaults.Current().Draft == CosmeticLoadout.Default
+        && defaults.Current().Equipped == equippedCustom && defaults.Current().Dirty
+        && defaultStore.EquipCalls == 0 && defaultStore.Capture(Hunter.Samus) == equippedCustom,
+        "Reset Loadout stages all native defaults without changing the equipped loadout or saving");
+    Check(defaults.Reset() && defaults.Current().Draft == equippedCustom && !defaults.Current().Dirty,
+        "Discard restores the exact equipped custom loadout after resetting defaults");
+    Check(defaults.SetDefaultLoadout() && defaults.Equip() && defaultStore.EquipCalls == 1
+        && defaults.Current().Busy && !defaults.SetDefaultLoadout(),
+        "default loadout requires explicit Equip and cannot change during account synchronization");
+    defaultStore.Finish("DEFAULTS EQUIPPED LOCALLY");
+    defaults.Pump();
+    Check(!defaults.Current().Busy && !defaults.Current().Dirty
+        && defaults.Current().Equipped == CosmeticLoadout.Default,
+        "default draft completes through the existing equip owner");
+    defaultStore.ExternalChange(Hunter.Samus, equippedCustom);
+    defaults.Reset();
+    defaults.SetDefaultLoadout();
+    defaultStore.ExternalChange(Hunter.Samus, equippedCustom with { ArmorEffectKey = "armor.lightning" });
+    Check(!defaults.Equip() && defaultStore.EquipCalls == 1,
+        "resetting defaults retains stale equipped-loadout protection");
+    Exception? defaultWrongThread = null;
+    Task.Run(() =>
+    {
+        try { defaults.SetDefaultLoadout(); }
+        catch (Exception error) { defaultWrongThread = error; }
+    }).GetAwaiter().GetResult();
+    Check(defaultWrongThread is InvalidOperationException,
+        "Reset Loadout rejects mutation away from the draft owner thread");
+    defaults.Dispose();
+    bool retiredDefaults = false;
+    try { defaults.SetDefaultLoadout(); }
+    catch (ObjectDisposedException) { retiredDefaults = true; }
+    Check(retiredDefaults, "retired drafts reject delayed Reset Loadout actions");
+}
 // RML-31: the actual native Hunter preview bounds are in framebuffer pixels.
 // Clamping is performed once here, not once in RmlUi and again in OpenTK.
 Check(RmlUiPreviewViewport.TryCreate(100, 60, 600, 480, 1200, 800, out var viewport)
@@ -132,6 +171,147 @@ Check(RmlUiPreviewViewport.TryCreate(780, 340, 460, 460, 1200, 800,
         out var edgeViewport)
     && edgeViewport.Right == 1f && edgeViewport.Bottom == 1f,
     "oversized native Hunter viewport remains bounded to active framebuffer");
+Check(RmlUiPreviewViewport.IsContained(100, 60, 600, 480, 100, 60, 600, 480)
+    && RmlUiPreviewViewport.IsContained(100.25f, 60.5f, 599.5f, 479, 100, 60, 600, 480)
+    && RmlUiPreviewViewport.IsContained(-20, -10, 10, 5, -20, -10, 40, 20),
+    "preview containment accepts exact clip edges, fractional pixels and consistent negative origins");
+foreach (var box in new[] { (X: 99f, Y: 60f, Width: 600f, Height: 480f),
+    (X: 100f, Y: 59f, Width: 600f, Height: 480f),
+    (X: 100f, Y: 60f, Width: 601f, Height: 480f),
+    (X: 100f, Y: 60f, Width: 600f, Height: 481f),
+    (X: 800f, Y: 60f, Width: 20f, Height: 20f) })
+    Check(!RmlUiPreviewViewport.IsContained(box.X, box.Y, box.Width, box.Height, 100, 60, 600, 480),
+        "partially scrolled or disjoint preview never escapes its clip rectangle");
+for (int parameter = 0; parameter < 8; parameter++)
+{
+    foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
+    {
+        float[] rectangle = { 100, 60, 600, 480, 100, 60, 600, 480 };
+        rectangle[parameter] = invalid;
+        Check(!RmlUiPreviewViewport.IsContained(rectangle[0], rectangle[1], rectangle[2], rectangle[3],
+            rectangle[4], rectangle[5], rectangle[6], rectangle[7]),
+            "nonfinite preview or clip parameter is rejected at index " + parameter);
+    }
+}
+foreach (int parameter in new[] { 2, 3, 6, 7 })
+{
+    foreach (float invalid in new[] { 0f, -1f })
+    {
+        float[] rectangle = { 100, 60, 600, 480, 100, 60, 600, 480 };
+        rectangle[parameter] = invalid;
+        Check(!RmlUiPreviewViewport.IsContained(rectangle[0], rectangle[1], rectangle[2], rectangle[3],
+            rectangle[4], rectangle[5], rectangle[6], rectangle[7]),
+            "zero or negative preview/clip extent is rejected at index " + parameter);
+    }
+}
+
+// Preview controls own no persisted identity, account or engine-global state.
+var enginePreviewBefore = (CosmeticPreview.Mode, CosmeticPreview.Yaw, CosmeticPreview.Zoom,
+    CosmeticPreview.LoopDeath, CosmeticPreview.DeathRequest);
+int savedIdentityWrites = store.Writes;
+using (var preview = new LauncherHunterPreviewController())
+using (var separatePreview = new LauncherHunterPreviewController())
+{
+    var initialPreview = preview.Current();
+    Check(initialPreview.IsValid && initialPreview.Mode == SkinContext.Biped
+        && initialPreview.Yaw == 0 && initialPreview.Zoom == 1
+        && !initialPreview.LoopDeath && initialPreview.DeathRequest == 0,
+        "local preview begins in valid biped view with neutral camera");
+    Check(preview.SelectMode(1) && preview.Current().Mode == SkinContext.ViewModel
+        && preview.Current().IsValid,
+        "weapon preview uses the existing native ViewModel context without persisting a loadout");
+    Check(preview.SelectMode(2) && preview.Current().Mode == SkinContext.AltForm
+        && !preview.SelectMode(3) && !preview.SelectMode(-1),
+        "preview accepts the original three contexts and rejects undefined modes");
+    Check(preview.Rotate(0) && preview.Current().Yaw < 0 && preview.Rotate(1)
+        && Math.Abs(preview.Current().Yaw) < 0.00001f
+        && !preview.Rotate(-1) && !preview.Rotate(2),
+        "rotate controls move in opposite directions and reject invalid arguments");
+    bool rotationStayedValid = true;
+    for (int i = 0; i < 1000; i++)
+    {
+        preview.Rotate(1);
+        rotationStayedValid &= preview.Current().IsValid;
+    }
+    Check(rotationStayedValid, "preview yaw remains finite and bounded through repeated rotations");
+    for (int i = 0; i < 10; i++) preview.Zoom(1);
+    Check(preview.Current().Zoom == 1.2f && !preview.Zoom(1),
+        "preview zoom clamps at HunterStand upper limit");
+    for (int i = 0; i < 10; i++) preview.Zoom(0);
+    Check(preview.Current().Zoom == 0.8f && !preview.Zoom(0)
+        && !preview.Zoom(-1) && !preview.Zoom(2),
+        "preview zoom clamps at HunterStand lower limit and rejects invalid arguments");
+    Check(preview.PreviewDeath() && preview.Current().Mode == SkinContext.Biped
+        && preview.Current().DeathRequest == 1 && preview.PreviewDeath()
+        && preview.Current().DeathRequest == 2,
+        "death preview forces biped and issues a new local animation request for each click");
+    Check(preview.SelectMode(2) && preview.ToggleLoopDeath()
+        && preview.Current().LoopDeath && preview.Current().Mode == SkinContext.Biped
+        && preview.Current().DeathRequest == 1,
+        "enabling death loop starts a biped death preview like the existing customization owner");
+    preview.Rotate(1);
+    preview.Zoom(1);
+    Check(preview.SelectMode(1) && preview.Current().Mode == SkinContext.ViewModel
+        && preview.Current().Yaw == 0 && preview.Current().Zoom == 1
+        && preview.Current().DeathRequest == 0 && preview.Current().LoopDeath,
+        "switching to weapon preview resets camera and stale death request while preserving loop preference");
+    preview.SelectMode(2);
+    Check(preview.Reset() && preview.Current().Yaw == 0 && preview.Current().Zoom == 1
+        && preview.Current().DeathRequest == 0 && preview.Current().LoopDeath
+        && preview.Current().Mode == SkinContext.AltForm,
+        "Reset matches HunterStand camera and death reset while preserving form and loop preference");
+    Check(preview.ToggleLoopDeath() && !preview.Current().LoopDeath
+        && separatePreview.Current() == initialPreview,
+        "death loop toggles off and independent preview owners never share state");
+    preview.ToggleLoopDeath();
+    preview.Rotate(1);
+    preview.Zoom(1);
+    Check(preview.ToggleCompareNative() && preview.Current().CompareNative
+        && preview.Current().Yaw == 0 && preview.Current().Zoom == 1
+        && preview.Current().DeathRequest == 0 && preview.Current().LoopDeath
+        && preview.Current().Mode == SkinContext.Biped
+        && separatePreview.Current() == initialPreview,
+        "Compare Native resets camera and death while preserving form, loop and independent owners");
+    Check(preview.Reset() && preview.Current().CompareNative
+        && preview.ToggleCompareNative() && !preview.Current().CompareNative,
+        "camera Reset preserves comparison and a second Compare restores the cosmetic preview");
+    preview.ToggleCompareNative();
+    Check(preview.SelectMode(2) && !preview.Current().CompareNative,
+        "changing preview form clears native comparison");
+    preview.ToggleCompareNative();
+    preview.ClearComparison();
+    Check(!preview.Current().CompareNative && preview.Current().Mode == SkinContext.AltForm
+        && preview.Current().LoopDeath,
+        "draft owners can clear comparison without changing form or loop preference");
+    preview.ToggleCompareNative();
+    Check(preview.PreviewDeath() && !preview.Current().CompareNative,
+        "death preview restores draft cosmetics when returning to biped");
+    Exception? previewWrongThread = null;
+    Task.Run(() =>
+    {
+        try { preview.ToggleCompareNative(); }
+        catch (Exception error) { previewWrongThread = error; }
+    }).GetAwaiter().GetResult();
+    Check(previewWrongThread is InvalidOperationException,
+        "local preview controls reject non-owner mutation");
+    preview.Dispose();
+    bool retiredPreview = false;
+    try { preview.ClearComparison(); }
+    catch (ObjectDisposedException) { retiredPreview = true; }
+    Check(retiredPreview, "retired preview owner rejects delayed visual actions");
+}
+Check(store.Writes == savedIdentityWrites
+    && enginePreviewBefore == (CosmeticPreview.Mode, CosmeticPreview.Yaw, CosmeticPreview.Zoom,
+        CosmeticPreview.LoopDeath, CosmeticPreview.DeathRequest),
+    "portable preview actions neither persist Hunter identity nor publish engine-global preview state");
+var validPreview = new LauncherHunterPreviewSnapshot(SkinContext.Biped, 0, 1, false, 0);
+Check(!(validPreview with { Yaw = float.NaN }).IsValid
+    && !(validPreview with { Zoom = float.PositiveInfinity }).IsValid
+    && !(validPreview with { Yaw = MathF.PI }).IsValid
+    && !(validPreview with { Zoom = 1.3f }).IsValid
+    && !(validPreview with { Mode = (SkinContext)3 }).IsValid
+    && !(validPreview with { DeathRequest = -1 }).IsValid,
+    "renderer preview contract rejects malformed nonfinite or unsupported visual state");
 
 Console.WriteLine("RML local Hunter identity and cosmetic contracts complete.");
 

@@ -1089,12 +1089,41 @@ namespace MphRead.Mods.Network
         /// and the person who asked for it joins by connecting outwards like
         /// everybody else. Nothing has to reach into their network at all.
         /// </summary>
+        // Keep exact selections separate from room-name lookup. The resolver is
+        // supplied so this wire preparation can be checked without network or
+        // mutable installed-map state.
+        internal static (NetworkMapIdentity Identity, IReadOnlyList<HostRotationEntry>? Rotation)
+            PrepareRequestedMaps(string roomKey,
+                IReadOnlyList<(string RoomKey, GameMode Mode)>? rotation,
+                NetworkMapIdentity? requiredMap, Func<string, NetworkMapIdentity> resolve)
+        {
+            if (requiredMap is { } exact
+                && (!exact.IsValid || !exact.IsCustom || String.IsNullOrWhiteSpace(roomKey)
+                    || Metadata.IsBuiltInRoom(roomKey)))
+                throw new ArgumentException("Invalid exact custom map selection.", nameof(requiredMap));
+            NetworkMapIdentity identity = requiredMap ?? resolve(roomKey);
+            var maps = rotation?.Take(HostRequestPacket.MaxRotation).Select(entry =>
+            {
+                NetworkMapIdentity map = requiredMap is { } pinned
+                    && String.Equals(entry.RoomKey, roomKey, StringComparison.OrdinalIgnoreCase)
+                        ? pinned : resolve(entry.RoomKey);
+                return new HostRotationEntry(entry.RoomKey,
+                    entry.Mode == GameMode.None ? GameMode.Battle : entry.Mode,
+                    map.IsCustom ? map.PackageHash : default);
+            }).ToArray();
+            return (identity, maps);
+        }
+
         public static HostedGame RequestGame(string masterHost, int masterPort,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers, string serverName, int timeoutMs = 6000,
             IReadOnlyList<(string RoomKey, GameMode Mode)>? rotation = null,
-            ServerSessionPolicy policy = ServerSessionPolicy.Continuous)
+            ServerSessionPolicy policy = ServerSessionPolicy.Continuous,
+            NetworkMapIdentity? requiredMap = null)
         {
+            if (requiredMap is { } exact && (!exact.IsValid || !exact.IsCustom
+                || String.IsNullOrWhiteSpace(roomKey) || Metadata.IsBuiltInRoom(roomKey)))
+                return new HostedGame { Reason = "Invalid exact custom map selection." };
             IPEndPoint endPoint;
             try
             {
@@ -1172,10 +1201,8 @@ namespace MphRead.Mods.Network
                     };
                 }
 
-                IReadOnlyList<HostRotationEntry>? hostedRotation = rotation?
-                    .Take(HostRequestPacket.MaxRotation)
-                    .Select(entry => HostRotationEntry.ForRoom(entry.RoomKey, entry.Mode))
-                    .ToArray();
+                var preparedMaps = PrepareRequestedMaps(roomKey, rotation,
+                    requiredMap, NetworkMapIdentity.ForRoom);
                 var request = new HostRequestPacket
                 {
                     Protocol = NetConfig.ProtocolVersion,
@@ -1184,10 +1211,10 @@ namespace MphRead.Mods.Network
                     Mode = (byte)mode,
                     TimeLimit = (ushort)Math.Clamp((int)timeLimit, 0, UInt16.MaxValue),
                     PointGoal = (ushort)Math.Clamp(pointGoal, 0, UInt16.MaxValue),
-                    RoomKey = roomKey, MapIdentity = NetworkMapIdentity.ForRoom(roomKey),
+                    RoomKey = roomKey, MapIdentity = preparedMaps.Identity,
                     ServerName = serverName,
                     Policy = policy, AllowJoinInProgress = true, RequireReady = false,
-                    Rotation = hostedRotation,
+                    Rotation = preparedMaps.Rotation,
                     HostNonce = hostNonce, HostCookie = challengeReply.Cookie
                 };
                 var datagram = new byte[1 + request.Length];

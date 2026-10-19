@@ -1,0 +1,29 @@
+#ship_page { position: absolute; left: 5%; right: 5%; top: 4%; bottom: 4%; display: flex; flex-direction: column; padding: 16dp 20dp; background-color: rgba(2, 9, 16, 94%); }
+#ship_page h1, #ship_page p { display: block; width: 82vw; }
+#ship_title { flex-shrink: 0; margin: 5dp 0 8dp; font-size: 30dp; line-height: 34dp; color: #ffffff; }
+#ship_identity { flex-shrink: 0; margin: 0 0 8dp; }
+#ship_scroll { flex: 1; min-height: 0dp; overflow-y: auto; padding: 0 10dp 8dp 0; }
+#ship_page p { margin: 6dp 0 12dp; color: #b2cadc; line-height: 22dp; }
+#ship_status { color: #55e18c; font-size: 14dp; }
+#ship_error { color: #ffb7bf; white-space: pre-wrap; }
+#ship_detail { padding: 12dp 0; white-space: pre-wrap; color: #d5eaff; border-top: 1dp rgba(114, 199, 255, 25%); }
+#ship_dock_face .play_action, #ship_map_face .play_action { min-height: 42dp; margin: 5dp 8dp 8dp 0; }
+.ship_planets { margin: 6dp 0 12dp; }
+.ship_planet { display: block; width: 100%; min-height: 42dp; padding: 10dp 12dp; margin: 6dp 0; text-align: left; color: #d5eaff; border: 1dp rgba(114, 199, 255, 26%); background-color: rgba(10, 35, 59, 83%); }
+.ship_planet.selected { border-left: 4dp #55e18c; background-color: rgba(13, 58, 62, 88%); }
+.ship_planet.locked { color: #9aabb9; }
+.ship_planet:hover, .ship_planet:focus { border-color: #72c7ff; color: #ffffff; }
+.ship_footer { flex-shrink: 0; display: flex; flex-wrap: wrap; padding-top: 8dp; }
+.ship_footer .play_action { margin: 4dp 8dp 0 0; min-height: 38dp; }
+@media (max-width: 780dp) {
+    #ship_page { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 10dp 12dp; }
+    #ship_page h1, #ship_page p { width: 85vw; }
+    #ship_title { font-size: 23dp; line-height: 26dp; }
+    #ship_page .play_action { font-size: 13dp; }
+}
+@media (max-height: 620dp) {
+    #ship_page { padding-top: 8dp; padding-bottom: 8dp; }
+    #ship_title { font-size: 23dp; line-height: 26dp; margin: 3dp 0 5dp; }
+    #ship_identity { margin-bottom: 4dp; }
+    .ship_footer { padding-top: 4dp; }
+}

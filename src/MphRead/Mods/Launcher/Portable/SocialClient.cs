@@ -12,10 +12,18 @@ namespace MphRead.Mods.Launcher
     /// remain owned by HunterLicenseClient; this layer never receives or
     /// persists the Supabase access token.
     /// </summary>
-    internal static class SocialClient
+    internal static partial class SocialClient
     {
         private static SocialSnapshot? _current;
-        internal static SocialSnapshot? Current => Volatile.Read(ref _current);
+        internal static SocialSnapshot? Current
+        {
+            get
+            {
+                SocialSnapshot? current = Volatile.Read(ref _current);
+                return current != null && HunterLicenseClient.IsNativeAccountLeaseCurrent(current.AccountWitness)
+                    ? current : null;
+            }
+        }
         public static async Task<SocialSnapshot> LoadAsync(
             CancellationToken cancellationToken = default)
         {
@@ -77,11 +85,39 @@ namespace MphRead.Mods.Launcher
             string primeId, CancellationToken cancellationToken = default)
             => MutateAsync("unblock_player", primeId, cancellationToken);
 
+        internal static Task<SocialMutationResult> MutateExpectedAsync(
+            NativeSocialFriendAction action, string primeId, string expectedSelf,
+            CancellationToken cancellationToken)
+        {
+            if (!NativeSocialFriendsController.ValidPrimeId(expectedSelf)
+                || expectedSelf != expectedSelf.ToUpperInvariant())
+                throw new ArgumentException("A verified canonical account ID is required.", nameof(expectedSelf));
+            string wireAction = action switch
+            {
+                NativeSocialFriendAction.SendRequest => "send_request",
+                NativeSocialFriendAction.AcceptRequest => "accept_request",
+                NativeSocialFriendAction.DeclineRequest => "decline_request",
+                NativeSocialFriendAction.CancelRequest => "cancel_request",
+                NativeSocialFriendAction.RemoveFriend => "remove_friend",
+                NativeSocialFriendAction.BlockPlayer => "block_player",
+                NativeSocialFriendAction.UnblockPlayer => "unblock_player",
+                _ => throw new ArgumentOutOfRangeException(nameof(action))
+            };
+            return MutateAsync(wireAction, primeId, cancellationToken, expectedSelf);
+        }
+
         private static async Task<SocialMutationResult> MutateAsync(
-            string action, string primeId, CancellationToken cancellationToken)
+            string action, string primeId, CancellationToken cancellationToken,
+            string? expectedSelf = null, object? expectedLease = null)
         {
             SocialEnvelope envelope = await InvokeAsync(
-                action, primeId, cancellationToken).ConfigureAwait(false);
+                action, primeId, cancellationToken, expectedSelf, expectedLease).ConfigureAwait(false);
+            if (expectedSelf != null && envelope.Snapshot != null
+                && !String.Equals(envelope.Snapshot.Self.PrimeId, expectedSelf, StringComparison.Ordinal))
+            {
+                Volatile.Write(ref _current, null);
+                throw new InvalidOperationException("Social account changed.");
+            }
             // Presence/party clients are not part of this first friends slice.
             // The native page refreshes its authoritative read model after
             // each accepted mutation rather than manufacturing an activity state.
@@ -95,7 +131,8 @@ namespace MphRead.Mods.Launcher
         }
 
         private static async Task<SocialEnvelope> InvokeAsync(
-            string action, string? targetPrimeId, CancellationToken cancellationToken)
+            string action, string? targetPrimeId, CancellationToken cancellationToken,
+            string? expectedSelf = null, object? expectedLease = null)
         {
             string name = LauncherPrefs.PlayerName.Trim();
             if (name.Length == 0) name = "Player";
@@ -110,14 +147,22 @@ namespace MphRead.Mods.Launcher
             };
             if (!String.IsNullOrWhiteSpace(targetPrimeId))
                 body["target_prime_id"] = targetPrimeId.Trim().ToUpperInvariant();
+            if (expectedSelf != null)
+                body["expected_self_prime_id"] = expectedSelf;
 
-            return await HunterLicenseClient.InvokeAuthenticatedFunctionAsync<SocialEnvelope>(
-                "social", body, cancellationToken).ConfigureAwait(false);
+            var result = await HunterLicenseClient.InvokeNativeFunctionWithLeaseAsync<SocialEnvelope>(
+                "social", body, cancellationToken, expectedLease).ConfigureAwait(false);
+            if (!HunterLicenseClient.IsNativeAccountLeaseCurrent(result.Lease))
+                throw new InvalidOperationException("Social account changed.");
+            if (result.Value.Snapshot is { } snapshot) snapshot.AccountWitness = result.Lease;
+            return result.Value;
         }
     }
 
     internal sealed class SocialSnapshot
     {
+        [JsonIgnore]
+        internal object? AccountWitness { get; set; }
         [JsonPropertyName("self")]
         public SocialPlayer Self { get; set; } = new();
         [JsonPropertyName("friends")]

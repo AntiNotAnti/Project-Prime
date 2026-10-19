@@ -1,0 +1,42 @@
+[
+  {
+    "path": "native/rmlui-poc/projectprime_rmlui.cpp",
+    "sha256": "0169c63f7a0544d0ad9ed8bca24b99ebee4701a6534b2343e02842d5ce919bed"
+  },
+  {
+    "path": "native/rmlui-poc/projectprime_rmlui_api.h",
+    "sha256": "4f6b0d025ca56c35429d9007f2e70c52393ee1625793620e35c0c3a59dda6922"
+  },
+  {
+    "path": "native/rmlui-poc/projectprime_rmlui_menu.h",
+    "sha256": "791d3e3bdfae5d032d07808c00445fcf217debc4fd38f1752f778f30ad4503da"
+  },
+  {
+    "path": "native/rmlui-poc/projectprime_rmlui_text_edit_protocol.h",
+    "sha256": "ce2797389cf3d9d6c7fac5af3614cbe1057c8853343b7fb01732d477c93aedfd"
+  },
+  {
+    "path": "native/rmlui-poc/projectprime_rmlui_text_input.h",
+    "sha256": "4db3a2249b7d5a50c11daebcba73e919b35ffd845359e91ea09d2b510dbaa37a"
+  },
+  {
+    "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs",
+    "sha256": "d698142d07022172bc661f65dcfe62e57cacae1a97661b72efa00554828b8e47"
+  },
+  {
+    "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaViewApi.cs",
+    "sha256": "d1e5f8d88e92eb5cc425b944f2aa214e1b9e098fa7f8658215e1172aea7fc8cb"
+  },
+  {
+    "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiHost.cs",
+    "sha256": "ceda64f2ddbb974bc1669301ff1ca2c50a8e2ccc52123eecf4da71c79ae857fd"
+  },
+  {
+    "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiNativeBridge.cs",
+    "sha256": "b50bbad62dea7623fcb044818c548476cd537177eaa1165b61eaf5ab5c04edc3"
+  },
+  {
+    "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiTextEdit.cs",
+    "sha256": "e569d719ad449f52e3e7c0292341de7c1ce7496622e94310868a6bde811cb8c5"
+  }
+]

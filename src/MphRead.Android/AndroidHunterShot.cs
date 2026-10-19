@@ -43,6 +43,7 @@ namespace MphRead.Droid
         /// match is about to take the world.
         /// </summary>
         internal static AndroidHunterShot? Current { get; private set; }
+        internal bool IsRetired { get { lock (_gate) return _thread == null || !_thread.IsAlive; } }
 
         private readonly object _gate = new();
         private Thread? _thread;
@@ -113,6 +114,9 @@ namespace MphRead.Droid
             Job? dropped;
             lock (_gate)
             {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (RmlUiAndroidLauncherPreviewBarrier.Blocked) return Task.FromResult<byte[]?>(null);
+#endif
                 // Only the newest is worth rendering: the picker is turned
                 // faster than a render takes, and every intermediate hunter is
                 // one nobody was still looking at by the time it was ready.
@@ -158,7 +162,11 @@ namespace MphRead.Droid
                     {
                         continue;
                     }
-                    if (MainActivity.Instance?.InMatch == true)
+                    if (MainActivity.Instance?.InMatch == true
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        || RmlUiAndroidLauncherPreviewBarrier.Blocked
+#endif
+                        )
                     {
                         job.Done.TrySetResult(null);
                         continue;

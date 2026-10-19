@@ -17,6 +17,14 @@ SOURCE_HUNTERS = {
     "trooper-wave": "Weavel",
     "trooper-plasma": "Weavel",
 }
+# Stable catalog names, not Hunter enum or network IDs. MP3 is reserved only.
+SOURCE_APPEARANCES = {
+    "darksamus-echoes": ("darksamus", "MP2DarkSamus"),
+    "trooper-power": ("trooper", "MP1PowerTrooper"),
+    "trooper-ice": ("trooper", "MP1IceTrooper"),
+    "trooper-wave": ("trooper", "MP1WaveTrooper"),
+    "trooper-plasma": ("trooper", "MP1PlasmaTrooper"),
+}
 MAX_MAP_BYTES = 128 * 1024
 MAX_NATIVE_BYTES = 8 * 1024 * 1024
 MAX_PALETTE = 32

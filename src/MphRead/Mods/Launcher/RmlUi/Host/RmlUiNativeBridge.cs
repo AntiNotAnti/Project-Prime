@@ -48,7 +48,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         int TextSelectionUtf16(ulong generation, ulong document, ulong epoch, out int start, out int end)
         { start = end = 0; return 0; }
         int Composition(ulong generation, ulong document, ulong epoch, int stage, string text, int cursor, int selectionLength);
+        int TextEditState(ref RmlUiNativeTextEditState state) => 0;
+        int TextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length) => -5;
         int HoveredElement(byte[] buffer, int capacity);
+        int HoveredAction(byte[] buffer, int capacity) => 0;
         int DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
         { x = y = width = height = 0; return 0; }
     }
@@ -109,7 +112,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             => NativeTextSelectionUtf16(generation, document, epoch, out start, out end);
         int IRmlUiNativeBridge.Composition(ulong generation, ulong document, ulong epoch, int stage,
             string text, int cursor, int selectionLength) => NativeComposition(generation, document, epoch, stage, text, cursor, selectionLength);
+        int IRmlUiNativeBridge.TextEditState(ref RmlUiNativeTextEditState state) => NativeTextEditState(ref state);
+        int IRmlUiNativeBridge.TextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length) => NativeTextEdit(ref edit, utf8, length);
         int IRmlUiNativeBridge.HoveredElement(byte[] buffer, int capacity) => NativeHoveredElement(buffer, capacity);
+        int IRmlUiNativeBridge.HoveredAction(byte[] buffer, int capacity) => NativeHoveredAction(buffer, capacity);
         int IRmlUiNativeBridge.DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
             => NativeDocumentElementBounds(document, element, out x, out y, out width, out height);
 
@@ -203,6 +209,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_composition")]
         private static extern int NativeComposition(ulong generation, ulong document, ulong epoch, int stage,
             [MarshalAs(UnmanagedType.LPUTF8Str)] string text, int cursor, int selectionLength);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_edit_state_v1")]
+        private static extern int NativeTextEditState(ref RmlUiNativeTextEditState state);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_edit_v1")]
+        private static extern int NativeTextEdit(ref RmlUiNativeTextEditRequest edit, byte[] utf8, uint length);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_hovered_action")]
+        private static extern int NativeHoveredAction([Out] byte[] buffer, int capacity);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_hovered_element")]
         private static extern int NativeHoveredElement([Out] byte[] buffer, int capacity);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_document_element_bounds")]

@@ -26,7 +26,7 @@ namespace MphRead.Mods.Replay
     /// recording instead of inside it, so naming a moment or highlight never
     /// rewrites the deterministic packet stream.
     /// </summary>
-    internal static class ReplayAnnotations
+    internal static partial class ReplayAnnotations
     {
         public const string Extension = ".studio.json";
 
@@ -130,24 +130,26 @@ namespace MphRead.Mods.Replay
                     JsonSerializer.Deserialize<ReplayAnnotationDocument>(
                         File.ReadAllText(sidecar), JsonOptions);
                 if (document is not { Version: 1 }) return new ReplayAnnotationDocument();
-                document.Bookmarks ??= new List<ReplayBookmark>();
-                document.Highlights ??= new List<ReplayNamedHighlight>();
-                document.Tags = CleanLabels(document.Tags ?? new List<string>());
-                document.Collections = CleanLabels(document.Collections ?? new List<string>());
-                document.Bookmarks.RemoveAll(bookmark =>
-                    bookmark is null || String.IsNullOrWhiteSpace(bookmark.Name)
-                    || bookmark.Frame > ReplayFormatV3.MaxFrame);
-                document.Highlights.RemoveAll(highlight =>
-                    highlight is null || String.IsNullOrWhiteSpace(highlight.Name)
-                    || highlight.StartFrame >= highlight.EndFrame
-                    || highlight.EndFrame > ReplayFormatV3.MaxFrame);
-                return document;
+                return Sanitize(document);
             }
             catch (Exception ex) when (ex is IOException
                 or UnauthorizedAccessException or JsonException)
             {
                 return new ReplayAnnotationDocument();
             }
+        }
+
+        private static ReplayAnnotationDocument Sanitize(ReplayAnnotationDocument document)
+        {
+            document.Bookmarks ??= new List<ReplayBookmark>();
+            document.Highlights ??= new List<ReplayNamedHighlight>();
+            document.Tags = CleanLabels(document.Tags ?? new List<string>());
+            document.Collections = CleanLabels(document.Collections ?? new List<string>());
+            document.Bookmarks.RemoveAll(bookmark => bookmark is null || String.IsNullOrWhiteSpace(bookmark.Name)
+                || bookmark.Frame > ReplayFormatV3.MaxFrame);
+            document.Highlights.RemoveAll(highlight => highlight is null || String.IsNullOrWhiteSpace(highlight.Name)
+                || highlight.StartFrame >= highlight.EndFrame || highlight.EndFrame > ReplayFormatV3.MaxFrame);
+            return document;
         }
 
         private static void Save(string replay, ReplayAnnotationDocument document)

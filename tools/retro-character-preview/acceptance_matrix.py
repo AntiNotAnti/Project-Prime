@@ -12,8 +12,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from local_visual_pack import sha256_file, inspect_candidate_glb
-from retarget_contract import SOURCE_HUNTERS
+from local_visual_pack import sha256_file, inspect_candidate_glb, _reject_duplicate_keys
+from retarget_contract import SOURCE_HUNTERS, SOURCE_APPEARANCES
 
 MAX_JSON = 1024 * 1024
 RUNTIME_TIMEOUT = 180
@@ -36,7 +36,10 @@ def read_small_json(path):
     if path.is_symlink() or not path.is_file() or not 0 < path.stat().st_size <= MAX_JSON:
         raise ValueError("Missing, linked or oversized JSON test receipt")
     with path.open(encoding="utf-8") as stream:
-        return json.load(stream)
+        value=json.load(stream,object_pairs_hook=_reject_duplicate_keys)
+    if not isinstance(value,dict):
+        raise ValueError("Expected a JSON object for the private model contract")
+    return value
 
 
 def validate_staged_pack(path):
@@ -44,13 +47,14 @@ def validate_staged_pack(path):
         raise ValueError("Expected a locally staged, real directory")
     manifest = read_small_json(path / "characters.json")
     receipt = read_small_json(path / "validation-receipt.json")
-    if manifest.get("format") != 1 or receipt.get("format") != 1:
+    if type(manifest.get("format")) is not int or manifest["format"] != 1 or type(receipt.get("format")) is not int or receipt["format"] != 1:
         raise ValueError("Unsupported local model-pack or receipt format")
     identity = receipt.get("sourceCharacter")
     if identity not in SOURCE_HUNTERS:
         raise ValueError("Unknown imported source character")
     hunter = SOURCE_HUNTERS[identity]
-    if (receipt.get("nativeHunter") != hunter or not receipt.get("visualOnly") or
+    if (receipt.get("nativeHunter") != hunter or receipt.get("presentationPart") != PART or
+            receipt.get("visualOnly") is not True or
             receipt.get("approvedForGameplay") is not False or
             receipt.get("multiplayerEnabled") is not False or
             receipt.get("playerSelectionEnabled") is not False):
@@ -59,13 +63,32 @@ def validate_staged_pack(path):
     if not isinstance(models, list) or len(models) != 1:
         raise ValueError("Acceptance requires one isolated, native biped entry")
     entry = models[0]
+    if not isinstance(entry,dict):
+        raise ValueError("Biped entry must be a JSON object")
     relative = hunter.lower() + "/biped.glb"
     if (entry.get("hunter") != hunter or entry.get("part") != PART or
-            entry.get("skinning") != SKIN or entry.get("lod") != 0 or
-            entry.get("model") != relative):
+            entry.get("skinning") != SKIN or type(entry.get("lod")) is not int or entry["lod"] != 0 or
+            entry.get("model") != relative or entry.get("mobileModel") is not None):
         raise ValueError("Test pack would alter more than one native biped")
     if manifest.get("id") != "retro-" + identity + "-local-biped-visual-test":
         raise ValueError("Noncanonical test pack identity")
+    character_id,skin_source=SOURCE_APPEARANCES[identity]
+    private_keys=("characterId","skinSource","provenance","provenanceSha256")
+    private_binding=any(entry.get(key) is not None for key in private_keys)
+    if private_binding:
+        if (entry.get("characterId") != character_id or entry.get("skinSource") != skin_source or
+                receipt.get("characterId") != character_id or receipt.get("skinSource") != skin_source or
+                entry.get("provenance") != "validation-receipt.json" or
+                entry.get("provenanceSha256") != sha256_file(path/"validation-receipt.json")):
+            raise ValueError("Private character/skin/parent/provenance binding mismatch")
+    # Old format-1 native-Hunter packs keep their existing resolution behavior.
+    # They are never evidence that independent appearance selection works.
+    for key in ("sourceGlbSha256","sourceNativeKitSha256","sourceMappingSha256",
+                "sourceSkeletonSha256","sourceWeightsSha256"):
+        value=receipt.get(key)
+        if (not isinstance(value,str) or len(value)!=64 or set(value)=={"0"} or
+                any(c not in "0123456789abcdef" for c in value)):
+            raise ValueError("Private source hash is missing or invalid")
     bone_map = entry.get("boneMap")
     if (not isinstance(bone_map, dict) or
             not 1 <= len(bone_map) <= 32 or any(key != value for key,value in bone_map.items())):
@@ -84,6 +107,9 @@ def validate_staged_pack(path):
             "sourceMotionRetargetVerified","devicePerformanceVerified")):
         raise ValueError("Staged preview must not claim unperformed acceptance")
     return {"sourceCharacter":identity,"fallbackHunter":hunter,
+            "bindingKind":"private-catalog-appearance" if private_binding else "legacy-native-hunter",
+            "characterId":character_id if private_binding else None,
+            "skinSource":skin_source if private_binding else None,
             "sourceGlbSha256":receipt["sourceGlbSha256"],
             "skinJoints":actual["skinJoints"],
             "materialNames":actual["materials"]}

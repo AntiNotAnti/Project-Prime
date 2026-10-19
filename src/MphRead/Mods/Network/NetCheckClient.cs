@@ -169,6 +169,7 @@ namespace MphRead.Mods.Network
         {
             GameState.ApplyPause();
             Scene.OnUpdateFrame();
+            MaintainWorldRecording(Scene);
             if (!Scene.OnRenderFrame())
             {
                 return;
@@ -923,6 +924,27 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static bool ShowWindow { get; set; }
 
+        private static bool _recordWorlds;
+        private static MatchStartIdentity? _recordedWorld;
+
+        // -recorddemo explicitly requests this harness session's worlds. The
+        // ordinary recorder still closes each archive at the production reset.
+        internal static void MaintainWorldRecording(Scene scene)
+        {
+            if (!_recordWorlds || DemoRecorder.IsRecording || DemoRecorder.LastError != null
+                || !NetRoomChange.GameplayReady || !NetSession.WorldAdmissionConfirmed
+                || NetSession.ServerSession is not { } session || scene.Services.IsReplica
+                || scene.Room?.Meta.Name != session.Match.RoomKey) return;
+            var start = new MatchStartIdentity(session.MatchId, session.AuthorityEpoch, session.StartGeneration);
+            if (start.MatchId == 0 || start.AuthorityEpoch == 0
+                || _recordedWorld == start) return;
+            if (DemoRecorder.Start())
+            {
+                _recordedWorld = start;
+                Console.WriteLine($"[netcheck] recording applied successor {start}: {DemoRecorder.CurrentPath}");
+            }
+        }
+
         public static int Run(string host, int port, string name, Hunter hunter, double seconds,
             string? shotDirectory, int width, int height, bool recordDemo = false,
             double spectateAt = -1, double rejoinAt = -1, int color = -1, bool simulationOnly = false)
@@ -943,8 +965,12 @@ namespace MphRead.Mods.Network
             // the match is known -- above all the authority, whose own
             // outgoing snapshots nothing else in the session ever sees.
             if (simulationOnly) Headless.Enter();
+            _recordWorlds = recordDemo;
+            _recordedWorld = null;
             if (recordDemo && DemoRecorder.Start())
             {
+                if (NetSession.ServerSession is { } initialSession)
+                    _recordedWorld = new(initialSession.MatchId, initialSession.AuthorityEpoch, initialSession.StartGeneration);
                 Console.WriteLine($"[netcheck] {name} is recording to {DemoRecorder.CurrentPath}");
             }
             NetCheckClient? window = null;
@@ -965,6 +991,8 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                _recordWorlds = false;
+                _recordedWorld = null;
                 NetCampaignEvidence.Write(simulationOnly ? "simulation-client" : "rendered-client");
                 if (DemoRecorder.IsRecording)
                 {

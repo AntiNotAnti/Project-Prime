@@ -50,6 +50,14 @@ namespace MphRead.Mods
 
         public static bool Begin(string roomName)
         {
+            Launcher.GameFiles.ConfiguredFilesUse? configuredFiles = Launcher.GameFiles.TryUseConfiguredFiles();
+            if (configuredFiles == null) return false;
+            try { return BeginCore(roomName, ref configuredFiles); }
+            finally { configuredFiles?.Dispose(); }
+        }
+
+        private static bool BeginCore(string roomName, ref Launcher.GameFiles.ConfiguredFilesUse? configuredFiles)
+        {
             if (String.IsNullOrWhiteSpace(roomName))
                 return false;
 
@@ -99,7 +107,11 @@ namespace MphRead.Mods
                 _prepared = prepared;
             }
 
-            _ = Task.Run(() => Warm(metadata, generation, prepared));
+            // Preserve the existing worker/generation. Transfer only the file
+            // read capability so a retired warm still protects its actual reads.
+            var workerFiles = configuredFiles;
+            _ = Task.Run(() => { using (workerFiles) Warm(metadata, generation, prepared); });
+            configuredFiles = null;
             return true;
         }
 

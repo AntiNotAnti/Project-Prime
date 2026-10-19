@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """PORT-24: manually staged, non-installing local character presentation test pack.
 
-Requires validated real, user-owned asset outputs. It deliberately replaces
-the fallback Hunter's *visual biped only* when manually installed and enabled.
-No selectable Dark Samus/Trooper, gameplay, network, or replay changes.
+Requires validated real, user-owned asset outputs. Catalog appearance and source
+receipt are bound to one private biped candidate, with explicit per-seat input.
+No selectable Dark Samus/Trooper, installation, gameplay, network or replay changes.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import sys
 import tempfile
 
 from build_native_glb import validate_native_candidate
-from retarget_contract import SOURCE_HUNTERS, MAX_MAP_BYTES, MAX_NATIVE_BYTES, _bounded_json
+from retarget_contract import SOURCE_HUNTERS, SOURCE_APPEARANCES, MAX_MAP_BYTES, MAX_NATIVE_BYTES, _bounded_json
 
 MAX_GLB = 128*1024*1024
 MAX_JSON = 4*1024*1024
@@ -145,6 +145,7 @@ def prepare_test_pack(source_root, character, native_path, mapping_path, candida
     plan=validate_native_candidate(source_root,character,native,mapping)
     candidate=inspect_candidate_glb(candidate_glb,plan["skin"]["palette"],plan["mat_names"])
     hunter=SOURCE_HUNTERS[character]
+    character_id,skin_source=SOURCE_APPEARANCES[character]
     destination=output_root.absolute()
     if (destination.exists() or destination.is_symlink() or
             [part.lower() for part in destination.parts][-2:]==["character-models","default"]):
@@ -153,11 +154,8 @@ def prepare_test_pack(source_root, character, native_path, mapping_path, candida
         raise ValueError("Explicit staging parent must exist and not be a link")
 
     folder=hunter.lower()
-    entry={"hunter":hunter,"part":"biped","lod":0,
-           "model":folder+"/biped.glb","skinning":"weighted4",
-           "boneMap":{name:name for name in candidate["skinJoints"]}}
-    manifest={"format":1,"id":"retro-"+character+"-local-biped-visual-test","models":[entry]}
     receipt={"format":1,"sourceCharacter":character,"nativeHunter":hunter,
+             "characterId":character_id,"skinSource":skin_source,
              "presentationPart":"biped","visualOnly":True,"approvedForGameplay":False,
              "multiplayerEnabled":False,"sourceMotionRetargetVerified":False,
              "firstPersonVerified":False,"alternateFormVerified":False,
@@ -169,13 +167,21 @@ def prepare_test_pack(source_root, character, native_path, mapping_path, candida
              "sourceWeightsSha256":sha256_file(source_root/(character+".weights.json")),
              "calibration":plan["skin"]["calibration"],
              "GLB":candidate}
+    receipt_bytes=(json.dumps(receipt,indent=2)+"\n").encode("utf-8")
+    entry={"hunter":hunter,"part":"biped","lod":0,
+           "model":folder+"/biped.glb","skinning":"weighted4",
+           "characterId":character_id,"skinSource":skin_source,
+           "provenance":"validation-receipt.json",
+           "provenanceSha256":hashlib.sha256(receipt_bytes).hexdigest(),
+           "boneMap":{name:name for name in candidate["skinJoints"]}}
+    manifest={"format":1,"id":"retro-"+character+"-local-biped-visual-test","models":[entry]}
 
     with tempfile.TemporaryDirectory(prefix="prime-local-model-pack-",dir=output_root.parent) as tmp:
         stage=Path(tmp)/"payload"
         (stage/folder).mkdir(parents=True)
         shutil.copyfile(candidate_glb,stage/folder/"biped.glb")
         (stage/"characters.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
-        (stage/"validation-receipt.json").write_text(json.dumps(receipt,indent=2)+"\n",encoding="utf-8")
+        (stage/"validation-receipt.json").write_bytes(receipt_bytes)
         if sha256_file(stage/folder/"biped.glb")!=receipt["sourceGlbSha256"]:
             raise ValueError("Staged GLB checksum mismatch")
         os.replace(stage,output_root)
@@ -196,8 +202,9 @@ def main():
     print("Private visual test pack (not installed):",args.output_root)
     print("Source GLB SHA256:",data["sourceGlbSha256"])
     print("Run ProjectPrime -charactermodelvalidate",args.output_root,
-          "before manually using the HD-model presentation option")
-    print("Only native",data["nativeHunter"],"third-person biped cosmetics will change; no new selectable Hunter.")
+          "for native-rig and geometry preflight")
+    print("Private appearance:",data["characterId"],data["skinSource"],"parent",data["nativeHunter"])
+    print("Explicit offline preview input is required; this does not replace native seats or enable selection.")
 
 
 if __name__=="__main__":

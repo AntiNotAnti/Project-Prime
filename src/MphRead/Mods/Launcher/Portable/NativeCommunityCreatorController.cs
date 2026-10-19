@@ -3,13 +3,17 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace MphRead.Mods.Launcher;
 
 public enum NativeCreatorAction { Archive, Restore }
 public sealed record NativeCreatorEntry(Guid MapId, string Name, string LatestHash,
     string CurrentHash, int RevisionCount, bool Archived, bool Deleted, bool CanManage);
-public sealed record NativeCreatorPage(NativeCreatorEntry[] Items, int Total, int PageNumber);
+public sealed record NativeCreatorPage(NativeCreatorEntry[] Items, int Total, int PageNumber)
+{
+    [JsonIgnore] internal object? AccountLease { get; init; }
+}
 
 public interface INativeCommunityCreatorAuthority
 {
@@ -22,6 +26,7 @@ public sealed record NativeCreatorView(long Revision, bool Busy, bool Connected,
     string Status, int Page, int Total, NativeCreatorEntry[] Rows,
     int SelectedIndex, NativeCreatorEntry? Selected, string Confirmation)
 {
+    [JsonIgnore] internal object? AccountLease { get; init; }
     public bool CanPrevious => Page > 1;
     public bool CanNext => (long)Page * 8 < Total;
 }
@@ -42,6 +47,7 @@ public sealed class NativeCommunityCreatorController : IDisposable
     private string _status = "OPEN MY UPLOADS TO CONNECT YOUR HUNTER LICENSE";
     private NativeCreatorEntry[] _rows = Array.Empty<NativeCreatorEntry>();
     private int _page = 1, _total, _selected = -1;
+    private object? _accountLease;
     private (NativeCreatorAction Action, NativeCreatorEntry Expected, long Epoch)? _confirm;
 
     public NativeCommunityCreatorController(INativeCommunityCreatorAuthority service)
@@ -189,24 +195,29 @@ public sealed class NativeCommunityCreatorController : IDisposable
     public NativeCreatorView Tick()
     {
         Owner();
+        if (_connected && _service is INativeCommunityCreatorAccountLease account
+            && !account.IsCurrentAccountLease(_accountLease)) Cancel();
         while (_finished.TryDequeue(out var done))
         {
             if (done.Epoch != _epoch) continue;
             _busy = false;
             _active = null;
             NativeCreatorPage? result = done.Page;
-            if (done.Failed || result == null || result.Items == null || result.PageNumber < 1)
+            if (done.Failed || result == null || result.Items == null || result.PageNumber < 1
+                || _service is INativeCommunityCreatorAccountLease guarded && !guarded.IsCurrentAccountLease(result.AccountLease))
             {
                 _connected = false;
                 _rows = Array.Empty<NativeCreatorEntry>();
                 _total = 0;
                 _selected = -1;
                 _confirm = null;
+                _accountLease = null;
                 _status = "MY UPLOADS UNAVAILABLE // CHECK ACCOUNT OR COMMUNITY SERVICE";
             }
             else
             {
                 _connected = true;
+                _accountLease = result.AccountLease;
                 _page = Math.Clamp(result.PageNumber, 1, 2000);
                 _total = Math.Max(0, result.Total);
                 _rows = result.Items.Where(x => x != null && x.MapId != Guid.Empty
@@ -228,7 +239,7 @@ public sealed class NativeCommunityCreatorController : IDisposable
                 : "RESTORE THIS OWNED MAP? CONFIRM OR CANCEL"
             : "";
         return new(_revision, _busy, _connected, _status, _page, _total,
-            _rows.ToArray(), _selected, selected, confirmation);
+            _rows.ToArray(), _selected, selected, confirmation) { AccountLease = _accountLease };
     }
 
     public void Cancel()
@@ -237,6 +248,7 @@ public sealed class NativeCommunityCreatorController : IDisposable
         Retire();
         _confirm = null;
         _connected = false;
+        _accountLease = null;
         _rows = Array.Empty<NativeCreatorEntry>();
         _total = 0;
         _selected = -1;

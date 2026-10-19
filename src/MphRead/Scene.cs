@@ -402,8 +402,17 @@ namespace MphRead
 
         #endregion
 
+        private sealed class EntityTypeIndexComparer : IEqualityComparer<EntityType>
+        {
+            internal static readonly EntityTypeIndexComparer Instance = new();
+            public bool Equals(EntityType left, EntityType right) => left == right;
+            public int GetHashCode(EntityType value) => (int)value;
+        }
+
+        // Composite ReadyToRun can box enum operands in its shared default
+        // comparer. Keep entity-index equality typed on every runtime path.
         private readonly Dictionary<EntityType, LinkedListNode<EntityBase>?> _entityNodesByType
-            = new Dictionary<EntityType, LinkedListNode<EntityBase>?>()
+            = new Dictionary<EntityType, LinkedListNode<EntityBase>?>(EntityTypeIndexComparer.Instance)
             {
                 { EntityType.Platform, null },
                 { EntityType.Object, null },

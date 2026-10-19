@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><DefineConstants>$(DefineConstants);MPHREAD_AVALONIA</DefineConstants></PropertyGroup>
+  <ItemGroup>
+    <Analyzer Include="../../src/MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/NetPacketAttribute.cs" Link="NetPacketAttribute.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/PartyReservationPackets.cs" Link="PartyReservationPackets.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/Generated/LobbyQueuePackets.cs" Link="LobbyQueuePackets.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/LobbyWaitlist.cs" Link="LobbyWaitlist.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/LobbyWaitlistGroups.cs" Link="LobbyWaitlistGroups.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/SocialPartyReservationRelay.cs" Link="SocialPartyReservationRelay.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/LobbyQueueClient.cs" Link="LobbyQueueClient.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/HunterLicenseCareerTicketLease.cs" Link="HunterLicenseCareerTicketLease.cs" />
+  </ItemGroup>
+  <Target Name="CheckRegistry" BeforeTargets="BeforeBuild"><Exec Command="python3 &quot;$(MSBuildProjectDirectory)/check_registry.py&quot;" /></Target>
+</Project>

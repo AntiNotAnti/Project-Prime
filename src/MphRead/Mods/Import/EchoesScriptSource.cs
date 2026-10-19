@@ -13,6 +13,7 @@ namespace MphRead.Mods.Import;
 /// </summary>
 public static class EchoesScriptSource
 {
+    public const uint ActorModelId = 0xC27FFA8F;
     public const uint EditorId = 0x255A4580;
     public const uint NameId = 0x494E414D;
     public const uint TransformId = 0x5846524D;
@@ -88,12 +89,15 @@ public static class EchoesScriptSource
                     transform[n] = f;
                 }
             }
+            ReadOnlySpan<byte> actorModel = type is "ACTR" or "PLAT" ? Find(root, ActorModelId) : default;
+            if (!actorModel.IsEmpty && actorModel.Length != 4)
+                throw new InvalidDataException("Echoes actor model reference must contain exactly four bytes.");
             ReadOnlySpan<byte> pickupKind = Find(root, PickupKindId);
             ReadOnlySpan<byte> pickupAmount = Find(root, PickupAmountId);
             uint what = pickupKind.Length >= 4 ? U32(pickupKind, 0) : uint.MaxValue;
             int amount = pickupAmount.Length >= 4 ? I32(pickupAmount, 0) : 0;
             result.Add(new EchoesScriptObject(type, id, layer, active, name, transform,
-                what, amount, transformBytes.Length >= 36));
+                what, amount, transformBytes.Length >= 36, actorModel.IsEmpty ? uint.MaxValue : U32(actorModel, 0)));
             offset = end;
         }
         return result;
@@ -140,4 +144,5 @@ public static class EchoesScriptSource
 }
 
 public sealed record EchoesScriptObject(string Type, uint Id, int Layer, bool Active,
-    string Name, float[] Transform, uint PickupKind, int PickupAmount, bool HasTransform);
+    string Name, float[] Transform, uint PickupKind, int PickupAmount, bool HasTransform,
+    uint ModelResourceId = uint.MaxValue);

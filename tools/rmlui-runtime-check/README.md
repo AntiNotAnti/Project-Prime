@@ -27,3 +27,11 @@ output `rmlui` directory supplies a suitable fixture.
 
 These contracts do not replace the real GPU/device-lifetime fixtures or the
 alternating full-game performance benchmark.
+
+The optional 80-byte edit/88-byte state contract adds 29 focused Host/Cocoa
+checks in `RangeImeAcceptance`: UTF16 replacement/selection forwarding, true
+zero-width caret geometry, older bridge fallback, malformed packet rejection,
+exact revision/focus ownership, synchronous discard-to-Unmark reentry and FIRST
+stale Unmark before a refresh. These use synthetic bridge/Cocoa boundaries. The
+separate `tools/rmlui-text-edit-check` fixtures exercise the actual native owner
+and actual macOS programmatic callbacks without the main game graph.

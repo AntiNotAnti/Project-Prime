@@ -1,0 +1,1 @@
+RMLUI ANDROID CYCLE PASS 35350 checks; actual phase/retirement source, fake scene/native/UI boundaries; no Android/EGL/device acceptance.

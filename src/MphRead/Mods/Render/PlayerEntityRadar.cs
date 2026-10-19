@@ -15,7 +15,7 @@ public partial class PlayerEntity
 {
     // Hunters and authorized objectives are collected first. The remaining slots
     // cover even dense custom-map pickup fields without draw-time buffer growth.
-    private readonly RadarContact[] _radarContacts = new RadarContact[4096];
+    private RadarContact[] _radarContacts = Array.Empty<RadarContact>();
     private readonly RadarTrailState[] _radarTrails = new RadarTrailState[SlotCapacity];
     private readonly List<LocatorInfo> _radarLocatorInfo = new(128);
     private bool _collectingRadarLocators;
@@ -25,6 +25,9 @@ public partial class PlayerEntity
     internal void ModResetRadarHistory() => _radarHistory.Clear();
     internal void ModCaptureRadarHistory()
     {
+        // Radar trails belong only to HUD presentation. Headless worlds still
+        // capture canonical draw/checkpoint state, but never load a HUD profile.
+        if (Mods.Headless.Active) return;
         if(Radar.Enabled) _scene.ReplayPoses?.Prepare();
         ulong identity, epoch; ushort match;
         if (_scene.Services is ReplaySceneServices replay)
@@ -55,6 +58,9 @@ public partial class PlayerEntity
     private static NVector4 RadarColor(Vector4 v) => new(v.X,v.Y,v.Z,v.W);
     internal ReadOnlySpan<RadarContact> CollectRadarContacts(HudRadarRuntime style)
     {
+        // Only the HUD owner needs this buffer. Replica/server placeholders
+        // still capture simulation state without allocating a HUD buffer.
+        if (_radarContacts.Length == 0) _radarContacts = new RadarContact[4096];
         int count=0;
         var palette=Radar.PaletteOf;
         for(int playerIndex=0;playerIndex<_scene.Players.Items.Count;playerIndex++)

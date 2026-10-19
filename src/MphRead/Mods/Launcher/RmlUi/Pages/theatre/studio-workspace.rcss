@@ -1,0 +1,65 @@
+#studio_workspace { position:absolute; left:0; top:0; width:100%; height:100%; display:flex; flex-direction:column; padding:6dp; box-sizing:border-box; background-color:transparent; color:#e5f1fb; }
+#studio_transport { flex-shrink:0; background-color:#06111c; }
+.studio_title { font-size:15dp; font-weight:bold; letter-spacing:1dp; }
+.studio_title span { margin-left:12dp; font-size:12dp; }
+.studio_transport_row { display:flex; flex-wrap:wrap; align-items:center; gap:3dp; }
+#studio_workspace .play_action, #studio_workspace #replay_timeline_panel button { min-height:24dp; padding:4dp 7dp; margin:2dp 0; font-size:11dp; }
+#studio_workspace p { font-size:12dp; line-height:16dp; white-space:pre-wrap; margin:4dp 0; }
+#studio_workspace h2 { font-size:16dp; line-height:20dp; margin:4dp 0; }
+#studio_workspace h3 { font-size:13dp; line-height:17dp; margin:8dp 0 4dp; color:#9dd9fd; }
+#studio_frame { width:65dp; }
+#studio_workspace input { min-height:24dp; box-sizing:border-box; border:1dp #3b657f; background-color:#102b3e; color:#e5f1fb; padding:3dp 5dp; }
+#studio_workspace #replay_position { flex:1; min-width:100dp; margin:2dp 6dp; }
+#studio_notice { color:#9db8cc; }
+#studio_main { display:flex; flex:1; min-height:64dp; overflow:hidden; }
+#studio_workspace #replay_viewport { position:relative; left:auto; top:auto; right:auto; bottom:auto; transform:none; flex:1 1 0; width:auto; height:auto; min-width:0; min-height:64dp; margin:4dp 6dp 4dp 0; background-color:transparent; border:1dp #24465c; }
+#studio_inspector { display:flex; flex-direction:column; width:330dp; max-width:48%; min-width:240dp; background-color:#0a1a29; border:1dp #284a62; }
+#studio_tabs { display:flex; flex-wrap:wrap; flex-shrink:0; padding:4dp; border-bottom:1dp #284a62; }
+#studio_tabs button { width:32%; margin-right:1%; }
+#studio_tabs button.selected { background-color:#1b5267; border-color:#64d9cb; }
+#studio_inspector_scroll { flex:1; min-height:0; overflow-y:auto; padding:8dp; }
+.studio_numeric_grid { display:flex; flex-wrap:wrap; gap:4dp; }
+.studio_numeric_grid label { display:block; width:30%; color:#b9d3e6; font-size:11dp; }
+.studio_numeric_grid input { display:block; width:100%; }
+#studio_timeline { flex-shrink:0; height:220dp; max-height:38%; min-height:110dp; border-top:1dp #36617a; background-color:#081725; }
+#studio_workspace #replay_timeline_panel { position:relative; left:auto; top:auto; transform:none; width:100%; max-width:none; height:100%; max-height:none; padding:4dp; overflow:hidden; box-sizing:border-box; }
+#studio_workspace #replay_timeline_panel h2 { display:none; }
+#studio_workspace #replay_timeline_panel p { font-size:10dp; line-height:12dp; margin:1dp 0; }
+#studio_workspace #replay_timeline_surface p { display:none; }
+#studio_workspace .timeline_lane { height:19dp; }
+#studio_workspace .timeline_actions { gap:2dp; margin:1dp 0; }
+#studio_workspace #replay_camera_panel, #studio_workspace #replay_camera_tools_panel, #studio_workspace #replay_editor_panel, #studio_workspace #replay_bookmark_panel, #studio_workspace #replay_range_panel, #studio_workspace #replay_export_panel, #studio_workspace #replay_spatial_panel, #studio_workspace #replay_studio_panel { position:relative; left:auto; top:auto; right:auto; bottom:auto; transform:none; width:100%; max-width:none; height:auto; max-height:none; min-height:0; overflow:visible; display:block; margin:0 0 8dp; padding:0; border:0; background-color:transparent; box-sizing:border-box; }
+#studio_workspace #replay_spatial_plot { overflow:visible; }
+#studio_workspace #replay_heatmap { margin:6dp auto; }
+#studio_workspace #replay_camera_close, #studio_workspace #replay_camera_tools_close, #studio_workspace #replay_editor_close, #studio_workspace #replay_bookmark_close, #studio_workspace #replay_range_close, #studio_workspace #replay_export_close, #studio_workspace #replay_spatial_close, #studio_workspace #replay_studio_close, #studio_workspace #replay_timeline_close { display:none; }
+#studio_workspace #replay_error { color:#ffb79c; }
+#studio_workspace #replay_inactive { position:absolute; top:45%; width:60%; text-align:center; background-color:#081725; }
+
+#studio_workspace #replay_timeline_focus, #studio_workspace #replay_timeline_selection, #studio_workspace #replay_timeline_status { display:none; }
+#studio_workspace #replay_timeline_panel > label, #studio_workspace #replay_timeline_frame, #studio_workspace #replay_timeline_seek { display:none; }
+#studio_workspace #replay_timeline_panel > .timeline_actions { display:none; }
+#studio_workspace #replay_timeline_panel #replay_timeline_toolbar { display:flex; }
+#studio_workspace .timeline_lane { height:12dp; margin-bottom:1dp; }
+.studio_track_label { position:absolute; left:2dp; top:0; font-size:8dp; color:#c9e3ef; background-color:#102235; z-index:3; pointer-events:none; }
+
+/* Keep lower tracks reachable in short windows while transport stays fixed. */
+#studio_workspace #replay_timeline_panel { display:flex; flex-direction:column; min-height:0; }
+#studio_workspace #replay_timeline_toolbar { flex-shrink:0; }
+#studio_workspace #replay_timeline_surface { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
+#studio_workspace #replay_timeline_panel .timeline_marker { min-height:0; padding:0; margin:0; border:0; }
+.studio_choices { display:flex; flex-wrap:wrap; gap:3dp; margin-bottom:5dp; }
+.studio_choices button { flex:0 0 auto; min-width:28dp; }
+.studio_choices button.selected { border-color:#64d9cb; background-color:#1b5267; }
+#studio_workspace #replay_camera_tools_interpolation, #studio_workspace #replay_camera_tools_ease, #studio_workspace #replay_camera_tools_lookat { display:none; }
+#studio_workspace #studio_event_search, #studio_workspace #studio_replay_tags, #studio_workspace #replay_studio_music_file, #studio_workspace #replay_export_executable { display:block; width:100%; margin:4dp 0; }
+@media (max-height:520dp) {
+ #studio_transport .play_action { min-width:0; min-height:21dp; padding:3dp 5dp; font-size:10dp; }
+ #studio_transport .studio_transport_row { gap:2dp; }
+ #studio_transport .studio_title #replay_camera, #studio_transport .studio_title #replay_state, #studio_transport #replay_rate { display:none; }
+ #studio_transport #studio_frame { width:50dp; min-height:21dp; }
+ #studio_transport #replay_position { min-width:65dp; min-height:21dp; margin:2dp; }
+ #studio_transport #studio_notice, #studio_transport #replay_error { font-size:10dp; line-height:12dp; margin:2dp 0; }
+ #studio_workspace #studio_timeline { height:100dp; min-height:90dp; max-height:30%; }
+ #studio_workspace #replay_timeline_toolbar button { min-width:0; min-height:21dp; padding:3dp 5dp; font-size:9dp; }
+ #studio_tabs .play_action { min-width:0; min-height:24dp; padding:3dp 2dp; font-size:10dp; }
+}

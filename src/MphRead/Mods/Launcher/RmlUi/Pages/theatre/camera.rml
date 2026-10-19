@@ -1,0 +1,13 @@
+<rml><head><title>Camera and keyframes</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="theatre.rcss"/></head>
+<body template="prime-dialog"><div id="replay_camera_panel" class="prime_dialog">
+<h2>CAMERA &amp; KEYFRAMES</h2><p id="replay_camera_replay"/><p>Pause playback to review and save a camera pose. Close this panel to move the free camera in the preview, then reopen it.</p>
+<p id="replay_camera_review"/><div class="theatre_actions"><button id="replay_camera_refresh" class="play_action" data-action="replay:camera-refresh">REFRESH REVIEW</button><button id="replay_camera_free" class="play_action" data-action="replay:camera-free">FREE CAMERA</button><button id="replay_camera_track" class="play_action" data-action="replay:camera-track">CAMERA TRACK</button></div>
+<div class="theatre_actions"><button id="replay_camera_fov_less" class="play_action" data-action="replay:camera-fov-less">FOV −5°</button><button id="replay_camera_fov_more" class="play_action" data-action="replay:camera-fov-more">FOV +5°</button><button id="replay_camera_roll_less" class="play_action" data-action="replay:camera-roll-less">ROLL −5°</button><button id="replay_camera_roll_more" class="play_action" data-action="replay:camera-roll-more">ROLL +5°</button></div>
+<button id="replay_camera_add" class="play_action primary" data-action="replay:camera-add">SAVE POSE AT REVIEWED FRAME</button>
+<p id="replay_camera_count"/><p id="replay_camera_selected"/>
+<div class="theatre_actions"><button id="replay_camera_previous" class="play_action" data-action="replay:camera-previous">PREVIOUS KEY</button><button id="replay_camera_next" class="play_action" data-action="replay:camera-next">NEXT KEY</button><button id="replay_camera_preview" class="play_action" data-action="replay:camera-preview">JUMP TO KEY</button></div>
+<div class="theatre_actions"><button id="replay_camera_update" class="play_action" data-action="replay:camera-update">REPLACE SELECTED POSE...</button><button id="replay_camera_remove" class="play_action danger" data-action="replay:camera-remove">REMOVE SELECTED...</button></div>
+<button id="replay_camera_tools_open" class="play_action" data-action="replay:camera-tools-open">CAMERA TRACK TOOLS</button>
+<p id="replay_camera_status"/><p id="replay_camera_error" class="bookmark_error"/>
+<button id="replay_camera_close" class="play_action" data-action="replay:camera-close">RETURN TO PLAYBACK</button>
+</div></body></rml>

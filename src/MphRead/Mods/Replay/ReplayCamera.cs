@@ -9,8 +9,8 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Replay
 {
     public enum ReplayPresentationProfile { Faithful, Presentation }
-    public enum ReplayCameraMode { FirstPerson, Chase, Free, Orbit }
-    public static class ReplayCamera
+    public enum ReplayCameraMode { FirstPerson, Chase, Free, Orbit, Overview }
+    public static partial class ReplayCamera
     {
         public static ReplayCameraMode Mode { get; private set; }
         public static float Distance { get; set; } = 4;
@@ -155,7 +155,7 @@ namespace MphRead.Mods.Replay
             Director = false;
             if (Mode != ReplayCameraMode.Free || PlayTrack) SetMode(ReplayCameraMode.Free);
             SetProfile(ReplayPresentationProfile.Presentation);
-            FieldOfView = Math.Clamp(FieldOfView + fov, 20, 140);
+            FieldOfView = Math.Clamp(FieldOfView + fov, 10, 150);
             Roll = Math.Clamp(Roll + roll, -180, 180);
         }
         public static void UpdateSelectedKeyframe()
@@ -386,6 +386,9 @@ namespace MphRead
 
         private void ModReplayCamera()
         {
+#if !ANDROID && !MPHREAD_SERVER
+            if(ApplyNativeReplayMultiViewCamera())return;
+#endif
             if (!Mods.Network.DemoPlayback.IsActive) return;
             Mods.Replay.ReplayCamera.EnsureTrack();
             Mods.Replay.ReplayCamera.TickDirector(this);
@@ -458,11 +461,24 @@ namespace MphRead
                 && Mods.Replay.ReplayCamera.Profile == Mods.Replay.ReplayPresentationProfile.Presentation)
             {
                 _cameraFov = MathHelper.DegreesToRadians(Math.Clamp(
-                    Mods.Replay.ReplayCamera.FieldOfView, 20, 140));
+                    Mods.Replay.ReplayCamera.FieldOfView, 10, 150));
                 Vector3 right = Vector3.Cross(_cameraFacing, Vector3.UnitY).Normalized();
                 _cameraUp = Vector3.Transform(Vector3.Cross(right, _cameraFacing).Normalized(),
                     Quaternion.FromAxisAngle(_cameraFacing, MathHelper.DegreesToRadians(Mods.Replay.ReplayCamera.Roll)));
                 _cameraRight = Vector3.Cross(_cameraFacing, _cameraUp).Normalized();
+            }
+            if (mode == Mods.Replay.ReplayCameraMode.Overview)
+            {
+                // Legacy Studio overview follows the selected recorded subject;
+                // it is a presentation camera and never writes the actor pose.
+                var actor = this.Players.Main;
+                Vector3 overviewTarget = actor.Position + Vector3.UnitY;
+                _cameraPosition = overviewTarget + new Vector3(0, 30, 15);
+                _cameraFacing = (overviewTarget - _cameraPosition).Normalized();
+                _cameraRight = Vector3.Cross(_cameraFacing, Vector3.UnitY).Normalized();
+                _cameraUp = Vector3.Cross(_cameraRight, _cameraFacing).Normalized();
+                _cameraFov = MathHelper.DegreesToRadians(Math.Clamp(Mods.Replay.ReplayCamera.FieldOfView, 10, 150));
+                return;
             }
             if (mode is not (Mods.Replay.ReplayCameraMode.Chase or Mods.Replay.ReplayCameraMode.Orbit)) return;
             var player = this.Players.Main;

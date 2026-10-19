@@ -189,25 +189,15 @@ namespace MphRead.Mods.Network
                 if (state.AuthorityEpoch == old.AuthorityEpoch && state.Revision != old.Revision
                     && !SessionStatePacket.IsNewer(state.Revision, old.Revision)) return;
             }
-            bool newMatch = ServerSession?.MatchId != state.MatchId;
+            bool newMatch = ServerSession?.MatchId != state.MatchId
+                || ServerSession?.AuthorityEpoch != state.AuthorityEpoch;
             bool returningToLobby = state.Phase == SessionPhase.Lobby && !IsInLobby;
             var pendingScene = _pendingLoadedScene;
-            if (newMatch || returningToLobby)
+            if (returningToLobby)
             {
-                // A direct PostMatch -> Starting transition keeps the scene alive long
-                // enough for NetRoomChange to compare the old loaded match id with the
-                // new one. Clearing that marker here makes a same-map rematch look like
-                // a first join, so the room is never rebuilt and the player stays in
-                // the old round's ended/spawn state.
-                ResetMatchState(preserveRoomChange: newMatch && state.Phase != SessionPhase.Lobby);
+                ResetMatchState();
             }
             ServerSession = state;
-            // The session packet can arrive before the world is constructed.
-            // Put the authoritative rule on the scene template now so initial
-            // spawns and the server simulation do not briefly use a local value.
-            if (NetRoomChange.CanApplyConfiguration(state.MatchId))
-                state.Match.NormalizeLegacy().ApplyModifiers(GameState.Current);
-            ReplayCapture.AcceptedConfiguration(state);
             if (!state.Match.MapIdentity.IsCustom && state.Policy == ServerSessionPolicy.Lobby && state.Phase == SessionPhase.Lobby)
             {
                 Mods.RoomPrewarm.Begin(state.Match.RoomKey);
@@ -223,6 +213,15 @@ namespace MphRead.Mods.Network
                         | (state.Match.SpawnProtection ? MatchStatePacket.FlagSpawnProtection : 0)
                         | MatchStatePacket.RuleFlags(1, state.Match.AffinityWeapons)) }, rotated: false);
             }
+            // ApplyMatchState owns the stream transition even when MatchState
+            // arrives first. Keep the old loaded-world identity until the
+            // actual rebuild, including a same-id restart in a new epoch.
+            if (NetRoomChange.CanApplyConfiguration(state.MatchId, state.AuthorityEpoch))
+            {
+                if (newMatch || returningToLobby) state.Match.ApplyInitialConfiguration(GameState.Current);
+                else state.Match.NormalizeLegacy().ApplyModifiers(GameState.Current);
+            }
+            ReplayCapture.AcceptedConfiguration(state);
             MatchStartIdentity startIdentity = StartIdentity(state);
             // Progress belongs to the start attempt, not to whether MatchLoaded
             // has already been sent. The old _loadedStart check reset the local
@@ -398,7 +397,11 @@ namespace MphRead.Mods.Network
         // The socket, local slot, identity, authoritative roster and lobby state survive this reset.
         public static void ResetMatchState(bool preserveRoomChange = false)
         {
-            _appliedBootstrap = null;
+            _appliedBootstrap = _receivingBootstrap = _confirmedBootstrap = null;
+            _bootstrapMask = 0;
+            _bootstrapFastLength = _bootstrapSlowLength = _bootstrapWorldLength = 0;
+            _bootstrapReceiver.Reset(CurrentMatchId, AuthorityEpoch);
+            _bootstrapObjectives.Reset(); _bootstrapBombs.Reset();
             _pendingLoadedScene = null;
             NetTelemetry.NewMatch();
             NetHealthSync.BeginRoom();
@@ -408,7 +411,12 @@ namespace MphRead.Mods.Network
             NetMatchEnd.Reset();
             NetPlayerBridge.Reset(); NetUnlagged.Reset(); NetHitPrediction.Reset();
             NetHitClaims.Reset(); NetSmoothing.Reset();
+            ResetPickupReadiness();
+            ResetBombPackets();
+            ResetTurretOutcomes();
+            _laneReceiver.Reset(CurrentMatchId, AuthorityEpoch);
             Array.Clear(RemoteStateValid); Array.Clear(RemoteIntentValid);
+            Array.Clear(RemoteStates); Array.Clear(RemoteIntents);
             Array.Clear(RemoteIntentArrived); Array.Clear(_lastSlotIntentFrame);
             _lastSnapshotFrame = 0; SnapshotArrived = 0; AppliedSnapshotFrame = 0;
             _hasSnapshot = false; ContinuousPhase.Reset();

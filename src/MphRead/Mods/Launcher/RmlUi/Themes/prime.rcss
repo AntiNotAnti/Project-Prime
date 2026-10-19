@@ -8,33 +8,33 @@ display: block;
 }
 
 @keyframes enter-top {
-from { opacity: 0; transform: translateY(-10dp); }
-    to   { opacity: 1; transform: translateY(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 @keyframes enter-left {
-from { opacity: 0; transform: translateX(-18dp); }
-    to   { opacity: 1; transform: translateX(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 @keyframes enter-right {
-from { opacity: 0; transform: translateX(14dp); }
-    to   { opacity: 1; transform: translateX(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 @keyframes enter-bottom {
-from { opacity: 0; transform: translateY(8dp); }
-    to   { opacity: 1; transform: translateY(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 @keyframes enter-hunter {
-from { opacity: 0; transform: translateY(8dp); }
-    to   { opacity: 1; transform: translateY(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 @keyframes drawer-in {
-from { opacity: 0; transform: translateX(-16dp); }
-    to   { opacity: 1; transform: translateX(0dp); }
+from { opacity: 0.72; }
+    to   { opacity: 1; }
 }
 
 body {
@@ -175,12 +175,37 @@ body.touch-targets #screen button, body.touch-targets #screen input, body.touch-
 body.touch-targets #dialog_content button, body.touch-targets #dialog_content input,
 body.touch-targets #dialog_content textarea { min-height: 48dp; }
 
-button { transition: background-color 0.14s quadratic-out, border-color 0.14s quadratic-out, color 0.12s quadratic-out; }
+/* Colour and opacity feedback never change control geometry or focus bounds. */
+button, input, textarea, select {
+    transition: background-color border-color color opacity 0.12s quadratic-out;
+}
+button:active { opacity: 0.82; }
+button:disabled { opacity: 0.38; }
 .reduce-motion button, body.reduce-motion button { transition: none; }
 @keyframes ready-confirm { from { opacity: 0.55; } to { opacity: 1; } }
 .lobby_roster_row.ready, .lobby_nameplate.ready { animation: 0.3s quadratic-out 1 ready-confirm; }
 .reduce-motion .lobby_roster_row.ready, .reduce-motion .lobby_nameplate.ready { animation: none; }
 
-@keyframes platform-arrival { from { opacity: 0; transform: translateY(4dp); } to { opacity: 1; transform: translateY(0dp); } }
+@keyframes platform-arrival { from { opacity: 0.72; } to { opacity: 1; } }
 .lobby_nameplate.occupied { animation: 0.24s quadratic-out 1 platform-arrival; }
 .reduce-motion .lobby_nameplate.occupied { animation: none; }
+
+/* A page owner may apply native-page-enter once to a newly mounted root.
+   Animate the surface once, never individual live data rows or notifications. */
+@keyframes native-surface-arrival { from { opacity: 0.8; } to { opacity: 1; } }
+.native-page-enter { animation: 0.16s quadratic-out 1 native-surface-arrival; }
+.prime_modal #dialog_backdrop { animation: 0.12s quadratic-out 1 native-surface-arrival; }
+.prime_modal #dialog_content { animation: 0.16s quadratic-out 1 native-surface-arrival; }
+
+/* Keep these overrides last: both portable class spellings bypass every effect.
+   Include the root itself as well as descendants for modal/page ownership. */
+body.reduce-motion, body.reduced_motion,
+body.reduce-motion *, body.reduced_motion *,
+.reduce-motion, .reduced_motion, .reduce-motion *, .reduced_motion *,
+body.reduce-motion #screen *, body.reduced_motion #screen *,
+body.reduce-motion #dialog_backdrop, body.reduced_motion #dialog_backdrop,
+body.reduce-motion #dialog_content, body.reduced_motion #dialog_content,
+body.reduce-motion #dialog_content *, body.reduced_motion #dialog_content * {
+    animation: none;
+    transition: none;
+}

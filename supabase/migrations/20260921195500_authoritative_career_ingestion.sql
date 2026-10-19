@@ -33,7 +33,7 @@ AS $function$
         when p_points >= 40 then 2
         else 1
     end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.project_prime_rating_pair_delta(p_self_points integer, p_opponent_points integer, p_result integer)
@@ -80,7 +80,7 @@ begin
     end;
     return case when p_result > 0 then gain else -loss end;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.ingest_project_prime_career_match(p_report jsonb, p_server_id uuid, p_trust_class integer, p_payload_hash text, p_original_report text)
@@ -623,7 +623,7 @@ begin
         'rating_ineligibility_reason',case when v_rating_eligible then null else v_rating_reason end
     );
 end;
-$function$
+$function$;
 
 
 revoke all on function public.project_prime_rating_tier(integer)

@@ -511,6 +511,7 @@ namespace MphRead.Mods.Network
                     PumpPickupDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
+                    PumpSocialMembership(now);
                     pumpStart = NetPerformanceEvidence.Start();
                     try
                     {
@@ -704,6 +705,7 @@ namespace MphRead.Mods.Network
                         }
                     }
                     MaintainWaitlist(now);
+                    MaintainPartyReservations(now);
                     // Pace around the simulation's absolute next deadline.
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
@@ -796,6 +798,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Shutdown(ushort listenPort)
         {
+            ShutdownPartyReservations();
+            if (_socialMembership != null) _socialMembershipSequence = _socialMembership.Sequence;
+            _socialMembership?.Dispose();
+            _socialMembership = null;
             if (_sim != null) NetCampaignEvidence.ServerSegment(_sim, NetSession.ServerMatch?.RoomKey ?? "");
             NetCampaignEvidence.Transport(_transport);
             NetCampaignEvidence.Write("server", _transport?.Telemetry.Capture(), _semanticSlowPeerDisconnects);
@@ -850,6 +856,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             _matchEndedAt = now;
+            NetCampaignEvidence.CompleteAuthorityRotation(_sim, CurrentStartIdentity, reason);
             CompleteCareerMatch(now, reason);
             foreach (Peer peer in _peers) peer.PostMatchReady = false;
             CancelMapVote(now);
@@ -885,12 +892,11 @@ namespace MphRead.Mods.Network
                 EnterLobby(next);
                 return;
             }
-            NormalizeTeams();
             CancelMapVote(now);
             foreach (Peer peer in _peers) peer.PostMatchReady = false;
             CloseBallot(); BroadcastMapChoices();
             Log($"rotating to {entry}");
-            if (!BeginLobbyMatch(CurrentDefinition, now, out string reason))
+            if (!BeginLobbyMatch(next, now, out string reason))
                 Log($"rotation could not start: {reason}");
         }
 
@@ -1222,6 +1228,8 @@ namespace MphRead.Mods.Network
             }
             switch (packet.Type)
             {
+                case PacketType.PartyReservationRequest: BeginPartyRequest(packet, null, now); break;
+                case PacketType.PartyReservationAction: HandlePartyAction(packet, now); break;
                 case PacketType.LobbyCommand: HandleLobbyCommand(packet, now); break;
                 case PacketType.CombatStudy: ReceiveCombatStudy(packet); break;
                 case PacketType.PeerTiming:
@@ -1301,14 +1309,14 @@ namespace MphRead.Mods.Network
         /// are the same thread, which is what makes it safe to apply damage
         /// from here.
         ///
-        /// A server that is not running the match has no history to check a
-        /// claim against and no simulation to apply it to, so it drops them.
-        /// The client repeats a few times, gives up, and plays the game every
-        /// build before protocol 7 played.
+        /// Intermission retains the same world and receipts: delayed claims
+        /// still need a terminal answer, but cannot author damage after the
+        /// match result has been finalized. The existing claim owner enforces
+        /// that distinction from the authoritative match's Ending witness.
         /// </summary>
         private void HandleHitClaim(ReceivedPacket packet, double now)
         {
-            if (_phase != SessionPhase.InMatch) return;
+            if (_phase is not (SessionPhase.InMatch or SessionPhase.PostMatch)) return;
             Peer? peer = Find(packet.Sender);
             if (peer == null || !peer.MatchReady || peer.SlotIndex < 0 || !Simulating)
             {
@@ -2127,7 +2135,8 @@ namespace MphRead.Mods.Network
                 // directory's list exactly this, on the port it already pings
                 // them on -- which is why hosting elsewhere needed no second
                 // directory and no second port.
-                Flags = (byte)(Hosts.CanHost ? ServerStatusPacket.FlagCanHost : 0)
+                Flags = (byte)((Hosts.CanHost ? ServerStatusPacket.FlagCanHost : 0)
+                    | (PartyAvailable ? ServerStatusPacket.FlagPartyReservationsV1 : 0))
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
@@ -2265,6 +2274,7 @@ namespace MphRead.Mods.Network
                     CloseBallot();
                     _matchId = NetLifecycleTracker.Next(_matchId);
                     _lastSnapshotLength = 0;
+                    FreezeMatch(DefinitionFor(_rotation.Current));
                     if (!Simulating)
                     {
                         double wakeStarted = NetSession.Clock;

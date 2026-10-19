@@ -23,6 +23,18 @@ checking driver support. Apple GL2.1 on the tested M4 Pro lacks timer queries.
 The workload has eight bots, frozen keyboard/mouse snapshots, fixed RNG
 seeds and a 1920x1080 framebuffer by default (`-size 1280x720` changes it).
 The first 240 simulation steps are warmup.
+Normal timing JSON now includes `observedWorkload` schema1: actual start/end
+slot/hunter/bot roster, RNG assignment readback and start/end RNG states,
+offline authority at both boundaries, exact measurement ticks, entry-only phase,
+and SHA/MVID bindings to the loaded client/harness files. The ordinary `-hunter`
+changes slot zero; other bot slots retain their existing rotating hunters. The
+receipt explicitly records frozen-device snapshots with bot AI and
+`replayExecuted: false`. Attaching a replay/Oracle artifact does not make this a
+replay-driven workload. Binary observations occur before the measurement
+baseline; final receipt observations occur after the final interval and their
+allocation overhead is excluded. This is provenance evidence, not source/build
+attestation or a device/performance qualification.
+
 JSON statistics describe completed application frames, not panel scanout.
 Low-FPS estimates are reciprocals of interval percentiles; the 0.1% estimate
 requires at least 1,000 samples. CPU submission and swap distributions are
@@ -36,6 +48,131 @@ World, world+HUD, unchanged-frame repeat, camera/frame metadata and a float32
 shadow-depth capture are emitted. Use the repository's parity comparator
 without resizing. Native image differences require inspection and are not
 automatically a wall-occlusion or shadow-persistence acceptance result.
+
+### Current presentation acceptance — October 19, 2026
+
+The fresh CPP-03/04 candidate passes all **28 seven-Hunter/four-rate cells** in
+`native-pose-charge-retreat-v2`, including strict canonical/input comparisons,
+camera transactions, positive native gun/charge controls, and beam/particle
+consumed-value sampling witnesses. Its loaded headless and native rendered
+replay checks also pass. See [the completion record](../../docs/implementation/cpp03-cpp04-presentation-completion-2026-10-19.md)
+and `artifacts/cpp03-cpp04-completion-20261019/native-completion-summary.json`.
+The campaign history below preserves earlier failures; it does not describe the
+latest acceptance. Readback correctness is separate from performance and panel
+scanout.
+
+The serial runner creates fresh per-cell directories, pins the runtime and
+read-only extracted assets, runs the Samus 60/144 pilot first, checks every arm
+and within-Hunter comparison before proceeding, then rechecks runtime/assets:
+
+```sh
+python3 tools/native-render-check/run_display_pose.py \
+  --dotnet /absolute/dotnet --binary /absolute/immutable/native-render-check.dll \
+  --user-data-template '/absolute/asset-paths-template' \
+  --output /absolute/new/matrix
+```
+
+`--require-particle-sampling` additionally requires both particle and beam
+consumed-value counters (current at 60, positive history samples above 60).
+Those counters do not substitute for isolated beam/free-particle pixels.
+
+### Mac display-pose capture
+
+`-posecheck` is an explicit mode in this same window. Unlike ordinary `-shots`,
+it uses the normal `RenderWindow`/`FrameTiming` loop, supplies elapsed `1/hz`,
+and prepares input only when the existing accumulator will take a simulation
+step. It never forces one simulation step per output frame. The one declared
+clock-reset checkpoint tests the existing presentation-generation fence.
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/fresh/asset-only-user-data' \
+dotnet /absolute/immutable/native-render-check.dll \
+  -posecheck -room 'MP3 PROVING GROUND' -players 2 -hunter Samus \
+  -seconds 24 -hz 60 -size 1280x720 -shadows Off \
+  -shots /absolute/fresh/samus-60-shots -output /absolute/fresh/samus-60.json
+```
+
+Run a Samus 60/144 pilot first. The bounded matrix is Samus, Kanden, Trace,
+Sylux, Noxus, Spire and Weavel at each output schedule 60/120/144/240. Every
+process needs fresh asset-only user data, working directory, JSON and capture
+directory. The existing `campaign_identity.isolate_user_data` copies only a
+normalized `paths.txt` referencing the operator's read-only assets. Keep the
+same immutable client/harness, asset identity, room, dimensions and options
+throughout the matrix. No canonical settings, saves or credentials are needed.
+
+The 1,440 simulation steps include 240 warmup steps, biped motion, power-beam
+charge/release, the existing fidelity morph/attack/death/respawn script,
+scope transitions, two uncaptured teleports and the explicit clock reset.
+Thirteen checkpoints save first-person world/HUD/depth and an external-camera
+native body image. A same-frame `HideModel` control must remove actual body
+pixels while preserving the shadow path, and restoring it must restore exact
+pixels. Repeated unchanged-view draws must preserve the established gameplay
+and `ReplayPresentationHash` projections exactly. Each first-person → external
+camera → first-person transaction must also preserve both entry/exit hashes;
+named canonical differences are retained and fail the run. Charge/effect attachment
+and scope FOV transitions are native-state witnesses; they do not independently
+prove isolated effect or arm-cannon pixels.
+
+After the strict normal pilot passes, `-posecheck -pose-pixels` explicitly adds
+separate native arm-cannon and charge-effect controls at ticks 300 and 420.
+The gun control requires the exact first-person gun branch, no smoke and no
+attached effects, then suppresses only that branch. The charge control saves
+the exact attached entry/element references and flags, temporarily omits that
+entry from submission, then restores them. Both require a completed effect
+pass, positive changed pixels, exact restored pixels, unchanged simulation
+tick/step count and both canonical hashes. They never unlink/spawn effects or
+restore canonical emitter/particle snapshots. A failure is retained.
+
+Use `--require-pixel-controls` with the analyzer for that stronger stage; it
+refuses ordinary pose captures as isolated gun/effect proof. Keep the immutable
+engine/tool and stage identical across every rate in a comparison. Qualify the
+Samus 60/144 pixel pilot before the seven-hunter/four-rate pixel matrix.
+
+The historical RML64 Mac attempt was partial: Samus/Kanden/Trace pass all
+four schedules, while Sylux at 60 fails the tick-420 isolated charge-pixel gate;
+15 later arms were not run. A private natural-age probe also fails at 421/450
+with nonzero native quads, so no checkpoint substitution is accepted. See
+[the evidence record](DISPLAY-POSE-EVIDENCE.md) and its immutable receipts.
+
+The original input scenario remains the default `native-pose-v1`. Explicitly
+select `-pose-scenario native-pose-charge-retreat-v2` to add only normal backward
+movement during charge ticks 361–390. The fire hold/release timeline and tick-420
+pixel gate stay fixed. Room-collision and projected-depth diagnostics explain
+occluded controls; they never substitute for positive pixels or exact restoration.
+That historical revision required a fresh Sylux 60/144 strict pixel pilot and then a new
+complete seven-hunter/four-rate matrix. Historical passing original arms cannot
+fill its matrix. Every report records `scenarioId`; the analyzer rejects mixed or
+unknown scenarios. Missing historical identities mean `native-pose-v1` only.
+Use `--scenario native-pose-charge-retreat-v2 --require-pixel-controls` when
+analyzing the new stage. RML66 Sylux passes all four schedules. The subsequent
+Samus 60 arm fails the strict normal frame-step gate at output 604, after 603
+accepted steps; its cause remains unverified. The chunk stops there, leaving
+the new matrix at four PASS, one FAIL and 23 NOT_RUN. The failed receipt and
+all earlier records remain preserved in `DISPLAY-POSE-EVIDENCE.md`.
+
+Each output records the actual simulation-step count and interpolation alpha;
+each step records prepared/consumed input and both established canonical hashes.
+Extra model, ice, Kanden, effect and camera anchors are separate raw diagnostics.
+Their differences neither extend the replay contract nor fail canonical
+comparison: different interpolation alpha may legitimately change draw state.
+
+```sh
+python3 tools/native-render-check/analyze_display_pose.py \
+  /absolute/fresh/samus-60.json /absolute/fresh/samus-144.json \
+  --hunters Samus --rates 60 144 --output /absolute/fresh/pilot-analysis.json
+python3 -m unittest discover -s tools/native-render-check -p 'test_*display_pose*.py' -v
+```
+
+The analyzer requires the complete requested matrix and reports the first
+canonical/input divergence without tolerances. It rejects older camera reports
+that recorded entry/exit differences only as observations. Its unit reports are
+synthetic; source-linked tests exercise the actual frame clock, control aliases,
+float-rounded actor/animation boundary and effect override ownership without GL.
+Neither is a world-render acceptance run. Native captures include repeated
+draws/readbacks, so this mode supplies no performance comparison. Requested
+output schedules are distinct from panel refresh or scanout, and the reported
+GLFW primary-monitor mode does not measure panel scanout. Replay playback,
+OS focus behavior, network behavior and non-Mac platforms remain separate gates.
 
 For combat HUD parity, add `-stablehud` to both capture arms. The fixture runs
 simulation faster than wall time, while the kill feed normally expires/fades

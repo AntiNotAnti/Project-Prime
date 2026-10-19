@@ -123,5 +123,7 @@ namespace MphRead.Mods.Launcher
 
         /// <summary>Demo only: the recorded file to play back.</summary>
         public string DemoPath { get; init; }
+        /// <summary>Demo only: open the native editor after this replay's foreground lease is installed.</summary>
+        public bool OpenNativeReplayEditor { get; init; }
     }
 }

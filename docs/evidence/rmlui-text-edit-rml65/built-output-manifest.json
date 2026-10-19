@@ -1,0 +1,134 @@
+[
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Audio.OpenAL.dll",
+    "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Compute.dll",
+    "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Core.dll",
+    "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Graphics.dll",
+    "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Input.dll",
+    "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Mathematics.dll",
+    "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Windowing.Common.dll",
+    "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Windowing.Desktop.dll",
+    "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/OpenTK.Windowing.GraphicsLibraryFramework.dll",
+    "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/appkit-check",
+    "sha256": "8cb8dfc5ba21a79bc8c35d46ff0c4a732ad5e5481f551659accc6211baa0f157"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/appkit-check.deps.json",
+    "sha256": "9575e02dc1ccda0a5faff04fb4268b5794388fb2d83ec850b301c82ddcc879ae"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/appkit-check.dll",
+    "sha256": "165ee769166d64d58114504f113da5f735e8e21941e21d067a5593e18b070b7a"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/appkit-check.pdb",
+    "sha256": "7925e5109f85d164d230232754cf9ddfdbfacd1457dfeffda4bdb0888b11e3b7"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/appkit-check.runtimeconfig.json",
+    "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/libProjectPrime.RmlUi.Native.dylib",
+    "sha256": "5b1d79443435a7f16db987e7dd9fa414c49f26c8887e735aa25c3bdce6f168fa"
+  },
+  {
+    "path": "appkit-check/bin/Release/net10.0/libglfw.3.dylib",
+    "sha256": "431e6fbb2351ef91ab2642471463c5cd5797f10784a0897f85f05cee739ecf5e"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Audio.OpenAL.dll",
+    "sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Compute.dll",
+    "sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Core.dll",
+    "sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Graphics.dll",
+    "sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Input.dll",
+    "sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Mathematics.dll",
+    "sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Windowing.Common.dll",
+    "sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Windowing.Desktop.dll",
+    "sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/OpenTK.Windowing.GraphicsLibraryFramework.dll",
+    "sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check",
+    "sha256": "13d58f24ae8dbb8a20537b7250693be72c6c62fd863dcb5e66c8ce3a424cf5b3"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check.deps.json",
+    "sha256": "c39a9237f7fd4f520581dd40cc5f41ca415022ea389a346623648f95c70c9ac1"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check.dll",
+    "sha256": "3668cbd6d8aa668f4107562c26883890ce535914f6c870aa5bd1a31c42f0a3fd"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check.pdb",
+    "sha256": "04eec2a5659f83ce2eb8fbfdef8ded9165165c835c682bf2d94f84a92d88497f"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/cocoa-cpu-check.runtimeconfig.json",
+    "sha256": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+  },
+  {
+    "path": "cocoa-cpu-check/bin/Release/net10.0/libProjectPrime.RmlUi.Native.dylib",
+    "sha256": "5b1d79443435a7f16db987e7dd9fa414c49f26c8887e735aa25c3bdce6f168fa"
+  },
+  {
+    "path": "build/PrimeTextEditCpuCheck",
+    "sha256": "fff775004eeb885ff01b79e92b6fef7d190b206eadfacdbcedbed98aee8cdc16"
+  },
+  {
+    "path": "build/bridge/libProjectPrime.RmlUi.Native.dylib",
+    "sha256": "5b1d79443435a7f16db987e7dd9fa414c49f26c8887e735aa25c3bdce6f168fa"
+  }
+]

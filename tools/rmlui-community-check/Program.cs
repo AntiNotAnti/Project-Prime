@@ -136,6 +136,89 @@ Task.Run(() =>
 Check(installCrossThread is InvalidOperationException,
     "installed-map registration is restricted to UI owner thread");
 
+// Host handoffs require an exact immutable identity after successful registration.
+var hostIdentity = new MapContentIdentity(selectedMap.MapId, "VERIFIED",
+    MapHash256.Parse(new string('a', 64)), MapHash256.Parse(selectedMap.LatestHash), true);
+var hostPackage = exact with { Identity = hostIdentity };
+var hostInstaller = new InstallStub();
+using var hostFlow = new NativeCommunityInstallController(hostInstaller);
+void CompleteHost(NativeCommunityInstalled package)
+{
+    hostInstaller.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    Check(hostFlow.Begin(selectedMap, hostAfterInstall: true), "host install starts");
+    hostInstaller.Pending.SetResult(package);
+    WaitInstall(hostFlow, v => !v.Busy);
+}
+CompleteHost(hostPackage);
+Check(hostFlow.TryTakeHostRequest(out var hostRequest)
+    && hostRequest?.Identity == hostIdentity && hostRequest.ConfiguredRoot == GameFiles.Root
+    && !hostFlow.TryTakeHostRequest(out _), "exact registered host request is consumed once");
+hostInstaller.FailRegistration = true;
+CompleteHost(hostPackage);
+Check(!hostFlow.TryTakeHostRequest(out _), "failed registration cannot issue host request");
+hostInstaller.FailRegistration = false;
+foreach (var invalid in new MapContentIdentity?[] { null,
+    hostIdentity with { IsCustom = false }, hostIdentity with { MapId = Guid.NewGuid() },
+    hostIdentity with { RoomKey = "WRONG ROOM" }, hostIdentity with { ContentHash = default },
+    hostIdentity with { PackageHash = default },
+    hostIdentity with { PackageHash = MapHash256.Parse(new string('b', 64)) } })
+{
+    int calls = hostInstaller.RegisterCalls;
+    CompleteHost(hostPackage with { Identity = invalid });
+    Check(!hostFlow.TryTakeHostRequest(out _) && hostInstaller.RegisterCalls == calls,
+        "invalid host identity cannot register or issue request");
+}
+var localSourcePackage = hostPackage with
+{
+    Definition = new MapDefinition
+        { MapId = selectedMap.MapId, Name = "VERIFIED", LocalSourceOnly = true }
+};
+int beforeLocalSourceHost = hostInstaller.RegisterCalls;
+CompleteHost(localSourcePackage);
+Check(!hostFlow.TryTakeHostRequest(out _)
+    && hostInstaller.RegisterCalls == beforeLocalSourceHost,
+    "local-source-only map cannot register for host-after-install");
+hostInstaller.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(hostFlow.Begin(selectedMap), "local-source-only install-only fixture starts");
+hostInstaller.Pending.SetResult(localSourcePackage);
+Check(WaitInstall(hostFlow, v => !v.Busy).CompletedMapId == selectedMap.MapId
+    && hostInstaller.RegisterCalls == beforeLocalSourceHost + 1
+    && !hostFlow.TryTakeHostRequest(out _),
+    "local-source-only install-only behavior remains supported");
+CompleteHost(hostPackage);
+hostFlow.Cancel();
+Check(!hostFlow.TryTakeHostRequest(out _), "cancel clears completed host request");
+CompleteHost(hostPackage);
+hostInstaller.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+Check(hostFlow.Begin(selectedMap), "new begin retires previous host request");
+Check(!hostFlow.TryTakeHostRequest(out _), "new begin clears completed host request");
+hostFlow.Cancel();
+string hostRoot = GameFiles.Root;
+try
+{
+    hostInstaller.Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    Check(hostFlow.Begin(selectedMap, true), "root change fixture starts");
+    int calls = hostInstaller.RegisterCalls;
+    GameFiles.Root = hostRoot + "-changed-fixture";
+    hostInstaller.Pending.SetResult(hostPackage);
+    Check(!hostFlow.Tick().Busy && !hostFlow.TryTakeHostRequest(out _)
+        && hostInstaller.RegisterCalls == calls, "root change rejects completion before registration");
+}
+finally { GameFiles.Root = hostRoot; }
+CompleteHost(hostPackage);
+try
+{
+    GameFiles.Root = hostRoot + "-changed-fixture";
+    Check(!hostFlow.TryTakeHostRequest(out _), "root change clears completed host request");
+}
+finally { GameFiles.Root = hostRoot; }
+CompleteHost(hostPackage);
+hostFlow.Dispose();
+Exception? disposedHost = null;
+try { hostFlow.TryTakeHostRequest(out _); }
+catch (Exception ex) { disposedHost = ex; }
+Check(disposedHost is ObjectDisposedException, "disposed handoff cannot be consumed");
+
 Console.WriteLine("RML-37 COMMUNITY INSTALL ACCEPTANCE COMPLETE");
 
 static NativeCreatorView WaitCreator(NativeCommunityCreatorController c,
@@ -209,6 +292,11 @@ Check(creatorThread is InvalidOperationException,
     "creator service completions may only mutate the UI owner");
 Console.WriteLine("RML-38 CREATOR ACCEPTANCE COMPLETE");
 
+TransfersAcceptance.Run();
+CommunityLibraryAcceptance.Run();
+CommunityReportAcceptance.Run();
+CommunityImportAcceptance.Run();
+
 sealed class Stub : INativeCommunityReader
 {
     public TaskCompletionSource<NativeCommunityPage> Pending =
@@ -233,11 +321,13 @@ sealed class InstallStub : INativeCommunityInstaller
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     public int RegisterCalls;
     public NativeCommunityInstalled? Last;
+    public bool FailRegistration;
     public Task<NativeCommunityInstalled> InstallAsync(NativeCommunityEntry entry,
         CancellationToken cancellation) => Pending.Task;
     public void Register(NativeCommunityInstalled result)
     {
         RegisterCalls++;
+        if (FailRegistration) throw new InvalidOperationException("fixture registration failure");
         Last = result;
     }
 }

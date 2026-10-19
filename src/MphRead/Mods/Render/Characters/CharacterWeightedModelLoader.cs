@@ -1,3 +1,4 @@
+using CharacterSourcePreviewLease = MphRead.Mods.Render.Characters.CharacterModelPack.SourcePreviewLease;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -34,7 +35,8 @@ namespace MphRead.Mods.Render.Characters
         CharacterWeightedVertex[] Vertices,
         uint[] Indices,
         CharacterEmbeddedAlbedo? Albedo = null,
-        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false);
+        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false, int[]? JointPalette = null)
+    { internal int SourcePrimitiveOrdinal { get; init; } = -1; }
 
     internal sealed record CharacterWeightedJoint(
         string SourceNode,
@@ -43,8 +45,10 @@ namespace MphRead.Mods.Render.Characters
 
     internal sealed record CharacterWeightedModelData(
         IReadOnlyList<CharacterWeightedPrimitive> Primitives,
-        IReadOnlyList<CharacterWeightedJoint> Joints)
+        IReadOnlyList<CharacterWeightedJoint> Joints, CharacterSourceRig? SourceRig = null)
     {
+        internal IReadOnlyList<OMatrix4>? SourceAuthoringPose { get; init; }
+        internal CharacterSourceCannonRecipe? SourceCannon { get; init; }
         public int VertexCount => Primitives.Sum(p => p.Vertices.Length);
         public int IndexCount => Primitives.Sum(p => p.Indices.Length);
     }
@@ -62,12 +66,27 @@ namespace MphRead.Mods.Render.Characters
         public const int MaximumIndices = CharacterRigidModelLoader.MaximumIndices;
         public const int MaximumJoints = 32;
 
-        public static CharacterWeightedModelData Load(CharacterModelAsset asset)
+        public static CharacterWeightedModelData Load(CharacterModelAsset asset) => LoadCore(asset, false);
+        internal static CharacterWeightedModelData LoadSourcePreview(CharacterModelAsset asset, CharacterSourcePreviewLease lease)
+        {
+            lease.Require(asset);
+            // Parse the exact bounded byte snapshot whose SHA was verified.
+            // Separate before/after path hashes alone cannot bind parsed bytes.
+            byte[] snapshot=CharacterSourceProofIO.ReadFile(asset.ModelPath,checked((int)CharacterModelPack.MaximumModelBytes));
+            string capturedSha=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(snapshot));
+            if(!String.Equals(capturedSha,lease.ModelSha256,StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Private source GLB no longer matches verified provenance.");
+            var result=LoadCore(asset,true,snapshot);
+            lease.Require(asset);
+            result.SourceRig!.BindContentSha256(capturedSha);
+            return lease.SourceCannon==null?result:lease.SourceCannon.Derive(lease,asset,result);
+        }
+        private static CharacterWeightedModelData LoadCore(CharacterModelAsset asset, bool sourcePreview, byte[]? verifiedSourceBytes = null)
         {
             if (asset.Skinning != CharacterSkinningMode.Weighted4)
                 throw new InvalidDataException("Weighted character loader requires skinning=weighted4.");
 
-            (JsonDocument document, byte[] binary) = ReadGlb(asset.ModelPath);
+            (JsonDocument document, byte[] binary) = ReadGlb(asset.ModelPath, verifiedSourceBytes);
             using (document)
             {
                 JsonElement root = document.RootElement;
@@ -79,6 +98,9 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException("Weighted character GLB binary buffer is truncated.");
 
                 JsonElement[] views = Elements(root, "bufferViews");
+                if (sourcePreview && views.Any(v => Int(v,"byteOffset",0) < 0 || Int(v,"byteLength",-1)<0
+                    || (long)Int(v,"byteOffset",0)+Int(v,"byteLength",-1)>declaredBufferLength))
+                    throw new InvalidDataException("Private source bufferView exceeds declared buffer.");
                 JsonElement[] accessors = Elements(root, "accessors");
                 JsonElement[] meshes = Elements(root, "meshes");
                 JsonElement[] nodes = Elements(root, "nodes");
@@ -113,9 +135,10 @@ namespace MphRead.Mods.Render.Characters
                 int skinIndex = referencedSkins.Single();
                 JsonElement skinDef = skins[skinIndex];
                 JsonElement[] jointElements = Elements(skinDef, "joints");
-                if (jointElements.Length == 0 || jointElements.Length > MaximumJoints)
-                    throw new InvalidDataException($"Weighted character skin must contain 1-{MaximumJoints} joints.");
+                if (jointElements.Length == 0 || jointElements.Length > (sourcePreview ? CharacterSourceRig.MaximumNodes : MaximumJoints))
+                    throw new InvalidDataException($"Weighted character skin must contain 1-{(sourcePreview ? CharacterSourceRig.MaximumNodes : MaximumJoints)} joints.");
 
+                CharacterSourceRig? sourceRig = sourcePreview ? CharacterSourceRig.Read(nodes, jointElements, skinnedNodes) : null;
                 var joints = new List<CharacterWeightedJoint>(jointElements.Length);
                 var seenSource = new HashSet<string>(StringComparer.Ordinal);
                 OMatrix4[] inverseBinds = ReadInverseBinds(
@@ -133,21 +156,23 @@ namespace MphRead.Mods.Render.Characters
                     string source = nameProperty.GetString()!;
                     if (!seenSource.Add(source))
                         throw new InvalidDataException($"Weighted skin repeats joint node '{source}'.");
-                    if (!asset.BoneMap.TryGetValue(source, out string? target)
-                        || String.IsNullOrWhiteSpace(target))
+                    string? target = sourcePreview ? source : null;
+                    if (!sourcePreview && (!asset.BoneMap.TryGetValue(source, out target)
+                        || String.IsNullOrWhiteSpace(target)))
                         throw new InvalidDataException(
                             $"Weighted skin joint '{source}' is missing from the character BoneMap.");
-                    joints.Add(new(source, target, inverseBinds[i]));
+                    if (sourcePreview) CharacterSourceRig.RequireRigid(inverseBinds[i]);
+                    joints.Add(new(source, target!, inverseBinds[i]));
                 }
 
                 // A weighted map may contain helper nodes, but every mapped
                 // source that participates in the skin must resolve above.
-                if (joints.Count > asset.BoneMap.Count)
+                if (!sourcePreview && joints.Count > asset.BoneMap.Count)
                     throw new InvalidDataException("Weighted character joint map is incomplete.");
 
                 var primitives = new List<CharacterWeightedPrimitive>();
                 int totalVertices = 0;
-                int totalIndices = 0;
+                int totalIndices = 0, totalDrawVertices = 0, totalDrawIndices = 0;
                 foreach (JsonElement node in skinnedNodes)
                 {
                     int meshIndex = node.GetProperty("mesh").GetInt32();
@@ -162,6 +187,8 @@ namespace MphRead.Mods.Render.Characters
                             throw new InvalidDataException("Weighted4 does not support morph targets in this slice.");
 
                         JsonElement attributes = primitive.GetProperty("attributes");
+                        if (sourcePreview && (attributes.TryGetProperty("JOINTS_1", out _) || attributes.TryGetProperty("WEIGHTS_1", out _)))
+                            throw new InvalidDataException("Private source preview cannot prune additional influences.");
                         int positionAccessor = Int(attributes, "POSITION", -1);
                         int jointsAccessor = Int(attributes, "JOINTS_0", -1);
                         int weightsAccessor = Int(attributes, "WEIGHTS_0", -1);
@@ -220,8 +247,8 @@ namespace MphRead.Mods.Render.Characters
                             if (ji.Any(value => value < 0 || value >= joints.Count))
                                 throw new InvalidDataException(
                                     $"Weighted character vertex {i} references a joint outside its skin.");
-                            NVector4 weight = NormalizeWeights(weights[i], i);
-                            int packed = PackJoints(ji[0], ji[1], ji[2], ji[3]);
+                            NVector4 weight = sourcePreview ? CharacterSourceBatches.SourceWeights(weights[i], ji) : NormalizeWeights(weights[i], i);
+                            int packed = sourcePreview ? 0 : PackJoints(ji[0], ji[1], ji[2], ji[3]);
                             vertices[i] = new(positions[i], normals[i], uv, weight, packed);
                         }
                         int materialIndex = Int(primitive, "material", -1);
@@ -235,14 +262,29 @@ namespace MphRead.Mods.Render.Characters
                             maps = CharacterEmbeddedMaterialLoader.ReadMaterialMaps(root, materials, views, binary, materialIndex, albedo);
                             materialMaps.Add(materialIndex, maps);
                         }
-                        primitives.Add(new(materialName, vertices, indices, albedo, maps,
-                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex)));
+                        var decoded = new CharacterWeightedPrimitive(materialName, vertices, indices, albedo, maps,
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex));
+                        if (sourcePreview)
+                        {
+                            var batches = CharacterSourceBatches.Partition(decoded, jointIndices);
+                            totalDrawVertices = checked(totalDrawVertices + batches.Sum(p=>p.Vertices.Length));
+                            totalDrawIndices = checked(totalDrawIndices + batches.Sum(p=>p.Indices.Length));
+                            if (primitives.Count + batches.Count > CharacterSourceBatches.MaximumBatches
+                                || totalDrawVertices > MaximumVertices || totalDrawIndices > MaximumIndices)
+                                throw new InvalidDataException("Private source batch total budget exceeded.");
+                            primitives.AddRange(batches);
+                        }
+                        else primitives.Add(decoded);
                     }
                 }
 
                 if (primitives.Count == 0)
                     throw new InvalidDataException("Weighted character GLB contains no supported primitives.");
-                return new(primitives, joints);
+                if (sourcePreview && (primitives.Count > CharacterSourceBatches.MaximumBatches
+                    || primitives.Sum(p => (long)p.Vertices.Length) > MaximumVertices
+                    || primitives.Sum(p => (long)p.Indices.Length) > MaximumIndices))
+                    throw new InvalidDataException("Private source draw batches exceed total budget.");
+                return sourcePreview ? new(primitives.AsReadOnly(), joints.AsReadOnly(), sourceRig) : new(primitives, joints);
             }
         }
 
@@ -542,9 +584,9 @@ namespace MphRead.Mods.Render.Characters
             _ => 0
         };
 
-        private static (JsonDocument Document, byte[] Binary) ReadGlb(string path)
+        private static (JsonDocument Document, byte[] Binary) ReadGlb(string path, byte[]? verifiedSourceBytes = null)
         {
-            using FileStream stream = File.OpenRead(path);
+            using Stream stream = verifiedSourceBytes == null ? File.OpenRead(path) : new MemoryStream(verifiedSourceBytes, writable: false);
             Span<byte> header = stackalloc byte[12];
             stream.ReadExactly(header);
             if (U32(header) != 0x46546C67 || U32(header[4..]) != 2

@@ -113,6 +113,6 @@ internal static class ReplayEncoderCapabilities
         if (!Allowed.Contains(encoder)) throw new ArgumentException("Unsupported encoder.", nameof(encoder));
         string options = encoder is "libx264" or "libx265" ? $"-c:v {encoder} -preset slow -crf 18"
             : $"-c:v {encoder} -b:v 20M";
-        return job with { FfmpegArguments = job.FfmpegArguments.Replace("-c:v libx264 -preset slow -crf 18", options, StringComparison.Ordinal) };
+        return job with { EncoderCodec=encoder,FfmpegArguments = job.FfmpegArguments.Replace("-c:v libx264 -preset slow -crf 18", options, StringComparison.Ordinal) };
     }
 }

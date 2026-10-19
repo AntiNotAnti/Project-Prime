@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 using MphRead.Mods.Replay;
@@ -9,7 +10,7 @@ namespace MphRead.Mods.Network;
 
 /// <summary>Foreground Studio adapter. Reader, simulation and seeking belong to
 /// an isolated player; only this presentation adapter touches foreground UI.</summary>
-public static class DemoPlayback
+public static partial class DemoPlayback
 {
     private static ReplayPlaybackSession _prepared = new(new PassiveReplaySessionHost());
     private static PassiveReplayPlayer? _player;
@@ -19,6 +20,18 @@ public static class DemoPlayback
     private static bool _failed;
     private static bool _presentationFailed;
     internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
+    // The existing Join-created prepared session remains this request's identity after
+    // its reader is retired and the actual player adopts the request. No new owner/clock.
+    internal static object RequestOwner => _prepared;
+    internal static bool RequestCurrent(object request, Scene canonicalScene) => ReferenceEquals(request, _prepared)
+        && IsActive && !_failed && !_presentationFailed && _lab == null && Session.LastResult == ReplayOpenResult.Success
+        && (_shell == null ? _player == null : ReferenceEquals(_shell, canonicalScene));
+    internal static bool RequestReady(object request, Scene canonicalScene) => RequestCurrent(request, canonicalScene)
+        && _player?.Ready == true && PresentationScene is { } scene && Owns(scene);
+
+    // Stable across this player's seek-driven replica/transport replacement; a restart creates a different owner.
+    private static readonly ConditionalWeakTable<object, object> PlaybackOwnerTokens = new();
+    internal static object PlaybackOwner => PlaybackOwnerTokens.GetValue((object?)_player ?? _prepared, static _ => new object());
     internal static Scene? ReplicaScene => _player?.Current.Scene;
     // A failed private replay remains alive long enough to accept restart controls,
     // but must not stay attached to foreground rendering. It may have faulted before
@@ -162,10 +175,17 @@ public static class DemoPlayback
         if (!ReferenceEquals(_shell, shell) && !Owns(shell)) return null;
         Scene? scene = PresentationScene;
         if (scene == null) return null;
+#if !ANDROID && !MPHREAD_SERVER
+        if(scene.NativeReplayMultiViewActive)return ReferenceEquals(scene,shell)?null:scene;
+#endif
         scene.ReplayPreviewSize = _shell!.Size;
         scene.ReplayPreviewBounds = null;
 #if MPHREAD_SHELL
         scene.ReplayPreviewBounds = Launcher.Gui.UiSurface.Current?.ReplayViewportBounds(_shell.Size.X, _shell.Size.Y);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+        scene.ReplayPreviewBounds = Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeReplayViewportBounds(_shell.Size.X,_shell.Size.Y)
+            ?? scene.ReplayPreviewBounds;
+#endif
 #endif
         var viewportSize = scene.ReplayPreviewBounds is { } bounds
             ? new Vector2i(bounds.Z, bounds.W) : _shell.Size;
@@ -184,6 +204,8 @@ public static class DemoPlayback
     public static void PumpFrame() => Session.PumpFrame();
     public static void Stop()
     {
+        // Frame rendering depends on this player. A detached encoder may finish its already captured frames.
+        if (ReplayVideoExporter.Rendering) ReplayVideoExporter.Cancel();
         ReplayInput.CancelScrub();
         ReplayAudioOwner.Release(_audio); _audio = 0;
         ReplayKillMessagePresenter.Reset();

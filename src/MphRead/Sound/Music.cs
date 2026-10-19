@@ -111,7 +111,7 @@ namespace MphRead
             {
                 _trackFaders[i].Reset();
             }
-            if (!MusicPlayer.Available)
+            if (Mods.Headless.Active || !MusicPlayer.Available)
             {
                 return;
             }
@@ -797,6 +797,14 @@ namespace MphRead
 
         static MusicPlayer()
         {
+            // A headless process never owns a playback device. Guard the type
+            // initializer too, because callers can read State/Available directly.
+            if (Mods.Headless.Active)
+            {
+                _audioEngine = null!;
+                _playbackDevice = null!;
+                return;
+            }
 #if ANDROID
 #if PROJECTPRIME_ANDROID_NATIVE_AUDIO_RATE
             // Experiment only: request the Android mixer native rate; NCSF synthesis

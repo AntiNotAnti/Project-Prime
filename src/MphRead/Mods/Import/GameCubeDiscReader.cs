@@ -39,11 +39,18 @@ public sealed class GameCubeDiscReader : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         string ext = Path.GetExtension(path);
         if (!ext.Equals(".iso", StringComparison.OrdinalIgnoreCase) &&
-            !ext.Equals(".gcm", StringComparison.OrdinalIgnoreCase))
-            throw new NotSupportedException("Only uncompressed GameCube .iso/.gcm sources are supported.");
+            !ext.Equals(".gcm", StringComparison.OrdinalIgnoreCase) &&
+            !ext.Equals(".rvz", StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException("Only GameCube .iso/.gcm or bounded GameCube RVZ sources are supported.");
         var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.RandomAccess);
-        try { return new GameCubeDiscReader(stream, leaveOpen: false); }
-        catch { stream.Dispose(); throw; }
+        Stream source = stream;
+        try
+        {
+            if (ext.Equals(".rvz", StringComparison.OrdinalIgnoreCase))
+                source = GameCubeRvzStream.Open(stream, leaveOpen: false);
+            return new GameCubeDiscReader(source, leaveOpen: false);
+        }
+        catch { source.Dispose(); throw; }
     }
 
     public GameCubeDiscReader(Stream source, bool leaveOpen = true)

@@ -9,29 +9,48 @@ using System.Threading.Tasks;
 namespace MphRead.Mods.Launcher;
 
 /// <summary>
-/// Candidate first-party Party edge-function adapter. Not instantiated by the
-/// launcher until the backend Party service is deployed and verified.
+/// First-party Party adapter. Controls require a verified backend snapshot.
 /// Credentials stay inside HunterLicenseClient; no bearer tokens cross this API.
 /// </summary>
-internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
+internal sealed partial class AuthenticatedNativePartyAuthority : INativePartyTravelAuthority
 {
     private const string FunctionName = "party";
 
+    public bool IsCurrent(NativePartySnapshot snapshot)
+        => HunterLicenseClient.IsNativeAccountLeaseCurrent(snapshot.AccountWitness);
+
     public async Task<NativePartySnapshot> ReadAsync(CancellationToken cancellation)
     {
-        PartyWireEnvelope result = await InvokeAsync(new PartyWireRequest
+        var result = await InvokeAsync(new PartyWireRequest
         {
             Action = "snapshot"
         }, cancellation).ConfigureAwait(false);
-        if (!result.Ok || result.Snapshot == null)
+        if (!result.Value.Ok || result.Value.Snapshot == null)
             throw new InvalidOperationException("Party snapshot was not authorized.");
-        return Parse(result.Snapshot);
+        return ParseLeased(result.Value.Snapshot, result.Lease);
+    }
+
+    internal static async Task<NativeSocialRecentPlayer[]> ReadRecentAsync(object expectedLease,
+        string expectedSelf, CancellationToken token)
+    {
+        if (!HunterLicenseClient.IsNativeAccountLeaseCurrent(expectedLease)
+            || !NativeSocialFriendsController.ValidPrimeId(expectedSelf))
+            throw new InvalidOperationException("Social account changed.");
+        var result = await InvokeAsync(new PartyWireRequest { Action = "snapshot" }, token, expectedLease).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        if (!result.Value.Ok || result.Value.Snapshot is not { } snapshot
+            || !ReferenceEquals(result.Lease, expectedLease)
+            || !HunterLicenseClient.IsNativeAccountLeaseCurrent(expectedLease)
+            || !String.Equals(snapshot.SelfPrimeId, expectedSelf, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Social account changed.");
+        return NativeSocialRecentPlayers.Verify(expectedSelf, snapshot.RecentPlayers);
     }
 
     public async Task<bool> ExecuteAsync(NativePartyCommand command, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(command);
         if (command.ExpectedRevision < 0 || command.PartyId == null || command.InviteId == null
+            || !NativeSocialFriendsController.ValidPrimeId(command.ExpectedSelfPrimeId)
             || command.TargetPrimeId == null || command.PartyId.Length > 128
             || command.InviteId.Length > 128 || command.TargetPrimeId.Length > 27)
             return false;
@@ -47,23 +66,40 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
             NativePartyAction.Leave => "leave",
             NativePartyAction.Kick => "kick",
             NativePartyAction.Promote => "promote",
+            NativePartyAction.Disband => "disband",
             _ => throw new ArgumentOutOfRangeException(nameof(command))
         };
-        PartyWireEnvelope result = await InvokeAsync(new PartyWireRequest
+        var result = await InvokeAsync(new PartyWireRequest
         {
             Action = action,
             ExpectedRevision = command.ExpectedRevision,
+            ExpectedSelfPrimeId = command.ExpectedSelfPrimeId,
             PartyId = command.PartyId,
             TargetPrimeId = command.TargetPrimeId,
             InviteId = command.InviteId
         }, cancellation).ConfigureAwait(false);
-        return result.Ok;
+        return result.Value.Ok;
     }
 
-    private static Task<PartyWireEnvelope> InvokeAsync(PartyWireRequest body,
-        CancellationToken cancellation)
-        => HunterLicenseClient.InvokeAuthenticatedFunctionAsync<PartyWireEnvelope>(
-            FunctionName, body, cancellation);
+    private static async Task<(PartyWireEnvelope Value, object Lease)> InvokeAsync(PartyWireRequest body,
+        CancellationToken cancellation, object? expectedLease = null)
+    {
+        string name = LauncherPrefs.PlayerName.Trim();
+        body.DisplayName = name.Length == 0 ? "Player" : name;
+        body.FavoriteHunter = Math.Clamp((int)Hunters.Resolve(LauncherPrefs.LastHunter), 0, 6);
+        var result = await HunterLicenseClient.InvokeNativeFunctionWithLeaseAsync<PartyWireEnvelope>(
+            FunctionName, body, cancellation, expectedLease).ConfigureAwait(false);
+        if (!HunterLicenseClient.IsNativeAccountLeaseCurrent(result.Lease))
+            throw new InvalidOperationException("Party account changed.");
+        return result;
+    }
+
+    internal static NativePartySnapshot ParseLeased(PartyWireSnapshot value, object lease)
+    {
+        if (!HunterLicenseClient.IsNativeAccountLeaseCurrent(lease))
+            throw new InvalidOperationException("Party account changed.");
+        return Parse(value) with { AccountWitness = lease };
+    }
 
     internal static NativePartySnapshot Parse(PartyWireSnapshot value)
     {
@@ -106,21 +142,29 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
             return new NativePartyInvite(i.InviteId, i.PartyId,
                 i.FromPrimeId.ToUpperInvariant(), i.ToPrimeId.ToUpperInvariant(), i.ExpiresAt);
         }).ToArray();
-        return new NativePartySnapshot(value.SelfPrimeId.ToUpperInvariant(),
+        var snapshot = new NativePartySnapshot(value.SelfPrimeId.ToUpperInvariant(),
             value.PartyId, value.LeaderPrimeId.ToUpperInvariant(), value.ServerRevision,
-            members, Convert(value.Incoming), Convert(value.Outgoing));
+            members, Convert(value.Incoming), Convert(value.Outgoing)) { Travel = ParseTravel(value.Travel), Reservation = ParseReservation(value.Reservation) };
+        if (!NativePartyAuthorityController.ValidSnapshot(snapshot))
+            throw new InvalidOperationException("Party service returned inconsistent membership or invitations.");
+        return snapshot;
     }
 
     internal sealed class PartyWireEnvelope
     {
         [JsonPropertyName("ok")] public bool Ok { get; set; }
         [JsonPropertyName("snapshot")] public PartyWireSnapshot? Snapshot { get; set; }
+        [JsonPropertyName("locator")] public PartyWireLocator? Locator { get; set; }
+        [JsonPropertyName("reservation")] public PartyWireReservation? Reservation { get; set; }
     }
 
-    internal sealed class PartyWireRequest
+    internal sealed partial class PartyWireRequest
     {
         [JsonPropertyName("action")] public string Action { get; set; } = "";
+        [JsonPropertyName("display_name")] public string DisplayName { get; set; } = "";
+        [JsonPropertyName("favorite_hunter")] public int FavoriteHunter { get; set; }
         [JsonPropertyName("expected_revision")] public long? ExpectedRevision { get; set; }
+        [JsonPropertyName("expected_self_prime_id")] public string ExpectedSelfPrimeId { get; set; } = "";
         [JsonPropertyName("party_id")] public string PartyId { get; set; } = "";
         [JsonPropertyName("target_prime_id")] public string TargetPrimeId { get; set; } = "";
         [JsonPropertyName("invite_id")] public string InviteId { get; set; } = "";
@@ -131,10 +175,13 @@ internal sealed class AuthenticatedNativePartyAuthority : INativePartyAuthority
         [JsonPropertyName("self_prime_id")] public string SelfPrimeId { get; set; } = "";
         [JsonPropertyName("party_id")] public string PartyId { get; set; } = "";
         [JsonPropertyName("leader_prime_id")] public string LeaderPrimeId { get; set; } = "";
-        [JsonPropertyName("server_revision")] public long ServerRevision { get; set; }
-        [JsonPropertyName("members")] public List<PartyWireMember> Members { get; set; } = new();
-        [JsonPropertyName("incoming")] public List<PartyWireInvite> Incoming { get; set; } = new();
-        [JsonPropertyName("outgoing")] public List<PartyWireInvite> Outgoing { get; set; } = new();
+        [JsonPropertyName("server_revision")] public long ServerRevision { get; set; } = -1;
+        [JsonPropertyName("members")] public List<PartyWireMember> Members { get; set; } = null!;
+        [JsonPropertyName("incoming")] public List<PartyWireInvite> Incoming { get; set; } = null!;
+        [JsonPropertyName("outgoing")] public List<PartyWireInvite> Outgoing { get; set; } = null!;
+        [JsonPropertyName("recent_players")] public List<NativeSocialRecentPlayer>? RecentPlayers { get; set; }
+        [JsonPropertyName("travel")] public PartyWireTravel? Travel { get; set; }
+        [JsonPropertyName("reservation")] public PartyWireReservation? Reservation { get; set; }
     }
     internal sealed class PartyWireMember
     {

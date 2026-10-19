@@ -199,11 +199,28 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             Names.Add(value, identity); Objects.Add(identity, value);
             if (Collection(type))
             {
-                int i = 0; foreach (object? item in (IEnumerable)value) Register(item, name + "/" + i++);
+                // The collection itself remains an anchor. Its value/string
+                // elements were always rejected by Register before insertion.
+                Type element = Element(type);
+                if (element.IsValueType || element == typeof(string)) return;
+                int i = 0;
+                foreach (object? item in (IEnumerable)value)
+                {
+                    if (Candidate(item)) Register(item, name + "/" + i);
+                    i++; // Preserve original indices, including ignored entries.
+                }
             }
             else if (Fields.TryGetValue(type, out FieldInfo[]? fields))
-                foreach (var field in fields) Register(field.GetValue(value), name + "/" + field.DeclaringType!.Name + "." + field.Name);
+                foreach (var field in fields)
+                {
+                    if (field.FieldType.IsValueType || field.FieldType == typeof(string)) continue;
+                    object? item = field.GetValue(value);
+                    if (Candidate(item)) Register(item, name + "/" + field.DeclaringType!.Name + "." + field.Name);
+                }
         }
+        private bool Candidate(object? value)
+            => value != null && value is not string && !value.GetType().IsValueType
+                && value is not WeaponInfo && !Names.ContainsKey(value);
     }
 
     internal static ReplayWorldCheckpoint Capture(PassiveReplayScene replay, uint? recordingFrame = null, bool boundAccessors = true)

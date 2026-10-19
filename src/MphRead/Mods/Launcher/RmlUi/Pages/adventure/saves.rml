@@ -27,7 +27,7 @@
             </div>
             <div class="adventure_panel adventure_details">
                 <div id="adventure_selected_slot" class="eyebrow">SAVE SLOT 01</div>
-                <div id="adventure_save_detail" />
+                <div id="adventure_save_detail" role="group" />
                 <div class="play_form_label">HUNTER</div>
                 <button id="adventure_next_hunter" class="play_choice" data-action="adventure:next-hunter">
                     <b id="adventure_hunter" /><span>CHANGE</span>
@@ -37,10 +37,23 @@
                     <button id="adventure_continue" class="play_action primary" data-action="adventure:continue">RESUME</button>
                     <button id="adventure_new_run" class="play_action" data-action="adventure:new-run">+ NEW RUN</button>
                 </div>
-                <div id="adventure_launch_status" class="adventure_notice">PREPARING ADVENTURE...</div>
+                <div id="adventure_launch_status" class="adventure_notice" role="status">PREPARING ADVENTURE...</div>
+                <button id="adventure_cancel_save_work" class="play_action wide" data-action="adventure:cancel-save-change">CANCEL PENDING SAVE REQUEST / VERIFY CURRENT SAVES</button>
+                <button id="adventure_ship" class="play_action wide" data-action="campaign-ship:10">OPEN GUNSHIP / STAR MAP</button>
+                <div class="adventure_management" role="group" aria-label="Exact save byte management">
+                    <div id="adventure_copy_destination" class="play_form_label">COPY INTO SLOT 02</div>
+                    <div class="adventure_destinations">
+                        <button id="adventure_destination1" class="play_action" data-action="adventure:copy-destination:1">SLOT 01</button>
+                        <button id="adventure_destination2" class="play_action" data-action="adventure:copy-destination:2">SLOT 02</button>
+                        <button id="adventure_destination3" class="play_action" data-action="adventure:copy-destination:3">SLOT 03</button>
+                    </div>
+                    <button id="adventure_copy" class="play_action wide" data-action="adventure:copy">REVIEW COPY TO SELECTED SLOT</button>
+                    <button id="adventure_archive" class="play_action wide" data-action="adventure:archive">REVIEW ARCHIVE / REMOVE FROM SLOT</button>
+                    <p>Copy preserves exact save bytes. Archive removes the slot into a recoverable backup. Existing backups are retained.</p>
+                </div>
             </div>
         </div>
-        <div id="adventure_files_error" class="adventure_notice adventure_error">
+        <div id="adventure_files_error" class="adventure_notice adventure_error" role="status">
             <div id="adventure_file_problem" />
             <button class="play_action" data-action="route:settings">SET UP GAME FILES</button>
         </div>

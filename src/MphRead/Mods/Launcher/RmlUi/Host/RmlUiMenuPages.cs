@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
-    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining, Adventure, AdventureConfirm, Theatre }
+    public enum RmlUiMenuPage { Home, Play, Lobby, Rules, Maps, Hunters, Admin, Offline, OfflineArena, OfflineTraining, Adventure, AdventureConfirm, Theatre, OfflineRules, PartyQueue }
 
     public static class RmlUiMenuPages
     {
@@ -19,9 +19,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public static readonly RmlUiPageSpec Offline = new("offline", "pages/offline/setup.rml", "offline_arena");
         public static readonly RmlUiPageSpec OfflineArena = new("offline-arena", "pages/offline/arena.rml", "offline_arena_search");
         public static readonly RmlUiPageSpec OfflineTraining = new("offline-training", "pages/offline/training.rml", "offline_training_done");
+        public static readonly RmlUiPageSpec OfflineRules = new("offline-rules", "pages/offline/rules.rml", "offline_rules_cancel");
         public static readonly RmlUiPageSpec Adventure = new("adventure", "pages/adventure/saves.rml", "adventure_slot1");
         public static readonly RmlUiPageSpec AdventureConfirm = new("adventure-confirm", "pages/adventure/confirm.rml", "adventure_cancel_new_run");
         public static readonly RmlUiPageSpec Theatre = new("theatre", "pages/theatre/library.rml", "theatre_search");
+        public static readonly RmlUiPageSpec PartyQueue = new("party-queue", "pages/play/queue.rml", "play_queue_leave");
 
         public static RmlUiPageSpec Spec(RmlUiMenuPage page) => page switch
         {
@@ -30,8 +32,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiMenuPage.Hunters => Hunters, RmlUiMenuPage.Admin => Admin,
             RmlUiMenuPage.Offline => Offline, RmlUiMenuPage.OfflineArena => OfflineArena,
             RmlUiMenuPage.OfflineTraining => OfflineTraining,
+            RmlUiMenuPage.OfflineRules => OfflineRules,
             RmlUiMenuPage.Adventure => Adventure, RmlUiMenuPage.AdventureConfirm => AdventureConfirm,
             RmlUiMenuPage.Theatre => Theatre,
+            RmlUiMenuPage.PartyQueue => PartyQueue,
             _ => throw new ArgumentOutOfRangeException(nameof(page))
         };
     }
@@ -60,7 +64,6 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "disabled:nav_hunters", "lobby_mode"),
             new(RmlUiBindingKind.Boolean, "disabled:nav_community", "lobby_mode"),
             new(RmlUiBindingKind.Boolean, "disabled:nav_studio", "lobby_mode"),
-            new(RmlUiBindingKind.Boolean, "disabled:profile", "lobby_mode"),
         };
 
         private static readonly Binding[] HomeBindings =
@@ -85,7 +88,19 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "hunter_name", "{{hunter_name}}"),
             new(RmlUiBindingKind.Text, "text_player_name_2", "{{player_name}}"),
             new(RmlUiBindingKind.Text, "text_hunter_name_1", "{{hunter_name}} // READY"),
-            new(RmlUiBindingKind.Text, "home_party_state", "{{home_party_state}}"),
+            new(RmlUiBindingKind.Text, "home_party_count", "{{home_party_count}}"),
+            new(RmlUiBindingKind.Text, "home_party_capacity_hint", "{{home_party_capacity_hint}}"),
+            new(RmlUiBindingKind.Text, "home_party_slot1_name", "{{home_party_slot1_name}}"),
+            new(RmlUiBindingKind.Text, "home_party_slot1_detail", "{{home_party_slot1_detail}}"),
+            new(RmlUiBindingKind.Boolean, "class:home_social:occupied", "home_party_slot1_occupied"),
+            new(RmlUiBindingKind.Text, "home_party_slot2_name", "{{home_party_slot2_name}}"),
+            new(RmlUiBindingKind.Text, "home_party_slot2_detail", "{{home_party_slot2_detail}}"),
+            new(RmlUiBindingKind.Boolean, "class:home_party_slot2:occupied", "home_party_slot2_occupied"),
+            new(RmlUiBindingKind.Boolean, "disabled:home_party_slot2", "!home_social_ready"),
+            new(RmlUiBindingKind.Text, "home_party_slot3_name", "{{home_party_slot3_name}}"),
+            new(RmlUiBindingKind.Text, "home_party_slot3_detail", "{{home_party_slot3_detail}}"),
+            new(RmlUiBindingKind.Boolean, "class:home_party_slot3:occupied", "home_party_slot3_occupied"),
+            new(RmlUiBindingKind.Boolean, "disabled:home_party_slot3", "!home_social_ready"),
             new(RmlUiBindingKind.Text, "home_social_summary", "{{home_social_summary}}"),
             new(RmlUiBindingKind.Boolean, "disabled:home_social", "!home_social_ready"),
 
@@ -101,6 +116,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "home_feature_category", "{{home_feature_category}}"),
             new(RmlUiBindingKind.Text, "home_feature_title", "{{home_feature_title}}"),
             new(RmlUiBindingKind.Text, "home_feature_summary", "{{home_feature_summary}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_news0", "home_news0_visible"),
+            new(RmlUiBindingKind.Text, "home_news0_title", "{{home_news0_title}}"),
+            new(RmlUiBindingKind.Text, "home_news0_category", "{{home_news0_category}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_news1", "home_news1_visible"),
+            new(RmlUiBindingKind.Text, "home_news1_title", "{{home_news1_title}}"),
+            new(RmlUiBindingKind.Text, "home_news1_category", "{{home_news1_category}}"),
             new(RmlUiBindingKind.Boolean, "visible:home_social_rail", "home_social_rail_visible"),
             new(RmlUiBindingKind.Boolean, "visible:home_social_empty", "home_social_empty_visible"),
             new(RmlUiBindingKind.Text, "home_social_empty", "{{home_social_empty_text}}"),
@@ -131,6 +152,22 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private static readonly Binding[] PlayBindings =
         {
+            new(RmlUiBindingKind.Boolean, "visible:play_search", "play_random_search"),
+            new(RmlUiBindingKind.Text, "play_search_elapsed", "{{play_search_elapsed}}"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_quick", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_create_open", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_refresh", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_join", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_player_name", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_join_address", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry0", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry1", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry2", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry3", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry4", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry5", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry6", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_entry7", "play_actions_locked"),
             new(RmlUiBindingKind.Text, "text_play_status_1", "{{play_status}}"),
             new(RmlUiBindingKind.Boolean, "visible:play_browser", "play_browser_mode"),
             new(RmlUiBindingKind.Text, "text_play_server_count_1", "{{play_server_count}}"),
@@ -162,6 +199,29 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:play_connect", "play_browser_mode"),
             new(RmlUiBindingKind.Boolean, "visible:play_create", "play_create_mode"),
             new(RmlUiBindingKind.Text, "text_play_create_host_1", "{{play_create_host}} "),
+            new(RmlUiBindingKind.Text, "play_create_map_label", "{{play_create_map}}"),
+            new(RmlUiBindingKind.Text, "play_create_mode_label", "{{play_create_mode_name}}"),
+            new(RmlUiBindingKind.Text, "play_create_source", "{{play_create_source}}"),
+            new(RmlUiBindingKind.Text, "play_create_capacity", "{{play_create_capacity}}"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_next_map", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_next_mode", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_toggle_host", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_create_name", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_create_submit", "play_actions_locked"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_create_cancel", "play_actions_locked"),
+        };
+
+        private static readonly Binding[] PartyQueueBindings =
+        {
+            new(RmlUiBindingKind.Text, "play_queue_status", "{{party_queue_status}}"),
+            new(RmlUiBindingKind.Text, "play_queue_phase", "{{party_queue_phase}}"),
+            new(RmlUiBindingKind.Text, "play_queue_position", "{{party_queue_position}}"),
+            new(RmlUiBindingKind.Text, "play_queue_seats", "{{party_queue_seats}}"),
+            new(RmlUiBindingKind.Text, "play_queue_seconds", "{{party_queue_seconds}}"),
+            new(RmlUiBindingKind.Boolean, "visible:play_queue_offer", "party_queue_offer"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_queue_accept", "!party_queue_can_accept"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_queue_decline", "!party_queue_can_decline"),
+            new(RmlUiBindingKind.Boolean, "disabled:play_queue_leave", "!party_queue_can_leave")
         };
 
         private static readonly Binding[] LobbyBindings =
@@ -238,6 +298,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team0", "slot0_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team0", "!slot0_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player0", "!slot0_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot0", "slot0_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot0", "!slot0_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot0", "!slot0_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot0_occupied_1:empty", "!slot0_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot0:empty", "!slot0_occupied"),
@@ -258,6 +320,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team1", "slot1_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team1", "!slot1_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player1", "!slot1_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot1", "slot1_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot1", "!slot1_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot1", "!slot1_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot1_occupied_1:empty", "!slot1_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot1:empty", "!slot1_occupied"),
@@ -278,6 +342,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team2", "slot2_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team2", "!slot2_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player2", "!slot2_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot2", "slot2_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot2", "!slot2_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot2", "!slot2_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot2_occupied_1:empty", "!slot2_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot2:empty", "!slot2_occupied"),
@@ -298,6 +364,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team3", "slot3_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team3", "!slot3_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player3", "!slot3_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot3", "slot3_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot3", "!slot3_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot3", "!slot3_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot3_occupied_1:empty", "!slot3_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot3:empty", "!slot3_occupied"),
@@ -318,6 +386,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team4", "slot4_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team4", "!slot4_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player4", "!slot4_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot4", "slot4_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot4", "!slot4_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot4", "!slot4_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot4_occupied_1:empty", "!slot4_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot4:empty", "!slot4_occupied"),
@@ -338,6 +408,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team5", "slot5_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team5", "!slot5_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player5", "!slot5_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot5", "slot5_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot5", "!slot5_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot5", "!slot5_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot5_occupied_1:empty", "!slot5_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot5:empty", "!slot5_occupied"),
@@ -358,6 +430,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team6", "slot6_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team6", "!slot6_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player6", "!slot6_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot6", "slot6_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot6", "!slot6_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot6", "!slot6_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot6_occupied_1:empty", "!slot6_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot6:empty", "!slot6_occupied"),
@@ -378,6 +452,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:lobby_team7", "slot7_has_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_team7", "!slot7_can_team"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_player7", "!slot7_can_select"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_add_bot7", "slot7_can_add_bot"),
+            new(RmlUiBindingKind.Boolean, "disabled:lobby_add_bot7", "!slot7_can_add_bot"),
             new(RmlUiBindingKind.Boolean, "disabled:lobby_slot7", "!slot7_can_select"),
             new(RmlUiBindingKind.Boolean, "class:visible_slot7_occupied_1:empty", "!slot7_occupied"),
             new(RmlUiBindingKind.Boolean, "class:lobby_slot7:empty", "!slot7_occupied"),
@@ -475,6 +551,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 new(RmlUiBindingKind.Boolean, "visible:map_empty", "map_empty"),
                 new(RmlUiBindingKind.Boolean, "class:map_vanilla:selected", "map_vanilla_selected"),
                 new(RmlUiBindingKind.Boolean, "class:map_community:selected", "map_community_selected"),
+                new(RmlUiBindingKind.Boolean, "class:map_echoes:selected", "map_echoes_selected"),
+                new(RmlUiBindingKind.Boolean, "class:map_halo:selected", "map_halo_selected"),
+                new(RmlUiBindingKind.Boolean, "class:map_quake:selected", "map_quake_selected"),
                 new(RmlUiBindingKind.Boolean, "disabled:map_previous", "!map_can_previous"),
                 new(RmlUiBindingKind.Boolean, "disabled:map_next", "!map_can_next")
             };
@@ -482,6 +561,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             {
                 bindings.Add(new(RmlUiBindingKind.Text, $"map_name{i}", $"{{{{map_choice{i}_name}}}}"));
                 bindings.Add(new(RmlUiBindingKind.Text, $"map_hint{i}", $"{{{{map_choice{i}_hint}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"image:map_image{i}", $"{{{{map_choice{i}_image}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"visible:map_image{i}", $"map_choice{i}_image_ready"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"visible:map_art_label{i}", $"!map_choice{i}_image_ready"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"map_art_label{i}", $"{{{{map_choice{i}_preview_status}}}}"));
                 bindings.Add(new(RmlUiBindingKind.Boolean, $"visible:map_choice{i}", $"map_choice{i}_visible"));
                 bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:map_choice{i}", $"!map_choice{i}_enabled"));
             }
@@ -497,7 +580,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 new(RmlUiBindingKind.Text, "hunter_name", "{{hunter_identity_name}}"),
                 new(RmlUiBindingKind.Text, "hunter_status", "{{hunter_status}}"),
                 new(RmlUiBindingKind.Text, "hunter_restriction", "{{hunter_restriction}}"),
-                new(RmlUiBindingKind.Boolean, "disabled:hunter_apply", "!hunter_apply_enabled")
+                new(RmlUiBindingKind.Boolean, "disabled:hunter_apply", "!hunter_apply_enabled"),
+                new(RmlUiBindingKind.Boolean, "disabled:hunter_random", "!hunter_random_allowed")
             };
             for (int i = 0; i < 7; i++)
             {
@@ -595,6 +679,27 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "disabled:offline_weapon", "!offline_training_can_weapon")
         };
 
+        private static readonly Binding[] OfflineRulesBindings = BuildOfflineRulesBindings();
+
+        private static Binding[] BuildOfflineRulesBindings()
+        {
+            var bindings = new List<Binding>
+            {
+                new(RmlUiBindingKind.Text, "offline_rules_error", "{{offline_rules_error}}"),
+                new(RmlUiBindingKind.Text, "offline_damage_value", "{{offline_damage_value}}"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_point_goal_row", "offline_point_goal_visible"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_time_limit_row", "offline_time_limit_visible"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_time_goal_row", "offline_time_goal_visible"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_chamber_help", "offline_chamber_help_visible"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_rule_1", "offline_fire_visible"),
+                new(RmlUiBindingKind.Boolean, "visible:offline_rule_0", "offline_auto_reset_visible")
+            };
+            for (int i = 0; i < 12; i++)
+                if (i != 5) // One in the Chamber is a mode, not an independent toggle.
+                    bindings.Add(new(RmlUiBindingKind.Text, $"offline_rule_{i}", "{{offline_rule" + i + "_label}}"));
+            return bindings.ToArray();
+        }
+
         private static readonly Binding[] OfflineTrainingBindings = BuildOfflineTrainingBindings();
 
         private static Binding[] BuildOfflineTrainingBindings()
@@ -647,9 +752,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 new(RmlUiBindingKind.Text, "adventure_save_detail", "{{adventure_save_detail}}"),
                 new(RmlUiBindingKind.Text, "adventure_hunter", "{{adventure_hunter}}"),
                 new(RmlUiBindingKind.Text, "adventure_launch_status", "{{adventure_launch_status}}"),
+                new(RmlUiBindingKind.Text, "adventure_copy_destination", "{{adventure_copy_destination}}"),
+                new(RmlUiBindingKind.Boolean, "disabled:adventure_copy", "!adventure_can_copy"),
+                new(RmlUiBindingKind.Boolean, "disabled:adventure_archive", "!adventure_can_archive"),
+                new(RmlUiBindingKind.Boolean, "visible:adventure_cancel_save_work", "adventure_save_busy"),
+                new(RmlUiBindingKind.Boolean, "disabled:adventure_next_hunter", "adventure_save_busy"),
+                new(RmlUiBindingKind.Boolean, "visible:adventure_ship", "adventure_ship_available"),
                 new(RmlUiBindingKind.Text, "adventure_error_text", "{{adventure_error_text}}"),
                 new(RmlUiBindingKind.Text, "adventure_file_problem", "{{adventure_file_problem}}"),
-                new(RmlUiBindingKind.Boolean, "visible:adventure_files_error", "false"),
+                new(RmlUiBindingKind.Boolean, "visible:adventure_files_error", "adventure_game_files_missing"),
                 new(RmlUiBindingKind.Boolean, "visible:adventure_error", "adventure_error_visible"),
                 new(RmlUiBindingKind.Boolean, "disabled:adventure_continue", "!adventure_can_resume"),
                 new(RmlUiBindingKind.Boolean, "disabled:adventure_new_run", "!adventure_can_new_run")
@@ -661,12 +772,22 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 values.Add(new(RmlUiBindingKind.Boolean,
                     "class:adventure_slot" + i + ":selected",
                     "adventure_slot" + i + "_selected"));
+                values.Add(new(RmlUiBindingKind.Boolean, "disabled:adventure_slot" + i, "adventure_save_busy"));
+                values.Add(new(RmlUiBindingKind.Boolean, "class:adventure_destination" + i + ":selected", "adventure_destination" + i + "_selected"));
+                values.Add(new(RmlUiBindingKind.Boolean, "disabled:adventure_destination" + i, "adventure_destination" + i + "_disabled"));
             }
             return values.ToArray();
         }
 
         private static readonly Binding[] AdventureConfirmBindings =
         {
+            new(RmlUiBindingKind.Text, "adventure_confirmation_kind", "{{adventure_confirmation_kind}}"),
+            new(RmlUiBindingKind.Text, "adventure_confirmation_description", "{{adventure_confirmation_description}}"),
+            new(RmlUiBindingKind.Boolean, "visible:adventure_cancel_new_run", "adventure_new_run_confirmation"),
+            new(RmlUiBindingKind.Boolean, "visible:adventure_confirm_new_run", "adventure_new_run_confirmation"),
+            new(RmlUiBindingKind.Boolean, "visible:adventure_cancel_save_change", "adventure_management_confirmation"),
+            new(RmlUiBindingKind.Boolean, "visible:adventure_confirm_copy", "adventure_copy_confirmation"),
+            new(RmlUiBindingKind.Boolean, "visible:adventure_confirm_archive", "adventure_archive_confirmation"),
             new(RmlUiBindingKind.Text, "adventure_overwrite_title", "{{adventure_overwrite_title}}"),
             new(RmlUiBindingKind.Text, "adventure_confirmation_error_text",
                 "{{adventure_confirmation_error_text}}")
@@ -682,18 +803,29 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 "theatre_summary", "theatre_empty", "theatre_filter_label",
                 "theatre_sort_label", "theatre_page_number", "theatre_status",
                 "theatre_error", "theatre_selected_title", "theatre_metadata",
-                "theatre_hero", "theatre_no_preview", "theatre_launch_problem"
+                "theatre_hero", "theatre_no_preview", "theatre_launch_problem", "theatre_delete_prompt",
+                "theatre_studio", "theatre_workflow_hint"
             })
                 bindings.Add(new(RmlUiBindingKind.Text, field, "{{" + field + "}}"));
             foreach (var (target, expr) in new[]
             {
                 ("theatre_watch", "!theatre_watch_enabled"),
+                ("theatre_studio", "!theatre_watch_enabled"),
                 ("theatre_favorite", "!theatre_favorite_enabled"),
                 ("theatre_previous_page", "!theatre_can_previous"),
                 ("theatre_next_page", "!theatre_can_next"),
-                ("theatre_cancel_job", "!theatre_busy")
+                ("theatre_cancel_job", "!theatre_busy"),
+                ("theatre_validate", "!theatre_edit_enabled"), ("theatre_recover", "!theatre_recover_enabled"),
+                ("theatre_export", "!theatre_export_enabled"), ("theatre_rename", "!theatre_edit_enabled"),
+                ("theatre_rename_apply", "!theatre_edit_enabled"), ("theatre_tags", "!theatre_edit_enabled"),
+                ("theatre_collections", "!theatre_edit_enabled"), ("theatre_organize", "!theatre_edit_enabled"),
+                ("theatre_delete", "!theatre_edit_enabled"), ("theatre_import_path", "!theatre_import_enabled"),
+                ("theatre_import_path_apply", "!theatre_import_enabled")
             })
                 bindings.Add(new(RmlUiBindingKind.Boolean, "disabled:" + target, expr));
+            bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_delete_confirmation", "theatre_delete_confirmation"));
+            bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_recover", "theatre_advanced_tools"));
+            bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_export", "theatre_advanced_tools"));
             for (int i = 0; i < 8; i++)
             {
                 bindings.Add(new(RmlUiBindingKind.Text, $"theatre_entry{i}_title",
@@ -715,16 +847,18 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             ArgumentNullException.ThrowIfNull(model);
             var output = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
-            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining or RmlUiMenuPage.AdventureConfirm)) Add(ShellBindings);
+            if (page is not (RmlUiMenuPage.Rules or RmlUiMenuPage.Maps or RmlUiMenuPage.Hunters or RmlUiMenuPage.Admin or RmlUiMenuPage.OfflineArena or RmlUiMenuPage.OfflineTraining or RmlUiMenuPage.OfflineRules or RmlUiMenuPage.AdventureConfirm or RmlUiMenuPage.PartyQueue)) Add(ShellBindings);
             Add(page switch
             {
                 RmlUiMenuPage.Home => HomeBindings, RmlUiMenuPage.Play => PlayBindings,
                 RmlUiMenuPage.Lobby => LobbyBindings, RmlUiMenuPage.Rules => RulesBindings,
                 RmlUiMenuPage.Offline => OfflineBindings, RmlUiMenuPage.OfflineArena => OfflineArenaBindings,
                 RmlUiMenuPage.OfflineTraining => OfflineTrainingBindings,
+                RmlUiMenuPage.OfflineRules => OfflineRulesBindings,
                 RmlUiMenuPage.Adventure => AdventureBindings,
                 RmlUiMenuPage.AdventureConfirm => AdventureConfirmBindings,
                 RmlUiMenuPage.Theatre => TheatreBindings,
+                RmlUiMenuPage.PartyQueue => PartyQueueBindings,
                 RmlUiMenuPage.Maps => MapBindings, RmlUiMenuPage.Hunters => HunterIdentityBindings,
                 RmlUiMenuPage.Admin => AdminBindings,
                 _ => throw new ArgumentOutOfRangeException(nameof(page))

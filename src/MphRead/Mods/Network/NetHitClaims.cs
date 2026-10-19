@@ -465,6 +465,7 @@ namespace MphRead.Mods.Network
                 _nextId = 1;
             }
             Declared++;
+            NetCampaignEvidence.ClaimDeclared();
             NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket(beam)]++;
             if (NetLog.Enabled) NetShotDiagnostics.Trace("claim", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId), beam,
                 $"id={id} victim={slot} ack={ack} damage={damage}");
@@ -1487,6 +1488,11 @@ namespace MphRead.Mods.Network
                 NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket((BeamType)claim.Beam)]++;
                 Remember(shooterSlot, claim.ClaimId, ResultPending);
                 _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
+                if (NetSession.ServerMatch is { Ending: true })
+                {
+                    AnswerEndedMatch(shooterSlot, claim);
+                    continue;
+                }
                 if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
                 { DuplicateHere++; Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: continuousPaid); continue; }
                 byte immediate = Judge(shooterSlot, claim);
@@ -1921,6 +1927,27 @@ namespace MphRead.Mods.Network
             return HasComponentPayment(claim)
                 && NetCombatPayments.TryGet(NetShotProof.PaymentKey(slot, claim), claim.Beam, out outcome);
         }
+
+        // A delayed claim still owns a terminal receipt after the authority
+        // finalizes its result. Only immutable paid outcomes may be acknowledged;
+        // no rescue, head correction, impulse or score mutation can enter here.
+        // Receive has already bound its receipt cell to this complete claim key;
+        // pending settlement uses that same cell and the same answer writer.
+        private static void AnswerEndedMatch(int slot, in HitClaimPacket claim)
+        {
+            if (TryPaidOutcome(slot, claim, out var paid)
+                || NetShotProof.TryPhysicalOutcome(slot, claim, out paid))
+            {
+                DuplicateHere++;
+                Answer(slot, claim.ClaimId, paid.Result == (byte)CombatAckResult.Corrected
+                    ? paid.Result : HitVerdictPacket.ResultDuplicate, outcome: paid);
+            }
+            else
+            {
+                RefusedHere++;
+                Answer(slot, claim.ClaimId, HitVerdictPacket.ResultRefused);
+            }
+        }
         private static bool NeedsHeadCorrection(in HitClaimPacket claim, in CombatAckEntry paid)
             => NetShotProof.Mode != ShotProofMode.Enforce && claim.Beam == (byte)BeamType.Imperialist
                 && (claim.Flags & HitClaimPacket.FlagHeadshot) != 0
@@ -2166,6 +2193,12 @@ namespace MphRead.Mods.Network
                         Answer(entry.ShooterSlot, entry.Id, HitVerdictPacket.ResultWrongLife);
                         DeactivatePending(ref entry);
                         NetPlayerLifecycle.OldLifeClaims++;
+                        continue;
+                    }
+                    if (NetSession.ServerMatch is { Ending: true })
+                    {
+                        AnswerEndedMatch(entry.ShooterSlot, ProofClaim(entry));
+                        DeactivatePending(ref entry);
                         continue;
                     }
                     if (AnswerPaidPending(ref entry))

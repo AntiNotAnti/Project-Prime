@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using MphRead.Mods.Render;
 using MphRead.Mods.Launcher.RmlUi.Host;
@@ -12,22 +13,103 @@ static void Check(bool condition, string name)
     Console.WriteLine("RMLUI GL PASS " + name);
 }
 
-if (args.Length != 1 || !File.Exists(Path.Combine(args[0], "prime_home.rml")))
-    throw new ArgumentException("Pass the RmlUi asset directory containing prime_home.rml.");
+if (args.Length == 1 && args[0] == "--map-registry-publication")
+    return MapRegistryPublicationAcceptance.Run();
+
+if (args.Length == 1 && args[0] == "--detached-ticket")
+    return DetachedExportTicketAcceptance.Run();
+
+if (args.Length == 2 && args[0] == "--license-star-art")
+    return LicenseStarArtAcceptance.Run(args[1]);
+
+if (args.Length == 2 && args[0] == "--license-portrait")
+    return LicensePortraitAcceptance.Run(args[1]);
+
+if (args.Length == 2 && args[0] == "--map-picker-previews")
+    return MapPickerPreviewsAcceptance.Run(args[1]);
+
+if (args.Length == 2 && args[0] == "--community-import-file")
+    return ActualCommunityImportAcceptance.Run(args[1]);
+
+if (args.Length == 2 && args[0] == "--community-host-file")
+    return ActualCommunityHostingAcceptance.Run(args[1]);
+
+if (args.Length == 2 && args[0] == "--community-preview")
+    return CommunityPreviewAcceptance.Run(args[1]);
+
+if (args.Length == 3 && args[0] == "--thumbnail-room-owner")
+    return ThumbnailRoomOwnerAcceptance.Run(args);
+
+if (args.Length == 2 && args[0] == "--map-preview-source")
+    return MapPreviewSourceAcceptance.Run(args[1]);
+
+if (args.Length > 0 && args[0] is "--replay-window" or "--replay-reopen")
+    return ReplayWindowAcceptance.Run(args);
+
+if (args.Length == 1 && args[0] == "--replay-files")
+{
+    ReplayFileAcceptance.Run();
+    return 0;
+}
+
+if (args.Length == 1 && args[0] == "--studio-owner")
+{
+    StudioEditorOwnerAcceptance.Run();
+    return 0;
+}
+
+if (args.Length is < 1 or > 3 || (args.Length >= 2 && args[1] is not ("--random-match" or "--license" or "--license-card" or "--offline-rules" or "--ingame" or "--party" or "--social-invites" or "--input" or "--playback" or "--map-preview" or "--campaign-ending" or "--campaign-ship" or "--native-hunters" or "--map-picker" or "--lobby-interactions" or "--community-import" or "--community-host-gl" or "--community-report" or "--community-library" or "--community-history" or "--community-transfers" or "--community-publish" or "--studio-workspace" or "--studio-editor" or "--studio-build" or "--party-queue" or "--adventure-saves" or "--adventure-save-work" or "--lobby-restoration"))
+    || !File.Exists(Path.Combine(args[0], "prime_home.rml")))
+    throw new ArgumentException("Pass --replay-files or --studio-owner for headless acceptance, or the RmlUi asset directory containing prime_home.rml, optionally followed by --random-match, --license, --license-card, --offline-rules, --ingame, --party, --social-invites, --input, --playback, --map-preview, --campaign-ending, --campaign-ship, --native-hunters, --map-picker, --lobby-interactions, --community-import, --community-host-gl, --community-report, --community-library, --community-history, --community-transfers, --community-publish, --studio-workspace or --studio-editor or --studio-build, --party-queue or --adventure-saves, --adventure-save-work or --lobby-restoration [WIDTHxHEIGHT].");
+
+int requestedWidth = 960, requestedHeight = 600;
+if (args.Length == 3)
+{
+    string[] dimensions = args[2].Split('x');
+    if (dimensions.Length != 2
+        || !int.TryParse(dimensions[0], NumberStyles.None, CultureInfo.InvariantCulture, out requestedWidth)
+        || !int.TryParse(dimensions[1], NumberStyles.None, CultureInfo.InvariantCulture, out requestedHeight)
+        || requestedWidth is < 64 or > 4096 || requestedHeight is < 64 or > 4096)
+        throw new ArgumentException("Framebuffer size must be WIDTHxHEIGHT, with each dimension between 64 and 4096.");
+}
+
+if (args.Length >= 2 && args[1] == "--native-hunters")
+    return NativeHunterStageGlAcceptance.Run(args[0], requestedWidth, requestedHeight);
+
+if (args.Length >= 2 && args[1] == "--lobby-restoration")
+    return LobbyRestorationGlAcceptance.RunWindow(args[0], requestedWidth, requestedHeight);
 
 Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_PROFILE", "1");
 GraphicsBackendPolicy.Configure("opengl");
 var settings = DesktopGlContext.Settings(background: true);
-settings.ClientSize = new(960, 600);
+settings.ClientSize = new(requestedWidth, requestedHeight);
 using var window = new NativeWindow(settings);
 using var context = new DesktopGraphicsSession(window);
 int width = window.FramebufferSize.X;
 int height = window.FramebufferSize.Y;
 Check(width > 0 && height > 0, "GL framebuffer created");
+Console.WriteLine($"RMLUI GL DIMENSIONS requestedClient={requestedWidth}x{requestedHeight} framebuffer={width}x{height}");
+float density = 1;
+string? requestedDensity = Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_DENSITY");
+if (requestedDensity != null && (!float.TryParse(requestedDensity, NumberStyles.Float, CultureInfo.InvariantCulture, out density)
+    || !float.IsFinite(density) || density is < 0.5f or > 4))
+    throw new ArgumentException("PROJECT_PRIME_RMLUI_CHECK_DENSITY must be between 0.5 and 4.");
+Console.WriteLine($"RMLUI GL DENSITY {density.ToString(CultureInfo.InvariantCulture)}");
 
 using var host = new RmlUiHost();
-Check(host.Initialize(width, height, 1, Path.GetFullPath(args[0]), RmlUiRenderBackend.OpenGl),
+Check(host.Initialize(width, height, density, Path.GetFullPath(args[0]), RmlUiRenderBackend.OpenGl),
     "native GL2 bridge and document initialize");
+
+// The bridge's compatibility Home has an authored arrival animation. Let its
+// first layout and animation settle before measuring painted pixels; otherwise
+// fast initialization can capture the deliberately transparent opening frame.
+var arrival = System.Diagnostics.Stopwatch.StartNew();
+do
+{
+    host.Update();
+    System.Threading.Thread.Sleep(5);
+}
+while (arrival.Elapsed < TimeSpan.FromMilliseconds(220));
 
 GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 GL.Viewport(0, 0, width, height);
@@ -99,10 +181,38 @@ for (int i = 0; i < picture.Length; i += 3)
 }
 Check(changed > width * height / 300, "native RmlUi painted actual Home pixels");
 Check(GL.GetError() == ErrorCode.NoError, "no OpenGL errors after native frame");
+if (args.Length >= 2 && args[1] == "--license") LicenseAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--random-match") RandomMatchGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--license-card") LicenseCardGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--offline-rules") OfflineRulesGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--ingame") InGameGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--party") PartyGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--social-invites") SocialGlAcceptance.Run(host, width, height, window.ClientSize.X, window.ClientSize.Y);
+if (args.Length >= 2 && args[1] == "--input") InputGlAcceptance.Run(host, width, height, args[0]);
+if (args.Length >= 2 && args[1] == "--playback") PlaybackAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--map-preview") MapPreviewAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--campaign-ending") EndingGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--campaign-ship") ShipGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--map-picker") MapPickerGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--lobby-interactions") LobbyInteractionsGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-host-gl") CommunityHostingGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-import") CommunityImportGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-report") CommunityReportGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-library") CommunityLibraryGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-history") CommunityHistoryGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--community-transfers") CommunityTransfersGlAcceptance.Run(host, width, height, window.ClientSize.X, window.ClientSize.Y);
+if (args.Length >= 2 && args[1] == "--community-publish") CommunityPublishGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--studio-workspace") { StudioGlAcceptance.Run(host, width, height); EditorGlAcceptance.RunWorkspace(host, width, height,density); }
+if (args.Length >= 2 && args[1] == "--studio-build") StudioBuildGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--studio-editor") StudioEditorGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--party-queue") PartyQueueGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--adventure-saves") AdventureSaveGlAcceptance.Run(host, width, height);
+if (args.Length >= 2 && args[1] == "--adventure-save-work") AdventureSaveAsyncGlAcceptance.Run(host, width, height);
 host.Shutdown();
 GL.MatrixMode(MatrixMode.Projection);
 GL.PopMatrix();
 GL.MatrixMode(MatrixMode.Modelview);
 GL.DeleteTexture(texture);
 GL.DeleteFramebuffer(readFbo);
-Console.WriteLine("RMLUI GL2 real-software-context acceptance PASS");
+Console.WriteLine("RMLUI GL2 native-context acceptance PASS");
+return 0;

@@ -102,6 +102,42 @@ namespace MphRead.Mods.Render
         }
         private int _recolor = -1;
         private ModelInstance? _model;
+        private CharacterSourcePreviewBinding? _sourceRigPreview;
+
+        // Acceptance-only attachment. The actual pack/runtime must verify it;
+        // no public selection or global source-pose switch is added.
+        internal bool TrySetSourceRigPreview(CharacterModelPack pack,
+            PrivateCharacterAppearance appearance, IReadOnlyList<Matrix4>? immutablePose = null)
+        {
+            if (_model == null || Mode != Mods.Cosmetics.SkinContext.Biped
+                || !CharacterSourcePreviewBinding.TryCreate(_scene, _hunter, _model.Model,
+                    pack, appearance, immutablePose, out var binding)) return false;
+            ClearSourceRigPreview(); _sourceRigPreview = binding; return true;
+        }
+
+        // Private raw-source diagnostic route; existing model/scene owns drawing.
+        internal bool TrySetSourceMaterialRigPreview(CharacterModelPack pack,
+            PrivateCharacterAppearance appearance,string nativeMaterialAnchor)
+        {
+            if(_model==null||Mode!=Mods.Cosmetics.SkinContext.Biped
+                ||!CharacterSourcePreviewBinding.TryCreateWithSourceMaterials(_scene,_hunter,_model.Model,
+                    pack,appearance,nativeMaterialAnchor,out var binding))return false;
+            ClearSourceRigPreview();_sourceRigPreview=binding;return true;
+        }
+        internal bool TrySelectSourceRigClip(int ordinal) => _sourceRigPreview?.TrySelectSourceClip(ordinal)==true;
+        internal bool TrySetSourceRigTime(double seconds) => _sourceRigPreview?.TrySetSourceTime(seconds)==true;
+        internal CharacterSourceClip? SelectedSourceRigClip => _sourceRigPreview?.SelectedSourceClip;
+
+        internal void ClearSourceRigPreview()
+        { _sourceRigPreview?.Release(); _sourceRigPreview = null; }
+
+        internal bool TryGetSourceRigPreview(out CharacterWeightedRenderModel model)
+        {
+            model = null!;
+            return _model != null && _sourceRigPreview != null
+                && _sourceRigPreview.TryGet(_scene, _hunter, CharacterModelPart.Biped,
+                    _model.Model, out model);
+        }
         private Vector3 _displayCenter;
         private float _displayScale = 1;
 
@@ -131,6 +167,7 @@ namespace MphRead.Mods.Render
         /// </summary>
         public void SetUp(Hunter hunter, int recolor, Mods.Cosmetics.SkinContext mode = Mods.Cosmetics.SkinContext.Biped)
         {
+            if (hunter != _hunter || Mode != mode) ClearSourceRigPreview();
             if (_model != null && hunter == _hunter && recolor == _recolor && Mode == mode)
             {
                 return;
@@ -285,6 +322,7 @@ namespace MphRead.Mods.Render
 
         public void Reset()
         {
+            ClearSourceRigPreview();
             _death.Reset();
             _deathRequest = 0;
             _previewSteps = 0;
@@ -308,7 +346,12 @@ namespace MphRead.Mods.Render
         /// and advanced in <see cref="Step"/>; nothing here touches it, so a
         /// frame drawn twice draws the same pose twice.
         /// </summary>
-        private bool TryDrawModernCharacter()
+        // Retain owner transform metadata. Weighted4 uses the composed source
+        // palette below for GPU positions; native palettes already contain pose.
+        internal static Matrix4 WeightedPreviewTransform(CharacterWeightedRenderModel model,Matrix4 presentationPose)
+            => model.IsSourcePreview ? presentationPose : Matrix4.Identity;
+
+        private bool TryDrawModernCharacter(Matrix4 presentationPose)
         {
             if (_model == null) return false;
             CharacterModelPart? part = Mode switch
@@ -320,10 +363,15 @@ namespace MphRead.Mods.Render
             };
             if (part == null) return false;
             Model model = _model.Model;
-            if (CharacterModelRuntime.TryGetWeighted(_scene, _hunter, part.Value,
-                model, out CharacterWeightedRenderModel weighted))
+            bool sourceRequested = _sourceRigPreview != null;
+            CharacterWeightedRenderModel weighted;
+            bool weightedReady = sourceRequested
+                ? _sourceRigPreview!.TryGet(_scene, _hunter, part.Value, model, out weighted)
+                : CharacterModelRuntime.TryGetWeighted(_scene, _hunter, part.Value, model, out weighted);
+            if (weightedReady)
             {
-                weighted.UpdatePalette(model);
+                if (sourceRequested) weighted.PrepareSourcePreviewPresentation(presentationPose);
+                else weighted.UpdatePalette(model);
                 int weightedPolygonId = _scene.GetNextPolygonId();
                 foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
                 {
@@ -345,8 +393,9 @@ namespace MphRead.Mods.Render
                     try
                     {
                         _scene.AddRenderItem(material, weightedPolygonId, Alpha,
-                            emission, _light, Matrix4.Identity, Matrix4.Identity,
-                            segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
+                            emission, _light, Matrix4.Identity, WeightedPreviewTransform(weighted,presentationPose),
+                            segment.ListId, segment.SourceJointPalette?.Count ?? weighted.Joints.Count,
+                            segment.SourcePresentationPalette ?? weighted.MatrixPalette,
                             color, PaletteOverride, SelectionType.None,
                             BillboardMode.None, _drawScale, bindingOverride,
                             UseTexturedPlayerSkin(_model), GetPlayerOutlineColor(_model),
@@ -363,6 +412,7 @@ namespace MphRead.Mods.Render
                 return true;
             }
 
+            if (sourceRequested) return false;
             if (!CharacterModelRuntime.TryGetRigid(_scene, _hunter, part.Value,
                 model, out CharacterRigidRenderModel replacement))
                 return false;
@@ -500,7 +550,7 @@ namespace MphRead.Mods.Render
                 if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0
                     && progress < _cosmetics.Death.HideBodyAt))
                 {
-                    if (!TryDrawModernCharacter())
+                    if (!TryDrawModernCharacter(pose))
                         GetDrawItems(_model, 0, _light);
                 }
             }

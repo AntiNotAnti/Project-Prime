@@ -43,6 +43,17 @@ namespace MphRead.Mods.Replay
                     && segment.Distance > 0 && segment.AverageSpeed > 0 && segment.PeakSpeed > 0,
                     "camera segment diagnostics expose duration, distance and speed");
 
+                var bezier=new ReplayCameraTrack();
+                var bezierStart=start with{Frame=0,Position=Vector3.Zero,Interpolation=ReplayCameraInterpolation.Bezier,Ease=ReplayCameraEase.None,OutgoingTangent=new Vector3(0,10,0),FovOutgoingTangent=.4f};
+                var bezierEnd=end with{Frame=60,Position=new Vector3(10,0,0),IncomingTangent=new Vector3(0,10,0),FovIncomingTangent=.2f};
+                Require(bezier.Put(bezierStart)&&bezier.Put(bezierEnd)&&bezier.Sample(30,out var curved)&&curved.Position.Y>7,"Bezier position handles shape the actual sampled track");
+                Require(bezier.Sample(30,out curved)&&curved.Fov>1.5f,"Bezier scalar handles shape actual FOV samples");
+                Require(bezier.Sample(30,out curved,true)&&float.IsFinite(curved.Position.LengthSquared),"constant-speed Bezier sampling stays finite");
+                Require(bezier.Save(replay)&&File.ReadAllBytes(replay+".camera")[4]==4,"authored handles select identity-bound camera v4");
+                var bezierLoaded=new ReplayCameraTrack();
+                Require(bezierLoaded.Load(replay)&&bezierLoaded.Keys.SequenceEqual(bezier.Keys),"v4 handles round-trip through the existing camera owner");
+                Require(!bezier.Put(bezierStart with{IncomingTangent=new Vector3(float.NaN,0,0)}),"nonfinite Bezier handles are rejected");
+
                 var continuous = new ReplayCameraTrack();
                 var c0 = new ReplayCameraKeyframe(0, Vector3.Zero, Quaternion.Identity, 1);
                 var c1 = c0 with { Frame = 60, Position = new Vector3(10, 0, 0) };

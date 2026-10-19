@@ -35,6 +35,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private ulong _generation;
         private ulong _nativeSequence;
         private ulong _managedSequence;
+        private ulong _textEditSequence;
         private static readonly string[] NativeControlledBindings =
         {
             "home_mode", "multiplayer_mode", "play_create_mode", "play_browser_mode",
@@ -48,6 +49,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private volatile bool _active;
         private bool _lifetimeTransition;
         private bool? _textInputAbi;
+        private bool? _textEditAbi;
         private bool? _hoverAbi;
         private bool? _elementBoundsAbi;
         private bool? _updateStateAbi;
@@ -124,7 +126,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _documents.Add(home, new DocumentState(RmlUiDocumentLayer.Page));
                 _documentOrder.Add(home);
                 _nativeSequence = _managedSequence = 0;
-                _textInputAbi = _hoverAbi = _elementBoundsAbi = null;
+                _textInputAbi = _textEditAbi = _hoverAbi = _elementBoundsAbi = null;
                 _updateStateAbi = null;
                 _nativeUpdates = _skippedUpdates = _updateStateQueries = 0;
                 _active = true;
@@ -431,6 +433,25 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return length <= 0 ? "" : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
         }
 
+        private readonly byte[] _hoverActionBuffer = new byte[512];
+        private string _lastHoverAction = "";
+        private bool _hoverActionUnavailable;
+        public string HoveredAction()
+        {
+            VerifyNativeCallAllowed();
+            if (!_active || _protocol == 0 || _hoverActionUnavailable) return "";
+            try
+            {
+                int length = _native.HoveredAction(_hoverActionBuffer, _hoverActionBuffer.Length);
+                if (length <= 0) return _lastHoverAction = "";
+                length = Math.Min(length, _hoverActionBuffer.Length - 1);
+                bool same = length == _lastHoverAction.Length;
+                for (int i = 0; same && i < length; i++) same &= _hoverActionBuffer[i] == _lastHoverAction[i];
+                return same ? _lastHoverAction : _lastHoverAction = Encoding.UTF8.GetString(_hoverActionBuffer, 0, length);
+            }
+            catch (EntryPointNotFoundException) { _hoverActionUnavailable = true; return ""; }
+        }
+
         public string HoveredElement()
         {
             VerifyNativeCallAllowed();
@@ -498,6 +519,67 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     out start, out end) != 0 && start >= 0 && end >= start;
             }
             catch (EntryPointNotFoundException) { return false; }
+        }
+
+        internal bool TryGetTextEditState(out RmlUiTextEditState state)
+        {
+            VerifyNativeCallAllowed(); state = default;
+            if (!_active || _protocol == 0 || _textEditAbi == false) return false;
+            var packet = new RmlUiNativeTextEditState { Size = 88, Version = 1 };
+            try
+            {
+                int result = _native.TextEditState(ref packet); _textEditAbi = true;
+                var document = new RmlUiDocumentToken(packet.Generation, packet.DocumentId);
+                if (result != 1 || packet.Size != 88 || packet.Version != 1 || packet.Reserved != 0
+                    || packet.Generation != _generation || packet.FocusEpoch == 0 || packet.Revision == 0
+                    || document != CurrentInputDocument || !IsVisible(document) || packet.Capabilities != 1 || (packet.Flags & ~7u) != 0
+                    || packet.Length < 0 || packet.Length > 65536 || packet.SelectionStart < 0 || packet.SelectionLength < 0
+                    || packet.SelectionStart > packet.Length || packet.SelectionLength > packet.Length - packet.SelectionStart
+                    || packet.MarkedStart < -1 || packet.MarkedLength < 0 || (packet.MarkedStart == -1 && packet.MarkedLength != 0)
+                    || packet.MarkedStart > packet.Length || (packet.MarkedStart >= 0 && packet.MarkedLength > packet.Length - packet.MarkedStart)) return false;
+                if ((packet.Flags & 6) != 0 && (!Single.IsFinite(packet.X) || !Single.IsFinite(packet.Y)
+                    || !Single.IsFinite(packet.Width) || !Single.IsFinite(packet.Height) || packet.Width < 0 || packet.Height <= 0)) return false;
+                state = new(document, packet.FocusEpoch, packet.Revision, packet.Length, packet.SelectionStart, packet.SelectionLength,
+                    packet.MarkedStart, packet.MarkedLength, packet.Flags, new(packet.X, packet.Y, packet.Width, packet.Height));
+                return true;
+            }
+            catch (EntryPointNotFoundException) { _textEditAbi = false; return false; }
+        }
+        // Same engine-thread input owner outlives Cocoa adapter attachments and
+        // focus lifetimes. Never restart generated operation IDs on detach,
+        // focus change, or reinitialization; native replay rejection stays exact.
+        internal ulong NextTextEditSequence()
+        {
+            RequireActive();
+            if (_textEditSequence == ulong.MaxValue)
+                throw new InvalidOperationException("RmlUi text operation sequence is exhausted.");
+            return ++_textEditSequence;
+        }
+
+        internal RmlUiTextEditResult TextEdit(in RmlUiTextEditState scope, ulong sequence, RmlUiTextEditKind kind,
+            string text = "", int start = -1, int length = 0, int selectedStart = -1, int selectedLength = 0, bool commitCurrent = false)
+        {
+            VerifyNativeCallAllowed();
+            if (text is null) return RmlUiTextEditResult.Invalid;
+            if (commitCurrent && (kind != RmlUiTextEditKind.Commit || text.Length != 0 || start != -1 || length != 0 || selectedStart != -1 || selectedLength != 0)) return RmlUiTextEditResult.Invalid;
+            if (!Enum.IsDefined(kind) || sequence == 0 || text is null || text.Length > 65536 || text.Contains('\0')) return RmlUiTextEditResult.Invalid;
+            if (!TryGetTextEditState(out var current)) return RmlUiTextEditResult.Unsupported;
+            if (current.Document != scope.Document || current.FocusEpoch != scope.FocusEpoch) return RmlUiTextEditResult.StaleOwner;
+            if (current.Revision != scope.Revision) return RmlUiTextEditResult.StaleRevision;
+            byte[] bytes;
+            try { bytes = new System.Text.UTF8Encoding(false, true).GetBytes(text); }
+            catch (System.Text.EncoderFallbackException) { return RmlUiTextEditResult.Invalid; }
+            var request = new RmlUiNativeTextEditRequest { Size = 80, Version = 1,
+                Generation = scope.Document.Generation, DocumentId = scope.Document.DocumentId, FocusEpoch = scope.FocusEpoch,
+                Revision = scope.Revision, Sequence = sequence, Kind = kind, Start = start, Length = length,
+                SelectedStart = selectedStart, SelectedLength = selectedLength, Flags = commitCurrent ? 1u : 0u };
+            try
+            {
+                int value = _native.TextEdit(ref request, bytes, (uint)bytes.Length);
+                return Enum.IsDefined(typeof(RmlUiTextEditResult), value) ? (RmlUiTextEditResult)value : RmlUiTextEditResult.OwnerFailure;
+            }
+            catch (EntryPointNotFoundException) { _textEditAbi = false; return RmlUiTextEditResult.Unsupported; }
+            finally { Array.Clear(bytes); }
         }
 
         internal bool Compose(in RmlUiPlatformInputEvent input, int stage)

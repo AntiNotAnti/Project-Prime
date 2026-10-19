@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.Launcher
 {
@@ -50,6 +52,14 @@ namespace MphRead.Mods.Launcher
         /// <summary>What is wrong with the setup, or null when nothing is.</summary>
         public static string? Problem()
         {
+            lock (_filesGate)
+                return _setupInProgress ? SetupWorking : ProblemCore();
+        }
+
+        // Only the admitted setup writer may call this directly for its final
+        // validation. Ordinary readers never mutate Paths under that writer.
+        private static string? ProblemCore()
+        {
             if (!File.Exists(PathsFile))
             {
                 return "No game files yet";
@@ -72,7 +82,7 @@ namespace MphRead.Mods.Launcher
                 // ChooseMphPath as well as UpdatePaths: FileSystem reads the
                 // entry for whichever version is current, and the default is
                 // the one an EU or JP dump does not fill in.
-                ApplyPaths();
+                ApplyPathsCore();
                 string root = Paths.FileSystem;
                 if (String.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
                 {
@@ -112,7 +122,102 @@ namespace MphRead.Mods.Launcher
         /// propagates setup failure through its exit code, so a rejected ROM
         /// cannot be mistaken for an older setup that happened to remain valid.
         /// </summary>
+        private static readonly object _filesGate = new();
+        private static readonly object _pathsGate = new();
+        private static int _configuredReaders;
+        private static string? _publishedPathsRoot;
+        private static bool _setupInProgress;
+        public static bool SetupInProgress { get { lock (_filesGate) return _setupInProgress; } }
+        internal const string SetupWorking = "Game-file setup is working. Wait for it to finish.";
+        private const string FilesInUse = "Game files are in use. Wait for setup, loading or previews to finish.";
+
+        // Capability belongs to this existing file owner, not a scene or a
+        // second worker queue. It can span an asynchronous preview's lifetime.
+        internal sealed class ConfiguredFilesUse : IDisposable
+        {
+            private int _released;
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _released, 1) != 0) return;
+                lock (_filesGate) _configuredReaders--;
+            }
+        }
+        internal static ConfiguredFilesUse? TryUseConfiguredFiles(string? expectedRoot = null)
+        {
+            var capability = new ConfiguredFilesUse();
+            lock (_filesGate)
+            {
+                if (_setupInProgress || expectedRoot != null && !String.Equals(Root, expectedRoot, StringComparison.Ordinal)) return null;
+                // Refresh only before issuing the first read capability. Nested
+                // header/status reads must never republish mutable Paths while
+                // a prewarm, preview or scene constructor is reading it.
+                if (_configuredReaders == 0)
+                {
+                    try { ApplyPathsCore(); }
+                    catch (Exception) { return null; }
+                }
+                if (!String.Equals(_publishedPathsRoot, Root, StringComparison.Ordinal)) return null;
+                _configuredReaders++;
+                return capability;
+            }
+        }
+        internal static bool TryInspectSetup<T>(Func<T> inspect, out T value)
+        {
+            value = default!;
+            // A bounded status projection may describe missing/broken files.
+            // It is not a configured-files capability and must not admit an
+            // asset consumer after failed Paths publication.
+            lock (_filesGate)
+            {
+                if (_setupInProgress) return false;
+                value = inspect(); return true;
+            }
+        }
+        private static bool ReserveSetup(string expectedRoot, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            lock (_filesGate)
+            {
+                if (_setupInProgress || _configuredReaders != 0) return false;
+                if (!String.Equals(Root, expectedRoot, StringComparison.Ordinal)) return false;
+                _setupInProgress = true; return true;
+            }
+        }
+        private static void ReleaseSetup() { lock (_filesGate) _setupInProgress = false; }
         public static bool RunSetup(string romPath, Action<string> report)
+            => RunSetup(romPath, report, Root, CancellationToken.None);
+        internal static bool RunSetup(string romPath, Action<string> report,
+            string expectedRoot, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(report);
+            if (!ReserveSetup(expectedRoot, cancellationToken)) { report(FilesInUse); return false; }
+            return RunReservedSetup(romPath, report, expectedRoot, cancellationToken);
+        }
+        internal static Task<bool> RunSetupAsync(string romPath, Action<string> report,
+            string expectedRoot, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(report);
+            // Reserve on the calling owner before queueing: a scene cannot
+            // slip between the button admission and the worker starting.
+            if (!ReserveSetup(expectedRoot, cancellationToken)) { report(FilesInUse); return Task.FromResult(false); }
+            try { return Task.Run(() => RunReservedSetup(romPath, report, expectedRoot, cancellationToken)); }
+            catch { ReleaseSetup(); throw; }
+        }
+        private static bool RunReservedSetup(string romPath, Action<string> report,
+            string expectedRoot, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!String.Equals(Root, expectedRoot, StringComparison.Ordinal))
+                { report("The game-files destination changed. Choose the ROM again."); return false; }
+                return RunSetupCore(romPath, report, expectedRoot, cancellationToken);
+            }
+            finally { ReleaseSetup(); }
+        }
+
+        private static bool RunSetupCore(string romPath, Action<string> report,
+            string expectedRoot, CancellationToken cancellationToken)
         {
             // Checked here rather than in each caller, since the GUI file
             // picker, text launcher and Android in-process setup all funnel
@@ -126,6 +231,9 @@ namespace MphRead.Mods.Launcher
                 return false;
             }
             report($"Recognised: Metroid Prime Hunters, {label}");
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!String.Equals(Root, expectedRoot, StringComparison.Ordinal))
+            { report("The game-files destination changed before extraction."); return false; }
             if (InProcessSetup)
             {
                 return RunSetupHere(romPath, report);
@@ -138,7 +246,7 @@ namespace MphRead.Mods.Launcher
             }
             var info = new ProcessStartInfo(exe)
             {
-                WorkingDirectory = Root,
+                WorkingDirectory = expectedRoot,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
@@ -156,12 +264,10 @@ namespace MphRead.Mods.Launcher
                     report("Could not start the extraction.");
                     return false;
                 }
-                var output = new StringBuilder();
                 child.OutputDataReceived += (_, e) =>
                 {
                     if (e.Data != null)
                     {
-                        output.AppendLine(e.Data);
                         report(e.Data);
                     }
                 };
@@ -169,7 +275,6 @@ namespace MphRead.Mods.Launcher
                 {
                     if (e.Data != null)
                     {
-                        output.AppendLine(e.Data);
                         report(e.Data);
                     }
                 };
@@ -208,7 +313,9 @@ namespace MphRead.Mods.Launcher
                 report($"The extraction failed: {ex.Message}");
                 return false;
             }
-            string? problem = Problem();
+            if (!String.Equals(Root, expectedRoot, StringComparison.Ordinal))
+            { report("Extraction finished for the captured folder; the active destination changed. Check game files."); return false; }
+            string? problem = ProblemCore();
             if (problem != null)
             {
                 report(problem);
@@ -224,9 +331,31 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static void ApplyPaths()
         {
-            Paths.UpdatePaths();
-            Paths.ChooseMphPath();
-            Paths.ChooseFhPath();
+            using var files = TryUseConfiguredFiles();
+            if (files == null) throw new InvalidOperationException(SetupWorking);
+            ApplyPathsCore();
+        }
+        private static void ApplyPathsCore()
+        {
+            lock (_filesGate)
+            {
+                if (_configuredReaders != 0)
+                {
+                    if (String.Equals(_publishedPathsRoot, Root, StringComparison.Ordinal)) return;
+                    throw new InvalidOperationException(FilesInUse);
+                }
+                lock (_pathsGate)
+                {
+                    string root = Root;
+                    _publishedPathsRoot = null;
+                    Paths.UpdatePaths();
+                    Paths.ChooseMphPath();
+                    Paths.ChooseFhPath();
+                    if (!String.Equals(root, Root, StringComparison.Ordinal))
+                        throw new InvalidOperationException(FilesInUse);
+                    _publishedPathsRoot = root;
+                }
+            }
         }
 
         /// <summary>
@@ -270,7 +399,7 @@ namespace MphRead.Mods.Launcher
             {
                 Console.SetOut(previous);
             }
-            string? problem = Problem();
+            string? problem = ProblemCore();
             if (problem != null)
             {
                 report(problem);

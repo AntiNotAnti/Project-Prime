@@ -85,7 +85,7 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnAttachedToVisualTree(e);
             _audio?.Dispose();
             _audio = new CampaignAudioSession();
-            _audio.Enter(CampaignAudioPage.Ending);
+            _audio.Enter(CampaignAudioPage.EndingResults);
             _audioTimer.Start();
         }
 

@@ -1,0 +1,14 @@
+{
+  "root": "/Users/jarrett/Documents/MPH/Repos/SecondHunt",
+  "license": "MIT, Copyright(c)2020 NoneGiven",
+  "files": {
+    "src/MphRecomp.Core/Import/Disc/DiscImage.cs": "db3c7cfc9f5d9420638c23183de3c50894b70d4918e52ce2a58f592f6563278f",
+    "src/MphRecomp.Core/Import/Disc/WiaReader.cs": "65cc23f912c645d0ebdc2abe978c1356b61ffa26aa63a4495af78c78a40f6863",
+    "src/MphRecomp.Core/Import/Disc/Zstd.cs": "9f96f922bddb2391df06a949573266663fc5c74ec656edef398ba7913889f77e",
+    "src/MphRecomp.Core/Import/Disc/RvzPacking.cs": "94686c62d755353dee662b52f7530081fa660795a5f930edf6e7f674591dbbd9",
+    "src/MphRecomp.Core/Import/Be.cs": "6f33fc9b468b26f9c5a51655b6c823902344545d98986b7ddb77cc92343799d4",
+    "src/MphRecomp.Core/Import/Disc/DiscFileSystem.cs": "2a1c39fc6bbe30c3acd9ed28f7bfde8dc75de56e90833ec6a0b5d242d76d581f",
+    "LICENSE": "5953d46123113ec08cd5c92c4911fac29fe1890c46fa081e93dba311bcea68f7"
+  },
+  "formatProvenance": "Donor WiaReader/RvzPacking comments state clean-room from Dolphin WIA/RVZ format description, no Dolphin code; Zstd from RFC8878. These are donor statements, not an independent authorship audit."
+}

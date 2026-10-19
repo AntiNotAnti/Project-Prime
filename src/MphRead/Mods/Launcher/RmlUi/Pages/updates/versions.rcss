@@ -1,0 +1,20 @@
+#versions_rows { width:68vw; max-width:540dp; box-sizing:border-box; display:flex; flex-direction:column; align-items:stretch; max-height:280dp; overflow-y:auto; overflow-x:hidden; margin-top:12dp; }
+#versions_rows button { display:block; flex-shrink:0; width:68vw; max-width:540dp; box-sizing:border-box; min-height:38dp; margin:3dp 0; padding:8dp; color:#dff5ff; border:1dp #3e88aa; background-color:#0b344c; tab-index:auto; text-align:left; }
+#versions_rows button:hover,#versions_rows button:focus { background-color:#11648b; }
+#versions_rows button:disabled,#update_actions button:disabled { color:#8295a3; border-color:#244354; background-color:#11232e; }
+#versions_confirmation { color:#ffd18b; }
+@media (max-height:500dp) { #versions_rows { width:80vw; max-width:570dp; max-height:130dp; } #versions_rows button { width:80vw; max-width:570dp; min-height:30dp; padding:5dp; } }
+/* Explicit content widths also keep text and version cells from resolving
+   through the native modal's intrinsic zero-width layout at larger density. */
+#update_card .eyebrow,#update_card h1,#update_card p,#update_card .update_version { width:68vw; max-width:540dp; box-sizing:border-box; }
+#update_card .update_version span { width:20vw; max-width:150dp; }
+#update_card .update_version b { width:45vw; max-width:380dp; }
+@media (max-height:500dp) {
+ #update_card .eyebrow,#update_card h1,#update_card p,#update_card .update_version { width:80vw; max-width:570dp; }
+ #update_card .update_version span { width:24vw; max-width:160dp; }
+ #update_card .update_version b { width:54vw; max-width:390dp; }
+}
+
+/* Make the scrolling viewport part of the native offset-parent chain so
+   high-density hit testing clips descendants in their actual coordinates. */
+#versions_rows,#versions_rows button,#update_actions,#update_actions button { position:relative; }

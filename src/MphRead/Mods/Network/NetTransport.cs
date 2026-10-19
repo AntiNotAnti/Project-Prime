@@ -146,7 +146,9 @@ namespace MphRead.Mods.Network
             => type is 0 or PacketType.Ping or PacketType.Pong or PacketType.Bye
                 || (connection.QueueServerSide
                     ? type is PacketType.QueueJoin or PacketType.QueueLeave or PacketType.QueueAccept or PacketType.QueueDecline
-                    : type is PacketType.QueueWelcome or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.Welcome or PacketType.Refused);
+                        or PacketType.PartyReservationRequest or PacketType.PartyReservationAction
+                    : type is PacketType.QueueWelcome or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.Welcome or PacketType.Refused
+                        or PacketType.PartyReservationState);
         public void RetireConnection(IPEndPoint endpoint)
         {
             long stamp = EnterConnectionLock();
@@ -892,8 +894,13 @@ namespace MphRead.Mods.Network
                         if (!_connections.TryGetValue(endpoint, out var current)
                             || !ReferenceEquals(current, source)
                             || current.RetiredAt.HasValue) return;
-                        current.Send(eventPacket.Type, now, NetHeaderFlags.Reliable,
-                            eventPacket.EventId).Write(bytes);
+                        var header = current.Send(eventPacket.Type, now, NetHeaderFlags.Reliable,
+                            eventPacket.EventId);
+                        // A saturated event receipt cannot produce an untracked
+                        // physical send. ServiceConnections reports the existing
+                        // connection failure after this bounded dispatch exits.
+                        if (current.Reliable.Failed) return;
+                        header.Write(bytes);
                         BinaryPrimitives.WriteUInt32LittleEndian(
                             bytes[NetHeader.Size..], eventPacket.EventId);
                         eventPacket.Payload.Span.CopyTo(bytes[(NetHeader.Size + 4)..]);

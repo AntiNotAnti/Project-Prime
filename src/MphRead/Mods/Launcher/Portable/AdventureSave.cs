@@ -22,7 +22,7 @@ namespace MphRead.Mods.Launcher
     /// Avalonia, console) drive the same logic from here rather than each
     /// deciding for itself where a new game starts.
     /// </summary>
-    public static class AdventureSave
+    public static partial class AdventureSave
     {
         /// <summary>Slots offered by the menu. Slot 0 is "none" to the engine.</summary>
         public const int SlotCount = 3;
@@ -115,6 +115,7 @@ namespace MphRead.Mods.Launcher
         public static string ContentFingerprint(byte slot)
         {
             string path = SlotPath(slot);
+            if (Directory.Exists(path)) return "UNAVAILABLE";
             if (!File.Exists(path)) return "EMPTY";
             try
             {

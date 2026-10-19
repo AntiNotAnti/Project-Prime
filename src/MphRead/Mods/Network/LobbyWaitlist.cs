@@ -24,7 +24,7 @@ internal readonly record struct LobbyWaitlistMetrics(ulong Joined, ulong Left, u
 /// <summary>Bounded FIFO policy and capacity reservations. All calls belong to one
 /// lobby control thread. DedicatedServer supplies established queue-only transport
 /// identities and performs ordinary admission after reserving an available seat.</summary>
-internal sealed class LobbyWaitlist
+internal sealed partial class LobbyWaitlist
 {
     internal const int DefaultCapacity = 64, HardMaximumCapacity = 256;
     private sealed class Entry
@@ -34,6 +34,7 @@ internal sealed class LobbyWaitlist
         internal double JoinedAt;
         internal double? DisconnectedAt;
         internal LobbySeatOffer? Offer;
+        internal GroupHold? Group;
     }
     private readonly List<Entry> _entries = new();
     private readonly int _ownerThread = Environment.CurrentManagedThreadId;
@@ -72,7 +73,12 @@ internal sealed class LobbyWaitlist
         for (int i = _entries.Count - 1; i >= 0; i--)
         {
             var entry = _entries[i];
-            if (entry.DisconnectedAt is double disconnected && now - disconnected >= _resumeGrace)
+            if (entry.Group is { } group && now >= group.ExpiresAt)
+            {
+                _entries.RemoveAt(i);
+                _metrics = _metrics with { Expired = Increment(_metrics.Expired) };
+            }
+            else if (entry.DisconnectedAt is double disconnected && now - disconnected >= _resumeGrace)
             {
                 _entries.RemoveAt(i);
                 _metrics = _metrics with { DisconnectedExpired = Increment(_metrics.DisconnectedExpired) };
@@ -104,6 +110,8 @@ internal sealed class LobbyWaitlist
         bool changedEpoch = _matchId != matchId || _epoch != authorityEpoch;
         _playerCapacity = playerCapacity; _occupied = occupiedSlots; _allowAdmission = allowAdmission;
         _matchId = matchId; _epoch = authorityEpoch;
+        _entries.RemoveAll(entry => entry.Group is { } group && (changedEpoch || !allowAdmission
+            || (group.Slots & occupiedSlots) != 0 || (group.Slots >> playerCapacity) != 0));
         foreach (var entry in _entries)
             if (entry.Offer is LobbySeatOffer offer && (changedEpoch || !allowAdmission
                 || offer.Slot >= playerCapacity || (occupiedSlots & (1 << offer.Slot)) != 0)) entry.Offer = null;
@@ -116,6 +124,21 @@ internal sealed class LobbyWaitlist
         ushort unavailable = (ushort)(_occupied | ReservedSlotsCore());
         foreach (var entry in _entries)
         {
+            if (entry.Group is { } group)
+            {
+                if (group.Slots != 0) continue;
+                if (entry.DisconnectedAt != null) break;
+                ushort available = 0;
+                int count = 0;
+                for (int groupSlot = 0; groupSlot < _playerCapacity && count < group.Count; ++groupSlot)
+                    if ((unavailable & (1 << groupSlot)) == 0) { available |= (ushort)(1 << groupSlot); ++count; }
+                // A group cannot bypass an older offer or take only some seats.
+                if (count != group.Count) break;
+                group.Slots = available;
+                group.ExpiresAt = Math.Min(group.ExpiresAt, _now + Math.Min(15, _offerLifetime));
+                unavailable |= available;
+                continue;
+            }
             if (entry.Offer != null) continue;
             // Retained disconnected entries keep FIFO precedence for their bounded grace.
             if (entry.DisconnectedAt != null) break;
@@ -130,7 +153,11 @@ internal sealed class LobbyWaitlist
     private ushort ReservedSlotsCore()
     {
         ushort result = 0;
-        foreach (var entry in _entries) if (entry.Offer is LobbySeatOffer offer) result |= (ushort)(1 << offer.Slot);
+        foreach (var entry in _entries)
+        {
+            if (entry.Offer is LobbySeatOffer offer) result |= (ushort)(1 << offer.Slot);
+            if (entry.Group is { } group) result |= group.Slots;
+        }
         return result;
     }
     internal ushort ReservedSlots { get { CheckOwner(); return ReservedSlotsCore(); } }
@@ -140,7 +167,7 @@ internal sealed class LobbyWaitlist
     {
         CheckOwner();
         return _allowAdmission && slot >= 0 && slot < _playerCapacity
-            && !_entries.Exists(entry => entry.Offer == null)
+            && !_entries.Exists(entry => entry.Offer == null && (entry.Group == null || entry.Group.Slots == 0))
             && ((_occupied | ReservedSlotsCore()) & (1 << slot)) == 0;
     }
 

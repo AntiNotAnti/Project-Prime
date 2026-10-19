@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -18,17 +20,20 @@ internal sealed class ReplayEncoderJob : IDisposable
     internal Task<ReplayEncodingResult> Completion { get; }
     internal ReplayEncoderJob(string executable, string arguments, string directory)
         => Completion = Task.Run(() => Run(executable, arguments, directory));
+    internal ReplayEncoderJob(string executable,IReadOnlyList<string> arguments,string directory)
+        =>Completion=Task.Run(()=>Run(executable,"",directory,arguments));
     internal void Cancel() => _cancel.Cancel();
-    private async Task<ReplayEncodingResult> Run(string executable, string arguments, string directory)
+    private async Task<ReplayEncodingResult> Run(string executable, string arguments, string directory,IReadOnlyList<string>? argumentList=null)
     {
         var tail = new StringBuilder();
         try
         {
             _cancel.Token.ThrowIfCancellationRequested();
-            await File.WriteAllTextAsync(Path.Combine(directory, "encode.txt"), executable + " " + arguments, _cancel.Token).ConfigureAwait(false);
+            await File.WriteAllTextAsync(Path.Combine(directory, "encode.txt"), executable + " " + (argumentList==null?arguments:String.Join(" ",argumentList.Select(a=>System.Text.Json.JsonSerializer.Serialize(a)))), _cancel.Token).ConfigureAwait(false);
             using var process = new Process { StartInfo = new ProcessStartInfo(executable, arguments)
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true,
                 RedirectStandardOutput = true, WorkingDirectory = directory } };
+            if(argumentList!=null)foreach(string argument in argumentList)process.StartInfo.ArgumentList.Add(argument);
             if (!process.Start()) return new(false, null, "Encoder did not start.", "");
             // Cancellation only signals from the render thread. Kill/wait occur here.
             using var readCancellation = new CancellationTokenSource();
