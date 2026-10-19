@@ -126,9 +126,10 @@ internal static class CustomRewindSceneChecks
             var state = new WeaponRuntimeState(Definition,owner,1010); state.SetEquipped(1010,true);
             var before = state.Snapshot();
             Check(state.TryFire(1010,sequence,true) == WeaponActionResult.Accepted,"fixture supplies exact4-to3 accepted resource transition");
+            var launch = new CustomAcceptedLaunch(Definition,source,before,state.Snapshot());
             var equip = new EquipInfo(CustomPrecisionAdapter.Build(Definition.Mechanics),CustomPool)
-                { InfiniteAmmo = true, CustomShot = CustomShotSource.Accepted(Definition,owner,sequence) };
-            return (new(Definition,source,before,state.Snapshot()),equip);
+                { InfiniteAmmo = true, CustomShot = CustomShotSource.FromLaunch(launch) };
+            return (launch,equip);
         }
         internal World Capture()
         {
@@ -182,8 +183,9 @@ internal static class CustomRewindSceneChecks
             Check(ServerSim.Available(out string reason),"real game assets and synthetic input available: " + reason);
             using var fixture = new Fixture();
             TimingAndRestoration(fixture); MissingHistory(fixture); InvalidAndLifecycle(fixture); NativePrivateCatchUp(fixture);
+            NativeJoinIsolation(fixture);
             Console.WriteLine($"PASS {_checks} asset-backed custom rewind scope checks.");
-            Console.WriteLine("SCOPE: real ServerSim bodies/collision history/rewind restoration and native private-pool Process; custom certificates explicitly seeded. NOT_RUN: custom live Spawn, transport/readiness, historical source admission, trade/payment claims, replay or GL/audio.");
+            Console.WriteLine("SCOPE: real ServerSim bodies/collision history/rewind restoration and native private-pool Process; custom certificates and native-join metadata/payment receipts explicitly seeded. NOT_RUN: custom live Spawn, transport/readiness, historical source admission, actual multiplayer damage/trade/payment claims, replay or GL/audio.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine("CUSTOM REWIND FAIL " + error); return 1; }
@@ -341,5 +343,132 @@ internal static class CustomRewindSceneChecks
         Check(emitted != null && emitted.Age > 0 && NetUnlagged.CatchUpSteps > steps
             && FlightNow(existing) == existingState && Idle() && f.Unchanged(before),
             "real native Process catches up only supplied private pool and restores world while native pool projectile remains untouched");
+    }
+    private static void NativeJoinIsolation(Fixture f)
+    {
+        f.Prepare();
+        bool claims = NetHitClaims.Enabled, impacts = NetConfirmedImpacts.Enabled;
+        var timed = NetTimedShotProof.Mode;
+        var before = f.Capture(); int shooterHealth = f.Shooter.Health, targetHealth = f.Target.Health;
+        // Explicit metadata-only objects owned by this real scene. Neither beam
+        // is emitted, processed, collided or passed to TakeDamage in this test.
+        var objects = f.NewPool(2); var native = objects[0]; var custom = objects[1];
+        var nativeKey = ShotKey.For(f.Shooter.SlotIndex,1);
+        var payment = new ShotPaymentKey(nativeKey,(byte)f.Target.SlotIndex,
+            NetPlayerLifecycle.Generation(f.Target.SlotIndex),NetPlayerLifecycle.Get(f.Target.SlotIndex),1,1);
+        void NativeShape(BeamProjectileEntity beam)
+        {
+            beam.Owner = f.Shooter; beam.Beam = beam.BeamKind = BeamType.PowerBeam;
+            beam.ModLaunchKey = nativeKey; beam.ModShotId = nativeKey.ShotId; beam.ModComponentId = 1;
+            beam.ModLaunchMatch = nativeKey.MatchId; beam.ModLaunchAuthority = nativeKey.AuthorityEpoch;
+            beam.ModLaunchGeneration = nativeKey.Generation; beam.ModLaunchLife = nativeKey.LifeId; beam.ModLaunchFrame = 1004;
+            beam.Lifespan = 1; beam.Flags = BeamFlags.SurfaceCollision; beam.EnhancedDirectHit = true;
+            beam.Position = beam.SpawnPosition = f.Shooter.Position+Vector3.UnitY*.5f;
+            beam.BackPosition = beam.Position+Vector3.UnitY;
+        }
+        NativeShape(native); NativeShape(custom);
+        var supplied = f.Launch();
+        var action = supplied.Launch.Source.Action with { Sequence = 1 };
+        var launch = supplied.Launch with { Source = supplied.Launch.Source with { Action = action },
+            After = supplied.Launch.After with { LastAcceptedShotId = 1 } };
+        var source = CustomShotSource.FromLaunch(launch);
+        typeof(BeamProjectileEntity).GetProperty(nameof(BeamProjectileEntity.ModCustomShot),Hidden)!.SetValue(custom,source);
+        var fact = new ConfirmedImpact(nativeKey,1,0,payment.Victim,payment.Generation,payment.Life,1,
+            NetSession.NetFrame,(byte)BeamType.PowerBeam,ReplayShotFactFlags.Direct,ImpactProvenance.NativePoint,f.Target.Position);
+        var nativeOutcome = new CombatAckEntry { ShotId = 1, Result = (byte)CombatAckResult.Applied,
+            VictimSlot = payment.Victim, VictimGeneration = payment.Generation, VictimLife = payment.Life,
+            DamageApplied = 7, HealthAfter = 123, HalfturretHealthAfter = 17, DamageSequence = 77,
+            Flags = CombatAckFlags.OutcomePresent };
+        var forgedOutcome = nativeOutcome; forgedOutcome.DamageApplied = 999; forgedOutcome.HealthAfter = 0;
+        void DenyCustom(string label)
+        {
+            using var reservation = NetCombatPayments.Begin(f.Target,custom,DamageFlags.None);
+            Check(!reservation.Allowed,label);
+            // Even an erroneous caller invoking Commit on a denied fixture
+            // reservation cannot overwrite the separate native receipt.
+            reservation.Commit(forgedOutcome);
+        }
+        try
+        {
+            NetConfirmedImpacts.Enabled = true; NetTimedShotProof.Mode = TimedGrantProofMode.Shadow;
+            Check(source.Sequence == nativeKey.ShotId && custom.ModCustomShot == source
+                && custom.ModLaunchKey == native.ModLaunchKey && custom.ModShotId == native.ModShotId
+                && custom.Beam == native.Beam && fact.Valid,
+                "declared custom metadata deliberately forges identical valid native key/sequence/component/weapon fields");
+            Check(NetConfirmedImpacts.Describe(f.Target,f.Shooter,native,null,1,DamageFlags.None).HasValue
+                && NetConfirmedImpacts.Describe(f.Target,f.Shooter,custom,null,1,DamageFlags.None) == null
+                && NetConfirmedImpacts.Matches(fact,native) && !NetConfirmedImpacts.Matches(fact,custom),
+                "typed custom beam cannot describe or pair native confirmed impact despite forged matching native fields");
+            foreach (bool enabled in new[] { true,false })
+            {
+                NetHitClaims.Enabled = enabled;
+                Check(NetDamage.Suppress(f.Target,custom,DamageFlags.None)
+                    && !NetDamage.Suppress(f.Target,native,DamageFlags.None),
+                    "custom live damage is suppressed while ordinary native metadata remains eligible; claims=" + enabled);
+                Check(!NetDamage.Suppress(f.Target,null,DamageFlags.None),
+                    "ordinary source-less authority damage keeps existing suppression behavior; claims=" + enabled);
+                using (var ordinary = NetCombatPayments.Begin(f.Target,null,DamageFlags.None))
+                    Check(ordinary.Allowed,"ordinary source-less payment adapter keeps existing behavior; claims=" + enabled);
+                foreach (bool nativeFirst in new[] { false,true })
+                {
+                    NetCombatPayments.Reset();
+                    if (!nativeFirst)
+                    {
+                        DenyCustom("custom-first same-number reservation refused; claims=" + enabled);
+                        Check(!NetCombatPayments.TryGet(payment,(byte)BeamType.PowerBeam,out _),
+                            "custom-first attempt cannot manufacture a native payment receipt");
+                    }
+                    using (var reservation = NetCombatPayments.Begin(payment,(byte)BeamType.PowerBeam))
+                    {
+                        Check(reservation.Allowed,"explicit native fixture reservation remains available after custom attempts");
+                        if (!nativeFirst) DenyCustom("custom attempt cannot enter an in-progress native reservation; claims=" + enabled);
+                        using (var occupied = NetCombatPayments.Begin(payment,(byte)BeamType.PowerBeam))
+                            Check(!occupied.Allowed,"native reservation remains exact through pending custom-attempt chronology");
+                        reservation.Commit(nativeOutcome);
+                    }
+                    Check(NetCombatPayments.TryGet(payment,(byte)BeamType.PowerBeam,out var retained)
+                        && retained.Equals(nativeOutcome) && NetCombatPayments.Payments == 1,
+                        "explicit native fixture commits exactly its declared receipt, without actual HP removal");
+                    DenyCustom("custom-after-native same-number reservation refused; claims=" + enabled);
+                    Check(NetCombatPayments.TryGet(payment,(byte)BeamType.PowerBeam,out retained)
+                        && retained.Equals(nativeOutcome) && NetCombatPayments.Payments == 1,
+                        "custom same-number attempt cannot consume or overwrite native tombstone; native-first=" + nativeFirst + "; claims=" + enabled);
+                    using var duplicate = NetCombatPayments.Begin(payment,(byte)BeamType.PowerBeam);
+                    Check(!duplicate.Allowed,"native fixture tombstone still rejects its own exact duplicate after custom attempts");
+                }
+            }
+            foreach (bool modeOff in new[] { false,true })
+            {
+                NetTimedShotProof.Mode = TimedGrantProofMode.Shadow;
+                var start = native.SpawnPosition; var end = start+Vector3.UnitX*4;
+                using var nativeSegment = new NetNativeImpactWitness.SegmentScope(native,start,end);
+                using var nativeWitness = NetNativeImpactWitness.Enter(f.Target,native,1,DamageFlags.None,f.Target.Position);
+                Check(NetNativeImpactWitness.TryCapture(out var outer) && outer.Payment == payment
+                    && outer.SegmentStart == start && outer.SegmentEnd == end,
+                    "explicit native metadata fixture opens exact native witness and segment scope");
+                object? segment = Field<object?>(typeof(NetNativeImpactWitness),"_segment");
+                if (modeOff) NetTimedShotProof.Mode = TimedGrantProofMode.Off;
+                using (var customSegment = new NetNativeImpactWitness.SegmentScope(custom,start,end))
+                {
+                    Check(Field<object?>(typeof(NetNativeImpactWitness),"_segment") == null,
+                        "custom scope clears outer native segment even with optional policy Off=" + modeOff);
+                    using (var customWitness = NetNativeImpactWitness.Enter(f.Target,custom,1,DamageFlags.None,f.Target.Position))
+                        Check(!NetNativeImpactWitness.TryCapture(out _),
+                            "custom scope cannot borrow outer native witness even with optional policy Off=" + modeOff);
+                    Check(NetNativeImpactWitness.TryCapture(out var restored) && restored == outer,
+                        "custom witness disposal restores exact outer native metadata witness");
+                }
+                Check(Equals(Field<object?>(typeof(NetNativeImpactWitness),"_segment"),segment),
+                    "custom segment disposal restores exact prior native segment");
+            }
+            Check(f.Shooter.Health == shooterHealth && f.Target.Health == targetHealth && f.Unchanged(before),
+                "declared native-join fixtures never apply multiplayer HP damage or alter collision world");
+        }
+        finally
+        {
+            NetCombatPayments.Reset(); NetConfirmedImpacts.Reset();
+            NetHitClaims.Enabled = claims; NetConfirmedImpacts.Enabled = impacts; NetTimedShotProof.Mode = timed;
+            custom.Destroy(); native.Destroy();
+        }
     }
 }

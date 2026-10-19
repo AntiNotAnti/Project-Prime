@@ -454,6 +454,12 @@ namespace MphRead.Mods.Network
 
         public static bool Suppress(PlayerEntity victim, EntityBase? source, DamageFlags flags)
         {
+            // Typed custom provenance never falls through native lifecycle,
+            // rescue, prediction or replay attribution. Live custom admission
+            // and payment must supply their own mandatory adapter first.
+            if (source is BeamProjectileEntity { ModCustomShot: not null } custom)
+                return NetSession.Active || custom.OwningScene != victim.OwningScene
+                    || victim.OwningScene.OfflineWeapons?.IsEligible != true;
             if (!NetSession.Active || Replaying)
             {
                 return false;
