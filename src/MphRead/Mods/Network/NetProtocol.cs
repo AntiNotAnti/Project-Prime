@@ -2540,7 +2540,10 @@ namespace MphRead.Mods.Network
         // Protocol 58 adds the authoritative third-person presentation rule.
         // Require all participants to understand the same host-enforced view
         // instead of silently mixing competitive first- and third-person clients.
-        public const int ProtocolVersion = 58;
+        // Protocol 59 adds the authoritative MovementModel-v1 semantic contract.
+        // Native remains the default; Momentum selects the fixed v1 profile.
+        // Owner-reported movement and all existing packet widths remain unchanged.
+        public const int ProtocolVersion = 59;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

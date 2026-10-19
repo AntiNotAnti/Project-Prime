@@ -42,6 +42,8 @@ namespace MphRead.Mods.Network
 
         private void FreezeMatch(MatchDefinition match)
         {
+            if (LobbyRules.ValidateDefinition(match, out string reason) != LobbyResultCode.Ok)
+                throw new InvalidOperationException(reason);
             _frozenMatch = match.NormalizeLegacy();
             _frozenWorldProfile = LobbyRules.ResolveWorldProfile(_frozenMatch, _maxPlayers);
         }
@@ -54,7 +56,7 @@ namespace MphRead.Mods.Network
             FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
             HideOpponentHealth = true, DisablePowerups = !EnablePowerups, SpawnProtection = SpawnProtection,
             Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
-            BalancedMode = BalancedMode,
+            BalancedMode = BalancedMode, MovementModel = MovementModel,
             OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset
         }.NormalizeLegacy();
 

@@ -11,9 +11,8 @@ public partial class PlayerEntity
     // horizontal native velocity to units/second only at the pure solver seam.
     internal const float NativeVelocityUnitsPerSecond = FrameTiming.SimulationHz / 2f;
 
-    internal bool ModMomentumEligible => _scene.DeveloperMomentumActive
-        && _scene.DeveloperMomentumInputAllowed && ReferenceEquals(_scene.Players.Main, this)
-        && SlotIndex == Mods.Network.NetHooks.LocalSlot && !IsBot
+    internal bool ModMomentumEligible => _scene.MomentumMovementActive
+        && (IsBot || _scene.DeveloperMomentumInputAllowed) && _scene.MomentumOwnsPlayer(this)
         && LoadFlags.TestFlag(LoadFlags.Active) && _health > 0 && _frozenTimer == 0 && !_field6D0
         && !IsAltForm && !IsMorphing && !IsUnmorphing && !IsPrimeHunter
         && !Flags1.TestAny(PlayerFlags1.UsedJumpPad | PlayerFlags1.Boosting | PlayerFlags1.OnLava | PlayerFlags1.OnAcid)

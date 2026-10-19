@@ -1,0 +1,78 @@
+{
+  "testedBase": "d726c766a10affaa0d8f95bc25bce9d178528215",
+  "checks": 10223,
+  "scope": "asset-backed offline match-rule selection through native scene simulation/input/collision; no live UDP, remote, bot, replay, physical-device or rendered-camera acceptance",
+  "conditions": "same seeded native room and spawn; match definition applied after AddRoom/before OnLoad; private diagnostics enabled without developer ownership; W ticks1-32, W+D ticks33-64, Space tick65, D ticks66-96, S ticks97-128, neutral ticks129-180",
+  "summaries": [
+    {
+      "hunter": "Samus",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Kanden",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Spire",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Noxus",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Trace",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Sylux",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    },
+    {
+      "hunter": "Weavel",
+      "nativeSteps": 0,
+      "developerSteps": 180,
+      "ruleSteps": 180,
+      "InputTicks": 128,
+      "nativeDisplacement": 5.694656,
+      "ruleDisplacement": 7.3979254,
+      "ticks": 180
+    }
+  ]
+}

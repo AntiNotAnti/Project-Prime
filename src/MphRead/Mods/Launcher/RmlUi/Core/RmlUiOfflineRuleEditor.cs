@@ -9,6 +9,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Core;
 public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLimit,
     string TimeGoal, string DamageLevel, ushort Flags)
 {
+    // Retain the saved model while editing the existing rule controls.
+    public string? MovementModel { get; init; } = "Native";
     public bool Enabled(int index) => index is >= 0 and < 13 && (Flags & (1 << index)) != 0;
     public static RmlUiOfflineRules Capture(MenuSettings s)
     {
@@ -17,7 +19,7 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
             s.NoImperialist, s.BalancedMode, s.HunterRadar, s.ThirdPersonCamera };
         ushort flags = 0;
         for (int i = 0; i < values.Length; i++) if (values[i] == "on") flags |= (ushort)(1 << i);
-        return new(s.PointGoal, s.TimeLimit, s.TimeGoal, s.DamageLevel, flags);
+        return new(s.PointGoal, s.TimeLimit, s.TimeGoal, s.DamageLevel, flags) { MovementModel = s.MovementModel };
     }
 
     public void CopyTo(MenuSettings s)
@@ -29,6 +31,7 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
         s.ShadowFreeze = On(3); s.SpawnProtection = On(4); s.OneInTheChamber = On(5);
         s.Fiesta = On(6); s.InstaGib = On(7); s.LowTier = On(8); s.NoImperialist = On(9);
         s.BalancedMode = On(10); s.HunterRadar = On(11); s.ThirdPersonCamera = On(12);
+        s.MovementModel = MovementModel ?? "Native";
     }
 
     // The caller holds the existing settings-write lease. Roll back the exact
@@ -89,7 +92,10 @@ public sealed class RmlUiOfflineRuleEditor
         if (!Int32.TryParse(points, NumberStyles.None, CultureInfo.InvariantCulture, out int amount)
             || amount is < 0 or > 999 || !Duration(limit) || !Duration(goal))
         { Error = "USE A POINT GOAL FROM 0–999 AND DURATIONS AS m:ss"; return false; }
-        var rules = new MatchDefinition { Mode = Mode, InstaGib = Draft.Enabled(7),
+        if (!Movement.MovementModelRules.TryParse(Draft.MovementModel, out var movementModel))
+        { Error = "MOVEMENT MODEL MUST BE NATIVE OR MOMENTUM"; return false; }
+        var rules = new MatchDefinition { Mode = Mode, MovementModel = Mode == GameMode.SinglePlayer
+                ? Movement.MovementModel.Native : movementModel, InstaGib = Draft.Enabled(7),
             NoImperialist = Draft.Enabled(9), Fiesta = Draft.Enabled(6), BalancedMode = Draft.Enabled(10) };
         if (!MatchModifierRules.Validate(rules, out string reason)) { Error = reason; return false; }
         Draft = Draft with { PointGoal = points, TimeLimit = limit, TimeGoal = goal };

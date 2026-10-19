@@ -43,7 +43,7 @@ namespace MphRead.Entities
         /// </summary>
         private void ModMovementShadowBeginFrame()
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire)
             {
                 return;
@@ -73,7 +73,7 @@ namespace MphRead.Entities
         private void ModMovementShadowNoteHorizontalImpulse(
             Vector3 impulse, float horizontalSpeedCap)
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire)
             {
                 return;
@@ -85,7 +85,7 @@ namespace MphRead.Entities
 
         private void ModMovementShadowNoteSpeedFactor(float horizontalMultiplier)
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire)
             {
                 return;
@@ -96,7 +96,7 @@ namespace MphRead.Entities
 
         private void ModMovementShadowNoteGravity(float gravity)
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire)
             {
                 return;
@@ -107,7 +107,7 @@ namespace MphRead.Entities
 
         private void ModMovementShadowNoteContact(Vector3 normal, float pushout)
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire
                 || !float.IsFinite(pushout) || pushout <= _movementShadowContactPushout)
             {
@@ -129,7 +129,7 @@ namespace MphRead.Entities
         /// </summary>
         private void ModMovementShadowObserve()
         {
-            if (_scene.DeveloperMomentumActive || !MovementShadowRuntime.Enabled
+            if (_scene.MomentumMovementActive || !MovementShadowRuntime.Enabled
                 || Hunter != Hunter.Samus && Hunter != Hunter.Spire)
             {
                 return;

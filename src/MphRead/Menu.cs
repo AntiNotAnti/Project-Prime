@@ -98,6 +98,7 @@ namespace MphRead
         public string NoImperialist { get; set; } = "off";
         public string BalancedMode { get; set; } = "off";
         public string ThirdPersonCamera { get; set; } = "off";
+        public string MovementModel { get; set; } = "Native";
         public string ShadowFreeze { get; set; } = "off";
         public string SpawnProtection { get; set; } = "off";
         public string SaveSlot { get; set; } = "none";

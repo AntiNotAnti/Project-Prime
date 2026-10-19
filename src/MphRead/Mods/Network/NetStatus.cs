@@ -277,7 +277,9 @@ namespace MphRead.Mods.Network
             string message = room.Length > 0
                 ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {MatchTypeCatalog.MatchupLabel(mode, status.Format)} \u00B7 {players}"
                 : players;
-            string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
+            string modifiers = new MatchDefinition { MovementModel = status.Rules.HasFlag(MatchModifierFlags.MomentumMovement)
+                    ? Movement.MovementModel.Momentum : Movement.MovementModel.Native,
+                InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
                 LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
             if (modifiers.Length > 0) message += " · " + modifiers;
             if (!String.IsNullOrEmpty(status.ServerName))

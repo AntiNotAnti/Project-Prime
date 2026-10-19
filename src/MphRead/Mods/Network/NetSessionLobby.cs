@@ -178,6 +178,14 @@ namespace MphRead.Mods.Network
             // Match control can arrive before its session packet. Check that
             // stream too, before a stale lobby packet resets the running world.
             if (state.MatchId == 0 || state.AuthorityEpoch == 0) return;
+            if (ServerSession == null && state.Phase != SessionPhase.Lobby
+                && ServerMatch is { } frozenControl && frozenControl.MatchId == state.MatchId
+                && frozenControl.AuthorityEpoch == state.AuthorityEpoch
+                && Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits) != state.Match.MovementModel)
+            {
+                LastError = "The movement model is frozen for this match.";
+                return;
+            }
             if (ServerMatch is { } match
                 && (state.AuthorityEpoch < match.AuthorityEpoch
                     || (state.AuthorityEpoch == match.AuthorityEpoch && state.MatchId != match.MatchId
@@ -188,6 +196,13 @@ namespace MphRead.Mods.Network
                     && !NetLifecycleTracker.Newer(state.AuthorityEpoch, old.AuthorityEpoch)) return;
                 if (state.AuthorityEpoch == old.AuthorityEpoch && state.Revision != old.Revision
                     && !SessionStatePacket.IsNewer(state.Revision, old.Revision)) return;
+                if (state.AuthorityEpoch == old.AuthorityEpoch && state.MatchId == old.MatchId
+                    && old.Phase != SessionPhase.Lobby && state.Phase != SessionPhase.Lobby
+                    && state.Match.MovementModel != old.Match.MovementModel)
+                {
+                    LastError = "The movement model is frozen for this match.";
+                    return;
+                }
             }
             bool newMatch = ServerSession?.MatchId != state.MatchId
                 || ServerSession?.AuthorityEpoch != state.AuthorityEpoch;
