@@ -1,5 +1,6 @@
 using System;
 using MphRead.Mods.Render;
+using MphRead.Mods.Cosmetics;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
@@ -50,6 +51,19 @@ internal static class InstagibIonFractureTests
             float current = InstagibIonFracture.FadeAt(step / 100f);
             Check(current >= 0 && current <= previous, "monotone fade " + step);
             previous = current;
+        }
+        foreach (var beam in CosmeticCatalog.BeamEffects)
+        {
+            Check(beam.WireId == (ushort)beam.Style && beam.WireId < 16,
+                "style identity fits the reserved cosmetic nibble");
+            for (byte tone = 0; tone < BeamPalette.Names.Count; tone++)
+            {
+                var color = BeamPalette.Resolve(tone, beam.PrimaryColor);
+                Check(float.IsFinite(color.X) && float.IsFinite(color.Y) && float.IsFinite(color.Z)
+                    && color.X >= 0 && color.Y >= 0 && color.Z >= 0
+                    && color.X <= 1 && color.Y <= 1 && color.Z <= 1,
+                    "beam palette always yields finite normalized RGB");
+            }
         }
         var world = new InstagibIonFracture();
         Check(world.Count == 0, "new scene owns empty pool");
