@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 57, "protocol 53 preserves the queue/bot wire contract");
+            Check(NetConfig.ProtocolVersion == 58, "protocol 58 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -595,7 +595,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 57 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 58 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
@@ -613,12 +613,12 @@ namespace MphRead.Mods.Network
                 Match = new MatchDefinition { RoomKey = new string('X', 40), Mode = GameMode.BattleTeams,
                     Format = MatchFormat.FourVsFour, TimeLimitSeconds = 600, PointGoal = 20,
                     FriendlyFire = true, AffinityWeapons = true, ShadowFreeze = true, HideOpponentHealth = true,
-                    DisablePowerups = true, SpawnProtection = true, BalancedMode = true } };
+                    DisablePowerups = true, SpawnProtection = true, BalancedMode = true, ThirdPersonCamera = true } };
             byte[] data = new byte[SessionStatePacket.Size]; state.Write(data);
             Check(SessionStatePacket.TryRead(data, out var read) && read.Match == state.Match
                 && read.Revision == state.Revision && read.LoadedParticipants == 3
                 && read.StartCountdownMilliseconds == 3000,
-                "session round trip/max room/revision/countdown");
+                "session round trip/max room/revision/countdown/third-person rule");
             var duelState = new SessionStatePacket
             {
                 Phase = SessionPhase.Lobby, Policy = ServerSessionPolicy.Lobby,

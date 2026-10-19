@@ -61,6 +61,7 @@ namespace MphRead.NetTest
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
                     + "  --timed-shot-replay               Test detached archival fact codecs and optional replay schemas.\n"
+                    + "  --protocol58-replay               Test reviewed 56/57/58 archival layouts and future refusal.\n"
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
@@ -189,6 +190,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--terminal-retries") return TerminalRetryTests.Run(Array.IndexOf(args, "--lost-terminal-only") >= 0);
             if (args.Length > 0 && args[0] == "--timed-shot-certificates") return TimedShotCertificateTests.Run();
             if (args.Length > 0 && args[0] == "--timed-shot-replay") return TimedShotReplayTests.Run();
+            if (args.Length > 0 && args[0] == "--protocol58-replay") return ReplayProtocol58Tests.Run();
             if (args.Length > 1 && args[0] == "--timed-shot-replay-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

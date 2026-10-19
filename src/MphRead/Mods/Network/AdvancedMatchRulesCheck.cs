@@ -745,17 +745,23 @@ namespace MphRead.Mods.Network
 
             var defaults = new MatchDefinition();
             Check(!defaults.ShadowFreeze && !defaults.SpawnProtection && !defaults.InstaGib
-                && !defaults.LowTier && !defaults.NoImperialist && !defaults.BalancedMode, "advanced rules default off");
+                && !defaults.LowTier && !defaults.NoImperialist && !defaults.BalancedMode
+                && !defaults.ThirdPersonCamera, "advanced rules and third-person camera default off");
             Check(!new MatchStatePacket().ShadowFreeze && !new MatchStatePacket().SpawnProtection, "zero match flags mean off");
             var settings = new MenuSettings();
             Check(settings.ShadowFreeze == "off" && settings.SpawnProtection == "off"
                 && settings.BalancedMode == "off", "new settings opt in to protection, shadow freeze and Balanced Mode");
             var state = new SessionStatePacket { MaxPlayers = 8, MatchId = 1, AuthorityEpoch = 1,
                 Match = new MatchDefinition { RoomKey = Rooms()[0], Mode = GameMode.Capture,
-                    InstaGib = true, LowTier = true, ShadowFreeze = true, SpawnProtection = true } };
+                    InstaGib = true, LowTier = true, ShadowFreeze = true, SpawnProtection = true, ThirdPersonCamera = true } };
             byte[] bytes = new byte[SessionStatePacket.Size];
             state.Write(bytes);
-            Check(SessionStatePacket.TryRead(bytes, out var read) && read.Match == state.Match, "all combat rules survive session round trip");
+            Check(SessionStatePacket.TryRead(bytes, out var read) && read.Match == state.Match, "all combat and camera rules survive session round trip");
+            var configuredState = new SceneGameState(new ScenePlayerRegistry());
+            state.Match.ApplyModifiers(configuredState);
+            Check(configuredState.ThirdPersonCamera
+                && configuredState.ForScene(new ScenePlayerRegistry()).ThirdPersonCamera,
+                "third-person match configuration survives scene ownership copy");
             state.Match = state.Match with { InstaGib = false, NoImperialist = true, BalancedMode = true };
             state.Write(bytes);
             Check(SessionStatePacket.TryRead(bytes, out read) && read.Match.NoImperialist && read.Match.LowTier
@@ -780,8 +786,9 @@ namespace MphRead.Mods.Network
                 var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(decoder.CaptureCheckpoint());
                 Check(restored.Configuration?.Match == state.Match, "replay checkpoint retains every modifier");
             }
-            var legacy = new MatchDefinition { Mode = GameMode.InstaGib }.NormalizeLegacy();
-            Check(legacy.Mode == GameMode.Battle && legacy.InstaGib, "legacy mode normalizes at data boundary");
+            var legacy = new MatchDefinition { Mode = GameMode.InstaGib, ThirdPersonCamera = true }.NormalizeLegacy();
+            Check(legacy.Mode == GameMode.Battle && legacy.InstaGib && legacy.ThirdPersonCamera,
+                "legacy mode normalizes while retaining the camera rule");
             foreach (var mode in Launcher.OfflineLaunch.Modes.Select(m => m.Mode))
             {
                 var match = new MatchDefinition { RoomKey = Rooms()[0], Mode = mode, InstaGib = true };
