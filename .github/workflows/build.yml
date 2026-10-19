@@ -921,7 +921,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -graphicscheck
 
+      # The embedded Avalonia shell tests target the retained legacy interface.
+      # Native RmlUi default coverage remains in the GL and package acceptance jobs.
       - name: deterministic controller and headless UI checks
+        env:
+          PROJECT_PRIME_RMLUI_GL_SMOKE: '0'
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
