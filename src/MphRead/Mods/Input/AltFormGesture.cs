@@ -44,6 +44,15 @@ namespace MphRead.Mods.Input
             _ => AltFlickAction.None
         };
 
+        // Stylus mode may remain active while the physical device is a mouse.
+        // Only pen/touch input should use the independent stylus boost setting.
+        public static bool UsesAbsolutePointer(bool pointerActive, PointerDeviceType device)
+            => pointerActive && (device is PointerDeviceType.Pen or PointerDeviceType.Touch);
+
+        public static bool DesktopMovementBoostEnabled(bool pointerActive, PointerDeviceType device)
+            => UsesAbsolutePointer(pointerActive, device)
+                ? InputSettings.StylusMovementBoost : InputSettings.MouseMovementBoost;
+
         // At 1x, 24 filtered mouse counts in one fixed step reaches full
         // deflection. The shared swipe sensitivity expands that to 96 counts at
         // 0.25x or contracts it to 6 at 4x without involving normal aim
