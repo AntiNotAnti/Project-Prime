@@ -337,8 +337,7 @@ namespace MphRead.Entities
 
                 for (int i = 0; i < samples.Length; i++)
                 {
-                    CollisionResult discard = default;
-                    if (!CollisionDetection.CheckBetweenPoints(start, samples[i], TestFlags.None, scene, ref discard))
+                    if (!CollisionDetection.HasObstruction(start, samples[i], TestFlags.None, scene))
                     {
                         return true;
                     }
@@ -361,8 +360,7 @@ namespace MphRead.Entities
                 NodeData3 node = global.NodeData[global.NodeDataIndex];
                 Vector3 pos1 = player.Position.AddY(player.IsAltForm ? 0.5f : 1);
                 Vector3 pos2 = node.Position.AddY(0.5f);
-                CollisionResult discard = default;
-                if (CollisionDetection.CheckBetweenPoints(pos1, pos2, TestFlags.None, scene, ref discard))
+                if (CollisionDetection.HasObstruction(pos1, pos2, TestFlags.None, scene))
                 {
                     global.NodeDataIndex++;
                     global.Field4--;

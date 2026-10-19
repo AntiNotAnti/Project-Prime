@@ -69,6 +69,8 @@ else
     Console.WriteLine($"REPEATED_INIT bytes={GC.GetAllocatedBytesForCurrentThread() - beforeInit}");
 }
 var rows = new List<string>();
+CheckObstructionMatrix(a, "translated-room-A");
+CheckObstructionMatrix(b, "translated-room-B");
 foreach (var scene in new[] { a, b })
 {
     Vector3 translation = scene.Room!.RoomCollision[0].Translation;
@@ -132,6 +134,7 @@ foreach (var scene in new[] { a, b })
     if (!found || hit.Position != t + new Vector3(2, .5f, 2) || hit.Distance != .25f)
         throw new Exception("Transformed entity contact changed.");
     rows.Add("entity-translated-line:" + ResultSignature(hit));
+    CheckObstructionMatrix(scene, "entity-only-raised");
     using (var candidates = Own(CollisionDetection.GetCandidatesForLimits(t + new Vector3(2, 1, 2),
         t + new Vector3(2, -1, 2), .5f, null, Vector3.Zero, true, scene)))
     {
@@ -293,6 +296,7 @@ if (!baseline)
     }
     Console.WriteLine("EXCEPTION_RETURNS_WORKSPACE PASS");
 
+    CheckAnyHitWorkspace(a, b);
     MeasureLargeQuery(requireZero: true);
     MeasureLargeQuery(requireZero: true, candidateCount: 8192);
     CheckOversizedQuery();
@@ -342,6 +346,77 @@ for (int run = 0; run < samples.Length; run++)
     samples[run] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
 }
 Console.WriteLine("QUERY_TIMING batchesMs=" + string.Join(",", samples.Select(ms => ms.ToString("F3", System.Globalization.CultureInfo.InvariantCulture))));
+}
+
+// Boolean parity is independent of contact ordering. Every convenience query is
+// bracketed by full nearest queries, including exact result bits on misses.
+static void CheckObstructionMatrix(Scene scene, string label)
+{
+    Vector3 t = scene.Room!.RoomCollision[0].Translation;
+    int checks = 0;
+    foreach (TestFlags flags in new[] { TestFlags.None, TestFlags.Players, TestFlags.Beams, TestFlags.Scan,
+        TestFlags.Players | TestFlags.Beams, TestFlags.Players | TestFlags.Scan, TestFlags.Beams | TestFlags.Scan })
+    foreach (float x in new[] { -1f, 0f, 2f, 4f, 6f, 8f, 10f, 12f, 13f })
+    foreach (float z in new[] { -.1f, 0f, 2f, 4f, 4.1f })
+    foreach (var heights in new[] { (1f, -1f), (-1f, 1f), (0f, -1f), (1f, 0f), (0f, 0f), (1f, 1f), (1f, .5f) })
+    {
+        Vector3 first = t + new Vector3(x, heights.Item1, z), second = t + new Vector3(x, heights.Item2, z);
+        CollisionResult expected = default;
+        bool nearest = CollisionDetection.CheckBetweenPoints(first, second, flags, scene, ref expected);
+        string signature = ResultSignature(expected);
+        for (int repeat = 0; repeat < 2; repeat++)
+            if (CollisionDetection.HasObstruction(first, second, flags, scene) != nearest)
+                throw new Exception($"Any-hit differs from nearest boolean: {label} {flags} x={x} z={z} heights={heights}");
+        CollisionResult after = default;
+        if (CollisionDetection.CheckBetweenPoints(first, second, flags, scene, ref after) != nearest
+            || ResultSignature(after) != signature)
+            throw new Exception("Any-hit changes a subsequent nearest result: " + label);
+        checks++;
+    }
+    Console.WriteLine($"ANY_HIT_EQUIVALENCE label={label} cases={checks} repeated=true nearestBitsPreserved=true");
+}
+
+static void CheckAnyHitWorkspace(Scene a, Scene b)
+{
+    Vector3 p = new(2, 1, 2), q = new(2, -1, 2);
+    // Keep an outer workspace and enumerator alive through early hit/miss returns.
+    using (var outer = Own(CollisionDetection.GetCandidatesForPoints(p, q, 0, true, a)))
+    {
+        string signature = CandidateSignature(outer.Items);
+        using var enumerator = outer.Items.GetEnumerator();
+        int traversed = 0;
+        while (enumerator.MoveNext())
+        {
+            traversed++;
+            Vector3 t = b.Room!.RoomCollision[0].Translation;
+            if (!CollisionDetection.HasObstruction(t + p, t + q, TestFlags.Players, b)
+                || CollisionDetection.HasObstruction(t + (p + new Vector3(100, 0, 0)), t + (q + new Vector3(100, 0, 0)), TestFlags.None, b))
+                throw new Exception("Nested any-hit hit/miss differs.");
+        }
+        if (traversed != outer.Items.Count || signature != CandidateSignature(outer.Items))
+            throw new Exception("Any-hit invalidates outer candidate/enumerator lifetime.");
+    }
+    // A warmed hit followed by a miss must return its workspace, clear scene
+    // references and never leave stale faces that suppress the next real hit.
+    bool Query(int i) => (i & 1) == 0
+        ? CollisionDetection.HasObstruction(p, q, TestFlags.Players, a)
+        : CollisionDetection.HasObstruction((p + new Vector3(100, 0, 0)), (q + new Vector3(100, 0, 0)), TestFlags.None, b);
+    for (int i = 0; i < 10000; i++) Query(i);
+    int hits = 0;
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < 50000; i++) if (Query(i)) hits++;
+    long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+    if (hits != 25000 || bytes != 0) throw new Exception($"Any-hit warm hit/miss workload: hits={hits}, bytes={bytes}.");
+    var type = typeof(CollisionDetection).Assembly.GetType("MphRead.Formats.CollisionQueryWorkspace")!;
+    var pool = (System.Collections.ICollection)type.GetField("_available", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+    if (pool.Count is < 1 or > 8) throw new Exception("Any-hit loses or over-retains workspaces.");
+    foreach (object workspace in pool)
+    {
+        var inactive = (Queue<CollisionCandidate>)type.GetField("_inactiveItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+        if (inactive.Any(item => item.Collision != null || item.EntityCollision != null))
+            throw new Exception("Any-hit early return retains a previous scene reference.");
+    }
+    Console.WriteLine($"ANY_HIT_WARM_ALLOCATION queries=50000 hits={hits} bytes={bytes} nestedLifetime=true sceneReferencesCleared=true");
 }
 
 static void MeasureLargeQuery(bool requireZero, int candidateCount = 4225)
