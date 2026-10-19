@@ -19,6 +19,16 @@ validation tools remain a separate slice; hosted CI and release gates are open.
 
 ## Completed scoped evidence
 
+- A separate **current33 compatibility refresh passes after concurrent PR-754**:
+  fresh Windows Core/tool build, 21 focused checks, both actual production durable
+  packet comparators and both recorded replay scenes. Full preserved scene
+  digests match. Fresh 60-second two-owner fault-combat arms pass all six process
+  exits and 22 proof checks each: Native 15 joins/48 rewinds and Momentum 10/55.
+  Opt-in NCX placement/input/render probes remain disabled in normal acceptance.
+  The new Python evidence consumers pass 42 tests. This refresh does not relabel
+  the earlier team or eight-owner source leases. See
+  [PR-09d](pr09d-results.md) and
+  [current-main compatibility evidence](evidence/pr09-current33-compatibility.json).
 - The fresh **current46 Native/Momentum DefenderTeams pair passes**: two genuine
   human-owner processes plus two accepted level-three server bots, real balanced
   teams, 45 seconds per model on Proving Ground at 200:20. All six processes exit 0;

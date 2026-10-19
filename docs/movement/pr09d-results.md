@@ -1,7 +1,7 @@
 # PR-09d — actual team/objective compatibility
 
 **Scoped PASS; release acceptance remains incomplete.** This slice adds a genuine
-team/objective UDP fixture on latest main
+team/objective UDP fixture on main
 `46c101cdb7a4a25e2e8fb651181610d733b1fe11`. No production gameplay, movement,
 protocol or replay source changes. Classic remains the default.
 
@@ -30,7 +30,8 @@ The fixed additional DefenderTeams case uses MP3 PROVING GROUND, two independent
 AI-driven human owners on one team against two level-three server bots, 45 seconds
 per model, configured 200 ms RTT / 20 ms jitter and no added loss/reorder/duplication.
 Both client pairs observe 451 distinct accepted worlds each and share 128
-identical bounded positive authority node facts. All six processes exit 0.
+identical bounded authority node facts, including a real owning-team witness.
+All six processes exit 0.
 
 | Model | Positive owning-node samples per owner | Authority objective-seconds worlds per owner | Client score worlds per owner | Owner solver steps |
 | --- | --- | --- | --- | --- |
@@ -51,6 +52,39 @@ focused macOS tool build passes with zero warnings/errors; four malformed CLI
 controls exit 2 without producing a success report. Source review found no
 blocking issues; accepted bot difficulty and argument checks close its two
 minor evidence concerns.
+
+## Latest-main integration
+
+PR-754 merged during these runs. The slice rebases cleanly onto
+`33cb131a3f616bd61cb341b3688c7c2a825c0257`. Review finds no movement, protocol,
+replay schema or default authority change. NCX scripted placement/input,
+presentation pacing and pixel-readback probes are explicit opt-ins and remain
+disabled in ordinary Momentum acceptance. The new Python timeline/visibility
+consumer checks pass 42 tests. The team measurements above keep their original
+current46 source/binary lease.
+
+The separate fresh current33 Windows Core/tool build passes with zero warnings
+and errors. All 21 focused checks pass: Native gold, rewind, replay rules,
+evidence retention, the touched impact/prediction/payment contracts, actual
+continuous-combat scene, protocol58 archive, seven NCX guard invocations and
+both recorded replay scenes with real durable-file seeks. The separate
+production durable packet checker also passes both archives, all six exact
+comparison targets, nested clips and corrupt-checkpoint recovery. Full scene
+digests remain identical to preserved results: Native 85,673 checks/2,982 frames
+and Momentum 85,586/2,979. This is evidence for these recordings, not universal
+cross-platform bit identity.
+
+Both fresh two-owner Battle fault arms also pass: 60 seconds at 200:20 with 1%
+loss, 5% reorder and 1% duplication, all six processes exit 0 and both strict
+authority proofs pass 22 checks. Native has 15 joined payments and 48 rewinds
+(722 frames); Momentum has 10 joins and 55 rewinds (827 frames). All six traces
+have no disconnects or overflows, and Core/tool hashes remain unchanged.
+Rewind totals are authority aggregates, not depth proof for every paid shot;
+counts are not a balance comparison. These are a focused refresh, not a rerun
+of the preserved eight-owner or team matrix. See
+[current33 source/build hashes and numeric results](evidence/pr09-current33-compatibility.json).
+Whitespace and the focused asset guard pass, including all source files added
+by the concurrent main merge. Hosted CI remains pending; no green claim follows.
 
 ## Retained failures and limits
 
