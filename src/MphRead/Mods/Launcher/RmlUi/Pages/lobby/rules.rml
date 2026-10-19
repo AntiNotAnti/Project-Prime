@@ -83,6 +83,8 @@
                                 </button>
                                 <button id="rules_toggle15" class="rules_toggle" data-action="lobby:rules-toggle:15" data-prime-disabled="!rules_owner"><span class="rules_label">OCTOLITH RESET</span><span data-prime-text="{{rules_toggle15}}" id="text_rules_toggle15_1" />
                                 </button>
+                                <button id="rules_toggle16" class="rules_toggle" data-action="lobby:rules-toggle:16" data-prime-disabled="!rules_owner"><span class="rules_label">THIRD-PERSON CAMERA</span><span data-prime-text="{{rules_toggle16}}" id="text_rules_toggle16_1" />
+                                </button>
                             </div>
                         </div>
                     </div>
