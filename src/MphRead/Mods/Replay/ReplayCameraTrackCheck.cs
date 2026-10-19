@@ -49,6 +49,19 @@ namespace MphRead.Mods.Replay
                 Require(bezier.Put(bezierStart)&&bezier.Put(bezierEnd)&&bezier.Sample(30,out var curved)&&curved.Position.Y>7,"Bezier position handles shape the actual sampled track");
                 Require(bezier.Sample(30,out curved)&&curved.Fov>1.5f,"Bezier scalar handles shape actual FOV samples");
                 Require(bezier.Sample(30,out curved,true)&&float.IsFinite(curved.Position.LengthSquared),"constant-speed Bezier sampling stays finite");
+                var testPath=new ReplayCameraTrack();
+                Require(testPath.Put(bezierStart)&&testPath.Put(bezierEnd),"path cache fixture");
+                var cache=new ReplayCameraPathSamples();
+                var firstPoints=cache.Positions(testPath);
+                Require(firstPoints.Count==ReplayCameraPathSamples.SampleCount&&cache.Builds==1,"129 cached camera points");
+                Require(ReferenceEquals(firstPoints,cache.Positions(testPath))&&cache.Builds==1,"reuse unchanged camera points");
+                Require(testPath.Sample(30,out var middle)&&(firstPoints[64]-middle.Position).Length<.0001f,"cached path exact interpolation");
+                Require(testPath.Put(bezierStart with{OutgoingTangent=new Vector3(0,4,0)}),"change Bezier handle");
+                var changedPoints=cache.Positions(testPath);
+                Require(cache.Builds==2&&!ReferenceEquals(firstPoints,changedPoints)
+                    &&(changedPoints[64]-firstPoints[64]).Length>.01f,"invalidate edited curve");
+                testPath.Clear();
+                Require(cache.Positions(testPath).Count==0&&cache.Builds==3,"clear cached path");
                 Require(bezier.Save(replay)&&File.ReadAllBytes(replay+".camera")[4]==4,"authored handles select identity-bound camera v4");
                 var bezierLoaded=new ReplayCameraTrack();
                 Require(bezierLoaded.Load(replay)&&bezierLoaded.Keys.SequenceEqual(bezier.Keys),"v4 handles round-trip through the existing camera owner");

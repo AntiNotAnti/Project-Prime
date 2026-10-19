@@ -42,7 +42,7 @@ internal static class NetConfirmedImpacts
     internal static ConfirmedImpact? Describe(PlayerEntity victim, PlayerEntity? attacker,
         BeamProjectileEntity? beam, BombEntity? bomb, ushort sequence, DamageFlags damageFlags)
     {
-        if (!Enabled || !NetSession.IsAuthority || DemoPlayback.IsActive || sequence == 0 || attacker == null) return null;
+        if (beam?.ModCustomShot != null || !Enabled || !NetSession.IsAuthority || DemoPlayback.IsActive || sequence == 0 || attacker == null) return null;
         var claim = NetHitClaims.CurrentClaimKey;
         var burn = NetBurnSource.Current;
         ShotKey key = beam?.ModLaunchKey ?? claim ?? bomb?.ModOwnerKey ?? burn?.Key ?? ShotKey.For(attacker.SlotIndex, 0);
@@ -112,7 +112,7 @@ internal static class NetConfirmedImpacts
         && NetPlayerLifecycle.Get(e.Fact.Victim) == e.Fact.VictimLife
         && NetPlayerLifecycle.Generation(e.Fact.Key.ShooterSlot) == e.Fact.Key.Generation;
     internal static bool Matches(in ConfirmedImpact fact, BeamProjectileEntity beam)
-        => fact.Component != 0 && fact.Key.ShotId != 0 && fact.Weapon <= (byte)BeamType.OmegaCannon
+        => beam.ModCustomShot == null && fact.Component != 0 && fact.Key.ShotId != 0 && fact.Weapon <= (byte)BeamType.OmegaCannon
             && fact.Provenance != ImpactProvenance.ConfirmedBodyAnchor
             && (fact.Flags & ReplayShotFactFlags.Direct) != 0
             && beam.Lifespan > 0 && !beam.Flags.TestFlag(BeamFlags.Collided)

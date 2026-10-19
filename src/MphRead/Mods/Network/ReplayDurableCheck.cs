@@ -1,5 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+#if !ANDROID && !MPHREAD_SERVER
+using System.Collections.Immutable;
+#endif
 using System.IO;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
@@ -44,8 +49,29 @@ internal static class ReplayDurableCheck
                 if (reader.Checkpoints.Count < 2) throw new InvalidDataException("Durable test needs at least two checkpoints.");
                 Console.WriteLine($"[replaydurable] {reader.Checkpoints.Count} durable checkpoints, {new FileInfo(path).Length} file bytes.");
             }
-            foreach (uint target in new uint[] { 301, 799, 1250, 1500, 1800 })
+#if !ANDROID && !MPHREAD_SERVER
+            var aLife=new ReplayComparisonPose(0,0,0,0,100,1,1,1);
+            var bLife=aLife with{Generation=2};
+            var lifeCompare=ReplayStudioComparison.Compare(
+                new(7,"A",ImmutableArray.Create(aLife)),new(7,"B",ImmutableArray.Create(bLife)));
+            if(lifeCompare.Players.Length!=1||lifeCompare.Players[0].SameLife)
+                throw new InvalidDataException("Comparison joined two distinct player lifetimes as the same subject.");
+#endif
+            foreach (uint target in new uint[] { 300, 301, 799, 1250, 1500, 1800 })
             {
+#if !ANDROID && !MPHREAD_SERVER
+                if(reference.ContainsKey(target))
+                {
+                    var linear=ReplayStudioComparison.Read(path,target,CancellationToken.None,preferIndexed:false);
+                    var indexed=ReplayStudioComparison.Read(path,target,CancellationToken.None,preferIndexed:true);
+                    if(linear.DecoderHash!=indexed.DecoderHash||!linear.Players.SequenceEqual(indexed.Players))
+                        throw new InvalidDataException("Packet comparison durable and linear histories differ at frame "+target);
+                    if(!indexed.RestoredCheckpointFrame.HasValue && string.IsNullOrEmpty(indexed.IndexFallbackReason))
+                        throw new InvalidDataException("Packet comparison omitted its world-index fallback reason.");
+                    if(indexed.RestoredCheckpointFrame.HasValue && indexed.FramesScanned>=linear.FramesScanned)
+                        throw new InvalidDataException("Indexed packet comparison did not reduce replay steps.");
+                }
+#endif
                 if (!reference.ContainsKey(target)) continue;
                 using var player = new PassiveReplayPlayer(path, new(256, 192));
                 player.Seek(target); Complete(player);

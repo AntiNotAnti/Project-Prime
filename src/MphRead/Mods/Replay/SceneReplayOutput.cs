@@ -50,6 +50,33 @@ public partial class Scene
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         GL.Viewport(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
     }
+#if !ANDROID && !MPHREAD_SERVER
+    /// <summary>
+    /// Reuse the normal frame's finished primary picture for the first of four tiles.
+    /// Must be invoked inside ReplayAuxiliaryRenderScope, which owns GL restoration.
+    /// A missing/obsolete target means Studio can retain its original single view.
+    /// </summary>
+    private bool BlitNativeReplayPrimaryTile(Vector4i bounds, Vector2i framebuffer)
+    {
+        if (_replayOutputFramebuffer == 0 || _replayOutputSize != Size
+            || Size.X <= 0 || Size.Y <= 0 || bounds.Z <= 0 || bounds.W <= 0)
+            return false;
+        GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _replayOutputFramebuffer);
+        GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
+        GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+        GL.Disable(EnableCap.ScissorTest);
+        GL.ColorMask(true, true, true, true);
+        GL.ClearColor(0, 0, 0, 1);
+        GL.Clear(ClearBufferMask.ColorBufferBit);
+        int bottom = framebuffer.Y - bounds.Y - bounds.W;
+        GL.BlitFramebuffer(0, 0, Size.X, Size.Y,
+            bounds.X, bottom, bounds.X + bounds.Z, bottom + bounds.W,
+            ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        GL.Viewport(0, 0, framebuffer.X, framebuffer.Y);
+        return true;
+    }
+#endif
     private void ReleaseReplayOutput()
     {
         if (_replayOutputFramebuffer != 0) GL.DeleteFramebuffer(_replayOutputFramebuffer);

@@ -256,6 +256,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"hunter:skin-next", PrimeIntentKind::HunterSkinNext, 0},
         {"hunter:armor-next", PrimeIntentKind::HunterArmorNext, 0},
         {"hunter:death-next", PrimeIntentKind::HunterDeathNext, 0},
+        {"hunter:beam-next", PrimeIntentKind::HunterBeamNext, 0},
+        {"hunter:beam-color-next", PrimeIntentKind::HunterBeamColorNext, 0},
         {"hunter:cosmetics-reset", PrimeIntentKind::HunterCosmeticsReset, 0},
         {"hunter:preview-death", PrimeIntentKind::HunterPreviewDeath, 0},
         {"hunter:cosmetics-save", PrimeIntentKind::HunterCosmeticsSave, 0},
@@ -335,6 +337,12 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     }
     for (int index = 0; index < 7; ++index) if (action == "hunter:select:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 9; ++index) if (action == "hunter:beam-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterBeamSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 9; ++index) if (action == "hunter:beam-color-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterBeamColorSelect); intent.argument = index; return true;
     }
     for (int index = 0; index < 4; ++index) if (action == "hunter:suit:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterSuit); intent.argument = index; return true;

@@ -45,6 +45,36 @@ internal sealed partial class ReplayWindowAcceptance
         {Rml97SameWorld();Capture("rml97-four-views");RequireStudioCompositeVariation("four-views");_rml97StudioChecks.Add(new{Feature="four-view-composition",Swaps=6,Frame=ReplayController.CurrentFrame,CanonicalHash=_rml97Baseline,Owner=Id(_rml97Owner)});});
         Do("RML97 native four-view toggle returns to single picture",()=>Activate("replay_four_views"));
         Wait("RML97 single actual replay picture restored",()=>Page?.FourViews==false&&_lastWorldFrame==_observedFrames);
+        // Failure is injected into the *real* replay world's third auxiliary
+        // camera, after the first two tiles and their GL/render-item mutations.
+        // Recovery must retain the transport and canonical world, not just avoid throwing.
+        Do("RPS03 inject third-tile draw failure in real Studio window",()=>
+        {
+            Scene.NativeReplayMultiViewFailureForTests = index =>
+                index == 2 ? new InvalidOperationException("RPS03 synthetic tile failure") : null;
+            Activate("replay_four_views");
+        });
+        Wait("RPS03 tile fault automatically disables four views without closing playback",()=>
+            Page is{IsOpen:true,FourViews:false}&&DemoPlayback.IsActive
+            &&ReferenceEquals(DemoPlayback.PlaybackOwner,_rml97Owner),45000);
+        Do("RPS03 retire injected fault and preserve original paused frame",()=>
+            Scene.NativeReplayMultiViewFailureForTests=null);
+        WaitFrames(3,"RPS03 recovered Studio picture preserves replay and recorded world",()=>
+        {
+            Rml97SameWorld();
+            Require(_lastWorldFrame==_observedFrames,"RPS03 recovered frame was actually presented");
+        });
+        Do("RPS03 re-enable four cameras after prior fault",()=>Activate("replay_four_views"));
+        WaitFrames(3,"RPS03 retry renders four views on same owner",()=>
+        {
+            Require(Page?.FourViews==true,"RPS03 Four Views retry remains enabled");
+            Rml97SameWorld();
+            RequireStudioCompositeVariation("rps03-four-view-retry");
+        });
+        Do("RPS03 return to single view before camera authoring",()=>Activate("replay_four_views"));
+        Wait("RPS03 normal Studio single picture returned",()=>Page?.FourViews==false);
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_REPLAY_FOUR_VIEW_STRESS")=="1")
+            PlanReplayFourViewStress();
         OpenCamera();
         Do("RML97 save one actual presented camera key in isolated recording",()=>Activate("replay_camera_add"));
         Wait("RML97 actual camera owner saved the first key",()=>ReplayCamera.Track.Keys.Count>0);
@@ -196,6 +226,48 @@ internal sealed partial class ReplayWindowAcceptance
         PlanDetachedExportAdmission();
         Do("RML97 return persistent workspace to Camera",()=>Activate("studio_tab_camera"));
         Wait("RML97 original playback controls remain available for normal library teardown",()=>Page!=null&&Host!.CurrentInputDocument==Page.Document);
+    }
+    private void PlanReplayFourViewStress()
+    {
+        // Opt-in extended actual OpenGL stress; each enabled interval draws a
+        // complete real 2x2 picture. Default UI acceptance stays bounded.
+        for(int cycle=0;cycle<50;cycle++)
+        {
+            int index=cycle;
+            Do("RPS03 stress enable four views "+index,()=>Activate("replay_four_views"));
+            WaitFrames(1,"RPS03 stress rendered four views "+index,()=>
+            {
+                Require(Page is{FourViews:true},"four-view stress unexpectedly recovered from render failure");
+                Rml97SameWorld();
+            });
+            Do("RPS03 stress disable four views "+index,()=>Activate("replay_four_views"));
+            WaitFrames(1,"RPS03 stress restored single picture "+index,()=>
+            {
+                Require(Page is{FourViews:false},"four-view stress failed to disable");
+                Rml97SameWorld();
+            });
+        }
+        string atSixty="";
+        Do("RPS03 stress seek while four views enabled",()=>
+        {
+            Activate("replay_four_views");
+            ReplayController.Seek(60,resume:false);
+        });
+        Wait("RPS03 stress settled replay frame 60",()=>!ReplayController.IsSeeking
+            &&ReplayController.IsPaused&&ReplayController.CurrentFrame==60,45000);
+        WaitFrames(3,"RPS03 stress capture identical-world after seek",()=>
+        {
+            Require(Page?.FourViews==true,"four-view mode disappeared during seek");
+            Require(ReferenceEquals(DemoPlayback.PlaybackOwner,_rml97Owner),"replay owner changed while seeking");
+            atSixty=Rml97WorldHash();
+        });
+        Do("RPS03 stress return to one view at frame 60",()=>Activate("replay_four_views"));
+        WaitFrames(3,"RPS03 stress single view and four view have identical world",()=>
+            Require(Page?.FourViews==false&&atSixty==Rml97WorldHash(),
+                "four-view render altered canonical world after seek"));
+        Do("RPS03 stress restore initial replay frame",()=>ReplayController.Seek(0,resume:false));
+        Wait("RPS03 stress restored initial paused world",()=>!ReplayController.IsSeeking
+            &&ReplayController.CurrentFrame==0&&ReplayController.IsPaused&&Rml97WorldHash()==_rml97Baseline,45000);
     }
     private void PlanRml97LibraryPromotion()
     {

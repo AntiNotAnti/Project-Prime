@@ -51,5 +51,7 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
       - name: Verify catalog persistence, multiplayer wire and replay restoration
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -cosmeticscheck
+      - name: Verify native and managed beam selector ABI and License navigation
+        run: python3 tools/instagib/check_native_beam_actions.py
       - name: Verify native Hunter beam and tint drafts
         run: dotnet run --project tools/rmlui-hunter-check -c Release

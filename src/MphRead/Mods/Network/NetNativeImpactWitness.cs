@@ -51,9 +51,10 @@ internal static class NetNativeImpactWitness
         internal SegmentScope(BeamProjectileEntity beam, Vector3 start, Vector3 end)
         {
             NetCampaignHitOracle.ObserveSegment(beam, start, end);
-            _active = NetTimedShotProof.Active;
+            _active = NetTimedShotProof.Active || beam.ModCustomShot != null;
             _prior = _active ? _segment : null;
-            if (_active) _segment = new Segment(beam.ModLaunchKey, beam.ModComponentId, start, end);
+            if (_active) _segment = beam.ModCustomShot != null ? null
+                : new Segment(beam.ModLaunchKey, beam.ModComponentId, start, end);
         }
         public void Dispose() { if (_active) _segment = _prior; }
     }
@@ -61,6 +62,7 @@ internal static class NetNativeImpactWitness
     internal static Scope Enter(PlayerEntity victim, BeamProjectileEntity beam,
         uint channel, DamageFlags flags, Vector3 point)
     {
+        if (beam.ModCustomShot != null) return new Scope(null);
         if (NetCampaignEvidence.Enabled && NetSession.IsAuthority && !beam.OwningScene.Services.IsReplica
             && !NetDamage.ApplyingClaim && !NetDamage.Replaying)
             NetCampaignEvidence.Timeline("native-contact", beam.ModLaunchKey, beam.ModComponentId,

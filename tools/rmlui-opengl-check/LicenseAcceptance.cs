@@ -167,8 +167,13 @@ internal static class LicenseAcceptance
         Capture("public-visible");
 
         Click("native_license_tab_overview", 0);
-        Click("native_license_close", 20);
-        Check(page.Closed, "actual native Back click closes License presenter");
+        Check(Visible("native_license_tab_customization") && Visible("native_license_customize"),
+            "Hunter License exposes reachable customization navigation");
+        Click("native_license_tab_customization", 1);
+        Check(page.OpenCustomizationRequested,
+            "real native License customization click requests the Hunter beam gallery");
+        page.Back();
+        Check(page.Closed, "Back closes License after authenticated customization handoff");
         page.Dispose();
         Check(!host.IsAlive(document)
             && !page.Handle(new(RmlUiIntentKind.LicenseAction, 9, document, ulong.MaxValue)),

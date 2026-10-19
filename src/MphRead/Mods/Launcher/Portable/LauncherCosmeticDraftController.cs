@@ -115,6 +115,24 @@ public sealed class LauncherCosmeticDraftController : IDisposable
     public bool NextArmor() => Step("armor");
     public bool NextDeath() => Step("death");
     public bool NextBeam() => Step("beam");
+    public bool SelectBeam(int index)
+    {
+        Verify();
+        if (_save != null || index < 0 || index >= CosmeticCatalog.BeamEffects.Count) return false;
+        _draft = _draft with { BeamEffectKey = CosmeticCatalog.BeamEffects[index].Key };
+        _status = "LOCAL BEAM DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
+    public bool SelectBeamColor(int index)
+    {
+        Verify();
+        if (_save != null || index < 0 || index >= BeamPalette.Names.Count) return false;
+        _draft = _draft with { BeamColor = (byte)index };
+        _status = "LOCAL BEAM COLOR DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
     public bool NextBeamColor()
     {
         Verify();

@@ -9,13 +9,42 @@ namespace MphRead.Mods.Render
     /// <summary>
     /// Scene-owned, depth-tested, cosmetic-only Insta-Gib presentation. The
     /// canonical Imperialist collision endpoint and shot identity are immutable.
-    /// Every style uses the same bounded TrailMulti submission and shot clock.
-    /// No random draws, gameplay modifications, textures, new shaders or packets.
+    /// All styles share the original accepted shot identity and scene lifetime.
+    /// The existing trail material supplies soft texturing, without new assets.
     /// </summary>
     internal sealed class InstagibIonFracture
     {
-        internal const float LifeSeconds = 0.82f;
+        internal const float LifeSeconds = 0.9f;
         internal const int Capacity = 24;
+        internal readonly record struct RailLook(float Core, float Glow, float Spiral, float Radius);
+        internal static RailLook LookAt(float age)
+        {
+            float t = Math.Clamp(age, 0f, 1f);
+            float left = 1f - t;
+            return new(MathF.Pow(left, 0.8f), 0.75f * MathF.Pow(left, 1.5f),
+                0.95f * MathF.Pow(left, 0.9f), 0.11f * (1f + 1.8f * t));
+        }
+        internal static float TaperAt(float distance, float width, float fullAt)
+        {
+            float t = Math.Clamp(distance / fullAt, 0f, 1f);
+            return width * (0.12f + 0.88f * t * (2f - t));
+        }
+        internal static Vector3 HelixDisplacement(Vector3 u, Vector3 v,
+            float along, float age, float phase, int strand)
+        {
+            float opening = MathF.Min(1f, MathF.Sqrt(MathF.Max(0f, along) / 4f));
+            float angle = MathF.Tau * along / 4f + phase + age * (LifeSeconds * 14f)
+                + (strand == 1 ? MathF.PI : 0f);
+            return (u * MathF.Cos(angle) + v * MathF.Sin(angle))
+                * (LookAt(age).Radius * opening);
+        }
+
+        // Scene-bound original beam-trail artwork, never shared across scenes.
+        private ModelInstance? _trail;
+        private int _trailTexture = -1;
+        private RepeatMode _repeatX, _repeatY;
+        private float _scaleX = 1f, _scaleY = 1f;
+        private float _uvX = 1f, _uvY = 1f;
 
         private readonly struct Lance
         {
@@ -123,6 +152,7 @@ namespace MphRead.Mods.Render
             bool reduceMotion = HudProfiles.Runtime.ReduceMotion;
             bool reduceTransparency = HudProfiles.Runtime.ReduceTransparency;
             CosmeticEffectQuality quality = RenderOptions.CosmeticQuality;
+            bool textured = TryPrepareTrail(scene);
             Vector3 view = scene.ViewMatrix.Inverted().Row2.Xyz;
             if (view.LengthSquared < 0.000001f) view = Vector3.UnitZ;
             else view.Normalize();
@@ -155,14 +185,14 @@ namespace MphRead.Mods.Render
                 float distance = (camera - (lance.Start + delta * along)).Length;
                 var effective = DetailQualityForRange(quality, distance, detailBudget);
                 if (effective != CosmeticEffectQuality.Off && !reduceMotion) detailBudget--;
-                DrawLance(scene, lance, view: view, age: now - lance.Born,
+                DrawLance(scene, lance, camera: camera, view: view, age: now - lance.Born,
                     quality: effective, reducedMotion: reduceMotion,
-                    reducedTransparency: reduceTransparency);
+                    reducedTransparency: reduceTransparency, textured: textured);
             }
         }
 
-        private static void DrawLance(Scene scene, in Lance lance, float age, Vector3 view,
-            CosmeticEffectQuality quality, bool reducedMotion, bool reducedTransparency)
+        private void DrawLance(Scene scene, in Lance lance, Vector3 camera, float age, Vector3 view,
+            CosmeticEffectQuality quality, bool reducedMotion, bool reducedTransparency, bool textured)
         {
             Vector3 delta = lance.End - lance.Start;
             float length = delta.Length;
@@ -172,19 +202,51 @@ namespace MphRead.Mods.Render
             Vector3 up = Vector3.Cross(axis, right).Normalized();
             float fraction = age / LifeSeconds;
             float fade = FadeAt(fraction);
-            float taper = MathF.Min(1f, length / 2f);
-            Vector3 hot = Vector3.Lerp(lance.Color, Vector3.One, 0.82f);
+            RailLook look = LookAt(fraction);
+            Vector3 hot = Vector3.Lerp(lance.Color, Vector3.One, 0.55f);
 
-            // World-pass depth remains authoritative for every component.
-            // Halo is strictly cosmetic and is removed on accessibility/low
-            // quality; the small white core is never hidden by those toggles.
-            if (!reducedTransparency && quality == CosmeticEffectQuality.High)
-                DrawShaft(scene, lance.Start, lance.End, right, 0.17f * taper,
-                    lance.Color, fade * 0.11f);
-            DrawShaft(scene, lance.Start, lance.End, right, 0.065f * taper,
-                lance.Color, fade * 0.67f);
-            DrawShaft(scene, lance.Start, lance.End, right, 0.020f * taper,
-                hot, fade * 0.98f);
+            // Preserve the original world depth test. A soft textured halo,
+            // stronger colored band, and white-hot core replace the hairline.
+            if (textured)
+            {
+                DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up, length,
+                    9, 0.24f, 9f, lance.Color,
+                    reducedTransparency || quality == CosmeticEffectQuality.Off ? 0f : look.Glow,
+                    0f, -1, fraction);
+                DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up, length,
+                    9, 0.11f, 5f, lance.Color, look.Core * 0.90f,
+                    0f, -1, fraction);
+                DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up, length,
+                    9, 0.06f, 3f, hot, look.Core, 0f, -1, fraction);
+            }
+            else
+            {
+                if (!reducedTransparency && quality != CosmeticEffectQuality.Off)
+                    DrawShaft(scene, lance.Start, lance.End, right, 0.24f,
+                        lance.Color, look.Glow * 0.45f);
+                DrawShaft(scene, lance.Start, lance.End, right, 0.11f,
+                    lance.Color, look.Core * 0.90f);
+                DrawShaft(scene, lance.Start, lance.End, right, 0.06f, hot, look.Core);
+            }
+
+            // Default signature: two animated filaments around the exact rail.
+            // Use 73/43 samples, rather than hundreds of segments per shot.
+            if (textured && !reducedMotion
+                && lance.Style == BeamFxStyle.IonFracture
+                && quality >= CosmeticEffectQuality.Medium)
+            {
+                float reach = MathF.Min(length, 36f);
+                int samples = quality == CosmeticEffectQuality.High ? 73 : 43;
+                uint identity = lance.ShotId == 0 ? lance.LaunchFrame : lance.ShotId;
+                float phase = (identity % 16u) * (MathF.Tau / 16f);
+                Vector3 bright = new(MathF.Min(1f, lance.Color.X * 1.1f + 0.12f),
+                    MathF.Min(1f, lance.Color.Y * 1.1f + 0.12f),
+                    MathF.Min(1f, lance.Color.Z * 1.1f + 0.12f));
+                for (int strand = 0; strand < 2; strand++)
+                    DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up,
+                        reach, samples, 0.031f, 4f, bright, look.Spiral,
+                        phase, strand, fraction);
+            }
 
             if (reducedMotion || quality == CosmeticEffectQuality.Off) return;
             bool full = quality == CosmeticEffectQuality.High;
@@ -384,6 +446,65 @@ namespace MphRead.Mods.Render
                         lance.Color, impact * 0.45f);
                     break;
             }
+        }
+
+        private bool TryPrepareTrail(Scene scene)
+        {
+            try
+            {
+                _trail ??= scene.GetModelInstance("trail");
+                Model model = _trail.Model;
+                Material material = model.Materials[0];
+                Texture texture = model.Recolors[0].Textures[0];
+                if (texture.Width < 1 || texture.Height < 1) return false;
+                int binding = scene.BindGetTexture(model, material.TextureId, material.PaletteId, 0);
+                if (binding <= 0) return false;
+                _trailTexture = binding;
+                _repeatX = material.XRepeat;
+                _repeatY = material.YRepeat;
+                _scaleX = material.ScaleS;
+                _scaleY = material.ScaleT;
+                _uvX = (texture.Width - (1f / 16f)) / texture.Width;
+                _uvY = (texture.Height - (1f / 16f)) / texture.Height;
+                return true;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                return false;
+            }
+        }
+
+        // Camera-facing textured native TrailMulti ribbons. The render
+        // matrix puts muzzle-relative vertices back into world space.
+        private void DrawTexturedRibbon(Scene scene, Vector3 origin, Vector3 axis,
+            Vector3 camera, Vector3 right, Vector3 up, float reach, int samples,
+            float width, float widthReach, Vector3 color, float alpha,
+            float phase, int strand, float age)
+        {
+            if (_trailTexture <= 0 || reach <= 0.05f || alpha <= 0.004f) return;
+            int count = samples * 4;
+            Vector3[] data = ArrayPool<Vector3>.Shared.Rent(count);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = i / (float)(samples - 1);
+                float s = reach * (strand < 0 ? t * t : t);
+                Vector3 centre = axis * s;
+                if (strand >= 0)
+                    centre += HelixDisplacement(right, up, s, age, phase, strand);
+                Vector3 side = Vector3.Cross(axis, camera - origin - centre);
+                if (side.LengthSquared < 0.000001f) side = right;
+                else side.Normalize();
+                Vector3 offset = side * TaperAt(s, width, widthReach);
+                int at = i * 4;
+                data[at] = new Vector3(t * _uvX, 0f, 0f);
+                data[at + 1] = centre - offset;
+                data[at + 2] = new Vector3(t * _uvX, _uvY, 0f);
+                data[at + 3] = centre + offset;
+            }
+            scene.AddRenderItem(RenderItemType.TrailMulti, Math.Clamp(alpha, 0f, 1f),
+                scene.GetNextPolygonId(), color, _repeatX, _repeatY,
+                _scaleX, _scaleY, Matrix4.CreateTranslation(origin),
+                data, _trailTexture, trailCount: count);
         }
 
         // The animation is wholly time-based, including the stagger and

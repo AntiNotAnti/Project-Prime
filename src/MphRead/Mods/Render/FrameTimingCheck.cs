@@ -121,6 +121,8 @@ namespace MphRead.Mods.Render
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
             failures += RunAngularCameraPresentationCase() ? 0 : 1;
+            failures += RunThirdPersonFormHandoffCase() ? 0 : 1;
+            failures += RunThirdPersonShotReticleCase() ? 0 : 1;
             failures += RunFastLateAimCase() ? 0 : 1;
             failures += RunLockjawNoiseCases();
             Console.WriteLine(failures == 0
@@ -442,6 +444,164 @@ namespace MphRead.Mods.Render
                 + $" | 180deg midpoint length {oppositeHalf.Length:0.00000}"
                 + $" | pose direction length {poseFacing.Length:0.00000}");
             return ok;
+        }
+
+        /// <summary>
+        /// A native morph switches its simulation camera from First to Third1/2,
+        /// but the third-person biped renderer was showing a different eye.
+        /// The world-view handoff must begin on the exact last picture, converge
+        /// independently of refresh rate, support reversal and reset on a new
+        /// presentation generation. This is presentation-only: no GL, player,
+        /// simulation, assets, or networking are involved.
+        /// </summary>
+        private static bool RunThirdPersonFormHandoffCase()
+        {
+            static Vector3 Eye(Matrix4 view) => view.Inverted().Row3.Xyz;
+            static bool Close(Matrix4 a, Matrix4 b) =>
+                (Eye(a) - Eye(b)).LengthSquared < 0.000001f;
+            const long generation = 42;
+            Matrix4 shoulder = Matrix4.LookAt(
+                new Vector3(0, 1.6f, 2.5f), new Vector3(0, 1.2f, 0), Vector3.UnitY);
+            Matrix4 nativeMorphStart = Matrix4.LookAt(
+                new Vector3(0, 1.4f, 0.1f), new Vector3(0, 1f, -1), Vector3.UnitY);
+            Matrix4 ball = Matrix4.LookAt(
+                new Vector3(1f, 1f, 2f), new Vector3(0, 0.5f, 0), Vector3.UnitY);
+            Matrix4 backToBiped = Matrix4.LookAt(
+                new Vector3(0.1f, 1.6f, 2.6f), new Vector3(0, 1.2f, 0), Vector3.UnitY);
+
+            bool correct = true;
+            foreach (int hz in new[] { 60, 120, 240 })
+            {
+                var bridge = new ThirdPersonFormCameraHandoff();
+                const double firstTick = 100;
+                correct &= Close(bridge.Present(shoulder,
+                    CameraType.First, firstTick, generation, out bool initialBlend), shoulder)
+                    && !initialBlend;
+                // One native sim step later CameraType changes, but the
+                // rendered eye must not snap back to the first-person origin.
+                Matrix4 firstMorph = bridge.Present(nativeMorphStart,
+                    CameraType.Third1, firstTick + 1, generation, out bool morphBlend);
+                correct &= morphBlend && Close(firstMorph, shoulder);
+                Matrix4 middle = default;
+                Matrix4 last = firstMorph;
+                for (int i = 1; i <= hz; i++)
+                {
+                    double tick = firstTick + 1 + i * (60d / hz);
+                    Matrix4 current = bridge.Present(ball, CameraType.Third1,
+                        tick, generation, out bool moving);
+                    if (i == (int)(hz * ThirdPersonFormCameraHandoff.DurationTicks / 120d))
+                        middle = current;
+                    last = current;
+                }
+                correct &= Close(last, ball)
+                    && Eye(middle).LengthSquared > 0.01f
+                    && (Eye(middle) - Eye(shoulder)).LengthSquared > 0.0001f
+                    && (Eye(middle) - Eye(ball)).LengthSquared > 0.0001f;
+
+                // Reverse direction: the start point is the displayed ball
+                // camera, not a newly sampled first-person eye.
+                Matrix4 firstUnmorph = bridge.Present(nativeMorphStart,
+                    CameraType.First, firstTick + 62, generation, out bool returnBlend);
+                correct &= returnBlend && Close(firstUnmorph, ball);
+                Matrix4 finalBiped = bridge.Present(backToBiped,
+                    CameraType.First, firstTick + 62 + ThirdPersonFormCameraHandoff.DurationTicks,
+                    generation, out bool finished);
+                correct &= Close(finalBiped, backToBiped) && !finished;
+
+                // A form reversal before easing is complete must start from
+                // that exact in-flight presentation pose.
+                Matrix4 beginMorph = bridge.Present(nativeMorphStart,
+                    CameraType.Third2, firstTick + 90, generation, out bool switching);
+                Matrix4 midwayMorph = bridge.Present(ball, CameraType.Third2,
+                    firstTick + 93, generation, out _);
+                Matrix4 reverse = bridge.Present(backToBiped,
+                    CameraType.First, firstTick + 94, generation, out bool reversing);
+                correct &= switching && reversing && Close(beginMorph, backToBiped)
+                    && Close(reverse, midwayMorph);
+
+                // A camera saved in the previous scene or a teleported actor
+                // must not be blended into the new one.
+                Matrix4 resetView = bridge.Present(ball, CameraType.Third1,
+                    firstTick + 95, generation + 1, out bool resetBlend);
+                correct &= Close(resetView, ball) && !resetBlend;
+                Matrix4 farCamera = Matrix4.LookAt(new Vector3(500, 2, 500),
+                    new Vector3(500, 1, 499), Vector3.UnitY);
+                correct &= Close(bridge.Present(farCamera, CameraType.First,
+                    firstTick + 96, generation + 1, out bool teleportBlend), farCamera)
+                    && !teleportBlend;
+            }
+
+            Console.WriteLine("FRAMETIMING " + (correct ? "ok  " : "FAIL")
+                + " third-person biped / Morph Ball view handoff (60/120/240Hz)");
+            return correct;
+        }
+
+        /// <summary>
+        /// Check muzzle-ray projection into an independent shoulder camera
+        /// without changing any simulated aim or spawning a beam. Contact
+        /// projection must reflect the real world strike, not the centered
+        /// first-person HUD guess. Keep camera release identical across Hz.
+        /// </summary>
+        private static bool RunThirdPersonShotReticleCase()
+        {
+            Vector3 muzzle = new(0, 0, 0);
+            Vector3 aim = new(0, 0, -20);
+            bool ray = ThirdPersonReticleProjection.TryShotRay(
+                muzzle, aim, out Vector3 direction);
+            bool aligned = ray && (direction + Vector3.UnitZ).LengthSquared < 0.000001f;
+            Vector3 far = ThirdPersonReticleProjection.Target(
+                muzzle, direction, 1f);
+            Vector3 closeWall = ThirdPersonReticleProjection.Target(
+                muzzle, direction, 3f / ThirdPersonReticleProjection.TraceRange);
+
+            Matrix4 native = Matrix4.LookAt(Vector3.Zero,
+                -Vector3.UnitZ, Vector3.UnitY);
+            Vector3 shoulderEye = new(0.5f, 0.35f, 2.4f);
+            Matrix4 shoulder = Matrix4.LookAt(shoulderEye,
+                shoulderEye - Vector3.UnitZ, Vector3.UnitY);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(78f), 16f / 9f, 0.1f, 200f);
+
+            bool first = ThirdPersonReticleProjection.TryProject(
+                far, native, projection, out Vector2 nativeReticle);
+            bool third = ThirdPersonReticleProjection.TryProject(
+                far, shoulder, projection, out Vector2 thirdReticle);
+            bool contact = ThirdPersonReticleProjection.TryProject(
+                closeWall, shoulder, projection, out Vector2 wallReticle);
+            bool parallax = first && third && contact
+                && MathF.Abs(nativeReticle.X - 0.5f) < 0.00001f
+                && MathF.Abs(nativeReticle.Y - 0.5f) < 0.00001f
+                && thirdReticle.X < nativeReticle.X
+                && wallReticle.X < thirdReticle.X
+                && ThirdPersonReticleProjection.Finite(closeWall)
+                && (closeWall - new Vector3(0, 0, -3)).LengthSquared < 0.000001f;
+
+            // A 240Hz four-picture ease must match the 60Hz one-picture ease
+            // over the identical wall-clock interval.
+            float sixty = ThirdPersonReticleProjection.ReleaseFraction(1d);
+            float quarter = ThirdPersonReticleProjection.ReleaseFraction(0.25d);
+            float compounded = 1f - MathF.Pow(1f - quarter, 4f);
+            bool easing = MathF.Abs(sixty - 0.15f) < 0.000001f
+                && MathF.Abs(sixty - compounded) < 0.000001f
+                && ThirdPersonReticleProjection.ReleaseFraction(0d) == 0
+                && ThirdPersonReticleProjection.ReleaseFraction(double.NaN) == 0;
+
+            bool safe = !ThirdPersonReticleProjection.TryShotRay(
+                    muzzle, muzzle, out _)
+                && !ThirdPersonReticleProjection.TryShotRay(
+                    muzzle, new Vector3(float.NaN, 0, 0), out _)
+                && !ThirdPersonReticleProjection.TryProject(
+                    shoulderEye, shoulder, projection, out _)
+                && ThirdPersonReticleProjection.TryProject(
+                    new Vector3(-1000f, 0, -3f), shoulder, projection,
+                    out Vector2 clamped)
+                && clamped.X >= ThirdPersonReticleProjection.ScreenInset
+                && clamped.X <= 1 - ThirdPersonReticleProjection.ScreenInset;
+
+            bool success = aligned && parallax && easing && safe;
+            Console.WriteLine("FRAMETIMING " + (success ? "ok  " : "FAIL")
+                + " third-person muzzle-ray crosshair & release-rate invariants");
+            return success;
         }
 
         /// <summary>

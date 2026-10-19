@@ -2109,13 +2109,7 @@ namespace MphRead.Entities
                 beam.ModLaunchKey = default;
                 if (beam.ModCustomShot is { } customSource)
                 {
-                    beam.ModLaunchKey = customSource.Key;
-                    beam.ModShotId = customSource.Key.ShotId;
-                    beam.ModLaunchMatch = customSource.Key.MatchId;
-                    beam.ModLaunchAuthority = customSource.Key.AuthorityEpoch;
-                    beam.ModLaunchGeneration = customSource.Key.Generation;
-                    beam.ModLaunchLife = customSource.Key.LifeId;
-                    beam.ModLaunchFrame = (uint)scene.FrameCount;
+                    beam.ModLaunchFrame = customSource.Certificate?.TargetWorldFrame ?? (uint)scene.FrameCount;
                 }
                 else if (!scene.Services.IsReplica || (owner as PlayerEntity ?? (owner as HalfturretEntity)?.Owner) is { } acceptedOwner
                     && NetFireEvents.TryAcceptedKey(acceptedOwner, out _))
