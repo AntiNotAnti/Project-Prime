@@ -21,7 +21,7 @@ public partial class PlayerEntity
         && _jumpPadControlLock == 0 && _jumpPadControlLockMin == 0
         && _q3LaunchGravity == 0 && _q3LaunchFrames == 0 && _accelerationTimer == 0
         && _slipperiness == 0 && _standingEntCol == null && _spireLedgeCrestTimer == 0
-        && AttachedEnemy == null && _scene.CameraSequences.Current == null && !Controls.Morph.IsPressed
+        && AttachedEnemy == null && (!IsMainPlayer || _scene.CameraSequences.Current == null) && !Controls.Morph.IsPressed
         && ModCharacterGameplay.Variant == CharacterGameplayVariant.Native;
 
     private bool ModTryApplyMomentum(bool nativeJumpAccepted)

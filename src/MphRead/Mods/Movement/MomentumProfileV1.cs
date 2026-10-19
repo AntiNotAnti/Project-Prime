@@ -14,7 +14,7 @@ internal enum MomentumContactPhase : byte
 internal readonly record struct MomentumProfileResult(Vector3 Velocity, bool SpeedLimited, bool IncomingOverCap);
 
 /// <summary>
-/// Immutable private-test profile. Stock seven-Hunter calibration is identical;
+/// Immutable movement profile. Stock seven-Hunter calibration is identical;
 /// native jump/ability/impulse ownership stays outside this horizontal policy.
 /// Changes to these coefficients require a new profile version once recorded.
 /// </summary>
@@ -36,7 +36,10 @@ internal static class MomentumProfileV1
     {
         if (!float.IsFinite(verticalVelocity)) throw new ArgumentOutOfRangeException(nameof(verticalVelocity));
         if (nativeJumpAccepted) return MomentumContactPhase.LegalJump;
-        if (!standing || verticalVelocity > 0) return MomentumContactPhase.Airborne;
+        // Native slope collision can project horizontal motion into positive Y
+        // while retaining Standing. Only the accepted native jump bypasses
+        // friction on contact; active external impulses bypass the adapter.
+        if (!standing) return MomentumContactPhase.Airborne;
         return standingPrevious ? MomentumContactPhase.Grounded : MomentumContactPhase.Landing;
     }
 

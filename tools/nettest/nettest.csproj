@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <Compile Include="../../src/MphRead.Android/TouchControls.cs" Link="PlatformModels/TouchControls.cs" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using System;
 using MphRead.Formats;
+using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities;
@@ -1077,7 +1078,18 @@ public partial class PlayerEntity
             }
 
             Vector3 side = new Vector3(direction.Z, 0, -direction.X) * 0.30f;
-            return TacticalFloorSafe(end) && TacticalFloorSafe(end + side) && TacticalFloorSafe(end - side);
+            float floorDistance = 1.5f;
+            if (_player.ModMomentumEligible)
+            {
+                // At the v1 cap, one pending integration step plus neutral
+                // friction's geometric coast is speed / friction in world units.
+                // Include body radius so a late footwork veto leaves support
+                // beneath the whole body. This changes navigation, not velocity.
+                float stoppingDistance = MomentumProfileV1.RetentionSpeedCap / MomentumProfileV1.Tuning.GroundFriction;
+                floorDistance = MathF.Max(floorDistance, _player.Values.BipedColRadius / 4096f + stoppingDistance);
+            }
+            Vector3 floorProbe = start + direction * floorDistance;
+            return TacticalFloorSafe(floorProbe) && TacticalFloorSafe(floorProbe + side) && TacticalFloorSafe(floorProbe - side);
         }
 
         private bool TacticalFloorSafe(Vector3 position)

@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using MphRead;
 using MphRead.Entities;
+using MphRead.Droid;
 using MphRead.Formats;
 using MphRead.Mods;
 using MphRead.Mods.Input;
@@ -27,17 +28,23 @@ internal static class MomentumOnlineSceneTests
     { _checks++; if (!condition) throw new InvalidOperationException(message); }
     private static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
-    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12, string? replayPath = null)
+    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12, string? replayPath = null, bool touchModel = false)
     {
         Scene? scene = null;
         var clock = Stopwatch.StartNew();
         string path = Path.GetFullPath(outputPath);
+        int previousRtt = NetLag.RoundTripMs, previousJitter = NetLag.JitterMs;
+        var touch = touchModel ? new TouchControls() : null;
+        touch?.Layout(1000, 600, 1);
+        int touchSamples = 0, touchReleases = 0, touchDirectionalSamples = 0, touchDiagonalSamples = 0;
+        bool touchContact = false;
         try
         {
             _checks = 0;
             Require(seconds >= 6 && seconds <= 120 && port is > 0 and <= 65535, "bounded worker duration and UDP port");
             Require(!NetSession.Active && !DemoPlayback.IsActive, "worker starts without a session");
             Require(ServerSim.Available(out string reason), reason); Headless.Enter();
+            if (touchModel) Require(NetLag.Configure("200:20"), "actual bounded latency queues configured before Connect");
             string name = "MomentumCPU-" + Environment.ProcessId;
             Require(NetLaunch.Connect("127.0.0.1", port, name, Hunter.Samus, timeoutMs: 15000, color: 0),
                 "actual UDP Connect: " + NetLaunch.LastJoinError);
@@ -98,8 +105,40 @@ internal static class MomentumOnlineSceneTests
             {
                 WaitUntil(clock, ref next);
                 int phase = tick % 240;
-                set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
-                set(keyboard, Keys.S, phase >= 96 && phase < 144);
+                if (touch != null)
+                {
+                    // Actual linked Android model, with the GameView direction ->
+                    // keyboard boundary mirrored explicitly. No MotionEvent/View,
+                    // physical screen or native absolute alt gesture is simulated.
+                    if (phase < 192)
+                    {
+                        if (!touchContact) { touch.PointerDown(23, 100, 300); touchContact = true; }
+                        Vector2 axis = phase < 48 ? new(0, -1) : phase < 96 ? new(1, -1)
+                            : phase < 144 ? new(0, 1) : new(-1, -1);
+                        touch.PointerMove(23, 100 + axis.X * touch.StickRadius * .8f,
+                            300 + axis.Y * touch.StickRadius * .8f, tick * 1000L / 60, tick * 1000L / 60);
+                        touchSamples++;
+                    }
+                    else if (touchContact)
+                    {
+                        touch.PointerUp(23); touchContact = false; touchReleases++;
+                        Require(touch.Direction == TouchControls.Dir.None, "actual model release clears virtual stick");
+                    }
+                    var direction = touch.Direction;
+                    if (direction != TouchControls.Dir.None) touchDirectionalSamples++;
+                    bool horizontal = (direction & (TouchControls.Dir.Left | TouchControls.Dir.Right)) != 0;
+                    bool vertical = (direction & (TouchControls.Dir.Up | TouchControls.Dir.Down)) != 0;
+                    if (horizontal && vertical) touchDiagonalSamples++;
+                    set(keyboard, Keys.W, (direction & TouchControls.Dir.Up) != 0);
+                    set(keyboard, Keys.S, (direction & TouchControls.Dir.Down) != 0);
+                    set(keyboard, Keys.A, (direction & TouchControls.Dir.Left) != 0);
+                    set(keyboard, Keys.D, (direction & TouchControls.Dir.Right) != 0);
+                }
+                else
+                {
+                    set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
+                    set(keyboard, Keys.S, phase >= 96 && phase < 144);
+                }
                 set(keyboard, Keys.Space, tick % 90 == 30);
                 // Recording acceptance adds real mid-air form transitions; the
                 // short protocol/rule worker keeps its original input script.
@@ -153,7 +192,14 @@ internal static class MomentumOnlineSceneTests
                     position = new[] { player.Position.X, player.Position.Y, player.Position.Z }, speed = new[] { player.Speed.X, player.Speed.Y, player.Speed.Z }, remoteHumans = remoteSlots.Count });
                 tick++;
             }
-            Require(inputTicks > 0 && (player.Position - origin).Length > .01f, "actual local keyboard input displaces native body");
+            if (touch != null)
+            {
+                if (touchContact) { touch.PointerUp(23); touchReleases++; }
+                Require(touchSamples > 0 && touchSamples <= tick && touchDirectionalSamples > 0 && touchDiagonalSamples > 0 && touchReleases > 0,
+                    "actual linked touch model produces bounded movement samples, diagonals and releases");
+                Require(NetLag.RoundTripMs == 200 && NetLag.JitterMs == 20, "moderate latency remains configured for actual UDP queues");
+            }
+            Require(inputTicks > 0 && (player.Position - origin).Length > .01f, "actual local input displaces native body");
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
@@ -182,6 +228,11 @@ internal static class MomentumOnlineSceneTests
                 port, localSlot, matchId, authorityEpoch = epoch, name, seconds, ticks = tick, firstSceneFrame, finalSceneFrame = scene.FrameCount,
                 solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, airborneTicks, landings,
                 altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames,
+                inputSource = touchModel ? "linked production Android TouchControls + explicit GameView digital keyboard boundary" : "synthetic keyboard",
+                touchSamples, touchDirectionalSamples, touchDiagonalSamples, touchReleases,
+                touchSchedule = touchModel ? "240 fixed steps: 48 up, 48 up-right, 48 down, 48 up-left, 48 released; native keyboard jump every 90 steps at phase30" : null,
+                netLag = new { NetLag.RoundTripMs, NetLag.JitterMs, NetLag.LossPercent, NetLag.ReorderRate, NetLag.DuplicateRate, NetLag.Seed },
+                touchScope = touchModel ? "CPU production touch model and real delayed UDP; excludes Android View/MotionEvent, physical screen, native absolute alt gesture" : null,
                 remoteSlots = remoteSlots.OrderBy(slot => slot).ToArray(), remoteMovingSamples = remoteMoving, disconnected = false,
                 scope = "real localhost UDP dedicated server + independent client processes; CPU/headless Roam; actual bootstrap/late-join/owner movement and optional accepted-fact archive; no rendered/device/bot/replay-seek acceptance", samples }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"MOMENTUM ONLINE SCENE PASS {_checks} assertions model={expected} local={localSlot} steps={scene.DeveloperMomentumSteps - firstSteps} remoteMoving={remoteMoving}");
@@ -192,7 +243,11 @@ internal static class MomentumOnlineSceneTests
         {
             DemoRecorder.Stop();
             try { if (scene != null) MomentumSceneTests.Release(scene); }
-            finally { NetSession.Stop(); }
+            finally
+            {
+                NetSession.Stop(); touch?.ReleaseEverything();
+                if (touchModel) NetLag.Configure(previousRtt + ":" + previousJitter);
+            }
         }
     }
     private static void CheckConnection() => Require(NetSession.Active && NetSession.IsClient && !NetSession.IsAuthority

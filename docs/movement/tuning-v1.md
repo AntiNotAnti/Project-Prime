@@ -1,9 +1,9 @@
-# Momentum profile v1 — private calibration candidate
+# Momentum profile v1 — experimental opt-in
 
-This immutable profile is currently reachable only through the offline developer
-scene gate. Its identity is `MomentumProfileVersion = 1`. Public competitive
-enablement still requires PR-04 through PR-09 collision, rule, replay, device,
-network and performance evidence. Once recordings can carry this profile,
+This immutable profile is selected by the authoritative Momentum match rule;
+Classic/Native remains the default. Its identity is `MomentumProfileVersion = 1`.
+Final acceptance still requires the PR-09 device, network and performance gates.
+Because recordings can carry this profile,
 coefficient changes require a new profile identity and historical decoding.
 
 ## Calibration and numeric settings
@@ -67,9 +67,14 @@ The contact model derives four phases from current native `Standing`,
 | Phase | Meaning | Ground friction |
 | --- | --- | --- |
 | LegalJump | native jump branch accepted this tick | skip |
-| Airborne | no standing contact, or upward residual velocity | skip |
-| Landing | standing with nonpositive Y, no previous standing contact | apply once |
-| Grounded | continuing standing with nonpositive Y | apply once |
+| Airborne | no standing contact | skip |
+| Landing | standing, no previous standing contact | apply once |
+| Grounded | continuing standing contact | apply once |
+
+Native slope collision can produce positive vertical velocity while standing.
+That tangent motion retains ground friction; it does not imply a jump. An
+accepted native jump still takes precedence, and active external impulses bypass
+the adapter. PR-07's authored ramp regression covers this distinction.
 
 Horizontal processing precedes native movement collision. A press before landing
 is an airborne press; holding it across landing does not retry it. A new press

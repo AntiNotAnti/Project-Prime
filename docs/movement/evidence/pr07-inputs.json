@@ -1,0 +1,328 @@
+{
+  "matrixBase": "7b2d2c83e7153df05ad41fbbd69b7dd693135a60",
+  "simulationHz": 60,
+  "sceneAssertions": 7520,
+  "packetAssertions": 36,
+  "sceneCases": [
+    {
+      "hunter": "Samus",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "full-forward-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "full-diagonal-keyboard-controller",
+      "ticks": 24
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "partial-forward",
+      "magnitude": 0.25,
+      "ticks": 24,
+      "displacement": 0.6852353,
+      "finalSpeed": 0.059997555
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "partial-forward",
+      "magnitude": 0.5,
+      "ticks": 24,
+      "displacement": 1.3704687,
+      "finalSpeed": 0.11999511
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "partial-forward",
+      "magnitude": 0.75,
+      "ticks": 24,
+      "displacement": 2.055707,
+      "finalSpeed": 0.17999268
+    }
+  ],
+  "glAssertions": 11117,
+  "glCases": [
+    {
+      "scenario": "pen-enabled",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": true,
+      "ContinuedObserved": true,
+      "Moved": true,
+      "GestureBoost": true,
+      "ManualCharge": false,
+      "ManualBoost": false,
+      "SolverSteps": 0,
+      "Pictures": 353
+    },
+    {
+      "scenario": "touch-enabled",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": true,
+      "ContinuedObserved": true,
+      "Moved": true,
+      "GestureBoost": true,
+      "ManualCharge": false,
+      "ManualBoost": false,
+      "SolverSteps": 0,
+      "Pictures": 353
+    },
+    {
+      "scenario": "pen-disabled-manual",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": true,
+      "ContinuedObserved": false,
+      "Moved": true,
+      "GestureBoost": false,
+      "ManualCharge": true,
+      "ManualBoost": true,
+      "SolverSteps": 0,
+      "Pictures": 353
+    },
+    {
+      "scenario": "mouse-enabled",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": true,
+      "ContinuedObserved": true,
+      "Moved": true,
+      "GestureBoost": true,
+      "ManualCharge": false,
+      "ManualBoost": false,
+      "SolverSteps": 0,
+      "Pictures": 353
+    },
+    {
+      "scenario": "mouse-disabled-manual",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": true,
+      "ContinuedObserved": false,
+      "Moved": true,
+      "GestureBoost": false,
+      "ManualCharge": true,
+      "ManualBoost": true,
+      "SolverSteps": 0,
+      "Pictures": 353
+    },
+    {
+      "scenario": "bound-roll-manual",
+      "mismatchCount": 0,
+      "ticks": 160,
+      "TouchObserved": false,
+      "ContinuedObserved": false,
+      "Moved": true,
+      "GestureBoost": false,
+      "ManualCharge": true,
+      "ManualBoost": true,
+      "SolverSteps": 0,
+      "Pictures": 353
+    }
+  ],
+  "scope": "Synthetic keyboard/controller and linked production touch model; actual local GL native Samus input. No physical Android/pen/controller claim."
+}

@@ -1,0 +1,821 @@
+{
+  "matrixBase": "7b2d2c83e7153df05ad41fbbd69b7dd693135a60",
+  "checks": 19154,
+  "simulationHz": 60,
+  "profileVersion": 1,
+  "scope": "Authored ramp; explicitly seeded initial v1 cap and optional one-step entry offset, then actual neutral-body braking. Actual AI floor policy; not autonomous earned cap or external impulse coverage.",
+  "cases": [
+    {
+      "hunter": "Samus",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Samus",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Samus",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Samus",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Kanden",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Kanden",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Kanden",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Kanden",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Spire",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Spire",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Spire",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Spire",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Noxus",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Noxus",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Noxus",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Noxus",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Trace",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Trace",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Trace",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Trace",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Sylux",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Sylux",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Sylux",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Sylux",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    },
+    {
+      "hunter": "Weavel",
+      "momentum": false,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.718884,
+      "bodyMargin": 0.21888399,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Weavel",
+      "momentum": false,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2864609,
+        -6.6809835
+      ],
+      "lastSafe": [
+        0,
+        2.2543118,
+        -6.4879937
+      ],
+      "firstUnsafe": [
+        0,
+        2.2584765,
+        -6.5129943
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.7681217,
+      "centerGap": 0.55089474,
+      "bodyMargin": 0.050894737,
+      "airborneTicks": 8,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 0,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Weavel",
+      "momentum": true,
+      "arm": "first-veto",
+      "start": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.9165549,
+      "centerGap": 0.6954522,
+      "bodyMargin": 0.19545221,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913267
+    },
+    {
+      "hunter": "Weavel",
+      "momentum": true,
+      "arm": "one-step-veto-entry",
+      "start": [
+        0,
+        2.2656372,
+        -6.55598
+      ],
+      "lastSafe": [
+        0,
+        2.2334886,
+        -6.3629923
+      ],
+      "firstUnsafe": [
+        0,
+        2.2376533,
+        -6.387993
+      ],
+      "seededSpeed": 0.35998535,
+      "coast": 0.91655445,
+      "centerGap": 0.52746534,
+      "bodyMargin": 0.027465343,
+      "airborneTicks": 9,
+      "supportedPositiveAirPhases": 0,
+      "supportedPositiveGroundPhases": 27,
+      "maximumPlanar": 0.35998535,
+      "maximumDisplacement": 0.14913271
+    }
+  ]
+}

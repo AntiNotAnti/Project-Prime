@@ -33,7 +33,9 @@ internal static class MomentumProfileTests
             Check(MomentumProfileV1.Contact(true, true, 0, false) == MomentumContactPhase.Grounded, "resting contact");
             Check(MomentumProfileV1.Contact(true, false, 0, false) == MomentumContactPhase.Landing, "native newly standing contact");
             Check(MomentumProfileV1.Contact(false, true, -1, false) == MomentumContactPhase.Airborne, "leaving contact");
-            Check(MomentumProfileV1.Contact(true, true, .3f, false) == MomentumContactPhase.Airborne, "upward residual impulse is airborne");
+            Check(MomentumProfileV1.Contact(true, true, .3f, false) == MomentumContactPhase.Grounded, "positive native slope tangent retains standing friction");
+            Check(MomentumProfileV1.Contact(true, false, .3f, false) == MomentumContactPhase.Landing, "positive native landing tangent retains friction");
+            Check(MomentumProfileV1.Contact(false, true, .3f, false) == MomentumContactPhase.Airborne, "unsupported upward motion is airborne");
             Check(MomentumProfileV1.Contact(true, true, .3f, true) == MomentumContactPhase.LegalJump, "accepted ground jump");
             Check(MomentumProfileV1.Contact(false, false, .3f, true) == MomentumContactPhase.LegalJump, "accepted native multi-jump");
             foreach (MomentumContactPhase phase in Enum.GetValues<MomentumContactPhase>())
@@ -111,7 +113,7 @@ internal static class MomentumProfileTests
             for (int i = 0; i < 100000; i++) warm = MomentumProfileV1.Step(warm, samples[i % samples.Length]).Velocity;
             allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
             Check(allocated == 0 && float.IsFinite(warm.X), "zero allocations over 100000 warmed profile steps");
-            Console.WriteLine($"MOMENTUM PROFILE PASS {_checks} checks; v1 private candidate, zero allocations/100000 warmed steps; synthetic cadence, not device acceptance.");
+            Console.WriteLine($"MOMENTUM PROFILE PASS {_checks} checks; v1 experimental profile, zero allocations/100000 warmed steps; synthetic cadence, not device acceptance.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM PROFILE FAIL " + ex); return 1; }

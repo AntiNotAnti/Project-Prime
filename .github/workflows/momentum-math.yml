@@ -17,6 +17,8 @@ on:
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
+      - 'src/MphRead.Android/TouchControls.cs'
       - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
       - 'src/MphRead/Renderer.cs'
       - 'src/MphRead/Mods/ModEntry.cs'
@@ -61,6 +63,8 @@ on:
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
+      - 'src/MphRead.Android/TouchControls.cs'
       - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
       - 'src/MphRead/Renderer.cs'
       - 'src/MphRead/Mods/ModEntry.cs'
@@ -123,6 +127,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-offline-rules
       - name: V1 contact, speed-retention and partial-input policy
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-profile
+      - name: Signed axes, packet presence and movement override lifecycle
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-input-packets
       - name: Warmed eight-player workload with zero-allocation assertion
         env:
           DOTNET_TieredCompilation: '0'
