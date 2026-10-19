@@ -49,6 +49,56 @@ namespace MphRead.Mods.Input
             Check(firstBoost.Kind == MorphBallBoostStateMachine.Fired.Touch
                 && sibling.Kind == MorphBallBoostStateMachine.Fired.None && boost.Charge == 15,
                 "touch fires once and preserves shoulder charge");
+
+            // A mouse gesture with the boost preference off must still move
+            // the ball. Filter only the canonical boost-eligibility bit, before
+            // this same sample is consumed locally, sent over the network or
+            // saved in the replay checkpoint.
+            NativeTouchSample mouseWithBoostOff = new();
+            mouseWithBoostOff.StepRelative(true, 100, 0, 1, allowMovementBoost: false);
+            mouseWithBoostOff.StepRelative(true, 0, 0, 1, allowMovementBoost: false);
+            mouseWithBoostOff.StepRelative(true, 400, 0, 1, allowMovementBoost: false);
+            NativeTouchReport noMouseBoost = mouseWithBoostOff.Current;
+            Check(noMouseBoost.Active && noMouseBoost.Down && !noMouseBoost.Continued
+                && noMouseBoost.Delta4X == 100 && mouseWithBoostOff.TakeRollShare() == .5f,
+                "disabled mouse boost preserves the native rolling motion");
+            MorphBallBoostStateMachine.State mouseBoostState = new() { CanTouchBoost = true };
+            Check(new MorphBallBoostStateMachine().Advance(ref mouseBoostState, noMouseBoost,
+                    buttonHeld: false, min: 10, max: 60, alwaysFull: false).Kind
+                    == MorphBallBoostStateMachine.Fired.None && !mouseBoostState.Boosting,
+                "disabled mouse movement cannot fire native boost");
+            Span<byte> gatedWire = stackalloc byte[NativeTouchReport.WireSize];
+            noMouseBoost.Write(gatedWire);
+            NativeTouchReport decodedGate = NativeTouchReport.Read(gatedWire);
+            NativeTouchSample remoteGate = new();
+            remoteGate.ApplyRemote(decodedGate, 2, 1);
+            Check(decodedGate == noMouseBoost && !remoteGate.Current.Continued
+                && remoteGate.Current.Delta4X == 100 && remoteGate.TakeRollShare() == .5f,
+                "disabled native boost propagates over the existing wire without losing roll");
+            MorphBallBoostStateMachine.State manual = new() { CanTouchBoost = true, Charge = 15 };
+            Check(new MorphBallBoostStateMachine().Advance(ref manual, decodedGate,
+                    buttonHeld: false, min: 10, max: 60, alwaysFull: false).Kind
+                    == MorphBallBoostStateMachine.Fired.Shoulder,
+                "manual boost release remains usable when movement boost is disabled");
+            mouseWithBoostOff.StepRelative(true, 0, 0, 1, allowMovementBoost: true);
+            mouseWithBoostOff.StepRelative(true, 400, 0, 1, allowMovementBoost: true);
+            NativeTouchReport enabledMouseBoost = mouseWithBoostOff.Current;
+            MorphBallBoostStateMachine.State enabled = new() { CanTouchBoost = true };
+            Check(enabledMouseBoost.Continued
+                && new MorphBallBoostStateMachine().Advance(ref enabled, enabledMouseBoost,
+                    buttonHeld: false, min: 10, max: 60, alwaysFull: false).Kind
+                    == MorphBallBoostStateMachine.Fired.Touch,
+                "re-enabling movement boost restores classic swipe boosting");
+
+            NativeTouchSample penWithBoostOff = new();
+            penWithBoostOff.StepAbsolute(true, 0, 0, allowMovementBoost: false);
+            penWithBoostOff.StepAbsolute(true, 0, 0, allowMovementBoost: false);
+            penWithBoostOff.StepAbsolute(true, 150, 0, allowMovementBoost: false);
+            Check(penWithBoostOff.Current.Delta4X == 150
+                    && !penWithBoostOff.Current.Continued
+                    && penWithBoostOff.TakeRollShare() == .5f,
+                "stylus boost setting independently suppresses classic pen flicks");
+
             NativeTouchSample remote = new();
             remote.ApplyRemote(swipe, 1, 1);
             Check(remote.TakeRollShare() == 0.5f, "first report");
