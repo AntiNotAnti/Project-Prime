@@ -57,11 +57,18 @@ internal static class InstagibIonFractureTests
         foreach (var beam in CosmeticCatalog.BeamEffects)
         {
             byte[] pcm = InstagibBeamAudio.BuildWave(beam.Style);
+            byte[] impactPcm = InstagibBeamAudio.BuildWave(beam.Style, impact: true);
             Check(pcm.Length > 1024 && pcm.Length < 16000 && pcm[0] == 'R' && pcm[1] == 'I',
-                "authored short synthesis emits a bounded RIFF/WAV for each beam");
+                "authored short firing synthesis emits a bounded RIFF/WAV for each beam");
+            Check(impactPcm.Length > 1024 && impactPcm.Length < pcm.Length
+                && impactPcm[0] == 'R' && impactPcm[1] == 'I',
+                "distinct collision synthesis emits a shorter valid RIFF/WAV");
             uint hash = 2166136261;
             foreach (byte sample in pcm) hash = (hash ^ sample) * 16777619;
-            Check(waveIds.Add(hash), "all beam signatures are acoustically distinct by PCM");
+            Check(waveIds.Add(hash), "all beam firing signatures are acoustically distinct by PCM");
+            uint impactHash = 2166136261;
+            foreach (byte sample in impactPcm) impactHash = (impactHash ^ sample) * 16777619;
+            Check(waveIds.Add(impactHash), "every impact signature differs from firing and other styles");
 
             Check(beam.WireId == (ushort)beam.Style && beam.WireId < 16,
                 "style identity fits the reserved cosmetic nibble");

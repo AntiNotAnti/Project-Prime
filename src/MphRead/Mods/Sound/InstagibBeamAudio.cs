@@ -19,11 +19,12 @@ namespace MphRead.Mods.Sound
     internal static class InstagibBeamAudio
     {
         private static readonly object Gate = new();
-        // At most nine resident voices, one per effect. Overlapping sounds of
-        // the same style restart instead of exhausting the output mixer.
-        private static readonly Dictionary<BeamFxStyle, CuePlayer> Players = new();
+        // Two short voices per style: firing and impact. Repeated shots restart
+        // the bounded voice rather than accumulating mixer components.
+        private static readonly Dictionary<(BeamFxStyle Style, bool Impact), CuePlayer> Players = new();
 
-        public static void Play(Scene scene, BeamFxStyle style, Vector3 origin)
+        public static void Play(Scene scene, BeamFxStyle style, Vector3 muzzle,
+            Vector3 impact, bool hitPlayer)
         {
             if (Headless.Active || ThumbnailMode.Active
                 || !MusicPlayer.Available || MusicPlayer.Engine == null
@@ -34,41 +35,51 @@ namespace MphRead.Mods.Sound
                 || !scene.Services.IsReplica && !scene.Services.AllowsPresentationSideEffects)
                 return;
             Vector3 listener = scene.Audio.GetListenerPosition();
-            float distance = (listener - origin).Length;
-            if (!float.IsFinite(distance) || distance > 50f) return;
-
-            // Keep it a quiet signature on top of existing positional combat
-            // sound, not a 2D audio advantage for hearing distant opponents.
-            float attenuation = 1f / (1f + 0.16f * distance + 0.012f * distance * distance);
-            float gain = Math.Clamp(Sfx.Volume * AudioMixer.GetVolume(AudioBus.SoundEffects)
-                * 0.19f * attenuation, 0f, 0.21f);
-            if (gain < 0.003f) return;
             lock (Gate)
             {
-                if (!Players.TryGetValue(style, out CuePlayer? player))
-                {
-                    try
-                    {
-                        player = new CuePlayer(BuildWave(style));
-                        Players.Add(style, player);
-                    }
-                    catch (Exception e) when (e is not OutOfMemoryException and not StackOverflowException)
-                    {
-                        Console.WriteLine("[sound] Insta-Gib signature unavailable: " + e.GetType().Name);
-                        return;
-                    }
-                }
-                player.Play(gain);
+                PlayCue(style, impactCue: false, muzzle, listener, strength: 0.19f);
+                PlayCue(style, impactCue: true, impact, listener,
+                    strength: hitPlayer ? 0.13f : 0.10f);
             }
         }
 
-        internal static byte[] BuildWave(BeamFxStyle style)
+        private static void PlayCue(BeamFxStyle style, bool impactCue,
+            Vector3 location, Vector3 listener, float strength)
+        {
+            float distance = (listener - location).Length;
+            if (!float.IsFinite(distance) || distance > 50f) return;
+
+            // Both generated accents retain the native 3D Imperialist audio
+            // underneath. Strong distance falloff avoids off-screen advantage.
+            float attenuation = 1f / (1f + 0.16f * distance + 0.012f * distance * distance);
+            float gain = Math.Clamp(Sfx.Volume * AudioMixer.GetVolume(AudioBus.SoundEffects)
+                * strength * attenuation, 0f, 0.21f);
+            if (gain < 0.003f) return;
+
+            var key = (style, impactCue);
+            if (!Players.TryGetValue(key, out CuePlayer? player))
+            {
+                try
+                {
+                    player = new CuePlayer(BuildWave(style, impactCue));
+                    Players.Add(key, player);
+                }
+                catch (Exception e) when (e is not OutOfMemoryException and not StackOverflowException)
+                {
+                    Console.WriteLine("[sound] Insta-Gib signature unavailable: " + e.GetType().Name);
+                    return;
+                }
+            }
+            player.Play(gain);
+        }
+
+        internal static byte[] BuildWave(BeamFxStyle style, bool impact = false)
         {
             // Inspired by the existing owned UI-feedback synthesizer. Each
             // distinct pairing defines pitch sweep, harmonic tension and
             // digital shimmer rather than repitching one common sound.
             const int rate = 22050;
-            const double seconds = 0.165;
+            double seconds = impact ? 0.105d : 0.165d;
             var palette = style switch
             {
                 BeamFxStyle.VoidRift => (280d, 160d, 0.31d, 11d),
@@ -99,20 +110,27 @@ namespace MphRead.Mods.Sound
             for (int i = 0; i < frames; i++)
             {
                 double t = i / (double)(frames - 1);
-                double frequency = palette.Item1 + (palette.Item2 - palette.Item1) * t;
+                double frequency = impact
+                    ? palette.Item2 * 1.35d + (palette.Item1 - palette.Item2 * 1.35d) * Math.Sqrt(t)
+                    : palette.Item1 + (palette.Item2 - palette.Item1) * t;
                 // Time-local modulation creates distinct crystalline, arc and
                 // warp qualities without RNG or dependence on simulation ticks.
                 frequency += Math.Sin(t * Math.PI * 2 * palette.Item4)
                     * (style == BeamFxStyle.PhantomTrace ? 7d : 29d);
                 phase += 2 * Math.PI * frequency / rate;
-                double attack = Math.Min(1, t / 0.036);
-                double release = Math.Pow(Math.Max(0, 1 - t), 2.3);
+                double attack = Math.Min(1, t / (impact ? 0.015d : 0.036d));
+                double release = Math.Pow(Math.Max(0, 1 - t), impact ? 4.2d : 2.3d);
                 double env = Math.Max(0, attack * release);
                 double sound = Math.Sin(phase)
                     + Math.Sin(phase * 1.51) * palette.Item3;
-                // A very brief energy snap at onset.
-                if (t < 0.08)
-                    sound += Math.Sin(phase * 3.02) * (0.19 * (1 - t / 0.08));
+                if (impact)
+                {
+                    // A distinct collision snap rather than a second
+                    // identical muzzle chirp, softer for a wall hit.
+                    sound += Math.Sin(phase * 4.12) * 0.31d * (1 - t);
+                }
+                else if (t < 0.08)
+                    sound += Math.Sin(phase * 3.02) * (0.19d * (1 - t / 0.08d));
                 sound *= env / (1.6 + palette.Item3);
                 writer.Write((short)Math.Clamp(
                     (int)Math.Round(sound * short.MaxValue * 0.65),
