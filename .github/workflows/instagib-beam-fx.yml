@@ -6,20 +6,24 @@ on:
     paths:
       - 'src/MphRead/Mods/Render/InstagibIonFracture.cs'
       - 'src/MphRead/Mods/Sound/InstagibBeamAudio.cs'
+      - 'src/MphRead/Mods/Replay/ReplayAudioOwner.cs'
       - 'src/MphRead/Mods/Cosmetics/**'
       - 'src/MphRead/Entities/BeamProjectileEntity.cs'
       - 'src/MphRead/Sound/Sfx.cs'
       - 'tools/nettest/InstagibIonFractureTests.cs'
+      - 'tools/nettest/InstagibAudioOwnershipTests.cs'
       - 'tools/rmlui-hunter-check/**'
       - '.github/workflows/instagib-beam-fx.yml'
   pull_request:
     paths:
       - 'src/MphRead/Mods/Render/InstagibIonFracture.cs'
       - 'src/MphRead/Mods/Sound/InstagibBeamAudio.cs'
+      - 'src/MphRead/Mods/Replay/ReplayAudioOwner.cs'
       - 'src/MphRead/Mods/Cosmetics/**'
       - 'src/MphRead/Entities/BeamProjectileEntity.cs'
       - 'src/MphRead/Sound/Sfx.cs'
       - 'tools/nettest/InstagibIonFractureTests.cs'
+      - 'tools/nettest/InstagibAudioOwnershipTests.cs'
       - 'tools/rmlui-hunter-check/**'
       - '.github/workflows/instagib-beam-fx.yml'
   workflow_dispatch:

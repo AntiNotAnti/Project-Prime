@@ -14,6 +14,7 @@ internal static class ReplayAudioOwner
     internal static ulong Acquire(Scene scene, Scene live)
     {
         _version++; _owner = scene; _live = live; _backend = Sfx.Instance;
+        Mods.Sound.InstagibBeamAudio.StopPlaying();
         _backend?.StopAllSound(); _backend?.SetListenerScene(scene);
         return _version;
     }
@@ -21,7 +22,10 @@ internal static class ReplayAudioOwner
     {
         if (version == 0 || version != _version) return;
         if (ReferenceEquals(Sfx.Instance, _backend))
-        { _backend?.StopAllSound(); _backend?.SetListenerScene(_live); }
+        {
+            Mods.Sound.InstagibBeamAudio.StopPlaying();
+            _backend?.StopAllSound(); _backend?.SetListenerScene(_live);
+        }
         Reset();
     }
     internal static void Reset() { _version++; _owner = _live = null; _backend = null; }

@@ -21,7 +21,18 @@ namespace MphRead.Mods.Sound
         private static readonly object Gate = new();
         // Two short voices per style: firing and impact. Repeated shots restart
         // the bounded voice rather than accumulating mixer components.
-        private static readonly Dictionary<(BeamFxStyle Style, bool Impact), CuePlayer> Players = new();
+        private static readonly Dictionary<(BeamFxStyle Style, bool Impact), ICueVoice> Players = new();
+
+        internal interface ICueVoice : IDisposable
+        {
+            void Play(float gain);
+            void Stop();
+        }
+
+        // Same ownership policy as Scene.Audio, including the muted live scene
+        // while a private replay owns presentation. Kept device-independent.
+        internal static bool MayPlay(Scene scene) => Mods.Replay.ReplayAudioOwner.MayPlay(scene)
+            && (scene.Services.IsReplica || scene.Services.AllowsPresentationSideEffects);
 
         public static void Play(Scene scene, BeamFxStyle style, Vector3 muzzle,
             Vector3 impact, bool hitPlayer)
@@ -31,8 +42,7 @@ namespace MphRead.Mods.Sound
                 || MusicPlayer.PlaybackDevice == null || !scene.GameState.InstaGib
                 || !scene.GameState.Multiplayer
                 || Mods.Replay.ReplayVideoExporter.Rendering
-                || scene.Services.IsReplica && !Mods.Replay.ReplayAudioOwner.MayPlay(scene)
-                || !scene.Services.IsReplica && !scene.Services.AllowsPresentationSideEffects)
+                || !MayPlay(scene))
                 return;
             Vector3 listener = scene.Audio.GetListenerPosition();
             lock (Gate)
@@ -57,7 +67,7 @@ namespace MphRead.Mods.Sound
             if (gain < 0.003f) return;
 
             var key = (style, impactCue);
-            if (!Players.TryGetValue(key, out CuePlayer? player))
+            if (!Players.TryGetValue(key, out ICueVoice? player))
             {
                 try
                 {
@@ -140,16 +150,24 @@ namespace MphRead.Mods.Sound
             return stream.ToArray();
         }
 
+        // Stop current tails without reallocating cached voices or touching
+        // the shared output device. Called only after ownership-token checks.
+        internal static void StopPlaying()
+        {
+            lock (Gate)
+                foreach (ICueVoice player in Players.Values) player.Stop();
+        }
+
         public static void Shutdown()
         {
             lock (Gate)
             {
-                foreach (CuePlayer player in Players.Values) player.Dispose();
+                foreach (ICueVoice player in Players.Values) player.Dispose();
                 Players.Clear();
             }
         }
 
-        private sealed class CuePlayer : IDisposable
+        private sealed class CuePlayer : ICueVoice
         {
             private readonly MemoryStream _stream;
             private readonly StreamDataProvider _provider;
@@ -171,6 +189,8 @@ namespace MphRead.Mods.Sound
                 _player.Volume = gain;
                 _player.Play();
             }
+
+            public void Stop() => _player.Stop();
 
             public void Dispose()
             {
