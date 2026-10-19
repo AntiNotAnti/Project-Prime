@@ -23,7 +23,7 @@ internal static partial class EditorGlAcceptance
         using var pages=new RmlUiPageManager(host);using var page=new TheatrePlaybackPagePresenter(host,pages,transport,editor:memory);
         page.Open();Frame();var playback=page.Document;
         Check(page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.Studio,playback,1)),"Studio action retains native replay-editor modal when editor capability exists");
-        Frame();var panel=pages.Top;Check(panel!=playback&&host.FocusedElement()=="replay_editor_refresh","native editor modal owns foreground focus");
+        Frame();var panel=pages.Top;Check(panel==playback&&host.FocusDocument(panel,"replay_editor_refresh")&&host.FocusedElement()=="replay_editor_refresh","integrated Studio markers own visible editor controls and focus");
         Click("replay_editor_player",TheatrePlaybackAction.EditorPlayer);Click("replay_editor_player",TheatrePlaybackAction.EditorPlayer);Click("replay_editor_player",TheatrePlaybackAction.EditorPlayer);
         Click("replay_editor_filter",TheatrePlaybackAction.EditorEventFilter);
         Click("replay_editor_next",TheatrePlaybackAction.EditorNext);Click("replay_editor_previous",TheatrePlaybackAction.EditorPrevious);
@@ -66,8 +66,10 @@ internal static partial class EditorGlAcceptance
         foreach(var pair in new[]{("replay_editor_previous_shot",TheatrePlaybackAction.EditorPreviousShot),("replay_editor_current_shot",TheatrePlaybackAction.EditorShotAtPlayhead),("replay_editor_next_shot",TheatrePlaybackAction.EditorNextShot),("replay_editor_analytics_hud",TheatrePlaybackAction.EditorToggleAnalyticsHud),("replay_editor_network_hud",TheatrePlaybackAction.EditorToggleNetworkHud),("replay_editor_combat_hud",TheatrePlaybackAction.EditorToggleCombatHud),("replay_editor_shot_rays",TheatrePlaybackAction.EditorToggleShotRays)})Click(pair.Item1,pair.Item2);
         memory.Rendering=true;Frame();Check(!host.FocusDocument(panel,"replay_editor_add_selection")&&!host.FocusDocument(panel,"replay_editor_next_shot"),"existing video exporter blocks native editor playback mutations");memory.Rendering=false;
         Click("replay_editor_tab",TheatrePlaybackAction.EditorTab);Check(pages.Top==panel,"analytics remains in same native editor workspace");
-        Click("replay_editor_close",TheatrePlaybackAction.EditorClose);Check(pages.Top==playback&&memory.Retired==1,"native close retires inspection only");
-        Check(!page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.EditorSeek,panel,ulong.MaxValue)),"retired editor cannot seek any replacement transport");
+        Click("replay_editor_close",TheatrePlaybackAction.EditorClose);Check(pages.Top==playback&&memory.Retired==0,"returning to Studio camera retains the shared editor owner");
+        Check(!page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.EditorSeek,panel,ulong.MaxValue)),"hidden Studio markers reject stale editor seeks");
+        Check(page.Close()&&memory.Retired==1,"closing Studio retires the editor owner exactly once");
+        Check(!page.HandleIntent(new(RmlUiIntentKind.ReplayAction,(int)TheatrePlaybackAction.EditorSeek,panel,ulong.MaxValue)),"retired Studio cannot seek any replacement transport");
         Check(!DemoPlayback.IsActive&&GL.GetError()==ErrorCode.NoError,"native editor fixture ends without replay files/world/encoder or GL errors");
         void Frame(){page.Present();host.Update();GL.BindFramebuffer(FramebufferTarget.Framebuffer,0);GL.Viewport(0,0,width,height);GL.Disable(EnableCap.ScissorTest);GL.ClearColor(.2f,.3f,.4f,1);GL.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit|ClearBufferMask.StencilBufferBit);RmlUiOpenGlFrame.Draw(host,width,height);}
         void Settle(){var timer=Stopwatch.StartNew();do{Frame();Thread.Sleep(10);}while(timer.ElapsedMilliseconds<200);}
