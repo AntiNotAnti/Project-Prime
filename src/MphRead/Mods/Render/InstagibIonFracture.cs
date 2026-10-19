@@ -216,6 +216,35 @@ namespace MphRead.Mods.Render
                 }
             }
 
+            if (!lance.HitPlayer && impact > 0 && medium)
+            {
+                // Shallow wall/door collision flare on the shooter's side.
+                // Decorative sparks fan only away from the collision plane;
+                // geometry never pushes a decal behind the level surface.
+                Vector3 origin = lance.End - axis * 0.075f;
+                for (int i = 0; i < (full ? 3 : 2); i++)
+                {
+                    float angle = (i - 1) * 0.74f + lance.Slot * 0.07f;
+                    Vector3 spoke = right * MathF.Cos(angle) + up * MathF.Sin(angle);
+                    Vector3 tip = origin + spoke * (0.17f + age * 0.37f)
+                        - axis * (0.10f + age * 0.21f);
+                    DrawFacet(scene, origin, tip, axis, 0.021f, 0.002f,
+                        lance.Color, impact * 0.62f);
+                }
+            }
+
+            if (impact > 0 && full && age < 0.13f)
+            {
+                // Crossed restrained emissive prism, not a real dynamic light.
+                // Depth-tested and short-lived to avoid glowing through walls.
+                float glow = (1f - age / 0.13f) * 0.27f;
+                Vector3 source = lance.End - axis * 0.085f;
+                DrawFacet(scene, source - right * 0.12f, source + right * 0.12f,
+                    up, 0.034f, 0.034f, hot, glow);
+                DrawFacet(scene, source - up * 0.12f, source + up * 0.12f,
+                    right, 0.034f, 0.034f, hot, glow);
+            }
+
             switch (lance.Style)
             {
                 case BeamFxStyle.IonFracture:
