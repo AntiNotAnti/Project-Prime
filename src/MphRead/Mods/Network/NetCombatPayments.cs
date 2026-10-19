@@ -102,6 +102,8 @@ internal static class NetCombatPayments
     }
     internal static Reservation Begin(PlayerEntity victim, EntityBase? source, DamageFlags flags)
     {
+        if (source is BeamProjectileEntity { ModCustomShot: not null })
+            return new(!NetSession.Active && victim.OwningScene.OfflineWeapons?.IsEligible == true);
         if (!NetHitClaims.Arbitrating || NetDamage.ApplyingClaim || NetDamage.Replaying
             || source is not BeamProjectileEntity beam || beam.Beam == BeamType.ShockCoil
             || beam.EnhancedMicroSeeker || Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus)

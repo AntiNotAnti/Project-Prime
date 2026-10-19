@@ -2104,7 +2104,7 @@ namespace MphRead.Entities
             int combatTurretBefore = Halfturret?.Health ?? 0;
             ushort combatSequenceBefore = Mods.Network.NetDamage.Sequence(SlotIndex);
             if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
-            ushort replayDamageEventId = Mods.Network.NetDamage.Note(this, attacker,
+            ushort replayDamageEventId = beam?.ModCustomShot != null ? (ushort)0 : Mods.Network.NetDamage.Note(this, attacker,
                 beam?.Beam ?? BeamType.None, flags, direction,
                 damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey ?? (bomb != null ? bomb.ModOwnerKey : NetBurnSource.Current?.Key),
                 enhancedChild: beam?.EnhancedMicroSeeker == true, componentId: beam?.ModComponentId ?? 0,
@@ -2126,7 +2126,7 @@ namespace MphRead.Entities
             bool deferSelf = NetHitPrediction.Predicting && attacker == this && beam != null
                 && NetSelfSplash.Claimable(beam.Beam, flags, beam.EnhancedDirectHit, beam.ModShotId, beam.ModComponentId)
                 && NetDamage.HasUnclaimedSelfEvent((byte)beam.Beam);
-            Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
+            if (beam?.ModCustomShot == null) Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
                 beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey, componentId: beam?.ModComponentId ?? 0,
                 direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
                     || bomb?.BombType == BombType.Stinglarva,
@@ -2153,7 +2153,7 @@ namespace MphRead.Entities
             ShotKey replayKey = default;
             Vector3 replayImpact = default;
             var replayFactFlags = Mods.Network.ReplayShotFactFlags.None;
-            if (Mods.Network.NetSession.IsAuthority && attacker != null
+            if (beam?.ModCustomShot == null && Mods.Network.NetSession.IsAuthority && attacker != null
                 && replayDamageEventId != 0 && damage > 0)
             {
                 replayShotId = beam?.ModShotId ?? Mods.Network.NetHitClaims.CurrentClaimShotId;
@@ -2199,8 +2199,8 @@ namespace MphRead.Entities
 
             Mods.Network.CareerMatchStats.NoteDamage(
                 this, attacker, damage, dead, _scene.FrameCount);
-            Mods.Network.MatchReportStats.NoteDamage(this, attacker, beam, damage);
-            _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModLaunchKey);
+            if (beam?.ModCustomShot == null) Mods.Network.MatchReportStats.NoteDamage(this, attacker, beam, damage);
+            _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModCustomShot == null ? beam?.ModLaunchKey : null);
             // todo?: something for wifi
             if (attacker != null)
             {
@@ -3178,9 +3178,9 @@ namespace MphRead.Entities
                         NetHitClaims.ContinuousClaimId(SlotIndex, (uint)continuousBeam.ModContinuousPhase));
                 }
             }
-            if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
+            if (beam?.ModCustomShot == null && combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? NetBurnSource.Current?.LaunchFrame ?? 0, beam?.Beam ?? NetBurnSource.Current?.Weapon ?? BeamType.None);
-            if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
+            if (beam?.ModCustomShot == null && attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
                 Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(attacker, this, beam?.Beam ?? BeamType.None,
                     beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker.IsAltForm && !flags.TestFlag(DamageFlags.Burn) || bomb?.BombType == BombType.Stinglarva,
                     beam?.Flags.TestFlag(BeamFlags.Charged) == true,
