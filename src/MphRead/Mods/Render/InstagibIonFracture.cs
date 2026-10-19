@@ -56,13 +56,13 @@ namespace MphRead.Mods.Render
         private static bool Finite(Vector3 v) =>
             float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
-        internal void Add(Scene scene, Vector3 start, Vector3 end, int slot,
+        internal bool Add(Scene scene, Vector3 start, Vector3 end, int slot,
             uint shotId, uint launchFrame, BeamEffectDefinition? effect = null, byte tone = 0,
             bool hitPlayer = false)
         {
             if (!scene.GameState.Multiplayer || !scene.GameState.InstaGib
                 || !Finite(start) || !Finite(end) || (end - start).LengthSquared < 0.0025f)
-                return;
+                return false;
             float now = scene.ElapsedTime;
             if (now + 0.001f < _lastTime) Clear();
             _lastTime = now;
@@ -71,11 +71,11 @@ namespace MphRead.Mods.Render
                 Lance old = _active[i];
                 if (old.Slot != slot || now - old.Born > LifeSeconds) continue;
                 if (shotId != 0 && old.ShotId == shotId && old.LaunchFrame == launchFrame)
-                    return;
+                    return false;
                 if (shotId == 0 && old.ShotId == 0 && MathF.Abs(now - old.Born) < 1f / 120f
                     && (old.Start - start).LengthSquared < 0.01f
                     && (old.End - end).LengthSquared < 0.01f)
-                    return;
+                    return false;
             }
 
             // Drop the oldest effect instead of allowing unbounded multi-player
@@ -91,6 +91,23 @@ namespace MphRead.Mods.Render
             Vector3 color = BeamPalette.Resolve(tone, original);
             _active[_count++] = new Lance(start, end, color, effect.SecondaryColor,
                 now, slot, shotId, launchFrame, effect.Style, hitPlayer);
+            return true;
+        }
+
+        // Caps decorative draw submissions in 8-player spam. Every shot
+        // retains its actual depth-tested center rail even after the optional
+        // accent budget is exhausted. Prioritize fresh, nearby shots.
+        internal static CosmeticEffectQuality DetailQualityForRange(
+            CosmeticEffectQuality desired, float distance, int remainingBudget)
+        {
+            if (desired == CosmeticEffectQuality.Off || remainingBudget <= 0
+                || !float.IsFinite(distance) || distance > 75f)
+                return CosmeticEffectQuality.Off;
+            if (distance > 35f && desired > CosmeticEffectQuality.Low)
+                return CosmeticEffectQuality.Low;
+            if (distance > 20f && desired > CosmeticEffectQuality.Medium)
+                return CosmeticEffectQuality.Medium;
+            return desired;
         }
 
         internal void Draw(Scene scene)
@@ -116,9 +133,32 @@ namespace MphRead.Mods.Render
                 float age = now - lance.Born;
                 if (age < 0 || age >= LifeSeconds) continue;
                 _active[remaining++] = lance;
-                DrawLance(scene, lance, age, view, quality, reduceMotion, reduceTransparency);
             }
             _count = remaining;
+
+            Vector3 camera = scene.ViewMatrix.Inverted().Row3.Xyz;
+            if (!Finite(camera)) camera = Vector3.Zero;
+            int detailBudget = quality switch
+            {
+                CosmeticEffectQuality.High => 12,
+                CosmeticEffectQuality.Medium => 8,
+                CosmeticEffectQuality.Low => 4,
+                _ => 0
+            };
+            for (int i = remaining - 1; i >= 0; i--)
+            {
+                Lance lance = _active[i];
+                Vector3 delta = lance.End - lance.Start;
+                float lengthSquared = delta.LengthSquared;
+                float along = lengthSquared < 0.0001f ? 0f
+                    : Math.Clamp(Vector3.Dot(camera - lance.Start, delta) / lengthSquared, 0f, 1f);
+                float distance = (camera - (lance.Start + delta * along)).Length;
+                var effective = DetailQualityForRange(quality, distance, detailBudget);
+                if (effective != CosmeticEffectQuality.Off && !reduceMotion) detailBudget--;
+                DrawLance(scene, lance, view: view, age: now - lance.Born,
+                    quality: effective, reducedMotion: reduceMotion,
+                    reducedTransparency: reduceTransparency);
+            }
         }
 
         private static void DrawLance(Scene scene, in Lance lance, float age, Vector3 view,
@@ -174,6 +214,35 @@ namespace MphRead.Mods.Render
                         lance.End + spread * (0.22f + age * 0.76f) - axis * 0.12f,
                         axis, 0.025f, 0.003f, hot, impact * 0.74f);
                 }
+            }
+
+            if (!lance.HitPlayer && impact > 0 && medium)
+            {
+                // Shallow wall/door collision flare on the shooter's side.
+                // Decorative sparks fan only away from the collision plane;
+                // geometry never pushes a decal behind the level surface.
+                Vector3 origin = lance.End - axis * 0.075f;
+                for (int i = 0; i < (full ? 3 : 2); i++)
+                {
+                    float angle = (i - 1) * 0.74f + lance.Slot * 0.07f;
+                    Vector3 spoke = right * MathF.Cos(angle) + up * MathF.Sin(angle);
+                    Vector3 tip = origin + spoke * (0.17f + age * 0.37f)
+                        - axis * (0.10f + age * 0.21f);
+                    DrawFacet(scene, origin, tip, axis, 0.021f, 0.002f,
+                        lance.Color, impact * 0.62f);
+                }
+            }
+
+            if (impact > 0 && full && age < 0.13f)
+            {
+                // Crossed restrained emissive prism, not a real dynamic light.
+                // Depth-tested and short-lived to avoid glowing through walls.
+                float glow = (1f - age / 0.13f) * 0.27f;
+                Vector3 source = lance.End - axis * 0.085f;
+                DrawFacet(scene, source - right * 0.12f, source + right * 0.12f,
+                    up, 0.034f, 0.034f, hot, glow);
+                DrawFacet(scene, source - up * 0.12f, source + up * 0.12f,
+                    right, 0.034f, 0.034f, hot, glow);
             }
 
             switch (lance.Style)

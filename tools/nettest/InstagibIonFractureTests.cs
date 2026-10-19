@@ -1,6 +1,7 @@
 using System;
 using MphRead.Mods.Render;
 using MphRead.Mods.Cosmetics;
+using MphRead.Mods.Sound;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
@@ -52,8 +53,23 @@ internal static class InstagibIonFractureTests
             Check(current >= 0 && current <= previous, "monotone fade " + step);
             previous = current;
         }
+        var waveIds = new System.Collections.Generic.HashSet<uint>();
         foreach (var beam in CosmeticCatalog.BeamEffects)
         {
+            byte[] pcm = InstagibBeamAudio.BuildWave(beam.Style);
+            byte[] impactPcm = InstagibBeamAudio.BuildWave(beam.Style, impact: true);
+            Check(pcm.Length > 1024 && pcm.Length < 16000 && pcm[0] == 'R' && pcm[1] == 'I',
+                "authored short firing synthesis emits a bounded RIFF/WAV for each beam");
+            Check(impactPcm.Length > 1024 && impactPcm.Length < pcm.Length
+                && impactPcm[0] == 'R' && impactPcm[1] == 'I',
+                "distinct collision synthesis emits a shorter valid RIFF/WAV");
+            uint hash = 2166136261;
+            foreach (byte sample in pcm) hash = (hash ^ sample) * 16777619;
+            Check(waveIds.Add(hash), "all beam firing signatures are acoustically distinct by PCM");
+            uint impactHash = 2166136261;
+            foreach (byte sample in impactPcm) impactHash = (impactHash ^ sample) * 16777619;
+            Check(waveIds.Add(impactHash), "every impact signature differs from firing and other styles");
+
             Check(beam.WireId == (ushort)beam.Style && beam.WireId < 16,
                 "style identity fits the reserved cosmetic nibble");
             for (byte tone = 0; tone < BeamPalette.Names.Count; tone++)
@@ -65,6 +81,18 @@ internal static class InstagibIonFractureTests
                     "beam palette always yields finite normalized RGB");
             }
         }
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 5f, 3)
+            == CosmeticEffectQuality.High, "near shot retains full High detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 23f, 3)
+            == CosmeticEffectQuality.Medium, "mid-distance shot scales to Medium detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 45f, 3)
+            == CosmeticEffectQuality.Low, "far shot scales to Low detail");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 80f, 3)
+            == CosmeticEffectQuality.Off, "very distant shot retains only core");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High, 5f, 0)
+            == CosmeticEffectQuality.Off, "exhausted multi-player accent budget preserves core");
+        Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High,
+            float.NaN, 3) == CosmeticEffectQuality.Off, "nonfinite distance safely disables accents");
         var world = new InstagibIonFracture();
         Check(world.Count == 0, "new scene owns empty pool");
         world.Clear();

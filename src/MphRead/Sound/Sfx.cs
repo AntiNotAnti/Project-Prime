@@ -401,7 +401,11 @@ namespace MphRead.Sound
 
         public static void ShutDown()
         {
-            try { Mods.Sound.UiFeedbackAudio.Shutdown(); }
+            try
+            {
+                try { Mods.Sound.InstagibBeamAudio.Shutdown(); }
+                finally { Mods.Sound.UiFeedbackAudio.Shutdown(); }
+            }
             finally
             {
                 try { Mods.Sound.CombatFeedbackAudio.Shutdown(); }

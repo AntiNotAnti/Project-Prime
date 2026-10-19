@@ -87,12 +87,30 @@ namespace MphRead.Mods.Cosmetics
                 CosmeticPersistence.Equip(Hunter.Samus, loadout); CosmeticPersistence.ResetCache();
                 Check(CosmeticPersistence.Get(Hunter.Samus) == loadout && CosmeticPersistence.IsPending(Hunter.Samus), "durable local pending save");
                 Check(CosmeticPersistence.Get(Hunter.Trace) == CosmeticLoadout.Default, "hunter-specific selection");
+                var localBeam = CosmeticLoadout.Default with
+                { BeamEffectKey = "beam.alimbic", BeamColor = 4 };
+                CosmeticPersistence.Equip(Hunter.Kanden, localBeam);
+                Check(!CosmeticPersistence.IsPending(Hunter.Kanden)
+                    && CosmeticPersistence.Get(Hunter.Kanden) == localBeam,
+                    "beam-only equip is durable without requiring cloud login");
+                CosmeticPersistence.ResetCache();
+                Check(CosmeticPersistence.Get(Hunter.Kanden) == localBeam
+                    && !CosmeticPersistence.IsPending(Hunter.Kanden),
+                    "offline beam and tone survive restart without false pending sync");
                 CosmeticPersistence.MergeRemote(Hunter.Samus, CosmeticLoadout.Default);
                 Check(CosmeticPersistence.Get(Hunter.Samus) == loadout, "remote cannot overwrite pending selection");
                 CosmeticPersistence.MarkSynced(Hunter.Samus, CosmeticLoadout.Default);
                 Check(CosmeticPersistence.IsPending(Hunter.Samus), "stale sync acknowledgement ignored");
                 CosmeticPersistence.MarkSynced(Hunter.Samus, loadout);
                 Check(!CosmeticPersistence.IsPending(Hunter.Samus), "matching sync acknowledged");
+                CosmeticPersistence.Equip(Hunter.Samus, loadout with { ArmorEffectKey = "armor.glacial" });
+                var savedCloud = CosmeticPersistence.Get(Hunter.Samus);
+                var changedBeamDuringSync = savedCloud with { BeamEffectKey = "beam.void_rift", BeamColor = 4 };
+                CosmeticPersistence.Equip(Hunter.Samus, changedBeamDuringSync);
+                CosmeticPersistence.MarkSynced(Hunter.Samus, savedCloud);
+                Check(!CosmeticPersistence.IsPending(Hunter.Samus)
+                    && CosmeticPersistence.Get(Hunter.Samus) == changedBeamDuringSync,
+                    "concurrent beam color edit preserves local selection and accepts valid cloud ACK");
                 var appearance = new CosmeticAppearance(Hunter.Samus, loadout);
                 var packet = CosmeticStatePacket.Create(2, Hunter.Samus, 7, 3, 9, 1, appearance);
                 Span<byte> bytes = stackalloc byte[CosmeticStatePacket.Size]; packet.Write(bytes);
