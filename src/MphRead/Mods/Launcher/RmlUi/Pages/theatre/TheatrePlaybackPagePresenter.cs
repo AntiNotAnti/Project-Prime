@@ -20,6 +20,16 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         ITheatreExportBackend? exports = null, ITheatreEditorBackend? editor = null)
         => (_host, _pages, _controller, _bookmarkBackend, _rangeBackend, _cameraBackend, _exportBackend, _editorBackend) = (host, pages, controller, bookmarks, ranges, camera, exports, editor);
     public bool FourViews { get; private set; }
+    private string _fourViewProblem = "";
+    internal void ReportFourViewFailure(Exception error)
+    {
+        if (!FourViews || !IsOpen) return;
+        FourViews = false;
+        Viewport.Release();
+        _fourViewProblem = "Four-camera preview disabled after a render error. Your replay is still open. "
+            + error.GetBaseException().Message;
+        Present();
+    }
     public TheatreViewportController Viewport { get; } = new();
     public RmlUiDocumentToken Document => _document;
     public bool IsOpen => !_disposed && _document != default && _host.IsAlive(_document) && _pages.Page == _document;
@@ -39,7 +49,7 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         _host.SetText(_document, "replay_rate", state.Rate.ToString("0.##", CultureInfo.InvariantCulture) + "× SPEED");
         _host.SetText(_document, "replay_camera", state.Camera.ToUpperInvariant() + " CAMERA");
         if(!WorkspaceMode)_host.SetText(_document, "replay_studio", _editorBackend == null ? "OPEN IN PRIME STUDIO" : "REPLAY EDITOR");
-        string error = _editorProblem.Length > 0 ? _editorProblem : _exportProblem.Length > 0 ? _exportProblem : _cameraProblem.Length > 0 ? _cameraProblem : _rangeProblem.Length > 0 ? _rangeProblem : _bookmarkProblem.Length > 0 ? _bookmarkProblem : state.Error;
+        string error = _fourViewProblem.Length > 0 ? _fourViewProblem : _editorProblem.Length > 0 ? _editorProblem : _exportProblem.Length > 0 ? _exportProblem : _cameraProblem.Length > 0 ? _cameraProblem : _rangeProblem.Length > 0 ? _rangeProblem : _bookmarkProblem.Length > 0 ? _bookmarkProblem : state.Error;
         _host.SetText(_document, "replay_error", error); _host.SetBool(_document, "replay_error", error.Length > 0);
         _host.SetBool(_document, "replay_inactive", !state.Active);
         // The workspace exposes these owners through persistent inspector tabs;
@@ -80,7 +90,7 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         if(IsOpen&&intent.Kind==RmlUiIntentKind.ReplayAction&&intent.Argument==(int)TheatrePlaybackAction.FourViews)
         {
             if(_editorBackend==null||intent.Document!=_document||!_pages.Accept(intent)||_controller.Snapshot().ExportRendering)return false;
-            Viewport.Release();FourViews=!FourViews;Present();return true;
+            Viewport.Release();_fourViewProblem="";FourViews=!FourViews;Present();return true;
         }
         if (intent.Kind == RmlUiIntentKind.ReplayAction && (intent.Argument == (int)TheatrePlaybackAction.CameraToolsTransform || intent.Argument == (int)TheatrePlaybackAction.CameraToolsHandles || intent.Argument == (int)TheatrePlaybackAction.CameraToolsCurveKey))
             return HandleCameraToolsIntent(intent);
