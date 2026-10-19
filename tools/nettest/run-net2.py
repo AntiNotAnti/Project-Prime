@@ -23,6 +23,7 @@ PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
 HUNTERS = ["Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Samus"]
 BOMB_HUNTERS = {"bomb-samus": "Samus", "bomb-kanden": "Kanden", "bomb-lockjaw": "Sylux"}
+NCX_FIXTURES = ("ncx-static", "ncx-lateral", "ncx-jump")
 
 
 def server_flags(args):
@@ -42,6 +43,12 @@ def child_environment(args, name, profile, inherited=None):
                PRIME_SHOT_PROOF=args.shot_proof)
     if args.timed_grant_proof != "off":
         env["PRIME_TIMED_GRANT_PROOF"] = args.timed_grant_proof
+    if getattr(args, "shot_timeline", False):
+        env["PRIME_NCX_TIMELINE"] = "1"
+    if getattr(args, "shot_visibility", False) and name != "server":
+        env["PRIME_NCX_VISIBILITY"] = str((profile / "ncx-visibility.json").resolve())
+    if getattr(args, "presentation_hz", None) is not None and name != "server":
+        env["PRIME_NCX_PRESENTATION_HZ"] = str(args.presentation_hz)
     if args.evidence_row_limit is not None:
         env["PRIME_NET2_EVIDENCE_ROW_LIMIT"] = str(args.evidence_row_limit)
     if args.timed_replay_facts and name == "server":
@@ -85,6 +92,8 @@ def fault_arguments(args, slot):
 
 def client_role(args, slot):
     """Native hunter, spectator role and actual shot workload for this slot."""
+    if args.scenario in NCX_FIXTURES:
+        return "Samus", slot == 2, slot < 2
     hunter = BOMB_HUNTERS.get(args.scenario, "Sylux" if args.scenario == "shockcoil-mixed" else HUNTERS[slot])
     if args.scenario == "alt-morph" and slot == 1:
         hunter = getattr(args, "form_hunter", "Weavel")
@@ -221,7 +230,162 @@ def bomb_visibility_environment(args,name):
                 PRIME_NET2_SOURCE=args.source)
 
 
+def run_fruity_control(args):
+    """Native engine route in this controller; upstream owns all game behavior."""
+    import fruity_comparator as native
+    native.validate_options(args)
+    if platform.system() != "Darwin":
+        raise RuntimeError("The qualified comparator package is macOS-only")
+    args.out = args.out.resolve()
+    args.out.mkdir(parents=True, exist_ok=False)
+    processes, handles, records = [], [], []
+    listening, runner_error = False, None
+    started = time.monotonic()
+    manifest = {"schema": 1, "engine": "fruity-native", "source": args.source,
+        "platform": platform.platform(), "python": platform.python_version(),
+        "commands": [], "settings": {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
+        "harnessSha256": {name: digest(Path(__file__).with_name(name))
+                          for name in ("run-net2.py", "fruity_comparator.py")},
+        "capabilityScope": "Native upstream text harness only; no Prime drain, oracle, pixel or timeline equivalence",
+        "startedUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    binary = None
+    try:
+        package = native.qualify_package(args.build.resolve(), args.comparator_manifest.resolve(), args.source)
+        if args.scenario in NCX_FIXTURES: manifest["emulatedFixture"] = native.qualified_fixture(args)
+        save(args.out / "comparator-package.json", package)
+        manifest["packageManifestSha256"] = digest(args.out / "comparator-package.json")
+        binary = native.stage_package(args.build.resolve(), args.out / "bin")
+        manifest["binarySha256"] = digest(binary)
+        profile_text = args.paths.resolve().read_text(encoding="utf-8-sig")
+        assets, isolated_lines, asset_roots = [], [], []
+        for line in profile_text.splitlines():
+            if "=" not in line:
+                isolated_lines.append(line)
+                continue
+            key, value = line.split("=", 1)
+            if key == "Export": continue
+            if not value:
+                isolated_lines.append(line)
+                continue
+            root = Path(value)
+            if not root.is_absolute() or not root.is_dir():
+                raise RuntimeError("Comparator paths.txt needs absolute existing private asset directories")
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+                raise RuntimeError("Comparator asset version is not a safe directory label")
+            private_assets = args.out / "assets" / key
+            shutil.copytree(root, private_assets)
+            isolated_lines.append(f"{key}={private_assets}")
+            asset_roots.append({"version": key, "source": str(root), "privateCopy": str(private_assets)})
+            for file in sorted(root.rglob("*")):
+                if file.is_file(): assets.append({"version": key, "path": file.relative_to(root).as_posix(),
+                    "size": file.stat().st_size, "sha256": digest(file)})
+        if not assets: raise RuntimeError("Comparator assets are unavailable")
+        profile_text = "\n".join(isolated_lines) + "\n"
+        manifest["assetRoots"] = asset_roots
+        save(args.out / "assets.json", assets)
+        manifest["assetManifestSha256"] = digest(args.out / "assets.json")
+        maps = args.out / "maps"
+        if args.fixture_maps:
+            shutil.copytree(args.fixture_maps.resolve(), maps)
+            manifest["fixtureFiles"] = [{"path": p.relative_to(maps).as_posix(), "sha256": digest(p)}
+                                        for p in sorted(maps.rglob("*")) if p.is_file()]
+        else: maps.mkdir()
+        rotation = args.out / "rotation.txt"
+        rotation.write_text("\n".join(f"{room} | Battle | {args.round_minutes} | 999"
+                                      for room in args.rooms.split(",")), encoding="utf-8")
+        manifest["faultProfile"] = {**fault_profile(args), "scope": "existing native client line simulator",
+            "seedRule": "base seed + launch index", "semanticEquivalence": "Not yet certified against Prime"}
+
+        def launch(name, slot=0):
+            profile = args.out / name
+            profile.mkdir()
+            exports = profile / "exports"
+            exports.mkdir()
+            lines = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
+            (profile / "paths.txt").write_text("\n".join([*lines, f"Export={exports}", ""]), encoding="utf-8")
+            env = native.environment(profile)
+            shots = args.out / ("shots-" + name) if args.rendered and name != "server" else None
+            if shots: shots.mkdir()
+            command = native.command(args, binary, maps, name, rotation=rotation, slot=slot,
+                faults=fault_arguments(args, slot), hitlog=args.out / ("hl-" + name + ".csv"), shots=shots)
+            handle = open(args.out / (name + ".log"), "x", encoding="utf-8")
+            handles.append(handle)
+            process = subprocess.Popen(command, cwd=profile, env=env, stdin=subprocess.DEVNULL,
+                                       stdout=handle, stderr=subprocess.STDOUT)
+            processes.append(process)
+            record = {"name": name, "pid": process.pid, "exit": None, "timedOut": False,
+                      "startedSeconds": time.monotonic() - started}
+            if name == "server": record["expectedClients"] = args.players
+            records.append(record)
+            manifest["commands"].append({"name": name, "argv": command, "cwd": str(profile),
+                "environment": {k: env[k] for k in ("FRUITY_NCX_USER_DATA", "ALSOFT_DRIVERS")},
+                "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*, FRUITY_*, DYLD_*"})
+            save(args.out / "manifest.json", manifest)
+            print("[fruity-native] launched " + name, flush=True)
+            return process, record
+
+        server, server_record = launch("server")
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            if server.poll() is not None: raise RuntimeError("Native server exited during startup")
+            if "listening on UDP" in (args.out / "server.log").read_text(errors="replace"):
+                listening = True
+                break
+            time.sleep(.1)
+        if not listening:
+            server_record["timedOut"] = True
+            raise RuntimeError("Native server startup timeout")
+        time.sleep(2)
+        clients = []
+        for slot in range(args.players):
+            clients.append((*launch("peer-" + str(slot), slot), time.monotonic() + args.seconds + 120))
+            time.sleep(1)
+        while any(process.poll() is None for process, _, _ in clients):
+            if server.poll() is not None: raise RuntimeError("Native server exited while clients were running")
+            for process, record, deadline in clients:
+                if process.poll() is None and time.monotonic() > deadline:
+                    record["timedOut"] = True
+                    stop(process)
+            time.sleep(.1)
+        manifest["shutdown"] = "Clients exited naturally; server terminated for cleanup only. No drain assertion."
+    except Exception as error:
+        runner_error = type(error).__name__ + ": " + str(error)
+        manifest["runnerError"] = runner_error
+    finally:
+        for process, record in zip(processes, records):
+            if process.poll() is None: stop(process)
+            record["exit"] = process.returncode
+        for handle in handles: handle.close()
+        texts = {record["name"]: (args.out / (record["name"] + ".log")).read_text(errors="replace") for record in records}
+        summary = native.summarize(records, texts, listening, runner_error)
+        if binary is not None:
+            manifest["binaryAfterSha256"] = digest(binary)
+            if manifest.get("binarySha256") != manifest["binaryAfterSha256"]:
+                summary["status"] = "FAIL"
+                summary["failures"].append("Running comparator binary changed")
+            try:
+                native.qualify_package(args.build.resolve(), args.comparator_manifest.resolve(), args.source)
+                manifest["runtimeAfterStatus"] = "MATCH: declared binary, adapter and loaded non-system libraries"
+            except (OSError, ValueError, KeyError) as error:
+                manifest["runtimeAfterStatus"] = "FAIL: " + str(error)
+                summary["status"] = "FAIL"
+                summary["failures"].append("Comparator package/runtime changed during control")
+        manifest["processes"] = records
+        manifest["elapsedSeconds"] = time.monotonic() - started
+        manifest["outputs"] = [{"path": p.relative_to(args.out).as_posix(), "sha256": digest(p)}
+                               for p in sorted(args.out.glob("*.log"))] + [
+                              {"path": p.relative_to(args.out).as_posix(), "sha256": digest(p)}
+                               for p in sorted(args.out.glob("hl-*.csv"))]
+        save(args.out / "manifest.json", manifest)
+        save(args.out / "summary.json", summary)
+        print(json.dumps({"status": summary["status"], "udpControlStatus": summary["udpControlStatus"],
+                          "nativeHarnessStatus": summary["nativeHarnessStatus"], "out": str(args.out)}), flush=True)
+    return 0 if summary["status"] == "PASS" else 1
+
+
 def run(args):
+    if getattr(args, "engine", "prime") == "fruity-native":
+        return run_fruity_control(args)
     if platform.system() not in ("Darwin", "Windows"):
         raise RuntimeError("This campaign is restricted to Mac and Windows")
     args.out = args.out.resolve()
@@ -240,6 +404,20 @@ def run(args):
     if not assembly.exists():
         raise RuntimeError("Build directory has no ProjectPrime.dll")
     profile_text = args.paths.resolve().read_text(encoding="utf-8-sig")
+    if args.scenario in NCX_FIXTURES:
+        isolated = []
+        for line in profile_text.splitlines():
+            if "=" not in line or not line.split("=", 1)[1] or line.startswith("Export="):
+                isolated.append(line)
+                continue
+            key, value = line.split("=", 1)
+            root = Path(value)
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", key) or not root.is_absolute() or not root.is_dir():
+                raise RuntimeError("NCX fixture assets require safe version keys and absolute existing directories")
+            destination = args.out / "fixture-assets" / key
+            shutil.copytree(root, destination)
+            isolated.append(f"{key}={destination}")
+        profile_text = "\n".join(isolated) + "\n"
     asset_files = []
     for line in profile_text.splitlines():
         if "=" not in line:
@@ -280,6 +458,18 @@ def run(args):
         manifest["harnessSha256"]["net_ai_evidence.py"] = digest(Path(__file__).with_name("net_ai_evidence.py"))
     if args.server_performance:
         manifest["harnessSha256"]["net13_performance.py"] = digest(Path(__file__).with_name("net13_performance.py"))
+    if args.shot_timeline:
+        manifest["harnessSha256"]["ncx_timeline.py"] = digest(Path(__file__).with_name("ncx_timeline.py"))
+    if args.shot_visibility:
+        manifest["shotVisibility"] = {"scope": "Intrusive same-prepared-frame render exclusion/readback, actual camera",
+            "timingComparability": "DISQUALIFIED: extra prepared renders/readbacks; do not compare CPU timing",
+            "flightIsAuthorityConfirmation": False}
+    if args.presentation_hz is not None:
+        manifest["presentationRate"] = {"requestedHz": args.presentation_hz, "observedHz": "UNAVAILABLE",
+            "scope": "Requested rendered-client cadence only; actual observed rate must be measured separately; simulation remains 60 Hz"}
+    if args.scenario in NCX_FIXTURES:
+        from fruity_comparator import qualified_fixture
+        manifest["emulatedFixture"] = qualified_fixture(args)
     save(args.out / "manifest.json", manifest)
     processes, handles, records = [], [], []
     server = None
@@ -293,7 +483,8 @@ def run(args):
         isolated_paths = [line for line in profile_text.splitlines() if not line.startswith("Export=")]
         (profile / "paths.txt").write_text("\n".join([*isolated_paths, f"Export={exports}", ""]), encoding="utf-8")
         maps = profile / "empty-maps"
-        maps.mkdir()
+        if args.scenario in NCX_FIXTURES: shutil.copytree(args.fixture_maps.resolve(), maps)
+        else: maps.mkdir()
         # Do not silently inherit a developer's experimental/test flags into a
         # supposedly reproducible control. Keep ordinary OS/runtime environment.
         env = child_environment(args, name, profile)
@@ -336,7 +527,8 @@ def run(args):
             "environment": {k: env[k] for k in ("PROJECT_PRIME_USER_DATA", "ALSOFT_DRIVERS", "MPHREAD_PHASE_SECONDS", "PRIME_NET2_EVIDENCE", "PRIME_SHOT_PROOF")},
             "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
             "soak": args.soak})
-        for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS", "PRIME_NET2_EVIDENCE_ROW_LIMIT"):
+        for key in ("PRIME_TIMED_GRANT_PROOF", "PRIME_TIMED_REPLAY_FACTS", "PRIME_NET2_EVIDENCE_ROW_LIMIT",
+                    "PRIME_NCX_TIMELINE", "PRIME_NCX_VISIBILITY", "PRIME_NCX_PRESENTATION_HZ"):
             if key in env:
                 manifest["commands"][-1]["environment"][key] = env[key]
         if args.server_operator and name == "server":
@@ -399,8 +591,8 @@ def run(args):
                 shots.mkdir()
                 extra += ["-shots", str(shots)]
             if args.ai_net_client is None and args.scenario != "tour":
-                extra += ["-hitrig", args.scenario]
-            if observer:
+                extra += ["-hitrig", "ncx-observe" if observer and args.scenario in NCX_FIXTURES else args.scenario]
+            if observer and args.scenario not in NCX_FIXTURES:
                 extra += ["-spectate", "0"]
             if args.soak and slot == args.players - 2:
                 extra += ["-spectate", "90", "-rejoin", "150"]
@@ -552,6 +744,21 @@ def run(args):
         save(args.out / "manifest.json", manifest)
         summary = (bomb_summary(args.out,records,manifest,args.scenario) if args.scenario in BOMB_HUNTERS
                    else adjudicate(args.out,records,expected_protocol=args.protocol))
+        if args.shot_timeline:
+            from ncx_timeline import audit as audit_timeline
+            reports = {}
+            for record in records:
+                try:
+                    reports[record["name"]] = json.loads((args.out / (record["name"] + ".json")).read_text())
+                except (OSError, ValueError):
+                    reports[record["name"]] = {}
+            timeline = audit_timeline(reports)
+            save(args.out / "ncx-timeline.json", timeline)
+            # Gameplay/drain acceptance and measurement coverage are distinct.
+            # A partial timeline, a legal miss or absent pixels never becomes
+            # a fictitious gameplay PASS, payment fault or legal-hit denominator.
+            summary["shotTimeline"] = {"status": timeline["status"], "scope": timeline["scope"],
+                "counts": timeline["counts"], "reportSha256": digest(args.out / "ncx-timeline.json")}
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))
@@ -594,6 +801,13 @@ def parse_args(argv=None):
     p.add_argument("--paths", type=Path, required=True)
     p.add_argument("--source", required=True, help="Exact source SHA plus dirty diff hash if applicable")
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--engine", choices=("prime", "fruity-native"), default="prime",
+                   help="Explicit comparator mode; Prime dispatch and acceptance remain the default")
+    p.add_argument("--comparator-manifest", type=Path,
+                   help="Successful package-qualified Fruity smoke manifest with binary/runtime/adapter hashes")
+    p.add_argument("--fixture-maps", type=Path, help="Explicit private native fixture map definitions; not certified matched geometry")
+    p.add_argument("--fruity-hitrig", choices=("wells:powerbeam", "lanes:powerbeam", "strafe:powerbeam"),
+                   help="Existing native fixed-weapon rig; stationary/wells/lanes depend on separately qualified map definitions")
     p.add_argument("--dotnet", default="dotnet")
     p.add_argument("--protocol", type=int, help="Expected evidence protocol; defaults to checkout, set explicitly for historical binaries")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
@@ -623,7 +837,7 @@ def parse_args(argv=None):
     p.add_argument("--jitter-ms", type=int, help="Override profile extra hold per direction, 0..5000 ms")
     for fault in ("loss", "reorder", "duplicate"):
         p.add_argument(f"--{fault}-percent", type=float, help=f"Override profile {fault}, 0..100 percent")
-    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "missile", "self-moving", "self-wall", "alt-morph", *BOMB_HUNTERS), default="tour")
+    p.add_argument("--scenario", choices=("tour", "duel", "shockcoil", "shockcoil-all", "shockcoil-mixed", "powerbeam", "missile", "self-moving", "self-wall", "alt-morph", *NCX_FIXTURES, *BOMB_HUNTERS), default="tour")
     p.add_argument("--form-hunter", choices=HUNTERS[:-1], default=argparse.SUPPRESS,
                    help="Explicit alt-morph target Hunter in slot1; omitted preserves Weavel. Dispatch only; existing form audit remains Weavel-specific.")
     p.add_argument("--observer-delay", type=float, default=0,
@@ -646,9 +860,33 @@ def parse_args(argv=None):
     p.add_argument("--bomb-triangle-fixture", action="store_true",
                    help="Explicit initial collision-verified geometry for a short Combat Hall Lockjaw fixture; native subsequent controls")
     p.add_argument("--server-performance", action="store_true", help="Opt-in aggregate server wall-time/process CPU/GC evidence; no per-player facts")
+    p.add_argument("--shot-timeline", action="store_true",
+                   help="Opt-in bounded full-key process clocks and distinct source/payment/receipt observations; not a pixel or legal-hit oracle")
+    p.add_argument("--shot-visibility", action="store_true",
+                   help="Intrusive actual-view prepared-frame pixel probe; requires --rendered --shot-timeline; disqualifies CPU timings")
+    p.add_argument("--presentation-hz", type=int, choices=(30, 60, 120, 144, 240, 360, 500),
+                   help="Prime rendered-client requested cadence; fixed 60 Hz simulation; observed rate is separate evidence")
     p.add_argument("--record", action="store_true")
     p.add_argument("--soak", action="store_true")
     args = p.parse_args(argv)
+    if args.shot_visibility and (not args.rendered or not args.shot_timeline):
+        p.error("--shot-visibility requires --rendered and --shot-timeline; timing values are not CPU-comparable")
+    if args.presentation_hz is not None and (not args.rendered or not args.shot_timeline):
+        p.error("--presentation-hz requires Prime --rendered --shot-timeline; a requested rate is not an observed rate")
+    if args.engine == "prime" and any((args.comparator_manifest, args.fruity_hitrig)):
+        p.error("Comparator options require --engine fruity-native")
+    if args.fixture_maps and args.engine == "prime" and args.scenario not in NCX_FIXTURES:
+        p.error("Prime --fixture-maps requires an explicit NCX emulated scenario")
+    if args.scenario in NCX_FIXTURES:
+        if args.soak or args.ai_net_client is not None or args.powerups or args.server_bot or args.bomb_triangle_fixture:
+            p.error("NCX emulated fixtures do not combine with other gameplay workload variants")
+        from fruity_comparator import qualified_fixture
+        try: qualified_fixture(args)
+        except (OSError, ValueError, KeyError) as error: p.error(str(error))
+    if args.engine == "fruity-native":
+        from fruity_comparator import validate_options
+        try: validate_options(args)
+        except ValueError as error: p.error(str(error))
     if hasattr(args, "form_hunter") and args.scenario != "alt-morph":
         p.error("--form-hunter requires --scenario alt-morph")
     if args.evidence_row_limit is not None and not 262144 <= args.evidence_row_limit <= 1048576:

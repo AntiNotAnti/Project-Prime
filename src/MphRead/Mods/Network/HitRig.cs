@@ -93,7 +93,8 @@ namespace MphRead.Mods.Network
             /// <c>-hitrig magmaul</c>, <c>-hitrig judicator</c>.
             /// </summary>
             Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing,
-            BombSamus, BombKanden, BombLockjaw
+            BombSamus, BombKanden, BombLockjaw,
+            NcxStatic, NcxLateral, NcxJump, NcxObserve
         }
 
         /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
@@ -115,6 +116,7 @@ namespace MphRead.Mods.Network
         {
             _continuousShooters = -1; _continuousMorph = false; _continuousMixed = false;
             _mixedNextTap = _mixedTapUntil = 0;
+            if (ConfigureNcxFixture(value)) return true;
             switch (value?.Trim().ToLowerInvariant())
             {
                 case "self-moving": Mode = RigMode.SelfMoving; VolleyWeapon = BeamType.Missile; return true;
@@ -339,6 +341,7 @@ namespace MphRead.Mods.Network
             WorstVerticalSpeed = 0;
             VerticalSpeedSum = 0;
             VerticalSpeedSamples = 0;
+            ResetNcxFixture();
         }
 
         /// <summary>
@@ -358,6 +361,7 @@ namespace MphRead.Mods.Network
             _frame++;
             PlayerControls c = player.Controls;
             ClearControls(c);
+            if (DriveNcxFixture(player, c)) { FinishControls(player, c); return; }
             if (!TriangleFixtureClientObserved(player) || !KandenFixtureClientObserved(player))
             { FinishControls(player, c); return; }
             if (player.Health == 0)
@@ -1027,6 +1031,7 @@ namespace MphRead.Mods.Network
             {
                 return "hit rig: off";
             }
+            if (NcxFixtureActive) return DescribeNcxFixture();
             string role = IsSniper ? "sniper" : "runner";
             if (IsSniper)
             {

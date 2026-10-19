@@ -31,6 +31,11 @@ namespace MphRead.NetTest
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --ncx-timeline off|on              Test bounded opt-in shot timeline and clock identity.\n"
+                    + "  --ncx-visibility                  Test exact pixel differences and restoration controls.\n"
+                    + "  --ncx-hit-oracle                  Test frozen independent native contact inputs.\n"
+                    + "  --ncx-hit-oracle-scene <assets> [room] [json] Exercise native accepted-source oracle controls.\n"
+                    + "  --ncx-fixtures                    Test emulated fixture roles and declared aim schedule.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
@@ -120,6 +125,21 @@ namespace MphRead.NetTest
                     + "  --movement-validation-shadow      Test bounded advisory movement observations.\n"
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
+            }
+            if (args.Length == 2 && args[0] == "--ncx-timeline" && args[1] is "off" or "on")
+                return ShotTimelineTests.Run(args[1] == "on");
+            if (args.Length == 1 && args[0] == "--ncx-fixtures")
+                return NcxFixtureTests.Run();
+            if (args.Length == 1 && args[0] == "--ncx-visibility")
+                return ShotVisibilityTests.Run();
+            if (args.Length == 1 && args[0] == "--ncx-hit-oracle")
+                return CampaignHitOracleTests.Run();
+            if (args.Length > 1 && args[0] == "--ncx-hit-oracle-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return CampaignHitOracleTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS",
+                    args.Length > 3 ? args[3] : null);
             }
             if (args.Length > 1 && args[0] == "--biped-edge-collision-scene")
             {

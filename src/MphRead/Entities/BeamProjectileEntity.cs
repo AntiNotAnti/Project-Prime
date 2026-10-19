@@ -1302,6 +1302,7 @@ namespace MphRead.Entities
         public override void GetDrawInfo()
         {
             if (Age < 0 || _scene.Services.IsReplica && _replayImpactHidden) return;
+            using var ncxOwner = _scene.NcxBeamItems(this);
 
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;

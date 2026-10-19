@@ -91,9 +91,11 @@ internal static class NetContinuousPayments
     {
         private readonly int _slot, _at;
         private readonly ContinuousPaymentKey _key;
+        private readonly ushort _diagnosticClaimId;
         public bool Allowed { get; }
-        internal Reservation(bool allowed, int slot = -1, int at = -1, ContinuousPaymentKey key = default)
-        { Allowed = allowed; _slot = slot; _at = at; _key = key; }
+        internal Reservation(bool allowed, int slot = -1, int at = -1, ContinuousPaymentKey key = default,
+            ushort diagnosticClaimId = 0)
+        { Allowed = allowed; _slot = slot; _at = at; _key = key; _diagnosticClaimId = diagnosticClaimId; }
         // Caller commits only after an actual body or turret reduction. Keep the
         // original emitted shot correlation in Outcome; OwnerTick is the phase.
         internal void Commit(in CombatAckEntry outcome, int healBody, int healTurret, int actualTurretDamage = 0)
@@ -105,6 +107,7 @@ internal static class NetContinuousPayments
             entry.HealTurret = Math.Max(0, healTurret); entry.DamageTurret = Math.Max(0, actualTurretDamage); entry.Paid = true;
             Payments++; LifetimePayments++; LifetimeDamage += outcome.DamageApplied; LifetimeTurretDamage += entry.DamageTurret;
             LifetimeHealBody += entry.HealBody; LifetimeHealTurret += entry.HealTurret;
+            NetCampaignEvidence.TimelineContinuous("payment-committed", _key, outcome, claimId: _diagnosticClaimId);
             RecordPhase(_key.OwnerTick);
             if (NetCampaignEvidence.Enabled)
                 NetTimedCampaignJoin.Continuous(_key, entry.Frame, outcome,
@@ -123,12 +126,19 @@ internal static class NetContinuousPayments
                 && !Entries[_slot, _at].Paid) Entries[_slot, _at] = default;
         }
     }
-    internal static Reservation Begin(in ContinuousPaymentKey key)
+    internal static Reservation Begin(in ContinuousPaymentKey key, uint emittedShotId = 0, ushort claimId = 0)
     {
-        if (!Valid(key)) return new(false);
+        var observed = new CombatAckEntry { ShotId = emittedShotId, ClaimId = claimId };
+        if (emittedShotId != 0) NetCampaignEvidence.TimelineContinuous("payment-attempt", key, observed);
+        if (!Valid(key))
+        {
+            if (emittedShotId != 0) NetCampaignEvidence.TimelineContinuous("payment-refused", key, observed, result: 3);
+            return new(false);
+        }
         int found = FindTick(key);
         if (found >= 0)
         {
+            if (emittedShotId != 0) NetCampaignEvidence.TimelineContinuous("payment-refused", key, observed, result: 1);
             Suppressed++; LifetimeSuppressed++;
             if (Entries[key.OwnerTick.ShooterSlot, found].Key != key)
             { TargetConflicts++; LifetimeTargetConflicts++; }
@@ -139,8 +149,9 @@ internal static class NetContinuousPayments
             {
                 Entries[key.OwnerTick.ShooterSlot, i] = new Entry
                 { Live = true, Key = key, Frame = NetSession.NetFrame };
-                return new(true, key.OwnerTick.ShooterSlot, i, key);
+                return new(true, key.OwnerTick.ShooterSlot, i, key, claimId);
             }
+        if (emittedShotId != 0) NetCampaignEvidence.TimelineContinuous("payment-refused", key, observed, result: 2);
         CapacityRefused++; LifetimeCapacityRefused++; return new(false);
     }
 

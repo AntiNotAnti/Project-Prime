@@ -109,7 +109,19 @@ namespace MphRead.Mods.Network
         private readonly NetFeatureCheck _features = new();
         private int _featureFailures;
 
-        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
+        private static readonly int NcxPresentationHz = ReadNcxPresentationHz();
+        private static int ReadNcxPresentationHz()
+        {
+            string? value = Environment.GetEnvironmentVariable("PRIME_NCX_PRESENTATION_HZ");
+            if (string.IsNullOrEmpty(value)) return 0;
+            if (!NetCampaignEvidence.TimelineEnabled || !int.TryParse(value, out int hz)
+                || hz is not (30 or 60 or 120 or 144 or 240 or 360 or 500))
+                throw new ArgumentException("NCX presentation requires timeline evidence and a declared supported rate.");
+            return hz;
+        }
+        private readonly System.Diagnostics.Stopwatch _ncxPresentationClock = new();
+        private long _ncxPresentedFrames;
+        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = NcxPresentationHz == 0 ? 60 : NcxPresentationHz };
 
         private static NativeWindowSettings WindowSettings(int width, int height)
         {
@@ -163,19 +175,44 @@ namespace MphRead.Mods.Network
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
             Scene.OnResize();
             NetSession.MarkMatchLoaded();
+            if (NcxPresentationHz != 0)
+            {
+                VSync = VSyncMode.Off;
+                Render.FrameTiming.FrameRateCap = NcxPresentationHz;
+                Render.FrameTiming.Reset();
+                Render.FrameTiming.ResetDiagnostics();
+                _ncxPresentationClock.Start();
+            }
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
             GameState.ApplyPause();
-            Scene.OnUpdateFrame();
-            MaintainWorldRecording(Scene);
+            int steps = 1;
+            if (NcxPresentationHz == 0)
+            {
+                Scene.OnUpdateFrame();
+                MaintainWorldRecording(Scene);
+            }
+            else
+            {
+                // Reuse the shipping presentation clock. Its fixed step remains
+                // 1/60; requested display rate never becomes a simulation rate.
+                steps = Render.FrameTiming.Advance(args.Time);
+                for (int i = 0; i < steps; i++)
+                {
+                    Scene.OnSimulationFrame();
+                    MaintainWorldRecording(Scene);
+                }
+                Scene.OnDrawFrame();
+            }
             if (!Scene.OnRenderFrame())
             {
                 return;
             }
             NetBombVisibilityProbe.Observe(Scene);
-            _frame++;
+            _frame += steps;
+            _ncxPresentedFrames++;
             bool killcamVisible = Mods.KillCam.Presentation(Scene) != null;
             if (killcamVisible)
             {
@@ -190,13 +227,16 @@ namespace MphRead.Mods.Network
             else if (_killcamWasVisible)
                 Console.WriteLine($"[netcheck] replay killcam ended: {Mods.KillCam.EndReason}");
             _killcamWasVisible = killcamVisible;
-            UpdateSpectating();
-            DriveVoteTest();
-            DriveRebindTest();
-            Observe();
-            _features.Observe(Scene);
-            SampleScoreboardOnServerClock();
-            if (_shotDirectory != null && _frame % 120 == 0)
+            if (steps > 0)
+            {
+                UpdateSpectating();
+                DriveVoteTest();
+                DriveRebindTest();
+                Observe();
+                _features.Observe(Scene);
+                SampleScoreboardOnServerClock();
+            }
+            if (steps > 0 && _shotDirectory != null && _frame % 120 == 0)
             {
                 string path = Path.Combine(_shotDirectory, $"{_name}-{_shots:00}.png");
                 if (Capture(path))
@@ -209,7 +249,7 @@ namespace MphRead.Mods.Network
             // is entirely HUD: the scoreboard, the hunter picker and the map
             // ballot under it. Every second of it, because the ballot fills in
             // as the votes arrive and the last frame is the one worth having.
-            if (_shotDirectory != null && ShowWindow && EndScreen.Available
+            if (steps > 0 && _shotDirectory != null && ShowWindow && EndScreen.Available
                 && _frame % 60 == 0 && _endShots < 12)
             {
                 if (Capture(Path.Combine(_shotDirectory, $"{_name}-end-{_endShots:00}.png")))
@@ -221,7 +261,7 @@ namespace MphRead.Mods.Network
             // keeping: a periodic capture mostly catches a wall, and "the
             // other player is drawn on my screen" is the claim that cannot be
             // settled from a log at all.
-            if (_shotDirectory != null && _opponentInView && _duelShots < 8
+            if (steps > 0 && _shotDirectory != null && _opponentInView && _duelShots < 8
                 && _frame - _lastDuelShotFrame > 45)
             {
                 string path = Path.Combine(_shotDirectory, $"{_name}-duel-{_duelShots:00}.png");
@@ -993,6 +1033,14 @@ namespace MphRead.Mods.Network
             {
                 _recordWorlds = false;
                 _recordedWorld = null;
+                if (window != null && NcxPresentationHz != 0)
+                    NetCampaignEvidence.PresentationSchedule = new {
+                        Enabled = true, RequestedHz = NcxPresentationHz,
+                        PresentedFrames = window._ncxPresentedFrames, SimulationSteps = window._frame,
+                        ElapsedSeconds = window._ncxPresentationClock.Elapsed.TotalSeconds,
+                        Render.FrameTiming.DroppedSteps, Render.FrameTiming.Stalls,
+                        Scope = "Requested rate is a cap; achieved rate is PresentedFrames/ElapsedSeconds. Simulation uses the existing fixed60 clock. Intrusive pixel captures are not CPU-comparable."
+                    };
                 NetCampaignEvidence.Write(simulationOnly ? "simulation-client" : "rendered-client");
                 if (DemoRecorder.IsRecording)
                 {

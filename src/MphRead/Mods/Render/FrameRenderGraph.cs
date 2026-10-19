@@ -143,7 +143,7 @@ namespace MphRead
                 switch (pass.Kind)
                 {
                 case Mods.Render.FrameRenderPassKind.Shadow:
-                    RenderShadowMap();
+                    if (!_ncxPreparedRedraw) RenderShadowMap();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.WorldSetup:
@@ -151,7 +151,8 @@ namespace MphRead
                         | ClearBufferMask.DepthBufferBit
                         | ClearBufferMask.StencilBufferBit);
                     GL.ClearStencil(0);
-                    UpdateUniforms();
+                    if (_ncxPreparedRedraw) UploadWorldFrameUniforms();
+                    else UpdateUniforms();
                     SetPauseMenuUniforms();
                     if (_exiting)
                         return false;

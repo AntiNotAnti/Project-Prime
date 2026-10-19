@@ -64,6 +64,7 @@ internal static class NetCombatPayments
             if (entry.Key != _key || entry.Paid) return;
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
+            NetCampaignEvidence.TimelinePayment("payment-committed", _key, entry.Weapon, outcome: outcome, claimId: claimId);
             NetSelfSplash.RecordPayment(_key, outcome);
             if (NetCampaignEvidence.Enabled)
             {
@@ -90,7 +91,12 @@ internal static class NetCombatPayments
     internal static Reservation Begin(in ShotPaymentKey key, byte weapon)
     {
         if (!Valid(key)) return new(true);
-        if (Find(key) >= 0) { Suppressed++; LifetimeSuppressed++; return new(false); }
+        NetCampaignEvidence.TimelinePayment("payment-attempt", key, weapon);
+        if (Find(key) >= 0)
+        {
+            NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 1);
+            Suppressed++; LifetimeSuppressed++; return new(false);
+        }
         for (int i = 0; i < CapacityPerShooter; i++)
             if (Expired(Entries[key.Shot.ShooterSlot, i]))
             {
@@ -98,6 +104,7 @@ internal static class NetCombatPayments
                     Weapon = weapon, Frame = NetSession.NetFrame };
                 return new(true, key.Shot.ShooterSlot, i, key);
             }
+        NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 2);
         CapacityRefused++; LifetimeCapacityRefused++; return new(false);
     }
     internal static Reservation Begin(PlayerEntity victim, EntityBase? source, DamageFlags flags)

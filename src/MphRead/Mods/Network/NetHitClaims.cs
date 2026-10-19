@@ -466,6 +466,12 @@ namespace MphRead.Mods.Network
             }
             Declared++;
             NetCampaignEvidence.ClaimDeclared();
+            if (NetCampaignEvidence.Enabled)
+                NetCampaignEvidence.Timeline("claim-declared", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId),
+                    componentId, continuousPhase, NetShotProof.Kind(claimFlags), (byte)slot,
+                    NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), id,
+                    ackFrame: ack, weapon: beam == BeamType.None ? HitClaimPacket.NoBeam : (byte)beam,
+                    value: (int)Math.Min(damage, int.MaxValue));
             NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket(beam)]++;
             if (NetLog.Enabled) NetShotDiagnostics.Trace("claim", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId), beam,
                 $"id={id} victim={slot} ack={ack} damage={damage}");
@@ -524,6 +530,7 @@ namespace MphRead.Mods.Network
                     HitPoint = entry.HitPoint,
                     Direction = entry.Direction
                 };
+                NetCampaignEvidence.TimelineClaim("claim-offered", NetSession.LocalSlot, packet);
                 packet.Write(dest[offset..]);
                 offset += HitClaimPacket.Size;
                 if (entry.Sends > 0)
@@ -631,6 +638,13 @@ namespace MphRead.Mods.Network
                         entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
                         NetShotProof.Kind(entry.Flags)), ack);
                     entry.Live = false;
+                    if (NetCampaignEvidence.Enabled)
+                        NetCampaignEvidence.Timeline("terminal-delivered", new ShotKey(entry.AuthorityEpoch,
+                            entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                            entry.ComponentId, (entry.Flags & HitClaimPacket.FlagContinuousTick) != 0 ? entry.Frame : 0,
+                            NetShotProof.Kind(entry.Flags), entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId,
+                            entry.Id, ack.DamageSequence, ackFrame: entry.AckFrame, weapon: entry.Beam,
+                            value: ack.DamageApplied, result: ack.Result);
                     if (entry.Beam == (byte)BeamType.ShockCoil) NetHitPrediction.SettleDrain(entry.Id, ack.Accepted);
                     if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
                     {
@@ -1333,6 +1347,7 @@ namespace MphRead.Mods.Network
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
                 Received++;
                 NetCampaignEvidence.ClaimReceived();
+                NetCampaignEvidence.TimelineClaim("claim-received", shooterSlot, claim);
                 using var claimEvidence = NetCampaignEvidence.Enabled
                     ? NetTimedCampaignJoin.Claim(shooterSlot, claim) : default;
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
@@ -2480,7 +2495,8 @@ namespace MphRead.Mods.Network
             bool lifeDrain = false;
             if (continuous && !NetContinuousAdmission.Validate(shooterSlot, proofClaim, out lifeDrain))
             { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch); return; }
-            using var tickPayment = continuous ? NetContinuousPayments.Begin(ContinuousKey(shooterSlot, proofClaim))
+            using var tickPayment = continuous ? NetContinuousPayments.Begin(ContinuousKey(shooterSlot, proofClaim),
+                emittedShotId: proofClaim.ShotId, claimId: proofClaim.ClaimId)
                 : new NetContinuousPayments.Reservation(true);
             if (!tickPayment.Allowed)
             { ClaimsCapacityRefused++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
