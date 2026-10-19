@@ -20,6 +20,11 @@ public partial class Scene
     }
 
     private static readonly ConditionalWeakTable<Scene, MultiViewPass> MultiViewPasses = new();
+#if MPHREAD_RMLUI_GL_SMOKE
+    // Only the native replay acceptance assembly can set this test seam.
+    // It throws inside a real auxiliary tile, exercising the same cleanup as a driver exception.
+    internal static Func<int, Exception?>? NativeReplayMultiViewFailureForTests;
+#endif
     internal bool NativeReplayMultiViewActive => MultiViewPasses.TryGetValue(this, out _);
     private bool NativeReplayMultiViewPreserveCanvas =>
         MultiViewPasses.TryGetValue(this, out var pass) && pass.Index > 0;
@@ -224,6 +229,10 @@ public partial class Scene
                     bottomTile ? bounds.W - topHeight : topHeight);
                 try
                 {
+#if MPHREAD_RMLUI_GL_SMOKE
+                    if (NativeReplayMultiViewFailureForTests?.Invoke(index) is { } injected)
+                        throw injected;
+#endif
                     OnDrawFrame();
                     if (!OnRenderFrame())
                         throw new InvalidOperationException("The scene renderer did not complete the tile.");
