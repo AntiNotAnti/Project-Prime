@@ -36,10 +36,35 @@
                 <div id="hunter_skin_description" class="hint cosmetic-description" role="status"></div>
                 <button id="hunter_armor" data-action="hunter:armor-next">ARMOR EFFECT // NONE</button>
                 <div id="hunter_armor_description" class="hint cosmetic-description" role="status"></div>
-                <button id="hunter_beam" data-action="hunter:beam-next">INSTA-GIB BEAM // ION FRACTURE</button>
+                                <div class="section-title">INSTA-GIB BEAM ARSENAL // SELECT A STYLE</div>
+                <div id="hunter_beam_grid" class="beam-picker">
+                    <button id="hunter_beam0" class="beam-card beam-ion" data-action="hunter:beam-select:0"><span class="beam-glyph">==X==</span><span>ION FRACTURE 2.0</span></button>
+                    <button id="hunter_beam1" class="beam-card beam-void" data-action="hunter:beam-select:1"><span class="beam-glyph">==| |==</span><span>VOID RIFT</span></button>
+                    <button id="hunter_beam2" class="beam-card beam-quantum" data-action="hunter:beam-select:2"><span class="beam-glyph">==< >==</span><span>QUANTUM SPLIT</span></button>
+                    <button id="hunter_beam3" class="beam-card beam-alimbic" data-action="hunter:beam-select:3"><span class="beam-glyph">==[O]==</span><span>ALIMBIC RESONANCE</span></button>
+                    <button id="hunter_beam4" class="beam-card beam-omega" data-action="hunter:beam-select:4"><span class="beam-glyph">==O==O==</span><span>OMEGA PULSE</span></button>
+                    <button id="hunter_beam5" class="beam-card beam-arc" data-action="hunter:beam-select:5"><span class="beam-glyph">==/\/==</span><span>ARC DISRUPTOR</span></button>
+                    <button id="hunter_beam6" class="beam-card beam-solar" data-action="hunter:beam-select:6"><span class="beam-glyph">==^^==</span><span>SOLAR SPEAR</span></button>
+                    <button id="hunter_beam7" class="beam-card beam-cryo" data-action="hunter:beam-select:7"><span class="beam-glyph">==<*>==</span><span>CRYO SHATTER</span></button>
+                    <button id="hunter_beam8" class="beam-card beam-phantom" data-action="hunter:beam-select:8"><span class="beam-glyph">==...==</span><span>PHANTOM TRACE</span></button>
+                </div>
+                <div class="section-title">BEAM COLOR // SELECT A TINT</div>
+                <div class="beam-color-picker">
+                    <button id="hunter_beam_color0" class="beam-color-option beam-tone0" data-action="hunter:beam-color-select:0">ORIGINAL</button>
+                    <button id="hunter_beam_color1" class="beam-color-option beam-tone1" data-action="hunter:beam-color-select:1">CYAN</button>
+                    <button id="hunter_beam_color2" class="beam-color-option beam-tone2" data-action="hunter:beam-color-select:2">PINK</button>
+                    <button id="hunter_beam_color3" class="beam-color-option beam-tone3" data-action="hunter:beam-color-select:3">GREEN</button>
+                    <button id="hunter_beam_color4" class="beam-color-option beam-tone4" data-action="hunter:beam-color-select:4">GOLD</button>
+                    <button id="hunter_beam_color5" class="beam-color-option beam-tone5" data-action="hunter:beam-color-select:5">VIOLET</button>
+                    <button id="hunter_beam_color6" class="beam-color-option beam-tone6" data-action="hunter:beam-color-select:6">RED</button>
+                    <button id="hunter_beam_color7" class="beam-color-option beam-tone7" data-action="hunter:beam-color-select:7">GLACIAL</button>
+                    <button id="hunter_beam_color8" class="beam-color-option beam-tone8" data-action="hunter:beam-color-select:8">WHITE</button>
+                </div>
+                <p class="hint cosmetic-description">Select a beam and tint, then EQUIP COSMETICS. Beam preferences work offline.</p>
+<button id="hunter_beam" data-action="hunter:beam-next">NEXT BEAM STYLE</button>
                 <div id="hunter_beam_description" class="hint cosmetic-description" role="status"></div>
                 <div id="hunter_beam_preview" class="beam-miniature"><span id="hunter_beam_preview_text">====&gt;====</span></div>
-                <button id="hunter_beam_color" data-action="hunter:beam-color-next">BEAM COLOR // ORIGINAL</button>
+                <button id="hunter_beam_color" data-action="hunter:beam-color-next">NEXT BEAM COLOR</button>
                 <div class="hint cosmetic-description">Beam styles apply only to Insta-Gib. Beam choices are saved on this device.</div>
                 <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
                 <div id="hunter_death_description" class="hint cosmetic-description" role="status"></div>
