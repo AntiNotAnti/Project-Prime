@@ -28,9 +28,12 @@ internal static class ReplayPoseChecks
         using (var liveCapsule = ReplayWorldCheckpoint.Capture(live))
         using (var liveRoundtrip = ReplayWorldCheckpoint.FromBytes(liveCapsule.Bytes))
         {
-            if (!indexed.IndexedFirePresentation || !indexedRoundtrip.IndexedFirePresentation
+            bool sourceIndexed = poses.IndexedFirePresentation;
+            if (source.Session.Metadata?.Type == ReplayType.FullMatch && !sourceIndexed)
+                throw new InvalidDataException("Full-match playback lost its indexed firing reconstruction contract.");
+            if (indexed.IndexedFirePresentation != sourceIndexed || indexedRoundtrip.IndexedFirePresentation != sourceIndexed
                 || liveCapsule.IndexedFirePresentation || liveRoundtrip.IndexedFirePresentation)
-                throw new InvalidDataException("World capsule lost its indexed/live firing reconstruction contract.");
+                throw new InvalidDataException("World capsule lost its source/live firing reconstruction contract.");
             foreach (bool? policy in new bool?[] { null, false, true })
             {
                 var metadata = new ReplayMetadata { FormatVersion = policy.HasValue ? (byte)5 : (byte)4, Type = ReplayType.Clip,

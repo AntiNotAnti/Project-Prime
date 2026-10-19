@@ -132,6 +132,15 @@ namespace MphRead.Mods.Network
             _worldTail = Array.Empty<byte>();
             _healthSpawns.Clear(); AuthorityWorld = null; AuthorityAppliedTick = null; _authorityWire.Reset();
         }
+        private static void ValidateMovementRules(MatchStatePacket? match, SessionStatePacket? configuration)
+        {
+            if (match is not { } world || configuration is not { } rules
+                || rules.Phase == SessionPhase.Lobby || world.MatchId != rules.MatchId
+                || world.AuthorityEpoch != rules.AuthorityEpoch) return;
+            if (Movement.MovementModelRules.FromRules((MatchModifierFlags)world.RuleBits) != rules.Match.MovementModel)
+                throw new InvalidDataException("Recorded frozen movement rules contradict match state.");
+        }
+
         private bool Matches(ushort match, ulong authority) => Match is MatchStatePacket current
             && current.MatchId == match && current.AuthorityEpoch == authority;
         public void Accept(ReadOnlySpan<byte> packet, uint frame)
@@ -182,6 +191,7 @@ namespace MphRead.Mods.Network
                             && !SessionStatePacket.IsNewer(match.MatchId, previous.MatchId)) break;
                         Reset();
                     }
+                    ValidateMovementRules(match, Configuration);
                     Match = match;
                     SemanticEvents.Begin(match.MatchId, match.AuthorityEpoch);
                     MatchRecordingFrame = frame;
@@ -193,6 +203,7 @@ namespace MphRead.Mods.Network
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;
+                    ValidateMovementRules(Match, configuration);
                     Configuration = configuration;
                     accepted = true;
                     break;

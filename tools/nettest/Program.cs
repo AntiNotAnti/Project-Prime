@@ -91,8 +91,11 @@ namespace MphRead.NetTest
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
+                    + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
+                    + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable] Test recorded world determinism and mode restoration.\n"
+                    + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-match-scene <assets> [json] Test actual rule-selected native scene movement.\n"
-                    + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] Run a real UDP owner world.\n"
+                    + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] [replay] Run a real UDP owner world.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
                     + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
                     + "  --momentum-collision <assets> [json] Test authored geometry and native contact handling.\n"
@@ -394,6 +397,24 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-offline-rules") return MomentumOfflineRulesTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-replay-rules") return MomentumReplayRulesTests.Run();
+            if (args.Length >= 5 && args[0] == "--momentum-replay-scene")
+            {
+                if (!Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                string output = System.IO.Path.GetFullPath(args[4]);
+                string? durable = args.Length > 5 ? System.IO.Path.GetFullPath(args[5]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumReplaySceneTests.Run(replay, model, output, durable);
+            }
+            if (args.Length > 1 && args[0] == "--momentum-rewind-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumRewindSceneTests.Run(output);
+            }
             if (args.Length >= 4 && args[0] == "--momentum-test-server")
             {
                 if (!Int32.TryParse(args[2], out int movementPort) || movementPort is < 1 or > 65535
@@ -407,7 +428,9 @@ namespace MphRead.NetTest
                     ReplayPolicy = ServerReplayPolicy.Default with { Enabled = false }
                 };
                 // A real local authority, with no listing reporter or hosted children.
-                using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                int lifetime = args.Length > 4 && Int32.TryParse(args[4], out int requestedLifetime)
+                    ? Math.Clamp(requestedLifetime, 30, 180) : 45;
+                using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(lifetime));
                 server.Run(stop.Token);
                 return 0;
             }
@@ -417,9 +440,10 @@ namespace MphRead.NetTest
                     || !Mods.Movement.MovementModelRules.TryParse(args[3], out var model)) return 2;
                 int seconds = args.Length > 5 && Int32.TryParse(args[5], out int duration) ? duration : 12;
                 string output = System.IO.Path.GetFullPath(args[4]);
+                string? replay = args.Length > 6 ? System.IO.Path.GetFullPath(args[6]) : null;
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds);
+                return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds, replay);
             }
             if (args.Length > 1 && args[0] == "--momentum-match-scene")
             {

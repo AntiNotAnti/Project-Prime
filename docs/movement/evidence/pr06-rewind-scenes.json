@@ -1,0 +1,169 @@
+{
+  "checks": 18489,
+  "failure": null,
+  "scope": "asset-backed offline native 60Hz earned Momentum trajectory -> explicit NetUnlagged.Record -> historical geometry queries; no BroadcastSnapshot/ACK/UDP proof",
+  "conditions": {
+    "hunters": 7,
+    "simulationHz": 60,
+    "historyFrames": 128,
+    "rewindWindow": 45,
+    "lifecycle": "explicit synthetic generation/life transitions through production lifecycle API; no network admission claim"
+  },
+  "results": [
+    {
+      "hunter": "Samus",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Samus",
+      "scenario": "midair-form",
+      "interpolated": 71,
+      "bodyHits": 71,
+      "headHits": 71,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Kanden",
+      "scenario": "midair-form",
+      "interpolated": 65,
+      "bodyHits": 65,
+      "headHits": 65,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "midair-form",
+      "interpolated": 65,
+      "bodyHits": 65,
+      "headHits": 65,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Noxus",
+      "scenario": "midair-form",
+      "interpolated": 81,
+      "bodyHits": 81,
+      "headHits": 81,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Trace",
+      "scenario": "midair-form",
+      "interpolated": 73,
+      "bodyHits": 73,
+      "headHits": 73,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.2219734101230492
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Sylux",
+      "scenario": "midair-form",
+      "interpolated": 71,
+      "bodyHits": 71,
+      "headHits": 71,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.2219734101230492
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "earned-air-directions",
+      "interpolated": 90,
+      "bodyHits": 90,
+      "headHits": 90,
+      "airInputDirections": 3,
+      "boundary": false,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.05095933616043707
+    },
+    {
+      "hunter": "Weavel",
+      "scenario": "midair-form",
+      "interpolated": 61,
+      "bodyHits": 61,
+      "headHits": 61,
+      "airInputDirections": 2,
+      "boundary": true,
+      "sampleCount": 90,
+      "maximumPlanarSpeed": 0.2219734101230492
+    }
+  ],
+  "testedBase": "24fb2bcf5"
+}

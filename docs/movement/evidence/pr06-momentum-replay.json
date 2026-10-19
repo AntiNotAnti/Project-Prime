@@ -1,0 +1,240 @@
+{
+  "testedBase": "bff37487c10b993769962f23ff7e15aa4982e8d4",
+  "host": "macOS 27 ARM64 / Apple M4 Pro / .NET 10.0.12",
+  "checks": 76783,
+  "expectedModel": "Momentum",
+  "frames": 2979,
+  "firstFrame": 0,
+  "lastFrame": 2979,
+  "gameplayPresentationDigest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+  "snapshotPoseChecks": 5958,
+  "morphFrames": 550,
+  "midairMorphFrames": 218,
+  "altFrames": 390,
+  "airborneFrames": 2609,
+  "minimumRecordedPlayers": 2,
+  "maximumRecordedPlayers": 2,
+  "checkpointFrames": [
+    220,
+    300,
+    600,
+    900,
+    1200,
+    1500,
+    1800,
+    2100,
+    2400,
+    2700
+  ],
+  "checkpointSizes": [
+    586379,
+    586389,
+    586379,
+    586399,
+    586389,
+    586409,
+    586399,
+    586419,
+    586409,
+    586429
+  ],
+  "continuedFrames": 2759,
+  "memoryCheckpointCount": 9,
+  "memoryCheckpointBytes": 5278773,
+  "seeks": [
+    {
+      "requested": 1500,
+      "target": 1500,
+      "updates": 13,
+      "steps": 1500,
+      "restoreFrame": 0,
+      "source": "initial world"
+    },
+    {
+      "requested": 35,
+      "target": 35,
+      "updates": 1,
+      "steps": 35,
+      "restoreFrame": 0,
+      "source": "initial world"
+    },
+    {
+      "requested": 1100,
+      "target": 1100,
+      "updates": 2,
+      "steps": 200,
+      "restoreFrame": 900,
+      "source": "memory"
+    },
+    {
+      "requested": 615,
+      "target": 615,
+      "updates": 1,
+      "steps": 15,
+      "restoreFrame": 600,
+      "source": "memory"
+    },
+    {
+      "requested": 0,
+      "target": 0,
+      "updates": 1,
+      "steps": 0,
+      "restoreFrame": 0,
+      "source": "initial world"
+    },
+    {
+      "requested": 1799,
+      "target": 1799,
+      "updates": 3,
+      "steps": 299,
+      "restoreFrame": 1500,
+      "source": "memory"
+    },
+    {
+      "requested": 1201,
+      "target": 1201,
+      "updates": 1,
+      "steps": 1,
+      "restoreFrame": 1200,
+      "source": "memory"
+    },
+    {
+      "requested": 610,
+      "target": 610,
+      "updates": 1,
+      "steps": 10,
+      "restoreFrame": 600,
+      "source": "memory"
+    },
+    {
+      "requested": 2979,
+      "target": 2979,
+      "updates": 13,
+      "steps": 1479,
+      "restoreFrame": 1500,
+      "source": "memory"
+    }
+  ],
+  "durableEnabled": true,
+  "durableSeeks": [
+    {
+      "requested": 301,
+      "target": 301,
+      "updates": 1,
+      "steps": 1,
+      "simulationSteps": 1,
+      "restoreFrame": 300,
+      "source": "file"
+    },
+    {
+      "requested": 799,
+      "target": 799,
+      "updates": 2,
+      "steps": 199,
+      "simulationSteps": 199,
+      "restoreFrame": 600,
+      "source": "file"
+    },
+    {
+      "requested": 1250,
+      "target": 1250,
+      "updates": 1,
+      "steps": 50,
+      "simulationSteps": 50,
+      "restoreFrame": 1200,
+      "source": "file"
+    },
+    {
+      "requested": 1800,
+      "target": 1800,
+      "updates": 1,
+      "steps": 0,
+      "simulationSteps": 0,
+      "restoreFrame": 1800,
+      "source": "file"
+    },
+    {
+      "requested": 2500,
+      "target": 2500,
+      "updates": 1,
+      "steps": 100,
+      "simulationSteps": 100,
+      "restoreFrame": 2400,
+      "source": "file"
+    },
+    {
+      "requested": 301,
+      "target": 301,
+      "updates": 1,
+      "steps": 1,
+      "simulationSteps": 1,
+      "restoreFrame": 300,
+      "source": "file"
+    }
+  ],
+  "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance",
+  "fullMatchVerification": {
+    "checks": 76783,
+    "frames": 2979,
+    "gameplayPresentationDigest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+    "midairMorphFrames": 218,
+    "continuedFrames": 2759,
+    "durableSeeks": [
+      {
+        "requested": 301,
+        "target": 301,
+        "updates": 1,
+        "steps": 1,
+        "simulationSteps": 1,
+        "restoreFrame": 300,
+        "source": "file"
+      },
+      {
+        "requested": 799,
+        "target": 799,
+        "updates": 2,
+        "steps": 199,
+        "simulationSteps": 199,
+        "restoreFrame": 600,
+        "source": "file"
+      },
+      {
+        "requested": 1250,
+        "target": 1250,
+        "updates": 1,
+        "steps": 50,
+        "simulationSteps": 50,
+        "restoreFrame": 1200,
+        "source": "file"
+      },
+      {
+        "requested": 1800,
+        "target": 1800,
+        "updates": 1,
+        "steps": 0,
+        "simulationSteps": 0,
+        "restoreFrame": 1800,
+        "source": "file"
+      },
+      {
+        "requested": 2500,
+        "target": 2500,
+        "updates": 1,
+        "steps": 100,
+        "simulationSteps": 100,
+        "restoreFrame": 2400,
+        "source": "file"
+      },
+      {
+        "requested": 301,
+        "target": 301,
+        "updates": 1,
+        "steps": 1,
+        "simulationSteps": 1,
+        "restoreFrame": 300,
+        "source": "file"
+      }
+    ],
+    "testedBase": "244b24d8c"
+  }
+}

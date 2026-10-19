@@ -120,6 +120,14 @@ internal static class ReplayExportCheck
             ReplayVideoExporter.Cancel();
             if (ReplayVideoExporter.Active || ReplayCamera.Mode != ReplayCameraMode.Orbit
                 || ReplayVideoExporter.State != ReplayExportState.Cancelled) throw new InvalidDataException("Cancelled rendering retained state.");
+            // Cancellation releases export ownership, but its requested seek
+            // still belongs to the replay player. Let that real restore finish
+            // before starting the next independent render job.
+            for (int warm = 0; warm < 10000 && ReplayController.IsSeeking; warm++) shell.OnSimulationFrame();
+            if (ReplayController.IsSeeking || !DemoPlayback.IsActive
+                || DemoPlayback.PresentationScene is not { } resumed || !DemoPlayback.Owns(resumed)
+                || DemoPlayback.PlaybackPath == null || !ReplayPathComparer.Same(DemoPlayback.PlaybackPath, path))
+                throw new InvalidDataException("Cancelled render seek did not restore ready playback for the same replay.");
             // Native 4K composite includes HUD without a 4K window.
             ReplayCamera.SetProfile(ReplayPresentationProfile.Faithful); ReplayCamera.SetMode(ReplayCameraMode.FirstPerson);
             string hudDirectory = Path.Combine(output, "4k-hud");

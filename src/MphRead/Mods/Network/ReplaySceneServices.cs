@@ -104,7 +104,8 @@ namespace MphRead.Mods.Network
         internal void RestoreMatchModifiers(Scene scene)
         {
             if (State.Match is not MatchStatePacket match) return;
-            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode }).NormalizeLegacy();
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode,
+                MovementModel = Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) }).NormalizeLegacy();
             definition.ApplyModifiers(scene.GameState);
             scene.GameState.Mode = definition.Mode;
             scene.GameState.FriendlyFire = match.FriendlyFire;
@@ -117,7 +118,8 @@ namespace MphRead.Mods.Network
         internal void ApplyRules(Scene scene, uint frame)
         {
             if (State.Match is not MatchStatePacket match) return;
-            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode }).NormalizeLegacy();
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode,
+                MovementModel = Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) }).NormalizeLegacy();
             definition.ApplyModifiers(scene.GameState);
             scene.GameState.Mode = definition.Mode;
             if (MatchGoalRules.UsesTimeTarget((GameMode)match.Mode)) scene.GameState.TimeGoal = match.PointGoal;
