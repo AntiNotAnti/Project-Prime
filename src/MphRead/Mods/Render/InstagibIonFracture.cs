@@ -24,12 +24,14 @@ namespace MphRead.Mods.Render
             internal readonly int Slot;
             internal readonly uint ShotId, LaunchFrame;
             internal readonly BeamFxStyle Style;
+            internal readonly bool HitPlayer;
             internal Lance(Vector3 start, Vector3 end, Vector3 color, Vector3 secondary,
-                float born, int slot, uint shotId, uint launchFrame, BeamFxStyle style)
+                float born, int slot, uint shotId, uint launchFrame, BeamFxStyle style,
+                bool hitPlayer)
             {
                 Start = start; End = end; Color = color; Secondary = secondary;
                 Born = born; Slot = slot; ShotId = shotId;
-                LaunchFrame = launchFrame; Style = style;
+                LaunchFrame = launchFrame; Style = style; HitPlayer = hitPlayer;
             }
         }
 
@@ -55,7 +57,8 @@ namespace MphRead.Mods.Render
             float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 
         internal void Add(Scene scene, Vector3 start, Vector3 end, int slot,
-            uint shotId, uint launchFrame, BeamEffectDefinition? effect = null, byte tone = 0)
+            uint shotId, uint launchFrame, BeamEffectDefinition? effect = null, byte tone = 0,
+            bool hitPlayer = false)
         {
             if (!scene.GameState.Multiplayer || !scene.GameState.InstaGib
                 || !Finite(start) || !Finite(end) || (end - start).LengthSquared < 0.0025f)
@@ -87,7 +90,7 @@ namespace MphRead.Mods.Render
                 ? ColorForSlot(slot) : effect.PrimaryColor;
             Vector3 color = BeamPalette.Resolve(tone, original);
             _active[_count++] = new Lance(start, end, color, effect.SecondaryColor,
-                now, slot, shotId, launchFrame, effect.Style);
+                now, slot, shotId, launchFrame, effect.Style, hitPlayer);
         }
 
         internal void Draw(Scene scene)
@@ -150,6 +153,28 @@ namespace MphRead.Mods.Render
             float blossom = MathF.Sin(pulse * MathF.PI);
             float impact = 1f - Math.Clamp(age / 0.24f, 0f, 1f);
             Vector3 center = lance.Start + delta * (0.06f + 0.91f * pulse);
+
+            // Small, momentary muzzle compression: never covers the reticle,
+            // and does not introduce any fire-time delay or recoil.
+            if (age < 0.08f && medium)
+                DrawRing(scene, lance.Start + axis * 0.12f, right, up,
+                    4, 0.11f + age * 0.45f, 0.024f, hot,
+                    (1f - age / 0.08f) * 0.62f);
+
+            // A real player collision emits a short prismatic spark rather
+            // than a surface glyph. Both paths stop at the canonical impact.
+            if (lance.HitPlayer && impact > 0)
+            {
+                int rays = full ? 4 : 2;
+                for (int i = 0; i < rays; i++)
+                {
+                    float a = MathF.Tau * i / rays + 0.33f;
+                    Vector3 spread = right * MathF.Cos(a) + up * MathF.Sin(a);
+                    DrawFacet(scene, lance.End - axis * 0.04f,
+                        lance.End + spread * (0.22f + age * 0.76f) - axis * 0.12f,
+                        axis, 0.025f, 0.003f, hot, impact * 0.74f);
+                }
+            }
 
             switch (lance.Style)
             {

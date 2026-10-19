@@ -50,6 +50,58 @@ namespace MphRead.Mods.Launcher.Gui
                     Stroke = tint, StrokeThickness = band.Thick, Opacity = band.Alpha
                 });
             }
+            void Stroke(double x1, double y1, double x2, double y2, double thick = 2,
+                double alpha = 0.8)
+            {
+                canvas.Children.Add(new Avalonia.Controls.Shapes.Line
+                {
+                    StartPoint = new Avalonia.Point(x1, y1), EndPoint = new Avalonia.Point(x2, y2),
+                    Stroke = tint, StrokeThickness = thick, Opacity = alpha
+                });
+            }
+            // Nine intentionally distinct diagrams, not just nine different
+            // colors. The preview is asset-free and does not fire a real shot.
+            switch (beam.Style)
+            {
+                case BeamFxStyle.IonFracture:
+                    Stroke(54, 27, 72, 47); Stroke(54, 47, 72, 27);
+                    Stroke(90, 28, 110, 45, 1.5); break;
+                case BeamFxStyle.VoidRift:
+                    Stroke(9, 29, 135, 29); Stroke(9, 45, 135, 45);
+                    Stroke(54, 29, 68, 18); Stroke(77, 45, 91, 55); break;
+                case BeamFxStyle.QuantumSplit:
+                    Stroke(9, 37, 136, 22); Stroke(9, 37, 136, 52);
+                    Stroke(58, 21, 76, 36); break;
+                case BeamFxStyle.AlimbicResonance:
+                    foreach (double x in new[] { 32d, 72d, 112d })
+                        for (int k = 0; k < 6; k++)
+                        {
+                            double a = k * Math.PI / 3;
+                            double b = (k + 1) * Math.PI / 3;
+                            Stroke(x + 11 * Math.Cos(a), 37 + 11 * Math.Sin(a),
+                                x + 11 * Math.Cos(b), 37 + 11 * Math.Sin(b), 1.5);
+                        }
+                    break;
+                case BeamFxStyle.OmegaPulse:
+                    foreach (double x in new[] { 32d, 69d, 106d })
+                    {
+                        Stroke(x, 24, x, 50, 2.5);
+                        Stroke(x - 6, 29, x + 6, 29); Stroke(x - 6, 45, x + 6, 45);
+                    }
+                    break;
+                case BeamFxStyle.ArcDisruptor:
+                    Stroke(24, 37, 39, 18); Stroke(39, 18, 54, 40);
+                    Stroke(64, 36, 79, 54); Stroke(79, 54, 94, 27); break;
+                case BeamFxStyle.SolarSpear:
+                    Stroke(31, 37, 42, 15); Stroke(42, 15, 54, 37);
+                    Stroke(77, 37, 91, 58); Stroke(91, 58, 105, 37); break;
+                case BeamFxStyle.CryoShatter:
+                    Stroke(25, 36, 37, 14); Stroke(37, 14, 52, 37);
+                    Stroke(60, 37, 81, 51); Stroke(81, 51, 94, 37); break;
+                case BeamFxStyle.PhantomTrace:
+                    Stroke(12, 31, 132, 31, 1, 0.25);
+                    Stroke(12, 43, 132, 43, 1, 0.3); break;
+            }
             canvas.Children.Add(new Avalonia.Controls.Shapes.Line
             {
                 StartPoint = new Avalonia.Point(8, 37), EndPoint = new Avalonia.Point(136, 37),

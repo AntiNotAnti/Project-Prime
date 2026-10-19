@@ -994,7 +994,7 @@ namespace MphRead.Entities
                 }
                 if (DrawFuncId == 8)
                 {
-                    SpawnSniperBeam(anyRes.Position);
+                    SpawnSniperBeam(anyRes.Position, colWith?.Type == EntityType.Player);
                 }
             }
         }
@@ -2925,7 +2925,7 @@ namespace MphRead.Entities
                 new List<byte>() { 255, 255, 255, 255, 255, 255, 255, 255, 255, 142, 141, 140 } // Enemy
             };
 
-        private void SpawnSniperBeam(Vector3 collisionPosition)
+        private void SpawnSniperBeam(Vector3 collisionPosition, bool hitPlayer)
         {
             // Preserve vanilla, balanced, and campaign visual paths unchanged.
             // In Insta-Gib the accepted collision trace produces one bounded,
@@ -2938,7 +2938,7 @@ namespace MphRead.Entities
                     shooter.SlotIndex, shooter.Hunter, shooter.IsMainPlayer);
                 _scene.IonFracture.Add(_scene, spawnPos, collisionPosition,
                     shooter.SlotIndex, ModShotId, ModLaunchFrame,
-                    appearance.Beam, appearance.Loadout.BeamColor);
+                    appearance.Beam, appearance.Loadout.BeamColor, hitPlayer);
                 return;
             }
             Vector3 up = Position - spawnPos;

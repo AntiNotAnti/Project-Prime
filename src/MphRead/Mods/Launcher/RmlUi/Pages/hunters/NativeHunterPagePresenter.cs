@@ -214,6 +214,20 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 CosmeticCatalog.ResolveDeath(cosmetic.Draft.DeathEffectKey).Description),
             ["hunter_beam_description"] = RmlUiBindingValue.FromText(
                 CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).Description),
+            ["hunter_beam_preview_text"] = RmlUiBindingValue.FromText(
+                cosmetic.Draft.BeamEffectKey switch
+                {
+                    "beam.ion_fracture" => "==== X ====",
+                    "beam.void_rift" => "|=====|====",
+                    "beam.quantum_split" => "==<=== >==",
+                    "beam.alimbic" => "==[ ]==[ ]",
+                    "beam.omega" => "==O==O==O=",
+                    "beam.arc" => "==/\\==/\\==",
+                    "beam.solar" => "==^==^==^=",
+                    "beam.cryo" => "==<>==<>==",
+                    "beam.phantom" => "============",
+                    _ => "============"
+                }),
             ["disabled:hunter_discard"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),

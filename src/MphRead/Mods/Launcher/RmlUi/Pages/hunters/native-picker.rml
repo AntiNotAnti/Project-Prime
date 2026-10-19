@@ -38,6 +38,7 @@
                 <div id="hunter_armor_description" class="hint cosmetic-description" role="status"></div>
                 <button id="hunter_beam" data-action="hunter:beam-next">INSTA-GIB BEAM // ION FRACTURE</button>
                 <div id="hunter_beam_description" class="hint cosmetic-description" role="status"></div>
+                <div id="hunter_beam_preview" class="beam-miniature"><span id="hunter_beam_preview_text">====&gt;====</span></div>
                 <button id="hunter_beam_color" data-action="hunter:beam-color-next">BEAM COLOR // ORIGINAL</button>
                 <div class="hint cosmetic-description">Beam styles apply only to Insta-Gib. Beam choices are saved on this device.</div>
                 <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
