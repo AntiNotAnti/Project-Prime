@@ -5,3 +5,6 @@ docs/performance/*.json linguist-generated=true
 
 # Exact collision-result golden rows use LF on every CI checkout.
 docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
+
+# Keep the exact artwork allowlist LF-terminated for Windows Bash checks.
+tools/asset-guard-allow.txt text eol=lf
