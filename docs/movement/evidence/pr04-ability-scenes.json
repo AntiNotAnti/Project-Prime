@@ -1,0 +1,91 @@
+{
+  "checks": 14442,
+  "scope": "asset-backed offline CPU paired native form and keyboard ability traces plus authored Spire wall climb; Kanden/Sylux roll only, bombs covered separately; no GL/network/replay acceptance",
+  "results": [
+    {
+      "hunter": "Samus",
+      "ticks": 569,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Kanden",
+      "ticks": 563,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Spire",
+      "ticks": 563,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Noxus",
+      "ticks": 583,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Trace",
+      "ticks": 573,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Sylux",
+      "ticks": 569,
+      "Activated": true,
+      "Released": true,
+      "Split": false,
+      "Anchored": false,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Weavel",
+      "ticks": 559,
+      "Activated": true,
+      "Released": true,
+      "Split": true,
+      "Anchored": true,
+      "Recombined": true,
+      "EligibleReturned": true,
+      "AltSolverSteps": 0
+    },
+    {
+      "hunter": "Spire",
+      "scenario": "authored-wall-climb",
+      "ticks": 803,
+      "Activated": true,
+      "crestObserved": true
+    }
+  ],
+  "testedBase": "eb4eb71c936b2f91b450c0551d416a9177bac67f"
+}

@@ -91,6 +91,10 @@ namespace MphRead.NetTest
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
                     + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
+                    + "  --momentum-collision <assets> [json] Test authored geometry and native contact handling.\n"
+                    + "  --momentum-specials <assets> [json] Test native discontinuities, damage and bombs.\n"
+                    + "  --momentum-abilities <assets> [json] Test native Hunter forms and abilities.\n"
+                    + "  --momentum-carrier <assets> [json] Test native moving entity standing ownership.\n"
                     + "  --momentum-profile                Test v1 retention policy, analog magnitudes and fixed cadence.\n"
                     + "  --momentum-math                   Test pure horizontal Momentum equations and validation.\n"
                     + "  --momentum-benchmark [json]       Measure warmed eight-player math and assert zero allocations.\n"
@@ -385,6 +389,28 @@ namespace MphRead.NetTest
             }
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-profile") return MomentumProfileTests.Run();
+            if (args.Length > 1 && (args[0] == "--momentum-collision"
+                || args[0] == "--momentum-specials" || args[0] == "--momentum-abilities"
+                || args[0] == "--momentum-carrier"))
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                // Resolve the authored map catalog before the asset configuration changes cwd.
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "momentum-collision");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = args[0][2..];
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                if (args[0] != "--momentum-specials")
+                    Mods.MapGen.CustomRooms.GenerateMissing(MomentumCollisionSceneTests.Room);
+                return args[0] switch
+                {
+                    "--momentum-collision" => MomentumCollisionSceneTests.Run(output),
+                    "--momentum-specials" => MomentumSpecialSceneTests.Run(output),
+                    "--momentum-carrier" => MomentumCarrierSceneTests.Run(output),
+                    _ => MomentumAbilitySceneTests.Run(output)
+                };
+            }
             if (args.Length > 1 && args[0] == "--momentum-jump-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;

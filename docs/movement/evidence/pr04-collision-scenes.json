@@ -1,0 +1,1511 @@
+{
+  "scope": "asset-backed offline keyboard/native biped collision on original authored course; no GL/network/replay acceptance",
+  "conditions": {
+    "room": "TEST MOMENTUM COLLISION",
+    "hunters": 7,
+    "modes": [
+      "Native",
+      "Momentum"
+    ],
+    "scenarios": [
+      "wall",
+      "oblique-slide",
+      "corner",
+      "low-step",
+      "down-ramp",
+      "up-ramp",
+      "ledge",
+      "wall-overlap",
+      "ceiling",
+      "narrow-corridor",
+      "reversal",
+      "slip1",
+      "slip3"
+    ],
+    "velocitySources": [
+      "earned-input",
+      "explicit initial 1.5x v1 cap seed"
+    ],
+    "carrier": "not covered: fixture contains static authored room geometry, no native standing EntityCollision carrier"
+  },
+  "checks": 378667,
+  "failure": null,
+  "evidenceNote": "Passing full-run summary, aggregating seven Hunters per scenario/mode/velocity source. Dense sampled traces are omitted; the command regenerates full local JSON.",
+  "traceCount": 364,
+  "groupCount": 52,
+  "groups": [
+    {
+      "scenario": "wall",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11278844,
+        0.11278844
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "oblique-slide",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.112788714,
+        0.112788714
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "corner",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.112788714,
+        0.112788714
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "low-step",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.13016565,
+        0.13016565
+      ],
+      "maxZRange": [
+        7.1118503,
+        7.1118503
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.1824495,
+        1.1824495
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "down-ramp",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11575977,
+        0.11575977
+      ],
+      "maxZRange": [
+        6.375085,
+        6.375085
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.3331344,
+        2.3331344
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "up-ramp",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.113823764,
+        0.113823764
+      ],
+      "maxZRange": [
+        6,
+        6
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.3885357,
+        2.3885357
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ledge",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.17458089,
+        0.17458089
+      ],
+      "maxZRange": [
+        -6.9611635,
+        -6.9611635
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.5216162,
+        2.5216162
+      ],
+      "obstacleCount": 7,
+      "leftSupportCount": 7,
+      "landedAfterLedgeCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall-overlap",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.010000229,
+        0.010000229
+      ],
+      "maxZRange": [
+        7.51,
+        7.51
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ceiling",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.27883837,
+        0.27883837
+      ],
+      "maxZRange": [
+        7.2885776,
+        7.2885776
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.8904419,
+        1.8904419
+      ],
+      "obstacleCount": 7,
+      "ceilingContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 81,
+          "incomingY": 0.20581055,
+          "afterY": 0,
+          "intendedTop": 3.0932007,
+          "actualTop": 2.734497,
+          "intercepted": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "narrow-corridor",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11278844,
+        0.11278844
+      ],
+      "maxZRange": [
+        7.3480315,
+        7.3480315
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "reversal",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11278844,
+        0.11278844
+      ],
+      "maxZRange": [
+        -0.9439227,
+        -0.9439227
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip1",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.1127882,
+        0.1127882
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip3",
+      "mode": "Native",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11965495,
+        0.11965495
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16027832,
+        0.16027832
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        3.315918,
+        3.315918
+      ],
+      "obstacleCount": 7,
+      "capContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 0,
+          "incomingPlanar": 0.35998535,
+          "solverIncoming": 0,
+          "solverOutput": 0,
+          "postCollisionPlanar": 0,
+          "normalVelocityAfter": 0,
+          "wallGapAfter": 0,
+          "contact": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "oblique-slide",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.19285798,
+        0.19285798
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        3.315918,
+        3.315918
+      ],
+      "obstacleCount": 7,
+      "capContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 0,
+          "incomingPlanar": 0.35998532,
+          "solverIncoming": 0,
+          "solverOutput": 0,
+          "postCollisionPlanar": 0.23543832,
+          "normalVelocityAfter": 0,
+          "wallGapAfter": 0,
+          "contact": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "corner",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918184,
+        0.16918184
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "low-step",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918278,
+        0.16918278
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.1925431,
+        1.1925431
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "down-ramp",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918278,
+        0.16918278
+      ],
+      "maxZRange": [
+        6.734548,
+        6.734548
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.3331344,
+        2.3331344
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "up-ramp",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918278,
+        0.16918278
+      ],
+      "maxZRange": [
+        6,
+        6
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.453125,
+        2.453125
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ledge",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.17458089,
+        0.17458089
+      ],
+      "maxZRange": [
+        -6.9611635,
+        -6.9611635
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.51461,
+        2.51461
+      ],
+      "obstacleCount": 7,
+      "leftSupportCount": 7,
+      "landedAfterLedgeCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall-overlap",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.010000229,
+        0.010000229
+      ],
+      "maxZRange": [
+        7.51,
+        7.51
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ceiling",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.27883837,
+        0.27883837
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.8904419,
+        1.8904419
+      ],
+      "obstacleCount": 7,
+      "ceilingContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 81,
+          "incomingY": 0.20581055,
+          "afterY": 0,
+          "intendedTop": 3.0932007,
+          "actualTop": 2.734497,
+          "intercepted": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "narrow-corridor",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918278,
+        0.16918278
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "reversal",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16918278,
+        0.16918278
+      ],
+      "maxZRange": [
+        -0.5558499,
+        -0.5558499
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip1",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16377735,
+        0.16377735
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip3",
+      "mode": "Native",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.17934418,
+        0.17934418
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999512,
+        0.11999512
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "oblique-slide",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.14628792,
+        0.14628792
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "corner",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.14628792,
+        0.14628792
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "low-step",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.119995356,
+        0.119995356
+      ],
+      "maxZRange": [
+        6.598836,
+        6.598836
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.8815344,
+        0.8815344
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "down-ramp",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.12200576,
+        0.12200576
+      ],
+      "maxZRange": [
+        7.0267644,
+        7.0267644
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.3331344,
+        2.3331344
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "up-ramp",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999512,
+        0.11999512
+      ],
+      "maxZRange": [
+        6,
+        6
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.9074565,
+        1.9074565
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ledge",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.13774341,
+        0.13774341
+      ],
+      "maxZRange": [
+        -6.9611635,
+        -6.9611635
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.4999332,
+        2.4999332
+      ],
+      "obstacleCount": 7,
+      "leftSupportCount": 7,
+      "landedAfterLedgeCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall-overlap",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.010000229,
+        0.010000229
+      ],
+      "maxZRange": [
+        7.51,
+        7.51
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ceiling",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.28254488,
+        0.28254488
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.8904419,
+        1.8904419
+      ],
+      "obstacleCount": 7,
+      "ceilingContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 81,
+          "incomingY": 0.20581055,
+          "afterY": 0,
+          "intendedTop": 3.0932007,
+          "actualTop": 2.734497,
+          "intercepted": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "narrow-corridor",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999512,
+        0.11999512
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "reversal",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999524,
+        0.11999524
+      ],
+      "maxZRange": [
+        -0.63834584,
+        -0.63834584
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip1",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999512,
+        0.11999512
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "bypassCount": 7,
+      "resumedCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip3",
+      "mode": "Momentum",
+      "velocitySource": "earned keyboard input from rest",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0,
+      "maxDisplacementRange": [
+        0.11999512,
+        0.11999512
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "bypassCount": 7,
+      "resumedCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16027832,
+        0.16027832
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        3.315918,
+        3.315918
+      ],
+      "obstacleCount": 7,
+      "capContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 0,
+          "incomingPlanar": 0.35998535,
+          "solverIncoming": 0.35998535,
+          "solverOutput": 0.35998535,
+          "postCollisionPlanar": 0,
+          "normalVelocityAfter": 0,
+          "wallGapAfter": 0,
+          "contact": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "oblique-slide",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.20466486,
+        0.20466486
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        3.315918,
+        3.315918
+      ],
+      "obstacleCount": 7,
+      "capContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 0,
+          "incomingPlanar": 0.35998532,
+          "solverIncoming": 0.35998532,
+          "solverOutput": 0.35998532,
+          "postCollisionPlanar": 0.25454807,
+          "normalVelocityAfter": 0,
+          "wallGapAfter": 0,
+          "contact": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "corner",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.15118851,
+        0.15118851
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "low-step",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.1511879,
+        0.1511879
+      ],
+      "maxZRange": [
+        6.6456347,
+        6.6456347
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.88416094,
+        0.88416094
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "down-ramp",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.15868723,
+        0.15868723
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.3331344,
+        2.3331344
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "up-ramp",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.1511879,
+        0.1511879
+      ],
+      "maxZRange": [
+        6,
+        6
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.9155271,
+        1.9155271
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ledge",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16827774,
+        0.16827774
+      ],
+      "maxZRange": [
+        -6.9611635,
+        -6.9611635
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        2.5210624,
+        2.5210624
+      ],
+      "obstacleCount": 7,
+      "leftSupportCount": 7,
+      "landedAfterLedgeCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "wall-overlap",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.010000229,
+        0.010000229
+      ],
+      "maxZRange": [
+        7.51,
+        7.51
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "ceiling",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.28254488,
+        0.28254488
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        1.8904419,
+        1.8904419
+      ],
+      "obstacleCount": 7,
+      "ceilingContactEvidence": {
+        "count": 7,
+        "representative": {
+          "tick": 81,
+          "incomingY": 0.20581055,
+          "afterY": 0,
+          "intendedTop": 3.0932007,
+          "actualTop": 2.734497,
+          "intercepted": true
+        }
+      },
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "narrow-corridor",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.1511879,
+        0.1511879
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "reversal",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.1511879,
+        0.1511879
+      ],
+      "maxZRange": [
+        -0.5161692,
+        -0.5161692
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5,
+        0.5
+      ],
+      "obstacleCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip1",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.16377735,
+        0.16377735
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "bypassCount": 7,
+      "resumedCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    },
+    {
+      "scenario": "slip3",
+      "mode": "Momentum",
+      "velocitySource": "explicit initial planar speed seed at v1 1.5x retention cap; not earned input",
+      "hunterCount": 7,
+      "initialSeedSpeed": 0.35998535,
+      "maxDisplacementRange": [
+        0.17934418,
+        0.17934418
+      ],
+      "maxZRange": [
+        7.5,
+        7.5
+      ],
+      "minYRange": [
+        0.5,
+        0.5
+      ],
+      "maxYRange": [
+        0.5197754,
+        0.5197754
+      ],
+      "obstacleCount": 7,
+      "slipContactCount": 7,
+      "bypassCount": 7,
+      "resumedCount": 7,
+      "contactOverflows": 0,
+      "recoveryFallbacks": 0
+    }
+  ],
+  "testedBase": "eb4eb71c936b2f91b450c0551d416a9177bac67f"
+}
