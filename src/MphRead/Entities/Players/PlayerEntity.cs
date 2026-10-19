@@ -1857,7 +1857,8 @@ namespace MphRead.Entities
             int continuousBodyBefore = _health, continuousTurretBefore = Halfturret?.Health ?? 0;
             using var continuousPayment = continuousBeam != null && (NetSession.IsAuthority || NetSession.IsHost)
                 ? NetContinuousPayments.Begin(new ContinuousPaymentKey(continuousBeam.ModLaunchKey with { ShotId = (uint)continuousBeam.ModContinuousPhase },
-                    NetTargetIdentity.ForSlot(SlotIndex), flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body))
+                    NetTargetIdentity.ForSlot(SlotIndex), flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body),
+                    emittedShotId: continuousBeam.ModShotId)
                 : new NetContinuousPayments.Reservation(true);
             if (!continuousPayment.Allowed) return;
             using var combatPayment = Mods.Network.NetCombatPayments.Begin(this, source, flags);

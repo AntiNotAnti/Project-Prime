@@ -395,6 +395,11 @@ internal static class CustomRewindSceneChecks
                 && custom.ModLaunchKey == native.ModLaunchKey && custom.ModShotId == native.ModShotId
                 && custom.Beam == native.Beam && fact.Valid,
                 "declared custom metadata deliberately forges identical valid native key/sequence/component/weapon fields");
+            string oracleBefore = System.Text.Json.JsonSerializer.Serialize(NetCampaignHitOracle.Capture());
+            NetCampaignHitOracle.ObserveSegment(custom,custom.SpawnPosition,custom.SpawnPosition+Vector3.UnitX*4);
+            Check(System.Text.Json.JsonSerializer.Serialize(NetCampaignHitOracle.Capture()) == oracleBefore,
+                "typed custom first segment cannot consume native oracle rows or change its coverage/overflow despite forged native metadata; timeline="
+                + NetCampaignEvidence.TimelineEnabled);
             Check(NetConfirmedImpacts.Describe(f.Target,f.Shooter,native,null,1,DamageFlags.None).HasValue
                 && NetConfirmedImpacts.Describe(f.Target,f.Shooter,custom,null,1,DamageFlags.None) == null
                 && NetConfirmedImpacts.Matches(fact,native) && !NetConfirmedImpacts.Matches(fact,custom),

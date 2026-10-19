@@ -171,7 +171,15 @@ internal static class NetTimedCampaignJoin
         return _request is { } request && request.Slot == slot && request.Id == id;
     }
     internal static void Terminal(int slot, ShotKey? key, in CombatAckEntry outcome)
-    { if (Enabled) { var r = Recorder; r.Terminals.Add(new(r.Next(), NetSession.NetFrame, slot, key, TimedJoinOutcome.From(outcome))); } }
+    {
+        if (!Enabled) return;
+        NetCampaignEvidence.Timeline("terminal-decided", key ?? default,
+            victim: outcome.VictimSlot, victimGeneration: outcome.VictimGeneration,
+            victimLife: outcome.VictimLife, claimId: outcome.ClaimId,
+            damageEventId: outcome.DamageSequence, value: outcome.DamageApplied, result: outcome.Result);
+        var r = Recorder;
+        r.Terminals.Add(new(r.Next(), NetSession.NetFrame, slot, key, TimedJoinOutcome.From(outcome)));
+    }
     internal static void Payment(in ShotPaymentKey key, byte weapon, uint reservationFrame,
         in CombatAckEntry outcome, int turretDamage, ushort claimId = 0, bool correction = false,
         NativeImpactWitness? impact = null)

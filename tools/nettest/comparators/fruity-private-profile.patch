@@ -1,0 +1,29 @@
+diff --git a/src/MphRead.Native/Mods/Platform/AppPaths.cpp b/src/MphRead.Native/Mods/Platform/AppPaths.cpp
+index af4cca9..3bc22c6 100644
+--- a/src/MphRead.Native/Mods/Platform/AppPaths.cpp
++++ b/src/MphRead.Native/Mods/Platform/AppPaths.cpp
+@@ -5,6 +5,9 @@
+ #include "../../NativeRuntime/System/Runtime.hpp"
+ 
+ #include <memory>
++#include <cstdlib>
++#include <filesystem>
++#include <stdexcept>
+ 
+ namespace MphRead::Mods::Platform
+ {
+@@ -40,6 +43,14 @@ namespace MphRead::Mods::Platform
+ 
+     std::string AppPaths::UserDataDirectory()
+     {
++        // NCX harness adapter only: isolate peers without replacing HOME.
++        // Unset preserves the exact upstream path and gameplay defaults.
++        if (const char* path = std::getenv("FRUITY_NCX_USER_DATA"); path && *path)
++        {
++            if (!std::filesystem::path(path).is_absolute())
++                throw std::runtime_error("FRUITY_NCX_USER_DATA requires an absolute path");
++            return path;
++        }
+         return ::MphRead::NativeRuntime::IsMacOS()
+             ? ::MphRead::NativeRuntime::PathCombine(
+                 ::MphRead::NativeRuntime::EnvironmentUserProfile(),

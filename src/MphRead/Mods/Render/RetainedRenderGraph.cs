@@ -772,6 +772,7 @@ namespace MphRead
             Mods.Render.RetainedDrawBatch batch, int batchIndex, out bool firstPrepared)
         {
             firstPrepared = false;
+            if (NcxExcludeBatch(packets, batch)) return false;
 #if !MPHREAD_SERVER
             if (!Mods.Render.RetainedOpaqueBatchPolicy.CanBatchPass(kind,
                     _depthBatchEnabled)
@@ -833,6 +834,8 @@ namespace MphRead
                 {
                     Mods.Render.RetainedDrawPacket packet = packets[batch.Start + offset];
                     RenderItem item = packet.Item;
+                    if (NcxExcludeItem(item))
+                    { sharedStateValid = false; previousMesh = null; continue; }
                     if (kind == Mods.Render.WorldRenderPassKind.MarkTranslucent)
                         GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
                     else if (kind == Mods.Render.WorldRenderPassKind.TranslucentBehind)

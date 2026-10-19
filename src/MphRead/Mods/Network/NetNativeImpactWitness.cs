@@ -50,6 +50,7 @@ internal static class NetNativeImpactWitness
         private readonly bool _active;
         internal SegmentScope(BeamProjectileEntity beam, Vector3 start, Vector3 end)
         {
+            NetCampaignHitOracle.ObserveSegment(beam, start, end);
             _active = NetTimedShotProof.Active || beam.ModCustomShot != null;
             _prior = _active ? _segment : null;
             if (_active) _segment = beam.ModCustomShot != null ? null
@@ -62,6 +63,14 @@ internal static class NetNativeImpactWitness
         uint channel, DamageFlags flags, Vector3 point)
     {
         if (beam.ModCustomShot != null) return new Scope(null);
+        if (NetCampaignEvidence.Enabled && NetSession.IsAuthority && !beam.OwningScene.Services.IsReplica
+            && !NetDamage.ApplyingClaim && !NetDamage.Replaying)
+            NetCampaignEvidence.Timeline("native-contact", beam.ModLaunchKey, beam.ModComponentId,
+                phase: beam.ModHasSharedContinuousPhase ? (uint)beam.ModContinuousPhase : 0,
+                kind: (byte)((beam.EnhancedDirectHit ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
+                victim: (byte)victim.SlotIndex, victimGeneration: NetPlayerLifecycle.Generation(victim.SlotIndex),
+                victimLife: NetPlayerLifecycle.Get(victim.SlotIndex), weapon: (byte)beam.Beam,
+                value: (int)Math.Min(channel, int.MaxValue), result: flags.TestFlag(DamageFlags.Headshot) ? 1 : 0);
         if (!NetTimedShotProof.Active) return default;
         if (beam.OwningScene.Services.IsReplica || NetDamage.ApplyingClaim || NetDamage.Replaying)
             return new Scope(null);

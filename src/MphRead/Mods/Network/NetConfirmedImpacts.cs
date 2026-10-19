@@ -151,7 +151,10 @@ internal static class NetConfirmedImpacts
         foreach (ref var entry in Entries.AsSpan())
             if (Drawable(entry) && ReferenceEquals(entry.Beam, beam)) { point = entry.Fact.Point; count++; }
         if (count != 1) return false;
-        _projectileSubmissions++; return true;
+        _projectileSubmissions++;
+        NetCampaignEvidence.Timeline("render-submitted", beam.ModLaunchKey, beam.ModComponentId,
+            phase: beam.ModHasSharedContinuousPhase ? (uint)beam.ModContinuousPhase : 0, weapon: (byte)beam.Beam, result: 1);
+        return true;
     }
     internal static void Draw(Scene scene)
     {
@@ -161,9 +164,16 @@ internal static class NetConfirmedImpacts
             {
                 // One depth-tested particle per accepted fact; repeated draws
                 // render the same transient cue, without spawning effects/audio.
+                using var ncxOwner = scene.NcxSourceItems(new(entry.Fact.Key, entry.Fact.Component,
+                    entry.Fact.Phase, 1, entry.Fact.Victim, entry.Fact.VictimGeneration, entry.Fact.VictimLife,
+                    entry.Fact.DamageEvent, entry.Fact.Weapon, (byte)entry.Fact.Provenance));
                 scene.AddSingleParticle(SingleType.Fuzzball, entry.Fact.Point,
                     new Vector3(1, .8f, .3f), alpha: .85f, scale: .22f);
                 _cueSubmissions++;
+                NetCampaignEvidence.Timeline("render-submitted", entry.Fact.Key, entry.Fact.Component,
+                    entry.Fact.Phase, victim: entry.Fact.Victim, victimGeneration: entry.Fact.VictimGeneration,
+                    victimLife: entry.Fact.VictimLife, damageEventId: entry.Fact.DamageEvent,
+                    weapon: entry.Fact.Weapon, result: 0);
             }
     }
 }

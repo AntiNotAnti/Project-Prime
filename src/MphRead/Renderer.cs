@@ -2808,6 +2808,7 @@ namespace MphRead
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
+            NcxBeginDrawItems();
             _renderingViewModelItems = false;
             while (_usedRenderItems.Count > 0)
             {
@@ -3562,6 +3563,7 @@ namespace MphRead
 #endif
             if (!ExecuteCoreFrameRenderGraph(drawGameHud))
                 return false;
+            NcxObservePreparedPixels(drawGameHud);
 
             using var hudTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Hud);
 #if !MPHREAD_SERVER
@@ -4016,6 +4018,7 @@ namespace MphRead
                 entry.Color = color;
                 entry.Alpha = alpha;
                 entry.Scale = scale;
+                NcxTagSingle(entry);
                 if (!_texPalMap.ContainsKey(OwnModel(entry.ParticleDefinition.Model).Id))
                 {
                     InitTextures(OwnModel(entry.ParticleDefinition.Model));
@@ -5183,6 +5186,7 @@ namespace MphRead
             // explicitly own world geometry and therefore keep ViewModel false.
             if (setViewModel)
                 item.ViewModel = _collectingViewModelItems;
+            NcxTagItem(item);
 
             if (_collectingPreview)
             {
@@ -5440,6 +5444,7 @@ namespace MphRead
                 SingleParticle single = _singleParticles[i];
                 if (single.ShouldDraw)
                 {
+                    using var ncxOwner = NcxSingleItems(single);
                     single.AddRenderItem(this);
                 }
             }

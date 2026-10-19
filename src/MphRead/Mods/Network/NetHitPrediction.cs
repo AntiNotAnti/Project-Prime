@@ -784,6 +784,12 @@ namespace MphRead.Mods.Network
                     if (NetLog.Enabled) NetLog.Event($"[predict] lethal held slot={victim.SlotIndex} "
                         + $"life={NetPlayerLifecycle.Get(victim.SlotIndex)} frame={NetSession.NetFrame}");
                 }
+                if (NetCampaignEvidence.Enabled && attacker != null)
+                    NetCampaignEvidence.Timeline("predicted-feedback", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId),
+                        componentId, continuousPhase, victim: (byte)victim.SlotIndex,
+                        victimGeneration: NetPlayerLifecycle.Generation(victim.SlotIndex),
+                        victimLife: NetPlayerLifecycle.Get(victim.SlotIndex), weapon: (byte)beam,
+                        value: (int)Math.Min(damage, int.MaxValue));
                 bool headshot = flags.TestFlag(DamageFlags.Headshot);
                 if (!self)
                 {

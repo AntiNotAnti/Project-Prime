@@ -184,7 +184,8 @@ internal static partial class NetCampaignEvidence
         ClientDeclaredCountingUnit = "New client claim declarations; excludes retries and survives match reset",
         CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
-    internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
+    internal static bool RigHasEvidence => HitRig.NcxObserverRole ? NcxObserverHasEvidence
+        : _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
                 ? NetBombEvidence.RequestsAuthored > 0
@@ -303,6 +304,7 @@ internal static partial class NetCampaignEvidence
             var fire = intent.FireEvents[i];
             var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
                 intent.SlotGeneration, fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId, fire.ShotId);
+            if (offered) TimelineFire("intent-offered", key, fire);
             if (seen.Contains(key)) continue;
             if (seen.Count >= RowLimit) { _overflow++; continue; }
             seen.Add(key);
@@ -340,6 +342,7 @@ internal static partial class NetCampaignEvidence
     internal static void Committed(ShotKey key, in FireEvent fire)
     {
         if (!Enabled || fire.ShotId == 0) return;
+        TimelineFire("source-emitted", key, fire);
         Add(Shots, new("committed", key, fire.SourceFrame,
             NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
     }
@@ -347,6 +350,8 @@ internal static partial class NetCampaignEvidence
     internal static void Disposition(AcceptedShot shot, ShotDisposition disposition, string reason)
     {
         if (!Enabled) return;
+        if (disposition is ShotDisposition.Rejected or ShotDisposition.Expired)
+            TimelineFire(disposition == ShotDisposition.Expired ? "source-expired" : "source-rejected", shot.Key, shot.Fire);
         Add(Shots, new(disposition.ToString().ToLowerInvariant(), shot.Key, shot.Fire.SourceFrame,
             NetSession.NetFrame, shot.Fire.Weapon, shot.Fire.Charge, shot.Fire.Kind, shot.Fire.ContinuousPhase, reason));
     }
@@ -387,6 +392,7 @@ internal static partial class NetCampaignEvidence
     internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
     {
         if (!Enabled) return;
+        TimelineFire("source-rejected", key, fire);
         Add(Shots, new("admission-rejected", key, fire.SourceFrame, NetSession.NetFrame,
             fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase, reason));
     }
@@ -538,6 +544,9 @@ internal static partial class NetCampaignEvidence
                 TimedCaseJoins = NetTimedCampaignJoin.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                ShotTimeline = CaptureShotTimeline(),
+                ExpectedContacts = NetCampaignHitOracle.Capture(),
+                PresentationSchedule,
                 AiClient = NetAiClient.Capture(),
                 TurretOutcomes,
                 TimedGrants, TimedGrantStates, TimedGrantViews, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,

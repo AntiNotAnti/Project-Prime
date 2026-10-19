@@ -1,0 +1,168 @@
+{
+  "textureSource": "MP3 PROVING GROUND",
+  "scaleFactor": 4,
+  "killHeight": -12,
+  "farClip": 120,
+  "fogEnabled": false,
+  "light1Color": [
+    31,
+    29,
+    26
+  ],
+  "light1Vector": [
+    0.3,
+    -1.0,
+    0.2
+  ],
+  "light2Color": [
+    12,
+    13,
+    18
+  ],
+  "light2Vector": [
+    -0.3,
+    1.0,
+    -0.2
+  ],
+  "pointLimit": 7,
+  "battleTimeLimit": 12600,
+  "preview": {
+    "position": [
+      0.0,
+      16.0,
+      30.0
+    ],
+    "target": [
+      0.0,
+      1.0,
+      0.0
+    ]
+  },
+  "materials": [
+    {
+      "name": "floor",
+      "sourceMaterial": 2,
+      "texScale": 16
+    },
+    {
+      "name": "wall",
+      "sourceMaterial": 3,
+      "texScale": 16
+    }
+  ],
+  "//": "Explicit NCX emulated open-box fixture; ordinary solid brushes only. Not historical glass wells.",
+  "name": "NCX EMULATED LATERAL",
+  "inGameName": "NCX Emulated Lateral",
+  "brushes": [
+    {
+      "min": [
+        -20,
+        -1,
+        -12
+      ],
+      "max": [
+        20,
+        0,
+        12
+      ],
+      "material": 0,
+      "shade": 1,
+      "solid": true
+    },
+    {
+      "min": [
+        -20,
+        16,
+        -12
+      ],
+      "max": [
+        20,
+        17,
+        12
+      ],
+      "material": 1,
+      "shade": 0.85,
+      "solid": true
+    },
+    {
+      "min": [
+        -20,
+        0,
+        -13
+      ],
+      "max": [
+        20,
+        16,
+        -12
+      ],
+      "material": 1,
+      "shade": 0.85,
+      "solid": true
+    },
+    {
+      "min": [
+        -20,
+        0,
+        12
+      ],
+      "max": [
+        20,
+        16,
+        13
+      ],
+      "material": 1,
+      "shade": 0.85,
+      "solid": true
+    },
+    {
+      "min": [
+        -21,
+        0,
+        -12
+      ],
+      "max": [
+        -20,
+        16,
+        12
+      ],
+      "material": 1,
+      "shade": 0.85,
+      "solid": true
+    },
+    {
+      "min": [
+        20,
+        0,
+        -12
+      ],
+      "max": [
+        21,
+        16,
+        12
+      ],
+      "material": 1,
+      "shade": 0.85,
+      "solid": true
+    }
+  ],
+  "spawns": [
+    {
+      "position": [
+        -6,
+        0.1,
+        0
+      ],
+      "yaw": 90
+    },
+    {
+      "position": [
+        6,
+        0.1,
+        0
+      ],
+      "yaw": 270
+    }
+  ],
+  "items": [],
+  "jumpPads": []
+}

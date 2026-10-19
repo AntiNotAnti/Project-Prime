@@ -192,6 +192,11 @@ namespace MphRead.Mods.Network
             Span<byte> payload = stackalloc byte[ReplayShotFactPacket.Size];
             ReplayShotFactPacket.Write(fact, payload);
             if (!Recorder.AcceptShotFact(payload, NetSession.NetFrame)) return;
+            NetCampaignEvidence.Timeline("replay-captured", new ShotKey(fact.AuthorityEpoch, fact.MatchId,
+                fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId, fact.ShotId),
+                victim: fact.VictimSlot, victimGeneration: fact.VictimGeneration,
+                victimLife: fact.VictimLifeId, damageEventId: fact.DamageEventId,
+                sourceFrame: fact.LaunchFrame, weapon: fact.Weapon, value: (int)Math.Min(fact.Damage, int.MaxValue));
             NetSession.SendReplayShotFact(payload);
         }
 

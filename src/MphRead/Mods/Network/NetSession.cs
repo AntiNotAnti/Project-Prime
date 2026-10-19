@@ -1353,6 +1353,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             if (!NetPlayerLifecycle.AcceptEventCarrier(peer.SlotIndex, intent)) return;
+            NetCampaignEvidence.TimelineIntentReceived(peer.SlotIndex, intent);
             if (!NetFireEvents.Accept(peer.SlotIndex, intent)) return;
             NetCampaignEvidence.Intent(peer.SlotIndex, intent, offered: false);
             ReplayCapture.AcceptedIntent(peer.SlotIndex, intent);
@@ -1419,6 +1420,7 @@ namespace MphRead.Mods.Network
             // the frame baseline; a late packet can never reset it.
             if (!NetPlayerLifecycle.AcceptEventCarrier(slot, intent))
             { NetTelemetry.Intent(slot, intent.Frame, reason == NetIntentRejection.None ? NetIntentRejection.Invalid : reason); return false; }
+            NetCampaignEvidence.TimelineIntentReceived(slot, intent);
             if (!NetFireEvents.Accept(slot, intent))
             { NetTelemetry.Intent(slot, intent.Frame, NetIntentRejection.Invalid); return false; }
             NetCampaignEvidence.Intent(slot, intent, offered: false);
