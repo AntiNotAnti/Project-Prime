@@ -89,3 +89,20 @@
     .social_body { overflow-y: auto; overflow-x: hidden; }
     .social_footer { background-color: rgba(2,9,16,98%); }
 }
+
+/* Keep the Party overview to one compact strip; destination administration
+   lives beside member commands while Follow and Join remain immediately visible. */
+.party-page .party_operations { display:flex; align-items:center; padding:8dp 10dp; }
+.party_fact_copy { flex:1; min-width:0; }
+.party-page .party_operations > .social_commands { flex:0 0 auto; margin:0 0 0 12dp; }
+.party-page .party_operations > .social_commands button { min-width:120dp; }
+.party_tools { display:flex; flex-shrink:0; align-items:center; margin:6dp 0; }
+.party_tools > .social_tabs { flex:0 0 auto; margin:0 12dp 0 0; }
+.party_tools > .social_searches { flex:1; min-width:0; margin:0; }
+.party_secondary_ops { margin-top:12dp; padding-top:8dp; border-top:1dp #285274; }
+@media (max-width:900dp) {
+    .party_tools { display:block; }
+    .party_tools > .social_tabs { margin:0 0 4dp; }
+    .party-page .party_operations { flex-wrap:wrap; }
+    .party-page .party_operations > .social_commands { margin:4dp 0 0; width:100%; }
+}

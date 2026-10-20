@@ -2,9 +2,9 @@
 <body template="prime-shell"><div id="social_page" class="party-page">
 <div class="social_body">
 <div class="social_header"><h1>YOUR PARTY</h1><p id="party_self"/></div>
-<div class="social_panel party_operations"><h2>PARTY DESTINATION</h2><p id="party_summary"/><p id="party_travel"/><p id="party_reservation"/><div class="social_commands"><button id="party_follow" data-action="social:follow-party-travel">FOLLOW PARTY</button><button id="party_join_leader" data-action="social:join-party-leader">JOIN LEADER</button><button id="party_publish" data-action="social:invite-party-lobby">PUBLISH CURRENT LOBBY</button><button id="party_reserve" data-action="social:reserve-party-seats">RESERVE PARTY SEATS</button><button id="party_cancel_reservation" data-action="social:cancel-reservation">CANCEL SEAT INTENT</button><button id="party_decline_travel" data-action="social:decline-party-travel">DECLINE DESTINATION</button></div></div>
-<div class="social_tabs"><button id="party_members" data-action="social:friends">MEMBERS</button><button id="party_incoming" data-action="social:invites">INCOMING INVITATIONS</button><button id="party_outgoing" data-action="social:party">SENT INVITATIONS</button></div>
-<div class="social_searches"><input id="party_invite_id" type="text" maxlength="27" placeholder="FRIEND'S PRIME ID"/><button id="party_invite" data-action="social:invite-party">INVITE FRIEND</button></div>
+<div class="social_panel party_operations"><div class="party_fact_copy"><p id="party_summary"/><p id="party_travel"/><p id="party_reservation"/></div><div class="social_commands"><button id="party_follow" data-action="social:follow-party-travel">FOLLOW PARTY</button><button id="party_join_leader" data-action="social:join-party-leader">JOIN LEADER</button></div></div>
+<div class="party_tools"><div class="social_tabs"><button id="party_members" data-action="social:friends">MEMBERS</button><button id="party_incoming" data-action="social:invites">INCOMING INVITATIONS</button><button id="party_outgoing" data-action="social:party">SENT INVITATIONS</button></div>
+<div class="social_searches"><input id="party_invite_id" type="text" maxlength="27" placeholder="FRIEND'S PRIME ID"/><button id="party_invite" data-action="social:invite-party">INVITE FRIEND</button></div></div>
 <div class="social_columns"><div class="social_panel social_list"><div class="social_list_scroll"><p id="party_empty"/><button id="party_row_0" class="social_row" data-action="social:select-0"><b id="party_name_0"/><span id="party_detail_0"/></button>
 <button id="party_row_1" class="social_row" data-action="social:select-1"><b id="party_name_1"/><span id="party_detail_1"/></button>
 <button id="party_row_2" class="social_row" data-action="social:select-2"><b id="party_name_2"/><span id="party_detail_2"/></button>
@@ -22,7 +22,7 @@
 <button id="party_command_40" data-action="social:promote-party-member">MAKE LEADER</button>
 <button id="party_command_37" class="social_danger" data-action="social:leave-party">LEAVE PARTY</button>
 <button id="party_command_38" class="social_danger" data-action="social:disband-party">DISBAND PARTY</button>
-</div><p>Membership and leadership changes require confirmation.</p></div></div>
+</div><div class="party_secondary_ops"><p>DESTINATION CONTROLS</p><div class="social_commands"><button id="party_publish" data-action="social:invite-party-lobby">PUBLISH CURRENT LOBBY</button><button id="party_reserve" data-action="social:reserve-party-seats">RESERVE PARTY SEATS</button><button id="party_cancel_reservation" data-action="social:cancel-reservation">CANCEL SEAT INTENT</button><button id="party_decline_travel" data-action="social:decline-party-travel">DECLINE DESTINATION</button></div></div><p>Membership and leadership changes require confirmation.</p></div></div>
 <p id="party_status" class="social_status"/></div>
 <div class="social_commands social_footer"><button id="party_refresh" data-action="social:refresh">REFRESH PARTY</button><button id="party_cancel" data-action="social:cancel">CANCEL REQUEST</button><button id="party_back" data-action="social:back">BACK TO SOCIAL</button></div>
 </div></body></rml>
