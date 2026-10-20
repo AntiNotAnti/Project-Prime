@@ -128,13 +128,14 @@ internal static class CampaignMapGlTests
             string fixtureHash=HashFile(fixture);
             TogglePause();Check(scene.GameState.MenuPause,"native Pause binding enters actual campaign pause menu");
             Check(Get(player,"_navMapDetail")==null,"default OFF creates no detail loader");
+            string selected=Metadata.GetRoomById(48)!.Name;
+            Select(selected);
             int off=Draw("off");Check(off==0,"default OFF submits native NAV meshes without detail polygons");
             TogglePause();LauncherPrefs.DetailedCampaignMap=true;TogglePause();
             var load=(CampaignMapDetailLoad)Get(player,"_navMapDetail");
             WaitLoad(load);
             var ready=load.Completion.Result.Where(p=>p.Value.Ready).ToDictionary(p=>p.Key,p=>p.Value,StringComparer.OrdinalIgnoreCase);
             Check(ready.Count>0,"at least one real explored room has Ready collision detail; fallback is recorded per room");
-            string selected=Metadata.GetRoomById(48)!.Name;
             Check(ready.ContainsKey(selected),"owned Data Shrine01 detail is Ready for selected-room and hidden-cache controls");
             Select(selected);int on=Draw("on-detail");
             Check(on==Expected(),"actual queued Ngon count equals Ready explored-room polygon count");
@@ -158,6 +159,9 @@ internal static class CampaignMapGlTests
                 Draw("pan-"+hz);pan.Add(new{virtualHostHz=hz,fixedTicks=ticks,pictures=draws,heldInputTicks=held,offset=V(offset)});
             }
             int hiddenId=ExploredRooms.First(id=>Metadata.GetRoomById(id)!.Name.Equals(selected,StringComparison.OrdinalIgnoreCase));
+            Select(selected);Set(player,"_navPanTimer",0f);
+            Set(player,"_navDrawRotX",0f);Set(player,"_navDrawRotY",28.125f);
+            Draw("before-hidden");
             int hiddenPolygons=ready[selected].Polygons.Count;ClearVisited(save,hiddenId);
             Check(load.TryGetRoom(selected,out _),"hidden recheck retains already Ready loader snapshot");
             int hidden=Draw("hidden-cached");
@@ -176,9 +180,13 @@ internal static class CampaignMapGlTests
             }
             cases.Add(new{requestedWidth=requested.X,requestedHeight=requested.Y,framebufferWidth=scene.Size.X,framebufferHeight=scene.Size.Y,
                 roomId=scene.RoomId,fixtureHash,exploredRoomIds=ExploredRooms,connectorArea=scene.AreaId,connectorBits=connectors,
-                offDetailDraws=off,onDetailDraws=on,hiddenCachedDraws=hidden,hiddenRoomId=hiddenId,
+                selectedRoomId=48,offDetailDraws=off,onDetailDraws=on,hiddenCachedDraws=hidden,hiddenRoomId=hiddenId,
                 results=load.Completion.Result.Select(p=>new{room=p.Key,p.Value.Ready,p.Value.Reason,polygons=p.Value.Polygons.Count}),pan,fan});
             TogglePause();Check(!scene.GameState.MenuPause,"native Pause binding exits map");
+            Check(Get(player,"_navMapDetail")==null,"native Pause exit retires detail owner");
+            Check(load.Completion.IsCompletedSuccessfully&&reopened.Completion.IsCompletedSuccessfully,
+                "retired completed detail snapshots remain available to the diagnostic");
+            Check(Draw(null)==0,"post-exit native frame cannot draw retired detail snapshots");
 
             void Step(){Bound();scene.OnSimulationFrame();Draw(null);}
             void TogglePause(){key(keyboard,Keys.Tab,true);Step();key(keyboard,Keys.Tab,false);Step();}
