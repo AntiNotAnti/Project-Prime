@@ -67,7 +67,9 @@ namespace MphRead.Mods.Input
         /// actions so every previously persisted PadAction numeric value stays
         /// exactly where it was.
         /// </summary>
-        SaveClip
+        SaveClip,
+        /// <summary>Optional dedicated crouch and slide input.</summary>
+        Crouch
     }
 
 }

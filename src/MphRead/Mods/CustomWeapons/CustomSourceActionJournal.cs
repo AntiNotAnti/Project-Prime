@@ -1,3 +1,4 @@
+using MphRead.Mods.Movement;
 using System;
 using System.Collections.Generic;
 using OpenTK.Mathematics;
@@ -59,15 +60,16 @@ internal interface ICustomSourceAdmission
 
 internal readonly record struct CustomSourceCertificate(CustomWeaponAction Action, uint ObservedWorldFrame,
     uint TargetWorldFrame, byte TargetWorldSubFrame, Vector3 Body, Vector3 Aim,
-    bool CanUseWeapon, bool DoubleDamage, bool PrimeHunter)
+    bool CanUseWeapon, bool DoubleDamage, bool PrimeHunter, bool Crouched = false)
 {
+    internal Vector3 MuzzleOrigin => Body + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(Crouched);
     internal bool IsValidFor(in CustomWeaponAction action)
     {
         if (Action != action || !Action.IsValid || !float.IsFinite(Body.X) || !float.IsFinite(Body.Y) || !float.IsFinite(Body.Z)) return false;
         if (action.Kind != CustomWeaponActionKind.Fire) return true;
         return float.IsFinite(Aim.LengthSquared) && MathF.Abs(Aim.LengthSquared-1) <= .02f
             && Vector3.Dot(action.Direction.Normalized(),Aim.Normalized()) >= .99f
-            && (action.Origin-(Body+Vector3.UnitY*.5f)).LengthSquared <= 9;
+            && (action.Origin-(Body+Vector3.UnitY*(TraversalStance.CustomMuzzleOffset(Crouched)+.1f))).LengthSquared <= 9;
     }
 }
 

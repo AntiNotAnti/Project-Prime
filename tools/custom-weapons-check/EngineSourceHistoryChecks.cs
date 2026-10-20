@@ -1,4 +1,5 @@
 using MphRead.Mods.CustomWeapons;
+using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 using System.Reflection;
 
@@ -23,7 +24,7 @@ internal static class EngineSourceHistoryChecks
     internal static void Run(Action<bool,string> check)
     {
         ImmutableObservation(check); RawConflicts(check); DeniedObservation(check); RetentionAndMissing(check);
-        InvalidInputs(check); ClockAndWrap(check); Allocation(check);
+        InvalidInputs(check); ClockAndWrap(check); RetainedStance(check); Allocation(check);
     }
     private static void ImmutableObservation(Action<bool,string> check)
     {
@@ -47,6 +48,27 @@ internal static class EngineSourceHistoryChecks
                 && !f.History.TryGet(f.Owner,1000,5065,out var expired) && expired == default,
                 "duplicate cannot refresh expired observation age or supply replacement current pose");
         }
+    }
+    private static void RetainedStance(Action<bool,string> check)
+    {
+        var f = new Fixture(); var input = f.Input();
+        var facts = Facts() with { Crouched = true };
+        var result = f.History.Observe(input,facts,5000);
+        bool available = f.History.TryGet(f.Owner,1000,5000,out var source);
+        check(result == CustomObservationResult.Captured && available && source.Crouched
+            && source.Input == input && source.MuzzleOrigin == facts.Body + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(true)
+            && source.TraceOrigin == facts.Body + Vector3.UnitY * TraversalStance.CustomTraceOffset(true),
+            "exact accepted source stores crouch and derives muzzle/trace from its retained body and stance");
+        check(f.History.Observe(input,Facts() with { Body = new(80,90,100), Crouched = false },5001) == CustomObservationResult.Duplicate
+            && f.History.TryGet(f.Owner,1000,5001,out var retained) && retained == source
+            && retained.MuzzleOrigin != facts.Body + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(false),
+            "later standing facts cannot revise an earlier source stance or move its emitted origin");
+        var next = f.Input(1001);
+        check(f.History.Observe(next,Facts(),5001) == CustomObservationResult.Captured
+            && f.History.TryGet(f.Owner,1001,5001,out var standing) && !standing.Crouched
+            && standing.MuzzleOrigin == standing.Body + Vector3.UnitY * .4f
+            && standing.TraceOrigin == standing.Body + Vector3.UnitY * .2f,
+            "neighbor standing source retains the historical custom muzzle and trace offsets");
     }
     private static void RawConflicts(Action<bool,string> check)
     {

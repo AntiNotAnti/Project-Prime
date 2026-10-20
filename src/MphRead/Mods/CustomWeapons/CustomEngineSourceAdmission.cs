@@ -66,7 +66,7 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
         if (action.Kind != CustomWeaponActionKind.Fire)
         {
             certificate = new(action,sample.ObservedWorldFrame,sample.ObservedWorldFrame,0,
-                sample.Body,sample.Aim,sample.CanUseWeapon,false,false);
+                sample.Body,sample.Aim,sample.CanUseWeapon,false,false,sample.Crouched);
             return CustomSourceDecision.Verified;
         }
         uint now = NetSession.NetFrame;
@@ -77,7 +77,7 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
             || Before(now,action.AckFrame) || unchecked(now-action.AckFrame) > CustomSourceActionJournal.MaxWorldAge
             || unchecked(sample.ObservedWorldFrame-action.AckFrame) > CustomSourceActionJournal.MaxWorldAge
             || Vector3.Dot(action.Direction.Normalized(),sample.Aim) < .99f
-            || (action.Origin-(sample.Body+Vector3.UnitY*.4f)).LengthSquared > .0225f
+            || (action.Origin-sample.MuzzleOrigin).LengthSquared > .0225f
             || !sample.Modifiers.Matches(action.Owner,action.SourceFrame,sample.ObservedWorldFrame)) return CustomSourceDecision.Rejected;
         // A reliable custom control is the primary trigger, bound internally to
         // this exact consumed source. Raw source-referenced actions retain the
@@ -97,11 +97,11 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
         var scene = _root.SourceScene;
         uint world = sample.ObservedWorldFrame;
         if (!NetDynamicGeometryHistory.HasHistoricalFrame(scene,world)) return CustomSourceDecision.Pending;
-        Vector3 start = sample.Body+Vector3.UnitY*.2f, muzzle = sample.Body+Vector3.UnitY*.4f;
+        Vector3 start = sample.TraceOrigin, muzzle = sample.MuzzleOrigin;
         if (!NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene,start,muzzle,world,out float distance)
             || distance < .999f) return CustomSourceDecision.Rejected;
         certificate = new(action,sample.ObservedWorldFrame,action.AckFrame,action.AckSubFrame,
-            sample.Body,sample.Aim,true,sample.Modifiers.DoubleKnowledge == TimedGrantKnowledge.Granted,false);
+            sample.Body,sample.Aim,true,sample.Modifiers.DoubleKnowledge == TimedGrantKnowledge.Granted,false,sample.Crouched);
         return CustomSourceDecision.Verified;
     }
 }

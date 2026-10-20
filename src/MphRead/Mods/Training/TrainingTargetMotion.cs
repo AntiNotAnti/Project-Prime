@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Training;
 public static class TrainingTargetGeometry
 {
-    public static float HeadTop(PlayerEntity player) => Fixed.ToFloat(player.Values.MaxPickupHeight);
+    public static float HeadTop(PlayerEntity player) => player.ModBipedTop;
     public static float HeadBottom(PlayerEntity player) => HeadTop(player) - .3f;
 }
 // A private integer PRNG makes authored anchor sequences stable across platforms.

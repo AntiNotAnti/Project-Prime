@@ -1,3 +1,4 @@
+using MphRead.Mods.Movement;
 using System;
 using MphRead.Entities;
 using MphRead.Mods.Network;
@@ -124,7 +125,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         try
         {
             // A finite engine-owned muzzle, never an arbitrary creator/client point.
-            var origin = player.Position + new Vector3(0,.4f,0);
+            var origin = player.Position + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(player.ModCrouched);
             var flags = BeamSpawnFlags.NoMuzzle;
             if (player.DoubleDamage) flags |= BeamSpawnFlags.DoubleDamage;
             else if (player.IsPrimeHunter) flags |= BeamSpawnFlags.PrimeHunter;

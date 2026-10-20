@@ -246,7 +246,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
                 if (launch.Source.DoubleDamage) flags |= BeamSpawnFlags.DoubleDamage;
                 else if (launch.Source.PrimeHunter) flags |= BeamSpawnFlags.PrimeHunter;
                 var result = BeamProjectileEntity.SpawnWithEmission(slot.Player,equip,
-                    launch.Source.Body+Vector3.UnitY*.4f,aim,flags,slot.Player.NodeRef,_scene,out _);
+                    launch.Source.MuzzleOrigin,aim,flags,slot.Player.NodeRef,_scene,out _);
                 if (result == BeamResultFlags.NoSpawn)
                 {
                     NetUnlagged.AbortShot();
@@ -255,7 +255,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
                 }
                 NetUnlagged.EndShot(slot.Player);
                 if (!life.Payments.CommitEmitted(lease)) throw new InvalidOperationException("Custom emission became uncertain.");
-                if(_delivery?.PublishLaunch(new(launch.Source,Now,launch.Source.Body+Vector3.UnitY*.4f,aim))==false)
+                if(_delivery?.PublishLaunch(new(launch.Source,Now,launch.Source.MuzzleOrigin,aim))==false)
                     throw new InvalidOperationException("Prepared custom launch audience disappeared.");
                 AcceptedEmissions++; return CustomEmissionDisposition.Spawned;
             }

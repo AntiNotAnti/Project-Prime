@@ -41,9 +41,9 @@ and Enhanced Hunter variants cannot be combined with optional movement profiles.
 Quake III enables full-speed air projection and strafe-jump speed building with
 no artificial total-speed cap. Its profile v2 also chains held jumps on legal
 landings and supports additive self-missile rocket jumps with normal self-damage.
-Traversal adds stronger air control, ramp jumps, Magmaul jumps and tagged training-map
+Traversal adds stronger air control, ramp jumps, Magmaul jumps, crouch/power sliding and tagged training-map
 surfing; see the [Traversal guide](docs/movement/traversal-movement.md).
-All live peers must use protocol 68; older clients are refused
+All live peers must use protocol 69; older clients are refused
 rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is

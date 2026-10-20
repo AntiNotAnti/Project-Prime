@@ -990,6 +990,7 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     private static bool SameLife(PlayerState a, PlayerState b) => a.SlotGeneration == b.SlotGeneration
+        && a.Crouched == b.Crouched
         && a.LifeId == b.LifeId && (a.Health > 0) == (b.Health > 0)
         && (a.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm))
             == (b.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm));

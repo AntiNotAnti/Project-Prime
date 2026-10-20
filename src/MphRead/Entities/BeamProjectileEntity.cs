@@ -742,7 +742,7 @@ namespace MphRead.Entities
                             uint wholeDamage = 0;
                             bool isHeadshot = false;
                             if (!player.ModCollisionIsAltForm && Beam != BeamType.ShockCoil
-                                && anyRes.Position.Y - player.Position.Y >= Fixed.ToFloat(player.Values.MaxPickupHeight) - 0.3f)
+                                && anyRes.Position.Y - player.Position.Y >= player.ModBipedTop - 0.3f)
                             {
                                 if (Beam == BeamType.Imperialist || ModCustomDefinition != null)
                                 {

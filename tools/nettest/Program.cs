@@ -108,6 +108,11 @@ namespace MphRead.NetTest
                     + "  --momentum-practice-scene <assets> [json] Test private draft input, native jump and collision.\n"
                     + "  --movement-telemetry-hud          Test movement HUD speed/input contracts.\n"
                     + "  --traversal-self-splash <assets> [room] Test Traversal native self-splash and jump boosts.\n"
+                    + "  --crouch-input-check               Test dedicated crouch input/reset/profile bindings without shell or rendering.\n"
+                    + "  --traversal-stance-network         Test accepted stance wire/checkpoint compatibility.\n"
+                    + "  --traversal-stance-authority <assets> [json] Test genuine authority stance intake/history.\n"
+                    + "  --traversal-stance-rules           Test immutable stance shape and slide profile math.\n"
+                    + "  --traversal-stance <assets> [json] Test physical crouch, tunnel clearance and earned sliding.\n"
                     + "  --traversal-scene <assets> [json]  Test earned ramp jumps, tagged surf and held input.\n"
                     + "  --traversal-bot-authority <assets> [json] Test genuine authority AI under Traversal.\n"
                     + "  --traversal-rules                  Test four-mode selection, stronger air control and ramp math.\n"
@@ -490,6 +495,32 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return SelfSplashTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS",
                     Mods.Movement.MovementModel.Traversal);
+            }
+            if (args.Length > 0 && args[0] == "--traversal-stance-network") return TraversalStanceNetworkTests.Run();
+            if (args.Length > 1 && args[0] == "--traversal-stance-authority")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "traversal-stance-authority";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return TraversalStanceNetworkTests.RunScene(output);
+            }
+            if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 1 && args[0] == "--traversal-stance")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "traversal-stance";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return TraversalStanceSceneTests.Run(output);
             }
             if (args.Length > 1 && args[0] == "--traversal-scene")
             {
@@ -893,6 +924,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--alt-hits") return AltFormHitTests.Run();
             if (args.Length > 0 && args[0] == "--continuous-targets") return ContinuousTargetTests.Run();
             if (args.Length > 0 && args[0] == "--rotation-evidence") return RotationEvidenceTests.Run();
+            if (args.Length == 1 && args[0] == "--crouch-input-check") return MphRead.Mods.Input.GamepadChecks.RunInputEnhancements();
             if (args.Length > 0 && args[0] == "--headless-gamepad") return HeadlessGamepadTests.Run();
             if (args.Length > 0 && args[0] == "--radar-history") return HeadlessRadarHistoryTests.Run(headless: false);
             if (args.Length > 0 && args[0] == "--headless-radar") return HeadlessRadarHistoryTests.Run(headless: true);

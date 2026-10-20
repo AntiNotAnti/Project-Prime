@@ -464,7 +464,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68/69 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -472,7 +472,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69)
                 status = Read(src);
             else
             {
@@ -995,7 +995,9 @@ namespace MphRead.Mods.Network
         /// and the server waits the full time for it -- which is the old
         /// behaviour exactly, and why this needs no protocol bump.
         /// </summary>
-        ReadyState = 1u << 21
+        ReadyState = 1u << 21,
+        Crouch = 1u << 22,
+        CrouchedState = 1u << 23
     }
 
     /// <summary>
@@ -1832,6 +1834,7 @@ namespace MphRead.Mods.Network
         private const int HalfturretOffset = 54 + DamageEvent.Size * DamageHistory;
         private const byte AuxHalfturretActive = 1 << 0;
         private const byte AuxSpawnProtected = 1 << 1;
+        private const byte AuxCrouched = 1 << 2;
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
         public const int Protocol48Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
@@ -1840,6 +1843,7 @@ namespace MphRead.Mods.Network
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
         public bool SpawnProtected;
+        public bool Crouched;
         public ushort HalfturretHealth;
         /// <summary>
         /// Monotonic per-player launch sequence. Remote clients use this to play
@@ -1980,7 +1984,7 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[50..], LifeId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[52..], DamageEventId);
             dest[HalfturretOffset] = (byte)((HalfturretActive ? AuxHalfturretActive : 0)
-                | (SpawnProtected ? AuxSpawnProtected : 0));
+                | (SpawnProtected ? AuxSpawnProtected : 0) | (Crouched ? AuxCrouched : 0));
             BinaryPrimitives.WriteUInt16LittleEndian(dest[(HalfturretOffset + 1)..], HalfturretHealth);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[JumpPadEventOffset..], JumpPadEventId);
             for (int i = 0; i < DamageHistory; i++)
@@ -2015,6 +2019,7 @@ namespace MphRead.Mods.Network
                 DamageEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(52 - 48)..]),
                 HalfturretActive = (auxiliary & AuxHalfturretActive) != 0,
                 SpawnProtected = (auxiliary & AuxSpawnProtected) != 0,
+                Crouched = (auxiliary & AuxCrouched) != 0,
                 HalfturretHealth = BinaryPrimitives.ReadUInt16LittleEndian(suffix[((HalfturretOffset + 1) - 48)..]),
                 JumpPadEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(JumpPadEventOffset - 48)..]),
                 Damage0 = DamageEvent.Read(suffix[(54 - 48)..]),
@@ -2596,7 +2601,9 @@ namespace MphRead.Mods.Network
         // Packet IDs94–96 and native payloads retain their protocol-66 shapes.
         // Protocol 68 adds the optional Traversal profile and tagged training-surface rules.
         // Prior movement profiles, packet identities and canonical payload widths are retained.
-        public const int ProtocolVersion = 68;
+        // Protocol 69 adds accepted crouch stance and Traversal profile v2.
+        // Native payload widths and prior movement profile contracts are retained.
+        public const int ProtocolVersion = 69;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

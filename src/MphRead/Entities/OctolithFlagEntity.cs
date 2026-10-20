@@ -92,8 +92,8 @@ namespace MphRead.Entities
                     {
                         continue;
                     }
-                    float max = Fixed.ToFloat(player.Values.MaxPickupHeight);
-                    float min = Fixed.ToFloat(player.Values.MinPickupHeight);
+                    float max = player.ModBipedTop;
+                    float min = player.ModBipedBottom;
                     float radius = Fixed.ToFloat(player.Values.BipedColRadius);
                     var cylPos = new Vector3(Position.X, Position.Y - max - 1.25f, Position.Z);
                     float cylHeight = max - min + 0.5f;

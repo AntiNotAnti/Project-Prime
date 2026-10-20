@@ -346,9 +346,9 @@ namespace MphRead.Entities
             }
             else
             {
-                targetPos = player.Position.AddY(Fixed.ToFloat(player.Values.MinPickupHeight));
+                targetPos = player.Position.AddY(player.ModBipedBottom);
             }
-            float cylHeight = Fixed.ToFloat(player.Values.MaxPickupHeight) - Fixed.ToFloat(player.Values.MinPickupHeight);
+            float cylHeight = player.ModBipedTop - player.ModBipedBottom;
             CollisionResult discard = default;
             bool lineHitPlayer = false;
             bool lineHitHalfturret = false;

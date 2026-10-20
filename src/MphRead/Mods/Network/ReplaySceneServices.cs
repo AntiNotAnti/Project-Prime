@@ -144,8 +144,8 @@ namespace MphRead.Mods.Network
             return Math.Max(0, match.TimeRemaining - elapsed / 60f);
         }
 
-        private readonly (ushort Generation, ushort Life, byte Flags, bool Alive)[] _presentationLives =
-            new (ushort, ushort, byte, bool)[PlayerEntity.SlotCapacity];
+        private readonly (ushort Generation, ushort Life, byte Flags, bool Alive, bool Crouched)[] _presentationLives =
+            new (ushort, ushort, byte, bool, bool)[PlayerEntity.SlotCapacity];
         private readonly bool[] _presentationKnown = new bool[PlayerEntity.SlotCapacity];
         public void AfterSimulation(Scene scene)
         {
@@ -162,7 +162,7 @@ namespace MphRead.Mods.Network
                     scene.PlayerReplication.ApplyState(player, recorded, isLocal: false);
                     player.ModTranslateReplayPresentation(player.Position - cameraAnchor);
                     var life = (recorded.SlotGeneration, recorded.LifeId,
-                        (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)), recorded.Health > 0);
+                        (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)), recorded.Health > 0, recorded.Crouched);
                     if (!_presentationKnown[slot] || _presentationLives[slot] != life)
                     {
                         player.ModResetDrawState(); player.CameraInfo.ModResetDrawState(); player.ModResetFirstPersonDrawState();

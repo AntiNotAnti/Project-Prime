@@ -498,8 +498,8 @@ namespace MphRead.Entities
             }
 
             float radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
-            float bottom = Fixed.ToFloat(Values.MinPickupHeight) + radius;
-            float top = Fixed.ToFloat(Values.MaxPickupHeight) - radius;
+            float bottom = ModBipedBottom + radius;
+            float top = ModBipedTop - radius;
             if (top < bottom)
             {
                 float middle = (top + bottom) * .5f;
@@ -639,8 +639,8 @@ namespace MphRead.Entities
             else
             {
                 float radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
-                float top = Fixed.ToFloat(Values.MaxPickupHeight) - radius;
-                float bottom = Fixed.ToFloat(Values.MinPickupHeight) + radius;
+                float top = ModBipedTop - radius;
+                float bottom = ModBipedBottom + radius;
                 Probe(position.AddY(bottom), radius);
                 if (MathF.Abs(top - bottom) > 1 / 4096f)
                 {
@@ -672,7 +672,7 @@ namespace MphRead.Entities
             else
             {
                 radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
-                center = Position.AddY(Fixed.ToFloat(Values.MinPickupHeight) + radius);
+                center = Position.AddY(ModBipedBottom + radius);
             }
             Vector3 end = center.AddY(-CollisionGroundSnap);
             using var candidates = CollisionDetection.GetCandidatesForLimits(
@@ -804,14 +804,14 @@ namespace MphRead.Entities
                     MathF.Max(MathF.Max(Single.MinValue, point1.Y), point2.Y) + margin,
                     MathF.Max(MathF.Max(Single.MinValue, point1.Z), point2.Z) + margin
                 );
-                limitMin.Y = MathF.Min(limitMin.Y, Position.Y + Fixed.ToFloat(Values.MaxPickupHeight));
+                limitMin.Y = MathF.Min(limitMin.Y, Position.Y + ModBipedTop);
             }
             else
             {
-                float midpoint = (Fixed.ToFloat(Values.MaxPickupHeight) + Fixed.ToFloat(Values.MinPickupHeight)) / 2;
+                float midpoint = (ModBipedTop + ModBipedBottom) / 2;
                 point1 = PrevPosition.AddY(midpoint);
                 point2 = Position.AddY(midpoint);
-                margin = (Fixed.ToFloat(Values.MaxPickupHeight) - Fixed.ToFloat(Values.MinPickupHeight)) / 2 + 0.4f;
+                margin = (ModBipedTop - ModBipedBottom) / 2 + 0.4f;
                 limitMin = new Vector3(
                     MathF.Min(MathF.Min(Single.MaxValue, point1.X), point2.X) - margin,
                     MathF.Min(MathF.Min(Single.MaxValue, point1.Y), point2.Y) - margin,
@@ -845,7 +845,7 @@ namespace MphRead.Entities
                 }
                 radius = Fixed.ToFloat(Values.BipedColRadius) - 0.15f;
                 point1 = Position.AddY(radius);
-                float yOffset = Fixed.ToFloat(Values.AltColYPos) + Fixed.ToFloat(Values.MaxPickupHeight) - Fixed.ToFloat(Values.MinPickupHeight)
+                float yOffset = Fixed.ToFloat(Values.AltColYPos) + ModBipedTop - ModBipedBottom
                     - altVolume.SphereRadius - radius;
                 point2 = Position.AddY(yOffset);
                 count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
@@ -903,7 +903,7 @@ namespace MphRead.Entities
             }
             else
             {
-                float radius = (Fixed.ToFloat(Values.MaxPickupHeight) - Fixed.ToFloat(Values.MinPickupHeight)) / 2;
+                float radius = (ModBipedTop - ModBipedBottom) / 2;
                 int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
                     limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
                 if (count == results.Length && UseRobustCollisionController)
@@ -1071,8 +1071,8 @@ namespace MphRead.Entities
             else if (result.Field0 == 0)
             {
                 float radius = Fixed.ToFloat(Values.BipedColRadius);
-                Vector3 vec1 = Position.AddY(Fixed.ToFloat(Values.MaxPickupHeight) - radius);
-                Vector3 vec2 = Position.AddY(Fixed.ToFloat(Values.MinPickupHeight) + radius);
+                Vector3 vec1 = Position.AddY(ModBipedTop - radius);
+                Vector3 vec2 = Position.AddY(ModBipedBottom + radius);
                 float dot1 = radius + result.Plane.W - Vector3.Dot(vec1, result.Plane.Xyz);
                 float dot2 = radius + result.Plane.W - Vector3.Dot(vec2, result.Plane.Xyz);
                 if (dot2 <= dot1)
@@ -1096,8 +1096,8 @@ namespace MphRead.Entities
                 bool v169 = false;
                 Vector3 edge = result.EdgePoint2 - result.EdgePoint1;
                 Debug.Assert(edge != Vector3.Zero);
-                float yTop = Position.Y + Fixed.ToFloat(Values.MaxPickupHeight);
-                float yBot = Position.Y + Fixed.ToFloat(Values.MinPickupHeight);
+                float yTop = Position.Y + ModBipedTop;
+                float yBot = Position.Y + ModBipedBottom;
                 float yBotAdd = yBot + 0.5f;
                 if (result.EdgePoint1.Y >= yBot)
                 {

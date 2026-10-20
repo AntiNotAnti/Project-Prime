@@ -90,7 +90,16 @@ class PortManifestContract(unittest.TestCase):
         audit = self.data["integrationAudit"]
         wire, replay = audit["wire"], audit["replay"]
         protocol = (ROOT / "src/MphRead/Mods/Network/NetProtocol.cs").read_text()
-        self.assertRegex(protocol, r"ProtocolVersion\s*=\s*" + str(wire["protocol"]) + r";")
+        # The manifest is a frozen integration audit, not the live wire-version
+        # owner. Later unrelated protocol bumps must not rewrite its provenance.
+        self.assertEqual(wire["protocol"], 61)
+        live_version = re.search(r"\bProtocolVersion\s*=\s*(\d+)\s*;", protocol)
+        self.assertIsNotNone(live_version, "live protocol must remain explicitly declared")
+        self.assertGreaterEqual(int(live_version.group(1)), wire["protocol"])
+        self.assertLessEqual(int(live_version.group(1)), 255, "demo protocol header is one byte")
+        compatibility = (ROOT / "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs").read_text()
+        self.assertRegex(compatibility, r"OldestReplayProtocol\s*=\s*4\s*;")
+        self.assertIn("protocol >= OldestReplayProtocol && protocol <= NetConfig.ProtocolVersion", compatibility)
         modifiers = (ROOT / "src/MphRead/Mods/Network/MatchDefinition.cs").read_text()
         self.assertIn("enum MatchModifierFlags : " + wire["modifierStorage"], modifiers)
         self.assertEqual(wire["modifierBytes"], 4)

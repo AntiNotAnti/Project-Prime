@@ -316,7 +316,7 @@ namespace MphRead.Mods
         {
             nameof(PlayerControls.MoveUp), nameof(PlayerControls.MoveDown),
             nameof(PlayerControls.MoveLeft), nameof(PlayerControls.MoveRight),
-            nameof(PlayerControls.Jump), nameof(PlayerControls.Boost),
+            nameof(PlayerControls.Jump), nameof(PlayerControls.Crouch), nameof(PlayerControls.Boost),
             nameof(PlayerControls.Shoot), nameof(PlayerControls.Zoom),
             nameof(PlayerControls.Morph), nameof(PlayerControls.AltAttack),
             nameof(PlayerControls.NextWeapon), nameof(PlayerControls.PrevWeapon),

@@ -49,6 +49,33 @@ shadow-depth capture are emitted. Use the repository's parity comparator
 without resizing. Native image differences require inspection and are not
 automatically a wall-occlusion or shadow-persistence acceptance result.
 
+### Windows crouch rendering capture
+
+`-crouchcheck` selects an actual offline Traversal match and drives one local
+Hunter through synthetic Enter-to-spawn, Ctrl hold, and Ctrl release. It uses
+native simulation and presentation; actor position, stance and model matrices
+are never written by the diagnostic. A collision-clear external camera stays
+fixed across all three captures. OS focus callbacks are recorded as observations;
+this capture mode isolates its frozen synthetic keyboard from the production
+focus-loss handler. It does not qualify OS focus or physical keyboard behavior.
+
+```powershell
+dotnet build tools/native-render-check -c Release
+dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll `
+  -crouchcheck -room "MP3 PROVING GROUND" -players 1 -hunter Samus `
+  -hz 60 -seconds 8 -size 1280x720 -shadows Off -outlines Off `
+  -shots C:\evidence\crouch-samus -output C:\evidence\crouch-samus.json
+```
+
+Choose a fresh PNG directory. The check saves standing, crouched and released
+images, each with a frozen render-only body-hidden negative control and an
+unchanged-frame repeat. It requires visible native body pixels, stable repeated
+readbacks, a shorter crouched silhouette, and restored standing height after
+release. JSON includes PNG/RGB hashes, actual input/stance/position, silhouette
+bounds, camera and GL context metadata. Use `-hunter` to run another Hunter in a
+separate process. This is a narrow Windows image check; it does not report frame
+timing, physical-device, online or replay acceptance.
+
 ### Current presentation acceptance — October 19, 2026
 
 The fresh CPP-03/04 candidate passes all **28 seven-Hunter/four-rate cells** in

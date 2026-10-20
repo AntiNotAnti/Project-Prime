@@ -150,10 +150,10 @@ namespace MphRead.Entities
                     if (between.X * between.X + between.Z * between.Z < radii * radii)
                     {
                         float diffY = position.Y - player.Position.Y;
-                        float maxY = Fixed.ToFloat(player.Values.MaxPickupHeight);
+                        float maxY = player.ModBipedTop;
                         if (diffY <= maxY + 0.5f)
                         {
-                            float minY = Fixed.ToFloat(player.Values.MinPickupHeight);
+                            float minY = player.ModBipedBottom;
                             if (diffY >= minY - 0.5f)
                             {
                                 pickedUp = true;

@@ -710,6 +710,8 @@ namespace MphRead.Entities
 
         private void ProcessBiped()
         {
+            if (_scene.MomentumOwnsPlayer(this))
+                ModUpdateTraversalStance(Controls.Crouch.IsDown && (IsBot || _scene.DeveloperMomentumInputAllowed));
             if (IsMainPlayer && _scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
             {
                 _timeIdle = 0;
@@ -992,6 +994,7 @@ namespace MphRead.Entities
                     }
                 }
             }
+            if (nativeJumpAccepted) ModUpdateTraversalStance(Controls.Crouch.IsDown, jumpAccepted: true);
             bool momentumApplied = ProcessMovement(allowMomentum: true, nativeJumpAccepted: nativeJumpAccepted);
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             // Refresh replicated facing before building the camera and weapon.
@@ -3496,6 +3499,7 @@ namespace MphRead.Entities
         public Keybind Shoot { get; }
         public Keybind Zoom { get; }
         public Keybind Jump { get; }
+        public Keybind Crouch { get; }
         public Keybind Morph { get; }
         public Keybind Boost { get; }
         public Keybind AltAttack { get; }
@@ -3539,7 +3543,7 @@ namespace MphRead.Entities
             Keybind jump, Keybind morph, Keybind boost, Keybind altAttack, Keybind scanVisor, Keybind scan, Keybind nextWeapon,
             Keybind prevWeapon, Keybind weaponMenu, Keybind powerBeam, Keybind missile, Keybind voltDriver, Keybind battlehammer,
             Keybind imperialist, Keybind judicator, Keybind magmaul, Keybind shockCoil, Keybind omegaCannon, Keybind affinitySlot,
-            Keybind pause, Keybind hudOverlay)
+            Keybind pause, Keybind hudOverlay, Keybind? crouch = null)
         {
             MouseAim = true;
             KeyboardAim = true;
@@ -3559,6 +3563,7 @@ namespace MphRead.Entities
             Shoot = shoot;
             Zoom = zoom;
             Jump = jump;
+            Crouch = crouch ?? new Keybind(Keys.LeftControl);
             Morph = morph;
             Boost = boost;
             AltAttack = altAttack;
@@ -3584,7 +3589,7 @@ namespace MphRead.Entities
                 moveLeft, moveRight, moveUp, moveDown, rollLeft, rollRight, rollUp, rollDown, aimLeft, aimRight, aimUp, aimDown,
                 shoot, zoom, jump, morph, boost, altAttack, scanVisor, scan, nextWeapon, prevWeapon, weaponMenu, powerBeam,
                 missile, voltDriver, battlehammer, imperialist, judicator, magmaul, shockCoil, omegaCannon, affinitySlot,
-                pause, hudOverlay
+                pause, hudOverlay, Crouch
             };
         }
 

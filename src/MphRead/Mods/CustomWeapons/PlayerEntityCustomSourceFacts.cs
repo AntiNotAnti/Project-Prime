@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.CustomWeapons
 {
     internal readonly record struct CustomPrecombatFacts(Vector3 Body, Vector3 Aim, bool CanUseWeapon,
-        CustomSourceModifierEvidence Modifiers = default);
+        CustomSourceModifierEvidence Modifiers = default, bool Crouched = false);
 }
 
 namespace MphRead.Entities
@@ -32,7 +32,7 @@ namespace MphRead.Entities
                 && !(IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
                 && !_scene.GameState.MenuPause && !_scene.GameState.DialogPause
                 && _scene.GameState.MatchState == MatchState.InProgress;
-            facts = new(body, acceptedAim.Normalized(), canUse);
+            facts = new(body, acceptedAim.Normalized(), canUse, Crouched: ModCrouched);
             return true;
         }
     }

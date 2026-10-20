@@ -2587,6 +2587,9 @@ namespace MphRead
                     {
                         Mods.Input.GamepadInput.Apply(this.Players.Main);
                     }
+                    if (this.Players.Main is { IsBot: false } stanceOwner && MomentumOwnsPlayer(stanceOwner))
+                        stanceOwner.ModUpdateTraversalStance(!noPlayerInput && !Mods.SpectatorMode.IsSpectating
+                            && stanceOwner.Controls.Crouch.IsDown);
                     // Everything accumulated before this step has now entered the
                     // real player aim. Any movement arriving after this point is
                     // presentation-only until the following simulation step.

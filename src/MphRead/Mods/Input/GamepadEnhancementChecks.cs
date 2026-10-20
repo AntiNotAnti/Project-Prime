@@ -12,6 +12,28 @@ namespace MphRead.Mods.Input
         public static void Run()
         {
             GamepadOptions.Reset(); PadBindings.Reset();
+            Check((int)PadAction.SaveClip == 32 && (int)PadAction.Crouch == 33
+                && (int)PadAction.Jump == 2 && (int)PadAction.Morph == 3,
+                "dedicated crouch appends without renumbering persisted actions");
+            Check(PadBindings.Get(PadAction.Crouch) == GamepadButtons.None
+                && PadBindings.GameplayActions.Contains(PadAction.Crouch)
+                && !PadBindings.ReplayActions.Contains(PadAction.Crouch)
+                && PadBindings.Get(PadAction.Jump) == GamepadButtons.A
+                && PadBindings.Get(PadAction.Morph) == GamepadButtons.B,
+                "crouch is opt-in on controller and leaves legacy defaults intact");
+            var crouchControls = PlayerControls.GetDefault();
+            Check(crouchControls.Crouch.Key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.LeftControl
+                && crouchControls.All.Contains(crouchControls.Crouch)
+                && InputSettings.Bindings.Any(p => p.Name == nameof(PlayerControls.Crouch)),
+                "crouch defaults to Left Control and participates in binding settings");
+            crouchControls.Crouch.IsDown = crouchControls.Crouch.IsPressed = true;
+            crouchControls.ClearAll();
+            Check(!crouchControls.Crouch.IsDown && !crouchControls.Crouch.IsPressed,
+                "focus reset clears dedicated crouch state");
+            PadBindings.SetSlot(PadAction.Crouch, 0, GamepadButtons.RightThumb);
+            PadBindings.Reset();
+            Check(PadBindings.Get(PadAction.Crouch) == GamepadButtons.None,
+                "controller reset restores optional crouch to unbound");
             var weapons = new[] { PadAction.VoltDriver, PadAction.Battlehammer, PadAction.Imperialist,
                 PadAction.Judicator, PadAction.Magmaul, PadAction.ShockCoil, PadAction.OmegaCannon,
                 PadAction.AffinitySlot, PadAction.LastWeapon };
@@ -75,7 +97,7 @@ namespace MphRead.Mods.Input
             Check(GamepadOptions.LeftTriggerMax >= GamepadOptions.LeftTriggerMin + .099f, "trigger calibration always keeps a nonzero range");
 
             GamepadOptions.Reset(); GamepadContexts.Current = GamepadContext.Gameplay;
-            foreach (var action in weapons.Where(a => a != PadAction.LastWeapon))
+            foreach (var action in weapons.Where(a => a != PadAction.LastWeapon).Append(PadAction.Crouch))
             {
                 PadBindings.Reset(); PadBindings.SetSlot(action, 0, GamepadButtons.X);
                 GamepadManager.UpdateDevice("enhancement-check", new GamepadState(), true); GamepadInput.BeginFrame();
@@ -139,12 +161,15 @@ namespace MphRead.Mods.Input
                 Launcher.LauncherPrefs.Directory = directory; GamepadProfiles.Initialize();
                 GamepadOptions.ScopedX = .65f; GamepadOptions.WheelToggle = true; GamepadOptions.SetWheelSlot(0, 3);
                 PadBindings.SetSlot(PadAction.Imperialist, 1, GamepadButtons.A, GamepadButtons.LeftBumper);
+                PadBindings.SetSlot(PadAction.Crouch, 1, GamepadButtons.B, GamepadButtons.RightBumper);
                 GamepadProfiles.Save("Precision");
                 string path = Path.Combine(directory, "export.json"); GamepadProfiles.Export("Precision", path);
                 Check(GamepadProfiles.Import(path) == "Precision 2", "profile import avoids overwriting an existing name");
                 GamepadOptions.Reset(); PadBindings.Reset(); GamepadProfiles.Load("Precision");
                 Check(GamepadOptions.ScopedX == .65f && GamepadOptions.WheelToggle && GamepadOptions.WheelOrder[0] == 3
-                    && PadBindings.Modifier(PadAction.Imperialist, 1) == GamepadButtons.LeftBumper, "profile round-trip retains aim, wheel and combinations");
+                    && PadBindings.Modifier(PadAction.Imperialist, 1) == GamepadButtons.LeftBumper
+                    && PadBindings.Slot(PadAction.Crouch, 1) == GamepadButtons.B
+                    && PadBindings.Modifier(PadAction.Crouch, 1) == GamepadButtons.RightBumper, "profile round-trip retains aim, wheel and combinations");
                 string stable = GamepadProfiles.DeviceKey("glfw:guid:0:1");
                 Check(stable == GamepadProfiles.DeviceKey("glfw:guid:3:8"), "automatic profile key survives slot changes and reconnects");
                 var device = new GamepadDeviceSnapshot { DeviceId = "glfw:guid:0:1", ProfileKey = stable };

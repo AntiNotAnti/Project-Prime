@@ -206,7 +206,7 @@ internal static class TraversalSceneTests
             string path = Path.GetFullPath(outputPath); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failures.Count == 0 ? "PASS" : "FAIL",
                 checks = _checks, failures, scope = "Asset-backed offline CPU scene; synthetic keyboard, native spawn/intro skip, authored training collision, explicit initial lane placement only; no fabricated speeds/support/jump/owner flags; no physical device, GL, online, replay or competitive-balance acceptance",
-                room = Room, profileVersion = TraversalMovementProfileV1.ProfileVersion,
+                room = Room, profileVersion = MovementModelRules.ProfileVersion(MovementModel.Traversal),
                 conditions = "initial Reposition/PrevPosition lane seam; twelve neutral collision steps settle; each speed then earned through keyboard input; uphill Q3/flat and downhill Q3 replay identical raw keyboard trace; surf lanes differ only in authored tag and X translation", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }
@@ -260,7 +260,7 @@ internal static class TraversalSceneTests
                         == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "horizontal solver preserves native Y bits");
                     Vector3 inputSpeed = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
                     Vector3 expected = model == MovementModel.Traversal
-                        ? TraversalMovementProfileV1.Step(inputSpeed, sample.Input).Velocity
+                        ? TraversalMovementProfileV2.Step(inputSpeed, sample.Input, sample.Crouched, sample.Sliding).Velocity
                         : Quake3MovementProfileV2.Step(inputSpeed, sample.Input).Velocity;
                     Near(sample.NativeVelocityAfter.X, expected.X / 30, "actual selected solver X");
                     Near(sample.NativeVelocityAfter.Z, expected.Z / 30, "actual selected solver Z");

@@ -494,7 +494,16 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             throw new InvalidDataException(replay.Session.LastError);
         replay.State.RestoreCheckpoint(decoder);
         ((ReplaySceneServices)replay.Scene.Services).RestoreMatchModifiers(replay.Scene);
-        foreach (var player in replay.Scene.Players.Items) player.ModRebindReplayAmmo();
+        foreach (var player in replay.Scene.Players.Items)
+        {
+            player.ModRebindReplayAmmo();
+            // Stance is already in the canonical snapshot. Reproject it after
+            // field restore rather than changing the stable world schema or
+            // advancing live crouch/slide physics during a passive seek.
+            player.ModResetTraversalStance();
+            if (replay.State.TryGetPlayer(player.SlotIndex, out var stance))
+                player.ModApplyReplicatedCrouch(stance.Crouched);
+        }
         if (cosmetics != null)
         {
             using var cosmeticStream = new MemoryStream(cosmetics, writable: false);

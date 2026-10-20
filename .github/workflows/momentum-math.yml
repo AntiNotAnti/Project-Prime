@@ -6,6 +6,9 @@ on:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/Quake3*.cs'
+      - 'tools/nettest/Traversal*.cs'
+      - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
+      - 'maps/traversal-training/**'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'
@@ -66,6 +69,9 @@ on:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/Quake3*.cs'
+      - 'tools/nettest/Traversal*.cs'
+      - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
+      - 'maps/traversal-training/**'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'
@@ -157,6 +163,14 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-rules
       - name: Quake III advanced profile, rocket impulses and historical identity
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-advanced-rules
+      - name: Traversal air control, ramp lift and profile identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-rules
+      - name: Crouch dimensions, slide equations and allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-rules
+      - name: Crouch wire and historical checkpoint compatibility
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-network
+      - name: Crouch keyboard and saved gamepad binding contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --crouch-input-check
       - name: Historical replay widths and Quake III identity
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-replay-compatibility
       - name: Saved and offline model defaults, validation and rule preservation

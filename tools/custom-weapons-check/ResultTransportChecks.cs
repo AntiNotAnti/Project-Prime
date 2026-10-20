@@ -45,7 +45,7 @@ internal static class ResultTransportChecks
     internal static void Run(Action<bool,string> check)
     {
         var f = new Fixture(); Golden(f,check); LengthsAndHeaders(f,check); MasksAndEnums(f,check);
-        Identity(f,check); ReceiptStates(f,check); Health(f,check); WrappedState(check); Allocation(f,check);
+        Identity(f,check); RetainedStance(f,check); ReceiptStates(f,check); Health(f,check); WrappedState(check); Allocation(f,check);
         OutboxReservations(f,check); OutboxDelivery(f,check); OutboxCatchup(f,check);
         OutboxFlights(f,check); OutboxClockAndTokens(f,check); OutboxAllocation(f,check);
         ClientCache(f,check); ClientAllocation(f,check);
@@ -100,6 +100,21 @@ internal static class ResultTransportChecks
             && f.Receipt.Ack.Token != f.Contact.Ack.Token && f.Contact.Outcome.Lethal,
             "receipt/contact acknowledgements remain separate full-key domains and lethality derives from actual body removal");
     }
+    private static void RetainedStance(Fixture f,Action<bool,string> check)
+    {
+        var source = f.Receipt.Receipt.Source!.Value with { Crouched = true };
+        var action = source.Action with { Origin = source.MuzzleOrigin };
+        source = source with { Action = action };
+        var message = f.Receipt with { Receipt = f.Receipt.Receipt with { Action = action, Source = source } };
+        var bytes = Encode(message,f);
+        check(bytes.Length == 209 && bytes[158] == 9
+            && CustomCombatResults.TryReadReceipt(bytes,f.Manifest,f.Definition,out var copy) && copy == message
+            && copy.Receipt.Source!.Value.Crouched && copy.Receipt.Source.Value.MuzzleOrigin == action.Origin,
+            "receipt retains accepted source crouch and muzzle in spare bit3 without widening its body");
+        check(!f.Receipt.Receipt.Source!.Value.Crouched
+            && Encode(f.Receipt,f).AsSpan().SequenceEqual(Convert.FromHexString(ReceiptHex)),
+            "default standing source remains byte-exact to the published independent receipt fixture");
+    }
     private static void LengthsAndHeaders(Fixture f,Action<bool,string> check)
     {
         var vectors = new[] { Convert.FromHexString(ReceiptHex),Convert.FromHexString(ContactHex),Convert.FromHexString(StateHex),Convert.FromHexString(AckHex) };
@@ -129,7 +144,7 @@ internal static class ResultTransportChecks
         var receipt = Convert.FromHexString(ReceiptHex); var contact = Convert.FromHexString(ContactHex);
         for (int value=1;value<=255;value++) if (value != 7)
             Refuse(0,Change(receipt,124,(byte)value),f,check,"partial or unknown optional receipt masks cannot describe a terminal result");
-        for (int value=8;value<=255;value++) Refuse(0,Change(receipt,158,(byte)value),f,check,"unknown source modifier bits refuse");
+        for (int value=16;value<=255;value++) Refuse(0,Change(receipt,158,(byte)value),f,check,"unknown source modifier bits refuse");
         Refuse(0,Change(receipt,158,7),f,check,"simultaneous Double and Prime source modifiers cannot enter result wire");
         foreach (var field in new (int At,int Maximum)[] { (121,(byte)CustomJournalDisposition.EngineFault),(122,(byte)WeaponActionResult.InvalidOptic),(123,(byte)CustomEmissionDisposition.Uncertain) })
             for (int value=field.Maximum+1;value<=255;value++) Refuse(0,Change(receipt,field.At,(byte)value),f,check,"unknown terminal result enums refuse atomically");

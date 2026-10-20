@@ -1408,8 +1408,8 @@ namespace MphRead.Entities
 
         internal Mods.Network.PickupContactPose ModPickupContactPose(uint source, uint authority)
             => new(Mods.Network.ShotKey.For(SlotIndex, 0), source, authority, Position,
-                _volume.SpherePosition, _volume.SphereRadius, Fixed.ToFloat(Values.MinPickupHeight),
-                Fixed.ToFloat(Values.MaxPickupHeight), IsAltForm, _health > 0 && ModIsInPlay,
+                _volume.SpherePosition, _volume.SphereRadius, IsAltForm ? Fixed.ToFloat(Values.MinPickupHeight) : ModBipedBottom,
+                IsAltForm ? Fixed.ToFloat(Values.MaxPickupHeight) : ModBipedTop, IsAltForm, _health > 0 && ModIsInPlay,
                 !IgnoreItemPickups && !(IsBot && _scene.GameState.SinglePlayer)
                     && !(IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
                     && !_scene.Services.DisablePowerups);
@@ -1443,8 +1443,8 @@ namespace MphRead.Entities
                     Vector3 between = item.Position - Position;
                     Vector3 lateral = between.WithY(0);
                     if (Vector3.Dot(lateral, lateral) < distSqr
-                        && between.Y >= Fixed.ToFloat(Values.MinPickupHeight)
-                        && between.Y <= Fixed.ToFloat(Values.MaxPickupHeight))
+                        && between.Y >= ModBipedBottom
+                        && between.Y <= ModBipedTop)
                     {
                         inRange = true;
                     }
@@ -1875,7 +1875,7 @@ namespace MphRead.Entities
             if (!SpatialFinite(cameraPosition))
             {
                 cameraPosition = SpatialFinite(Position)
-                    ? Position.AddY(Fixed.ToFloat(Values.AimYOffset))
+                    ? Position.AddY(IsAltForm ? Fixed.ToFloat(Values.AimYOffset) : ModBipedEyeOffset)
                     : Vector3.Zero;
                 CameraInfo.Position = cameraPosition;
                 CameraInfo.PrevPosition = cameraPosition;

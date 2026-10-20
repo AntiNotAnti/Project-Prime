@@ -16,7 +16,7 @@ ground acceleration 10, ground friction 6 and no artificial total-speed ceiling.
 It retains native Hunter jumps and gravity, adds contact-only held hops,
 and does not reproduce every Quake Live physics detail. [Quake III guide](quake3-movement.md).
 
-**Traversal** adds stronger air control, earned ramp lift, Magmaul self-blast jumps,
+**Traversal** adds stronger air control, earned ramp lift, Magmaul self-blast jumps, crouch/power sliding,
 and explicitly tagged training-map surfing. It has a separate ruleset identity
 and keeps Quake III tuning unchanged. See the [Traversal guide](traversal-movement.md).
 
@@ -41,7 +41,7 @@ Replay labels come from recorded rule facts, including after cache reload and
 seeking. A current recording whose usable rule facts are missing is labeled
 Unknown, rather than silently described as Classic. Historical archive
 compatibility remains versioned; metadata labels do not enable movement on
-replica bodies. Current peers use protocol 68; older recordings are converted
+replica bodies. Current peers use protocol 69; older recordings are converted
 at the playback boundary while retaining their recorded movement semantics.
 Quake III profile v2 supports held landing hops, circle/strafe-jump chains and
 self-missile rocket jumps; see the [technique guide](quake3-movement.md).
