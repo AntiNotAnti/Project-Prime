@@ -191,10 +191,12 @@ internal sealed class KillcamController : IDisposable
             if (_startup.IsRunning) { _startup.Stop(); StartupMilliseconds = _startup.Elapsed.TotalMilliseconds; }
             if (_audio == 0) _audio = ReplayAudioOwner.Acquire(_player.Current.Scene, live);
             if (Kind == KillCamKind.Final) _finalTicks++;
-            State = _player.Current.Session.AtEnd
-                && (Kind != KillCamKind.Final || _finalTicks >= FinalReplayFrames)
-                || Kind == KillCamKind.Final && _finalTicks >= FinalReplayFrames
-                ? KillcamState.AwaitCompletion : KillcamState.Replay;
+            // Final playback uses the five-second presentation clock even
+            // when its last historical frame arrives a tick early. A final
+            // slow decoder cannot extend it beyond that same budget.
+            bool finished = Kind == KillCamKind.Final
+                ? _finalTicks >= (int)FinalReplayFrames : _player.Current.Session.AtEnd;
+            State = finished ? KillcamState.AwaitCompletion : KillcamState.Replay;
             if (State == KillcamState.AwaitCompletion && Kind == KillCamKind.Personal && ++_hold >= 15)
             { Stop(KillcamEndReason.Completed); return; }
             Camera(live.Size);
@@ -351,11 +353,11 @@ internal sealed class KillcamController : IDisposable
             && kill.VictimSlot < scene.Players.Items.Count
             && world.State.Occupant(kill.VictimSlot).Generation == kill.VictimGeneration
             && (kill.VictimLifeId == 0 || world.State.MatchesLife(kill.VictimSlot,
-                kill.VictimGeneration, kill.VictimLifeId)))
+                kill.VictimGeneration, kill.VictimLifeId))
+            && scene.Players.Items[kill.VictimSlot] is { } victim)
         {
             // Track the *real historical victim*, not a reconstructed hit
             // position, as the finishing shot approaches its impact frame.
-            PlayerEntity victim = scene.Players.Items[kill.VictimSlot];
             Vector3 impact = victim.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY;
             if ((impact - focus).LengthSquared < 400f)
             {
