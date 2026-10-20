@@ -74,6 +74,11 @@ records the fresh build, all commands, Off/Shadow parity, exact frozen-baseline
 comparison and binary hashes. Subsequent documentation-only commits do not
 change the tested production or fixture source.
 
+The subsequent fresh `e50093244` integration includes NCX04 and this repair.
+Its normal build, lifecycle/receipt/fast-receipt/Paid-scene checks and separate
+optional cap-tool compile pass. [Exact current integration evidence](../movement/evidence/pr09-current-paid-compatibility.json)
+retains the new binary hashes without relabelling the earlier live cohorts.
+
 This repair changes claim-receipt processing, not the movement solver, rule
 serialization or replay format. Classic remains the default. The preserved
 eight-bot CPU experiment records zero received/applied/refused human claims in
