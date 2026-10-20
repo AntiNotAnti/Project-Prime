@@ -35,6 +35,28 @@ FIXTURES = {
     'pages/settings/quick.rml': ['quick_motion', 'quick_apply', 'quick_close'],
     'pages/settings/native-full.rml': ['native_settings_category_0', 'native_settings_value_0', 'native_settings_apply'],
     'pages/updates/versions.rml': ['versions_row_0', 'versions_close'],
+    'pages/adventure/saves.rml': ['adventure_slot1', 'adventure_continue', 'adventure_copy', 'adventure_back'],
+    'pages/adventure/confirm.rml': ['adventure_cancel_new_run', 'adventure_confirm_new_run'],
+    'pages/adventure/ship.rml': ['ship_open_map', 'ship_exit', 'ship_back'],
+    'pages/adventure/ending.rml': ['campaign_ending_continue'],
+    'pages/offline/setup.rml': ['offline_arena', 'offline_rules_open', 'offline_start', 'offline_back'],
+    'pages/offline/rules.rml': ['offline_point_goal', 'offline_rule_0', 'offline_rules_apply', 'offline_rules_cancel'],
+    'pages/offline/arena.rml': ['offline_arena_search', 'offline_arena_pick_0', 'offline_arena_pick_15', 'offline_arena_cancel'],
+    'pages/play/browser.rml': ['play_quick', 'play_entry0', 'play_entry7', 'play_join', 'play_back'],
+    'pages/play/queue.rml': ['play_queue_accept', 'play_queue_decline', 'play_queue_leave'],
+    'pages/news/news.rml': ['news_filter_0', 'news_read', 'news_article_3', 'news_back'],
+    'pages/news/detail.rml': ['news_detail_close'],
+    'pages/updates/available.rml': ['update_later', 'update_confirm'],
+    'pages/common/quit.rml': ['quit_cancel', 'quit_confirm'],
+    'pages/ingame/pause.rml': ['ingame_resume', 'ingame_settings', 'ingame_quit'],
+    'pages/ingame/confirm.rml': ['ingame_cancel', 'ingame_confirm'],
+    'pages/ingame/journal.rml': ['journal_map', 'journal_category', 'journal_next', 'journal_close'],
+    'pages/setup/native-game-files.rml': ['native_setup_choose', 'native_setup_previews', 'native_setup_back'],
+    'pages/setup/native-game-files-confirm.rml': ['native_setup_decline', 'native_setup_confirm'],
+    'pages/theatre/library.rml': ['theatre_search_submit', 'theatre_entry0', 'theatre_entry7', 'theatre_watch', 'theatre_studio'],
+    'pages/theatre/playback.rml': ['replay_pause', 'replay_position', 'replay_rate', 'replay_studio', 'replay_back'],
+    'pages/studio/native-entry.rml': ['native_studio_theatre', 'native_studio_map', 'native_studio_chooser_back'],
+    'pages/theatre/studio-workspace.rml': ['studio_open', 'studio_save_as', 'studio_settings', 'replay_pause', 'studio_frame', 'studio_seek', 'studio_tab_camera', 'replay_back'],
 }
 
 
@@ -116,6 +138,28 @@ CONTENT_ELEMENTS = {
     'pages/settings/quick.rml': ['native_quick_settings', 'quick_motion', 'quick_apply'],
     'pages/settings/native-full.rml': ['native_settings_title', 'native_settings_row_0', 'native_settings_value_0', 'native_settings_subpages'],
     'pages/updates/versions.rml': ['update_card', 'versions_rows', 'versions_row_0', 'versions_status'],
+    'pages/adventure/saves.rml': ['adventure_page', 'adventure_save_detail'],
+    'pages/adventure/confirm.rml': ['adventure_confirmation', 'adventure_confirmation_description'],
+    'pages/adventure/ship.rml': ['ship_page', 'ship_scroll', 'ship_detail'],
+    'pages/adventure/ending.rml': ['campaign_ending_page', 'campaign_ending_scroll', 'campaign_ending_credits'],
+    'pages/offline/setup.rml': ['offline_page', 'offline_match_panel', 'offline_summary'],
+    'pages/offline/rules.rml': ['offline_point_goal_row', 'offline_point_goal'],
+    'pages/offline/arena.rml': ['offline_arena_page', 'offline_arena_row_0', 'offline_arena_reason_0'],
+    'pages/play/browser.rml': ['play_header', 'play_browser', 'play_connect', 'play_entry0'],
+    'pages/play/queue.rml': ['play_queue_panel', 'play_queue_status'],
+    'pages/news/news.rml': ['news_page', 'news_hero', 'news_feed', 'news_summary'],
+    'pages/news/detail.rml': ['news_detail', 'news_detail_title', 'news_detail_body'],
+    'pages/updates/available.rml': ['update_card', 'update_actions'],
+    'pages/common/quit.rml': ['update_card', 'update_actions'],
+    'pages/ingame/pause.rml': ['ingame_pause', 'ingame_session'],
+    'pages/ingame/confirm.rml': ['ingame_question'],
+    'pages/ingame/journal.rml': ['journal_summary', 'journal_row0', 'journal_detail0'],
+    'pages/setup/native-game-files.rml': ['native_setup_panel', 'native_setup_log', 'native_setup_status'],
+    'pages/setup/native-game-files-confirm.rml': ['native_setup_confirmation'],
+    'pages/theatre/library.rml': ['theatre_page', 'theatre_results', 'theatre_selected_scroll', 'theatre_metadata'],
+    'pages/theatre/playback.rml': ['replay_page', 'replay_viewport', 'replay_controls'],
+    'pages/studio/native-entry.rml': ['native_studio_entry', 'native_studio_chooser', 'native_studio_status'],
+    'pages/theatre/studio-workspace.rml': ['studio_workspace', 'studio_transport', 'studio_main', 'studio_inspector', 'studio_inspector_scroll', 'replay_viewport', 'studio_timeline', 'studio_tabs'],
 }
 
 
@@ -128,8 +172,12 @@ def fixture_ids(assets, path):
 
 def seed(bridge, doc, path, touch=False, large_text=False):
     """Explicit service-state fixture using only actual source markup IDs."""
-    # The shell is absent on license and update modal documents.
-    if path not in ['pages/license/native-overview.rml', 'pages/updates/versions.rml']:
+    # Only shell pages own Profile and the diagnostics surface.
+    if path in ['pages/home/home.rml', 'pages/lobby/lobby.rml', 'pages/hunters/native-picker.rml',
+                'pages/community/native-discover.rml', 'pages/social/social.rml',
+                'pages/settings/quick.rml', 'pages/settings/native-full.rml',
+                'pages/adventure/saves.rml', 'pages/offline/setup.rml', 'pages/play/browser.rml',
+                'pages/news/news.rml', 'pages/theatre/library.rml', 'pages/studio/native-entry.rml']:
         bridge.text(doc, 'profile', 'HUNTER')
         bridge.boolean(doc, 'visible:diagnostics_panel', False)
     bridge.boolean(doc, 'class:@document:reduce-motion', True)
@@ -250,6 +298,113 @@ def seed(bridge, doc, path, touch=False, large_text=False):
             bridge.boolean(doc, 'visible:' + element, False)
         bridge.text(doc, 'versions_status', 'Installed build is up to date. Select a release to inspect its details and compatibility notes.')
         bridge.text(doc, 'versions_installed', '2026.10.19-macos-arm64-release')
+    if path == 'pages/adventure/saves.rml':
+        for element in ['adventure_cancel_save_work', 'adventure_files_error', 'adventure_error']:
+            bridge.boolean(doc, 'visible:' + element, False)
+        for i in range(1, 4):
+            bridge.text(doc, f'adventure_slot{i}_label', f'SLOT {i} // SAMUS // ALIMBIC CITADEL // 12 HOURS')
+        bridge.text(doc, 'adventure_save_detail', 'CURRENT SAVE // Alimbic Citadel. Return to your last checkpoint or manage a recoverable copy. ' + LONG_DESCRIPTION)
+    if path == 'pages/adventure/confirm.rml':
+        for element in ['adventure_confirmation_error', 'adventure_cancel_save_change', 'adventure_confirm_copy', 'adventure_confirm_archive']:
+            bridge.boolean(doc, 'visible:' + element, False)
+        bridge.text(doc, 'adventure_overwrite_title', 'REPLACE SLOT 1 WITH A NEW RUN?')
+        bridge.text(doc, 'adventure_confirmation_description', 'Your existing progress remains recoverable in its archive. This confirmation names the exact selected slot. ' + LONG_DESCRIPTION)
+    if path == 'pages/adventure/ship.rml':
+        bridge.boolean(doc, 'visible:ship_map_face', False)
+        bridge.boolean(doc, 'visible:ship_error', False)
+        bridge.text(doc, 'ship_identity', 'SLOT 1 // SAMUS // VERIFIED LOCAL SAVE')
+        bridge.text(doc, 'ship_detail', 'DOCKED AT ALIMBIC CITADEL. ' + LONG_DESCRIPTION)
+    if path == 'pages/adventure/ending.rml':
+        bridge.text(doc, 'campaign_ending_result', 'MISSION COMPLETE // OCTOLITHS RECOVERED')
+        bridge.text(doc, 'campaign_ending_detail', LONG_DESCRIPTION)
+        bridge.text(doc, 'campaign_ending_totals', 'MISSION TIME: 12:34:56\nSCAN COMPLETION: 100%\nITEM COMPLETION: 100%')
+        bridge.text(doc, 'campaign_ending_credits', ('PROJECT PRIME // CONTRIBUTORS\nDesign, engineering, sound and community testing.\n' * 12))
+    if path == 'pages/offline/setup.rml':
+        # Explicit activity fixture; route exclusivity behavior belongs to PR870.
+        bridge.boolean(doc, 'visible:offline_training_panel', False)
+        for key, value in {'offline_arena_value':'ALIMBIC CITADEL', 'offline_mode_value':'BATTLE', 'offline_matchup_value':'FREE FOR ALL',
+                           'offline_bots_value':'7 BOTS', 'offline_skill_value':'ELITE', 'offline_hunter_value':'SAMUS', 'offline_suit_value':'BLUE',
+                           'offline_summary':'8 combatants // Alimbic Citadel // 10 minute match'}.items():
+            bridge.text(doc, key, value)
+    if path == 'pages/offline/arena.rml':
+        bridge.text(doc, 'offline_arena_page', 'PAGE 1 OF 4 // 16 COMPATIBLE ARENAS')
+        bridge.boolean(doc, 'visible:offline_arena_picker_error', False)
+        for i in range(16):
+            bridge.text(doc, f'offline_arena_name_{i}', f'{i+1}. ALIMBIC CITADEL // EXTENDED ARENA')
+            bridge.text(doc, f'offline_arena_reason_{i}', 'VERIFIED // COMPATIBLE WITH THE SELECTED MATCH RULES')
+    if path == 'pages/offline/rules.rml':
+        bridge.boolean(doc, 'visible:offline_rules_error', False)
+    if path == 'pages/play/browser.rml':
+        for element in ['play_create', 'play_search', 'play_browser_empty']:
+            bridge.boolean(doc, 'visible:' + element, False)
+        bridge.boolean(doc, 'visible:play_browser', True)
+        bridge.boolean(doc, 'visible:play_connect', True)
+        bridge.text(doc, 'text_play_status_1', '8 compatible public sessions // Exact map packages verified')
+        for i in range(8):
+            bridge.text(doc, f'text_play_server{i}_name_1', LONG_NAME + f' — SESSION {i+1}')
+            bridge.text(doc, f'text_play_server{i}_details_1', 'ALIMBIC CITADEL // BATTLE // 4 OF 8 PLAYERS // 32ms')
+    if path == 'pages/play/queue.rml':
+        bridge.text(doc, 'play_queue_phase', 'PLAYER SLOT AVAILABLE')
+        bridge.text(doc, 'play_queue_status', 'A party seat is reserved for your group. Accept before the offer expires to join the server.')
+        bridge.text(doc, 'play_queue_position', 'QUEUE POSITION: 1 OF 8')
+        bridge.text(doc, 'play_queue_seconds', '30')
+    if path == 'pages/news/news.rml':
+        bridge.boolean(doc, 'visible:news_error', False)
+        bridge.text(doc, 'news_headline', 'Community arenas and the next Project Prime update')
+        bridge.text(doc, 'news_summary', LONG_DESCRIPTION)
+        for i in range(4):
+            bridge.text(doc, f'news_article_title_{i}', f'COMMUNITY UPDATE {i+1} // NEW ARENAS AND PLAYTEST NOTES')
+            bridge.text(doc, f'news_article_summary_{i}', 'Read the latest progress from the community, including compatible map packages and upcoming events.')
+    if path == 'pages/news/detail.rml':
+        bridge.text(doc, 'news_detail_title', 'COMMUNITY UPDATE // NEW ARENAS AND PLAYTEST NOTES')
+        bridge.text(doc, 'news_detail_body', (LONG_DESCRIPTION + '\n\n') * 8)
+    if path == 'pages/updates/available.rml':
+        bridge.text(doc, 'update_installed', '2026.10.19-desktop-stable')
+        bridge.text(doc, 'update_available', '2026.10.20-desktop-stable')
+    if path == 'pages/ingame/pause.rml':
+        bridge.boolean(doc, 'visible:ingame_vote', False)
+        bridge.boolean(doc, 'visible:ingame_bots_panel', False)
+        bridge.text(doc, 'ingame_session', 'ALIMBIC CITADEL // LOCAL BATTLE // 8 COMBATANTS')
+    if path == 'pages/ingame/confirm.rml':
+        bridge.text(doc, 'ingame_question', 'LEAVE THIS SESSION AND RETURN TO THE MAIN MENU?')
+        bridge.boolean(doc, 'visible:ingame_confirmation_error', False)
+    if path == 'pages/ingame/journal.rml':
+        bridge.boolean(doc, 'visible:journal_empty', False)
+        bridge.text(doc, 'journal_summary', 'ALIMBIC CITADEL // 12 MISSION LOCATIONS // 128 SCANNED ENTRIES')
+        bridge.text(doc, 'journal_page', '1 OF 8')
+        for i in range(4):
+            bridge.text(doc, f'journal_title{i}', f'LOGBOOK ENTRY {i+1} // ALIMBIC DEFENSE NETWORK')
+            bridge.text(doc, f'journal_detail{i}', LONG_DESCRIPTION)
+    if path == 'pages/setup/native-game-files.rml':
+        bridge.text(doc, 'native_setup_status', 'NO VERIFIED GAME FILES // CHOOSE YOUR LOCAL SOURCE')
+        bridge.text(doc, 'native_setup_log', 'CHECKING LOCAL SOURCE\nOptional previews are generated independently after installation.\n' * 8)
+    if path == 'pages/setup/native-game-files-confirm.rml':
+        bridge.text(doc, 'native_setup_confirmation', 'Install verified game files from this local source? Existing personal settings and saved games will be preserved.')
+    if path == 'pages/theatre/library.rml':
+        for element in ['theatre_empty', 'theatre_error', 'theatre_launch_problem', 'theatre_delete_confirmation', 'theatre_cancel_job']:
+            bridge.boolean(doc, 'visible:' + element, False)
+        for i in range(8):
+            bridge.text(doc, f'theatre_entry{i}_title', f'{i+1}. ALIMBIC CITADEL — EIGHT PLAYER BATTLE')
+            bridge.text(doc, f'theatre_entry{i}_detail', 'RECORDED 2026-10-20 // 12m34s // VERIFIED REPLAY')
+        bridge.text(doc, 'theatre_selected_title', 'ALIMBIC CITADEL — EIGHT PLAYER BATTLE')
+        bridge.text(doc, 'theatre_metadata', ('Map: Alimbic Citadel\nPlayers: 8\nDuration: 12m34s\n' + LONG_DESCRIPTION))
+        bridge.text(doc, 'theatre_status', '8 LOCAL REPLAYS // SELECTED REPLAY IS READY TO WATCH')
+    if path in ['pages/theatre/playback.rml', 'pages/theatre/studio-workspace.rml']:
+        bridge.boolean(doc, 'visible:replay_error', False)
+        bridge.boolean(doc, 'visible:replay_inactive', False)
+        bridge.boolean(doc, 'visible:replay_view_labels', False)
+        bridge.text(doc, 'replay_state', 'PAUSED')
+        bridge.text(doc, 'replay_time', '03:12 / 12:34')
+        bridge.text(doc, 'replay_rate', '1.00x')
+    if path == 'pages/theatre/studio-workspace.rml':
+        for section in ['markers','combat','analysis','audio','export']:
+            bridge.boolean(doc, 'visible:studio_inspector_' + section, False)
+        bridge.text(doc, 'studio_notice', 'LOCAL REPLAY DRAFT // CAMERA CHANGES REMAIN UNSAVED')
+    if path == 'pages/studio/native-entry.rml':
+        # Launcher chooser mode; standalone Studio substitutes replay_open.
+        bridge.boolean(doc, 'visible:native_studio_theatre', True)
+        bridge.boolean(doc, 'visible:native_studio_replay_open', False)
+        bridge.text(doc, 'native_studio_status', 'OPEN A LOCAL REPLAY OR CHOOSE A CREATION WORKSPACE')
     # Essential controls are enabled by a service owner in normal usable states.
     for element in FIXTURES.get(path, []):
         bridge.document_set_enabled(doc, encode(element), 1)
@@ -295,6 +450,9 @@ def geometry_checks(bridge, doc, path, width, height, density, touch=False):
         container = viewport if element in ['profile', 'header_settings'] else stage or viewport
         assertion(checks, 'essential_action_reachable:' + element,
                   focused and inside(box, container), focus=focused, bounds=box, container=container)
+        if touch and path in ['pages/ingame/journal.rml', 'pages/theatre/studio-workspace.rml']:
+            assertion(checks, 'touch_action_minimum_48dp:' + element,
+                      bool(box) and box[3] >= 48*density - 2, bounds=box)
     if path == 'pages/settings/native-full.rml' and touch:
         bridge.document_focus(doc, b'native_settings_category_0')
         bridge.update()
@@ -366,6 +524,10 @@ def run_cpu(bridge, assets):
                             seed(bridge, doc, path, large_text=True)
                             bridge.update()
                             row['large_text_checks'] = geometry_checks(bridge, doc, path, width, height, density)
+                            if path in ['pages/theatre/library.rml', 'pages/theatre/studio-workspace.rml', 'pages/ingame/journal.rml']:
+                                seed(bridge, doc, path, touch=True, large_text=True)
+                                bridge.update()
+                                row['combined_accessibility_checks'] = geometry_checks(bridge, doc, path, width, height, density, touch=True)
                 except Exception as error:
                     row['error'] = repr(error)
                 finally:
@@ -522,7 +684,7 @@ def main():
         bridge = Bridge(library)
         report['inventory'], report['cases'] = run_cpu(bridge, assets)
         checks = [check for case in report['cases'] for page in case['pages']
-                  for group in ['checks', 'touch_checks', 'large_text_checks'] for check in page.get(group, [])]
+                  for group in ['checks', 'touch_checks', 'large_text_checks', 'combined_accessibility_checks'] for check in page.get(group, [])]
         report['summary'] = dict(documents=len(report['inventory']), cases=len(report['cases']),
                                  checks=len(checks), failures=sum(not c['passed'] for c in checks),
                                  initialization_failures=sum(not c['initialized'] for c in report['cases']),

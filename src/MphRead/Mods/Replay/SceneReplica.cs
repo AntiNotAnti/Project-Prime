@@ -57,6 +57,7 @@ namespace MphRead
                 }
             }
             replay.AfterSimulation(this);
+            StepHeadHitPresentation();
             ProcessMessageQueue();
             foreach (EntityBase entity in Entities)
                 if (entity.Initialized) entity.ModCaptureDrawState();
@@ -64,6 +65,7 @@ namespace MphRead
             {
                 player.CameraInfo.ModCaptureDrawState();
                 player.ModCaptureFirstPersonDrawState();
+                player.ModCaptureTraversalVisual();
             }
             ProcessEffects(_effectFrame);
             _pendingEffectSteps = _pendingFadeSteps = 0;

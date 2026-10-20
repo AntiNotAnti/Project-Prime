@@ -69,6 +69,7 @@ internal static class TraversalCrouchPoseTests
         CheckPresentationTimeline();
         _checks += TraversalCrouchGaitTests.CheckMath();
         _checks += TraversalSlidePresentationTests.CheckMath();
+        _checks += TraversalWalkPresentationTests.CheckMath();
         return _checks;
     }
 

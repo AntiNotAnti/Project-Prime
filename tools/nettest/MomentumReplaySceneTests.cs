@@ -40,6 +40,7 @@ internal static class MomentumReplaySceneTests
             Require(first.Session.LastFrame >= 1800, "recorded asset-backed fixture covers at least 1800 visible frames");
             var references = new Dictionary<uint, Hashes>();
             bool stanceArchive = expected == MovementModel.Traversal && first.Session.Metadata!.ProtocolVersion >= 69;
+            if (stanceArchive) _checks += TraversalReplayPresentationTests.Run(source);
             var previousStance = new Dictionary<int, bool>();
             var stanceSeekTargets = new HashSet<uint>(); var stanceBoundaryFrames = new List<uint>();
             int snapshotStanceChecks = 0, crouchedFrames = 0, standingFrames = 0;

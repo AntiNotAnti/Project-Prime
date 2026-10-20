@@ -17,6 +17,7 @@ public partial class Scene
         ?_customFeedback?.View??default:default;
     internal void ApplyCustomFeedback(in CustomPresentationResult result)
     {
+        ApplyCustomRifleResult(result);
         if(_customFeedback?.Apply(result)==true&&!Mods.Headless.Active&&_customInputPlayer is {} player)player.ModPlayCustomEmptyCue();
     }
     private void StepCustomWeaponFeedback()
@@ -25,13 +26,15 @@ public partial class Scene
         if(NetSession.IsClient&&!NetSession.IsAuthority&&!Services.IsReplica)
         {
             bool overflow=NetSession.TakeCustomPresentationOverflowed();
-            if(overflow)_customFeedback?.CancelCosmetics();
+            if(overflow){_customFeedback?.CancelCosmetics();ReleaseCustomRifleAudio();}
             for(int n=0;n<64&&NetSession.TryTakeCustomPresentationResult(out var result);n++)
                 if(!overflow)ApplyCustomFeedback(result);
             // Drain once on the simulation owner. Retain bounded recent public
             // facts for presentation, without feeding them into native combat.
             for(int n=0;n<CustomReplicaConsumer.Capacity&&NetSession.TryTakeCustomReplicaFact(out var fact);n++)
             {
+                ApplyCustomRifleLaunch(fact);
+                ApplyCustomHeadHit(fact);
                 _customPublicFacts??=new PublicFact[64];
                 _customPublicFacts[_customPublicFactIndex++%64]=new(fact,(uint)FrameCount);
             }
@@ -67,7 +70,7 @@ public partial class Scene
             ReleaseCustomRifleModel();
             if(_customHudStates==null)return;
         }
-        if(OfflineWeapons!=null||ready)PrewarmCustomRifleModel();
+        if(OfflineWeapons!=null||ready){PrewarmCustomRifleModel();PrewarmCustomRifleAudio();}
         _customHudStates??=new CustomWeaponHudState[8];Array.Clear(_customHudStates);
         bool publicState=false;
         if(ready)
@@ -93,6 +96,7 @@ public partial class Scene
             if(known&&localPrediction)optic=_customInput!.PresentationOptic;
             bool visible=known&&selected||ReferenceEquals(player,_customInputPlayer)&&_customInput?.SuppressNative==true;
             _customHudStates[slot]=new(visible,known,state,optic,mechanics?.MagazineCapacity??0);
+            SynchronizeCustomRifleTrack(player,_customHudStates[slot],mechanics,online);
             int magnification=optic>0&&mechanics!=null&&optic<=mechanics.OpticMagnificationsMilli.Count
                 ?mechanics.OpticMagnificationsMilli[optic-1]:1000;
             player.ModSetCustomScope(known?state.Owner:default,known&&selected,optic,magnification,

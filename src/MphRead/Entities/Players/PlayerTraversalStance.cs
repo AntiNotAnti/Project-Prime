@@ -36,7 +36,7 @@ public partial class PlayerEntity
     {
         _modCrouched = _modCrouchWasDown = false;
         _modCrouchPresentation.Reset(); _modCrouchGait.Reset();
-        _modSlidePresentation.Reset(); _modTraversalPictureFrame = ulong.MaxValue;
+        _modSlidePresentation.Reset(); _modCrouchWalk.Reset(); _modCrouchWalkReach = 0; _modTraversalPictureFrame = ulong.MaxValue;
         _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
         if (!_scene.Quake3TechniquesActive || !ModMomentumBodyEligible)
             ModResetGroundTravel();

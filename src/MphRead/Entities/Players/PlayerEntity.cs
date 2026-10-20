@@ -3168,6 +3168,12 @@ namespace MphRead.Entities
                         replayImpact));
                 }
             }
+            // A local accepted health delta owns this cosmetic fact. Online
+            // clients consume authority facts instead of speculative damage.
+            if (!Mods.Network.NetSession.Active && !_scene.Services.IsReplica
+                && _health > 0 && _health < combatHealthBefore
+                && flags.TestFlag(DamageFlags.Headshot) && !flags.TestFlag(DamageFlags.Halfturret))
+                _scene.ModAcceptLocalHeadHit(this, direction ?? Vector3.Zero);
             if (bomb != null)
                 NetBombEvidence.Damage(bomb, this, replayDamageEventId,
                     Math.Max(0, combatHealthBefore - _health),

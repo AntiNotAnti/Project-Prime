@@ -20,5 +20,5 @@ public partial class Scene
     }
     // No GL IDs are retained: boxes use the scene's existing pipeline. Dropping
     // CPU ownership at visual teardown also permits clean context recreation.
-    private void ReleaseCustomRifleModel(){_customRifleModel=null;_customRifleModelAttempted=false;}
+    private void ReleaseCustomRifleModel(){_customRifleModel=null;_customRifleModelAttempted=false;ReleaseCustomRifleAudio();_customPublicFacts=null;_customPublicFactIndex=0;}
 }

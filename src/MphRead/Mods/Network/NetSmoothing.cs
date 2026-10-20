@@ -376,6 +376,14 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
+        /// Sample the received world a completed presentation would draw.
+        /// This never advances the clock, changes the last presented/acknowledged
+        /// world, or contributes a second observation to network diagnostics.
+        /// </summary>
+        internal static bool SampleCompletedPresentation(int slot, out Vector3 position, out bool altForm)
+            => SampleAt(slot, RecordedPoint(_readFrame), countDiagnostics: false, out position, out altForm);
+
+        /// <summary>
         /// Choose the exact playout point used by this picture. Network
         /// puppets use this instead of generic entity interpolation so the
         /// same sub-frame point can be reused by the next input and ack.

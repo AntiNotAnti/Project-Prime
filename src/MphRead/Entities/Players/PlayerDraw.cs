@@ -396,12 +396,16 @@ namespace MphRead.Entities
                         // The replacement pack may provide the same LOD tier
                         // the native player draw already selected. Missing HD
                         // LOD1 falls through to the native LOD1 automatically.
+                        using (Mods.Render.HeadHitPoseOverlay.Begin(_bipedModel2.Model, _scene.ModHeadHitPose(this)))
+                        {
                         if (!TryDrawModernCharacter(_bipedModel2,
                             CharacterModelPart.Biped, alpha, lod: lod,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
                                 overrideColor: brightSkin, outlineColor: outlineColor);
+                        }
                         PaletteOverride = null;
+                        ModDrawCustomRifle(firstPerson: false,lod,alpha);
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
                             // Capture the visible cannon tip before returning
@@ -540,6 +544,7 @@ namespace MphRead.Entities
                             if (gunSample)
                                 ApplyHunterNodePose(_gunModel, transform, null);
                         }
+                        ModDrawCustomRifle(firstPerson: true,lod: 0,_curAlpha);
                         if (Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
                             var drawPos = new Vector3(0, 0, Fixed.ToFloat(Values.MuzzleOffset));
@@ -639,10 +644,8 @@ namespace MphRead.Entities
         {
             AnimationInfo lowerInfo = visualGait ? ModCrouchLowerPose(model, out lower) : _bipedModel1.AnimInfo;
             AnimationInfo upperInfo = _bipedModel2.AnimInfo;
-            // Walking arms follow the same travel clock (or stable slide pose).
-            // A real shot/charge/ability upper clip keeps its native animation.
-            if (visualGait && ModIsWalkingClip(Biped2Anim))
-            { upperInfo = lowerInfo; upper = lower; }
+            // Procedural legs must not relax or retime the native weapon arm.
+            // Walking, shot, charge and ability upper curves keep their aim pose.
             spineNode.AnimIgnoreChild = true;
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
             try

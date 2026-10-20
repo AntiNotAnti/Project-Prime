@@ -1,0 +1,46 @@
+# Remaining RmlUi screen audit — 2026-10-20
+
+Source findings for the Theatre/Studio polish pass, based on `c701ba317` plus this branch's bounded presentation changes. Paths below are relative to `src/MphRead/Mods/Launcher/RmlUi/Pages/`. There are 87 authored page documents and 151 markup/style assets. A file's presence alone does not establish that a production route mounts it. Source inspection, native synthetic fixture measurements and interactive application tests are separate evidence; final executed results belong in the validation report.
+
+## Ranked findings and decisions
+
+| Priority | Finding | Bounded change / disposition |
+| --- | --- | --- |
+| P2 | Theatre library collection, selected metadata and launch actions competed for vertical space in short windows. A long selection could push Watch/Studio or paging out of reach. | Separate bounded collection and selected-detail scrolling, retain primary launch controls and Home outside those scrollers. Preserve all replay, deletion, job and route actions. |
+| P2 | Playback secondary utilities and primary navigation shared a dense control region. | Keep Library/Studio navigation prominent; bound secondary controls independently while preserving seek/transport and viewport ownership. |
+| P2 | Prime Studio chooser gave the future Map workspace equal first-step prominence and put its return/status region into the reading flow. | Replay-first cards, explicit Map Studio availability copy, bounded chooser body and a separate status/Back footer. The launcher and standalone Studio replay buttons remain mutually exclusive according to `NativeStudioEntryPage`. |
+| P2 | Studio workspace header, transport, feedback and inspector tabs could consume or wrap into the preview/timeline region. | Preserve header navigation, single-row horizontal transport/seek/tab scrollers, bounded feedback, inspector content scrolling and a measurable preview. Hidden inspector faces are selected by existing bindings, not removed. |
+| P2 | Journal used a fixed 112dp header and absolute entry offset of 126dp, while summary text and touch controls can grow. This creates overlap when text wraps. | Put header, entry scroller and footer into a bounded flex column; wrap controls, use readable 12dp button text and preserve every journal action. Short windows retain a bounded panel. |
+| P2 | Offline modal content budget exceeded its padded card at the 480dp stress width: 94vw outer width minus 44dp padding leaves 407.2dp, while its 86vw child uses 412.8dp. | Below 560dp use a 96vw dialog with 24dp total padding; keep explicit 86vw child widths, preserving RmlUi intrinsic-size behavior and existing form actions. No training-mode controller changes. |
+| P2 | Compact Theatre pagination consumed most of the collection height; blank empty/error notices still rendered bordered boxes even with no text. | Move pagination into the horizontal discovery toolbar. Project notice visibility through the real menu owner, hide empty boxes, and test a fully visible initial archive row plus actual no-match/clear transitions. |
+| P2 | The compact shared shell hid Studio identity even though the Studio application has only two destinations. | Retain Studio branding in the extra space; preserve the game header’s five-destination compact layout. |
+
+## Remaining inventory and route status
+
+The table records concrete review scope, rather than asserting that every retained document is active. Native presenters and `RmlUiMenuPages` establish current mounted routes; compatibility and auxiliary documents continue to participate in the full authored open/update/render/close inventory.
+
+| Group | Documents / migration status | Review decision |
+| --- | --- | --- |
+| Adventure | `saves`, `confirm`, `ship`, `ending`: current native campaign presenters; ship has alternate map/detail faces. | Populated save, confirmation, ship and ending fixtures added. Keep save authority, cancellation and map ownership unchanged. Existing bounded reading areas retained; no additional source-proven issue beyond prior campaign polish. |
+| Common | `quit`: shared confirmation document. | Added action reachability/content geometry fixture; preserve modal Cancel/Quit semantics. |
+| News | `news`, `detail`: mounted feed and article detail. | Added populated four-article feed and long article fixtures. Existing feed/detail scrollers retained. No speculative article virtualization or network changes. |
+| Offline | `setup`, `arena`, `training`, `rules`: current menu routes; setup's match/training faces require controller projection. | Added match, 16-arena and rules fixtures; modal width repair above. Training exclusivity belongs to PR870. Alternate training behavior remains covered by its owning tests rather than showing mutually exclusive faces together. |
+| Play | `browser`, `queue`: current browser/party queue routes; browser also retains create/search subpanels. | Added eight-server browser and queue offer fixtures. Seed one usable directory state; do not claim the create/search flow has been exercised by that fixture. Existing independent browser/connect scrolling retained. |
+| In game | `pause`, `confirm`, `journal`: native routes; `results`, `aim-results`: retained result documents with engine lifecycle integration. | Added usable pause, leave-confirmation and populated journal fixtures; journal repair above. Do not overlap postmatch lifecycle PR888 or Aim Lab PR870. Native renderer/engine ownership is unchanged. |
+| Setup / startup | `native-game-files`, `native-game-files-confirm`: current native installation presenters; `rom`, `setup`, `update`, `start/splash`, `startup/startup`: retained setup/startup documents. | Added long setup log and installation confirmation fixtures. Preserve local-source verification/import boundaries; no installer or startup scheduling changes. Retained documents receive authored lifecycle coverage. |
+| Updates | `available`, `versions`: available/update selection surfaces. | Added available-update fixture; existing versions fixture retained. No update service or download behavior changes. |
+| Theatre | `library`, `playback`, `studio-workspace`: mounted main workflows. `bookmarks`, `bookmark-remove`, `camera`, `camera-confirm`, `camera-tools`, `camera-tools-confirm`, `editor`, `editor-confirm`, `export`, `export-confirm`, `ranges`, `spatial`, `studio-tools`, `timeline`, `confirm-delete`: auxiliary/retained theatre surfaces. | Main three receive populated geometry fixtures and bounded presentation work. Auxiliary documents remain in authored lifecycle inventory; the workspace's section bindings and native application tests own their operation. No broad override is applied to all modal cards. |
+| Studio | `native-entry`: mounted destination hub. `native-editor`, `project-change`: retained native map-editor implementation and project transition surfaces; `entry`: retained entry document. | Chooser and replay workspace are polished. Existing native map-editor/resource implementation and project-change authority are preserved. Map Studio feature completion is a separate product task; this pass must not imply unavailable authoring capability. |
+| Previously improved groups | Home1; Community8; HUD2; Hunters6; License2; Lobby4; Settings12; Social3. | Prior shell/loadout/social/settings changes are retained. Existing ten populated fixtures remain in the matrix. Compatibility documents stay authored; this pass does not replace native presenters with legacy pages. |
+
+The full 87-document inventory is discovered from disk by the native layout harness, so auxiliary and retained documents are not silently omitted when fixtures focus on active workflows.
+
+## Test scope and overlap boundaries
+
+`tools/rmlui-layout-check/check.py` now has 32 populated fixtures: the existing ten plus 22 Adventure, Offline, Play, News, setup, confirmation, in-game, Theatre and Studio cases. It uses the actual bridge for document composition and geometry. Theatre, the replay workspace and Journal additionally exercise combined touch and large text at representative logical 1280×720 and 640×360 sizes. These fixtures publish representative state into retained documents; they do not replace actual presenters, HTTP services or game rendering. Inactive inspector sections, inactive replay messages, alternate offline training panels and standalone-only chooser controls are hidden explicitly so raw authored markup does not invent an impossible composite screen.
+
+PR870 (`fix/aim-lab-offline-settings-20261020`) owns offline training/match visibility and related controller behavior. PR888 (`fix/postmatch-scoreboard-lobby-flow-20261020`) owns postmatch engine/GUI dismissal and lifecycle. Their changes are behavioral; this pass preserves those files and avoids competing repairs. The offline width rule is scoped to presentation in the shared stylesheet.
+
+Authored source validation command: `python3 tools/rmlui/check-pages.py`. Python syntax validation command: `python3 -m py_compile tools/rmlui-layout-check/check.py`. The companion validation report identifies the native library, asset hashes, matrix results and practical limits. Source inspection does not substitute for runtime proof.
+
+Executed results and before/after screenshots: [Theatre and Studio validation](rmlui-theatre-studio-2026-10-20.md).

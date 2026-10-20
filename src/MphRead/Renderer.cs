@@ -2634,6 +2634,10 @@ namespace MphRead
                 Mods.Network.NetHooks.AfterSimulation();
                 StepCustomWeaponFeedback();
                 UpdateCustomWeaponPresentation();
+                // Reconcile current life, form and selection before a due
+                // mechanical cue can advance on the completed fixed step.
+                StepCustomRifleTracks();
+                StepHeadHitPresentation();
                 SemanticPublisher.Publish(this);
                 SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
@@ -5419,6 +5423,7 @@ namespace MphRead
 
             OfflineWeapons?.DrawPickups();
             Mods.CustomWeapons.CustomPickupPresentation.DrawOnline(this);
+            DrawCustomRifleWorldEffects();
             Mods.Network.NetConfirmedImpacts.Draw(this);
             // PR-14: depth-tested world-only prismatic Insta-Gib shot trails.
             _ionFracture?.Draw(this);
@@ -5784,6 +5789,7 @@ namespace MphRead
             }
             Mods.Render.Characters.CharacterModelRuntime.Release(this);
             ReleaseCustomRifleModel();
+            ReleaseHeadHitPresentation();
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();

@@ -1914,6 +1914,10 @@ public sealed class RmlUiMenuController : IDisposable
         Text("theatre_status", _theatre == null ? "" : _status);
         Text("theatre_error", "");
         Text("theatre_launch_problem", "");
+        Flag("theatre_empty_visible", _theatre?.Count == 0);
+        Flag("theatre_status_visible", _theatre != null && _status.Length > 0);
+        Flag("theatre_error_visible", false);
+        Flag("theatre_launch_problem_visible", false);
         RmlUiReplayEntry? selectedReplay = _theatre?.Selected;
         Text("theatre_selected_title", selectedReplay?.Title ?? "SELECT A REPLAY");
         Text("theatre_metadata", selectedReplay is { } selection
