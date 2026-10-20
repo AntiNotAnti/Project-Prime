@@ -42,7 +42,9 @@ internal static class OfflineRulesGlAcceptance
             "actual native rules modal receives controller field seeds");
         Check(RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 12)
             && RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 13)
-            && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 14), "offline native action codec bounds retain Third Person and Movement only");
+            && RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 14)
+            && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineRuleToggle, 15),
+            "offline native action codec appends M7 availability at 14 without changing Third Person or Movement");
         Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // CLASSIC", "native modal seeds Classic movement label");
         Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13);
         Check(controller.OfflineRuleInputs?.MovementModel == "Momentum" && services.Rules.MovementModel == "Native", "native pointer selects Momentum in draft only");
