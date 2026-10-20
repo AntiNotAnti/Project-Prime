@@ -67,6 +67,8 @@ internal sealed class NativeFullSettingsPage : IDisposable
         profile=_controller.CopyHud();_controller.SetHud(null);return true;
     }
     public void AcceptHud(HudProfile profile){_host.VerifyOwnerThread();_controller.SetHud(profile);_fieldsDirty=true;Refresh();}
+    internal bool TryTakeCharacterSourcePreview(out string id)
+    { _host.VerifyOwnerThread(); id = ""; return OwnsForeground && _allowGameFiles && _controller.TakeCharacterSourcePreview(out id); }
     internal bool TryTakeArenaImport()=>OwnsForeground&&_controller.TakeArenaImport();
     internal void BeginArenaImport(string? path){_host.VerifyOwnerThread();_controller.BeginArenaImport(path);Refresh();}
     public bool TryTakeGameFiles(){_host.VerifyOwnerThread();if(!_controller.GameFilesRequested||!OwnsForeground)return false;_controller.AcknowledgeGameFiles();return true;}
@@ -78,7 +80,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         bool known=intent.Kind is RmlUiIntentKind.SettingsApply or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose
             or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo
             ||intent.Kind==RmlUiIntentKind.SettingsCategory&&intent.Argument<NativeFullSettingsController.Categories.Length
-            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <236 or >=240 and <=244);
+            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <236 or >=240 and <=245);
         if(!known||!_pages.Accept(intent))return false;
         if(_controller.ConfirmingVideo&&intent.Kind is not (RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo or RmlUiIntentKind.SettingsClose))return true;
         if(_controller.Busy)
@@ -110,6 +112,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
                 else if(intent.Argument==242&&_allowGameFiles)_controller.RequestCharacterImport(true);
                 else if(intent.Argument==243&&_allowGameFiles)_controller.RequestRemoveCharacterPreview();
                 else if(intent.Argument==244&&_allowGameFiles)_controller.CheckCharacterPreview();
+                else if(intent.Argument==245&&_allowGameFiles)_controller.RequestCharacterSourcePreview();
                 else if(intent.Argument==218&&_allowGameFiles)_controller.RequestArenaImport();
                 else if(intent.Argument==29)
                 {

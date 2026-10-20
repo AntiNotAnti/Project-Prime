@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MphRead.Entities;
 using MphRead.Mods.Render.Characters;
 using OpenTK.Mathematics;
@@ -117,19 +118,56 @@ namespace MphRead.Mods.Render
 
         // Private raw-source diagnostic route; existing model/scene owns drawing.
         internal bool TrySetSourceMaterialRigPreview(CharacterModelPack pack,
-            PrivateCharacterAppearance appearance,string nativeMaterialAnchor)
+            PrivateCharacterAppearance appearance,string nativeMaterialAnchor,object? stageOwner=null)
         {
             if(_model==null||Mode!=Mods.Cosmetics.SkinContext.Biped
                 ||!CharacterSourcePreviewBinding.TryCreateWithSourceMaterials(_scene,_hunter,_model.Model,
-                    pack,appearance,nativeMaterialAnchor,out var binding))return false;
+                    pack,appearance,nativeMaterialAnchor,out var binding,stageOwner))return false;
             ClearSourceRigPreview();_sourceRigPreview=binding;return true;
         }
         internal bool TrySelectSourceRigClip(int ordinal) => _sourceRigPreview?.TrySelectSourceClip(ordinal)==true;
         internal bool TrySetSourceRigTime(double seconds) => _sourceRigPreview?.TrySetSourceTime(seconds)==true;
         internal CharacterSourceClip? SelectedSourceRigClip => _sourceRigPreview?.SelectedSourceClip;
 
+        private object? _sourceStageOwner;
+        private CharacterModelPack? _sourceStagePack;
+        private object? _sourceStageAttemptOwner;
+        private CharacterModelPack? _sourceStageAttemptPack;
+        private Matrix4 _sourceStageFit = Matrix4.Identity;
+        private Matrix4 _sourceStageRestFit = Matrix4.Identity;
+        internal void ReleaseSourceStage(object owner)
+        { if (ReferenceEquals(owner, _sourceStageOwner) || ReferenceEquals(owner, _sourceStageAttemptOwner)) ClearSourceRigPreview(); }
+        internal bool SyncSourceStage(CharacterSourceStageRequest? request)
+        {
+            if (request == null)
+            { if (_sourceStageOwner != null || _sourceStageAttemptOwner != null) ClearSourceRigPreview(); return true; }
+            if (!double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
+                || request.Appearance != CharacterSourcePreviewSelection.Appearance
+                || _hunter != Hunter.Samus || Mode != Mods.Cosmetics.SkinContext.Biped) return false;
+            if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack))
+            {
+                // A refused publication must not rehash/recompile the same
+                // generation every frame. Reopening creates a fresh owner.
+                if (ReferenceEquals(_sourceStageAttemptOwner, request.Owner) && ReferenceEquals(_sourceStageAttemptPack, request.Pack)) return false;
+                ClearSourceRigPreview();
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack;
+                string? anchor = _model.Model.Materials.GroupBy(m => m.Name).FirstOrDefault(g => g.Count() == 1)?.Key;
+                if (anchor == null || !TrySetSourceMaterialRigPreview(request.Pack, request.Appearance, anchor, request.Owner)) return false;
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack;
+                if (!TryGetSourceRigPreview(out var source)) return false;
+                _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack;
+                _sourceStageRestFit = source.DiagnosticPreviewFit;
+            }
+            if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return false;
+            if (!TrySetSourceRigTime(request.Seconds)) return false;
+            // The diagnostic camera follows the source root. Raw source keys,
+            // sampled skin palettes and gameplay transforms remain untouched.
+            _sourceStageFit = Matrix4.CreateTranslation(-_sourceRigPreview!.DiagnosticRootDisplacement) * _sourceStageRestFit;
+            return true;
+        }
+
         internal void ClearSourceRigPreview()
-        { _sourceRigPreview?.Release(); _sourceRigPreview = null; }
+        { _sourceRigPreview?.Release(); _sourceRigPreview = null; _sourceStageOwner = null; _sourceStagePack = null; _sourceStageAttemptOwner = null; _sourceStageAttemptPack = null; _sourceStageFit = Matrix4.Identity; _sourceStageRestFit = Matrix4.Identity; }
 
         internal bool TryGetSourceRigPreview(out CharacterWeightedRenderModel model)
         {
@@ -494,6 +532,7 @@ namespace MphRead.Mods.Render
                     * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw
                         + (Mode == Mods.Cosmetics.SkinContext.ViewModel ? -0.7f : MathF.PI + 0.45f))
                     * Matrix4.CreateTranslation(0, 1.05f, 0);
+            if (_sourceStageOwner != null) pose = _sourceStageFit * pose;
             Matrix4 particlePose = pose;
             var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false,
                 firstPerson: Mode == Mods.Cosmetics.SkinContext.ViewModel, alt: Mode == Mods.Cosmetics.SkinContext.AltForm);

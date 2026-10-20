@@ -141,7 +141,8 @@ internal static class CharacterSourceBatches
     }
     indices.Add(index);
    }
-   batches.Add(primitive with{Vertices=vertices.ToArray(),Indices=indices.ToArray(),JointPalette=palette});
+   batches.Add(primitive with{Vertices=vertices.ToArray(),Indices=indices.ToArray(),JointPalette=palette,
+    SourceTriangleIds=primitive.SourceTriangleIds==null?null:faces.Select(face=>primitive.SourceTriangleIds[face/3]).ToArray()});
   }
   for(int face=0;face<primitive.Indices.Length;face+=3)
   {

@@ -97,6 +97,7 @@ namespace MphRead.Mods.Render.Characters
         public float[] MatrixPalette { get; }
         private readonly CharacterWeightedModelData? _sourceGeometry;
         internal bool IsSourcePreview => _sourceGeometry?.SourceRig != null;
+        internal Matrix4 DiagnosticPreviewFit { get; }
         internal CharacterSourceRig? SourceRig => _sourceGeometry?.SourceRig;
         internal CharacterSourceCannonRecipe? SourceCannon => _sourceGeometry?.SourceCannon;
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
@@ -165,6 +166,19 @@ namespace MphRead.Mods.Render.Characters
             int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null)
         {
             _sourceGeometry = sourceGeometry;
+            DiagnosticPreviewFit = Matrix4.Identity;
+            if (sourceGeometry?.SourceRig != null)
+            {
+                var positions = sourceGeometry.Primitives.SelectMany(p => p.Vertices).Select(v => v.Position).ToArray();
+                var min = positions.Aggregate(System.Numerics.Vector3.Min); var max = positions.Aggregate(System.Numerics.Vector3.Max);
+                float height = max.Y - min.Y;
+                if (float.IsFinite(height) && height >= .0001f)
+                {
+                    var center = (min + max) * .5f;
+                    DiagnosticPreviewFit = Matrix4.CreateTranslation(-center.X, -min.Y, -center.Z)
+                        * Matrix4.CreateScale(Math.Clamp(2.2f / height, .001f, 1000f));
+                }
+            }
             Asset = asset;
             Segments = segments;
             Joints = joints;
@@ -214,9 +228,10 @@ namespace MphRead.Mods.Render.Characters
     {
         internal readonly string? MaterialAnchorName;
         internal readonly CharacterModelPart Part;
+        internal readonly object? StageOwner;
         internal object? PublishedContext;
-        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped)
-            =>(MaterialAnchorName,Part)=(materialAnchorName,part);
+        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null)
+            =>(MaterialAnchorName,Part,StageOwner)=(materialAnchorName,part,stageOwner);
     }
 
     internal static partial class CharacterModelRuntime
@@ -422,7 +437,11 @@ namespace MphRead.Mods.Render.Characters
             model=null!;
             if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
             {if(instance!=null)ReleaseSourcePreview(scene,instance);DebugLog.Line("render",CharacterSourceRootWitness.UnsupportedPlatformMessage);return false;}
-            if(instance==null||Headless.Active||!RenderOptions.CharacterModelReplacements||!allowSourcePreview
+            bool diagnosticStage = false;
+#if !ANDROID && !MPHREAD_SERVER
+            diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
+#endif
+            if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage)||!allowSourcePreview
                 ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
                 ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset))

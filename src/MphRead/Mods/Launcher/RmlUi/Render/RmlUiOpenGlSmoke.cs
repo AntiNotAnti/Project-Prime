@@ -554,6 +554,13 @@ internal static partial class RmlUiOpenGlSmoke
                 && _pages != null && HubState.Capture().GameFilesReady)
                 RmlUiHunterStageRenderer.DrawLobbyHunterCards(window,host,_pages.Top,
                     _controller.HunterDraftSuit,width,height);
+            if (_characterSourcePreview is { OwnsForeground: true } sourcePreview && sourcePreview.Request is { } sourceRequest)
+            {
+                try { sourcePreview.ReportDraw(RmlUiHunterStageRenderer.DrawSourcePicker(window, host,
+                    sourcePreview.Document, sourcePreview.Preview, sourceRequest, width, height)); }
+                catch (Exception previewError) when (Recoverable(previewError))
+                { sourcePreview.ReportDraw(false); Mods.DebugLog.Line("rmlui", "source preview unavailable: " + previewError.Message); }
+            }
             // The full native Hunter picker owns its own model rectangle.
             // Unlike the page's opaque chrome, its isolated viewport is drawn
             // last so the actual model cannot disappear behind a UI card.

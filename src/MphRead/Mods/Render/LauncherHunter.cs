@@ -66,6 +66,10 @@ namespace MphRead.Mods.Render
         public static bool CinematicLighting { get; set; }
         public static int PreviewSlot { get; set; } = -1;
         public static bool Formation { get; set; }
+        internal static Characters.CharacterSourceStageRequest? SourcePreviewRequest { get; set; }
+        internal static void ReleaseSourcePreview(object owner) => _scene?.ModReleaseSourcePreview(owner);
+        internal static bool OwnsSourcePreview(Scene scene, object owner) => ReferenceEquals(_scene, scene) && Wanted
+            && ReferenceEquals(SourcePreviewRequest?.Owner, owner) && (CanPresent?.Invoke() ?? true);
 
         /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
@@ -134,6 +138,7 @@ namespace MphRead.Mods.Render
         {
             Wanted = false;
             CanPresent = null;
+            SourcePreviewRequest = null;
             Drawn = false;
             TransparentBackground = false;
             CinematicLighting = false;

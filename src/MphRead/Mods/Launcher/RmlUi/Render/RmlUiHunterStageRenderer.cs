@@ -4,6 +4,7 @@ using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Render;
 using MphRead.Mods.Cosmetics;
+using MphRead.Mods.Render.Characters;
 using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
@@ -111,6 +112,7 @@ internal static class RmlUiHunterStageRenderer
             // No leaked preview permission/GL program can affect the next
             // results screen or the native RmlUi GL2 fixed-function compositor.
             LauncherPresentation.Active = false;
+            LauncherHunter.SourcePreviewRequest = null;
             LauncherHunter.Wanted = false;
             LauncherHunter.CanPresent = null;
             LauncherHunter.TransparentBackground = false;
@@ -143,6 +145,11 @@ internal static class RmlUiHunterStageRenderer
         CosmeticLoadout draft, LauncherHunterPreviewSnapshot preview, int width, int height)
         => DrawPickerCore(window, host, document, hunter, suit, draft, preview, width, height,
             "native_hunter_preview", "native_hunter_panel", "stage", null, -1);
+
+    internal static bool DrawSourcePicker(RenderWindow window, RmlUiHost host, RmlUiDocumentToken document,
+        LauncherHunterPreviewSnapshot preview, CharacterSourceStageRequest request, int width, int height)
+        => DrawPickerCore(window, host, document, Hunter.Samus, 0, CosmeticLoadout.Default, preview, width, height,
+            "source_preview", "source_panel", "source_stage", null, -1, request);
 
     private static RmlUiHost? _pickerHost;
     private static RenderWindow? _pickerWindow;
@@ -180,7 +187,7 @@ internal static class RmlUiHunterStageRenderer
     private static bool DrawPickerCore(RenderWindow window, RmlUiHost host,
         RmlUiDocumentToken document, Hunter hunter, int suit,
         CosmeticLoadout draft, LauncherHunterPreviewSnapshot preview, int width, int height,
-        string previewId, string panelId, string clipId, string? outerId, int previewSlot)
+        string previewId, string panelId, string clipId, string? outerId, int previewSlot, CharacterSourceStageRequest? sourceRequest = null)
     {
         if (window.HasScene || !host.Active || !host.IsVisible(document) || host.CurrentInputDocument != document
             || width <= 0 || height <= 0
@@ -201,6 +208,7 @@ internal static class RmlUiHunterStageRenderer
                 out var viewport))
             return false;
 
+        var previousSourceRequest = LauncherHunter.SourcePreviewRequest;
         int previousDraw = GL.GetInteger(GetPName.DrawFramebufferBinding);
         int previousRead = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int previousProgram = GL.GetInteger(GetPName.CurrentProgram);
@@ -241,6 +249,7 @@ internal static class RmlUiHunterStageRenderer
             LauncherHunter.TransparentBackground = true;
             LauncherHunter.CinematicLighting = true;
             LauncherHunter.DistanceScale = .86f;
+            LauncherHunter.SourcePreviewRequest = sourceRequest;
             LauncherHunter.PreviewSlot = previewSlot;
             LauncherHunter.Formation = false;
             LauncherHunter.Left = viewport.Left;
@@ -252,6 +261,7 @@ internal static class RmlUiHunterStageRenderer
         }
         finally
         {
+            LauncherHunter.SourcePreviewRequest = previousSourceRequest;
             LauncherHunter.Wanted = false;
             LauncherHunter.CanPresent = null;
             LauncherHunter.TransparentBackground = false;

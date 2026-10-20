@@ -479,6 +479,8 @@ namespace MphRead.Mods.Render.Characters
                 && value.ValueKind == JsonValueKind.String && value.GetString() == expected;
             bool Boolean(string name, bool expected) => receipt.TryGetProperty(name, out var value)
                 && value.ValueKind == (expected ? JsonValueKind.True : JsonValueKind.False);
+            if (receipt.TryGetProperty("format", out var generatedFormat) && generatedFormat.ValueKind == JsonValueKind.Number && generatedFormat.TryGetInt32(out int generatedVersion) && generatedVersion == 2)
+                return ValidateGeneratedSourceProvenance(receipt, entry, asset, appearance, sourceCharacter, verifiedModelSha);
             if (!receipt.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.Number
                 || !format.TryGetInt32(out int version) || version != 1
                 || !Text("sourceCharacter", sourceCharacter) || !Text("nativeHunter", asset.Hunter.ToString())

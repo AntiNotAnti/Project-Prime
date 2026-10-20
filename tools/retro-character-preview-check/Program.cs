@@ -24,6 +24,7 @@ try
         return 2;
     }
     CharacterBundleAcceptance.RunContract();
+    SourceGlbWriterAcceptance.Run();
     var chars = RetroCharacterPreviewExporter.Sources;
     Check(chars.Count == 6 && chars.Select(x=>x.Id).Distinct().Count()==6,
         "six independent local model source identities");
