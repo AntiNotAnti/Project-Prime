@@ -30,6 +30,11 @@ namespace MphRead.Entities
 
         private static readonly bool HunterAnimationBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
+        // Opt-out rollback for a render-only, local third-person owner. Unlike
+        // interpolation of remote network models, this does not touch the
+        // local first-person camera, input, or prediction.
+        private static readonly bool ThirdPersonBodyBlendEnabled =
+            AnimationRollout.Enabled("PROJECT_PRIME_THIRD_PERSON_BODY_BLEND");
 
         // 15 frames at 60 FPS gives a readable 2 Hz white flash without turning the
         // three-second protection window into a high-frequency strobe.
@@ -52,8 +57,8 @@ namespace MphRead.Entities
             // the camera's presentation alpha, never touching gameplay state.
             // EntityBase's lifetime guard automatically rebases on respawn,
             // teleport, network seat/life changes and morph transitions.
-            if (IsMainPlayer && _scene.ModThirdPersonCameraActive
-                && !_scene.Services.IsReplica
+            if (ThirdPersonBodyBlendEnabled && IsMainPlayer
+                && _scene.ModThirdPersonCameraActive && !_scene.Services.IsReplica
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation
                 && CameraType == CameraType.First
                 && !IsAltForm && !IsMorphing && !IsUnmorphing
