@@ -49,6 +49,7 @@ namespace MphRead.Mods.Network
                     }
                 }
                 Scene.ReplayPoses = new(this, path, indexedFirePresentation);
+                Scene.BeginOwnerPresentation(path);
             }
             catch { Dispose(); throw; }
         }
@@ -152,6 +153,7 @@ namespace MphRead.Mods.Network
         {
             if (_disposed) return;
             _disposed = true;
+            Scene.EndOwnerPresentation();
             Scene.ReplayPoses?.Dispose(); Scene.ReplayPoses = null;
             if (_ownsScene) { Scene.DoCleanup(); Scene.UnloadGl(); }
             Session.Dispose();
