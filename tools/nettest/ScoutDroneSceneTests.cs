@@ -27,6 +27,8 @@ namespace MphRead.NetTest;
 // cap setup and injected native freeze timer are explicitly synthetic fixtures.
 // The capacity arm directly invokes the production volley hook without advancing
 // frames; it qualifies native allocation/retirement, not gameplay shot cadence.
+// A separate body-first retirement arm sets an explicit native target/cooldown
+// and calls actual body.Process before the player after a rules-owner conflict.
 // No reflection writes drone state, controls, health split, timers or shot counts.
 // This prototype uses the native turret model/sphere as its planted body and
 // Psycho Bit as its mobile fallback. It does not qualify the donor's standing
@@ -149,6 +151,7 @@ internal static class ScoutDroneSceneTests
             Paths.SetPath(Ver.AMHE1, Path.GetFullPath(assets)); Paths.MphKey = Ver.AMHE1;
             Check(ServerSim.Available(out string reason), "owned AMHE1 filesystem available " + reason);
             Headless.Enter();
+            object bodyFirstRetirement = RetiringBodyCannotEmitBeforePlayer(room);
             object health = HealthOwnership(room);
             object hover = Hover(room);
             object burst = FullBurst(room);
@@ -164,7 +167,7 @@ internal static class ScoutDroneSceneTests
             {
                 string path = Path.GetFullPath(outputPath); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 File.WriteAllText(path, JsonSerializer.Serialize(new { scope = "owned AMHE1 initialized offline CPU Scene/input/collision; native turret/sphere body and Psycho Bit mobile fallback; synthetic inert target, public Spawn, health-cap setup and native freeze-timer injection explicitly identified",
-                    room, checks = _checks, health, hover, burst, inputOrder, release, cancellation, body, pools, capacity, fences, native,
+                    room, checks = _checks, bodyFirstRetirement, health, hover, burst, inputOrder, release, cancellation, body, pools, capacity, fences, native,
                     emittedFlightContract = "merge/freeze stop later emission and preserve existing native flight/impact; death, owner retirement and Scene cleanup retire flights",
                     unqualified = new[] { "physical controls or graphics", "standing-cylinder/headshot donor parity", "ceiling/ledge/jump-pad traversal", "laser", "network/replay/career", "imported Trooper presentation or combat balance" } }, new JsonSerializerOptions { WriteIndented = true }));
             }
@@ -486,6 +489,68 @@ internal static class ScoutDroneSceneTests
         }
         throw new InvalidOperationException("Actual arena spawn lacks a clear floor/LOS target placement for meaningful body firing control.");
     }
+    private static object RetiringBodyCannotEmitBeforePlayer(string room)
+    {
+        using var f = new Fixture(true, room, target: true); var p = f.Player;
+        f.Split(); PlaceTarget(f);
+        var body = p.Halfturret; var target = f.Target!;
+        // Explicit synthetic target/cooldown fixture, using real initialized
+        // native owners and their APIs. No manufactured projectile or drone
+        // timer/state is injected. Existing native positive-control coverage
+        // separately proves that this actual target placement can be fired at.
+        body.ModEnhancedTarget(target);
+        CallVolley(p); // actual private native pair to qualify retirement too
+        p.TimeSinceShot = 600; // synthetic elapsed native turret firing gate
+        Check(ReferenceEquals(body.Target, target) && body.Health > 0 && p.Flags2.TestFlag(PlayerFlags2.Halfturret)
+            && SceneContains(f.Scene, body) && target.Health > 0 && target.ModIsInPlay,
+            "body-first retirement fixture has actual live planted body and explicit eligible native target");
+        Check((int)EntityType.Halfturret < (int)EntityType.Player,
+            "native Scene type ordering can process planted body before its player owner");
+        var normalPool = p.EquipInfo.Beams;
+        var privatePool = p.DroneBeams.ToArray();
+        var ordinaryBefore = normalPool.Select(beam => CaptureFlight(f, beam)).ToArray();
+        int privateShotsBefore = p.DroneShots;
+        Check(normalPool.All(beam => beam.Lifespan <= 0) && privatePool.Count(beam => beam.Lifespan > 0) == 2,
+            "retirement control begins with no ordinary flight and one actual private native pair");
+        ulong frame = f.Scene.FrameCount;
+        // Deliberately do not read ScoutDroneEnabled/ModCharacterGameplay or
+        // process the player between conflict injection and native body.Process.
+        // The body must be the first observer of this lost gameplay owner.
+        f.Scene.GameState.EnhancedHunters = true;
+        try
+        {
+            bool bodyProcessResult = body.Process();
+            int ordinaryLiveAfter = normalPool.Count(beam => beam.Lifespan > 0);
+            int privateLiveAfter = privatePool.Count(beam => beam.Lifespan > 0);
+            int retainedSceneFlights = normalPool.Count(beam => SceneContains(f.Scene, beam))
+                + privatePool.Count(beam => SceneContains(f.Scene, beam));
+            Console.WriteLine("SCOUT DRONE BODY-FIRST RETIREMENT TRACE " + JsonSerializer.Serialize(new
+            {
+                scheduling = "synthetic native body.Process before player; explicit eligible target/600-step elapsed cooldown",
+                bodyProcessResult, frameBefore = frame, frameAfter = f.Scene.FrameCount,
+                ordinaryLiveBefore = 0, ordinaryLiveAfter, privateLiveBefore = 2, privateLiveAfter,
+                privateShotsBefore, privateShotsAfter = p.DroneShots, retainedSceneFlights,
+                bodyHealth = body.Health, bodySceneMember = SceneContains(f.Scene, body),
+                nativeHalfFlag = p.Flags2.TestFlag(PlayerFlags2.Halfturret), timeSinceShotAfter = p.TimeSinceShot,
+                resultingRule = p.ModCharacterGameplay.ToString(), f.Scene.PrivateCharacterGameplayUnsupported
+            }));
+            Check(f.Scene.FrameCount == frame, "body-first retirement arm never processes player or advances simulation frame");
+            Check(ordinaryLiveAfter == 0 && p.DroneShots == privateShotsBefore
+                && ordinaryBefore.SequenceEqual(normalPool.Select(beam => CaptureFlight(f, beam))),
+                "rules-owner retirement observed by body cannot fall through into native/private emission");
+            Check(retainedSceneFlights == 0 && privatePool.All(beam => beam.Owner == null && beam.Lifespan <= 0),
+                "body-first owner retirement expires/removes exact private pair and leaves no native/private Scene flight");
+            Check(body.Health == 0 && !p.Flags2.TestFlag(PlayerFlags2.Halfturret) && !SceneContains(f.Scene, body)
+                && !p.ScoutDroneEnabled && p.ModCharacterGameplay == CharacterGameplayRules.Native
+                && f.Scene.PrivateCharacterGameplayUnsupported,
+                "body-first invalidation performs exact native body/capability retirement and keeps replay exclusion latched");
+            return new { scheduling = "synthetic native body.Process before player", explicitTarget = true,
+                syntheticNativeCooldownElapsed = 600, ordinaryLiveAfter, privateLiveAfter, retainedSceneFlights,
+                privateShotsBefore, privateShotsAfter = p.DroneShots, bodyRetired = true, replayExclusionLatched = true };
+        }
+        finally { f.Scene.GameState.EnhancedHunters = false; }
+    }
+
     private static object PlantedBodyControl(string room)
     {
         bool nativeFired = false, droneFired = false;

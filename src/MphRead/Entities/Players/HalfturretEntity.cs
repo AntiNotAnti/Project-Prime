@@ -189,6 +189,10 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            // A lost private rule can retire this body synchronously. Resolve
+            // it before the lifetime gate; a removed drone body must never
+            // fall through into native autonomous firing in this invocation.
+            bool scoutDrone = Owner.ScoutDroneEnabled;
             Mods.Network.NetFireEvents.ObserveAuthorityTurret(Owner);
             if (_health == 0 || !Owner.Flags2.TestFlag(PlayerFlags2.Halfturret))
             {
@@ -255,7 +259,7 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                if (_target != null && !Owner.ScoutDroneEnabled)
+                if (_target != null && !scoutDrone)
                 {
                     Vector3 muzzlePos = Position.AddY(0.4f);
                     int encounter = _scene.GameState.EncounterState[Owner.SlotIndex];
