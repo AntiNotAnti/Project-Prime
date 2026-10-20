@@ -1,0 +1,5408 @@
+{
+  "status": "PASS",
+  "scope": "Fixed optional envelope observation; every emitted pair retained. Cap non-engagement is an outcome, not a failed gate. Unreached radial objectives are bounded censoring, not estimated arrivals. No inferred collision normals/causes, competitive balance, physical devices or performance acceptance. Default four-scenario output path was unchanged by source comparison and not rerun here.",
+  "fixtureJsonSha256": "32fd930b6215459a53a2a240a45ccb77b00ab975ec2246e25abb02da0c0fd91f",
+  "fixtureFailure": null,
+  "runnerFailure": null,
+  "activeTrial": "MP1 SANCTORUS/Weavel/air-turn-hop-left/Momentum",
+  "checks": 245829,
+  "counts": {
+    "completedEnvelopePairs": 28,
+    "expectedEnvelopePairs": 28,
+    "completedCalibrationPairs": 14,
+    "expectedCalibrationPairs": 14,
+    "capEngagedPairs": 0,
+    "capNotEngagedPairs": 28,
+    "speedLimitedSteps": 0,
+    "incomingOverCapSteps": 0,
+    "nonzeroAirAccelerationSteps": 6202,
+    "contactPhaseSamples": {
+      "Grounded": 1547,
+      "LegalJump": 182,
+      "Airborne": 11536,
+      "Landing": 175
+    },
+    "collisionTotals": {
+      "native": {
+        "CollisionOverflows": 0,
+        "RecoveryFallbacks": 0
+      },
+      "momentum": {
+        "CollisionOverflows": 0,
+        "RecoveryFallbacks": 0
+      }
+    },
+    "collisionReviewPairs": 0,
+    "objectiveArrivals": {
+      "native": {
+        "3": 28,
+        "6": 28,
+        "10": 28
+      },
+      "momentum": {
+        "3": 28,
+        "6": 28,
+        "10": 28
+      }
+    },
+    "objectiveCensored": {
+      "native": {
+        "3": 0,
+        "6": 0,
+        "10": 0
+      },
+      "momentum": {
+        "3": 0,
+        "6": 0,
+        "10": 0
+      }
+    },
+    "uniqueBodySimulationSamples": 31920,
+    "momentumEnvelopeSolverSamples": 13440
+  },
+  "conditions": {
+    "simulationHz": 60,
+    "rendering": "headless; no achieved display-Hz claim",
+    "players": 1,
+    "network": "offline; no packets",
+    "samplesPerEnvelopeArm": 480,
+    "calibrationSamplesPerArm": 180,
+    "seed": "existing helper Rng1 8128 / Rng2 0x8128a5a5, unchanged native spawn and facing",
+    "schedule": "W ticks1-48; Space tick49 then one-tick pulses every same stationary Native firstLanding period; ticks49-480 hold D with cumulative mouse +4px/tick for right case, A with cumulative mouse -4px/tick for left case; W released; no contact-adaptive input",
+    "pairedInput": "Both models receive identical fixed keyboard levels/edges and raw cumulative MouseState positions through production snapshots/UpdatePointer/UpdateAimX; mouse sensitivity1, inversionfalse, no stylus; mirrored requests need not produce symmetric map trajectories",
+    "nativeJumpEvidence": "Native upward press ticks are inferred, not an accepted-jump seam; Momentum uses actual same-frame nativeJumpAccepted contact with exact native jump impulse and preserved Y bits",
+    "telemetry": "Bounded 480-step arrays only; Native solver cells are null; air contribution is pure uncapped air-step delta before retention limiting; collision counters are actual native deltas, not trace-buffer overflow or resolved-contact normals",
+    "sourceIdentity": "invoker records source/dirty patch, binaries, CPU and build flags; this functional fixture is not a timing campaign"
+  },
+  "rows": [
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Samus",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Samus",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Kanden",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Kanden",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Spire",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Spire",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Noxus",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Noxus",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Trace",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Trace",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Sylux",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Sylux",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Weavel",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 3.0099554,
+          "p95": 7.603225184999999,
+          "maximum": 8.022194
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881191,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039688
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.0881193,
+          "p50": 3.04439805,
+          "p95": 7.620649865,
+          "maximum": 8.039689
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.04242178142405864,
+        "p95": 0.13323421656815182,
+        "maximum": 3.2958985467584117
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 398,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2958982,
+          "p05": 3.2958987,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.7810216
+        },
+        "momentum": {
+          "minimum": 0.29844585,
+          "p05": 1.1244756,
+          "p50": 3.0099554,
+          "p95": 7.603225,
+          "p99": 7.938373,
+          "maximum": 8.022194,
+          "mean": 3.642014
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 426,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 2.634757,
+          "p95": 7.650316,
+          "p99": 7.9478245
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 334,
+            "timeSeconds": 5.5666666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 11.547341,
+        "momentum": 14.412302
+      },
+      "planarPathDistance": {
+        "native": 47.053974,
+        "momentum": 29.275585
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 54,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Weavel",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 65,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 6.2575641,
+          "p95": 8.1979238,
+          "maximum": 8.61589
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.29288005,
+          "p95": 8.21539865,
+          "maximum": 8.633316
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0.5154452,
+          "p50": 6.2928797,
+          "p95": 8.215399649999998,
+          "maximum": 8.633316
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 432,
+        "minimum": 0.0,
+        "p50": 0.09738063128056142,
+        "p95": 0.1433418347512885,
+        "maximum": 3.295898501066517
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 358,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 7,
+      "nativeInferredUpwardPressCount": 5,
+      "speed": {
+        "native": {
+          "minimum": 0,
+          "p05": 3.2958987,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075,
+          "maximum": 7.199708,
+          "mean": 6.870801
+        },
+        "momentum": {
+          "minimum": 0.32208195,
+          "p05": 3.310292,
+          "p50": 6.2575645,
+          "p95": 8.197925,
+          "p99": 8.532391,
+          "maximum": 8.615891,
+          "mean": 5.821946
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 386,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.1997075
+        },
+        "momentum": {
+          "sampleCount": 426,
+          "p50": 5.868803,
+          "p95": 8.227631,
+          "p99": 8.541806
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 77,
+            "timeSeconds": 1.2833333,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 378,
+            "timeSeconds": 6.3,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.1997066,
+          "runUpGroundedTick48": true
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 12.534708,
+        "momentum": 16.720984
+      },
+      "planarPathDistance": {
+        "native": 49.50187,
+        "momentum": 46.57389
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 48,
+        "LegalJump": 7,
+        "Airborne": 425
+      },
+      "groundedBodyTicks": {
+        "native": 85,
+        "momentum": 54
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Samus",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Samus",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Kanden",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Kanden",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Spire",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Spire",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Noxus",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Noxus",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Trace",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Trace",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Sylux",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Sylux",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Weavel",
+      "scenario": "air-turn-hop-right",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.2651403000000006,
+          "p95": 8.0921906,
+          "maximum": 8.887898
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 3.2958987,
+          "p50": 7.2756872,
+          "p95": 8.080650649999999,
+          "maximum": 8.887898
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 414,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13868670124843044,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 67,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 6,
+      "speed": {
+        "native": {
+          "minimum": 3.2737777,
+          "p05": 3.7470148,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.556761,
+          "mean": 6.838922
+        },
+        "momentum": {
+          "minimum": 3.2958987,
+          "p05": 3.586035,
+          "p50": 7.2669516,
+          "p95": 8.092191,
+          "p99": 8.359405,
+          "maximum": 8.887898,
+          "mean": 7.00452
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 351,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 382,
+          "p50": 7.263505,
+          "p95": 8.0213175,
+          "p99": 8.287723
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 80,
+            "timeSeconds": 1.3333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 322,
+            "timeSeconds": 5.366667,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 14.560788,
+        "momentum": 14.199441
+      },
+      "planarPathDistance": {
+        "native": 48.14266,
+        "momentum": 56.092403
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 53,
+        "Airborne": 408,
+        "LegalJump": 6,
+        "Landing": 13
+      },
+      "groundedBodyTicks": {
+        "native": 129,
+        "momentum": 98
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Weavel",
+      "scenario": "air-turn-hop-left",
+      "capEngaged": false,
+      "capCoverage": "not reached in fixed observation",
+      "nativeLandingCalibrationTick": 39,
+      "solverSpeedBounds": {
+        "WishSpeed": {
+          "sampleCount": 480,
+          "minimum": 7.199707,
+          "p50": 7.199707,
+          "p95": 7.199707,
+          "maximum": 7.199707
+        },
+        "IncomingSpeed": {
+          "sampleCount": 480,
+          "minimum": 0,
+          "p50": 7.3211265,
+          "p95": 7.942367,
+          "maximum": 8.582471
+        },
+        "UncappedSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.3211265,
+          "p95": 7.953074524999999,
+          "maximum": 8.74618
+        },
+        "OutgoingSpeed": {
+          "sampleCount": 480,
+          "minimum": 1.1094819,
+          "p50": 7.321126,
+          "p95": 7.953075015,
+          "maximum": 8.74618
+        }
+      },
+      "uncappedPreRetentionAirContributionMagnitude": {
+        "sampleCount": 396,
+        "minimum": 0.0,
+        "p50": 0.0,
+        "p95": 0.13551942035034134,
+        "maximum": 1.0935760658376776
+      },
+      "speedLimitedSteps": 0,
+      "incomingOverCapSteps": 0,
+      "nonzeroAirAccelerationSteps": 63,
+      "solverSteps": 480,
+      "momentumLegalJumpCount": 6,
+      "nativeInferredUpwardPressCount": 7,
+      "speed": {
+        "native": {
+          "minimum": 3.2746494,
+          "p05": 3.3590603,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 8.685429,
+          "mean": 6.769198
+        },
+        "momentum": {
+          "minimum": 0.28497812,
+          "p05": 2.107695,
+          "p50": 7.321126,
+          "p95": 7.942367,
+          "p99": 8.2603445,
+          "maximum": 8.582472,
+          "mean": 6.722356
+        }
+      },
+      "movingAirSpeed": {
+        "native": {
+          "sampleCount": 363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "momentum": {
+          "sampleCount": 351,
+          "p50": 7.321126,
+          "p95": 7.9372463,
+          "p99": 7.97845
+        }
+      },
+      "objectives": {
+        "native": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 303,
+            "timeSeconds": 5.05,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 348,
+            "timeSeconds": 5.8,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ],
+        "momentum": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8,
+            "censored": false
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 85,
+            "timeSeconds": 1.4166666,
+            "observationSeconds": 8,
+            "censored": false
+          }
+        ]
+      },
+      "collision": {
+        "native": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        },
+        "momentum": {
+          "CollisionOverflows": 0,
+          "RecoveryFallbacks": 0,
+          "collisionReviewRequired": false
+        }
+      },
+      "input": {
+        "native": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        },
+        "momentum": {
+          "AimFrames": 432,
+          "FacingChangedFrames": 432,
+          "runUpSpeedTick48": 7.199707,
+          "runUpGroundedTick48": false
+        }
+      },
+      "maximumPlanarDisplacement": {
+        "native": 13.315461,
+        "momentum": 18.665098
+      },
+      "planarPathDistance": {
+        "native": 47.076515,
+        "momentum": 54.259434
+      },
+      "momentumContactPhaseSamples": {
+        "Grounded": 72,
+        "Airborne": 390,
+        "LegalJump": 6,
+        "Landing": 12
+      },
+      "groundedBodyTicks": {
+        "native": 117,
+        "momentum": 129
+      },
+      "airContributionScope": "Pure uncapped air-step velocity delta before retention limiting; not an observed post-collision acceleration or contact-normal diagnosis."
+    }
+  ],
+  "calibrations": [
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Samus",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Kanden",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Spire",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Noxus",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Trace",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Sylux",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Weavel",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 65,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Samus",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Kanden",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Spire",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Noxus",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Trace",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Sylux",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Weavel",
+      "scenario": "jump-only",
+      "nativeCalibrationLandingTick": 39,
+      "pairedStartPositionDifference": 0,
+      "pairedStartFacingDifference": 0
+    }
+  ],
+  "attempts": 1,
+  "binarySha256BeforeAndAfter": {
+    "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+    "nettest.dll": "5a7dedae64dbf75b83abcf2abe07a6c86a9ce98c66d825e09fe931d89c2c6b11"
+  },
+  "retentionSpeedCap": 10.799561,
+  "observedGlobalSolverBounds": {
+    "IncomingSpeed": 8.887898,
+    "UncappedSpeed": 8.887898,
+    "OutgoingSpeed": 8.887898
+  },
+  "environment": {
+    "platform": "Microsoft Windows 10.0.26200",
+    "architecture": "X64",
+    "runtime": ".NET 10.0.12",
+    "cpu": {
+      "Name": "AMD Ryzen 7 9850X3D 8-Core Processor",
+      "NumberOfCores": 8,
+      "NumberOfLogicalProcessors": 16
+    },
+    "scope": "Hardware/runtime metadata only; no performance measurements in this functional run"
+  },
+  "sourceAndBuild": {
+    "genuineTestSourceBaseSha": "9cd7a8f9aa1d1ec55658f4dbdde0e1ceca59f38e",
+    "trackedDirtyPaths": [
+      "tools/nettest/MomentumBalanceSceneTests.cs",
+      "tools/nettest/Program.cs"
+    ],
+    "approvedEnvelopePatchSha256": "77e2e4a91bd8379f8d765355558a50f11e0e1713b999500d4ece9366fa598b75",
+    "changedSourceSha256": {
+      "tools/nettest/Program.cs": "0ea3f3a76365bc6d094bb66cadc31e376cdac85489588c4aedf68105313dd6e1",
+      "tools/nettest/MomentumBalanceSceneTests.cs": "39d5b7959502187f2fadfdf9d7af8b2f0caef667a3755e65189a9801e4924845"
+    },
+    "fullToolSourceManifestSha256": "a9b342e5d2bd4ace5d09c2a31dd37cc6d245145be15667c14c3c0f1a5c827c7e",
+    "defaultRunPrefixSha256": "03c4a6fc5d51ff027de66b81503f6de8f311c94352a4d360acc8edaa6346f1c6",
+    "defaultRemainingHelpersSha256": "255a5e64ce360c0cad28ae8180e94a63238d5d3cc1a9c732bc465353b9e89a5a",
+    "defaultCliSha256": "d7beb15b1f7fa1f3ade24873893204303666eb56365de129df81c7b7e341df3e",
+    "defaultSourceByteComparison": "PASS; existing default Run, Summary, RunTrial/helpers and CLI branch byte-identical; default route not rerun",
+    "normalCoreEquivalence": {
+      "genuineSourceBaseSha": "9cd7a8f9aa1d1ec55658f4dbdde0e1ceca59f38e",
+      "verifiedNormalCoreSourceBaseSha": "5d68d2ee8cfbf592c698c24139f99a8222dbe10b",
+      "verifiedNormalCoreSha256": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+      "productionTreeDifferencesFromNormalBase": [
+        "src/MphRead/Formats/CollisionDetection.cs",
+        "src/MphRead/Mods/Replay/SceneReplayMultiView.cs",
+        "src/MphRead/MphRead.csproj"
+      ],
+      "samePublishedCollisionSourceSha256": "75758fbc6d04985b739d0684e1d590b997b26c4d12b90f2f432727db984face4",
+      "explicitlyAllowed759FixtureOnlySourceSha256": {
+        "src/MphRead/MphRead.csproj": "aa076e408a7eb0c663cab93234f3b2f1277b5fbc2583b379410d575320a74114",
+        "src/MphRead/Mods/Replay/SceneReplayMultiView.cs": "b1558596003516d623aa2d276b0f1d0c405ca38b60c0c6370b67de2ef315fa52"
+      },
+      "fixtureDefineMode": "normal Core copied; MphReadReplayPreviewFailureFixture not enabled",
+      "scope": "Fresh genuine G checkout, using copied normal Core/reference/runtime dependencies from preserved prior lease. No Core build, no writes to F or prior normal checkout."
+    },
+    "toolOnlyBuildExitCode": 0,
+    "binarySha256Before": {
+      "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+      "nettest.dll": "3d3ff6b1056a8e39a7dcffa2cbd97a7932b5ebe8228d75b0fbd8e99ab894e9ad"
+    },
+    "binarySha256After": {
+      "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+      "nettest.dll": "5a7dedae64dbf75b83abcf2abe07a6c86a9ce98c66d825e09fe931d89c2c6b11"
+    }
+  },
+  "setupFailurePreserved": {
+    "count": 1,
+    "fixtureInvocationsBeforeCorrection": 0,
+    "reason": "Isolated setup initially omitted transitive NcsfPlay reference assembly; existing NcsfPlay/Protocol.Generator bin+obj copied read-only into G; same source retried tool-only build",
+    "artifacts": [
+      "build-01/build.txt",
+      "build-01/provenance.json"
+    ],
+    "productionRebuild": false
+  },
+  "ownedWindowsFunctionalLease": "Released after collection; no G workers remained; no further runs scheduled",
+  "artifactScope": "Full raw envelope JSON and individual bounded samples retained under run-01/envelope.json; no assets or binaries in collected evidence"
+}

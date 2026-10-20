@@ -99,6 +99,222 @@ internal static class MomentumBalanceSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM BALANCE SCENE FAIL " + ex); return 1; }
     }
 
+    private sealed record EnvelopeSolver(string ContactPhase, bool FrictionGrounded, float MoveX, float MoveY,
+        float WishSpeed, float IncomingSpeed, float UncappedSpeed, float OutgoingSpeed,
+        float? AirAccelerationX, float? AirAccelerationZ, bool SpeedLimited, bool IncomingOverCap);
+    private sealed record EnvelopeSample(int Tick, float FacingX, float FacingZ, float RequestedMouseDeltaX, float GatheredMouseDeltaX,
+        int CollisionOverflowDelta, int RecoveryFallbackDelta, EnvelopeSolver? Solver);
+    private sealed record EnvelopeCapture(Capture Body, EnvelopeSample[] Samples, int IncomingOverCapSteps,
+        int NonzeroAirAccelerationSteps, int AimFrames, int FacingChangedFrames,
+        int CollisionOverflows, int RecoveryFallbacks);
+
+    // Optional route only. The original four-scenario Run and JSON remain unchanged.
+    internal static int RunEnvelope(string outputPath)
+    {
+        string path = Path.GetFullPath(outputPath);
+        if (File.Exists(path))
+        {
+            Console.Error.WriteLine("MOMENTUM ENVELOPE SCENE FAIL choose a fresh output JSON; prior evidence is retained");
+            return 1;
+        }
+        var calibrations = new List<object>(); var summaries = new List<object>();
+        string? failure = null, activeTrial = null;
+        try
+        {
+            _checks = 0;
+            Require(!NetSession.Active && !DemoPlayback.IsActive, "offline non-replay process");
+            Require(ServerSim.Available(out string reason), reason);
+            Require(!MphRead.Mods.Input.PointerInput.StylusMode && !MphRead.Mods.Input.PointerDevice.Active
+                && InputSettings.MouseSensitivity == 1 && !InputSettings.InvertMouseX,
+                "fresh ordinary mouse provider with declared default sensitivity/inversion");
+            Headless.Enter();
+            foreach (string room in Rooms)
+            foreach (Hunter hunter in Hunters)
+            {
+                activeTrial = $"{room}/{hunter}/stationary-calibration";
+                Capture nativeJump = RunTrial(room, hunter, false, "jump-only", 180, 60);
+                Capture momentumJump = RunTrial(room, hunter, true, "jump-only", 180, 60);
+                Require(nativeJump.FirstLandingTick > 2
+                    && nativeJump.InferredUpwardJumpPressTicks.SequenceEqual(new[] { 1 })
+                    && momentumJump.MomentumLegalJumpTicks.SequenceEqual(new[] { 1 }), "native grounded jump/landing calibration");
+                for (int tick = 0; tick < nativeJump.Samples.Length; tick++)
+                {
+                    Sample n = nativeJump.Samples[tick], m = momentumJump.Samples[tick];
+                    Require(BitConverter.SingleToInt32Bits(n.Y) == BitConverter.SingleToInt32Bits(m.Y)
+                        && BitConverter.SingleToInt32Bits(n.VerticalSpeed) == BitConverter.SingleToInt32Bits(m.VerticalSpeed)
+                        && n.Grounded == m.Grounded && n.UsedJump == m.UsedJump,
+                        "stationary calibration preserves native Y/velocity bits and jump/ground flags");
+                }
+                int period = nativeJump.FirstLandingTick;
+                calibrations.Add(Summary(room, hunter, "jump-only", nativeJump, momentumJump, period));
+                foreach (bool left in new[] { false, true })
+                {
+                    string scenario = left ? "air-turn-hop-left" : "air-turn-hop-right";
+                    activeTrial = $"{room}/{hunter}/{scenario}/Native";
+                    EnvelopeCapture native = RunEnvelopeTrial(room, hunter, false, left, period);
+                    activeTrial = $"{room}/{hunter}/{scenario}/Momentum";
+                    EnvelopeCapture momentum = RunEnvelopeTrial(room, hunter, true, left, period);
+                    Require(native.Body.Samples[47].PlanarSpeed > 1 && momentum.Body.Samples[47].PlanarSpeed > 1,
+                        "actual input acquires running speed before the first requested jump");
+                    Require(native.AimFrames > 0 && momentum.AimFrames > 0
+                        && native.FacingChangedFrames > 0 && momentum.FacingChangedFrames > 0,
+                        "actual gathered relative mouse input turns both native bodies");
+                    Require(native.Body.Samples.Max(s => s.PlanarDisplacement) > 1
+                        && momentum.Body.Samples.Max(s => s.PlanarDisplacement) > 1, "actual collision bodies traverse");
+                    Require(momentum.Body.MomentumLegalJumpTicks.Length >= 2, "Momentum trace contains repeated actual native-accepted jumps");
+                    Require(momentum.NonzeroAirAccelerationSteps > 0, "actual nonzero air-acceleration contribution observed before retention limiting");
+                    summaries.Add(new {
+                        room, hunter = hunter.ToString(), scenario,
+                        comparison = Summary(room, hunter, scenario, native.Body, momentum.Body, period),
+                        native = EnvelopeDetails(native), momentum = EnvelopeDetails(momentum),
+                        capEngaged = momentum.Body.SpeedLimitedSteps > 0,
+                        capCoverage = momentum.Body.SpeedLimitedSteps > 0 ? "engaged" : "not reached in fixed observation",
+                        capCoverageNote = "No cap requirement or seed/schedule reroll; native geometry/contact can censor this bounded trial. A non-engagement cause is not inferred from query scratch."
+                    });
+                    Console.WriteLine($"MOMENTUM ENVELOPE SCENE CAPTURE {room}/{hunter}/{scenario}: cap steps={momentum.Body.SpeedLimitedSteps}, incoming over cap={momentum.IncomingOverCapSteps}");
+                }
+            }
+        }
+        catch (Exception error) { failure = activeTrial + ": " + error; Console.Error.WriteLine("MOMENTUM ENVELOPE SCENE FAIL " + error); }
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(new {
+            checks = _checks, failure, activeTrial, completedEnvelopePairs = summaries.Count, expectedEnvelopePairs = 28,
+            scope = "Optional asset-backed fixed-input envelope observation; actual offline Native/Momentum biped input and authored collision; no forced body/life/ability state, no cap calibration or competitive/performance acceptance",
+            platform = RuntimeInformation.OSDescription, architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+            runtime = RuntimeInformation.FrameworkDescription, profileVersion = MomentumProfileV1.MomentumProfileVersion,
+            retentionSpeedCap = MomentumProfileV1.RetentionSpeedCap,
+            conditions = new {
+                simulationHz = 60, rendering = "headless; no achieved display-Hz claim", players = 1,
+                network = "offline; no packets", samplesPerEnvelopeArm = 480, calibrationSamplesPerArm = 180,
+                seed = "existing helper Rng1 8128 / Rng2 0x8128a5a5, unchanged native spawn and facing",
+                schedule = "W ticks1-48; Space tick49 then one-tick pulses every same stationary Native firstLanding period; ticks49-480 hold D with cumulative mouse +4px/tick for right case, A with cumulative mouse -4px/tick for left case; W released; no contact-adaptive input",
+                pairedInput = "Both models receive identical fixed keyboard levels/edges and raw cumulative MouseState positions through production snapshots/UpdatePointer/UpdateAimX; mouse sensitivity1, inversionfalse, no stylus; mirrored requests need not produce symmetric map trajectories",
+                nativeJumpEvidence = "Native upward press ticks are inferred, not an accepted-jump seam; Momentum uses actual same-frame nativeJumpAccepted contact with exact native jump impulse and preserved Y bits",
+                telemetry = "Bounded 480-step arrays only; Native solver cells are null; air contribution is pure uncapped air-step delta before retention limiting; collision counters are actual native deltas, not trace-buffer overflow or resolved-contact normals",
+                sourceIdentity = "invoker records source/dirty patch, binaries, CPU and build flags; this functional fixture is not a timing campaign"
+            }, calibrations, summaries
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        if (failure == null) Console.WriteLine($"MOMENTUM ENVELOPE SCENE CAPTURE PASS {_checks} assertions; cap engagement is observational");
+        return failure == null ? 0 : 1;
+    }
+
+    private static object EnvelopeDetails(EnvelopeCapture capture) => new {
+        capture.IncomingOverCapSteps, capture.NonzeroAirAccelerationSteps, capture.AimFrames, capture.FacingChangedFrames,
+        capture.CollisionOverflows, capture.RecoveryFallbacks,
+        collisionReviewRequired = capture.CollisionOverflows > 0 || capture.RecoveryFallbacks > 0,
+        runUpSpeedTick48 = capture.Body.Samples[47].PlanarSpeed,
+        runUpGroundedTick48 = capture.Body.Samples[47].Grounded, samples = capture.Samples
+    };
+
+    private static EnvelopeCapture RunEnvelopeTrial(string room, Hunter hunter, bool momentum, bool left, int period)
+    {
+        Scene scene = MomentumSceneTests.Load(hunter, momentum, out KeyboardState keyboard, room, matchRule: true);
+        try
+        {
+            PlayerEntity player = scene.Players.Items[0];
+            player.Controls.MouseAim = true; player.Controls.KeyboardAim = false;
+            Require(!player.Controls.InvertAimX, "ordinary noninverted native mouse binding");
+            // Same raw position producer as AndroidInput.MovePointer/PointerCheck; only input samples are written.
+            var mouse = (MouseState)typeof(Scene).GetField("_mouseState", Hidden)!.GetValue(scene)!;
+            var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input", Hidden)!.GetValue(player)!;
+            var setPosition = typeof(MouseState).GetProperty("Position", Hidden | BindingFlags.Public)!.SetMethod!
+                .CreateDelegate<Action<MouseState, Vector2>>();
+            Vector2 pointer = mouse.Position;
+            var setKey = typeof(KeyboardState).GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
+            Vector3 origin = player.Position, previous = origin, facing = player.FacingVector;
+            float previousVertical = player.Speed.Y, path = 0;
+            var bodies = new Sample[480]; var samples = new EnvelopeSample[480];
+            var inferred = new List<int>(); var accepted = new List<int>();
+            long startSteps = scene.DeveloperMomentumSteps;
+            int startOverflow = player.ModCollisionContactOverflows, startRecovery = player.ModCollisionRecoveryFallbacks;
+            int firstLanding = -1, seam = 0, limited = 0, braking = 0, incomingOverCap = 0, nonzeroAir = 0, aiming = 0, turned = 0;
+            bool airborne = false;
+            for (int index = 0; index < bodies.Length; index++)
+            {
+                bool turn = index >= 48, jump = turn && (index - 48) % period == 0;
+                setKey(keyboard, Keys.W, !turn); setKey(keyboard, Keys.Space, jump);
+                setKey(keyboard, Keys.A, turn && left); setKey(keyboard, Keys.D, turn && !left);
+                float requestedMouseDeltaX = turn ? (left ? -4 : 4) : 0;
+                pointer.X += requestedMouseDeltaX;
+                setPosition(mouse, pointer);
+                long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
+                int overflowBefore = player.ModCollisionContactOverflows, recoveryBefore = player.ModCollisionRecoveryFallbacks;
+                bool usedJumpBefore = player.Flags1.TestFlag(PlayerFlags1.UsedJump);
+                scene.OnSimulationFrame();
+                Require(player.ModIsInPlay && player.Health > 0 && !player.IsBot && !player.IsAltForm && !NetSession.Active,
+                    "envelope trial retains genuine offline living native biped");
+                Vector3 p = player.Position, v = player.Speed;
+                Require(float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z)
+                    && float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z), "finite native body");
+                Require(player.Controls.Jump.IsPressed == jump && player.Controls.MoveUp.IsDown == !turn
+                    && player.Controls.MoveLeft.IsDown == (turn && left) && player.Controls.MoveRight.IsDown == (turn && !left),
+                    "production gathered keyboard controls match the fixed schedule");
+                Require(input.MouseDeltaX == requestedMouseDeltaX && input.MouseDeltaY == 0,
+                    "production snapshots/UpdatePointer gather the exact fixed raw mouse delta");
+                bool upward = jump && !usedJumpBefore && player.Flags1.TestFlag(PlayerFlags1.UsedJump)
+                    && v.Y > .01f && v.Y > previousVertical + .01f;
+                if (upward) inferred.Add(index + 1);
+                previousVertical = v.Y;
+                bool grounded = player.Flags1.TestFlag(PlayerFlags1.Grounded);
+                if (airborne && grounded && firstLanding < 0) firstLanding = index + 1;
+                airborne |= !grounded;
+                path += new Vector2(p.X - previous.X, p.Z - previous.Z).Length; previous = p;
+                bool legal = false; EnvelopeSolver? solver = null;
+                long steps = scene.DeveloperMomentumSteps - before;
+                Require(momentum ? steps is >= 0 and <= 1 : steps == 0, "one eligible Momentum step maximum; Native invokes none");
+                if (steps == 1)
+                {
+                    var s = scene.LastMomentumStep!.Value;
+                    Require(s.SimulationFrame == frame && s.Slot == player.SlotIndex, "solver witness belongs to actual body/tick");
+                    Require(BitConverter.SingleToInt32Bits(s.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(s.NativeVelocityAfter.Y),
+                        "actual horizontal seam preserves native Y bits"); seam++;
+                    legal = s.ContactPhase == MomentumContactPhase.LegalJump;
+                    if (legal)
+                    {
+                        Require(jump && BitConverter.SingleToInt32Bits(s.NativeVelocityBefore.Y)
+                            == BitConverter.SingleToInt32Bits(Fixed.ToFloat(player.Values.JumpSpeed)), "actual native-accepted Hunter jump impulse");
+                        accepted.Add(index + 1);
+                    }
+                    var incoming = new Vector3(s.NativeVelocityBefore.X * 30, 0, s.NativeVelocityBefore.Z * 30);
+                    Vector3 uncapped = MomentumMath.Step(incoming, s.Input, s.Tuning);
+                    var expected = MomentumProfileV1.Step(incoming, s.Input);
+                    Require(MathF.Abs(s.NativeVelocityAfter.X - expected.Velocity.X / 30) <= .00001f
+                        && MathF.Abs(s.NativeVelocityAfter.Z - expected.Velocity.Z / 30) <= .00001f
+                        && s.SpeedLimited == expected.SpeedLimited && s.IncomingOverCap == expected.IncomingOverCap,
+                        "actual solver diagnostics agree with unchanged profile");
+                    float outgoingSpeed = new Vector2(s.NativeVelocityAfter.X, s.NativeVelocityAfter.Z).Length * 30;
+                    Require(outgoingSpeed <= MathF.Max(incoming.Length, MomentumProfileV1.RetentionSpeedCap) + .0001f,
+                        "non-impulse steering cannot enlarge the incoming-or-retention envelope");
+                    if (s.SpeedLimited) limited++;
+                    if (s.IncomingOverCap) incomingOverCap++;
+                    if (s.Input.Grounded && s.Input.MoveAxes == Vector2.Zero && incoming.Length > .01f && outgoingSpeed < incoming.Length) braking++;
+                    float? airX = s.Input.Grounded ? null : uncapped.X - incoming.X;
+                    float? airZ = s.Input.Grounded ? null : uncapped.Z - incoming.Z;
+                    if (airX.HasValue && MathF.Abs(airX.Value) + MathF.Abs(airZ.GetValueOrDefault()) > .00001f) nonzeroAir++;
+                    solver = new(s.ContactPhase.ToString(), s.Input.Grounded, s.Input.MoveAxes.X, s.Input.MoveAxes.Y,
+                        s.Input.DesiredSpeed * MathF.Min(1, s.Input.MoveAxes.Length), incoming.Length, uncapped.Length, outgoingSpeed,
+                        airX, airZ, s.SpeedLimited, s.IncomingOverCap);
+                }
+                int overflow = player.ModCollisionContactOverflows - overflowBefore;
+                int recovery = player.ModCollisionRecoveryFallbacks - recoveryBefore;
+                Require(overflow >= 0 && recovery >= 0, "native collision counters do not reset within a trial");
+                if (input.MouseDeltaX != 0) aiming++;
+                if ((player.FacingVector - facing).Length > .0001f) turned++;
+                bodies[index] = new(index + 1, p.X, p.Y, p.Z, v.Y, new Vector2(v.X, v.Z).Length * 30,
+                    grounded, player.Flags1.TestFlag(PlayerFlags1.UsedJump), jump, upward, legal,
+                    new Vector2(p.X - origin.X, p.Z - origin.Z).Length, path);
+                samples[index] = new(index + 1, player.FacingVector.X, player.FacingVector.Z,
+                    requestedMouseDeltaX, input.MouseDeltaX, overflow, recovery, solver);
+            }
+            Require(!momentum || scene.DeveloperMomentumSteps > startSteps, "actual Momentum integration was exercised");
+            var body = new Capture(origin, facing, bodies, inferred.ToArray(), accepted.ToArray(), firstLanding,
+                scene.DeveloperMomentumSteps - startSteps, seam, limited, braking);
+            return new(body, samples, incomingOverCap, nonzeroAir, aiming, turned,
+                player.ModCollisionContactOverflows - startOverflow, player.ModCollisionRecoveryFallbacks - startRecovery);
+        }
+        finally { MomentumSceneTests.Release(scene); }
+    }
+
     private static object Summary(string room, Hunter hunter, string scenario, Capture native, Capture momentum, int nativeLanding)
     {
         Require(native.StartPosition == momentum.StartPosition && native.StartFacing == momentum.StartFacing,
