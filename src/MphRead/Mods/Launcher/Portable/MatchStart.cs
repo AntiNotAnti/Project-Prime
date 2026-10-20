@@ -108,6 +108,12 @@ namespace MphRead.Mods.Launcher
                 return false;
             }
             GameFiles.ApplyPaths();
+            // Adventure and demo return before the ordinary room preflight.
+            // Explicit custom availability must be admitted before either
+            // route can create or replace a scene.
+            if (plan.MatchRules.RiftlineM7Available
+                && !OfflineMatchPreflight.TryAdmit(plan, out string customReason))
+            { LastError = customReason; Console.WriteLine($"[launcher] {customReason}"); return false; }
             if (plan.Kind == LaunchKind.Adventure)
             {
                 bool began = BeginAdventure(window, plan);
@@ -226,6 +232,17 @@ namespace MphRead.Mods.Launcher
             if (plan.Kind == LaunchKind.AimTrainer)
                 Training.AimTrainerSession.Attach(window.Scene, plan);
             window.LoadScene();
+            if (plan.Kind==LaunchKind.Offline && plan.MatchRules.RiftlineM7Available)
+            {
+                try { window.Scene.EnableOfflineRifleAvailability(true); }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
+                {
+                    LastError = ex.Message;
+                    window.EndScene();
+                    Console.WriteLine($"[launcher] {LastError}");
+                    return false;
+                }
+            }
             NetSession.ReportMatchLoadProgress(MatchLoadStage.SceneReady);
             // Keep the bounded one-room cache through the match so same-map
             // rematches reuse raw entity/node/collision bytes.

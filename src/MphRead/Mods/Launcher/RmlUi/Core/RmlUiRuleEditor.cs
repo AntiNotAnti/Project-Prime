@@ -65,6 +65,7 @@ public sealed class RmlUiRuleEditor
                 if (!Movement.MovementModelRules.IsDefined(match.MovementModel)) return false;
                 match = match with { MovementModel = Movement.MovementModelRules.Next(match.MovementModel) };
                 break;
+            case 18: match = match with { RiftlineM7Available = !match.RiftlineM7Available }; break;
         }
         Draft = Draft with { Match = match, Flags = flags };
         return true;
@@ -95,6 +96,7 @@ public sealed class RmlUiRuleEditor
             16 => match.ThirdPersonCamera,
             17 => Movement.MovementModelRules.IsDefined(match.MovementModel)
                 && match.MovementModel != Movement.MovementModel.Native,
+            18 => match.RiftlineM7Available,
             _ => false
         };
     }

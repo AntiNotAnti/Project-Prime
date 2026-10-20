@@ -33,6 +33,8 @@
                 <button id="offline_rule_8" class="offline_action" data-action="offline:rule:8" data-prime-text="{{offline_rule8_label}}" />
                 <button id="offline_rule_9" class="offline_action" data-action="offline:rule:9" data-prime-text="{{offline_rule9_label}}" />
                 <button id="offline_rule_0" class="offline_action" data-action="offline:rule:0" data-prime-text="{{offline_rule0_label}}" data-prime-visible="offline_auto_reset_visible" />
+                <button id="offline_rule_14" class="offline_action" data-action="offline:rule:14" data-prime-text="{{offline_rule14_label}}" />
+                <p>Riftline M7: Battle (free-for-all) only. Native weapon selected at spawn. Replay recording and killcams unavailable.</p>
             </div>
         </div>
         <div id="offline_rules_error" class="offline_error" data-prime-text="{{offline_rules_error}}" />

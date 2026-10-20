@@ -49,17 +49,26 @@ namespace MphRead.Mods.Launcher.Gui
             var start = _start = new PrimeButton("▷ INITIATE BOT SIMULATION", () =>
             {
                 if (_room.Length == 0) return;
-                var plan = OfflineLaunch.Create(settings, _room, SelectedMode(),
-                    SelectedHunter(), _suit.Index, _bots.Index, _skill.Index);
-                if (!Multiplayer.MapModeCapabilities.Supports(_room, plan.Mode,
+                void Refuse(string reason) => _overlays.Show(new PrimePanel(PrimeChrome.Stack(
+                    PrimeChrome.Text(reason, 14, PrimeTheme.DangerBrush),
+                    new PrimeButton("BACK", _overlays.Close))), PrimeModalSize.Medium);
+                LaunchPlan candidate;
+                try
+                {
+                    candidate = OfflineLaunch.Preview(settings, _room, SelectedMode(),
+                        SelectedHunter(), _suit.Index, _bots.Index, _skill.Index);
+                }
+                catch (ArgumentException ex) { Refuse(ex.Message); return; }
+                if (!Multiplayer.MapModeCapabilities.Supports(_room, candidate.Mode,
                     Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1,
                     allowLocalSource: true)
-                    || !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out reason))
+                    || !Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out reason))
                 {
-                    _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Text(reason, 14, PrimeTheme.DangerBrush),
-                        new PrimeButton("BACK", _overlays.Close))), PrimeModalSize.Medium);
-                    return;
+                    Refuse(reason); return;
                 }
+                LaunchPlan plan;
+                try { plan = OfflineLaunch.Create(settings, _room, SelectedMode(), SelectedHunter(), _suit.Index, _bots.Index, _skill.Index); }
+                catch (ArgumentException ex) { Refuse(ex.Message); return; }
                 Launched?.Invoke(this, plan);
             }, true) { IsEnabled = rooms.Count > 0 };
             ControllerNav.Identify(start, "offline.start");
@@ -463,6 +472,9 @@ namespace MphRead.Mods.Launcher.Gui
             var lowTier = new ToggleRow("Low Tier", _settings.LowTier == "on");
             var noImperialist = new ToggleRow("No Imp", _settings.NoImperialist == "on");
             var balancedMode = new ToggleRow("Balanced Mode", _settings.BalancedMode == "on");
+            var riftlineM7 = new ToggleRow("Riftline M7 available", _settings.RiftlineM7Available);
+            const string riftlineHelp = "Battle (free-for-all) only. Native weapon selected at spawn. Replay recording and killcams unavailable.";
+            ToolTip.SetTip(riftlineM7, riftlineHelp);
             instaGib.Changed += (_, _) => { if (instaGib.On) noImperialist.On = false; };
             noImperialist.Changed += (_, _) => { if (noImperialist.On) instaGib.On = false; };
             var radar = new ToggleRow("Hunter radar", _settings.HunterRadar == "on");
@@ -479,7 +491,8 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Columns("*,*,*",
                     Section("MATCH", PrimeChrome.Text(selectedMode == GameMode.OneInTheChamber ? "3 lives • Last player standing\nOne lethal shot • Kills earn ammo" : "", 12, PrimeTheme.TextSecondaryBrush), score, time, objective, damage),
                     Section("GAMEPLAY", movement, fire, affinity, freeze, spawnProtection, radar),
-                    Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
+                    Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset,
+                        riftlineM7, PrimeChrome.Text(riftlineHelp, 12, PrimeTheme.TextSecondaryBrush))), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     if (movement.Index is not (0 or 1 or 2 or 3))
@@ -495,15 +508,19 @@ namespace MphRead.Mods.Launcher.Gui
                     // keep the runtime settings facade in sync with the committed values.
                     var rules = new Network.MatchDefinition { Mode = SelectedMode(),
                         InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On,
-                        BalancedMode = balancedMode.On,
+                        BalancedMode = balancedMode.On, RiftlineM7Available = riftlineM7.On,
                         MovementModel = (Movement.MovementModel)movement.Index };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
+                    if (rules.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
+                        rules.Mode, rules.Rules, online: false, bots: 0, out reason))
+                    { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;
                     string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;
                     string oldInstaGib = _settings.InstaGib;
                     string oldLowTier = _settings.LowTier;
                     string oldNoImperialist = _settings.NoImperialist;
                     string oldBalancedMode = _settings.BalancedMode;
+                    bool oldRiftlineM7 = _settings.RiftlineM7Available;
                     string oldMovementModel = _settings.MovementModel;
                     string oldPointGoal = _settings.PointGoal;
                     string oldTimeLimit = _settings.TimeLimit;
@@ -521,6 +538,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _settings.LowTier = lowTier.On ? "on" : "off";
                     _settings.NoImperialist = noImperialist.On ? "on" : "off";
                     _settings.BalancedMode = balancedMode.On ? "on" : "off";
+                    _settings.RiftlineM7Available = riftlineM7.On;
                     _settings.MovementModel = rules.MovementModel.ToString();
                     _settings.PointGoal = score.Value;
                     _settings.TimeLimit = time.Value;
@@ -546,6 +564,7 @@ namespace MphRead.Mods.Launcher.Gui
                         _settings.LowTier = oldLowTier;
                         _settings.NoImperialist = oldNoImperialist;
                         _settings.BalancedMode = oldBalancedMode;
+                        _settings.RiftlineM7Available = oldRiftlineM7;
                         _settings.MovementModel = oldMovementModel;
                         _settings.PointGoal = oldPointGoal;
                         _settings.TimeLimit = oldTimeLimit;

@@ -1605,12 +1605,18 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _hunter!.Value);
-            var plan = OfflineLaunch.Create(_settings, roomKey, mode, hunter,
-                _suit?.Index ?? LauncherPrefs.LastColor, _bots!.Index, _skill!.Index);
-            if (!Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out reason))
+            LaunchPlan candidate;
+            try { candidate = OfflineLaunch.Preview(_settings, roomKey, mode, hunter,
+                _suit?.Index ?? LauncherPrefs.LastColor, _bots!.Index, _skill!.Index); }
+            catch (ArgumentException ex) { _note.Text = ex.Message; _note.Foreground = GuiTheme.WarmBrush; return; }
+            if (!Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out reason))
             {
                 _note.Text = reason; _note.Foreground = GuiTheme.WarmBrush; return;
             }
+            LaunchPlan plan;
+            try { plan = OfflineLaunch.Create(_settings, roomKey, mode, hunter,
+                _suit?.Index ?? LauncherPrefs.LastColor, _bots!.Index, _skill!.Index); }
+            catch (ArgumentException ex) { _note.Text = ex.Message; _note.Foreground = GuiTheme.WarmBrush; return; }
             Finish(plan);
         }
 

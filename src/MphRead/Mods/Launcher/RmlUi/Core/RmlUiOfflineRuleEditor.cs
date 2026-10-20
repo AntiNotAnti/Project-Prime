@@ -11,6 +11,7 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
 {
     // Retain the saved model while editing the existing rule controls.
     public string? MovementModel { get; init; } = "Native";
+    public bool RiftlineM7Available { get; init; }
     public bool Enabled(int index) => index is >= 0 and < 13 && (Flags & (1 << index)) != 0;
     public static RmlUiOfflineRules Capture(MenuSettings s)
     {
@@ -19,7 +20,8 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
             s.NoImperialist, s.BalancedMode, s.HunterRadar, s.ThirdPersonCamera };
         ushort flags = 0;
         for (int i = 0; i < values.Length; i++) if (values[i] == "on") flags |= (ushort)(1 << i);
-        return new(s.PointGoal, s.TimeLimit, s.TimeGoal, s.DamageLevel, flags) { MovementModel = s.MovementModel };
+        return new(s.PointGoal, s.TimeLimit, s.TimeGoal, s.DamageLevel, flags)
+            { MovementModel = s.MovementModel, RiftlineM7Available = s.RiftlineM7Available };
     }
 
     public void CopyTo(MenuSettings s)
@@ -32,6 +34,7 @@ public readonly record struct RmlUiOfflineRules(string PointGoal, string TimeLim
         s.Fiesta = On(6); s.InstaGib = On(7); s.LowTier = On(8); s.NoImperialist = On(9);
         s.BalancedMode = On(10); s.HunterRadar = On(11); s.ThirdPersonCamera = On(12);
         s.MovementModel = MovementModel ?? "Native";
+        s.RiftlineM7Available = RiftlineM7Available;
     }
 
     // The caller holds the existing settings-write lease. Roll back the exact
@@ -51,7 +54,7 @@ public sealed class RmlUiOfflineRuleEditor
 {
     public static readonly string[] Labels = { "OCTOLITH AUTO RESET", "FRIENDLY FIRE", "AFFINITY WEAPONS",
         "SHADOW FREEZE", "SPAWN PROTECTION (3s)", "ONE IN THE CHAMBER", "FIESTA", "INSTA-GIB",
-        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR", "THIRD PERSON CAMERA", "MOVEMENT" };
+        "LOW TIER", "NO IMP", "BALANCED MODE", "HUNTER RADAR", "THIRD PERSON CAMERA", "MOVEMENT", "RIFTLINE M7 AVAILABLE" };
     public RmlUiOfflineRules Original { get; }
     public RmlUiOfflineRules Draft { get; private set; }
     public GameMode Mode { get; }
@@ -74,6 +77,11 @@ public sealed class RmlUiOfflineRuleEditor
 
     public bool Toggle(int index)
     {
+        if (index == 14)
+        {
+            Draft = Draft with { RiftlineM7Available = !Draft.RiftlineM7Available };
+            Error = ""; return true;
+        }
         if (index == 13)
         {
             if (!MovementVisible) return false;
@@ -108,8 +116,12 @@ public sealed class RmlUiOfflineRuleEditor
         { Error = "CHOOSE CLASSIC, MOMENTUM, QUAKE III, OR TRAVERSAL MOVEMENT"; return false; }
         var rules = new MatchDefinition { Mode = Mode, MovementModel = Mode == GameMode.SinglePlayer
                 ? Movement.MovementModel.Native : movementModel, InstaGib = Draft.Enabled(7),
-            NoImperialist = Draft.Enabled(9), Fiesta = Draft.Enabled(6), BalancedMode = Draft.Enabled(10) };
+            NoImperialist = Draft.Enabled(9), Fiesta = Draft.Enabled(6), BalancedMode = Draft.Enabled(10),
+            RiftlineM7Available = Draft.RiftlineM7Available };
         if (!MatchModifierRules.Validate(rules, out string reason)) { Error = reason; return false; }
+        if (rules.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
+            rules.Mode, rules.Rules, online: false, bots: 0, out reason))
+        { Error = reason; return false; }
         Draft = Draft with { PointGoal = points, TimeLimit = limit, TimeGoal = goal };
         Error = ""; return true;
     }

@@ -169,8 +169,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     /// <summary>One registry for the versioned ABI and the transitional string buttons.</summary>
     public static class RmlUiIntentRegistry
     {
-        public const int LobbyRuleChoiceCount = 18;
-        public const int OfflineRuleChoiceCount = 14;
+        public const int LobbyRuleChoiceCount = 19;
+        public const int OfflineRuleChoiceCount = 15;
 
         public static int ReplayActionCount => ReplayActions.Length;
         public const uint ProtocolVersion = 1;

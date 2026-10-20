@@ -18,6 +18,15 @@ public partial class Scene
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return OfflineWeapons = new(this,optIn);
     }
+    // The launch plan has already frozen and validated availability. Capture
+    // this scene's human now; a later fixed step grants only after spawn.
+    internal OfflineCustomWeaponRuntime EnableOfflineRifleAvailability(bool optIn)
+    {
+        if (!optIn) throw new InvalidOperationException("Explicit Riftline M7 availability is required.");
+        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
+        return OfflineWeapons = new(this,optIn,publicAvailability:true);
+    }
     internal CustomAuthorityCombatAdapter? CustomCombat { get; private set; }
     internal CustomAuthorityCombatAdapter EnableDeveloperCustomCombat(bool optIn, ICustomSourceAdmission sourceAdmission)
     {

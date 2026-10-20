@@ -478,11 +478,16 @@ namespace MphRead.Mods.Launcher
             int level = AskInt("  Bot skill (0 easy, 1 normal, 2 hard, 3 insane)",
                 LauncherPrefs.BotLevel, 0, 3);
             Hunter hunter = AskHunter();
-            LauncherPrefs.Bots = bots;
-            LauncherPrefs.BotLevel = level;
-            LauncherPrefs.LastKind = (int)LaunchKind.Offline;
-            LauncherPrefs.Save();
-            plan = OfflineLaunch.Create(settings, roomKey, mode, hunter, LauncherPrefs.LastColor, bots, level);
+            try
+            {
+                LaunchPlan candidate = OfflineLaunch.Preview(settings, roomKey, mode, hunter, LauncherPrefs.LastColor, bots, level);
+                if (!Multiplayer.MapModeCapabilities.Supports(roomKey, candidate.Mode,
+                    Multiplayer.MatchWorldProfile.Resolve(bots + 1), out string reason, bots + 1, allowLocalSource: true)
+                    || !Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out reason))
+                { Console.WriteLine("  " + reason); return false; }
+                plan = OfflineLaunch.Create(settings, roomKey, mode, hunter, LauncherPrefs.LastColor, bots, level);
+            }
+            catch (ArgumentException ex) { Console.WriteLine("  " + ex.Message); return false; }
             return true;
         }
 

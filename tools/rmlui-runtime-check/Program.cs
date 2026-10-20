@@ -92,13 +92,15 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
     }
     Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
-Require(RmlUiIntentRegistry.LobbyRuleChoiceCount == 18 && RmlUiIntentRegistry.OfflineRuleChoiceCount == 14,
-    "Reviewed rule action families include Third Person and Movement");
+Require(RmlUiIntentRegistry.LobbyRuleChoiceCount == 19 && RmlUiIntentRegistry.OfflineRuleChoiceCount == 15,
+    "Reviewed rule action families append Riftline M7 after Third Person and Movement");
 foreach (var choice in new[] {
     ("lobby:rules-toggle:16", RmlUiIntentKind.LobbyRulesToggle, 16),
     ("lobby:rules-toggle:17", RmlUiIntentKind.LobbyRulesToggle, 17),
+    ("lobby:rules-toggle:18", RmlUiIntentKind.LobbyRulesToggle, 18),
     ("offline:rule:12", RmlUiIntentKind.OfflineRuleToggle, 12),
-    ("offline:rule:13", RmlUiIntentKind.OfflineRuleToggle, 13) })
+    ("offline:rule:13", RmlUiIntentKind.OfflineRuleToggle, 13),
+    ("offline:rule:14", RmlUiIntentKind.OfflineRuleToggle, 14) })
     Require(RmlUiIntentRegistry.TryParseLegacy(choice.Item1, new(1, 1), 1, out var ruleChoice)
         && ruleChoice.Kind == choice.Item2 && ruleChoice.Argument == choice.Item3,
         "Third Person and Movement action indices remain explicit and stable: " + choice.Item1);
@@ -118,7 +120,7 @@ for (int index = 0; index < studioBuildActions.Length; index++)
         && parsed.Kind == RmlUiIntentKind.StudioAction && parsed.Argument == 200 + index,
         $"Studio build action index changed: {action}");
 }
-foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:18", "offline:rule:14",
+foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:19", "offline:rule:15",
     "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",
     "lobby:map-select:6", "lobby:map-category:5", "route:unexpected", "quit:extra",
     "campaign-ship:-1", "campaign-ship:01", "campaign-ship:11" })

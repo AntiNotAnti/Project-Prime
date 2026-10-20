@@ -6,8 +6,9 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.CustomWeapons;
 
-/// <summary>Explicit developer-only offline fixture. No native slots, transport,
-/// prediction, replay reconstruction or publication is enabled by this prototype.</summary>
+/// <summary>Scene-owned offline custom inventory. Public availability captures
+/// only the local human and starts unequipped; explicit developer grants remain
+/// available to fixtures. Native slots and replay reconstruction stay separate.</summary>
 internal sealed class OfflineCustomWeaponRuntime : IDisposable
 {
     private readonly record struct LocalInput(uint Sequence,CustomWeaponActionKind Kind,byte Optic,uint Tick,WeaponOwnerContext Owner);
@@ -23,6 +24,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         internal int InputCount;
     }
     private readonly Scene _scene;
+    private readonly PlayerEntity? _availabilityPlayer;
     private readonly WeaponRegistry _registry;
     private readonly WeaponDefinition _definition;
     private readonly Slot?[] _slots = new Slot[8];
@@ -39,29 +41,41 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     internal CustomImpactFact? LastImpact { get; private set; }
     internal bool IsEligible => !_disposed && !NetSession.Active && !_scene.Services.IsReplica
         && !DemoPlayback.IsActive && !_scene.IsReplayLab && _scene.AimTrainer == null
-        && CustomWeaponMatchPolicy.TryAdmit(_scene,out _);
+        && CustomWeaponMatchPolicy.TryAdmit(_scene,out _)
+        && (_availabilityPlayer==null || _scene.Players.Items.Count>0
+            && ReferenceEquals(_scene.Players.Items[0],_availabilityPlayer) && !_availabilityPlayer.IsBot);
     private uint Tick => (uint)_scene.FrameCount;
-    internal OfflineCustomWeaponRuntime(Scene scene, bool developerOptIn)
+    internal OfflineCustomWeaponRuntime(Scene scene, bool developerOptIn, bool publicAvailability=false)
     {
         _scene = scene;
         if (!developerOptIn || !IsEligible) throw new InvalidOperationException("Custom rifle requires explicit offline Battle developer opt-in.");
+        if (publicAvailability)
+        {
+            if (scene.Players.Items.Count==0 || scene.Players.Items[0].IsBot
+                || scene.Players.Items[0].OwningScene!=scene || scene.Players.Items[0].SlotIndex!=0)
+                throw new InvalidOperationException("Riftline M7 availability requires the local human player.");
+            _availabilityPlayer=scene.Players.Items[0];
+        }
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy damage is unavailable in this prototype.");
         _definition = RiftlineM7.Create();
         _registry = scene.FreezeCustomWeaponRegistry(new[] { _definition });
     }
-    internal bool Grant(PlayerEntity player)
+    internal bool Grant(PlayerEntity player) => GrantCore(player,selected:true);
+    private bool GrantCore(PlayerEntity player,bool selected)
     {
-        if (!IsEligible || player.OwningScene != _scene || player.Health <= 0 || (uint)player.SlotIndex >= 8) return false;
+        if (!IsEligible || player.IsBot || player.OwningScene != _scene || player.Health <= 0
+            || (_availabilityPlayer!=null && !ReferenceEquals(player,_availabilityPlayer))
+            || player.Flags2.TestFlag(PlayerFlags2.Spectating) || (uint)player.SlotIndex >= 8) return false;
         if (_slots[player.SlotIndex] != null) return false;
         var inventory = _registry.Inventory(player.SlotIndex);
         if (!inventory.BindLife(new(1,1,(byte)player.SlotIndex,1,1),Tick) || !inventory.Grant(_definition.Identity,Tick)) return false;
         inventory.TryGetState(_definition.Identity,out var state);
         var pool = new BeamProjectileEntity[_definition.Mechanics.MaxActiveProjectiles];
         for (int i=0; i<pool.Length; i++) pool[i] = new(_scene);
-        _slots[player.SlotIndex] = new Slot { Player = player, State = state!,
+        _slots[player.SlotIndex] = new Slot { Player = player, State = state!, Selected = selected,
             Equip = new EquipInfo(CustomPrecisionAdapter.Build(_definition.Mechanics),pool) { InfiniteAmmo = true } };
-        state!.SetEquipped(Tick,true);
+        state!.SetEquipped(Tick,selected);
         return true;
     }
     private Slot? Resolve(PlayerEntity player)
@@ -103,6 +117,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     {
         if (_disposed) return;
         if (!IsEligible) { Dispose(); return; }
+        if (_availabilityPlayer is { } local && _slots[0]==null) GrantCore(local,selected:false);
         foreach (var slot in _slots) if (slot != null)
         {
             // A source that never reached its post-aim biped phase cannot fire

@@ -1957,7 +1957,8 @@ public sealed class RmlUiMenuController : IDisposable
         for (int i = 0; i < RmlUiOfflineRuleEditor.Labels.Length; i++)
             Text("offline_rule" + i + "_label", RmlUiOfflineRuleEditor.Labels[i]
                 + " // " + (i == 13 ? _offlineRules?.MovementLabel.ToUpperInvariant() ?? "CLASSIC"
-                    : _offlineRules?.Draft.Enabled(i) == true ? "ON" : "OFF"));
+                    : (i == 14 ? _offlineRules?.Draft.RiftlineM7Available == true
+                        : _offlineRules?.Draft.Enabled(i) == true) ? "ON" : "OFF"));
         Flag("play_browser_mode", _browsing && !_createOpen && !lobby.Active);
         Flag("play_create_mode", _createOpen && !lobby.Active);
         Text("offline_arena_value", _offline?.Map ?? "");
