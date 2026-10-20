@@ -53,6 +53,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [865](https://github.com/AntiNotAnti/Project-Prime/pull/865) | Bounded Android owned-document access, character import controls and actual emulator interruption/recovery | `c1c5f6641fa94bc92cbb731f734bbe446480ac25` |
 | [873](https://github.com/AntiNotAnti/Project-Prime/pull/873) | Separately pinned Prime USA Rev 2 Trooper authoring imports and actual Android four-appearance group/reimport/removal | `eb852689072f2b35f1f70769759e11371a543879` |
 | [878](https://github.com/AntiNotAnti/Project-Prime/pull/878) | Full Prime Rev 2 Trooper35-bone authoring rigs,142-leaf ANIM banks and generated source GLBs; actual Android v2-to-v3 upgrade/repeat/removal | `2ed2da6862ee63761e4cae84f7320bd0933fc63f` |
+| [884](https://github.com/AntiNotAnti/Project-Prime/pull/884) | Complete raw normal/Overcharged body material and TXTR authoring, bounded immutable codec, actual Android upgrade/repeat/removal and Windows qualification | `8f3cd64bb7f2f3d6bc5463417606482f4a19f62b` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
