@@ -146,7 +146,7 @@ internal static class MomentumReplayRulesTests
                             Check(scene.GameState.MovementModel == MovementModel.Native, "old checkpoint remains Native: " + protocol);
                         }
                     }
-                    byte[] future = checkpoint.Bytes.ToArray(); future[6] = 61;
+                    byte[] future = checkpoint.Bytes.ToArray(); future[6] = 62;
                     Refused(() => restored.RestoreCheckpoint(new(future)), "future checkpoint protocol refused");
                 }
                 finally { scene.DoCleanup(); scene.UnloadGl(); }

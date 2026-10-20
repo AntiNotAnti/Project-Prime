@@ -34,6 +34,7 @@ namespace MphRead.Mods.Network
         TimedGrant = 77, // authority timed state, ordinary reliable event/delta lane
         PickupPrediction = 78, TimedGrantBootstrap = 79, // local replay only; never live authority messages
         PartyReservationRequest = 80, PartyReservationState = 81, PartyReservationAction = 82,
+        CustomWeaponManifest = 83, CustomWeaponReady = 84, CustomWeaponReadyConfirmed = 85,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -458,15 +459,15 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery is connectionless, so normalize the known pre-60
-        // width here before reading tail offsets. Live gameplay still requires
-        // an exact protocol match through Hello.
+        // Status discovery accepts reviewed protocol60/61 native widths and
+        // normalizes the known pre-60 width before reading tail offsets.
+        // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
         {
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] == NetConfig.ProtocolVersion)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61)
                 status = Read(src);
             else
             {
@@ -2573,7 +2574,9 @@ namespace MphRead.Mods.Network
         // Protocol 59's authoritative Momentum-v1 contract remains unchanged.
         // Native remains the default; Momentum selects the fixed v1 profile.
         // Owner-reported movement and intent/snapshot payloads remain unchanged.
-        public const int ProtocolVersion = 60;
+        // Protocol 61 adds opt-in custom weapon manifest/readiness packets only.
+        // Native intent, fire, player-state and match-rule payloads retain their widths.
+        public const int ProtocolVersion = 61;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
