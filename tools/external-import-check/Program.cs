@@ -10,6 +10,13 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 1 && args[0] == "--prime-rev2-check")
+    {
+        PrimeRevision2RecipeChecks.Run();
+        return 0;
+    }
+    if (args.Length == 2 && args[0] == "--probe-prime-rev2")
+        return PrimeRevision2OwnedProbe.Run(args[1]);
     if (args.Length == 1 && args[0] == "--source-document-check")
     {
         OwnedSourceSnapshotChecks.Run();
@@ -162,6 +169,7 @@ try
         return 2;
     }
     SelfTest();
+    PrimeRevision2RecipeChecks.Run();
     OwnedSourceSnapshotChecks.Run();
     SourceDocumentWorkChecks.Run();
     CharacterImportPathsChecks.Run();
