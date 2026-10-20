@@ -12,8 +12,10 @@ attached `second-hunt-integration` worktree. No protected game payloads,
 private screenshots, live backend credentials or user saves are committed.
 The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
-Protocol numbers in frozen evidence documents describe those exact builds;
-the frozen pause-map verification uses protocol64; current main subsequently advanced to65 through concurrent custom-weapon work. Our slices add no wire change.
+Protocol numbers in frozen evidence documents describe those exact builds.
+Pause-map verification uses protocol 64 and body/ball verification uses 65;
+current main advanced to 66 through concurrent custom-weapon work in PR816.
+Our slices add no wire change.
 
 ## Completed and merged slices
 
