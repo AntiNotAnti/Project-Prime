@@ -18,7 +18,7 @@ namespace MphRead.NetTest;
 
 // Bounded, opt-in acceptance capture. Real keyboard controls, native life/jump/collision;
 // no velocity, position, flags, ability, or health overrides in the trial.
-internal static class MomentumBalanceSceneTests
+internal static partial class MomentumBalanceSceneTests
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
     private const int SimulationHz = 60;

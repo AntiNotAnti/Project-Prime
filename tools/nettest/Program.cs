@@ -117,6 +117,7 @@ namespace MphRead.NetTest
                     + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
                     + "  --momentum-balance-scene <assets> [json] Measure seven-Hunter hop/coast distributions on two maps.\n"
                     + "  --momentum-balance-envelope-scene <assets> <json> Capture fixed mirrored aim/strafe hops and bounded native collision counters.\n"
+                    + "  --momentum-balance-adaptive-scene <assets> <json> Capture feedback air-strafe cap witnesses and matched Native raw input replay.\n"
                     + "  --momentum-input-cadence-gl <assets> [json] Test rendered seven-Hunter virtual cadence parity.\n"
                     + "  --momentum-keyboard-gl <assets> <Native|Momentum> <json> Test actual Windows/macOS interactive keyboard/GL.\n"
                     + "  --momentum-server-performance <assets> <room> <model> <json> [seconds] [timing|verify] Benchmark eight real bots.\n"
@@ -467,6 +468,18 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-combat-evidence") return MomentumCombatEvidenceTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-balance-adaptive-scene")
+            {
+                if (args.Length != 3)
+                {
+                    Console.Error.WriteLine("usage: --momentum-balance-adaptive-scene <assets> <fresh-json>");
+                    return 2;
+                }
+                string output = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumBalanceSceneTests.RunAdaptiveEnvelope(output);
+            }
             if (args.Length > 0 && args[0] == "--momentum-balance-envelope-scene")
             {
                 if (args.Length != 3)

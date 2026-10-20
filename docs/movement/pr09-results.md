@@ -2,7 +2,7 @@
 
 **DRAFT / NOT RELEASE ACCEPTED.** Functional evidence is substantial. The
 operator accepts the current performance tradeoff; relevant hosted CI is not
-fully verified, and the stated balance/device limitations remain open.
+fully verified, and the stated balance/device limitations remain disclosed.
 This document does not declare Momentum complete or suitable for default rollout.
 Classic remains the default and rollback path; Momentum is an explicit opt-in.
 
@@ -17,6 +17,21 @@ observer controls are documented in [PR-09h](pr09h-results.md).
 
 ## Completed scoped evidence
 
+- **Ordinary-input cap observations pass:** all 28 prescribed mirrored
+  Hunter/map pairs reach the regular cap at tick 104 with actual native
+  collision and identical raw-command replay in Classic. The single campaign
+  passes 358,935 assertions, 31,920 body samples and 15,960 native-Y seam
+  checks. All 56 incoming-overspeed labels, the one-ULP reported speed boundary,
+  controller clamps and censored traversal objectives are retained. The
+  unchanged v1 cap is supported by these measured trials; no global maximum
+  or competitive-balance approval is inferred. [PR-09i](pr09i-results.md).
+- **Receipt-ordering regression repaired:** stale-life terminal receipts
+  retain their immutable response without advancing current-life claim order.
+  The original failing assertion is preserved; Windows reproduces the old
+  failure and passes the repaired lifecycle, receipt, replay and actual
+  fault-combat cases. A fresh current42 build adds Off/Shadow scene parity,
+  camera frame-timing and UI/source guards while preserving all four frozen
+  bot snapshot/workload digests. [Compatibility note and exact source scopes](../implementation/claim-life-ordering-compatibility-2026-10-19.md).
 - **Fixed air-turn/jump observations pass:** 28 mirrored Native/Momentum pairs
   and 14 stationary calibration pairs cover all seven Hunters on both rooms,
   31,920 actual body samples and 245,829 assertions. Both models reach the
