@@ -116,6 +116,31 @@ public sealed class WeaponRuntimeState
         _hasFired = _acceptedId != 0;
         // Keep the failed request high-water: retry cannot become delayed fire.
     }
+    // Engine-only pickup funding. Advance before adding: a reload finishing on
+    // this source tick spends the reserve that existed before this pickup.
+    internal void AddPickupReserve(uint tick, int amount)
+    {
+        if (amount <= 0 || Advance(tick) != WeaponActionResult.Accepted)
+            throw new InvalidOperationException("Pickup crossed its source-time boundary.");
+        _reserve = Math.Min(Definition.Mechanics.MaximumReserve, _reserve + amount);
+    }
+    internal static WeaponStateSnapshot Project(in WeaponStateSnapshot value, WeaponMechanics mechanics, uint tick)
+    {
+        if (value.Phase == CustomWeaponPhase.Invalid || !Reached(tick,value.Tick)) return value;
+        bool reloading = value.Phase == CustomWeaponPhase.Reloading;
+        int magazine = value.Magazine, reserve = value.Reserve;
+        if (reloading && Reached(tick,value.ReloadCompleteTick))
+        {
+            reloading = false;
+            int transfer = Math.Min(mechanics.MagazineCapacity-magazine,reserve);
+            magazine += transfer; reserve -= transfer;
+        }
+        var phase = value.Phase == CustomWeaponPhase.Unequipped ? CustomWeaponPhase.Unequipped
+            : reloading ? CustomWeaponPhase.Reloading
+            : value.LastAcceptedShotId != 0 && !Reached(tick,value.FireReadyTick) ? CustomWeaponPhase.BoltCycling
+            : magazine == 0 ? CustomWeaponPhase.Empty : CustomWeaponPhase.Ready;
+        return value with { Tick = tick, Phase = phase, Magazine = magazine, Reserve = reserve };
+    }
     public void Invalidate(WeaponCancellation reason)
     { _valid = false; _equipped = false; _reloading = false; _reloadEnd = 0; _optic = 0; }
     /// <summary>Project presentation at a later tick without advancing source-time
