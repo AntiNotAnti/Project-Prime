@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 
 namespace MphRead.Mods.Network
@@ -45,6 +47,9 @@ namespace MphRead.Mods.Network
         private readonly Dictionary<int, double> _cooling = new();
         private int _first;
         private int _last = -1;
+        private double _parentSampleAt = -1;
+        private double _parentCpuSeconds, _parentCpuCores;
+        private bool _parentCpuSampled;
 
         /// <summary>Where this pool's log lines go, so a server and a directory read alike.</summary>
         public Action<string> Log { get; init; } = _ => { };
@@ -69,6 +74,105 @@ namespace MphRead.Mods.Network
         /// <summary>And how long once it has been played and everyone has left.</summary>
         private const double EmptySeconds = 45;
 
+        private static int ConfiguredPositiveInt(string name)
+            => int.TryParse(Environment.GetEnvironmentVariable(name), out int n) && n > 0 ? n : 0;
+
+        private static double CpuBudget()
+        {
+            string? setting = Environment.GetEnvironmentVariable("PROJECT_PRIME_HOST_MAX_CPU_CORES");
+            if (double.TryParse(setting, NumberStyles.Float, CultureInfo.InvariantCulture, out double cores)
+                && double.IsFinite(cores) && cores > 0)
+                return cores;
+            // ProcessorCount follows the process/container CPU quota on .NET.
+            return Math.Max(.85, Environment.ProcessorCount * .85);
+        }
+
+        private void SampleParentCpu(double now)
+        {
+            try
+            {
+                using Process parent = Process.GetCurrentProcess();
+                double cpuSeconds = parent.TotalProcessorTime.TotalSeconds;
+                if (_parentSampleAt >= 0 && now - _parentSampleAt >= .25)
+                {
+                    _parentCpuCores = Math.Max(0, (cpuSeconds - _parentCpuSeconds) / (now - _parentSampleAt));
+                    _parentCpuSampled = true;
+                }
+                _parentSampleAt = now;
+                _parentCpuSeconds = cpuSeconds;
+            }
+            catch (InvalidOperationException) { _parentCpuSampled = false; }
+        }
+
+        /// <summary>
+        /// Fail closed for configured resource ceilings without claiming that
+        /// idle-process RSS proves an active match's eventual memory cost.
+        /// Default CPU headroom is advisory to measured samples; memory limits
+        /// require an operator budget because container/free memory varies.
+        /// </summary>
+        private bool CanAdmit(out string reason)
+        {
+            int maxMatches = ConfiguredPositiveInt("PROJECT_PRIME_HOST_MAX_MATCHES");
+            if (maxMatches > 0 && _hosted.Count >= maxMatches)
+            {
+                reason = "hosted match capacity limit reached";
+                return false;
+            }
+
+            double busyCores = _parentCpuSampled ? _parentCpuCores : 0;
+            int unsampled = 0;
+            bool sampled = _parentCpuSampled;
+            foreach (Hosted hosted in _hosted)
+            {
+                if (hosted.Process.HasCpuSample)
+                {
+                    busyCores += hosted.Process.CpuCoreUsage;
+                    sampled = true;
+                }
+                else unsampled++;
+            }
+            // Prevent a burst of unsampled cold children from bypassing the
+            // CPU admission decision before the first one-second poll.
+            if (unsampled >= Math.Max(2, Environment.ProcessorCount))
+            {
+                reason = "new hosted matches are warming up; retry shortly";
+                return false;
+            }
+            if (sampled && busyCores >= CpuBudget())
+            {
+                reason = "host CPU headroom exhausted; retry shortly";
+                return false;
+            }
+
+            int budgetMiB = ConfiguredPositiveInt("PROJECT_PRIME_HOST_MAX_TOTAL_RSS_MB");
+            if (budgetMiB > 0)
+            {
+                const long mib = 1024L * 1024;
+                long resident = 0;
+                long estimatedNewChild = 256 * mib;
+                try
+                {
+                    using Process parent = Process.GetCurrentProcess();
+                    resident = parent.WorkingSet64;
+                }
+                catch (InvalidOperationException) { resident = 0; }
+                foreach (Hosted hosted in _hosted)
+                {
+                    long childResident = hosted.Process.ResidentBytes;
+                    resident += childResident;
+                    estimatedNewChild = Math.Max(estimatedNewChild, childResident);
+                }
+                // Conservative startup estimate plus 128 MiB spare for bursts.
+                if (resident + estimatedNewChild + 128 * mib >= (long)budgetMiB * mib)
+                {
+                    reason = "host memory headroom exhausted; retry shortly";
+                    return false;
+                }
+            }
+            reason = "";
+            return true;
+        }
+
         public void SetPorts(int first, int last)
         {
             _first = first;
@@ -92,6 +196,8 @@ namespace MphRead.Mods.Network
             // request. Drop those dead reservations before choosing a port so
             // a retry is not refused by a process that no longer exists.
             ReapExited(now);
+            if (!CanAdmit(out string capacityReason))
+                return new HostReplyPacket { Reason = capacityReason };
             // Do not treat a public IP address as a player identity. Multiple
             // people behind one NAT legitimately share it, so replacing an
             // empty game merely because the next request came from that IP can
@@ -191,6 +297,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void Reap(double now)
         {
+            SampleParentCpu(now);
             for (int i = _hosted.Count - 1; i >= 0; i--)
             {
                 Hosted entry = _hosted[i];
@@ -199,6 +306,7 @@ namespace MphRead.Mods.Network
                     Stop(entry, "server process exited", now);
                     continue;
                 }
+                entry.Process.SampleCpu(now);
                 int players = entry.Process.ProbePlayers(now);
                 if (!entry.ReadyLogged && entry.Process.Responsive)
                 {

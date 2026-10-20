@@ -268,6 +268,33 @@ If the first command prints nothing, the installed systemd unit predates career 
 
 Dedicated servers can record anonymous network/combat/performance measurements for multiplayer quality studies. No player names, IP addresses, account IDs or chat are stored by this subsystem. Aggregate recording is enabled by default; uploads are disabled. Use `-notelemetry` to disable, or `PRIME_TELEMETRY_CONFIG` to select a configuration file. See [Protocol 19 combat and telemetry](docs/network/combat-telemetry.md) for retention, study modes and optional aggregate upload.
 
+## Hosted server resource admission
+
+The host pool keeps each authoritative match in its own child process. New
+matches are admitted only if a port is free **and** recent sampled CPU load
+leaves headroom. By default, admission stops when sampled parent + children
+CPU usage reaches 85% of the `.NET Environment.ProcessorCount` budget.
+Cold children are limited to at most `max(2, processor count)` simultaneous
+unmeasured starts until the one-second resource sampler runs. An already
+running match is **never** interrupted by resource-admission decisions.
+
+Optional environment limits on the allocator's service:
+
+| Environment variable | Meaning |
+| --- | --- |
+| `PROJECT_PRIME_HOST_MAX_MATCHES` | Max child matches (positive integer); otherwise bounded by ports/CPU |
+| `PROJECT_PRIME_HOST_MAX_CPU_CORES` | CPU core-seconds per wall-second budget; overrides the default 85% limit |
+| `PROJECT_PRIME_HOST_MAX_TOTAL_RSS_MB` | Combined parent/children resident MiB ceiling; zero/unset disables this optional limit |
+
+The RSS admission gate reserves at least one estimated additional child's RSS
+(maximum of 256 MiB and current child RSS), plus 128 MiB headroom.
+RSS can count shared mappings more than once. It is a conservative admission
+guard, **not** a memory availability probe or proof that a host has sufficient
+RAM. Calibrate these settings on the target machine with a verified **active**
+server-capacity run; do not infer them from idle children. Unrecognized and
+nonpositive settings use default/disabled behavior. Rejection explains which
+resource is constrained; retry after workloads complete.
+
 ## Capacity benchmarking
 
 Dedicated server publishes use ReadyToRun and prewarm combat/network hot
