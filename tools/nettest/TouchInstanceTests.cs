@@ -141,6 +141,14 @@ internal static class TouchInstanceTests
         Check(!c.IsHeld(TouchAction.Jump), "rotation cancels stale pointer ownership");
         Down(c, 2); c.ReloadSettings();
         Check(!c.IsHeld(TouchAction.Jump), "settings reload cancels stale pointer ownership");
+        var published = c.Buttons;
+        using var drawing = published.GetEnumerator(); drawing.MoveNext();
+        int count = published.Count;
+        TouchSettings.ReplaceInstances(Array.Empty<TouchButtonInstance>()); c.ReloadSettings();
+        int visited = 1; while (drawing.MoveNext()) visited++;
+        Check(visited == count && published.Count == count, "overlay enumeration survives instance publication without list mutation");
+        Check(c.Buttons.Count < published.Count, "new overlay publication removes deleted instances independently");
+        TouchSettings.ReplaceInstances(new[] { Extra() }); c.ReloadSettings();
         Down(c, 3); TouchSettings.ReplaceInstances(new[] { Extra(action: TouchControl.Morph) }); c.ReloadSettings();
         Check(!c.IsHeld(TouchAction.Jump) && !c.IsHeld(TouchAction.Morph), "reassignment does not manufacture held edge");
     }

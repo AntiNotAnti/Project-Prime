@@ -142,7 +142,10 @@ namespace MphRead.Droid
 
         private readonly object _lock = new object();
 
-        public IReadOnlyList<TouchButton> Buttons => _buttons;
+        // Renderers enumerate a stable publication while settings may rebuild
+        // instances on the game thread. Geometry objects remain managed.
+        private TouchButton[] _buttonSnapshot = Array.Empty<TouchButton>();
+        public IReadOnlyList<TouchButton> Buttons => System.Threading.Volatile.Read(ref _buttonSnapshot);
         private readonly List<TouchButton> _buttons = new List<TouchButton>
         {
             // SCAN before FIRE: they sit in the same place, and the one that
@@ -174,6 +177,8 @@ namespace MphRead.Droid
             new TouchButton(TouchAction.ShockCoil, "COIL") { Visible = false },
             new TouchButton(TouchAction.OmegaCannon, "OMEGA") { Visible = false }
         };
+
+        public TouchControls() { _buttonSnapshot = _buttons.ToArray(); }
 
         public float Width { get; private set; }
         public float Height { get; private set; }
@@ -610,6 +615,7 @@ namespace MphRead.Droid
             foreach (var instance in TouchSettings.ExtraInstances)
                 _buttons.Add(new TouchButton((TouchAction)instance.Action,
                     TouchSettings.ShortLabel(instance.Action), instance.Id) { Instance = instance });
+            System.Threading.Volatile.Write(ref _buttonSnapshot, _buttons.ToArray());
             _instanceRevision = revision;
         }
 
@@ -914,6 +920,16 @@ namespace MphRead.Droid
                 button.Radius = geometry.Radius;
             }
             ApplyLayoutLocked();
+        }
+
+        public bool IsInstanceHeld(int instanceId)
+        {
+            lock (_lock)
+            {
+                foreach (var pointer in _buttonInstancePointers)
+                    if (pointer.Value == instanceId) return true;
+                return false;
+            }
         }
 
         public bool IsHeld(TouchAction action)

@@ -138,7 +138,7 @@ namespace MphRead.Droid
                 {
                     continue;
                 }
-                bool held = _controls.IsHeld(button.Action);
+                bool held = _controls.IsInstanceHeld(button.InstanceId);
                 _fill.Color = held ? _accentFill : _panel;
                 _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 _stroke.Color = held ? _accent : _edge;
