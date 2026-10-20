@@ -38,6 +38,8 @@ internal static partial class NativeHunterStageGlAcceptance
         // Model-status retirement can reflow an auto-height modal after the
         // initial paint. Determine overflow from one fresh native layout, never
         // from card coordinates measured before that first successful draw.
+        Check(host.FocusDocument(document, "hunter_choice0"), "identity wheel journey starts from a known focused card");
+        Settle();
         var initial = Rect("hunter_choice0"); var scroller = Rect("identity_cards");
         var beforeWheelCards = expected.Select(Rect).ToArray();
         bool scrollRequired = beforeWheelCards.Max(r => r.Bottom) > scroller.Bottom + 1;
@@ -51,6 +53,12 @@ internal static partial class NativeHunterStageGlAcceptance
         if (scrollRequired)
             Check(afterWheel.Y < initial.Y, "compact identity selector scrolls through real native pointer wheel");
         Paint("identity-wheel");
+        host.Input.Key(1, true); host.Input.Key(1, false); Settle();
+        string keyboardCard = host.FocusedElement();
+        Check(keyboardCard.StartsWith("hunter_choice", StringComparison.Ordinal),
+            "real keyboard/controller Tab skips unavailable cards after wheel input");
+        Check(Rect(keyboardCard).Inside(Rect("identity_cards")),
+            "keyboard/controller focus retires pending wheel motion and reveals the full card");
         for (int hunter = 0; hunter < 7; hunter++)
         for (int suit = 0; suit < 4; suit++)
         {

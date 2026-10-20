@@ -733,9 +733,16 @@ void ScrollFocusedElement(Rml::Element* element)
     // Short inspectors can opt into centering so the whole input, including
     // its border, stays clear of the pane edge. Other controls keep nearest.
     const auto alignment = element->GetAttribute<Rml::String>("data-focus-scroll", "");
-    if (alignment != "none")
+    if (alignment != "none") {
+        // Pinned6.3's instant ScrollIntoView does not retire an active wheel
+        // controller. Cancel that target through a zero-distance Auto scroll
+        // before positioning focus, otherwise the next Update can move the
+        // focused control back outside its clipped viewport.
+        if (auto* scroller = element->GetClosestScrollableContainer())
+            scroller->ScrollTo({scroller->GetScrollLeft(), scroller->GetScrollTop()}, Rml::ScrollBehavior::Auto);
         element->ScrollIntoView(Rml::ScrollIntoViewOptions(
             alignment == "center" ? Rml::ScrollAlignment::Center : Rml::ScrollAlignment::Nearest));
+    }
     g_text_input.InvalidateCaret(); // scrolling follows ShowCursor/ActivateKeyboard
 
 }
@@ -981,9 +988,14 @@ PP_EXPORT int pp_rmlui_key(int key, int down, int modifiers)
     if (converted == Rml::Input::KI_UNKNOWN) return 0;
     DirtyVisual();
     if (down) g_text_input.ExternalMutation(nullptr, true); // caret/selection/delete/paste/cut; no text cache
+    auto* previous_focus = g_context->GetFocusElement();
     const bool propagated = down
         ? g_context->ProcessKeyDown(converted, ConvertModifiers(modifiers))
         : g_context->ProcessKeyUp(converted, ConvertModifiers(modifiers));
+    // Keyboard and gamepad Tab navigation use the same wheel-retirement fence
+    // as explicit managed/accessibility focus, without changing wheel motion.
+    if (down && previous_focus != g_context->GetFocusElement())
+        if (auto* focused = g_context->GetFocusElement()) ScrollFocusedElement(focused);
     return propagated ? 1 : 0;
 }
 
