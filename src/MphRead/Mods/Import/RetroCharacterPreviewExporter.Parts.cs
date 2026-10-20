@@ -43,7 +43,7 @@ public static partial class RetroCharacterPreviewExporter
             + (part.State == ImportBundleState.Ready || inspection.ComponentStates == null ? "" : " (" + string.Join(", ", part.Components
                 .Where(c => c.State != ImportBundleState.Ready).Select(c => c.Role + " v" + c.Version + " " + c.State)) + ")")));
         return id + ": " + inspection.State + ". " + parts + ". " + inspection.Message
-            + ". Authoring only; materials, first-person and runtime animation/morph are unqualified.";
+            + ". Authoring only; full source animation resources are retained for Echoes; materials, first-person and playable animation/morph remain unqualified.";
     }
 
     private static SourceCharacter Source(string id) => Sources.SingleOrDefault(s => s.Id == id)
@@ -53,8 +53,8 @@ public static partial class RetroCharacterPreviewExporter
     public static IReadOnlyList<SourcePart> PartsFor(string id)
     {
         SourceCharacter source = Source(id);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, 1);
-        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball } : new[] { body });
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 2 : 1);
+        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 2 } } : new[] { body });
     }
 
     public static string PartStem(string id, string part)
@@ -67,13 +67,18 @@ public static partial class RetroCharacterPreviewExporter
     private static AuthoringComponent[] RequiredPartComponents(string id, string part)
     {
         string stem = PartStem(id, part);
-        return new[]
+        var legacy = new[]
         {
             new AuthoringComponent("geometry", 1, stem + ".obj"),
             new AuthoringComponent("rig", 1, stem + ".skeleton.json"),
             new AuthoringComponent("weights", 1, stem + ".weights.json"),
             new AuthoringComponent("motion-samples", 1, stem + ".motions.json")
         };
+        return Source(id).Game == ExternalGameKind.Echoes ? legacy.Concat(new[]
+        {
+            new AuthoringComponent("skeleton-source", 1, stem + ".cinf.bin"),
+            new AuthoringComponent("animation-resources", 1, stem + ".animations.bin")
+        }).ToArray() : legacy;
     }
 
     /// <summary>Receipt describes complete authoring parts, never gameplay readiness.</summary>
@@ -90,10 +95,10 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        string recipe = $"retro-character-preview-v2:{spec.Id}:{spec.Game}:parts-index-v1:"
+        string recipe = $"retro-character-preview-v3:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
-                $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-optional-part-graph"));
-        return new(spec.Id, 2, HashRecipe(recipe), fingerprint,
+                $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-optional-part-graph"));
+        return new(spec.Id, 3, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
     }
@@ -102,14 +107,15 @@ public static partial class RetroCharacterPreviewExporter
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static AuthoringPart WritePart(SourceCharacter spec, SourcePart part, string gameId,
-        string staging, string root, Func<uint, byte[]> resource, List<(string Temp, string Final)> staged)
+        string staging, string root, Func<uint, byte[]> resource, List<(string Temp, string Final)> staged, System.Threading.CancellationToken cancellation)
     {
         string stem = PartStem(spec.Id, part.Id);
         byte[] ancsBytes = resource(part.Ancs);
         RetroCharacterRefs refs = RetroCharacterSource.FindCharacter(ancsBytes, part.NativeName);
         if (refs.Cmdl == 0 || refs.Cskr == 0 || refs.Cinf == 0)
             throw new InvalidDataException("Incomplete Retro source part references: " + stem);
-        RetroNativeSkeleton skeleton = RetroCharacterSource.ReadSkeleton(resource(refs.Cinf));
+        byte[] cinfBytes = resource(refs.Cinf);
+        RetroNativeSkeleton skeleton = RetroCharacterSource.ReadSkeleton(cinfBytes);
         Cmdl model = Cmdl.Load(resource, refs.Cmdl, refs.Cskr);
         if (model.PositionCount < 3 || model.TriangleCount < 1 || model.PositionCount > MaxVertices
             || model.TriangleCount > MaxTriangles || model.Skin?.Count != model.PositionCount)
@@ -161,11 +167,22 @@ public static partial class RetroCharacterPreviewExporter
             File.WriteAllBytes(Path.Combine(staging, graphName), graph.Descriptor);
             File.WriteAllBytes(Path.Combine(staging, rawName), graph.SourceSnapshot);
             Stage(graphName); Stage(rawName);
+            if (spec.Game == ExternalGameKind.Echoes)
+            {
+                string cinfName = stem + ".cinf.bin", animationName = stem + ".animations.bin";
+                File.WriteAllBytes(Path.Combine(staging, cinfName), cinfBytes); Stage(cinfName);
+                byte[] archive = RetroCharacterAnimationArchive.Build(graph, cinfBytes, echoes: true, resource, cancellation);
+                File.WriteAllBytes(Path.Combine(staging, animationName), archive); Stage(animationName);
+            }
             motion = motion with { SourceGraphProof = new(1, graphName,
                 RetroAnimationGraphProof.Sha(graph.Descriptor), rawName, part.Ancs,
                 graph.Metadata.SourceAncsSha256, graph.Metadata.SourceAncsBytes) };
         }
-        else motion = motion with { SourceGraphAbsence = "animation-set-absent" };
+        else
+        {
+            if (spec.Game == ExternalGameKind.Echoes) throw new InvalidDataException("Required Echoes animation source set is absent.");
+            motion = motion with { SourceGraphAbsence = "animation-set-absent" };
+        }
         string motionName = stem + ".motions.json";
         File.WriteAllText(Path.Combine(staging, motionName), JsonSerializer.Serialize(motion));
         if (new FileInfo(Path.Combine(staging, motionName)).Length > RetroMotionPreview.MaxAnimationResourceBytes)

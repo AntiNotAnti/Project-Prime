@@ -45,7 +45,7 @@ public static class RetroMotionPreview
             byte[] raw = resource(id);
             if (raw.Length is < 4 or > MaxAnimationResourceBytes)
                 throw new InvalidDataException("Retro ANIM resource is outside preview budget.");
-            return Anim.Load(raw, echoes);
+            return Anim.LoadBounded(raw, echoes);
         });
     }
 

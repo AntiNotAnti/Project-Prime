@@ -33,7 +33,12 @@ internal sealed class CharacterSourceGraphProof
  private static void Require(bool c,string reason){if(!c)throw new InvalidDataException(reason);}
  internal static void RequireQualified(RetroAnimationGraphProof.Document doc,string modelSha)
  {
-  Require(modelSha==CharacterSourceCannonRecipe.QualifiedBodySha256&&doc.Format==1&&doc.SourceGameId=="G2ME01"&&doc.SourceAncsId==0x39900a11
+  Require(modelSha==CharacterSourceCannonRecipe.QualifiedBodySha256,"Only the exact original graph-bound body is qualified");
+  RequireQualifiedSource(doc);
+ }
+ internal static void RequireQualifiedSource(RetroAnimationGraphProof.Document doc)
+ {
+  Require(doc.Format==1&&doc.SourceGameId=="G2ME01"&&doc.SourceAncsId==0x39900a11
    &&doc.SourceAncsSha256==QualifiedAncsSha256&&doc.SourceAncsBytes==70744&&doc.SourceCharacterId=="darksamus-echoes"&&doc.SourceCharacterName=="Dark_Samus"
    &&doc.Roots.Length==76&&doc.Nodes.Length==87&&doc.Nodes.Count(n=>n.Type==0)==79&&doc.FullTransitions.Length==4&&doc.HalfTransitions.Length==6&&doc.TransitionNodes.Length==11
    &&doc.SourceSnapshotFile=="darksamus-echoes.ancs.bin"&&!doc.NamedGraphSemanticsAccepted,"Only exact retained Echoes source graph proof is qualified; no evaluator");
