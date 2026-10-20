@@ -25,7 +25,9 @@ EXPORTS = ("pp_rmlui_initialize", "pp_rmlui_shutdown", "pp_rmlui_update", "pp_rm
            "pp_rmlui_document_count", "pp_rmlui_take_intent", "pp_rmlui_draw_command_count",
            "pp_rmlui_text_input_state", "pp_rmlui_composition", "pp_rmlui_text_selection_utf16",
            "pp_rmlui_document_accessibility_snapshot", "pp_rmlui_accessibility_action", "pp_rmlui_accessibility_set_text",
-           "pp_rmlui_set_clipboard", "pp_rmlui_read_clipboard", "pp_rmlui_draw_geometry_count")
+           "pp_rmlui_set_clipboard", "pp_rmlui_read_clipboard", "pp_rmlui_draw_geometry_count",
+           "pp_rmlui_canvas_version", "pp_rmlui_canvas_acquire", "pp_rmlui_canvas_textures",
+           "pp_rmlui_canvas_frame", "pp_rmlui_canvas_state", "pp_rmlui_canvas_release", "pp_rmlui_draw_texture_sampling")
 NAMES = {"win-x64": "ProjectPrime.RmlUi.Native.dll", "linux-x64": "libProjectPrime.RmlUi.Native.so",
          "osx-arm64": "libProjectPrime.RmlUi.Native.dylib", "osx-x64": "libProjectPrime.RmlUi.Native.dylib",
          "android-arm64": "libProjectPrime.RmlUi.Native.so", "android-x64": "libProjectPrime.RmlUi.Native.so"}

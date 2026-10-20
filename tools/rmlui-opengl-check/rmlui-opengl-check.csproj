@@ -6,10 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Match the opt-in contract of this test and its game reference. -->
     <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
-    <MphReadReplayPreviewFailureFixture>true</MphReadReplayPreviewFailureFixture>
+    <MphReadReplayPreviewFailureFixture Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'">true</MphReadReplayPreviewFailureFixture>
+    <!-- Focused canvas acceptance runs against the normal shipping DLL. The full
+         replay harness separately requires its explicit failure-injection build. -->
+    <EnableDefaultCompileItems Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="CanvasProgram.cs" Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
+    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
     <ProjectReference Include="../../src/MphRead/MphRead.csproj"
-                      AdditionalProperties="MphReadRmlUiGlSmoke=true;MphReadReplayPreviewFailureFixture=true" />
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true;MphReadReplayPreviewFailureFixture=true"
+                      Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj"
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true"
+                      Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
   </ItemGroup>
 </Project>

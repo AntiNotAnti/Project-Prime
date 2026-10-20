@@ -5,6 +5,14 @@ using System.Runtime.InteropServices;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
 
+[StructLayout(LayoutKind.Sequential)]
+internal struct RmlUiTextureSampling
+{
+    internal uint Size, Version, Filter, WrapS, WrapT, Flags;
+    internal static RmlUiTextureSampling Request() => new() { Size = 24, Version = 1 };
+    internal bool Valid => Size == 24 && Version == 1 && Filter <= 1 && WrapS <= 1 && WrapT <= 1 && Flags <= 1;
+}
+
 // ABI 1 follows the pinned RmlUi 6.3 RenderInterface. RmlUi vertices and
 // generated RGBA textures already contain premultiplied, display-encoded color.
 internal enum RmlUiDrawCommandKind : uint
@@ -67,11 +75,14 @@ internal sealed class RmlUiDrawTexture
     internal int Width { get; }
     internal int Height { get; }
     internal byte[] Pixels { get; }
-    internal RmlUiDrawTexture(int width, int height, byte[] pixels)
+    internal RmlUiTextureSampling? Sampling { get; }
+    internal RmlUiDrawTexture(int width, int height, byte[] pixels, RmlUiTextureSampling? sampling = null)
     {
         if (width <= 0 || height <= 0 || checked((long)width * height * 4) != pixels.Length)
             throw new InvalidOperationException("RmlUi draw texture must contain tightly packed premultiplied RGBA pixels.");
-        Width = width; Height = height; Pixels = pixels;
+        if (sampling is { } policy && (!policy.Valid || policy.Flags != 1))
+            throw new InvalidOperationException("RmlUi canvas texture sampling is invalid.");
+        Width = width; Height = height; Pixels = pixels; Sampling = sampling;
     }
 }
 

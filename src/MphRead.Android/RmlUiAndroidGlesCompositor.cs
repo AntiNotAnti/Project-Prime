@@ -87,6 +87,13 @@ void main() { o_color = texture(u_image, v_uv); }";
         var state = new RmlUiAndroidGlesState();
         try
         {
+            // Explicit canvas texture-object sampling must not be overridden by an inherited unit0 sampler.
+            // Normalize upload state for tightly packed UI images; the shared pass snapshot restores it all.
+            GLES30.GlBindSampler(0, 0);
+            GLES30.GlBindBuffer(GLES30.GlPixelUnpackBuffer, 0);
+            GLES30.GlPixelStorei(GLES30.GlUnpackRowLength, 0);
+            GLES30.GlPixelStorei(GLES30.GlUnpackSkipRows, 0);
+            GLES30.GlPixelStorei(GLES30.GlUnpackSkipPixels, 0);
             if (_generation != frame.Generation)
             {
                 ReleaseCachedGeometryAndTextures();
@@ -301,6 +308,13 @@ void main() { o_color = texture(u_image, v_uv); }";
             GLES30.GlActiveTexture(GLES30.GlTexture0);
             GLES30.GlBindTexture(GLES30.GlTexture2d, texture);
             TextureParameters();
+            if (source.Sampling is { } sampling)
+            {
+                GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureMinFilter, sampling.Filter == 0 ? GLES30.GlNearest : GLES30.GlLinear);
+                GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureMagFilter, sampling.Filter == 0 ? GLES30.GlNearest : GLES30.GlLinear);
+                GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureWrapS, sampling.WrapS == 0 ? GLES30.GlClampToEdge : GLES30.GlRepeat);
+                GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureWrapT, sampling.WrapT == 0 ? GLES30.GlClampToEdge : GLES30.GlRepeat);
+            }
             GLES30.GlPixelStorei(GLES30.GlUnpackAlignment, 1);
             using (ByteBuffer pixels = Direct(source.Pixels))
                 GLES30.GlTexImage2D(GLES30.GlTexture2d, 0, GLES30.GlRgba,

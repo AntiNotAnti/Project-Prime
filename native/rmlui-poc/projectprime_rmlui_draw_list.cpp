@@ -11,7 +11,7 @@ namespace {
 uint64_t g_resource_id = 0;
 constexpr size_t MaxTextureBytes = 64 * 1024 * 1024;
 struct Geometry { std::vector<Rml::Vertex> vertices; std::vector<int32_t> indices; };
-struct Texture { Rml::Vector2i dimensions; std::vector<uint8_t> pixels; };
+struct Texture { Rml::Vector2i dimensions; std::vector<uint8_t> pixels; PrimeTextureSampling sampling; };
 static_assert(sizeof(Rml::Vertex) == 20, "Draw-list vertex ABI changed");
 static_assert(sizeof(int) == sizeof(int32_t), "Draw-list index ABI changed");
 
@@ -118,6 +118,20 @@ public:
             retired_textures.emplace(texture, std::move(found->second));
         textures.erase(found);
         ++resource_revision;
+    }
+    Rml::TextureHandle CreateCanvasTexture(const uint8_t* pixels, int width, int height, const PrimeTextureSampling& sampling) override
+    {
+        if (!pixels || width <= 0 || height <= 0 || width > 512 || height > 512) return 0;
+        const auto handle = GenerateTexture({pixels, size_t(width) * size_t(height) * 4}, {width, height});
+        if (handle) textures.at(handle).sampling = sampling;
+        return handle;
+    }
+    bool ReadTextureSampling(uint64_t handle, PrimeTextureSampling& sampling) const override
+    {
+        auto live = textures.find(handle), retired = retired_textures.find(handle);
+        const auto* texture = live != textures.end() ? &live->second : retired != retired_textures.end() ? &retired->second : nullptr;
+        if (!texture) return false;
+        sampling = texture->sampling; return true;
     }
     void EnableScissorRegion(bool enabled) override { Add(PrimeDrawCommandKind::ScissorEnable).enabled = enabled ? 1 : 0; }
     void SetScissorRegion(Rml::Rectanglei region) override

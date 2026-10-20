@@ -8,6 +8,7 @@ static void Require(bool condition, string message)
 }
 
 ApplicationHeaderCheck.Run(Require);
+CanvasOwnerChecks.Run();
 
 Require(Marshal.SizeOf<RmlUiNativeIntent>() == RmlUiIntentRegistry.NativeIntentSize, "ABI structure size changed");
 var protocolProbe = new FakeBridge();
@@ -674,7 +675,7 @@ if (args.Length != 0)
     ManagedHostCheck.Run(args[1], args[2]);
 }
 
-sealed class FakeBridge : IRmlUiNativeBridge
+sealed partial class FakeBridge : IRmlUiNativeBridge
 {
     public bool Legacy;
     public bool ThrowOnShutdown;

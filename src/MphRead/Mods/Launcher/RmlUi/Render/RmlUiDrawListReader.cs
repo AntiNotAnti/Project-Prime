@@ -14,6 +14,7 @@ internal sealed unsafe class RmlUiDrawListReader
     private ulong _generation;
     private ulong _visualRevision;
     private bool? _updateStatusAbi;
+    private bool? _canvasSamplingAbi;
     private RmlUiDrawListFrame? _frame;
     internal long CaptureRequests { get; private set; }
     internal long CapturedFrames { get; private set; }
@@ -51,6 +52,10 @@ internal sealed unsafe class RmlUiDrawListReader
     private static extern int TextureCount();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_draw_texture")]
     private static extern int Texture(int index, ref NativeTexture texture);
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_version")]
+    private static extern uint CanvasVersion();
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_draw_texture_sampling")]
+    private static extern int TextureSampling(ulong generation, ulong handle, ref RmlUiTextureSampling sampling);
 
     internal RmlUiDrawListFrame Capture()
     {
@@ -117,8 +122,9 @@ internal sealed unsafe class RmlUiDrawListReader
             usedTextures.Add(native.Handle);
             if (_textures.ContainsKey(native.Handle)) continue;
             int bytes = checked((int)(native.Width * native.Height * 4));
+            var sampling = ReadSampling(generation, native.Handle);
             _textures.Add(native.Handle, new RmlUiDrawTexture((int)native.Width, (int)native.Height,
-                new ReadOnlySpan<byte>((void*)native.Pixels, bytes).ToArray()));
+                new ReadOnlySpan<byte>((void*)native.Pixels, bytes).ToArray(), sampling));
         }
         foreach (RmlUiDrawCommand command in commands)
             if (command.Kind == RmlUiDrawCommandKind.Geometry && command.Texture != 0 && !usedTextures.Contains(command.Texture))
@@ -131,6 +137,24 @@ internal sealed unsafe class RmlUiDrawListReader
         return frame;
     }
 
+    private RmlUiTextureSampling? ReadSampling(ulong generation, ulong handle)
+    {
+        if (_canvasSamplingAbi == null)
+        {
+            try
+            {
+                uint version = CanvasVersion();
+                if (version != 1) throw new NotSupportedException("Unsupported native canvas sampling ABI.");
+                _canvasSamplingAbi = true;
+            }
+            catch (EntryPointNotFoundException) { _canvasSamplingAbi = false; }
+        }
+        if (_canvasSamplingAbi == false) return null; // Earlier bridge has no canvas resources.
+        var sampling = RmlUiTextureSampling.Request();
+        if (TextureSampling(generation, handle, ref sampling) == 0 || !sampling.Valid)
+            throw new InvalidOperationException("Native canvas texture sampler metadata is invalid.");
+        return sampling.Flags == 1 ? sampling : null;
+    }
     private bool TryUpdateStatus(out RmlUiNativeUpdateState status)
     {
         status = RmlUiNativeUpdateState.Request();

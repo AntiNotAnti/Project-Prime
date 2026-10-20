@@ -58,7 +58,7 @@ if (args.Length == 1 && args[0] == "--studio-owner")
     return 0;
 }
 
-if (args.Length is < 1 or > 3 || (args.Length >= 2 && args[1] is not ("--startup" or "--random-match" or "--license" or "--license-card" or "--offline-rules" or "--ingame" or "--party" or "--social-invites" or "--input" or "--playback" or "--map-preview" or "--campaign-ending" or "--campaign-ship" or "--native-hunters" or "--map-picker" or "--lobby-interactions" or "--community-import" or "--community-host-gl" or "--community-report" or "--community-library" or "--community-history" or "--community-transfers" or "--community-publish" or "--studio-workspace" or "--studio-editor" or "--studio-build" or "--party-queue" or "--adventure-saves" or "--adventure-save-work" or "--lobby-restoration"))
+if (args.Length is < 1 or > 3 || (args.Length >= 2 && args[1] is not ("--canvas" or "--startup" or "--random-match" or "--license" or "--license-card" or "--offline-rules" or "--ingame" or "--party" or "--social-invites" or "--input" or "--playback" or "--map-preview" or "--campaign-ending" or "--campaign-ship" or "--native-hunters" or "--map-picker" or "--lobby-interactions" or "--community-import" or "--community-host-gl" or "--community-report" or "--community-library" or "--community-history" or "--community-transfers" or "--community-publish" or "--studio-workspace" or "--studio-editor" or "--studio-build" or "--party-queue" or "--adventure-saves" or "--adventure-save-work" or "--lobby-restoration"))
     || !File.Exists(Path.Combine(args[0], "prime_home.rml")))
     throw new ArgumentException("Pass --replay-files or --studio-owner for headless acceptance, or the RmlUi asset directory containing prime_home.rml, optionally followed by --startup, --random-match, --license, --license-card, --offline-rules, --ingame, --party, --social-invites, --input, --playback, --map-preview, --campaign-ending, --campaign-ship, --native-hunters, --map-picker, --lobby-interactions, --community-import, --community-host-gl, --community-report, --community-library, --community-history, --community-transfers, --community-publish, --studio-workspace or --studio-editor or --studio-build, --party-queue or --adventure-saves, --adventure-save-work or --lobby-restoration [WIDTHxHEIGHT].");
 
@@ -99,6 +99,12 @@ Console.WriteLine($"RMLUI GL DENSITY {density.ToString(CultureInfo.InvariantCult
 using var host = new RmlUiHost();
 Check(host.Initialize(width, height, density, Path.GetFullPath(args[0]), RmlUiRenderBackend.OpenGl),
     "native GL2 bridge and document initialize");
+
+if (args.Length >= 2 && args[1] == "--canvas")
+{
+    CanvasGlAcceptance.Run(host, width, height, Path.GetFullPath(args[0]));
+    return 0;
+}
 
 if (args.Length >= 2 && args[1] == "--startup")
 {
