@@ -25,3 +25,19 @@ Do not count artifact removal as an unprofiled game FPS or photon-latency gain.
 Rollback: revert this PR; `-late-provenance-control` retains the original timing
 only as a diagnostic reproduction. Earlier raw runs and the stopped pre-soak
 protocol attempt remain preserved with explicit exclusions.
+
+## Windows same-binary result
+
+All ten arms completed with one loaded client/harness MVID pair, zero telemetry
+loss, zero dropped simulation steps and no focus transitions. Late controls have
+40.3277 ms median maximum boundary gap; early identity has 1.148 ms. This verifies
+removal of the known diagnostic artifact. It is not an unprofiled game-FPS gain.
+Progress queries summarized completed captures in two windows, so these arms
+must not qualify general renderer performance. The independent sustained run uses
+only lightweight progress/process observations.
+
+The [receipt index](evidence/provenance-controls/index.json) includes every arm,
+source/binary identities, raw SHA-256 and compressed receipts. Each gzip restores
+the original bytes; PowerShell stdout logs retain UTF-16. No game images/assets
+are included. The corrected 30-minute campaign uses the same frozen source and
+records its own functional/performance limits separately.
