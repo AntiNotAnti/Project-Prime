@@ -14,7 +14,7 @@ The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
 Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
-current main advanced to 66 through concurrent custom-weapon work in PR816.
+current main advanced to 67 through concurrent custom-weapon work in PR819.
 Our slices add no wire change.
 
 ## Completed and merged slices
