@@ -30,6 +30,7 @@ internal static partial class EditorGlAcceptance
         using var page=new TheatrePlaybackPagePresenter(host,pages,transport,camera:camera,exports:exports,editor:editor);
         host.Input.SetFramebufferScale(1,1);page.Open();var document=page.Document;
         if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_TOUCH")=="1")host.SetBool(document,"class:@document:touch-targets",true);
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_LARGE_TEXT")=="1")host.SetBool(document,"class:@document:large-text",true);
         var metrics=new TimelineMetrics(width,height,width,height,density);
         var captures=new List<object>();TimelineRenderTicket? presented=null;string timelineDiagnostic="";int timelineDiagnosticCount=0;Settle();
         Check(pages.PageKey=="studio-workspace"&&pages.Top==document&&pages.ModalCount==0,"actual persistent workspace owns one native page without an editor modal");
@@ -65,15 +66,21 @@ internal static partial class EditorGlAcceptance
         Scroll("studio_inspector_scroll",1000);Settle();
         // The timeline is independently scrollable: lower tracks remain bounded
         // and only actually visible marker boxes enter the successful-picture ticket.
+        bool wholePanelScroll=(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_TOUCH")=="1"||Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_LARGE_TEXT")=="1")&&height/density<=400;
+        string timelineScroll=wholePanelScroll?"replay_timeline_panel":"replay_timeline_surface";
         var surface=Bounds("replay_timeline_surface");var cameraTrack=Bounds("replay_timeline_camera");var lowerBefore=Bounds("replay_timeline_exportrange");
-        Check(surface.Inside(Bounds("studio_timeline"))&&surface.Height>8,"timeline has an actual bounded vertical scroll surface");
-        Scroll("replay_timeline_surface",-1000);Settle();var lowerAfter=Bounds("replay_timeline_exportrange");
-        Check(lowerAfter.Y<=lowerBefore.Y&&lowerAfter.Y+lowerAfter.Height<=surface.Y+surface.Height+2&&lowerAfter.Y>=surface.Y-2,"native timeline vertical scroll exposes the final export-range track without covering transport");
-        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,Presented=presented},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
-        Check(presented!=null&&presented.Clip.Inside(surface)&&presented.Lanes.All(row=>row.Box.Inside(presented.Clip))&&presented.Lanes.Any(row=>row.Id.StartsWith("replay_timeline_exportrange_",StringComparison.Ordinal)),"actual presented timeline ticket authorizes only markers inside its visible scroll clip");
-        if(lowerBefore.Y+lowerBefore.Height>surface.Y+surface.Height+2)
+        var panel=Bounds("replay_timeline_panel");
+        File.WriteAllText(Path.Combine(output,"timeline-initial-bounds.json"),JsonSerializer.Serialize(new{WholePanelScroll=wholePanelScroll,Surface=surface,Panel=panel,Timeline=Bounds("studio_timeline")},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+        Check((wholePanelScroll?panel:surface).Inside(Bounds("studio_timeline"))&&surface.Height>8,"timeline has an actual bounded vertical scroll owner");
+        Scroll(timelineScroll,-1000);Settle();var lowerAfter=Bounds("replay_timeline_exportrange");surface=Bounds("replay_timeline_surface");panel=Bounds("replay_timeline_panel");
+        var visibleSurface=new TimelineBox(Math.Max(surface.X,panel.X),Math.Max(surface.Y,panel.Y),Math.Min(surface.X+surface.Width,panel.X+panel.Width)-Math.Max(surface.X,panel.X),Math.Min(surface.Y+surface.Height,panel.Y+panel.Height)-Math.Max(surface.Y,panel.Y));
+        File.WriteAllText(Path.Combine(output,"timeline-scrolled-bounds.json"),JsonSerializer.Serialize(new{ScrollOwner=timelineScroll,Surface=surface,Panel=panel,VisibleSurface=visibleSurface,LowerBefore=lowerBefore,LowerAfter=lowerAfter,Presented=presented},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+        Check(lowerAfter.Y<=lowerBefore.Y&&lowerAfter.Y+lowerAfter.Height<=visibleSurface.Y+visibleSurface.Height+2&&lowerAfter.Y>=visibleSurface.Y-2,"native timeline vertical scroll exposes the final export-range track without covering transport");
+        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,VisibleSurface=visibleSurface,Presented=presented},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
+        Check(presented!=null&&presented.Clip.Inside(visibleSurface)&&presented.Lanes.All(row=>row.Box.Inside(presented.Clip))&&presented.Lanes.Any(row=>row.Id.StartsWith("replay_timeline_exportrange_",StringComparison.Ordinal)),"actual presented timeline ticket authorizes only markers inside its visible scroll clip");
+        if(lowerBefore.Y+lowerBefore.Height>visibleSurface.Y+visibleSurface.Height+2)
             Check(lowerAfter.Y<lowerBefore.Y&&Bounds("replay_timeline_camera").Y<cameraTrack.Y,"overflowing compact timeline actually scrolls its track stack");
-        Layout("scrolled timeline");Capture("timeline-lower-tracks");Scroll("replay_timeline_surface",1000);
+        Layout("scrolled timeline");Capture("timeline-lower-tracks");Scroll(timelineScroll,1000);
         Click("studio_settings","workspace-settings");Check(page.TryTakeStudioSettingsRequest()&&!page.TryTakeStudioSettingsRequest()&&pages.Top==document,"always-visible native Settings emits one workspace request without retiring owners");
         Layout("settings request");
         Check(editor.Commits==0&&camera.Writes==0&&exports.Enqueues==0&&!DemoPlayback.IsActive,"synthetic workspace interaction wrote no recording metadata and opened no replay");

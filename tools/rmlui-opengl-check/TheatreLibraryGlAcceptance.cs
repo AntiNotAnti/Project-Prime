@@ -26,8 +26,22 @@ internal static class TheatreLibraryGlAcceptance
         using var controller=new RmlUiMenuController(new FixtureServices());using var manager=new RmlUiPageManager(host);using var layout=new RmlUiLauncherPages(host,manager);
         host.Input.SetFramebufferScale(1,1);long presented=0;int checks=0;
         Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Theatre),"production Theatre route opens");
-        Settle(350);Check(Text("theatre_summary").StartsWith("18 MATCHING"),"all injected rows reach real library owner");Capture("initial");
+        Settle(350);
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_TOUCH")=="1")host.SetBool(layout.Document,"class:@document:touch-targets",true);
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_LARGE_TEXT")=="1")host.SetBool(layout.Document,"class:@document:large-text",true);
+        Settle(100);Check(Text("theatre_summary").StartsWith("18 MATCHING"),"all injected rows reach real library owner");Capture("initial");
         File.WriteAllText(Path.Combine(output,"initial-bounds.json"),JsonSerializer.Serialize(new[]{"theatre_results","theatre_summary","theatre_empty","theatre_entry0","theatre_selected_scroll","theatre_error","theatre_launch_problem"}.Select(id=>{bool visible=host.TryGetElementBounds(layout.Document,id,out float x,out float y,out float w,out float h);return new{id,visible,x,y,width=w,height=h};}),new JsonSerializerOptions{WriteIndented=true}));
+        var headerBoxes=new List<(string Id,float X,float Y,float W,float H)>();
+        foreach(string id in new[]{"nav_play","nav_hunters","nav_community","nav_theatre","nav_studio","profile","header_settings"})
+        {
+            Check(Inside(id)&&Within(id,"topbar"),"compact native header control remains fully visible: "+id);
+            host.TryGetElementBounds(layout.Document,id,out float x,out float y,out float w,out float h);headerBoxes.Add((id,x,y,w,h));
+        }
+        for(int a=0;a<headerBoxes.Count;a++)for(int b=a+1;b<headerBoxes.Count;b++)
+        {
+            var first=headerBoxes[a];var second=headerBoxes[b];
+            Check(!(first.X<second.X+second.W-.5f&&first.X+first.W>second.X+.5f&&first.Y<second.Y+second.H-.5f&&first.Y+first.H>second.Y+.5f),"compact native header controls do not overlap: "+first.Id+" / "+second.Id);
+        }
         Check(Within("theatre_entry0","theatre_results"),"at least one complete archive row is initially visible inside results");
         foreach(string id in new[]{"theatre_empty","theatre_error","theatre_launch_problem"})Check(!host.TryGetElementBounds(layout.Document,id,out _,out _,out _,out _),"empty notice has no layout box: "+id);
         foreach(string id in new[]{"theatre_watch","theatre_studio"}) Check(Inside(id),"primary action initially visible: "+id);

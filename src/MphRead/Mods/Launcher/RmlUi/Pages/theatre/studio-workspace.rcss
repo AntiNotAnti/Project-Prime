@@ -92,8 +92,10 @@
  .touch-targets #studio_workspace #studio_timeline { height:72dp; min-height:64dp; }
  /* On the shortest touch viewport the timeline scrolls as a whole, so its
     toolbar cannot consume the entire track area. Every lane remains reachable. */
- .touch-targets #studio_workspace #replay_timeline_panel { overflow-y:auto; }
- .touch-targets #studio_workspace #replay_timeline_surface { flex:0 0 auto; overflow-y:visible; }
+ .touch-targets #studio_workspace #replay_timeline_panel,
+ .large-text #studio_workspace #replay_timeline_panel { overflow-y:auto; }
+ .touch-targets #studio_workspace #replay_timeline_surface,
+ .large-text #studio_workspace #replay_timeline_surface { flex:0 0 auto; overflow-y:visible; }
 }
 
 #studio_transport_controls { display:flex; flex-direction:column; }

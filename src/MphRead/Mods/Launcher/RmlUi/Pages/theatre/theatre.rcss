@@ -160,3 +160,21 @@
     .theatre_pagination span { width: auto; margin: 0 4dp; }
     .theatre_pagination { flex-wrap: nowrap; }
 }
+
+/* At 640dp the archive can retain 16dp navigation in one row. Reserving two
+   header rows left almost no collection when large text and touch were paired.
+   These overrides belong to Theatre documents, not the game shell globally. */
+@media (min-width:600dp) and (max-width:640dp) and (max-height:440dp) {
+ body.large-text #screen #topbar { height:64dp; }
+ body.large-text #screen #top_rule { top:64dp; }
+ body.large-text #screen #stage { top:65dp; }
+ body.large-text #screen #brand { display:none; }
+ body.large-text #screen.studio-application #brand { display:flex; position:relative; top:auto; left:auto; }
+ body.large-text #screen #primary_nav { position:relative; left:auto; right:auto; bottom:auto; height:100%; flex:1; min-width:0; }
+ body.large-text #screen #primary_nav .nav { line-height:60dp; font-size:16dp; }
+ body.large-text #screen #account_cluster { position:relative; right:auto; top:auto; flex:0 0 auto; }
+ body.large-text #screen .utility { min-height:48dp; padding:6dp 8dp; line-height:20dp; }
+ body.large-text #screen #profile { min-width:64dp; max-width:84dp; white-space:nowrap; }
+ body.large-text #theatre_page { padding:4dp; }
+ body.large-text .theatre_library { width:70%; }
+}

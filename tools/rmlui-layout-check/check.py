@@ -524,6 +524,10 @@ def run_cpu(bridge, assets):
                             seed(bridge, doc, path, large_text=True)
                             bridge.update()
                             row['large_text_checks'] = geometry_checks(bridge, doc, path, width, height, density)
+                            if path in ['pages/theatre/library.rml', 'pages/theatre/studio-workspace.rml', 'pages/ingame/journal.rml']:
+                                seed(bridge, doc, path, touch=True, large_text=True)
+                                bridge.update()
+                                row['combined_accessibility_checks'] = geometry_checks(bridge, doc, path, width, height, density, touch=True)
                 except Exception as error:
                     row['error'] = repr(error)
                 finally:
@@ -680,7 +684,7 @@ def main():
         bridge = Bridge(library)
         report['inventory'], report['cases'] = run_cpu(bridge, assets)
         checks = [check for case in report['cases'] for page in case['pages']
-                  for group in ['checks', 'touch_checks', 'large_text_checks'] for check in page.get(group, [])]
+                  for group in ['checks', 'touch_checks', 'large_text_checks', 'combined_accessibility_checks'] for check in page.get(group, [])]
         report['summary'] = dict(documents=len(report['inventory']), cases=len(report['cases']),
                                  checks=len(checks), failures=sum(not c['passed'] for c in checks),
                                  initialization_failures=sum(not c['initialized'] for c in report['cases']),
