@@ -33,12 +33,13 @@ internal static class KillCam
     private static KillcamContext Context(Scene? scene)
     {
         int local = NetHooks.LocalSlot;
+        bool supported = !CustomReplayBoundary.IsBlocked(scene);
         return new(NetSession.CurrentMatchId, NetSession.AuthorityEpoch, NetSession.NetFrame, local,
             NetPlayerLifecycle.Generation(local), NetPlayerLifecycle.Get(local),
             scene != null && (uint)local < (uint)scene.Players.Items.Count && scene.Players.Items[local] is { Health: > 0 },
             NetSession.Active && !DemoPlayback.IsActive,
-            LauncherPrefs.KillCamEnabled && !Headless.Active && !SpectatorMode.IsSpectating,
-            LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
+            supported && LauncherPrefs.KillCamEnabled && !Headless.Active && !SpectatorMode.IsSpectating,
+            supported && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
     }
     internal static void NoteKill(ReplayMarker marker, uint recordingFrame)
     {
@@ -52,6 +53,7 @@ internal static class KillCam
 
     internal static void AfterSimulation(Scene scene)
     {
+        if (CustomReplayBoundary.IsBlocked(scene)) { Reset(); return; }
         _live = scene;
         if (Interlocked.Exchange(ref _skipRequested, 0) != 0) { Controller.Skip(); _releaseFire = true; }
         if (_finalRequested && scene.GameState.MatchTime <= 0)
@@ -100,7 +102,7 @@ internal static class KillCam
         || IsFinal && Controller.State != KillcamState.AwaitCompletion;
     internal static bool BeginFinal(uint authoritativeEndFrame)
     {
-        _finalRequested = NetSession.Active && LauncherPrefs.FinalKillCamEnabled;
+        _finalRequested = !CustomReplayBoundary.IsBlocked() && NetSession.Active && LauncherPrefs.FinalKillCamEnabled;
         _finalRequestedFrame = authoritativeEndFrame;
         _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;
     }
@@ -134,6 +136,7 @@ internal static class KillCam
     }
     internal static Scene? Presentation(Scene live)
     {
+        if (CustomReplayBoundary.IsBlocked(live)) { Reset(); return null; }
         if (live.Services.IsReplica || !ReferenceEquals(live, _live)) return null;
         if (!NetSession.Active) { Controller.Reset(KillcamEndReason.Disconnected); return null; }
         if (Controller.Playing?.Kill is { } kill && (kill.MatchId != NetSession.CurrentMatchId || kill.AuthorityEpoch != NetSession.AuthorityEpoch))

@@ -1050,7 +1050,12 @@ namespace MphRead.Mods.Network
             public void Resend(LobbyCommandPacket command)
             { byte[] bytes = new byte[LobbyCommandPacket.Size]; command.Write(bytes); Send(PacketType.LobbyCommand, bytes); }
             public void Loaded(ushort? id = null)
-            { byte[] bytes = new byte[MatchLoadedPacket.Size]; new MatchLoadedPacket(id ?? State!.Value.MatchId, State!.Value.AuthorityEpoch, State.Value.StartGeneration).Write(bytes); Send(PacketType.MatchLoaded, bytes); }
+            {
+                byte[] bytes=new byte[InitialSpectator ? MatchLoadedRolePacket.Size:MatchLoadedPacket.Size];
+                if (InitialSpectator) new MatchLoadedRolePacket(id ?? State!.Value.MatchId,State!.Value.AuthorityEpoch,State.Value.StartGeneration,true).Write(bytes);
+                else new MatchLoadedPacket(id ?? State!.Value.MatchId,State!.Value.AuthorityEpoch,State.Value.StartGeneration).Write(bytes);
+                Send(PacketType.MatchLoaded,bytes);
+            }
             public void LoadFailed(string reason = "test load failure")
             { byte[] bytes = new byte[MatchLoadFailedPacket.Size]; new MatchLoadFailedPacket(State!.Value.MatchId,
                 reason, State.Value.AuthorityEpoch, State.Value.StartGeneration).Write(bytes);

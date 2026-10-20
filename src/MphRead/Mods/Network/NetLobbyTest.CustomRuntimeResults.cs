@@ -249,6 +249,8 @@ public static partial class NetLobbyTest
                 && !NetSession.SubmitCustomWeaponAction(action with { Sequence=2 }),
                 "custom cache refusal preserves native admission/health and blocks new custom requests");
             NetSession.Stop();
+            Check(publicConsumer.Closed&&!NetSession.CustomWeaponReplicaReady&&!NetSession.TryTakeCustomReplicaFact(out _),
+                "full client stop eagerly closes held public consumer and exposes no queued old-incarnation facts");
             Check(NetSession.LastCustomWeaponReceipt==null && NetSession.LastCustomControlDenied==null && NetSession.CustomWeaponPresentationState==null,
                 "full client stop releases custom result and projection owners");
             Console.WriteLine($"PASS {_checks} actual NetSession custom result/publisher UDP checks.");

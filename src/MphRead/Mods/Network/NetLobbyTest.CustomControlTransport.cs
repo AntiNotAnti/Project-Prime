@@ -33,7 +33,8 @@ public static partial class NetLobbyTest
                 // Keep the existing capability probe but replace the old K
                 // single-life result probe. This fixture keys every result by
                 // full independent action identity across actual respawns.
-                if (packet.Type is PacketType.WorldBootstrap or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReadyConfirmed)
+                if (packet.Type is PacketType.WorldBootstrap or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReadyConfirmed
+                    or PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent)
                     original?.Invoke(packet);
                 Receive(packet);
             };

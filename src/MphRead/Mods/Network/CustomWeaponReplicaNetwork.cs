@@ -101,6 +101,8 @@ public static partial class NetSession
         if(packet.ConnectionId==0||packet.ConnectionId!=_customReadinessConnection||_hostEndPoint==null
             ||!packet.Sender.Equals(_hostEndPoint)||_transport?.ConnectionStats(_hostEndPoint)?.ConnectionId!=packet.ConnectionId
             ||CurrentCustomReplica() is not {} consumer)return;
+        if(!CustomReplayBoundary.TryActivateClient(out _))
+        { _customReadiness?.Invalidate();ResetCustomReplica();return; }
         if(consumer.Receive(packet.Type,packet.Payload,Clock,out var ack)&&ack.Id!=0&&_transport!=null)
         {
             Span<byte> bytes=stackalloc byte[CustomReplicaAck.Size];
