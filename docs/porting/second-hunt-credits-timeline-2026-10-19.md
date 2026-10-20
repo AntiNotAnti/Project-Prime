@@ -70,9 +70,60 @@ and makes subsequent steps/intents inert.
 
 ## Qualification
 
-Pending frozen qualification. Generated numeric fixtures and the opt-in owned
-metadata probe will verify both branches and exact source-derived milestones.
-No presentation or physical-device acceptance is implied by those checks.
+Frozen source `83531ea59a02593adf614cf2b786e5f827ef5057` includes main's
+concurrent CW-05c change. Protocol remains 68; this slice changes no wire, replay,
+asset or save format. Two independent 5,949-file git archives remained unchanged
+through all 31 serial commands. Windows SSH authentication still failed; tests
+used the user-authorized Mac fallback with SDK10.0.401 and Android SDK36/JDK21.
+
+| Evidence | Result |
+| --- | --- |
+| Desktop / dedicated Release | Pass, zero warnings/errors |
+| Android Release/AOT | Pass; 119 assemblies per ABI; 25 existing compiler/documentation warnings |
+| Signed APK | v2/v3 verification pass; arm64-v8a and x86_64 include ProjectPrime AOT |
+| Generated credits source / duration / timeline checks | 239 / 87 / 89 pass |
+| Warmed tiny invalid duration input | Refused, 296 bytes allocated |
+| Owned source / owned timeline probes | Pass; 11,044 timeline assertions |
+| Importer, body/ball source and character contracts | Pass; original RVZ unchanged |
+| Map editor / custom weapon contracts | 502 / 14,204 checks pass |
+| Historical replay, map detail and all seven campaign/movie/save suites | Pass |
+
+The metadata-only owned probe covers the pinned AMHE1 English source, 39 widget
+bindings and 18 animation files totaling 20,032 bytes. All 20 input hashes and
+the exact running assembly remained unchanged. No model payloads, source text,
+pixels or commercial bytes were exported. Isolated test contexts were removed.
+Both ending branches match every independently simulated source milestone:
+
+| Page | Enter tick | First settled tick | Exit request tick |
+| --- | ---: | ---: | ---: |
+| 6 | 0 | 261 | 401 |
+| 7 | 421 | 612 | 752 |
+| 8 | 772 | 963 | 1103 |
+| 9 | 1123 | 1314 | 1454 |
+| 10 | 1474 | 1665 | 1835 |
+| 11 | 1855 | 2046 | 2186 |
+| 12 | 2206 | 2500 | 2560 |
+| 49 good / 50 bad | 2610 | 2740 | none |
+
+These are derived from admitted source values, never baked into runtime. Both
+branches also verify exact authored OK item identity, one terminal acknowledgment,
+stale/pending input refusal and retirement discarding an unconsumed return.
+The nested-terminal and atomic-page-publication regressions reproduced against
+the first DLL before their fixes. The latter reproduced an unreadable null-slot
+failure snapshot; the final code retains a complete prior graph on budget failure.
+
+Local ignored counts/hash/log receipts are in
+`artifacts/sh-integration/credits-timeline-83531ea59/{results,source-manifest,source-integrity-after-tests}.json`.
+
+| Frozen output | SHA256 |
+| --- | --- |
+| Desktop DLL | `ab9eeab8164fd7c1bf1d0d709856f35bfce9aa3ec389a54c77b076702cda3b84` |
+| Dedicated DLL | `4be4e74d7ae679da93890f5c3515605278b0c966e8a0ab341bda4e35a88b639a` |
+| Signed APK | `6a95156468b48211c0338640080df54d3c253e3dd2fa29b66d8dfc4fd422fb81` |
+
+Other languages/revisions, original ROM timing parity, native/GPU rendering and
+physical Android/controller/Windows runtime remain unqualified. Pure timeline
+agreement is not original credits presentation acceptance.
 
 ## Unproven, disabled and rollback
 
