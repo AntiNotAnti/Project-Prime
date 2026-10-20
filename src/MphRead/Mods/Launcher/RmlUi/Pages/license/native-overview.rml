@@ -33,7 +33,6 @@
   <div id="native_license_details">
   <div class="native_license_tabs">
     <button id="native_license_tab_overview" class="selected" data-action="license:overview">OVERVIEW</button>
-    <button id="native_license_tab_customization" class="license_customization_link" data-action="license:customization">CUSTOMIZATION / BEAM FX</button>
     <button id="native_license_tab_account" data-action="license:account">ACCOUNT</button>
     <button id="native_license_tab_emblems" data-action="license:emblems">EMBLEMS</button>
     <button id="native_license_tab_titles" data-action="license:titles">TITLES</button>
@@ -43,7 +42,6 @@
     <button id="native_license_tab_comparison" data-action="license:comparison">BENCHMARK</button>
   </div>
   <div id="native_license_face_overview" class="native_license_face">
-    <div class="license_customize_banner"><b>HUNTER ARMORY</b><p>Choose your Insta-Gib beam, color and other Hunter cosmetics.</p><button id="native_license_customize" data-action="license:customization">CUSTOMIZE INSTA-GIB BEAMS</button></div>
     <h2>CAREER RECORD</h2>
     <div class="native_license_stats">
       <div><span>MATCHES</span><strong id="native_license_matches">NOT VERIFIED</strong></div>

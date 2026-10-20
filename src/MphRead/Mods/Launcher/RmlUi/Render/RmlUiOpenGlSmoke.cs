@@ -211,18 +211,6 @@ internal static partial class RmlUiOpenGlSmoke
                     NativeLicenseOverviewPage license = _license;
                     license.Handle(intent);
                     if (license.Closed) CloseNativeLicense();
-                    else if (license.OpenCustomizationRequested)
-                    {
-                        CloseNativeLicense();
-                        if ((_quickSettings is { CanNavigateAway: false })
-                            || (_hunterChoice is { } licenseHunterDraft && !licenseHunterDraft.PrepareNavigation())) continue;
-                        CloseNativeSocial();
-                        CloseNativeStudio();
-                        CloseNativeCommunity();
-                        CloseNativeNews();
-                        CloseNativeQuickSettings();
-                        OpenNativeHunter(focusBeamGallery: true);
-                    }
                     continue;
                 }
                 // Native Community installs immutable packages through the shared
@@ -712,7 +700,7 @@ internal static partial class RmlUiOpenGlSmoke
         old?.Dispose();
     }
 
-    private static void OpenNativeHunter(bool focusBeamGallery = false)
+    private static void OpenNativeHunter()
     {
         if (_pages == null || _hunterChoice != null) return;
         string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
@@ -723,7 +711,7 @@ internal static partial class RmlUiOpenGlSmoke
         var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore());
         try
         {
-            next.Open(focusBeamGallery);
+            next.Open();
             _hunterChoice = next;
         }
         catch

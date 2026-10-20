@@ -35,8 +35,6 @@ body { background-color: transparent; }
 .native-hunter-panel .hunter-preview-space { min-height:80dp; }
 .native-hunter-panel .hunter-cosmetic-actions > button { display:block; width:96%; text-align:left; }
 .native-hunter-panel .cosmetic-description { margin:0dp 8dp 8dp 0dp; white-space:normal; }
-.native-hunter-panel .beam-miniature { display:block; width:96%; min-height:21dp; margin:1dp 0dp 6dp; padding:3dp 10dp; border:1dp #416b80; background-color:rgba(17,41,61,90%); color:#9ce9ff; letter-spacing:3dp; }
-.native-hunter-panel .beam-miniature span { font-size:12dp; line-height:14dp; color:#c6f7ff; }
 .native-hunter-panel #hunter_switch_hint { margin-bottom:6dp; white-space:normal; }
 .native-hunter-panel #hunter_preview_state { flex-shrink:0; white-space:normal; }
 .native-hunter-panel button:disabled { color:#7e95a8; background-color:#0c2236; border-color:#253e52; }
@@ -56,21 +54,3 @@ body { background-color: transparent; }
   .native-hunter-panel .hunter-preview-space { min-height:64dp; }
   .native-hunter-panel .native-hunter-preview-controls button { width:30%; min-height:16dp; font-size:9dp; padding:1dp 3dp; }
 }
-
-.native-hunter-panel .beam-picker { display:flex; flex-wrap:wrap; width:96%; margin:5dp 0 9dp; }
-.native-hunter-panel .beam-card { display:flex; flex-direction:column; justify-content:center; box-sizing:border-box; width:47%; min-height:58dp; padding:6dp 5dp; margin:0 2% 6dp 0; font-size:10dp; line-height:13dp; white-space:normal; color:#cbdde8; background-color:#102838; border:2dp #36586d; }
-.native-hunter-panel .beam-card .beam-glyph { display:block; font-size:16dp; line-height:19dp; color:#f0fcff; font-weight:bold; }
-.native-hunter-panel .beam-card.selected { border-color:#efffff; background-color:#1b5b7b; color:#ffffff; }
-.native-hunter-panel .beam-ion { border-color:#48cfff; }.native-hunter-panel .beam-void { border-color:#9461dc; }
-.native-hunter-panel .beam-quantum { border-color:#ef65dc; }.native-hunter-panel .beam-alimbic { border-color:#e8bf61; }
-.native-hunter-panel .beam-omega { border-color:#ed5777; }.native-hunter-panel .beam-arc { border-color:#a58aff; }
-.native-hunter-panel .beam-solar { border-color:#f2913d; }.native-hunter-panel .beam-cryo { border-color:#80e2f7; }
-.native-hunter-panel .beam-phantom { border-color:#59dcbf; }
-.native-hunter-panel .beam-color-picker { display:flex; flex-wrap:wrap; width:96%; margin-bottom:8dp; }
-.native-hunter-panel .beam-color-option { box-sizing:border-box; min-height:30dp; width:31%; margin:0 2% 5dp 0; padding:3dp; font-size:10dp; border:1dp #416279; background-color:#122f42; color:#dceef5; }
-.native-hunter-panel .beam-color-option.selected { border:2dp #ffffff; background-color:#1d5d77; color:#ffffff; }
-.native-hunter-panel .beam-tone1 { color:#78f6ff; }.native-hunter-panel .beam-tone2 { color:#ff9bca; }
-.native-hunter-panel .beam-tone3 { color:#c7ff88; }.native-hunter-panel .beam-tone4 { color:#ffdd7d; }
-.native-hunter-panel .beam-tone5 { color:#c2a7ff; }.native-hunter-panel .beam-tone6 { color:#ff9295; }
-.native-hunter-panel .beam-tone7 { color:#a4e6ff; }
-@media (max-height:500dp) { .native-hunter-panel .beam-card { min-height:45dp; font-size:9dp; } .native-hunter-panel .beam-card .beam-glyph { font-size:12dp; } }
