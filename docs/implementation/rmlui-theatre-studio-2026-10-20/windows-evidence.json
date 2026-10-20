@@ -1,0 +1,124 @@
+{
+  "baseline_commit": "c701ba317e82bf5d6d7cd7222325336f4f7c0de2",
+  "candidate_commit": "3d528cbee6f2c89d80e89fb2413dc87664608ddc",
+  "platform": "Windows x64, NVIDIA RTX 5080, native RmlUi GL2 and CPU draw-list backend",
+  "scope": "Synthetic fixture state with actual native DOM, input routing, GL rendering, geometry and presented-timeline tickets. No physical touch/controller, real replay scene, player recordings, account/network, encoder or FPS qualification.",
+  "native": {
+    "source_fingerprint": "63103845dbe581aa41f6498a6fa5584f6072a6b5a3b6258d1d38ecc780a06d60",
+    "dll_sha256": "49dc563da9bba1408a3baecbc671c3c10dee96eaae8fadc50ee82b2c2cc0580d",
+    "source_matches_baseline_and_candidate": true
+  },
+  "parity": {
+    "source_files": 2041,
+    "production_source_native_build_files": 1927,
+    "source_mismatches": [],
+    "authored_assets": 151,
+    "asset_report_and_both_benchmarks_exact": true,
+    "published_fonts": {
+      "JetBrainsMono-Regular.ttf": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+      "Rajdhani-SemiBold.ttf": "94bbd25a18ca665999feb05a537de9fd2b860dcfb78bbe9ca00270825bf235da",
+      "NotoSansJP-Regular.ttf": "d92c53d6160146e5b5e54979d7818f8fabea2ac0d51f7d0d414ada0e6e73e0b0",
+      "Rajdhani-Bold.ttf": "691470dd3286a14e9677940d0bf75796179841ba5215cbda1a2c8910a3226afd"
+    },
+    "font_baseline_candidate_source_mismatches": 0
+  },
+  "geometry": {
+    "before": {
+      "documents": 87,
+      "cases": 12,
+      "checks": 7773,
+      "failures": 192,
+      "initialization_failures": 0,
+      "page_errors": 0,
+      "open_failures": 0,
+      "close_failures": 0
+    },
+    "after": {
+      "documents": 87,
+      "cases": 12,
+      "checks": 7773,
+      "failures": 0,
+      "initialization_failures": 0,
+      "page_errors": 0,
+      "open_failures": 0,
+      "close_failures": 0
+    },
+    "detailed_fixtures": 32,
+    "standard_pngs_before": 288,
+    "standard_pngs_after": 288,
+    "accessibility_pngs": 9,
+    "accessibility_modes": [
+      "touch",
+      "large-text",
+      "touch-and-large-text"
+    ],
+    "accessibility_size": "640x360"
+  },
+  "final_gl": {
+    "results": {
+      "library-normal1280": "PASS",
+      "library-normal640": "PASS",
+      "library-large640": "PASS",
+      "library-combined640": "PASS",
+      "workspace-normal1280": "PASS",
+      "workspace-normal640": "PASS",
+      "workspace-large640": "PASS",
+      "workspace-combined640": "PASS"
+    },
+    "library_assertions_per_run": 115,
+    "coverage": "Library selection/search/empty notices/paging, complete initial row, compact header containment/no-overlap, fixed primary actions, reachable tools, native Home; all workspace tabs/controls, independent native wheel scrolling, final lane visibility and exact presented-ticket clipping. Horizontal tab bounds allow only measured 1px border rounding; production geometry remains exact."
+  },
+  "additional_passes": {
+    "full_studio_workspace": "1280x720 and640x360",
+    "playback_bookmarks_ranges_camera_export_editor": "1280x720 and640x360",
+    "studio_editor_retained_synthetic_project_assertions": 2480,
+    "studio_build": "1280x720 PASS",
+    "headless_replay_files": "Final managed candidate PASS",
+    "headless_studio_owner_assertions": 686,
+    "workspace_touch_only": "640x360 PASS",
+    "workspace_density2": "1280x720 physical /640x360 logical PASS"
+  },
+  "benchmark": {
+    "selected_fixture_paths": [
+      "pages/theatre/library.rml",
+      "pages/theatre/playback.rml",
+      "pages/theatre/studio-workspace.rml",
+      "pages/studio/native-entry.rml"
+    ],
+    "arms": [
+      "before",
+      "after",
+      "after",
+      "before"
+    ],
+    "cycles_per_arm": 20,
+    "samples_per_run": 320,
+    "runs": 2,
+    "errors": [
+      0,
+      0
+    ],
+    "command_file": "phase4-qualified/benchmark-command.ps1",
+    "raw_files": [
+      "phase4-final/abba.json",
+      "phase4-final/abba-repeat.json"
+    ],
+    "interpretation": "Library first update/render improves about11%; chooser effectively flat across repeats. Workspace first update/render costs0.87\u20131.11ms and document open1.19\u20131.58ms more; idle median remains0.0006ms. Playback costs0.02\u20130.026ms more. One-time native CPU document work; no FPS claim."
+  },
+  "artifacts": {
+    "before": "phase4-before/report.json",
+    "after": "phase4-final/report.json",
+    "normal_pairs": "phase4-before/screenshots and phase4-final/screenshots: pages_theatre_library_1280x720.png, pages_theatre_studio-workspace_1280x720.png, pages_studio_native-entry_1280x720.png",
+    "accessibility": "phase4-accessibility/{touch,large-text,touch-and-large-text}",
+    "actual_library_combined": "phase4-qualified/library-combined640.png",
+    "actual_workspace640": "phase4-qualified/workspace-normal640-camera.png",
+    "actual_workspace_combined_timeline": "phase4-qualified/workspace-combined640-timeline.png",
+    "logs": "windows-logs/phase4-qualified-*.log",
+    "source_verification": "phase4-qualified/source-verification.json"
+  },
+  "cleanup": {
+    "owned_phase4_processes": 0,
+    "owned_phase4_scheduled_tasks": 0,
+    "unrelated_processes_untouched": true
+  }
+}
