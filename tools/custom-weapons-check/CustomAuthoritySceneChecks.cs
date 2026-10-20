@@ -33,19 +33,27 @@ internal static class CustomAuthoritySceneChecks
         public CustomSourceDecision Inspect(in CustomWeaponAction action,out CustomSourceCertificate source)
             => Supplied.TryGetValue(action,out source) ? CustomSourceDecision.Verified : CustomSourceDecision.Rejected;
     }
+    // Explicit trusted server configuration, not an authenticated readiness packet.
+    private sealed class TrustedReadinessFixture : ICustomSourceReadiness
+    {
+        internal CustomSourceReadyContext? Context;
+        public bool TryGet(WeaponOwnerContext owner,out CustomSourceReadyContext context)
+        { context = Context.GetValueOrDefault(); return Context.HasValue && context.Ready.Slot == owner.Slot; }
+    }
     private sealed class Fixture : IDisposable
     {
         private readonly ServerSim _sim = new();
         internal readonly Scene Scene;
         internal readonly PlayerEntity Shooter, Victim;
         internal readonly TrustedFixtureOracle Oracle = new();
+        internal readonly TrustedReadinessFixture Readiness = new();
         internal readonly CustomAuthorityCombatAdapter Root;
         internal readonly WeaponOwnerContext Owner;
         internal readonly BeamProjectileEntity[] Pool;
         private uint _sequence;
         internal long StepFailures => _sim.StepFailures;
         internal void Step() => _sim.Step();
-        internal Fixture()
+        internal Fixture(bool engineSources = false)
         {
             var roster = RosterPacket.Create(); roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 2;
             for (byte slot=0; slot<2; slot++)
@@ -95,9 +103,12 @@ internal static class CustomAuthoritySceneChecks
                 catch (InvalidOperationException) { refused = true; }
                 Check(refused && Scene.CustomCombat == null && Scene.CustomWeapons == null,
                     "missing explicit developer opt-in refuses without installing runtime or registry");
-                Root = Scene.EnableDeveloperCustomCombat(true,Oracle);
+                Root = engineSources ? Scene.EnableDeveloperEngineCustomCombat(true,Readiness)
+                    : Scene.EnableDeveloperCustomCombat(true,Oracle);
                 var key = ShotKey.For(Shooter.SlotIndex,0);
                 Owner = new(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+                Readiness.Context = new(new(Bootstrap(),Root.Manifest.Digest,Owner.Slot,
+                    WeaponMechanics.SchemaVersion,WeaponMechanics.BehaviorVersion,CustomWeaponReady.PrecisionCapability),1000,1000,1);
                 Check(Root.BindLife(Shooter,1000,true),"explicit trusted birth binds unequipped life inventory");
                 Check(!Root.BindLife(Shooter,1000,true),"same-life bind cannot recreate or refill current inventory");
                 var slots = (Array)typeof(CustomAuthorityCombatAdapter).GetField("_slots",Hidden)!.GetValue(Root)!;
@@ -109,8 +120,11 @@ internal static class CustomAuthoritySceneChecks
                 NetDamage.ForgetSlot(Shooter.SlotIndex); NetDamage.ForgetSlot(Victim.SlotIndex);
                 Check(Root.TryState(Shooter,out var initial) && initial.Phase == CustomWeaponPhase.Unequipped
                     && initial.Magazine == 4,"real journal begins unequipped with canonical magazine");
-                Check(Process(Action(CustomWeaponActionKind.Equip)).Result == WeaponActionResult.Accepted,"source-admitted equip seq1");
-                Check(Process(Action(CustomWeaponActionKind.Optic,optic:1)).Result == WeaponActionResult.Accepted,"source-admitted scope seq2");
+                if (!engineSources)
+                {
+                    Check(Process(Action(CustomWeaponActionKind.Equip)).Result == WeaponActionResult.Accepted,"source-admitted equip seq1");
+                    Check(Process(Action(CustomWeaponActionKind.Optic,optic:1)).Result == WeaponActionResult.Accepted,"source-admitted scope seq2");
+                }
             }
             catch { _sim.Stop(); NetSession.Stop(); throw; }
         }
@@ -123,6 +137,12 @@ internal static class CustomAuthoritySceneChecks
         internal Vector3 Aim(bool head = false)
             => (Victim.Position+Vector3.UnitY*(head ? Fixed.ToFloat(Victim.Values.MaxPickupHeight)-.15f : .2f)
                 -(Shooter.Position+Vector3.UnitY*.4f)).Normalized();
+        internal WorldBootstrapIdentity Bootstrap()
+            => new(new(Owner.MatchId,Owner.AuthorityEpoch,1),1,Owner.Generation,1000,1,1);
+        internal CustomWeaponAction EngineAction(CustomWeaponActionKind kind,uint source,uint ack = 0,byte optic = 0)
+            => new(Bootstrap(),Root.Manifest.Digest,Owner.Slot,Owner.Life,new(10),++_sequence,source,ack,0,kind,optic,
+                kind == CustomWeaponActionKind.Fire ? Shooter.Position+Vector3.UnitY*.4f : Vector3.Zero,
+                kind == CustomWeaponActionKind.Fire ? Aim() : Vector3.Zero);
         internal CustomWeaponAction Action(CustomWeaponActionKind kind,bool head = false,byte? optic = null,
             uint? target = null,Vector3? aim = null)
         {
@@ -195,7 +215,7 @@ internal static class CustomAuthoritySceneChecks
         public void Dispose()
         { try { NetUnlagged.AbortShot(); Root.Dispose(); } finally { try { _sim.Stop(); } finally { NetSession.Stop(); } } }
     }
-    internal static int Run(string data,bool sourceOnly = false)
+    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false)
     {
         _checks = 0;
         string directory = Directory.GetCurrentDirectory();
@@ -212,6 +232,13 @@ internal static class CustomAuthoritySceneChecks
             NetShotProof.Mode = ShotProofMode.Off; NetTimedShotProof.Mode = TimedGrantProofMode.Off;
             NetDynamicGeometryHistory.ProductionEnabled = true; NetDynamicGeometryHistory.ShadowEnabled = false;
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
+            if (admissionOnly)
+            {
+                EngineAdmissionSuccess(false); EngineAdmissionSuccess(true); EngineAdmissionRejections(); EngineAdmissionReadiness();
+                Console.WriteLine($"PASS {_checks} real engine source admission checks.");
+                Console.WriteLine("SCOPE: real remote input placement/control/source/modifier observation through production custom admission, private M7 emission and canonical damage; readiness is explicit trusted fixture configuration. NOT_RUN: endpoint authentication, custom readiness/action transport, local/bot source parity, missing-input recovery or rendering.");
+                return 0;
+            }
             if (sourceOnly)
             {
                 NetFireEvents.AcceptedPlaybackEnabled = true;
@@ -700,6 +727,128 @@ internal static class CustomAuthoritySceneChecks
     {
         var key = ShotKey.For(player.SlotIndex,0);
         return new(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+    }
+    private static IntentPacket CaptureEngineInput(Fixture f,uint frame,bool shoot = false,bool recordWorld = true,
+        uint? ack = null,byte ackSub = 0)
+    {
+        Frame(frame);
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(f.Shooter,GunAnimation.Idle);
+        var input = SourcePacket(f.Shooter,frame,f.Aim());
+        if (ack.HasValue) { input.AckFrame = ack.Value; input.AckSubFrame = ackSub; }
+        if (shoot) input.Buttons |= IntentButtons.Shoot;
+        // Owner damage/Prime hints are deliberately false authority evidence.
+        input.ShotFlags = IntentPacket.FlagDoubleDamage | IntentPacket.FlagPrimeHunter;
+        Check(NetSession.AcceptSlotIntent(0,input) && f.Root.BeginSourceInputPhase(),"engine admission consumes real lifecycle source input " + frame);
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+        if (recordWorld) NetUnlagged.Record(frame); // Actual sampled-world publication, not fabricated pose evidence.
+        return input;
+    }
+    private static void EquipEngine(Fixture f)
+    {
+        CaptureEngineInput(f,1000);
+        Check(f.Process(f.EngineAction(CustomWeaponActionKind.Equip,1000)).Result == WeaponActionResult.Accepted
+            && f.Process(f.EngineAction(CustomWeaponActionKind.Optic,1000,optic:1)).Result == WeaponActionResult.Accepted,
+            "engine-observed neutral source authorizes equip and optic with no supplied certificate");
+    }
+    private static CustomSourceDecision InspectEngine(Fixture f,CustomWeaponAction action,out CustomSourceCertificate source)
+        => ((ICustomSourceAdmission)f.Root).Inspect(action,out source);
+    private static void EngineAdmissionSuccess(bool doublePickup)
+    {
+        using var f = new Fixture(engineSources:true); EquipEngine(f);
+        uint fireFrame = 1001;
+        if (doublePickup)
+        {
+            var item = ItemSpawnEntity.SpawnItem(ItemType.DoubleDamage,f.Shooter.Position,f.Shooter.NodeRef,6000,f.Scene)
+                ?? throw new InvalidOperationException("Native Double item factory refused engine admission fixture.");
+            Check(NetPowerUpLedger.TrySpawnKey(item,out var spawn),"actual native Double item registers its immutable spawn incarnation");
+            long failures = f.StepFailures; f.Step();
+            var grant = NetPowerUpLedger.Ledger!.History.Single(g=>g.Spawn == spawn);
+            Check(f.StepFailures == failures && item.DespawnTimer == 0 && grant.ContactFrame == NetSession.NetFrame
+                && grant.Life.LifeId == f.Owner.Life && grant.SourceContactFrame == 1000,
+                "real complete native player step contacts Double item and records exact grant chronology");
+            CaptureEngineInput(f,1001); fireFrame = 1002;
+        }
+        Fixture.Clean(f.Victim,200); CaptureEngineInput(f,fireFrame,shoot:true);
+        Check(f.Root.TryGetSourceObservation(f.Owner,fireFrame,out var observed)
+            && observed.Modifiers.DoubleKnowledge == (doublePickup ? TimedGrantKnowledge.Granted : TimedGrantKnowledge.NotGranted),
+            "first actual source phase freezes native grant knowledge despite spoofed owner modifier hints");
+        var action = f.EngineAction(CustomWeaponActionKind.Fire,fireFrame,fireFrame-1,optic:1);
+        Check(InspectEngine(f,action,out var certificate) == CustomSourceDecision.Verified
+            && certificate.DoubleDamage == doublePickup && !certificate.PrimeHunter
+            && certificate.Body == observed.Body && certificate.Aim == observed.Aim
+            && certificate.ObservedWorldFrame == observed.ObservedWorldFrame && certificate.TargetWorldFrame == fireFrame-1,
+            "production engine admission derives certificate from exact source ACK geometry and canonical modifiers");
+        var receipt = f.Process(action);
+        Check(receipt.Result == WeaponActionResult.Accepted && receipt.Emission == CustomEmissionDisposition.Spawned
+            && receipt.Source == certificate && f.Oracle.Supplied.Count == 0,"real engine admission emits M7 without any injected source certificate");
+        var beam = f.Pool.Single(b=>b.ModCustomShot?.Sequence == action.Sequence);
+        for (int step=0; step<2 && f.Root.TerminalContacts == 0; step++) beam.Process();
+        int damage = doublePickup ? 130 : 65;
+        Check(f.Victim.Health == 200-damage && f.Root.LastOutcome?.Health.BodyRemoved == damage
+            && f.Root.PositivePayments == 1 && f.Root.TerminalContacts == 1,
+            "engine-admitted real M7 collision pays canonical body damage " + damage);
+        var state = new PlayerState(); NetDamage.Write(f.Victim.SlotIndex,ref state);
+        Check(state.DamageEventId != 0 && state.AttackerSlot == 255 && state.DamageBeam == 255
+            && Enumerable.Range(0,PlayerState.DamageHistory).All(i=>state.EventAt(i).EventId == 0)
+            && !NetFireEvents.CaptureLedger(0).TryGet(ShotKey.For(0,action.Sequence),out _,out _,out _),
+            "engine admission and custom payment leave native shot ledger and native damage history empty");
+        Check(InspectEngine(f,action,out var repeated) == CustomSourceDecision.Verified && repeated == certificate,
+            "post-impact engine admission returns identical immutable source certificate");
+    }
+    private static void EngineAdmissionRejections()
+    {
+        foreach (string reason in new[] { "ACK","ACK subframe","future observed ACK","future observed subframe","aim","muzzle","held fire","missing prior","denied source","expired source","missing world","missing source" })
+        {
+            using var f = new Fixture(engineSources:true);
+            if (reason != "missing prior") CaptureEngineInput(f,1000,shoot:reason == "held fire");
+            if (reason == "denied source") Field(f.Shooter,"_frozenTimer",(ushort)60);
+            if (reason != "missing source") CaptureEngineInput(f,1001,shoot:true,recordWorld:reason != "missing world",
+                ack:reason == "future observed ACK" ? 1002u : reason == "future observed subframe" ? 1001u : null,
+                ackSub:reason == "future observed subframe" ? (byte)1 : (byte)0);
+            else Frame(1001);
+            var action = f.EngineAction(CustomWeaponActionKind.Fire,1001,1000,optic:1);
+            if (reason == "ACK") action = action with { AckFrame = 1001 };
+            if (reason == "ACK subframe") action = action with { AckSubFrame = 1 };
+            if (reason == "future observed ACK") { action = action with { AckFrame = 1002 }; Frame(1002); }
+            if (reason == "future observed subframe") { action = action with { AckFrame = 1001,AckSubFrame = 1 }; Frame(1002); }
+            if (reason == "aim") action = action with { Direction = -action.Direction };
+            if (reason == "muzzle") action = action with { Origin = action.Origin+Vector3.UnitX };
+            if (reason == "expired source") Frame(1066);
+            var expected = reason is "missing prior" or "missing world" or "missing source" ? CustomSourceDecision.Pending : CustomSourceDecision.Rejected;
+            Check(InspectEngine(f,action,out _) == expected && f.Root.AcceptedEmissions == 0 && f.Victim.Health == 200,
+                "engine admission refuses unavailable or contradictory real source without gameplay: " + reason);
+        }
+    }
+    private static void EngineAdmissionReadiness()
+    {
+        foreach (string reason in new[] { "bootstrap mismatch","manifest mismatch","first source boundary","opened boundary","replacement","invalid replacement" })
+        {
+            using var f = new Fixture(engineSources:true);
+            var context = f.Readiness.Context!.Value;
+            if (reason == "first source boundary") f.Readiness.Context = context with { FirstSourceFrame = 1002 };
+            if (reason == "opened boundary") f.Readiness.Context = context with { OpenedWorld = 1002 };
+            CaptureEngineInput(f,1000); CaptureEngineInput(f,1001,shoot:true);
+            var action = f.EngineAction(CustomWeaponActionKind.Fire,1001,1000,optic:1);
+            if (reason == "bootstrap mismatch") action = action with { Bootstrap = action.Bootstrap with { Revision = 2 } };
+            if (reason == "manifest mismatch") f.Readiness.Context = context with { Ready = context.Ready with { Manifest = default } };
+            if (reason is "replacement" or "invalid replacement")
+                f.Readiness.Context = context with { PeerIncarnation = reason == "replacement" ? 2ul : 0ul };
+            if (reason == "invalid replacement")
+            {
+                CaptureEngineInput(f,1002);
+                f.Readiness.Context = context;
+            }
+            var expected = reason == "opened boundary" ? CustomSourceDecision.Pending : CustomSourceDecision.Rejected;
+            Check(InspectEngine(f,action,out _) == expected && f.Root.AcceptedEmissions == 0
+                && (reason != "opened boundary" || !f.Root.TryGetSourceObservation(f.Owner,1001,out _)),
+                "engine source admission fences trusted readiness configuration: " + reason);
+            if (reason is "replacement" or "invalid replacement")
+            {
+                f.Readiness.Context = context;
+                Check(InspectEngine(f,action,out _) == CustomSourceDecision.Rejected,
+                    "restoring replaced readiness cannot reopen invalidated occupant admission: " + reason);
+            }
+        }
     }
     private static void SourceFacts()
     {
