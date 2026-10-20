@@ -38,6 +38,9 @@ namespace MphRead.NetTest
                     + "  --ncx-fixtures                    Test emulated fixture roles and declared aim schedule.\n"
                     + "  --ncx-fixture-lobby               Test exact-map fixture lobby eligibility and readiness guards.\n"
                     + "  --ncx-observer-evidence           Test no-fire observer participant lifecycle/emission evidence.\n"
+                    + "  --combat-fast-damage              Test frozen pre-native damage gates and arithmetic.\n"
+                    + "  --combat-fast-decisions           Test bounded read-only shadow decision and receipt joins.\n"
+                    + "  --combat-fast-scene <assets> [room] Test positive native Shadow candidates and exact Off/Shadow parity.\n"
                     + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
@@ -110,6 +113,7 @@ namespace MphRead.NetTest
                     + "  --momentum-combat-proof <server-evidence> <first-worker> <second-worker> <json> Verify real owner payment/rewind joins.\n"
                     + "  --momentum-combat-evidence        Test opt-in rewind evidence retention across world resets.\n"
                     + "  --momentum-balance-scene <assets> [json] Measure seven-Hunter hop/coast distributions on two maps.\n"
+                    + "  --momentum-balance-envelope-scene <assets> <json> Capture fixed mirrored aim/strafe hops and bounded native collision counters.\n"
                     + "  --momentum-input-cadence-gl <assets> [json] Test rendered seven-Hunter virtual cadence parity.\n"
                     + "  --momentum-keyboard-gl <assets> <Native|Momentum> <json> Test actual Windows/macOS interactive keyboard/GL.\n"
                     + "  --momentum-server-performance <assets> <room> <model> <json> [seconds] [timing|verify] Benchmark eight real bots.\n"
@@ -282,6 +286,12 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedNativeEffectTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 1 && args[0] == "--combat-fast-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedImperialistImpactTests.RunFastShadowScene(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
             if (args.Length > 1 && args[0] == "--timed-imperialist-impact-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
@@ -448,6 +458,18 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--momentum-replay-metadata") return MomentumReplayMetadataTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-input-packets") return MomentumInputPacketTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-combat-evidence") return MomentumCombatEvidenceTests.Run();
+            if (args.Length > 0 && args[0] == "--momentum-balance-envelope-scene")
+            {
+                if (args.Length != 3)
+                {
+                    Console.Error.WriteLine("usage: --momentum-balance-envelope-scene <assets> <fresh-json>");
+                    return 2;
+                }
+                string output = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumBalanceSceneTests.RunEnvelope(output);
+            }
             if (args.Length > 1 && args[0] == "--momentum-balance-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -782,6 +804,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--input-edges") return InputEdgeTests.Run();
             if (args.Length > 0 && args[0] == "--protocol18") return Protocol18Tests.Run();
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
+            if (args.Length > 0 && args[0] == "--combat-fast-decisions") return CombatFastDecisionTests.Run();
+            if (args.Length > 0 && args[0] == "--combat-fast-damage") return CombatFastDamageTests.Run();
             if (args.Length > 0 && args[0] == "--claim-receipts") return ClaimReceiptAccountingTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();

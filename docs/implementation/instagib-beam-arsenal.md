@@ -84,13 +84,31 @@ asset-free checks cannot prove native texture blending, HDR/color behavior,
 wall occlusion or real-device 1v1 and 8-player performance; capture GPU
 screenshots and benchmarks before considering the visual acceptance complete.
 
-## UI ownership update (2026-10-19)
+## Distinct animated signatures (2026-10-19)
 
-Cosmetic selection belongs to the **Hunters** tab, not Hunter License. The
-native Hunter picker retains one cycle button for beam style and one for tint,
-with the current selections and short descriptions displayed beneath them.
-Nine individual style cards, nine tint buttons and decorative ASCII beam glyphs
-were removed. License buttons and its separate Avalonia cosmetic page were
-removed without modifying the saved `CosmeticLoadout`, account fields or
-multiplayer/replay identifiers. The small thumbnail ownership helper remains
-for the existing Avalonia lifetime regression.
+The colored three-layer textured rail remains the aim-readable baseline, but
+eight other styles now render **persistent, visually different** motion instead
+of depending only on small first-frame accents:
+
+| Style | Persistent geometry/movement |
+| --- | --- |
+| Ion Fracture 2.0 | Existing intertwined twin energy filaments and crystalline X-knot |
+| Void Rift | Two continuously folding violet dimensional seams |
+| Quantum Split | A pair of magenta phase echoes that split and converge |
+| Alimbic Resonance | Faceted six-sided energy cage advancing in steps |
+| Omega Pulse | Three traveling compression bulges along the rail |
+| Arc Disruptor | Chopped opposite-polarity electric zig-zags |
+| Solar Spear | Twin rotating flame tongues with pulsing billows |
+| Cryo Shatter | Sharp triangular crystal lattice advancing in discrete facets |
+| Phantom Trace | Two drifting, fading holographic afterimages |
+
+Animation is scene-time driven and geometry is clamped within 0.6 world units
+of the canonical trace. High/Medium draw two textured strands with 57/37
+samples; Low still draws one 21-sample signature; Off and reduced-motion do
+not animate decorative strands. The shared shot core, occlusion, hit endpoint,
+network packet and replay identity remain unchanged.
+
+Asset-free `--instagib-ion-fracture` acceptance checks all eight non-default
+styles for bounded, deterministic, time-varying and pairwise distinct
+geometry. Actual GPU screenshots and visual legibility under OpenGL/GLES still
+require hardware acceptance.

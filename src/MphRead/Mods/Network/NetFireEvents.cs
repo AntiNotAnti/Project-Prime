@@ -503,6 +503,7 @@ public static class NetFireEvents
                 return BeamResultFlags.NoSpawn;
             timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
             var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, player);
+            using var fastSource = NetCombatFastPath.Source(timedAttempt);
             var result = player.ModSpawnAcceptedShot(fire, out var timedEmission, modifiers);
             if (result != BeamResultFlags.NoSpawn)
             {

@@ -26,8 +26,10 @@ namespace MphRead.Mods.Multiplayer
     public static class TeamRules
     {
         public const int NoTeam = -1;
-        public static bool AreAllies(int first, int second) => GameState.Teams
-            && first >= 0 && first < GameState.TeamCount && first == second;
+        public static bool AreAllies(int first, int second)
+            => AreAllies(GameState.Teams, GameState.TeamCount, first, second);
+        public static bool AreAllies(bool teams, int teamCount, int first, int second)
+            => teams && first >= 0 && first < teamCount && first == second;
 
         // Cross multiplication keeps normalized occupancy exact and deterministic.
         public static sbyte ChooseTeam(TeamLayout layout, ReadOnlySpan<int> counts)
