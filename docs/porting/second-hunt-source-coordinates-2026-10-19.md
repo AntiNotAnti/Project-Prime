@@ -71,7 +71,7 @@ hashes/counts/bounds/resource identities and compares positional outputs
 with ordinary reads; a separate pre-change frozen DLL supplies independent
 legacy position/index hashes for all six arenas.
 
-Final frozen results are appended after platform and actual-source checks.
+Final frozen results are appended below.
 No original source coordinates, model bytes, images or text are committed.
 The existing independent TXTR oracle remains a separate texture proof;
 this slice does not claim an independent hardware/UV rendering oracle.
@@ -81,3 +81,23 @@ strict companion/model/generation binding, shared desktop/ES paired UV
 attributes, base/lightmap material policy, additional source families,
 complete arena recipes and mechanics remain engineering work. Existing
 ordinary readers and private preview recipes remain the rollback path.
+
+## Frozen acceptance result
+
+Final combined source/tests: `aa63002249f5ced5019b735f2118587c6a9339e2`, tree `f435feaf2f1f14780fccad3dfa901dbbab8b10bf`, protocol67 after concurrent merged PR819. All23 serial commands passed from exact clean archives with5900 tracked files unchanged in each. Each process used fresh user data/TMPDIR; every context was deleted. Final documentation changes no production/test bytes. Windows SSH authentication remained unavailable at the preceding bank check, so the authorized Mac fallback continued.
+
+- Desktop/dedicated Release:0 warnings,0 errors. Android Release:119 AOT assemblies,25 existing XML documentation warnings,0 errors; APK v2/v3 signatures verify, with both arm64-v8a/x86_64 ProjectPrime AOT libraries.
+-101 source-coordinate and952 material-bound checks pass. The warmed8-byte input declaring a huge count allocates792 managed bytes before refusal, below1MiB. Existing TXTR191, bank137, bank-material128, source-rig904, map editor486 and material-tool58 checks pass. Pure custom-weapon contracts10586 and protocol67 replay543/314/84/51 plus campaign detail91 pass; these do not claim live replica authority or source visual acceptance.
+- All six actual arenas preserve41,577 position entries and68,470 triangles exactly against independent frozen pre-change DLL SHA256 `96d576518b8752a05bb1c2c9abf1d83beea88c4ac6b6246492c6d238b861224b` from `e1bbd3c2043b28170880c1595882d0f87182e0d3`. Each map matches both float32-position and int32-triangle-index SHA256 including order. Candidate metadata covers260 of347 materials;137,440 total original corners include109,303 candidate occurrences, expanding to54,069 candidate triangles/162,207 paired corners. Negative/repeated base values and exact source float/short semantics are retained. Other families remain null coordinate metadata.
+- RVZ SHA256 stays `ba8996256d005749dd6b7ff29ea30e5998451a3741ec87494a6217b01b703529`. The coordinate probe writes no source/model/UV/image files and leaves no temporary probe files. The separate actual character bundle regression creates isolated temporary authoring data, verifies normal/Overcharged body+ball, repair/reuse/cancel/remove, and deletes all derived output. Source remains unchanged.
+- Existing synthetic material GL checks pass exact bank pixels, queue/supersession/lifetime and38/38 companion handle retirement. The prior Apple editor sampler diagnostic remains in the log; final GL assertions pass. No source coordinate attributes, shader program or actual Echoes material draw are activated by this slice.
+
+Binary SHA256 values:
+
+| Binary | SHA256 |
+| --- | --- |
+| desktop | `2cf1dbd25255b3dd6bc0ece9890739a76362c0488dd2229b9dbb14b35e353554` |
+| dedicated | `10f55232d32dab33e2bdab49d58aeb2d4f1ebfa716d26ed7947cb2a8912b6f61` |
+| android_signed_apk | `f26fb527159989d19cb513c9db1f1bd21466ab4a8b671c10c82485f8be28c6ba` |
+
+Ignored receipts: `artifacts/sh-integration/coordinates-aa6300224/summary.json`, exact commands/logs/source manifests and `frozen-geometry-comparison.json`. Independent old-DLL witness is retained as hashes/counts under `source-coordinate-exploratory`. The earlier protocol66 freeze `889701a64` passed21 commands and remains predecessor evidence; import production and external-tool source files are byte-identical in the final67 union. No CI or external-review claim is made.
