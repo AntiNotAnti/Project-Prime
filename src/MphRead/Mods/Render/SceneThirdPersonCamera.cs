@@ -28,7 +28,8 @@ namespace MphRead
         private ulong _thirdPersonReticleTraceFrame = ulong.MaxValue;
         private Vector3 _thirdPersonReticleTraceMuzzle;
         private Vector3 _thirdPersonReticleTraceAim;
-        private Vector3 _thirdPersonReticleTraceTarget;
+        private Vector3 _thirdPersonReticleCameraRay;
+        private bool _thirdPersonReticleRayValid;
         private float _thirdPersonReticleContactDistance = ThirdPersonReticleProjection.TraceRange;
         // A stationary shoulder pose submits the same wall ray many times at
         // 120/240Hz. Reuse only byte-identical rays from this simulation tick;
@@ -92,10 +93,6 @@ namespace MphRead
                 || Services.IsReplica || Mods.Headless.Active
                 || this.Players.Main.CameraType != CameraType.First)
                 return false;
-            if (!ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
-                    out Vector3 direction))
-                return true; // one center reticle, never a second native fallback
-
             if (_thirdPersonReticleTraceFrame != FrameCount
                 || _thirdPersonReticleTraceMuzzle != muzzle
                 || _thirdPersonReticleTraceAim != aim)
@@ -103,17 +100,28 @@ namespace MphRead
                 _thirdPersonReticleTraceFrame = FrameCount;
                 _thirdPersonReticleTraceMuzzle = muzzle;
                 _thirdPersonReticleTraceAim = aim;
-                Vector3 far = ThirdPersonReticleProjection.Target(muzzle,
-                    direction, 1f);
-                CollisionResult impact = default;
-                float contact = CollisionDetection.CheckBetweenPoints(muzzle, far,
-                    TestFlags.Beams, this, ref impact)
-                    ? impact.Distance : 1f;
-                _thirdPersonReticleTraceTarget = ThirdPersonReticleProjection.Target(
-                    muzzle, direction, contact);
-                _thirdPersonReticleContactDistance =
-                    (_thirdPersonReticleTraceTarget - muzzle).Length;
+                _thirdPersonReticleRayValid =
+                    ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
+                        out Vector3 direction);
+                if (_thirdPersonReticleRayValid)
+                {
+                    // The real projectile and wall contact remain canonical.
+                    // Only its simulation-camera-space direction is cached
+                    // for presentation frames that have newer raw aim input.
+                    _thirdPersonReticleCameraRay = Matrix.Vec3MultMtx3(
+                        direction, this.Players.Main.CameraInfo.ViewMatrix);
+                    Vector3 far = ThirdPersonReticleProjection.Target(
+                        muzzle, direction, 1f);
+                    CollisionResult impact = default;
+                    float contact = CollisionDetection.CheckBetweenPoints(muzzle, far,
+                        TestFlags.Beams, this, ref impact) ? impact.Distance : 1f;
+                    _thirdPersonReticleContactDistance =
+                        ThirdPersonReticleProjection.TraceRange
+                        * Math.Clamp(float.IsFinite(contact) ? contact : 1f, 0f, 1f);
+                }
             }
+            if (!_thirdPersonReticleRayValid)
+                return true; // never fall back to the independently sampled native reticle
 
             // ViewMatrix rotates again on draw-only frames (late mouse/touch/
             // stick input). The source beam remains canonical 60Hz state; a
@@ -121,10 +129,10 @@ namespace MphRead
             // same angular clock as the high-refresh shoulder camera.
             Vector3 renderedNativeEye = _thirdPersonRenderedEye
                 - _thirdPersonCameraOffset;
-            if (!ThirdPersonReticleProjection.TryProjectDrawRay(
-                    muzzle, direction, _thirdPersonReticleContactDistance,
+            if (!ThirdPersonReticleProjection.TryProjectCameraRay(
+                    muzzle, _thirdPersonReticleCameraRay,
+                    _thirdPersonReticleContactDistance,
                     this.Players.Main.CameraInfo.Position, renderedNativeEye,
-                    this.Players.Main.CameraInfo.ViewMatrix,
                     _viewInvRotMatrix, _viewMatrix, _perspectiveMatrix,
                     out position))
                 position = new Vector2(.5f, .5f);
