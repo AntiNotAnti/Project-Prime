@@ -15,6 +15,16 @@ internal sealed partial class SettingsView
     private readonly SetupViewWorkScope _sourceWork = new();
     private SourceCharacterImportWork.Operation? _sourceImport;
     private DispatcherTimer? _sourceTimer;
+    private bool _sourceClosed;
+    private void ResumeSourceWork()
+    {
+        if (_sourceClosed) return;
+        _sourceWork.Resume(); _sourceTimer?.Start();
+    }
+    private void CloseSourceWork()
+    {
+        _sourceClosed = true; _sourceWork.TryClose(); RetireSourceWork();
+    }
     private void RetireSourceWork()
     {
         _sourceWork.Retire(); _sourceImport?.Cancel(); _sourceImport = null; _sourceTimer?.Stop();
@@ -42,6 +52,7 @@ internal sealed partial class SettingsView
         foreach (var button in new[] { one, group, check, remove, cancel }) page.Children.Add(button);
         bool Ready(bool write)
         {
+            if (_sourceClosed) return false;
             if (SourceCharacterImportWork.IsBusy) { status.Text = "The previous source operation is still finishing."; return false; }
             if (write && (_inGame || IsDirty || SettingsPersistence.RestartRequired))
             { status.Text = "Return to the launcher and apply or discard settings changes before changing imports."; return false; }

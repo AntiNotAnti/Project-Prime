@@ -563,7 +563,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             base.OnAttachedToVisualTree(e);
 #if ANDROID
-            _sourceWork.Resume(); _sourceTimer?.Start();
+            ResumeSourceWork();
 #endif
             Dispatcher.UIThread.Post(() =>
             {
@@ -602,7 +602,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void Close()
         {
 #if ANDROID
-            _sourceWork.TryClose(); _sourceImport?.Cancel(); _sourceTimer?.Stop();
+            CloseSourceWork();
 #endif
             if (_shell) { Closed?.Invoke(this, EventArgs.Empty); return; }
             if (!Saved)
