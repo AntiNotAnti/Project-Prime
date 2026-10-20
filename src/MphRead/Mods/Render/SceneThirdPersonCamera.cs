@@ -18,7 +18,6 @@ namespace MphRead
         private const float ThirdPersonUp = 0.35f;
         private const float ThirdPersonSide = 0.5f;
         private const float ThirdPersonWallMargin = 0.3f;
-        private const float ThirdPersonBodyClearance = 0.8f;
 
         private float _thirdPersonCameraDistance = float.MaxValue;
         private Vector3 _thirdPersonCameraOffset = Vector3.Zero;
@@ -162,7 +161,7 @@ namespace MphRead
             long generation = Mods.Render.FrameTiming.Active
                 ? Mods.Render.FrameTiming.PresentationGeneration : 0;
             if (ThirdPersonCameraPolicy.ShowShoulder(
-                    isLiveMatchView: true, player.CameraType, player.IsAltForm))
+                    true, player.CameraType, player.IsAltForm))
             {
                 Vector3 eye = nativeEye;
                 Vector3 desired = nativeInverse.Row2.Xyz.Normalized() * ThirdPersonBack
