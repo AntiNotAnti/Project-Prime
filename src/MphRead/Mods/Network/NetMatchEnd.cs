@@ -158,11 +158,10 @@ namespace MphRead.Mods.Network
         /// Frames a client may sit in its results while the server says the
         /// match is running before it is put back into play.
         ///
-        /// Longer than the whole results sequence (3 s of the winner's camera
-        /// and 5 s of the scoreboard) so a legitimate ending is never cut
-        /// short, and the server's own intermission is only a second longer
-        /// than that -- so if this expires the server is not ending anything
-        /// and this client is on its own.
+        /// Longer than the five-second winner shot, up-to-five-second replay,
+        /// and six-second scoreboard. The server reserves an additional
+        /// rotation second; this timeout is only used when the authority still
+        /// reports a running match rather than a legitimate intermission.
         /// </summary>
         private const uint StrandedFrames = (uint)(60 * (GameState.MatchFinalCameraSeconds + GameState.MatchKillcamSeconds + GameState.MatchEndingSeconds + 4));
 
