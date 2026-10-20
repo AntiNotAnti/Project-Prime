@@ -244,7 +244,8 @@ namespace MphRead.Mods.MapGen
                 // extent, and a limit box inherited from someone else's room
                 // is how the camera ends up stuck behind a wall
                 multiplayer: true) { MaterialMapId = def.MapId,
-                    AuthoredMaterials = def.Materials.Select(m => (m.Id, m.Name)).ToArray() };
+                    AuthoredMaterials = def.Materials.Select(m => (m.Id, m.Name)).ToArray(),
+                    SourceBankMaterials = Mods.Render.Materials.SourceBankMaterialSnapshot.Capture(def) };
         }
 
         private static ColorRgb ToColor(int[] values)

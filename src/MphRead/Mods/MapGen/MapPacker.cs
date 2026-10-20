@@ -122,9 +122,10 @@ namespace MphRead.Mods.MapGen
             MapTexturePack? own, IReadOnlyList<MapMaterial> animationMaterials)
         {
             MapDefinition def = map.Definition;
+            ValidateProceduralMaterials(def);
             if (own != null)
                 return BuildModel(map, own, flipbooks, animationMaterials);
-            Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelForExport(def.TextureSource) : null;
+            Model? source = def.Materials.Any(m=>m.Texture==null && !m.ProceduralWhite) ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             // copy only the textures the map asks for, remapping the IDs as we
             // go -- the texture and its palette are copied as a pair, so a
@@ -134,8 +135,15 @@ namespace MphRead.Mods.MapGen
             var textureMap = new Dictionary<int, int>();
             var paletteMap = new Dictionary<int, int>();
             var materials = new List<Material>();
+            int whiteTexture = -1, whitePalette = -1;
             foreach (MapMaterial mapMaterial in def.Materials)
             {
+                if (mapMaterial.ProceduralWhite)
+                {
+                    AppendProceduralWhite(def, mapMaterial, materials, textures, palettes,
+                        ref whiteTexture, ref whitePalette, flipbooks);
+                    continue;
+                }
                 if(mapMaterial.Texture!=null)
                 {
                     MapTexturePack pack=MapTexturePack.Load(MapAssets.Read(def,mapMaterial.Texture),mapMaterial.Texture);
@@ -186,6 +194,32 @@ namespace MphRead.Mods.MapGen
                 throw new ProgramException("A map needs at least one material.");
             }
             return Assemble(map, def, materials, textures, palettes);
+        }
+
+        private static void ValidateProceduralMaterials(MapDefinition definition)
+        {
+            if (definition.Materials.Any(material => material.ProceduralWhite && material.Texture != null))
+                throw new MapAuthoringException("FP-MAP-001",
+                    "A procedural white material cannot also specify a native texture pack.");
+        }
+
+        private static void AppendProceduralWhite(MapDefinition definition, MapMaterial material,
+            List<Material> materials, List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes,
+            ref int textureId, ref int paletteId, Dictionary<string, MapFlipbookBinding> flipbooks)
+        {
+            if (textureId < 0)
+            {
+                textureId = textures.Count;
+                paletteId = palettes.Count;
+                textures.Add(new Repack.TextureInfo(TextureFormat.Palette8Bit, opaque: true, 8, 8, new byte[64]));
+                palettes.Add(new Repack.PaletteInfo(new ushort[] { 32767 }));
+            }
+            materials.Add(RawStructs.MakeMaterial(material.Name, textureId, paletteId,
+                RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
+                diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0),
+                alpha: material.Alpha, twoSided: material.TwoSided, animated: MapUvAnimation.HasUvAnimation(material)));
+            AppendFlipbookFrames(definition, material, materials.Count - 1,
+                textures, palettes, textureId, paletteId, flipbooks);
         }
 
         private static void AppendFlipbookFrames(MapDefinition definition, MapMaterial material,
@@ -373,6 +407,7 @@ namespace MphRead.Mods.MapGen
             IReadOnlyList<MapMaterial> animationMaterials)
         {
             MapDefinition def = map.Definition;
+            ValidateProceduralMaterials(def);
             var textures = new List<Repack.TextureInfo>();
             var palettes = new List<Repack.PaletteInfo>();
             var materials = new List<Material>();
@@ -395,13 +430,20 @@ namespace MphRead.Mods.MapGen
             // Imported architecture occupies [0, pack.Count). Authored hybrid
             // geometry is compiled with an offset and uses these materials
             // appended after the BSP set.
-            Model? source = def.Materials.Any(m => m.Texture == null)
+            Model? source = def.Materials.Any(m => m.Texture == null && !m.ProceduralWhite)
                 ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             var sourceTextures = new Dictionary<int, int>();
             var sourcePalettes = new Dictionary<int, int>();
+            int whiteTexture = -1, whitePalette = -1;
             foreach (MapMaterial mapMaterial in def.Materials)
             {
+                if (mapMaterial.ProceduralWhite)
+                {
+                    AppendProceduralWhite(def, mapMaterial, materials, textures, palettes,
+                        ref whiteTexture, ref whitePalette, flipbooks);
+                    continue;
+                }
                 if (mapMaterial.Texture != null)
                 {
                     MapTexturePack own = MapTexturePack.Load(MapAssets.Read(def, mapMaterial.Texture), mapMaterial.Texture);

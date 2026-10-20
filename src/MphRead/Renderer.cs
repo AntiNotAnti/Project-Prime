@@ -1458,7 +1458,7 @@ namespace MphRead
                     var key = new Mods.Render.Materials.MaterialAssetKey(
                         scope + "/recolor/" + recolor);
                     bool explicitMaterial =
-                        Mods.Render.TextureReplacementPack.ResolveExplicit(key) != null;
+                        Mods.Render.TextureReplacementPack.ResolveExplicit(key, model.SourceBankMaterials) != null;
 
                     foreach (var pair in pairs)
                     {
@@ -1753,6 +1753,7 @@ namespace MphRead
                     binding, out var modern)
                     && modern.Channel == Mods.Render.TextureAssetChannel.Albedo;
                 bool nativeFlipbook = value.Authored is { } authored
+                    && value.Model.SourceBankMaterials?.Resolve(authored) == null
                     && Mods.Render.Materials.MapMaterialAssetRegistry.IsNativeFlipbook(authored);
                 // Ordinary materials wait for their HD albedo promotion before
                 // companions are attached. Native flipbooks intentionally keep
@@ -1766,7 +1767,7 @@ namespace MphRead
                         value.Model, value.Texture, value.Palette, value.Recolor);
                 var material = Mods.Render.TextureReplacementPack.Resolve(
                     value.Model.Name, value.Texture, value.Palette, value.Recolor,
-                    value.Authored ?? modelKey, modelKey);
+                    value.Authored ?? modelKey, modelKey, value.Model.SourceBankMaterials);
                 if (material == null) continue;
                 Mods.Render.TextureAssetClass assetClass =
                     Mods.Render.TextureReplacementPack.Classify(value.Model);
@@ -1825,7 +1826,7 @@ namespace MphRead
                     Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId);
                 replacementMaterial = Mods.Render.TextureReplacementPack.Resolve(
                     model.Name, textureId, paletteId, recolorId,
-                    authoredKey ?? modelKey, modelKey);
+                    authoredKey ?? modelKey, modelKey, model.SourceBankMaterials);
             }
 
             bool streamReplacement = replacementMaterial?.Albedo != null
@@ -2097,6 +2098,14 @@ namespace MphRead
                 InvalidateTextureSampling(request.Binding);
                 RegisterModernTexture(request.Binding, request.AssetClass,
                     Mods.Render.TextureAssetChannel.Albedo);
+                if (request.Image.IsRawRgba && asset is Mods.Render.ModernTextureAsset rgba)
+                {
+                    var average = new FlatColor();
+                    for (int at = 0; at < rgba.Pixels.Length; at += 4)
+                        average.Add(new ColorRgba(rgba.Pixels[at], rgba.Pixels[at + 1],
+                            rgba.Pixels[at + 2], rgba.Pixels[at + 3]));
+                    _flatColors[request.Binding] = average.Result;
+                }
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
                 Mods.DebugLog.Line("render",

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using MphRead.Mods.Import;
 using MphRead.Mods.Import.Retro;
+using MphRead.Mods.MapGen;
 
 // Optional read-only owned-source acceptance. No decoded pixels or source
 // payloads are written, and this has no renderer, material or GPU authority.
@@ -17,11 +18,12 @@ internal static class RetroTextureOwnedProbe
     private static readonly int[] Bits3 = ExpansionTable(3), Bits4 = ExpansionTable(4),
         Bits5 = ExpansionTable(5), Bits6 = ExpansionTable(6);
 
-    internal static int Run(string ownedSource)
+    internal static int Run(string ownedSource, bool roundTripBanks = false)
     {
         string? before = null, after = null, gameId = null, archiveSha1 = null;
         long admittedBytes = 0;
         var arenas = new List<object>();
+        var banks = new List<object>();
         int decodedEntries = 0;
         long comparedPixels = 0;
         string? error = null;
@@ -79,6 +81,7 @@ internal static class RetroTextureOwnedProbe
             foreach (var arena in admitted)
             {
                 var images = new List<object>();
+                var bankInputs = new Dictionary<uint, EchoesSourceTextureBank.Input>();
                 foreach (var entry in arena.Entries)
                 {
                     byte[] source = pak.ReadResource(entry.Resource);
@@ -89,6 +92,8 @@ internal static class RetroTextureOwnedProbe
                     string pixelsSha = Hash(decoded.Pixels);
                     string oracleSha = CompareCoordinateOracle(source, decoded);
                     Require(pixelsSha == oracleSha, "Independent coordinate-oracle hash differs.");
+                    if (roundTripBanks)
+                        bankInputs.TryAdd(entry.Resource, new(entry.Resource, entry.SourceSha256, decoded));
                     comparedPixels += (long)entry.Layout.Width * entry.Layout.Height;
                     decodedEntries++;
                     images.Add(new
@@ -103,6 +108,24 @@ internal static class RetroTextureOwnedProbe
                         Mips = entry.Layout.Mips, TopRgbaSha256 = pixelsSha, OracleRgbaSha256 = oracleSha,
                         AllTopPixelsCompared = true
                     });
+                }
+                if (roundTripBanks)
+                {
+                    var binding = new EchoesSourceTextureBank.Source(arena.Arena.ResourceId,
+                        Hash(pak.ReadResource(arena.Arena.ResourceId)));
+                    byte[] encoded = EchoesSourceTextureBank.Encode(binding, bankInputs.Values.ToArray());
+                    using var bankStream = new MemoryStream(encoded, writable: false);
+                    var bank = EchoesSourceTextureBank.Inspect(bankStream);
+                    Require(bank.Source == binding && bank.Entries.Count == bankInputs.Count
+                        && bank.Sha256 == Hash(encoded), "Source bank identity differs after encoding.");
+                    foreach (var input in bankInputs.Values)
+                    {
+                        byte[] pixels = EchoesSourceTextureBank.ReadImage(bankStream, bank, input.ResourceId);
+                        Require(input.Image.Pixels.SequenceEqual(pixels), "Source bank changed decoded pixels.");
+                    }
+                    banks.Add(new { arena.Arena.Key, bank.Length, bank.Sha256,
+                        bank.HeaderSha256, bank.DirectorySha256, Entries = bank.Entries.Count,
+                        AllPixelsRoundTripped = true });
                 }
                 arenas.Add(new
                 {
@@ -136,7 +159,8 @@ internal static class RetroTextureOwnedProbe
             ComparedTopPixels = comparedPixels, SourceSha256Before = before, SourceSha256After = after,
             SourceUnchanged = unchanged, Oracle = "independent-logical-texel-addressing-all-top-pixels-v1",
             HardwareAcceptance = false, GpuAcceptance = false, MaterialRenderingAcceptance = false,
-            SourcePayloadsWritten = false, Arenas = arenas
+            SourcePayloadsWritten = false, SourceBankRoundTrip = roundTripBanks,
+            Banks = banks, Arenas = arenas
         }, new JsonSerializerOptions { WriteIndented = true }));
         return passed ? 0 : 1;
     }

@@ -84,6 +84,7 @@ public static class MapViewportMaterials
             catch (Exception ex) when (ex is System.IO.IOException or ProgramException or ArgumentException) { }
         }
         Model? nativeModel = null;
+        Render.Materials.SourceBankMaterialSnapshot? sourceBanks = null;
         Model NativeModel() => nativeModel ??= Read.GetRoomModelForExport(definition.TextureSource);
         for (int i = 0; i < definition.Materials.Count; i++)
         {
@@ -96,6 +97,11 @@ public static class MapViewportMaterials
                 {
                     byte[] bytes = MapAssets.Read(definition, path);
                     texture = Packed(MapTexturePack.Load(bytes, path).Entries.Single(), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+                }
+                else if (material.ProceduralWhite)
+                {
+                    texture = new("procedural-white-v1/8/8", 8, 8,
+                        Enumerable.Repeat(new ColorRgba((ushort)32767), 64).ToArray());
                 }
                 else
                 {
@@ -125,7 +131,9 @@ public static class MapViewportMaterials
                 {
                     var key = Render.Materials.MaterialAssetKey.Authored(definition.MapId, material.Id);
                     var local = Render.TextureReplacementPack.ResolveLocalExplicit(key);
-                    var packaged = Render.Materials.MapMaterialAssetRegistry.Resolve(definition, key);
+                    var packaged = material.AlbedoBank != null
+                        ? (sourceBanks ??= Render.Materials.SourceBankMaterialSnapshot.Capture(definition))?.Resolve(key)
+                        : Render.Materials.MapMaterialAssetRegistry.Resolve(definition, key);
                     var enhanced = local ?? packaged ?? sourceEnhanced;
                     if (enhanced?.Albedo is { } replacement)
                     {

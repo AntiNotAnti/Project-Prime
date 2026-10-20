@@ -29,6 +29,12 @@ namespace MphRead.Mods.Launcher.Gui
                 pixels=texture.Pixels.Select(p=>new ColorRgba(texture.Palette[p])).ToArray();
                 details=$"Custom · {width} × {height} · Palette8Bit";
             }
+            else if (material.ProceduralWhite)
+            {
+                width = height = 8;
+                pixels = Enumerable.Repeat(new ColorRgba((ushort)32767), 64).ToArray();
+                details = "Procedural white · 8 × 8 · Palette8Bit";
+            }
             else
             {
                 var model=Read.GetRoomModelForExport(definition.TextureSource);

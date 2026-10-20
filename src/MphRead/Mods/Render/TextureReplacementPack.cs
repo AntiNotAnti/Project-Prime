@@ -25,15 +25,19 @@ namespace MphRead.Mods.Render
         public static void Reload() { _loaded = false; _resolver = null; Revision++; }
 
         public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor,
-            MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null)
+            MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null,
+            SourceBankMaterialSnapshot? sourceBanks = null)
         {
             EnsureLoaded();
             MaterialAssetKey portableKey = key ?? MaterialAssetKey.Model(model, texture, palette, recolor);
-            bool nativeFlipbook = MapMaterialAssetRegistry.IsNativeFlipbook(portableKey);
+            ResolvedMaterial? capturedSource = sourceBanks?.Resolve(portableKey);
+            bool nativeFlipbook = capturedSource == null && MapMaterialAssetRegistry.IsNativeFlipbook(portableKey);
             ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
             if (nativeFlipbook && local != null)
                 local = local with { Albedo = null };
-            if (local != null && HasChannels(local)) return local;
+            if (local != null && HasChannels(local))
+                return capturedSource != null && local.Albedo == null ? local with { Albedo = capturedSource.Albedo } : local;
+            if (capturedSource != null) return capturedSource;
             return MapMaterialAssetRegistry.Resolve(portableKey,
                 includeCompanions: RenderOptions.AdvancedMaterials) ?? local;
         }
@@ -44,8 +48,9 @@ namespace MphRead.Mods.Render
             return _resolver?.ResolveExplicit(key);
         }
 
-        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
-            => ResolveLocalExplicit(key) ?? MapMaterialAssetRegistry.Resolve(key);
+        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key,
+            SourceBankMaterialSnapshot? sourceBanks = null)
+            => ResolveLocalExplicit(key) ?? sourceBanks?.Resolve(key) ?? MapMaterialAssetRegistry.Resolve(key);
 
         private static bool HasChannels(ResolvedMaterial material)
             => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null;
@@ -71,7 +76,7 @@ namespace MphRead.Mods.Render
             if (!RenderOptions.TextureReplacements) return false;
             material = Resolve(model.Name, textureId, paletteId, recolorId,
                 authoredKey ?? MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
-                MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId));
+                MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId), model.SourceBankMaterials);
             TextureAssetClass assetClass = Classify(model);
             return TryUpload(material, assetClass, out width, out height);
         }
@@ -101,9 +106,7 @@ namespace MphRead.Mods.Render
         {
             try
             {
-                using Stream stream = image.OpenRead();
-                return PreparedTextureCodec.Decode(
-                    stream, image.Path, assetClass, channel, maximumDimension);
+                return image.Prepare(assetClass, channel, maximumDimension);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                 or OverflowException or InvalidOperationException or UnauthorizedAccessException)
@@ -194,9 +197,7 @@ namespace MphRead.Mods.Render
 
         internal static byte[] ReadRgba(MaterialImage image, out int width, out int height)
         {
-            using Stream stream = image.OpenRead();
-            ModernTextureAsset asset = PreparedTextureCodec.DecodeRgba(
-                stream, image.Path, TextureAssetClass.World, TextureAssetChannel.Albedo);
+            ModernTextureAsset asset = image.ReadRgba(TextureAssetClass.World, TextureAssetChannel.Albedo);
             width = asset.Width; height = asset.Height;
             return asset.Pixels;
         }
@@ -207,6 +208,12 @@ namespace MphRead.Mods.Render
             width = height = 0;
             try
             {
+                if (image.IsRawRgba)
+                {
+                    PreparedTextureAsset asset = image.Prepare(assetClass, channel,
+                        TextureAssetManager.DimensionLimit(assetClass, channel));
+                    return TryUploadPreparedBound(asset, repeat: true, out width, out height);
+                }
                 using Stream stream = image.OpenRead();
                 return TextureAssetManager.TryUploadBound(stream, image.Path, assetClass, channel, repeat: true, out width, out height);
             }

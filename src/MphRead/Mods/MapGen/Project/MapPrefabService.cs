@@ -13,6 +13,8 @@ public static class MapPrefabService
 
     public static void Save(MapDefinition source, ISet<Guid> selected, string path)
     {
+        if (source.Materials.Any(m => m?.AlbedoBank != null))
+            throw new InvalidOperationException("Private source bank materials cannot be exported as reusable prefabs.");
         if (selected.Count == 0) throw new InvalidOperationException("Select at least one object to save a prefab.");
         string full = Path.GetFullPath(path);
         string root = Path.GetDirectoryName(full) ?? throw new IOException("Prefab path has no directory.");
@@ -74,6 +76,8 @@ public static class MapPrefabService
         float[]? offset = null)
     {
         var prefab = MapDefinition.Load(prefabPath);
+        if (prefab.Materials.Any(m => m?.AlbedoBank != null))
+            throw new InvalidOperationException("Private source bank materials cannot be inserted from a prefab.");
         var generated = new List<string>();
         var materialMap = new Dictionary<int, int>();
         for (int i = 0; i < prefab.Materials.Count; i++)
@@ -85,6 +89,7 @@ public static class MapPrefabService
                 existing = destination.Materials.FindIndex(m => m.Texture == null && m.Albedo == null
                     && m.Normal == null && m.SpecularRoughness == null && m.Emissive == null
                     && m.SourceMaterial == material.SourceMaterial
+                    && m.ProceduralWhite == material.ProceduralWhite && m.AlbedoBank == null
                     && Math.Abs(m.TexScale - material.TexScale) < .0001f
                     && m.Name.Equals(material.Name, StringComparison.OrdinalIgnoreCase));
             if (existing >= 0) { materialMap[i] = existing; continue; }

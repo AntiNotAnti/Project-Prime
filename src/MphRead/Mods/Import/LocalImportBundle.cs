@@ -80,7 +80,7 @@ public static partial class LocalImportBundle
 
     // Follow no existing symlink, including one above the chosen root. Lock
     // files are permanent: unlinking a held lock would permit a second writer.
-    private static void CheckPath(string path, string root)
+    internal static void CheckPath(string path, string root)
     {
         string boundary = Path.TrimEndingDirectorySeparator(NormalizePath(root));
         string candidate = NormalizePath(path);

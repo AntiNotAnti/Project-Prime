@@ -87,13 +87,15 @@ public sealed class MaterialPackEntry
 public sealed class MaterialImage
 {
     private readonly Func<Stream>? _open;
+    private readonly Func<byte[]>? _readRgba;
     private readonly bool _factoryCanDecodeOffThread;
     public string Path { get; }
     public int Width { get; }
     public int Height { get; }
-    public bool IsFileBacked => _open == null;
-    public bool CanDecodeOffThread => IsFileBacked || _factoryCanDecodeOffThread;
-    public MaterialImage(string path, int width, int height) : this(path, width, height, null) { }
+    internal bool IsRawRgba => _readRgba != null;
+    public bool IsFileBacked => _open == null && _readRgba == null;
+    public bool CanDecodeOffThread => IsFileBacked || _readRgba != null || _factoryCanDecodeOffThread;
+    public MaterialImage(string path, int width, int height) : this(path, width, height, null, false) { }
     internal MaterialImage(string path, int width, int height, Func<Stream>? open,
         bool canDecodeOffThread = false)
     {
@@ -103,7 +105,46 @@ public sealed class MaterialImage
         _open = open;
         _factoryCanDecodeOffThread = canDecodeOffThread;
     }
-    public Stream OpenRead() => _open?.Invoke() ?? File.OpenRead(Path);
+    private MaterialImage(string path, int width, int height, Func<byte[]> readRgba)
+        : this(path, width, height, null, true)
+        => _readRgba = readRgba;
+
+    internal static MaterialImage FromRgbaFactory(string path, int width, int height,
+        Func<byte[]> readRgba)
+    {
+        ArgumentNullException.ThrowIfNull(readRgba);
+        if (width <= 0 || height <= 0 || width > ModernTextureAsset.MaximumDimension
+            || height > ModernTextureAsset.MaximumDimension
+            || (long)width * height > ModernTextureAsset.MaximumPixels)
+            throw new InvalidDataException("Texture dimensions exceed limits.");
+        return new MaterialImage(path, width, height, readRgba);
+    }
+
+    public Stream OpenRead()
+    {
+        if (_readRgba != null)
+            throw new NotSupportedException("Raw RGBA material images have no encoded stream.");
+        return _open?.Invoke() ?? File.OpenRead(Path);
+    }
+
+    internal PreparedTextureAsset Prepare(TextureAssetClass assetClass, TextureAssetChannel channel,
+        int maximumDimension)
+    {
+        if (_readRgba != null) return ReadRgba(assetClass, channel).Fit(maximumDimension);
+        using Stream stream = OpenRead();
+        return PreparedTextureCodec.Decode(stream, Path, assetClass, channel, maximumDimension);
+    }
+
+    internal ModernTextureAsset ReadRgba(TextureAssetClass assetClass, TextureAssetChannel channel)
+    {
+        if (_readRgba != null)
+        {
+            byte[] pixels = _readRgba();
+            return ModernTextureAsset.FromRgba(Path, assetClass, channel, Width, Height, pixels);
+        }
+        using Stream stream = OpenRead();
+        return PreparedTextureCodec.DecodeRgba(stream, Path, assetClass, channel);
+    }
 }
 /// <summary>Backend-independent map semantics: normal XYZ, specular R / roughness G, emissive RGB.</summary>
 public sealed record ResolvedMaterial(MaterialAssetKey Key, MaterialImage? Albedo,

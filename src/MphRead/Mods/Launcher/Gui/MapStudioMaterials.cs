@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -31,7 +32,11 @@ internal sealed partial class MapStudioScreen
         {
             var key = MaterialAssetKey.Authored(definition.MapId, material.Id);
             int width, height;
-            if (material.Texture is { } path)
+            if (material.ProceduralWhite)
+            {
+                width = height = 8;
+            }
+            else if (material.Texture is { } path)
             {
                 var texture = MapTexturePack.Load(MapAssets.Read(definition, path), path).Entries.Single();
                 width = texture.Width; height = texture.Height;
@@ -52,13 +57,28 @@ internal sealed partial class MapStudioScreen
             ResolvedMaterial? local = TextureReplacementPack.ResolveLocalExplicit(key);
             string[] channels = { "albedo", "normal", "specularRoughness", "emissive" };
 
-            panel.Children.Add(Text("PACKAGED HD MATERIAL · " + key.Value));
-            panel.Children.Add(Text("These images travel inside the editable project and Community .ppmap. The native .tex material remains the universal fallback; each client chooses its own 1K/2K/4K/8K residency tier."));
+            bool privateBank = material.AlbedoBank != null;
+            panel.Children.Add(Text((privateBank ? "PRIVATE LOCAL SOURCE BANK · " : "PACKAGED HD MATERIAL · ") + key.Value));
+            panel.Children.Add(Text(privateBank
+                ? "Source images remain in this private local project. The source-neutral 8 × 8 white native material is the fallback. Local overrides remain available below."
+                : "These images travel inside the editable project and Community .ppmap. The native .tex material remains the universal fallback; each client chooses its own 1K/2K/4K/8K residency tier."));
             foreach (string kind in channels)
             {
                 MaterialImage? image = Image(packaged, kind);
                 string? relative = PathFor(material, kind);
                 panel.Children.Add(Text(Semantics(kind)));
+                if (kind == "albedo" && material.AlbedoBank is { } bank)
+                {
+                    panel.Children.Add(Text($"albedo: {bank.Width} × {bank.Height} · resource {bank.ResourceId:x8} · {bank.Bank}"));
+                    panel.Children.Add(Text("Read-only packaged source · use a local override to change its appearance."));
+                    if (image != null) AddMaterialPreview(panel, image, "packaged-" + kind);
+                    continue;
+                }
+                if (privateBank)
+                {
+                    panel.Children.Add(Text(kind + ": source-bank companions are not enabled."));
+                    continue;
+                }
                 panel.Children.Add(Text(kind + ": " + (image != null
                     ? $"{image.Width} × {image.Height} · {relative}"
                     : relative ?? "Original / absent")));
@@ -81,6 +101,7 @@ internal sealed partial class MapStudioScreen
                         MaterialInspector();
                         _status.Text = source == null
                             ? "Packaged HD channel cleared; native fallback retained."
+                            : privateBank ? "Private local HD channel saved."
                             : "Packaged HD channel saved. It will travel with the Community map.";
                     }
                     catch (Exception ex) { Failure(ex); }
@@ -137,10 +158,32 @@ internal sealed partial class MapStudioScreen
         string cacheKey = "material-pack/" + kind + "/" + image.Path + "/" + stamp;
         if (!_materialPreviewCache.TryGetValue(cacheKey, out var preview))
         {
-            using var stream = image.OpenRead();
-            preview = (image.Width >= image.Height
-                ? Bitmap.DecodeToWidth(stream, Math.Min(image.Width, 96))
-                : Bitmap.DecodeToHeight(stream, Math.Min(image.Height, 96)), kind);
+            if (image.IsRawRgba)
+            {
+                ModernTextureAsset asset = image.ReadRgba(TextureAssetClass.World, TextureAssetChannel.Albedo).Fit(96);
+                var bitmap = new WriteableBitmap(new Avalonia.PixelSize(asset.Width, asset.Height),
+                    new Avalonia.Vector(96, 96), Avalonia.Platform.PixelFormat.Rgba8888,
+                    Avalonia.Platform.AlphaFormat.Unpremul);
+                try
+                {
+                    using (var buffer = bitmap.Lock())
+                    {
+                        int rowBytes = checked(asset.Width * 4);
+                        for (int y = 0; y < asset.Height; y++)
+                            Marshal.Copy(asset.Pixels, y * rowBytes,
+                                IntPtr.Add(buffer.Address, y * buffer.RowBytes), rowBytes);
+                    }
+                    preview = (bitmap, kind);
+                }
+                catch { bitmap.Dispose(); throw; }
+            }
+            else
+            {
+                using var stream = image.OpenRead();
+                preview = (image.Width >= image.Height
+                    ? Bitmap.DecodeToWidth(stream, Math.Min(image.Width, 96))
+                    : Bitmap.DecodeToHeight(stream, Math.Min(image.Height, 96)), kind);
+            }
             _materialPreviewCache[cacheKey] = preview;
         }
         panel.Children.Add(new Image { Source = preview.Bitmap, Width = 96, Height = 96 });

@@ -46,7 +46,7 @@ internal static class GpuCheck
                 // Failure happens after allocation, proving the uploader releases it.
                 var bad = new MaterialImage(Path.Combine(packRoot, "missing.png"), 1, 1);
                 var material = new ResolvedMaterial(key, null, image, image, cycle % 2 == 0 ? image : bad);
-                object maps = upload.Invoke(null, new object[] { material, allocate, release })!;
+                object maps = upload.Invoke(null, new object[] { material, allocate, release, Type.Missing })!;
                 foreach (string property in new[] { "Normal", "Specular", "Emissive" })
                 {
                     int id = (int)maps.GetType().GetProperty(property)!.GetValue(maps)!;
@@ -61,7 +61,7 @@ internal static class GpuCheck
             int attempts = 0;
             Func<int> faultingAllocate = () => ++attempts == 3 ? throw new InvalidOperationException("synthetic allocation failure") : allocate();
             bool rejected = false;
-            try { upload.Invoke(null, new object[] { new ResolvedMaterial(key, null, image, image, image), faultingAllocate, release }); }
+            try { upload.Invoke(null, new object[] { new ResolvedMaterial(key, null, image, image, image), faultingAllocate, release, Type.Missing }); }
             catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException) { rejected = true; }
             if (!rejected || live.Count != 0 || allocated != released) throw new Exception("Partial multi-map allocation leaked");
             Console.WriteLine($"Material GPU checks PASS: 12 cycles + allocation fault, {allocated} allocations / {released} releases, success and failed uploads");
@@ -139,6 +139,7 @@ internal static class GpuCheck
                     MphRead.Mods.RenderOptions.TextureReplacements = true;
                     typeof(Scene).GetMethod("RefreshTextureQuality", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, null);
                     scene.UpdateMaterials(model, 0);
+                    SourceBankGpuCheck.WaitForIdle(scene);
                     if (model.Materials[0].TextureBindingId == model.Materials[1].TextureBindingId)
                         throw new Exception("Shared texels merged independent authored assignments");
                     foreach (var material in model.Materials)
@@ -151,6 +152,7 @@ internal static class GpuCheck
                     }
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     Console.WriteLine("Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures");
+                    SourceBankGpuCheck.Run(root, packRoot, scene, model, mapId, firstId, secondId);
                 }
                 finally { MphRead.Mods.RenderOptions.TextureReplacements = priorReplacements; }
                 int[] allOwned = ((IEnumerable<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).ToArray();

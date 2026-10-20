@@ -32,7 +32,9 @@ namespace MphRead.Mods.MapGen
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LocalSourceFingerprint { get; set; }
         [JsonIgnore]
-        public bool RequiresPrivateSource => LocalSourceOnly || LocalSourceFingerprint != null;
+        public bool RequiresPrivateSource => LocalSourceOnly || LocalSourceFingerprint != null
+            || Materials?.Exists(material => material?.AlbedoBank != null) == true
+            || Assets?.Exists(asset => asset?.Kind == "source-texture-bank") == true;
         public string? Author { get; set; }
         public string? Version { get; set; }
         public string? Description { get; set; }
@@ -643,6 +645,17 @@ namespace MphRead.Mods.MapGen
         public bool KeepItems { get; set; } = true;
     }
 
+    /// <summary>A content-bound image in a private source texture bank.</summary>
+    public sealed class MapSourceBankImage
+    {
+        public string Bank { get; set; } = "";
+        public string BankSha256 { get; set; } = "";
+        public uint ResourceId { get; set; }
+        public string RgbaSha256 { get; set; } = "";
+        public int Width { get; set; }
+        public int Height { get; set; }
+    }
+
     /// <summary>
     /// A material, described as "the texture that material N of the source
     /// room uses". Copying the pair rather than an index into the texture list
@@ -656,6 +669,12 @@ namespace MphRead.Mods.MapGen
         public string? Texture { get; set; }
         /// <summary>Optional portable HD albedo packaged with the map.</summary>
         public string? Albedo { get; set; }
+        /// <summary>Optional image bound to a private source texture bank.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public MapSourceBankImage? AlbedoBank { get; set; }
+        /// <summary>Explicit source-neutral 8x8 white native fallback.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool ProceduralWhite { get; set; }
         /// <summary>Optional tangent-space normal map packaged with the map.</summary>
         public string? Normal { get; set; }
         /// <summary>Optional packed red-specular / green-roughness map.</summary>

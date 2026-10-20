@@ -373,6 +373,7 @@ namespace MphRead
         public string Name { get; }
         // Presentation asset identity only; never serialized into room packages/replays.
         internal string? MaterialAssetScope { get; set; }
+        internal Mods.Render.Materials.SourceBankMaterialSnapshot? SourceBankMaterials { get; set; }
         internal IReadOnlyDictionary<int, string> AuthoredMaterialScopes { get; set; } = new Dictionary<int, string>();
         public bool FirstHunt { get; }
         public Header Header { get; }
@@ -448,6 +449,7 @@ namespace MphRead
         private Model(Model asset)
         {
             MaterialAssetScope = asset.MaterialAssetScope;
+            SourceBankMaterials = asset.SourceBankMaterials;
             AuthoredMaterialScopes = asset.AuthoredMaterialScopes;
             Name = asset.Name; FirstHunt = asset.FirstHunt; Header = asset.Header;
             RawNodes = asset.RawNodes; _rawMeshes = asset._rawMeshes; _rawMaterials = asset._rawMaterials;
