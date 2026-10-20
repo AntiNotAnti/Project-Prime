@@ -62,3 +62,18 @@ docs/implementation/rmlui-ux-2026-10-19/quick-settings-after.png
 docs/implementation/rmlui-ux-2026-10-19/quick-settings-before.png
 docs/implementation/rmlui-ux-2026-10-19/versions-after.png
 docs/implementation/rmlui-ux-2026-10-19/versions-before.png
+
+# Exact synthetic RmlUi UI fixture screenshots produced using invented
+# Community PNGs, synthetic account/Party rows and synthetic Theatre/Studio
+# entries only. The real locally sourced Home/Hunter/Lobby model captures
+# remain untracked. Never broaden this to a wildcard or commercial media.
+docs/implementation/rmlui-experience-2026-10-20/community-texture-windows.png
+docs/implementation/rmlui-social-settings-2026-10-20/party-windows.png
+docs/implementation/rmlui-social-settings-2026-10-20/social-windows.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/chooser-after.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/theatre-after.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/theatre-before.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/theatre-combined-640.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-after.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-before.png
+docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-combined-640.png
