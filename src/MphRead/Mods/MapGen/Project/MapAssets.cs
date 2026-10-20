@@ -59,6 +59,15 @@ namespace MphRead.Mods.MapGen
             Action<Stream, long> consume)
         {
             MapPackageReader.CanonicalName(relative);
+            if (definition.Assets.Any(a => a?.Path == relative && a.Kind == "source-texture-bank"))
+            {
+                if (definition.BundlePath != null)
+                    throw new InvalidDataException("Source banks cannot be read from a map package.");
+                Mods.Render.Materials.SourceBankMaterialSnapshot.WithRead(
+                    Path.GetFullPath(definition.BaseDirectory ?? CustomRooms.MapDirectory), relative,
+                    stream => { consume(stream, stream.Length); return 0; });
+                return;
+            }
             if (definition.BundlePath != null)
             {
                 MapBundle.WithReadEntryStream(definition.BundlePath, relative, consume);

@@ -175,13 +175,30 @@ internal static class SourceBankMaterialSnapshotTests
             definition.BaseDirectory = Path.Combine(link, "nested");
             var image = Image(definition); // Capture still performs no I/O.
             Expect<InvalidDataException>(() => Read(image), "read rejects linked ancestor above chosen project root");
+            CheckAssetPaths(definition, "linked ancestor");
         }
         finally { Directory.Delete(link); }
         definition.BaseDirectory = Path.Combine(real, "nested");
         string bankPath = Path.Combine(definition.BaseDirectory!, "textures", "source.bin");
         string actual = bankPath + ".real"; File.Move(bankPath, actual); File.CreateSymbolicLink(bankPath, actual);
-        try { Expect<InvalidDataException>(() => Read(Image(definition)), "read rejects linked bank component"); }
+        try
+        {
+            Expect<InvalidDataException>(() => Read(Image(definition)), "read rejects linked bank component");
+            CheckAssetPaths(definition, "linked bank component");
+        }
         finally { File.Delete(bankPath); }
+    }
+
+    private static void CheckAssetPaths(MapDefinition definition, string label)
+    {
+        const string path = "textures/source.bin";
+        Expect<InvalidDataException>(() => MapAssets.Read(definition, path), label + " cannot be copied as a local project asset");
+        Expect<InvalidDataException>(() => MapAssets.PackageLength(definition, path), label + " cannot supply dependency size");
+        Expect<InvalidDataException>(() => MapAssets.HashPackageAsset(definition, path), label + " cannot supply dependency hash");
+        bool consumed = false;
+        Expect<InvalidDataException>(() => MapAssets.WithPackageRead(definition, path, (_, _) => consumed = true),
+            label + " refuses streamed dependency access");
+        Check(!consumed, label + " is refused before invoking a stream consumer");
     }
 
     private static void PrivatePackagesAndCopies(string root)
