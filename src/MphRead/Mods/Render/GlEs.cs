@@ -900,6 +900,19 @@ namespace MphRead.Mods.Render
             ES.GL.GenerateMipmap((ES.TextureTarget)(int)target);
         }
 
+        [DllImport("libGLESv2.so", EntryPoint = "glCompressedTexImage2D", CallingConvention = CallingConvention.Cdecl)]
+        private static extern void NativeCompressedTexImage2D(uint target, int level, uint internalFormat,
+            int width, int height, int border, int imageBytes, IntPtr blocks);
+
+        internal static unsafe void CompressedTexImage2D(TextureTarget target, int level,
+            int internalFormat, int width, int height, byte[] blocks)
+        {
+            FlushPending();
+            fixed (byte* data = blocks)
+                NativeCompressedTexImage2D((uint)target, level, (uint)internalFormat,
+                    width, height, 0, blocks.Length, (IntPtr)data);
+        }
+
         public static void TexImage2D(TextureTarget target, int level, PixelInternalFormat internalFormat,
             int width, int height, int border, PixelFormat format, PixelType type, IntPtr pixels)
         {

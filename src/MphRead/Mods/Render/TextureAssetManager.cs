@@ -159,6 +159,25 @@ namespace MphRead.Mods.Render
             TextureSamplerDescriptor sampling)
         {
             ClearPriorUploadErrors();
+#if ANDROID
+            if (asset is CompressedTextureAsset gpu)
+            {
+                int internalFormat = gpu.Format switch
+                {
+                    GpuTextureCompressionFormat.Etc2Rgba8 => 0x9278, // GL_COMPRESSED_RGBA8_ETC2_EAC
+                    GpuTextureCompressionFormat.Astc4x4Rgba => 0x93B0, // GL_COMPRESSED_RGBA_ASTC_4x4_KHR
+                    _ => throw new NotSupportedException("Unsupported mobile GPU texture compression format.")
+                };
+                for (int level = 0; level < gpu.Mips.Length; level++)
+                {
+                    CompressedTextureMip mip = gpu.Mips[level];
+                    GlEs.CompressedTexImage2D(TextureTarget.Texture2D, level, internalFormat,
+                        mip.Width, mip.Height, mip.Data);
+                }
+                ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
+                return;
+            }
+#endif
             if (asset is ModernTextureAsset rgba)
             {
                 GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
