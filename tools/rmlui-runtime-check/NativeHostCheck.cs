@@ -150,6 +150,7 @@ internal static class ManagedHostCheck
         host.DeviceLost();
         Check(!host.Active && host.HomeDocument == default, "real device-loss teardown failed");
         NativeScheduleCheck.Run(root);
+        HomeModelSnapshotCheck.Run(root);
         Console.WriteLine("Managed/native RmlUi host integration passed: actual P/Invoke v1 handshake, DOM intent, Unicode bindings/fields/clipboard, focus restoration, document cancellation, reinit, and device loss.");
     }
 }

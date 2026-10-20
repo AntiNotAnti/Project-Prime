@@ -36,6 +36,8 @@ class HomeProbe:
             "shutdown": (None, []), "update": (None, []),
             "document_set_text": (C.c_int, [C.c_uint64, C.c_char_p, C.c_char_p]),
             "document_set_bool": (C.c_int, [C.c_uint64, C.c_char_p, C.c_int]),
+            "document_focus": (C.c_int, [C.c_uint64, C.c_char_p]),
+            "focused_element": (C.c_int, [C.POINTER(C.c_uint8), C.c_int]),
             "document_element_bounds": (C.c_int, [C.c_uint64, C.c_char_p] + [C.POINTER(C.c_float)] * 4),
             "document_accessibility_snapshot": (C.c_int, [C.c_uint64, C.POINTER(C.c_uint8), C.c_int]),
             "mouse_move": (C.c_int, [C.c_int, C.c_int, C.c_int]),
@@ -112,6 +114,33 @@ class HomeProbe:
                        "model_callback_preserves_home_owner_and_monotonic_sequence_" + element)
             self.last_sequence = event.sequence
 
+    def focused(self):
+        buffer = (C.c_uint8 * 512)()
+        count = self.focused_element(buffer, len(buffer))
+        self.require(0 <= count < len(buffer), "bounded_focused_element_available")
+        return bytes(buffer[:count]).decode("utf-8")
+
+    def focus_snapshots(self, home):
+        for element in ("movement", "m7"):
+            self.require(self.document_focus(home, element.encode()) == 1 and self.focused() == element,
+                         "own_control_acquires_focus_before_unchanged_snapshot_" + element)
+            for key, value in ((b"multiplayer_mode", False), (b"lobby_rules_open", True), (b"rules_owner", True)):
+                self.require(self.document_set_bool(home, key, int(value)) == 1,
+                             "snapshot_bool_owner_accepts_" + key.decode())
+            self.update()
+            actual = self.focused()
+            self.trace.append({"stage": "unchanged_snapshot_focus", "expected": element, "focused": actual,
+                               "model": self.snapshot(home).get("guard_state", {}).get("label")})
+            self.check(actual == element, "unchanged_rules_snapshot_preserves_focused_" + element)
+        self.require(self.document_set_bool(home, b"lobby_rules_open", 0) == 1, "changed_rules_close_accepted")
+        self.update()
+        self.require(self.document_focus(home, b"movement") == 1, "own_focus_before_genuine_rules_reopen")
+        self.require(self.document_set_bool(home, b"lobby_rules_open", 1) == 1, "changed_rules_reopen_accepted")
+        self.update()
+        actual = self.focused()
+        self.trace.append({"stage": "changed_rules_reopen_focus", "focused": actual})
+        self.check(actual == "rules_map_next", "genuine_rules_reopen_keeps_authored_map_focus_transition")
+
     def run(self, assets):
         self.require(self.initialize_backend(640, 360, 1, str(assets).encode(), 1) == 1, "actual_home_cpu_backend_initialized")
         home = self.home_document()
@@ -132,6 +161,7 @@ class HomeProbe:
         self.accepted(home, "m7", 18)
         self.accepted(home, "routed_m7", 18, "generic_route")
         self.check(not self.click(home, "out_of_range", "generic_route"), "generic_action_rejects_first_unsupported_rule19")
+        self.focus_snapshots(home)
         for key, value in ((b"rules_toggle16", b"OWN_CONTROL_CHANGED"), (b"rules_toggle17", b"OWN_MOVEMENT_CHANGED"),
                            (b"rules_toggle18", b"OWN_M7_CHANGED")):
             self.require(self.document_set_text(home, key, value) == 1, "repeat_home_text_owner_accepts_" + key.decode())
@@ -168,6 +198,7 @@ def assets(root, source):
         <button id="m7" data-event-click="lobby_rules_toggle18">M7 {{rules_toggle18}}</button>
         <button id="routed_m7" data-action="lobby:rules-toggle:18">ROUTED M7</button>
         <button id="out_of_range" data-action="lobby:rules-toggle:19">INVALID RULE</button>
+        <button id="rules_map_next">OWN MAP NEXT</button>
         <div id="guard_state" role="status" style="position:absolute;left:500px;top:8px;width:140px;height:80px;">L {{lobby_mode}} R {{lobby_rules_open}} O {{rules_owner}}</div>
         </body></rml>""")
 

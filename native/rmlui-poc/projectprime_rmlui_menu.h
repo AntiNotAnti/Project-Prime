@@ -383,6 +383,7 @@ public:
         }
         else if (name == "lobby_starting") data.lobby_starting = value;
         else if (name == "lobby_rules_open") {
+            if (data.lobby_rules_open == value) return;
             data.lobby_rules_open = value;
             handle.DirtyVariable("lobby_rules_open");
             RequestFocus(value ? (data.rules_owner ? "rules_map_next" : "rules_close_top")
