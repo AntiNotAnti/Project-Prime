@@ -3,7 +3,8 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.CustomWeapons
 {
-    internal readonly record struct CustomPrecombatFacts(Vector3 Body, Vector3 Aim, bool CanUseWeapon);
+    internal readonly record struct CustomPrecombatFacts(Vector3 Body, Vector3 Aim, bool CanUseWeapon,
+        CustomSourceModifierEvidence Modifiers = default);
 }
 
 namespace MphRead.Entities
