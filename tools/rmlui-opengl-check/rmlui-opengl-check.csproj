@@ -6,9 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Match the opt-in contract of this test and its game reference. -->
     <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
+    <MphReadReplayPreviewFailureFixture>true</MphReadReplayPreviewFailureFixture>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/MphRead/MphRead.csproj"
-                      AdditionalProperties="MphReadRmlUiGlSmoke=true" />
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true;MphReadReplayPreviewFailureFixture=true" />
   </ItemGroup>
 </Project>
