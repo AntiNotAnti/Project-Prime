@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -2561,7 +2562,7 @@ namespace MphRead.Mods.Network
         // Both wire envelopes enter this same native admission and relay path.
         // The bool is only the existing actual-current-carrier result; historical
         // recovered native fire behavior and relay bytes are unchanged.
-        private bool HandleDecodedIntent(ReceivedPacket packet,double now,Peer peer,in IntentPacket intent)
+        private bool HandleDecodedIntent(ReceivedPacket packet,double now,Peer peer,in IntentPacket intent,CustomResourceKnowledge knowledge=default)
         {
             peer.LastSeen = now;
 
@@ -2581,7 +2582,7 @@ namespace MphRead.Mods.Network
                     && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
             if (!FilterCustomNativeIntent(peer,intent,packet.ConnectionId,out var admittedIntent)
                 ||!NetSession.AcceptSlotIntent(peer.SlotIndex, admittedIntent,out bool newCurrentCarrier)) return false;
-            if (newCurrentCarrier) NoteCustomCurrentInput(packet,peer,intent);
+            if (newCurrentCarrier) NoteCustomCurrentInput(packet,peer,intent,knowledge);
             // Admit recovered shots from older carriers without replacing current movement/readiness.
             if (intent.LifeId != life)
             { peer.Telemetry.Intent(intent.Frame, NetIntentRejection.WrongLife); }

@@ -1,4 +1,5 @@
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -12,8 +13,9 @@ namespace MphRead.Mods.Network
     {
         private static bool _continuousIntentPending;
         private static IntentPacket _continuousIntent;
+        private static CustomCapturedKnowledge _continuousKnowledge;
         private static uint _continuousIntentFrame;
-        internal static void ResetContinuousIntent() => _continuousIntentPending = false;
+        internal static void ResetContinuousIntent() { _continuousIntentPending=false;_continuousKnowledge=default; }
         internal static void CaptureContinuousShot(PlayerEntity player)
         {
             NetBotInput.CaptureContinuousShot(player);
@@ -601,6 +603,7 @@ namespace MphRead.Mods.Network
                     // Actual fire IDs are committed during simulation. Send the
                     // pre-step movement/input with its post-step fire history.
                     _continuousIntent = intent; _continuousIntentFrame = NetSession.NetFrame;
+                    _continuousKnowledge=NetSession.CaptureCustomWeaponInputKnowledge(player);
                     _continuousIntentPending = true;
                 }
             }
@@ -666,7 +669,7 @@ namespace MphRead.Mods.Network
                     // DURING that step. Send the actual 30 Hz sample and substep now.
                     _continuousIntent.NativeTouch = owner.ModNativeTouchReport();
                     NetShotInputHistory.Fill(NetSession.NetFrame, ShotKey.For(owner.SlotIndex, 0), ref _continuousIntent);
-                    NetSession.SendIntent(_continuousIntent);
+                    NetSession.SendIntent(_continuousIntent,_continuousKnowledge);
                 }
             }
             // The playout clock, before anything reads a puppet position from

@@ -100,11 +100,12 @@ internal sealed partial class CustomSourceActionJournal
 {
     internal const int PendingCapacity = 16, TerminalCapacity = 128, MaxDrainPerTick = 4, MaxOffersPerTick = 8;
     internal const uint MaxSourceAge = 64, MaxWorldAge = 64, GapTimeout = 64, TerminalRetention = 128;
-    private readonly record struct Pending(CustomWeaponAction Action, uint Arrived);
+    private readonly record struct Pending(CustomWeaponAction Action, uint Arrived,CustomResourceKnowledge Knowledge);
     private readonly record struct Permission(uint SourceFrame, bool CanUseWeapon);
     private readonly Pending?[] _pending = new Pending?[PendingCapacity];
     private readonly Permission?[] _permissions = new Permission?[128];
     private readonly CustomActionReceipt?[] _terminal = new CustomActionReceipt?[TerminalCapacity];
+    private readonly CustomResourceKnowledge[] _terminalKnowledge=new CustomResourceKnowledge[TerminalCapacity];
     private readonly CustomUnobservedControl?[] _unobserved = new CustomUnobservedControl?[TerminalCapacity];
     private readonly WeaponRuntimeState?[] _states = new WeaponRuntimeState?[CustomWeaponManifest.MaxEntries];
     private readonly CustomSourceClock _clock;
@@ -207,23 +208,44 @@ internal sealed partial class CustomSourceActionJournal
     }
     internal bool TryReleaseNativeSelection(WeaponOwnerContext owner,uint source)
         =>ReadNativeSelection(owner,source)==CustomNativeSelection.Native&&_nativeSelection.TryReleaseNative(owner,source);
-    internal CustomQueueResult Offer(in CustomWeaponAction action, uint authorityFrame)
+    internal CustomQueueResult Offer(in CustomWeaponAction action, uint authorityFrame,CustomResourceKnowledge knowledge=default)
     {
         if (_processing) return CustomQueueResult.Busy;
-        if (IsRetired) return CustomQueueResult.Retired;
+        if (IsRetired)
+        {
+            // Retirement cannot relabel an already terminal action with a new
+            // resource stamp after its transport outbox has been acknowledged.
+            if(TryGetReceipt(action.Sequence,out var terminal))
+                return action.IsValid&&action.Owner==Owner&&terminal.Action==action
+                    &&_terminalKnowledge[action.Sequence%TerminalCapacity].Matches(knowledge)
+                    ?CustomQueueResult.Duplicate:CustomQueueResult.Conflict;
+            if(TryGetUnobserved(action.Sequence,out _))return CustomQueueResult.Conflict;
+            return CustomQueueResult.Retired;
+        }
         if (!Time(authorityFrame)) return CustomQueueResult.StaleAuthority;
-        if (!action.IsValid || action.Owner != Owner || action.Manifest != _manifest) return CustomQueueResult.Foreign;
+        if (!knowledge.IsValid || !action.IsValid || action.Owner != Owner || action.Manifest != _manifest) return CustomQueueResult.Foreign;
         // Backpressure is not an application verdict: caller retains this action
         // for later ingress. Only a terminal receipt settles/burns its sequence.
         if (++_offered > MaxOffersPerTick) return CustomQueueResult.Backpressure;
         if (action.Sequence <= _settled)
-            return TryGetReceipt(action.Sequence,out var prior) && prior.Action != action ? CustomQueueResult.Conflict : CustomQueueResult.Duplicate;
+            return TryGetReceipt(action.Sequence,out var prior)
+                && (prior.Action != action||!_terminalKnowledge[action.Sequence%TerminalCapacity].Matches(knowledge))
+                ?CustomQueueResult.Conflict:CustomQueueResult.Duplicate;
         if ((ulong)action.Sequence-_settled > PendingCapacity)
         { Retire(WeaponCancellation.RulesChanged); return CustomQueueResult.WindowExceeded; }
         int index = (int)(action.Sequence % PendingCapacity);
         if (_pending[index] is { } queued)
-            return queued.Action == action ? CustomQueueResult.Duplicate : CustomQueueResult.Conflict;
-        _pending[index] = new(action,authorityFrame); PendingCount++; return CustomQueueResult.Queued;
+            return queued.Action == action&&queued.Knowledge.Matches(knowledge) ? CustomQueueResult.Duplicate : CustomQueueResult.Conflict;
+        _pending[index] = new(action,authorityFrame,knowledge); PendingCount++; return CustomQueueResult.Queued;
+    }
+    internal bool TryKnowledge(in CustomWeaponAction action,out CustomResourceKnowledge knowledge)
+    {
+        knowledge=default;if(!action.IsValid||action.Owner!=Owner)return false;
+        if(_pending[action.Sequence%PendingCapacity] is {} pending&&pending.Action==action)
+        {knowledge=pending.Knowledge;return true;}
+        if(TryGetReceipt(action.Sequence,out var receipt)&&receipt.Action==action)
+        {knowledge=_terminalKnowledge[action.Sequence%TerminalCapacity];return true;}
+        return false;
     }
     internal bool TryGetReceipt(uint sequence, out CustomActionReceipt receipt)
     {
@@ -338,7 +360,7 @@ internal sealed partial class CustomSourceActionJournal
             receipt = Denied(action,CustomJournalDisposition.EngineFault,WeaponActionResult.InvalidLife);
         }
         finally { _processing = false; }
-        _terminal[terminalIndex] = receipt;
+        _terminal[terminalIndex] = receipt;_terminalKnowledge[terminalIndex]=next.Knowledge;
         _unobserved[terminalIndex] = null;
         int pendingIndex = (int)(action.Sequence % PendingCapacity);
         if (_pending[pendingIndex].HasValue) { _pending[pendingIndex] = null; PendingCount--; }

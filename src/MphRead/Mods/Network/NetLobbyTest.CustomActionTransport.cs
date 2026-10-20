@@ -303,7 +303,7 @@ public static partial class NetLobbyTest
                 kind==CustomWeaponActionKind.Fire ? source.Aim:Vector3.Zero);
         }
         internal static byte[] Bytes(CustomWeaponAction action)
-        { byte[] bytes=new byte[CustomWeaponAction.Size]; action.Write(bytes); return bytes; }
+        { byte[] bytes=new byte[CustomPrivateAction.Size]; new CustomPrivateAction(action,default).Write(bytes); return bytes; }
         internal void Send(Client client,CustomWeaponAction action) => client.Send(PacketType.CustomWeaponAction,Bytes(action));
         internal CustomReceiptMessage Settle(Client client,CustomWeaponAction action)
         {

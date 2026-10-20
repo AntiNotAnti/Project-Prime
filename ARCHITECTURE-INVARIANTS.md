@@ -6,10 +6,13 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **72** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **73** (`NetConfig.ProtocolVersion`).
 - Protocol 62 selects Quake3 movement profile v2, including advanced movement and
   damage-derived additive rocket impulses. Match bits and packet widths remain unchanged;
   historical Quake3 recordings use v1 for protocols 60–61 and v2 for 62–70.
+- Protocol73 carries private acquisition knowledge in owner action/control/input/result/state envelopes.
+  Canonical Actions remain nonce-free because public replicas serialize them. Native intent,
+  public replica and archive bodies remain unchanged; input knowledge is latched at creation.
 - Protocol 72 appends an explicit ownership flag to private custom weapon state (packet90).
   Public opt-in lives start empty; native packet bodies, replica facts and historical replay
   bodies remain unchanged. Protocol71 movement v3 policy continues unchanged.
@@ -86,7 +89,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
 - The protocol-16 byte-equivalence and protocol-17 migration notes describe the
-  historical Netcode P0 train; current internal refactors preserve protocol 72
+  historical Netcode P0 train; current internal refactors preserve protocol 73
   packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
@@ -242,7 +245,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 72).
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 73).
 - Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
 - Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The

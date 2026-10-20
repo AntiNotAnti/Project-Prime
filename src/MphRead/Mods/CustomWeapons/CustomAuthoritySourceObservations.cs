@@ -31,6 +31,8 @@ internal sealed partial class CustomAuthorityCombatAdapter
             || NetSession.RemoteIntentAge(owner.Slot) > 30 || Spectating(player)) return;
         var input = new CustomSourceInput(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
             intent.Position,intent.Aim,(uint)intent.Buttons);
+        if(_sourceBoundary!=null)
+        {if(!_sourceBoundary.TryAcceptedInput(input,out var original))return;input=original;}
         if (_sourceBoundary == null && (_current[owner.Slot]?.Owner != owner
             || _sourceAdmission is CustomEngineSourceAdmission engine && !engine.CanCapture(owner))) return;
         if (input.IsValid) _acceptedInputs[owner.Slot] = new(player,input,placedBody,stableBiped,acceptedPose);

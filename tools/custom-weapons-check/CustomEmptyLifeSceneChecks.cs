@@ -144,8 +144,8 @@ internal static class CustomEmptyLifeSceneChecks
             Check(emptyA.State.Owner == Volatile.Read(ref observed)!.Owner && emptyA.State.Magazine == 0
                 && emptyA.State.Reserve == 0 && emptyA.State.Phase == CustomWeaponPhase.Invalid
                 && !emptyA.Selected.IsValid && emptyB.State.Magazine == 0 && emptyB.State.Reserve == 0
-                && privateLengths.Count > 0 && privateLengths.All(n => n == 114),
-                "actual private publication is114bytes with full current owners and explicit absence");
+                && privateLengths.Count > 0 && privateLengths.All(n => n == 146),
+                "actual private publication is146bytes with full current owners and explicit absence");
             var ready = (CustomWeaponReady)Get(firstReady, "Ready");
             var wire = new CustomReadinessWire(ready.Bootstrap, ready.Slot);
             var client = new CustomClientCombat(wire);

@@ -133,13 +133,18 @@ public sealed partial class DedicatedServer
             context = default;
             return server.CurrentCustomSourceEntry(owner,scene)?.Boundary?.TryGet(owner,out context) == true;
         }
+        public bool TryAcceptedInput(in CustomSourceInput candidate,out CustomSourceInput original)
+        {
+            original=default;
+            return server.CurrentCustomSourceEntry(candidate.Owner,scene)?.Boundary?.TryAcceptedInput(candidate,out original)==true;
+        }
         public bool TryOpen(in CustomSourceInput input,out CustomSourceReadyContext context)
         {
             context = default;
             return server.CurrentCustomSourceEntry(input.Owner,scene)?.Boundary?.TryOpen(input,out context) == true;
         }
     }
-    private void NoteCustomCurrentInput(ReceivedPacket packet,Peer peer,in IntentPacket intent)
+    private void NoteCustomCurrentInput(ReceivedPacket packet,Peer peer,in IntentPacket intent,CustomResourceKnowledge knowledge)
     {
         if (!CustomWeaponCombatEnabled || _sim?.EvidenceScene is not { } scene ||peer.Spectating
             ||intent.MatchId==0||intent.AuthorityEpoch==0||intent.SlotGeneration==0||intent.LifeId==0) return;
@@ -147,7 +152,7 @@ public sealed partial class DedicatedServer
         if (CurrentCustomSourceEntry(owner,scene) is not { } entry || entry.Peer != peer
             || packet.ConnectionId == 0 || packet.ConnectionId != entry.State.ConnectionId) return;
         entry.Boundary!.NoteAcceptedInput(new(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
-            intent.Position,intent.Aim,(uint)intent.Buttons));
+            intent.Position,intent.Aim,(uint)intent.Buttons,knowledge,NetSession.NetFrame));
     }
     private void ConfigureCustomSourceCombat(Scene scene)
     {

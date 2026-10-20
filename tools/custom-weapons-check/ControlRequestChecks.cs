@@ -10,8 +10,8 @@ internal static class ControlRequestChecks
     // Independent Python struct.pack of literal fields and the independently
     // checked M7 manifest digest used by ResultTransportChecks. No game writer
     // generated either expected byte string.
-    private const string RequestHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d0000000101";
-    private const string DeniedHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d00000001018877665544332211c900000001";
+    private const string RequestHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d0000000101000000000000000000000000000000000000000000000000";
+    private const string DeniedHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d00000001010000000000000000000000000000000000000000000000008877665544332211c900000001";
     private sealed class Fixture
     {
         internal readonly WeaponDefinition Definition=RiftlineM7.Create();
@@ -68,8 +68,8 @@ internal static class ControlRequestChecks
     private static void Golden(Fixture f,Action<bool,string> check)
     {
         var request=f.Request; var denied=new CustomControlDenied(request,0x1122334455667788UL,201,CustomControlDenialReason.SourceUnavailable);
-        check(CustomControlRequest.Size==76 && CustomControlDenied.Size==89 && CustomResultAck.Size==83,
-            "control request contains only full identity/kind/optic; typed no-source denial and ACK have reviewed fixed widths");
+        check(CustomControlRequest.Size==100 && CustomControlDenied.Size==113 && CustomResultAck.Size==83,
+            "control request carries full identity/kind/optic and private knowledge; no-source denial and ACK have reviewed fixed widths");
         check(Encode(request).AsSpan().SequenceEqual(Convert.FromHexString(RequestHex))
             && Encode(denied).AsSpan().SequenceEqual(Convert.FromHexString(DeniedHex)),
             "independent control and no-source denial golden vectors match exact wire bytes");
@@ -79,12 +79,12 @@ internal static class ControlRequestChecks
         check(request.Owner==f.Action().Owner && denied.Ack.Owner==request.Owner && denied.Ack.Sequence==request.Sequence
             && denied.Ack.Token==denied.Token && denied.Ack.Kind==CustomResultKind.Receipt,
             "honest no-source denial can be acknowledged by exact request identity without fabricating an Action");
-        var wide=Enumerable.Repeat((byte)0xcc,100).ToArray(); request.Write(wide);
-        check(wide.AsSpan(0,76).SequenceEqual(Encode(request)) && wide.AsSpan(76).IndexOfAnyExcept((byte)0xcc)<0,
-            "request writer touches only its76-byte contract");
+        var wide=Enumerable.Repeat((byte)0xcc,128).ToArray(); request.Write(wide);
+        check(wide.AsSpan(0,100).SequenceEqual(Encode(request)) && wide.AsSpan(100).IndexOfAnyExcept((byte)0xcc)<0,
+            "request writer touches only its100-byte contract");
         wide.AsSpan().Fill(0xcc); denied.Write(wide);
-        check(wide.AsSpan(0,89).SequenceEqual(Encode(denied)) && wide.AsSpan(89).IndexOfAnyExcept((byte)0xcc)<0,
-            "typed denial writer touches only its89-byte contract");
+        check(wide.AsSpan(0,113).SequenceEqual(Encode(denied)) && wide.AsSpan(113).IndexOfAnyExcept((byte)0xcc)<0,
+            "typed denial writer touches only its113-byte contract");
     }
     private static void Codecs(Fixture f,Action<bool,string> check)
     {
@@ -133,21 +133,21 @@ internal static class ControlRequestChecks
         for (int reason=0;reason<=255;reason++)
         {
             bool valid=reason is >=1 and <=3;
-            check(CustomControlDenied.TryRead(Change(denied,88,(byte)reason),out var read)==valid && (valid || read==default),
+            check(CustomControlDenied.TryRead(Change(denied,112,(byte)reason),out var read)==valid && (valid || read==default),
                 "typed no-source result has exactly three explicit terminal reasons");
         }
-        check(!CustomControlDenied.TryRead(Zero(denied,76,8),out var noToken) && noToken==default,"unacknowledgeable zero-token denial refuses");
+        check(!CustomControlDenied.TryRead(Zero(denied,100,8),out var noToken) && noToken==default,"unacknowledgeable zero-token denial refuses");
         foreach (uint world in new uint[] { 0,99 })
         {
-            var changed=denied.ToArray(); BinaryPrimitives.WriteUInt32LittleEndian(changed.AsSpan(84),world);
+            var changed=denied.ToArray(); BinaryPrimitives.WriteUInt32LittleEndian(changed.AsSpan(108),world);
             check(!CustomControlDenied.TryRead(changed,out var absent) && absent==default,
                 "no-source terminal authority world cannot precede admitted bootstrap");
         }
         check(!default(CustomControlRequest).IsValid && !default(CustomControlDenied).IsValid
             && !default(CustomControlRequest).Matches(default),"default controls/denials have no source or identity authority");
-        Reject(()=>f.Request.Write(new byte[75]),check,"short request destination refuses");
-        Reject(()=>new CustomControlDenied(f.Request,1,200,CustomControlDenialReason.LifeRetired).Write(new byte[88]),check,"short typed-denial destination refuses");
-        Reject(()=>default(CustomControlRequest).Write(new byte[76]),check,"invalid request writer refuses");
+        Reject(()=>f.Request.Write(new byte[99]),check,"short request destination refuses");
+        Reject(()=>new CustomControlDenied(f.Request,1,200,CustomControlDenialReason.LifeRetired).Write(new byte[112]),check,"short typed-denial destination refuses");
+        Reject(()=>default(CustomControlRequest).Write(new byte[100]),check,"invalid request writer refuses");
     }
     private static IEnumerable<CustomControlRequest> Foreign(CustomControlRequest r)
     {
@@ -291,9 +291,9 @@ internal static class ControlRequestChecks
             check(box.PublishDenied(r,201,reason) && !box.PublishDenied(r,202,reason)
                 && !box.TryControl(r.Owner,r.Sequence,11,out _),"first typed no-source terminal result is immutable and cannot bind later");
             check(box.TryNext(0,out var type,out var bytes,out ulong token) && type==PacketType.CustomWeaponControlDenied
-                && bytes.Length==89 && CustomControlDenied.TryRead(bytes.Span,out var denied)
+                && bytes.Length==113 && CustomControlDenied.TryRead(bytes.Span,out var denied)
                 && denied.Request==r && denied.Reason==reason && denied.AuthorityFrame==201 && denied.Token==token,
-                "no-source application result is honest fixed89-byte denial with exact original request");
+                "no-source application result is honest fixed113-byte denial with exact original request");
             CustomControlDenied.TryRead(bytes.Span,out var result); byte[] original=bytes.ToArray();
             check(!box.Acknowledge(result.Ack) && box.Count==1,"unsent no-source result cannot be acknowledged speculatively");
             check(box.MarkSent(token,0) && !box.TryNext(.249,out _,out _,out _)

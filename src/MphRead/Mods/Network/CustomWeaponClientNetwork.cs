@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using MphRead.Mods.CustomWeapons;
+using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
 
@@ -64,10 +65,11 @@ public static partial class NetSession
     private static void PumpCustomCombat(double now)
     {
         var client=CurrentCustomCombat(); if (client==null || _transport==null || _hostEndPoint==null) return;
-        System.Span<byte> bytes=stackalloc byte[CustomWeaponAction.Size];
+        System.Span<byte> bytes=stackalloc byte[CustomPrivateAction.Size];
         for (int n=0;n<4 && client.TryNext(now,out var action);n++)
         {
-            action.Write(bytes);
+            if(!client.TryActionKnowledge(action,out var knowledge))break;
+            new CustomPrivateAction(action,knowledge).Write(bytes);
             if (!_transport.TrySendSemantic(_hostEndPoint,PacketType.CustomWeaponAction,bytes)) break;
             client.Sent(action,now);
         }
@@ -79,22 +81,42 @@ public static partial class NetSession
         }
         if (client.Invalidated) _customReadiness?.Invalidate();
     }
-    private static bool SendCustomInputCarrier(in IntentPacket intent,System.ReadOnlySpan<byte> native)
+    private static bool SendCustomInputCarrier(in IntentPacket intent,System.ReadOnlySpan<byte> native,CustomCapturedKnowledge captured)
     {
-        if (_transport==null || _hostEndPoint==null || !TryEncodeCustomWeaponInput(intent,native,out var bytes)) return false;
+        if (_transport==null || _hostEndPoint==null || !TryEncodeCustomWeaponInput(intent,native,out var bytes,captured)) return false;
         _transport.Send(_hostEndPoint,PacketType.CustomWeaponInput,bytes.Span); return true;
+    }
+    internal static CustomCapturedKnowledge CaptureCustomWeaponInputKnowledge(PlayerEntity player)
+    {
+        if(!CustomWeaponReplicaReady||player.SlotIndex!=LocalSlot
+            ||CurrentCustomCombat() is not {State:{HasWeapon:true} state}||!state.Knowledge.IsPresent
+            ||state.State.Owner.Slot!=LocalSlot||state.State.Owner.MatchId!=CurrentMatchId||state.State.Owner.AuthorityEpoch!=AuthorityEpoch
+            ||!NetPlayerLifecycle.Matches(LocalSlot,state.State.Owner.Generation,state.State.Owner.Life))return default;
+        return new(state.State.Owner,state.Bootstrap,state.Manifest,state.Knowledge,NetFrame);
     }
     // The returned memory is borrowed until the next client input encoding.
     // Transport copies it synchronously; callers must not retain this buffer.
-    internal static bool TryEncodeCustomWeaponInput(in IntentPacket intent,System.ReadOnlySpan<byte> native,out ReadOnlyMemory<byte> bytes)
+    internal static bool TryEncodeCustomWeaponInput(in IntentPacket intent,System.ReadOnlySpan<byte> native,out ReadOnlyMemory<byte> bytes,CustomCapturedKnowledge captured=default)
     {
         bytes=default;
-        if (!CustomWeaponReplicaReady || _transport==null || _hostEndPoint==null || CurrentCustomCombat() is not { } client
+        if (!captured.IsValid || !CustomWeaponReplicaReady || _transport==null || _hostEndPoint==null || CurrentCustomCombat() is not { } client
             || LocalSlot is <0 or >=8 || intent.MatchId==0 || intent.AuthorityEpoch==0 || intent.SlotGeneration==0 || intent.LifeId==0) return false;
         var owner=new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)LocalSlot,intent.SlotGeneration,intent.LifeId);
-        if (!client.TryInputControl(owner,Clock,out var control))
-        { if (client.Invalidated) _customReadiness?.Invalidate(); return false; }
-        if (!CustomInputCarrier.TryWrite(control,native,client.InputBytes,out int length)) return false;
+        var wire=_customCombatWire!;
+        if(!captured.IsEmpty&&(captured.SourceFrame!=intent.Frame||captured.Owner!=owner||captured.Bootstrap!=wire.Bootstrap||captured.Manifest!=wire.Manifest.Digest))return false;
+        // The caller's source and independently encoded native bytes must name
+        // the same input even when MTU pressure omits the repeated control.
+        if(!CompactIntentCodec.TryRead(native,out var decoded)||decoded.Frame!=intent.Frame
+            ||decoded.MatchId!=intent.MatchId||decoded.AuthorityEpoch!=intent.AuthorityEpoch
+            ||decoded.SlotGeneration!=intent.SlotGeneration||decoded.LifeId!=intent.LifeId)return false;
+        CustomControlRequest? control=client.TryInputControl(owner,Clock,out var pending)?pending:null;
+        if(client.Invalidated){_customReadiness?.Invalidate();return false;}
+        if(control==null&&captured.IsEmpty)return false;
+        // MTU pressure may omit only the repeated control: reliable91 retains
+        // that exact request. Keep original input knowledge and native bytes.
+        if(control!=null&&!captured.IsEmpty&&native.Length>CustomInputCarrier.MaxPayload-CustomInputCarrier.PrefixSize
+            &&native.Length<=CustomInputCarrier.MaxPayload-CustomInputCarrier.EmptyPrefixSize)control=null;
+        if (!CustomInputCarrier.TryWrite(wire.Bootstrap,wire.Manifest.Digest,captured.Knowledge,control,native,client.InputBytes,out int length)) return false;
         bytes=client.InputBytes.AsMemory(0,length); return true;
     }
 }

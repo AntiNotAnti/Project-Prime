@@ -7,9 +7,9 @@ namespace MphRead.Mods.CustomWeapons;
 // Engine placement/control observations only. Neither type is a client certificate
 // or admission verdict; omitted source frames are never synthesized.
 internal readonly record struct CustomSourceInput(WeaponOwnerContext Owner,uint Frame,
-    uint AckFrame,byte AckSubFrame,Vector3 ReportedBody,Vector3 ReportedAim,uint InputBits)
+    uint AckFrame,byte AckSubFrame,Vector3 ReportedBody,Vector3 ReportedAim,uint InputBits,CustomResourceKnowledge Knowledge=default,uint IngressWorld=0)
 {
-    internal bool IsValid => Owner.IsValid && Finite(ReportedBody) && Finite(ReportedAim)
+    internal bool IsValid => Owner.IsValid && Knowledge.IsValid && Finite(ReportedBody) && Finite(ReportedAim)
         && ReportedAim.LengthSquared > 1e-8f && float.IsFinite(ReportedAim.LengthSquared);
     private static bool Finite(Vector3 p) => float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z)
         && MathF.Abs(p.X) <= 1000000 && MathF.Abs(p.Y) <= 1000000 && MathF.Abs(p.Z) <= 1000000;

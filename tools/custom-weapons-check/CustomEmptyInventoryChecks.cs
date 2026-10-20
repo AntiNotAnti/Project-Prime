@@ -48,16 +48,21 @@ internal static class CustomEmptyInventoryChecks
     private static void Codec(Action<bool,string> check)
     {
         var f=new Fixture();var empty=f.Empty();var owned=f.Owned();var absent=f.Encode(empty);var present=f.Encode(owned);
-        check(CustomStateMessage.Size==114&&absent.Length==114&&absent[113]==0&&present[113]==1&&owned.HasWeapon,
-            "private state appends exact HasWeapon byte113 and existing constructors default to owned");
+        check(CustomStateMessage.Size==146&&absent.Length==146&&absent[113]==0&&present[113]==1&&owned.HasWeapon,
+            "146-byte private state preserves exact HasWeapon byte113 and existing constructors default to owned");
+        check(absent.Skip(114).All(value=>value==0)&&present.Skip(114).All(value=>value==0),
+            "empty and default knowledge fixtures retain zero knowledge, grant-world and effective-source suffix");
         check(CustomCombatResults.TryReadState(absent,f.Manifest,f.Definition,out var emptyCopy)&&emptyCopy==empty&&!emptyCopy.HasWeapon
             &&CustomCombatResults.TryReadState(present,f.Manifest,f.Definition,out var ownedCopy)&&ownedCopy==owned&&ownedCopy.HasWeapon,
             "explicit empty and owned states roundtrip as distinct typed values");
-        for(int length=0;length<114;length++)
+        for(int length=0;length<146;length++)
             check(!CustomCombatResults.TryReadState(absent.AsSpan(0,length),f.Manifest,f.Definition,out var refused)&&refused==default,
-                "truncated state including old 113-byte layout refuses atomically: "+length);
+                "truncated private state refuses atomically: "+length);
+        foreach(int legacy in new[]{113,114})
+            check(!CustomCombatResults.TryReadState(absent.AsSpan(0,legacy),f.Manifest,f.Definition,out var refused)&&refused==default,
+                "old private state wire layout refuses explicitly: "+legacy);
         check(!CustomCombatResults.TryReadState(absent.Concat(new byte[]{0}).ToArray(),f.Manifest,f.Definition,out var trailing)&&trailing==default,
-            "115-byte state with trailing data refuses rather than ignoring it");
+            "147-byte state with trailing data refuses rather than ignoring it");
         for(int flag=2;flag<=255;flag++)
         {
             var bytes=(byte[])absent.Clone();bytes[113]=(byte)flag;
@@ -70,7 +75,7 @@ internal static class CustomEmptyInventoryChecks
         var funded=(byte[])present.Clone();funded[113]=0;
         check(!CustomCombatResults.TryReadState(funded,f.Manifest,f.Definition,out var hidden)&&hidden==default,
             "flipping funded state to absent cannot hide nonzero inventory");
-        byte[] shortBuffer=Enumerable.Repeat((byte)0xcc,113).ToArray();bool shortRefused=false;
+        byte[] shortBuffer=Enumerable.Repeat((byte)0xcc,145).ToArray();bool shortRefused=false;
         try{CustomCombatResults.Write(empty,shortBuffer,f.Manifest,f.Definition);}catch(ArgumentException){shortRefused=true;}
         check(shortRefused&&shortBuffer.All(value=>value==0xcc),"short state write refuses before changing destination");
     }
@@ -91,7 +96,7 @@ internal static class CustomEmptyInventoryChecks
             empty with{State=state with{Weapon=default}}};
         foreach(var value in malformed)
         {
-            byte[] buffer=Enumerable.Repeat((byte)0xcc,114).ToArray();bool refused=false;
+            byte[] buffer=Enumerable.Repeat((byte)0xcc,146).ToArray();bool refused=false;
             try{CustomCombatResults.Write(value,buffer,f.Manifest,f.Definition);}catch(ArgumentException){refused=true;}
             check(!CustomCombatResults.Valid(value,f.Manifest,f.Definition)&&refused&&buffer.All(b=>b==0xcc),
                 "non-normalized absent state refuses validation and atomic encoding");

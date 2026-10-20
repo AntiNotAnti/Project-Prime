@@ -8,7 +8,7 @@ using OpenTK.Mathematics;
 // observations, accepted gameplay, movement replay, or damage certificates.
 internal static class InputCarrierChecks
 {
-    private const string RequestHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d0000000101";
+    private const string RequestHex="01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d0000000101000000000000000000000000000000000000000000000000";
     private static readonly WorldBootstrapIdentity Bootstrap=new(new(0x1234,0x0102030405060708UL,0x11223344),0x55667788,0x99aa,100,0x50607080,0x90a0b0c0);
     private static IntentPacket Intent(CustomControlRequest request,int events=0)
     {
@@ -33,10 +33,12 @@ internal static class InputCarrierChecks
     {
         check(CustomControlRequest.TryRead(Convert.FromHexString(RequestHex),out var request),"literal control fixture decodes independently checked request bytes");
         var intent=Intent(request); var native=Native(intent); var bytes=Envelope(request,native);
-        var expected=new byte[78+native.Length]; BinaryPrimitives.WriteUInt16LittleEndian(expected,(ushort)native.Length);
-        Convert.FromHexString(RequestHex).CopyTo(expected,2); native.CopyTo(expected,78);
-        check(CustomInputCarrier.PrefixSize==78 && CustomInputCarrier.MaxPayload==1176 && bytes.SequenceEqual(expected),
-            "carrier is exact LE native length plus unchanged76-byte request plus unchanged compact native payload under1200-byte datagram budget");
+        var expected=new byte[192+native.Length];
+        Convert.FromHexString(RequestHex).AsSpan(0,65).CopyTo(expected); expected[65]=1;
+        BinaryPrimitives.WriteUInt16LittleEndian(expected.AsSpan(90),(ushort)native.Length);
+        Convert.FromHexString(RequestHex).CopyTo(expected,92); native.CopyTo(expected,192);
+        check(CustomInputCarrier.PrefixSize==192 && CustomInputCarrier.MaxPayload==1176 && bytes.SequenceEqual(expected),
+            "carrier has exact outer identity/flag/empty input stamp/length, 100-byte request and unchanged compact native payload");
         check(CustomInputCarrier.TryRead(bytes,out var decoded,out var read) && decoded==request
             && Native(read).SequenceEqual(native) && CustomInputCarrier.Matches(request,read),
             "carrier roundtrip preserves every native byte without promoting request into native fire history");
@@ -45,7 +47,7 @@ internal static class InputCarrierChecks
                 "every truncated atomic carrier refuses both outputs");
         foreach (int length in new[] { 0,native.Length-1,native.Length+1,ushort.MaxValue })
         {
-            var changed=bytes.ToArray(); BinaryPrimitives.WriteUInt16LittleEndian(changed,(ushort)length);
+            var changed=bytes.ToArray(); BinaryPrimitives.WriteUInt16LittleEndian(changed.AsSpan(90),(ushort)length);
             check(!CustomInputCarrier.TryRead(changed,out _,out _),"mismatched declared native length cannot partially admit a wrapper");
         }
         check(!CustomInputCarrier.TryRead(bytes.Concat(new byte[1]).ToArray(),out _,out _)
@@ -58,7 +60,7 @@ internal static class InputCarrierChecks
             check(!CustomInputCarrier.Matches(request,changed)
                 && !CustomInputCarrier.TryWrite(request,bad,destination,out int written) && written==0
                 && destination.All(x=>x==0xcc),"match/epoch/generation/life mismatch cannot touch native output or attach a custom nonce");
-            var malformed=bytes.ToArray(); bad.CopyTo(malformed,78);
+            var malformed=bytes.ToArray(); bad.CopyTo(malformed,192);
             check(!CustomInputCarrier.TryRead(malformed,out _,out _),"wire identity mismatch refuses both decoded outputs");
         }
         foreach (var bad in new[] { default(CustomControlRequest),request with { Sequence=0 },request with { Kind=(CustomWeaponActionKind)255 } })
@@ -75,7 +77,7 @@ internal static class InputCarrierChecks
         }
         var shortDest=Enumerable.Repeat((byte)0xcc,bytes.Length-1).ToArray();
         check(!CustomInputCarrier.TryWrite(request,native,shortDest,out _) && shortDest.All(x=>x==0xcc),"short destination fails without partial prefix/native mutation");
-        foreach (int offset in new[] { 0,17,78,91 })
+        foreach (int offset in new[] { 0,17,192,205 })
         {
             var overlap=Enumerable.Repeat((byte)0xcc,bytes.Length+offset+native.Length).ToArray();native.CopyTo(overlap,offset);
             check(CustomInputCarrier.TryWrite(request,overlap.AsSpan(offset,native.Length),overlap.AsSpan(0,bytes.Length),out int count)
@@ -84,9 +86,9 @@ internal static class InputCarrierChecks
         for (int events=0;events<=NetFireEvents.LiveCapacity;events++)
         {
             var payload=Native(Intent(request,events));var output=Enumerable.Repeat((byte)0xcc,CustomInputCarrier.MaxPayload).ToArray();
-            bool fits=payload.Length+78<=1176;
+            bool fits=payload.Length+192<=1176;
             bool encoded=CustomInputCarrier.TryWrite(request,payload,output,out int count);
-            check(encoded==fits && (fits ? output.AsSpan(78,payload.Length).SequenceEqual(payload) && count==payload.Length+78
+            check(encoded==fits && (fits ? output.AsSpan(192,payload.Length).SequenceEqual(payload) && count==payload.Length+192
                 : count==0 && output.All(x=>x==0xcc)),"all native fire-event counts retain every byte or fall back intact at the real realtime MTU");
             if (events==NetFireEvents.LiveCapacity)
                 check(!fits && CompactIntentCodec.TryRead(payload,out var full) && full.FireEventCount==14 && Native(full).SequenceEqual(payload),
