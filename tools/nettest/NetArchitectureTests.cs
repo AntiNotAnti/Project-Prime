@@ -63,16 +63,21 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 60
+            Check(NetConfig.ProtocolVersion == 61
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1287 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 60 preserves Balanced ability semantics and exact FireEvent pose");
+                "protocol 61 preserves Balanced ability semantics and exact FireEvent pose");
             Check((byte)PacketType.TurretFireOutcome == 72
                 && NetReliableChannel.IsReliable(PacketType.TurretFireOutcome),
-                "protocol 60 retains reliable authority turret outcomes and prior intent and pose contracts");
+                "protocol 61 retains reliable authority turret outcomes and prior intent and pose contracts");
+            Check((byte)PacketType.TimedGrant == 77 && (byte)PacketType.PartyReservationRequest == 80
+                && (byte)PacketType.PartyReservationState == 81 && (byte)PacketType.PartyReservationAction == 82
+                && (byte)PacketType.CustomWeaponManifest == 83 && (byte)PacketType.CustomWeaponReady == 84
+                && (byte)PacketType.CustomWeaponReadyConfirmed == 85,
+                "protocol 61 adds only the distinct custom readiness IDs after the unchanged native registry");
             Check((byte)PacketType.BombIntent == 68 && (byte)PacketType.BombEvent == 69 && (byte)PacketType.BombState == 70
                 && NetReliableChannel.IsReliable(PacketType.BombIntent) && NetReliableChannel.IsReliable(PacketType.BombEvent)
                 && !NetReliableChannel.IsReliable(PacketType.BombState), "dedicated bomb request/event reliability and state lane");

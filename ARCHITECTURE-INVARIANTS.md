@@ -6,7 +6,11 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **57** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **61** (`NetConfig.ProtocolVersion`).
+- Protocol 61 adds opt-in built-in custom manifest/readiness/confirmation messages
+  at packet IDs 83–85. These capability messages neither admit custom actions nor
+  activate custom gameplay. Native protocol-60 payload shapes and historical replay
+  bodies remain unchanged; live peers still require an exact protocol match.
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -55,7 +59,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
 - The protocol-16 byte-equivalence and protocol-17 migration notes describe the
-  historical Netcode P0 train; current internal refactors preserve protocol 57
+  historical Netcode P0 train; current internal refactors preserve protocol 61
   packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
@@ -211,7 +215,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 57).
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 61).
 - Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
 - Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The

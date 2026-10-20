@@ -510,6 +510,7 @@ namespace MphRead.Mods.Network
                     PumpBombDelivery();
                     PumpTurretDelivery();
                     PumpPickupDelivery();
+                    PumpCustomWeaponReadiness(now);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     PumpSocialMembership(now);
@@ -716,6 +717,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                ReleaseCustomWeaponReadiness();
                 Shutdown(listenPort);
             }
         }
@@ -1243,6 +1245,7 @@ namespace MphRead.Mods.Network
                     }
                     break;
                 case PacketType.WorldReady: HandleWorldReady(packet, now); break;
+                case PacketType.CustomWeaponReady: HandleCustomWeaponReady(packet,now); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
                 case PacketType.MatchLoadFailed: HandleMatchLoadFailed(packet); break;
@@ -2644,6 +2647,7 @@ namespace MphRead.Mods.Network
 
         private void Remove(Peer peer, string reason)
         {
+            RetireCustomWeaponReadiness(peer.SlotIndex);
             Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Lifecycle, NetSession.NetFrame,
                 Player: (byte)peer.SlotIndex, Generation: _slotGenerations[peer.SlotIndex], Result: 202));
             CareerPeerLeaving(peer);
