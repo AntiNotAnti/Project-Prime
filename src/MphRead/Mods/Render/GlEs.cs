@@ -116,17 +116,20 @@ namespace MphRead.Mods.Render
         // Track VAO ownership within the GLES scene pass. Unknown external
         // consumers (Android UI or a new EGL context) explicitly invalidate it.
         // Disable via PROJECT_PRIME_ANDROID_PERF_OPT_IN=0 for legacy unbinds.
-        private static int _boundVertexArray = -1;
-        internal static void InvalidateVertexArrayBinding() => _boundVertexArray = -1;
+        [ThreadStatic] private static int _boundVertexArray;
+        [ThreadStatic] private static bool _boundVertexArrayKnown;
+        internal static void InvalidateVertexArrayBinding() => _boundVertexArrayKnown = false;
         private static void BindVertexArray(int name)
         {
-            if (_boundVertexArray == name && OpenGlOptimizationPolicy.AndroidPerformanceOptedIn)
+            if (_boundVertexArrayKnown && _boundVertexArray == name
+                && OpenGlOptimizationPolicy.AndroidPerformanceOptedIn)
             {
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.StateSkips);
                 return;
             }
             ES.GL.BindVertexArray(name);
             _boundVertexArray = name;
+            _boundVertexArrayKnown = true;
         }
         private static readonly LegacyGlUniformCache _uniformCache = new();
         private static readonly bool _uniformElisionEnabled = OpenGlOptimizationPolicy.Enabled("GLES_UNIFORMS");
