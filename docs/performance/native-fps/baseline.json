@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "sourceSha": "c0e7e01de6f2125543018470be852d9ec593f9cd",
+  "reviewDate": "2026-10-19",
+  "status": "NOT_RUN",
+  "reason": "Concurrent native display-pose campaign from another chat prevents uncontended native timing. Assets exist; do not classify this as missing assets.",
+  "workload": {
+    "room": "MP3 PROVING GROUND",
+    "players": 8,
+    "pixels": [
+      1920,
+      1080
+    ],
+    "preset": "Original",
+    "shadows": [
+      "Off",
+      "High"
+    ],
+    "warmupSimulationTicks": 240
+  },
+  "defaultEnabledOptimizationPolicy": [
+    "VAO",
+    "DYNAMIC_STREAM",
+    "UNIFORM_REVISIONS",
+    "STATIC_CACHE",
+    "SHADOW_FAST",
+    "HUD_SAMPLERS",
+    "DEPTH_BATCH",
+    "ATLAS_EVICTION",
+    "HUD_DISCARD",
+    "DEPTH_SHADER",
+    "GLES_UNIFORMS",
+    "HUD_GLYPHS",
+    "HUD_SPRITES",
+    "DEPTH_PREP",
+    "PROCEDURAL_BATCH",
+    "ROOM_CACHE",
+    "DEPTH_KEEP",
+    "SHADER_VARIANTS",
+    "ROOM_GROUPS",
+    "PLAIN_SHADER",
+    "SHADOW_PREP",
+    "ROOM_IDENTITY",
+    "MESH_OBJECT",
+    "UNLIT_SHADER",
+    "SHADOW_GROUPS"
+  ],
+  "negativeExperiments": [
+    "PALETTE_PREP",
+    "PROCEDURAL_STREAM"
+  ],
+  "metrics": {
+    "trueOnePercentLowFps": null,
+    "frameIntervalP99Ms": null,
+    "presentWaitP99Ms": null,
+    "aaNoisePercent": null,
+    "gpuTimeMs": null
+  },
+  "rankedMeasuredCandidates": [],
+  "candidateSelection": "No source owner can be ranked >5% of total interval without valid native measurements. Inclusive pass scopes must not be added together.",
+  "platforms": {
+    "macOS": "NOT_RUN: concurrent workload; native smoke may run but cannot qualify performance",
+    "Windows": "NOT_RUN: no controlled native device attached to this execution",
+    "Linux": "NOT_RUN: no controlled native device attached to this execution",
+    "Android": "NOT_RUN: no physical GLES device attached to this execution"
+  },
+  "gpu": "UNVERIFIED: Apple compatibility GL timer queries require live capability evidence; swap wall time is not GPU time",
+  "defaultChanges": []
+}

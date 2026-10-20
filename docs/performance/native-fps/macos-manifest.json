@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "sourceSha": "c0e7e01de6f2125543018470be852d9ec593f9cd",
+  "machine": "Jarretts-MBP",
+  "os": "macOS-27.0.1-arm64-arm-64bit",
+  "architecture": "arm64",
+  "status": "NOT_RUN",
+  "loadedClientMvid": null,
+  "loadedClientSha256": null,
+  "driverVsync": "UNVERIFIED",
+  "vrr": "UNVERIFIED",
+  "monitorHz": "UNVERIFIED",
+  "assetPathsAvailable": true,
+  "contentHash": null,
+  "exclusions": [
+    "Concurrent native-render-check display-pose campaign in project-prime-plan worktree.",
+    "No accepted timing run may overlap builds, copies or framebuffer captures."
+  ],
+  "runs": []
+}
