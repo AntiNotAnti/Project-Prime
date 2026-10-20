@@ -148,7 +148,8 @@ internal static class ReplayContextAnalysis
             _shots.Add(identity);
             var actor = new MatchSemanticActor(fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId);
             var target = new MatchSemanticActor(fact.VictimSlot, fact.VictimGeneration, fact.VictimLifeId);
-            if (_launches.TryGetValue(key, out var launch) && launch.Key == key && launch.IsValid)
+            if (_launches.TryGetValue(key, out var launch) && launch.Key == key && launch.IsValid
+                && launch.Fire.SourceFrame == fact.LaunchFrame && launch.Fire.Weapon == fact.Weapon)
             {
                 float distance = (launch.Fire.Origin - fact.ImpactPoint).Length;
                 if (float.IsFinite(distance) && distance >= 30)
@@ -160,7 +161,9 @@ internal static class ReplayContextAnalysis
             // health and remaining-time facts. Never describe this as a victory.
             if (state == null || state.ServerTick != fact.ResolveTick
                 || !state.TryGetPlayer(actor.Slot, out var shooter) || shooter.SlotGeneration != actor.SlotGeneration
-                || shooter.LifeId != actor.Life || shooter.Health == 0) return;
+                || shooter.LifeId != actor.Life || shooter.Health == 0
+                || (shooter.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagSpectating))
+                    != (PlayerState.FlagActive | PlayerState.FlagSpawned)) return;
             if (float.IsFinite(shooter.Speed.LengthSquared) && shooter.Speed.LengthSquared >= .04f)
                 Add(frame, "FastMovement", actor, target, 76, "Fast-moving kill at resolve (≥12 world units/s)",
                     "Exact resolve-tick authority speed, 60Hz simulation units; no airborne or launch-motion inference");
@@ -174,7 +177,8 @@ internal static class ReplayContextAnalysis
             {
                 var occupant = state.Occupant(slot); if (occupant.Generation == 0) continue;
                 if (!state.TryGetPlayer(slot, out var p) || p.SlotGeneration != occupant.Generation) return;
-                if (p.Health == 0) continue;
+                if (p.Health == 0 || (p.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagSpectating))
+                    != (PlayerState.FlagActive | PlayerState.FlagSpawned)) continue;
                 if (slot == actor.Slot || mode == GameMode.BattleTeams && p.Team == shooter.Team) allies++; else opponents++;
             }
             if (opponents >= 2 && opponents > allies)

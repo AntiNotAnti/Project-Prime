@@ -31,13 +31,14 @@ internal static class ReplayContextAnalysisTests
         1, new(100, 150, 0, false, 0, 0, true));
     // Real detached decoder packets, including canonical player/time/health tails.
     private static ReplayReplicaState State(GameMode mode = GameMode.Battle, bool world = true, bool complete = true,
-        Vector3? speed = null, uint tick = 101, float time = 20, ushort health = 20)
+        Vector3? speed = null, uint tick = 101, float time = 20, ushort health = 20,
+        byte opponentsFlags = PlayerState.FlagActive | PlayerState.FlagSpawned)
     {
         var state = new ReplayReplicaState();
         byte[] match = new byte[1 + MatchStatePacket.Size]; match[0] = (byte)PacketType.MatchState;
         new MatchStatePacket { MatchId = 7, AuthorityEpoch = 99, RoomKey = "context-fixture", Mode = (byte)mode }.Write(match.AsSpan(1));
         state.Accept(match, 0); Roster(state, 1);
-        Snapshot(state, tick, [0, 0, 0, 0], complete ? 4 : 3, speed ?? Vector3.Zero, health);
+        Snapshot(state, tick, [0, 0, 0, 0], complete ? 4 : 3, speed ?? Vector3.Zero, health, opponentsFlags: opponentsFlags);
         if (world) World(state, tick, time);
         return state;
     }
@@ -49,7 +50,8 @@ internal static class ReplayContextAnalysisTests
         byte[] bytes = new byte[1 + RosterPacket.Size]; bytes[0] = (byte)PacketType.Roster; roster.Write(bytes.AsSpan(1)); state.Accept(bytes, revision);
     }
     private static void Snapshot(ReplayReplicaState state, uint tick, short[] points, int count = 4,
-        Vector3 speed = default, ushort health = 20, ushort secondGeneration = 2)
+        Vector3 speed = default, ushort health = 20, ushort secondGeneration = 2,
+        byte opponentsFlags = PlayerState.FlagActive | PlayerState.FlagSpawned)
     {
         int tail = 1 + SnapshotHeader.Size + count * PlayerState.Size;
         byte[] bytes = new byte[tail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize]; bytes[0] = (byte)PacketType.Snapshot;
@@ -58,7 +60,7 @@ internal static class ReplayContextAnalysisTests
         {
             var player = new PlayerState { SlotIndex = i, SlotGeneration = i == 1 ? secondGeneration : (ushort)(i + 1), LifeId = 1,
                 Health = i == 0 ? health : i == 1 ? (ushort)0 : (ushort)100, Points = points[i], Team = i,
-                Flags = PlayerState.FlagActive | PlayerState.FlagSpawned, Facing = Vector3.UnitZ, Speed = i == 0 ? speed : Vector3.Zero };
+                Flags = i >= 2 ? opponentsFlags : (byte)(PlayerState.FlagActive | PlayerState.FlagSpawned), Facing = Vector3.UnitZ, Speed = i == 0 ? speed : Vector3.Zero };
             player.Write(bytes.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
         }
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(tail + NetMatchTimeSync.Size), 7); state.Accept(bytes, tick);
@@ -160,6 +162,17 @@ internal static class ReplayContextAnalysisTests
             Check(reversedHeadshot.Events.Count(e => e.Kind == "Headshot") == 1,
                 "cross-channel headshot deduplication is independent of evidence arrival order");
             var launch = Launch(); Check(launch.IsValid, "synthetic verified launch certificate valid");
+            foreach (var mismatch in new[] { Shot() with { LaunchFrame = 99 }, Shot() with { Weapon = (byte)BeamType.Missile } })
+            {
+                var wrong = new ReplayContextAnalysis.Index(); wrong.Launch(launch); wrong.Shot(800, mismatch);
+                Check(wrong.Events.Count == 0, "launch source clock and weapon must agree independently of shot identity");
+            }
+            foreach (byte flags in new[] { (byte)PlayerState.FlagActive,
+                (byte)(PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagSpectating) })
+            {
+                var spectators = new ReplayContextAnalysis.Index(); spectators.Shot(700, Shot(), State(opponentsFlags: flags));
+                Check(!spectators.Events.Any(e => e.Kind == "ClutchContext"), "unspawned or spectating roster members are not live opponents");
+            }
             var distance = new ReplayContextAnalysis.Index(); distance.Launch(launch); distance.Shot(800, Shot());
             Check(distance.Events.Single().Kind == "LongShot", "verified launch and accepted full-key result prove long shot");
             foreach (var mismatched in new[] { Shot() with { AuthorityEpoch = 100 }, Shot() with { MatchId = 8 },
