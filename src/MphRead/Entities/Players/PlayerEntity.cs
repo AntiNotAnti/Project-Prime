@@ -959,6 +959,8 @@ namespace MphRead.Entities
                 _viewTiltAngleV = 0;
                 UpdateCameraFirst();
                 CameraInfo.Update();
+                if (IsMainPlayer && _scene.GameState.Multiplayer)
+                    _scene.ModResetThirdPersonSpawnCamera(this);
             }
             _gunDrawPos = Fixed.ToFloat(Values.FieldB8) * facing
                 + CameraInfo.Position

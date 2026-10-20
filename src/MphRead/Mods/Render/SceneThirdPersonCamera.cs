@@ -18,7 +18,6 @@ namespace MphRead
         private const float ThirdPersonUp = 0.35f;
         private const float ThirdPersonSide = 0.5f;
         private const float ThirdPersonWallMargin = 0.3f;
-        private const float ThirdPersonBodyClearance = 0.8f;
 
         private float _thirdPersonCameraDistance = float.MaxValue;
         private Vector3 _thirdPersonCameraOffset = Vector3.Zero;
@@ -40,6 +39,29 @@ namespace MphRead
         // Scene-owned presentation history, never written into the player,
         // match snapshot, replay or simulation camera.
         private readonly ThirdPersonFormCameraHandoff _thirdPersonFormHandoff = new();
+        private Vector3 _thirdPersonRenderedEye;
+        private bool _thirdPersonRenderedEyeValid;
+
+        /// <summary>Near-body opacity is local, visual and never affects other Hunters.</summary>
+        internal float ModThirdPersonLocalBodyOpacity { get; private set; } = 1f;
+
+        /// <summary>
+        /// A new life is a hard camera boundary. Present the first eligible
+        /// third-person pose immediately, never an old corpse/intro viewpoint.
+        /// </summary>
+        internal void ModResetThirdPersonSpawnCamera(PlayerEntity player)
+        {
+            if (!ReferenceEquals(player, Players.Main)) return;
+            _thirdPersonCameraDistance = float.MaxValue;
+            _thirdPersonCameraLastTick = double.NaN;
+            _thirdPersonWallTraceFrame = ulong.MaxValue;
+            _thirdPersonReticleTraceFrame = ulong.MaxValue;
+            _thirdPersonCameraOffset = Vector3.Zero;
+            _thirdPersonRenderedEyeValid = false;
+            ModThirdPersonCameraActive = false;
+            ModThirdPersonLocalBodyOpacity = 1f;
+            _thirdPersonFormHandoff.Reset();
+        }
 
         /// <summary>True only for a live local third-person world draw.</summary>
         internal bool ModThirdPersonCameraActive { get; private set; }
@@ -47,7 +69,9 @@ namespace MphRead
         private void ModResetThirdPersonCameraFrame()
         {
             ModThirdPersonCameraActive = false;
+            ModThirdPersonLocalBodyOpacity = 1f;
             _thirdPersonCameraOffset = Vector3.Zero;
+            _thirdPersonRenderedEyeValid = false;
             if (_cameraMode != CameraMode.Player)
                 _thirdPersonFormHandoff.Reset();
         }
@@ -106,6 +130,7 @@ namespace MphRead
             {
                 _thirdPersonCameraDistance = float.MaxValue;
                 _thirdPersonCameraLastTick = double.NaN;
+                _thirdPersonRenderedEyeValid = false;
                 _thirdPersonFormHandoff.Reset();
                 return;
             }
@@ -115,6 +140,7 @@ namespace MphRead
             {
                 _thirdPersonCameraDistance = float.MaxValue;
                 _thirdPersonCameraLastTick = double.NaN;
+                _thirdPersonRenderedEyeValid = false;
                 _thirdPersonFormHandoff.Reset();
                 return;
             }
@@ -123,19 +149,24 @@ namespace MphRead
             // movement. Preserve it. Only biped/First receives the chase offset;
             // unlike the old code, Unmorphing does NOT temporarily disable it.
             // The presentation-only handoff below bridges both CameraType changes.
-            Matrix4 nativeView = view;
+            // Resolve the native eye exactly once. The previous implementation
+            // inverted this matrix again at the end of every frame and also
+            // re-read the first-person camera from Renderer.
+            Matrix4 nativeInverse = view.Inverted();
+            Vector3 nativeEye = nativeInverse.Row3.Xyz;
+            Vector3 desiredEye = nativeEye;
             double clock = Mods.Render.FrameTiming.Active
                 ? Mods.Render.FrameTiming.TotalSteps + Mods.Render.FrameTiming.Alpha
                 : GlobalElapsedTime * Mods.Render.FrameTiming.SimulationHz;
             long generation = Mods.Render.FrameTiming.Active
                 ? Mods.Render.FrameTiming.PresentationGeneration : 0;
-            if (player.CameraType == CameraType.First && !player.IsAltForm)
+            if (ThirdPersonCameraPolicy.ShowShoulder(
+                    true, player.CameraType, player.IsAltForm))
             {
-                Matrix4 inverse = view.Inverted();
-                Vector3 eye = inverse.Row3.Xyz;
-                Vector3 desired = inverse.Row2.Xyz.Normalized() * ThirdPersonBack
-                    + inverse.Row1.Xyz.Normalized() * ThirdPersonUp
-                    + inverse.Row0.Xyz.Normalized() * ThirdPersonSide;
+                Vector3 eye = nativeEye;
+                Vector3 desired = nativeInverse.Row2.Xyz.Normalized() * ThirdPersonBack
+                    + nativeInverse.Row1.Xyz.Normalized() * ThirdPersonUp
+                    + nativeInverse.Row0.Xyz.Normalized() * ThirdPersonSide;
                 float distance = desired.Length;
                 if (ThirdPersonFormCameraHandoff.IsFinite(eye)
                     && float.IsFinite(distance) && distance > 0.001f)
@@ -184,12 +215,16 @@ namespace MphRead
                         ? allowed
                         : _thirdPersonCameraDistance + (allowed - _thirdPersonCameraDistance) * release;
 
-                    if (_thirdPersonCameraDistance >= ThirdPersonBodyClearance)
-                    {
-                        ModThirdPersonCameraActive = true;
-                        Vector3 offset = direction * _thirdPersonCameraDistance;
-                        view = Matrix4.CreateTranslation(-offset) * view;
-                    }
+                    // Never abruptly restore the first-person camera just
+                    // because a spawn pad or wall compresses the shoulder.
+                    // Keep the same camera mode, fade the local body near
+                    // the lens, and restore full opacity as clearance opens.
+                    ModThirdPersonCameraActive = true;
+                    ModThirdPersonLocalBodyOpacity =
+                        ThirdPersonCameraPolicy.LocalBodyOpacity(_thirdPersonCameraDistance);
+                    Vector3 offset = direction * _thirdPersonCameraDistance;
+                    desiredEye = nativeEye + offset;
+                    view = Matrix4.CreateTranslation(-offset) * view;
                 }
             }
             else
@@ -199,8 +234,9 @@ namespace MphRead
             }
 
             // Reuse the same display clock for morph-camera interpolation.
-            view = _thirdPersonFormHandoff.Present(view, player.CameraType, clock,
-                generation, out bool blending);
+            view = _thirdPersonFormHandoff.Present(view, desiredEye,
+                player.CameraType, clock, generation,
+                out bool blending, out Vector3 presentedEye);
 
             // A bridge between two individually collision-safe camera positions
             // can still cut through a wall around a corner. Clamp the intermediate
@@ -208,16 +244,15 @@ namespace MphRead
             if (blending)
             {
                 Matrix4 inv = view.Inverted();
-                Vector3 renderedEye = inv.Row3.Xyz;
                 Vector3 source = player.Volume.SpherePosition;
-                Vector3 ray = renderedEye - source;
+                Vector3 ray = presentedEye - source;
                 float length = ray.Length;
-                if (ThirdPersonFormCameraHandoff.IsFinite(renderedEye)
+                if (ThirdPersonFormCameraHandoff.IsFinite(presentedEye)
                     && ThirdPersonFormCameraHandoff.IsFinite(source)
                     && float.IsFinite(length) && length > 0.001f)
                 {
                     CollisionResult result = default;
-                    if (CollisionDetection.CheckBetweenPoints(source, renderedEye,
+                    if (CollisionDetection.CheckBetweenPoints(source, presentedEye,
                             TestFlags.Players, this, ref result))
                     {
                         float reach = Math.Clamp(length * result.Distance
@@ -227,7 +262,8 @@ namespace MphRead
                             Vector3 clippedEye = source + ray * (reach / length);
                             view = Matrix4.LookAt(clippedEye,
                                 clippedEye - inv.Row2.Xyz, inv.Row1.Xyz);
-                            _thirdPersonFormHandoff.Remember(view);
+                            presentedEye = clippedEye;
+                            _thirdPersonFormHandoff.Remember(view, clippedEye);
                         }
                     }
                 }
@@ -235,8 +271,11 @@ namespace MphRead
 
             // Keep culling, billboards and lighting on exactly the same pose as
             // the interpolated view. The native viewmodel/aim pose stays intact.
-            _thirdPersonCameraOffset = view.Inverted().Row3.Xyz
-                - nativeView.Inverted().Row3.Xyz;
+            _thirdPersonCameraOffset = presentedEye - nativeEye;
+            // Only bypass the ordinary first-person camera position reader
+            // when the third-person view or form transition actually owns it.
+            _thirdPersonRenderedEye = presentedEye;
+            _thirdPersonRenderedEyeValid = ModThirdPersonCameraActive || blending;
         }
     }
 
@@ -267,7 +306,16 @@ namespace MphRead
             _blending = false;
         }
 
-        internal void Remember(Matrix4 presented) => _lastPresentedView = presented;
+        private Vector3 _lastPresentedEye;
+
+        internal void Remember(Matrix4 presented) =>
+            Remember(presented, presented.Inverted().Row3.Xyz);
+
+        internal void Remember(Matrix4 presented, Vector3 eye)
+        {
+            _lastPresentedView = presented;
+            _lastPresentedEye = eye;
+        }
 
         internal static bool IsFinite(Vector3 v) =>
             float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
@@ -276,10 +324,20 @@ namespace MphRead
             float.IsFinite(view.Determinant) && MathF.Abs(view.Determinant) >= 0.001f;
 
         internal Matrix4 Present(Matrix4 desired, CameraType cameraType,
-            double ticks, long generation, out bool blending)
+            double ticks, long generation, out bool blending) =>
+            Present(desired, desired.Inverted().Row3.Xyz, cameraType,
+                ticks, generation, out blending, out _);
+
+        // Caller has already resolved the native camera eye; this overload
+        // avoids the prior two inverse-matrix operations per draw.
+        internal Matrix4 Present(Matrix4 desired, Vector3 desiredEye,
+            CameraType cameraType, double ticks, long generation,
+            out bool blending, out Vector3 presentedEye)
         {
             blending = false;
-            if (!ValidView(desired) || !double.IsFinite(ticks))
+            presentedEye = desiredEye;
+            if (!ValidView(desired) || !IsFinite(desiredEye)
+                || !double.IsFinite(ticks))
             {
                 Reset();
                 return desired;
@@ -287,22 +345,19 @@ namespace MphRead
 
             if (!_initialized || _lastGeneration != generation
                 || ticks < _lastTick || ticks - _lastTick > 60
-                || (_lastPresentedView.Inverted().Row3.Xyz
-                    - desired.Inverted().Row3.Xyz).LengthSquared > TeleportDistanceSquared)
+                || (_lastPresentedEye - desiredEye).LengthSquared > TeleportDistanceSquared)
             {
                 _initialized = true;
                 _blending = false;
                 _lastGeneration = generation;
                 _lastCameraType = cameraType;
                 _lastTick = ticks;
-                _lastPresentedView = desired;
+                Remember(desired, desiredEye);
                 return desired;
             }
 
             if (cameraType != _lastCameraType)
             {
-                // Reversing the morph while a transition is underway starts
-                // from the actual picture, not the former target or native eye.
                 _fromView = _lastPresentedView;
                 _startTick = ticks;
                 _blending = true;
@@ -314,15 +369,15 @@ namespace MphRead
                 float fraction = (float)Math.Clamp(
                     (ticks - _startTick) / DurationTicks, 0, 1);
                 if (fraction >= 1f)
-                {
                     _blending = false;
-                }
                 else
                 {
                     float eased = fraction * fraction * (3f - 2f * fraction);
-                    if (TryBlend(_fromView, desired, eased, out Matrix4 halfway))
+                    if (TryBlend(_fromView, desired, eased,
+                            out Matrix4 halfway, out Vector3 midwayEye))
                     {
                         presented = halfway;
+                        presentedEye = midwayEye;
                         blending = true;
                     }
                 }
@@ -330,18 +385,19 @@ namespace MphRead
 
             _lastCameraType = cameraType;
             _lastTick = ticks;
-            _lastPresentedView = presented;
+            Remember(presented, presentedEye);
             return presented;
         }
 
         private static bool TryBlend(Matrix4 from, Matrix4 to,
-            float fraction, out Matrix4 view)
+            float fraction, out Matrix4 view, out Vector3 eye)
         {
             view = to;
+            eye = Vector3.Zero;
             if (!ValidView(from) || !ValidView(to)) return false;
             Matrix4 fromInverse = from.Inverted();
             Matrix4 toInverse = to.Inverted();
-            Vector3 eye = Vector3.Lerp(fromInverse.Row3.Xyz,
+            eye = Vector3.Lerp(fromInverse.Row3.Xyz,
                 toInverse.Row3.Xyz, fraction);
             if (!CameraInfo.ModInterpolateDirection(
                     -fromInverse.Row2.Xyz, -toInverse.Row2.Xyz,
