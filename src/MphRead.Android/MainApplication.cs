@@ -6,6 +6,7 @@ using Android.Runtime;
 using Avalonia;
 using MphRead.Mods;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Import;
 
 namespace MphRead.Droid
 {
@@ -52,6 +53,11 @@ namespace MphRead.Droid
             string root = ChooseRoot();
             if (root.Length > 0)
             {
+                // Android storage roots may contain platform aliases. Resolve
+                // those before the shared no-symlink import authority captures it.
+                using (var directory = new Java.IO.File(root))
+                    root = directory.CanonicalPath ?? throw new IOException("Android data root could not be canonicalized.");
+                CharacterImportPaths.ConfigureAndroidRoot(root);
                 LauncherPrefs.Directory = root;
                 GameFiles.Root = root;
                 try

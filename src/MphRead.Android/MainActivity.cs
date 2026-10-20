@@ -95,6 +95,7 @@ namespace MphRead.Droid
             Instance = this;
             base.OnCreate(savedInstanceState);
             InstallSettingsArchiveServices();
+            InstallSourceDocuments(savedInstanceState);
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
             PrepareNativePauseAssets();
 #endif
@@ -504,6 +505,7 @@ namespace MphRead.Droid
             DisposeNativeLauncher();
 #endif
             DisposeSettingsArchiveServices();
+            DisposeSourceDocuments();
             if (Instance == this)
             {
                 Instance = null;
