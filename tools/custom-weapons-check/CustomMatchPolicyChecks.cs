@@ -34,8 +34,8 @@ internal static class CustomMatchPolicyChecks
             &&!Native.RiftlineM7Available&&(Native.Rules&MatchModifierFlags.RiftlineM7Available)==0,
             "native/default match definitions never opt into M7 availability");
         check((uint)MatchModifierFlags.RiftlineM7Available==262144
-            &&MovementModelRules.KnownModifierMask==524287&&NetConfig.ProtocolVersion==73,
-            "protocol73 retains availability bit18 while preserving every earlier modifier ID");
+            &&MovementModelRules.KnownModifierMask==524287&&NetConfig.ProtocolVersion==74,
+            "protocol74 retains availability bit18 while preserving every earlier modifier ID");
         var requested=Native with{RiftlineM7Available=true};
         check(requested.Rules==(Native.Rules|MatchModifierFlags.RiftlineM7Available)
             &&requested.ModifierSummary.Contains("Riftline M7",StringComparison.Ordinal),
@@ -127,7 +127,7 @@ internal static class CustomMatchPolicyChecks
             "native MatchState70 body retains exact reviewed69 bytes");
         check(CustomReplayBoundary.FirstFrozenAvailabilityProtocol==70,
             "custom replay bootstrap boundary follows frozen availability protocol70 independently of the current live version");
-        foreach(byte nativeProtocol in new byte[]{59,69,70,71})
+        foreach(byte nativeProtocol in new byte[]{59,69,70,71,72,73,74})
         {
             byte[] recordedMatch=nativeProtocol<60?nativeMatch.AsSpan(0,1+MatchStatePacket.Protocol59Size).ToArray():nativeMatch;
             var nativeMetadata=new ReplayMetadata{ProtocolVersion=nativeProtocol,FormatVersion=6,TimedShotCertificates=true,
@@ -148,6 +148,9 @@ internal static class CustomMatchPolicyChecks
                 "current70 replay conversion refuses custom availability instead of silently playing native: "+(PacketType)packet[0]);
             check(Refused(()=>{ReplayIdentityCompatibility.Convert(packet,71);}),
                 "protocol71 replay conversion preserves custom availability refusal: "+(PacketType)packet[0]);
+            foreach(int protocol in new[]{72,73,74})
+                check(Refused(()=>{ReplayIdentityCompatibility.Convert(packet,protocol);}),
+                    "reviewed native archive support does not admit custom availability: "+protocol+"/"+(PacketType)packet[0]);
             var replica=new ReplayReplicaState();replica.Accept(nativeMatch,0);var before=replica.CaptureCheckpoint();
             check(Refused(()=>replica.Accept(packet,1))&&replica.CaptureCheckpoint().Bytes.SequenceEqual(before.Bytes),
                 "direct custom replay packet refusal is transactional: "+(PacketType)packet[0]);

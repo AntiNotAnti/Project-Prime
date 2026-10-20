@@ -66,6 +66,7 @@ public sealed partial class DedicatedServer
         if (_customReadyEntries != null)foreach (var entry in _customReadyEntries) InvalidateCustomEntry(entry);
         _customReadyEntries = null;
         _customAudience?.Close();_customAudience=null;_customAudienceStart=default;
+        ReleaseCustomPickups();
         Array.Clear(_customReplicaStateOwners);Array.Clear(_customReplicaStateRevisions);Array.Clear(_customReplicaStateDue);
         Array.Clear(_customReplicaSlots);Array.Clear(_customReplicaFlights);
     }
@@ -151,8 +152,9 @@ public sealed partial class DedicatedServer
         var owner = new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)peer.SlotIndex,intent.SlotGeneration,intent.LifeId);
         if (CurrentCustomSourceEntry(owner,scene) is not { } entry || entry.Peer != peer
             || packet.ConnectionId == 0 || packet.ConnectionId != entry.State.ConnectionId) return;
-        entry.Boundary!.NoteAcceptedInput(new(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
-            intent.Position,intent.Aim,(uint)intent.Buttons,knowledge,NetSession.NetFrame));
+        var input=new CustomSourceInput(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
+            intent.Position,intent.Aim,(uint)intent.Buttons,knowledge,NetSession.NetFrame);
+        if(entry.Boundary!.NoteAcceptedInput(input))scene.CustomCombat?.CapturePickupIngress(input);
     }
     private void ConfigureCustomSourceCombat(Scene scene)
     {
@@ -161,6 +163,7 @@ public sealed partial class DedicatedServer
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
         var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene),
             pickupOnly:PublicCustomWeaponMatch);
+        if(PublicCustomWeaponMatch)root.ConfigurePickups(CurrentStartIdentity,CurrentDefinition.MapIdentity.Content(CurrentDefinition.RoomKey));
         _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
     }
 }

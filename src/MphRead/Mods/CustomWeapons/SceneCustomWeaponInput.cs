@@ -26,6 +26,8 @@ public partial class Scene
     private CustomInputSink? _customInputSink;
     private PlayerEntity? _customInputPlayer;
     private ShotKey _customInputLife;
+    private WeaponOwnerContext _onlinePickupOwner;
+    private ulong _onlinePickupRevision;
     private void ReleaseCustomWeaponInput()
     {
         _customInput?.Reset();_customInput=null;_customInputSink=null;_customInputPlayer=null;_customInputLife=default;
@@ -105,6 +107,16 @@ public partial class Scene
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
         bool custom=controls.CustomWeapon.IsPressed;
         bool cycle=controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed;
+        if(NetSession.Active&&projection is {HasWeapon:true} pickup
+            &&NetSession.CustomWeaponPresentationState is {Knowledge.IsPresent:true} acquired
+            &&acquired.State.Owner==pickup.Owner&&(_onlinePickupOwner!=pickup.Owner||_onlinePickupRevision!=acquired.Knowledge.Revision))
+        {
+            bool first=_onlinePickupOwner!=pickup.Owner;
+            _onlinePickupOwner=pickup.Owner;_onlinePickupRevision=acquired.Knowledge.Revision;
+            player.ModPlayCustomPickupCue(first);
+            if(first&&inputAllowed&&!native&&!custom&&!cycle&&!player.ModNativeWheelReleaseIntent&&!player.ModCustomCycleMenuDown
+                &&!controls.Shoot.IsDown&&!player.Flags2.TestFlag(PlayerFlags2.Shooting)&&player.ModCustomPickupOutranksCurrent())custom=true;
+        }
         bool wheelHandled=player.ModResolveCustomWheelRelease(native||custom||cycle,inputAllowed,out var wheel);
         if(!wheelHandled)native|=player.ModNativeWheelReleaseIntent;
         else if(wheel is {} choice){native|=!choice.Custom;custom|=choice.Custom;}

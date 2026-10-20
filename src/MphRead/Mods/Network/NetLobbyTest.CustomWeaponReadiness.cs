@@ -31,6 +31,11 @@ public static partial class NetLobbyTest
         internal int ReplicaPages,ReplicaEvents,ReplicaAcks,WithheldReplicaAcks;
         internal bool DiscardReplicaBaselineAcks,DiscardReplicaEventAcks;
         internal byte[]? LastReplicaBaselineAck,LastReplicaEventAck;
+        internal CustomPickupReplicaReceiver? Pickups;
+        private WorldBootstrapIdentity? _pickupBootstrap;
+        internal int PickupPackets,PickupAcks,WithheldPickupAcks;
+        internal bool DiscardPickupAcks;
+        internal byte[]? LastPickupAck;
         internal CustomReadinessProbe(Client client)
         {
             _client = client; _registry = new(true,new[] { _definition });
@@ -75,6 +80,30 @@ public static partial class NetLobbyTest
                     if (ack.Baseline ? DiscardReplicaBaselineAcks:DiscardReplicaEventAcks) WithheldReplicaAcks++;
                     else { _client.Send(PacketType.CustomWeaponReplicaAck,bytes);ReplicaAcks++; }
                 }
+            }
+            if(packet.Type==PacketType.CustomWeaponPickupState)
+            {
+                Check(Ready.HasValue&&_client.State is {Match.RiftlineM7Available:true}
+                    &&packet.Sender.Equals(_client.Server)
+                    &&packet.ConnectionId==_client.Transport.ConnectionStats(_client.Server)!.Value.ConnectionId,
+                    "public pickup fact comes from exact admitted authority and frozen public match");
+                var ready=Ready!.Value;var match=_client.State!.Value.Match;
+                if(Pickups==null||_pickupBootstrap!=ready.Bootstrap)
+                {
+                    var manifest=new CustomWeaponManifest(new[]{_definition});
+                    var layout=new CustomPickupLayout(match.MapIdentity.Content(match.RoomKey),manifest,_registry,
+                        StockRiftlinePickups.ForRoom(match.RoomKey));
+                    Pickups=new(ready.Bootstrap,layout);_pickupBootstrap=ready.Bootstrap;
+                }
+                PickupPackets++;
+                if(!Pickups.Receive(packet.Payload,out var ack))
+                {Check(!Pickups.Closed,"stale pickup fact cannot contradict retained production receiver state");return;}
+                var bytes=new byte[CustomPickupReplicaCodec.AckSize];CustomPickupReplicaCodec.Write(ack,bytes);
+                Check(CustomPickupReplicaCodec.TryReadAck(bytes,out var exact)&&exact==ack,
+                    "durably received pickup fact produces exact recipient/world/item/serial/digest acknowledgement");
+                LastPickupAck=bytes;
+                if(DiscardPickupAcks)WithheldPickupAcks++;
+                else{_client.Send(PacketType.CustomWeaponPickupAck,bytes);PickupAcks++;}
             }
             if (packet.Type == PacketType.CustomWeaponReadyConfirmed)
             {

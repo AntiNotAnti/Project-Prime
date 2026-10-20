@@ -634,6 +634,7 @@ namespace MphRead.Mods.Network
             if (type is not (PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
                 or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
                 or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+                or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
                 or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed
                 or PacketType.MatchSemanticEvent or PacketType.MatchAward
                 or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome

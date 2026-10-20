@@ -21,7 +21,7 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current wire version is protocol 73. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Native payloads and movement policy remain unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 74. Protocol74 adds public custom pickup state/ACKs at97/98. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Native payloads and movement policy remain unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.
