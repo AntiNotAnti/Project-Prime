@@ -18,6 +18,16 @@ sphere tests use the native strict radius boundary. The engine producer and
 funding adapter must bind these facts to the exact living current actor; the
 ledger is not independent movement proof or a validator of client claims.
 
+Online activation needs an additional ownership-knowledge boundary. A numerically
+later source frame can still have been authored before collection when remote
+input is delayed. Arrival freshness/serials and source+1 funding alone do not
+prove that the owner had received the grant. The online adapter must refuse
+pre-ownership ingress, fence acquisition acknowledgement to subsequently consumed
+input, and prevent a newly acquired weapon from rewinding fire before its grant
+world tick. Resource revisions and ownership tokens must survive retransmission
+without upgrading an older queued control. Public online pickups must remain
+inactive until those guards and their impaired-transport cases are qualified.
+
 Collection requires the exact world/spawn/incarnation, current authority tick,
 availability and valid overlap. It reserves one of 128 immutable outcome slots
 before entering the funding adapter. A definite funding refusal leaves the item,
