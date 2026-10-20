@@ -50,11 +50,11 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             _controller.Current().Choice.Hunter);
     }
 
-    public void Open(bool focusBeamGallery = false)
+    public void Open()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _page = _pages.OpenPage(new("native-hunter",
-            "pages/hunters/native-picker.rml", focusBeamGallery ? "hunter_beam0" : "hunter_choice0"));
+            "pages/hunters/native-picker.rml", "hunter_choice0"));
         Refresh();
     }
 
@@ -217,20 +217,6 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 CosmeticCatalog.ResolveDeath(cosmetic.Draft.DeathEffectKey).Description),
             ["hunter_beam_description"] = RmlUiBindingValue.FromText(
                 CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).Description),
-            ["hunter_beam_preview_text"] = RmlUiBindingValue.FromText(
-                cosmetic.Draft.BeamEffectKey switch
-                {
-                    "beam.ion_fracture" => "==== X ====",
-                    "beam.void_rift" => "|=====|====",
-                    "beam.quantum_split" => "==<=== >==",
-                    "beam.alimbic" => "==[ ]==[ ]",
-                    "beam.omega" => "==O==O==O=",
-                    "beam.arc" => "==/\\==/\\==",
-                    "beam.solar" => "==^==^==^=",
-                    "beam.cryo" => "==<>==<>==",
-                    "beam.phantom" => "============",
-                    _ => "============"
-                }),
             ["disabled:hunter_discard"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
             ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
@@ -276,18 +262,6 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         for (int i = 0; i < 4; i++)
             data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
                 i == state.Choice.Suit);
-        for (int i = 0; i < CosmeticCatalog.BeamEffects.Count; i++)
-        {
-            data["class:hunter_beam" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
-                cosmetic.Draft.BeamEffectKey == CosmeticCatalog.BeamEffects[i].Key);
-            data["disabled:hunter_beam" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
-        }
-        for (int i = 0; i < BeamPalette.Names.Count; i++)
-        {
-            data["class:hunter_beam_color" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
-                cosmetic.Draft.BeamColor == i);
-            data["disabled:hunter_beam_color" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
-        }
         _pages.Present(_page, ++_revision, data);
     }
 
