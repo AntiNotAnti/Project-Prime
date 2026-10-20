@@ -36,6 +36,7 @@ Our slices add no wire change.
 | [818](https://github.com/AntiNotAnti/Project-Prime/pull/818) | Private source texture banks, immutable model material snapshots and shared material upload ownership | `e239340af921695274d3eb208dc2162484654860` |
 | [821](https://github.com/AntiNotAnti/Project-Prime/pull/821) | Bounded material reader and opt-in full-precision source-coordinate reader | `bdf69e2e54306c0e40b4818217016e9a25427b73` |
 | [824](https://github.com/AntiNotAnti/Project-Prime/pull/824) | Private model-bound paired-UV companion, final compiler emission and immutable runtime adoption | `da443dc9e86c7bb51402ce0024797379497f1d10` |
+| [826](https://github.com/AntiNotAnti/Project-Prime/pull/826) | Bounded detached original credits/results source document | `d948432362e5cfb969ed7573945d14fe22e40e5d` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
