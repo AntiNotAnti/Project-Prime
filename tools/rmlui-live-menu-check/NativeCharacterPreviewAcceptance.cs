@@ -46,7 +46,7 @@ internal static class NativeCharacterPreviewAcceptance
                     && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
                     && parts.Status.Contains("normal and Overcharged Echoes support a source-program body preview with preview lighting", StringComparison.Ordinal)
                     && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
-                    "complete verified synthetic v6 bundle reports body-v5 and ball-v3 Ready with explicit diagnostic-only and gameplay qualification limits");
+                    "complete verified synthetic v6 bundle reports body-v5 and ball-v3 Ready with explicit source-program preview and gameplay qualification limits");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
                 Check(spec.Version == 6 && spec.RequiredComponents.Length == 20,
                     "normal source authoring recipe-v6 independently requires all twenty components");
