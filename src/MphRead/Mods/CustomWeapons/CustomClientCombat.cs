@@ -94,6 +94,7 @@ internal sealed class CustomClientCombat
         if (type==PacketType.CustomWeaponControlDenied)
         {
             if (!CustomControlDenied.TryRead(bytes,out var denied)
+                || denied.Request.Weapon.Value!=10
                 || !Recipient(denied.Request.Bootstrap,denied.Request.Manifest,denied.Request.Slot)) return false;
             for (int i=0;i<_pending.Length;i++)
                 if (_pending[i] is { } pending && pending.Owner==denied.Request.Owner && pending.Sequence==denied.Request.Sequence)
@@ -122,6 +123,7 @@ internal sealed class CustomClientCombat
     internal bool Submit(in CustomWeaponAction action,double now)
     {
         if (Invalidated || _mode==2 || !Time(now) || !action.IsValid || State is not { } state
+            || action.Weapon!=state.Weapon
             || !Recipient(action.Bootstrap,action.Manifest,action.Slot) || action.Owner!=state.State.Owner
             || action.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         for (int i=0;i<_pending.Length;i++)
@@ -135,6 +137,7 @@ internal sealed class CustomClientCombat
     internal bool Submit(in CustomControlRequest request,double now)
     {
         if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not { } state
+            || request.Weapon!=state.Weapon
             || !Recipient(request.Bootstrap,request.Manifest,request.Slot) || request.Owner!=state.State.Owner
             || request.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         foreach (var pending in _pending)
