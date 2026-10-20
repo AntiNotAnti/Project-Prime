@@ -91,14 +91,30 @@ namespace MphRead.Mods.Render
             Matrix4 simulationView, Matrix4 drawInverseRotation, Matrix4 drawView,
             Matrix4 projection, out Vector2 reticle)
         {
+            return TryProjectCameraRay(muzzle,
+                Matrix.Vec3MultMtx3(direction, simulationView),
+                collisionDistance, simulationEye, drawnNativeEye,
+                drawInverseRotation, drawView, projection, out reticle);
+        }
+
+        /// <summary>
+        /// Hot-path overload: the scene caches the canonical ray transformed
+        /// into simulation-camera space with its once-per-tick world trace.
+        /// Only this last camera-relative rotation and projection are needed
+        /// at each 120/240+ Hz draw.
+        /// </summary>
+        internal static bool TryProjectCameraRay(Vector3 muzzle, Vector3 cameraRay,
+            float collisionDistance, Vector3 simulationEye, Vector3 drawnNativeEye,
+            Matrix4 drawInverseRotation, Matrix4 drawView,
+            Matrix4 projection, out Vector2 reticle)
+        {
             reticle = new Vector2(.5f, .5f);
-            if (!Finite(muzzle) || !Finite(direction) || !Finite(simulationEye)
+            if (!Finite(muzzle) || !Finite(cameraRay) || !Finite(simulationEye)
                 || !Finite(drawnNativeEye) || !float.IsFinite(collisionDistance)
                 || collisionDistance < 0f || collisionDistance > TraceRange + .001f)
                 return false;
 
-            Vector3 local = Matrix.Vec3MultMtx3(direction, simulationView);
-            Vector3 rotated = Matrix.Vec3MultMtx3(local, drawInverseRotation);
+            Vector3 rotated = Matrix.Vec3MultMtx3(cameraRay, drawInverseRotation);
             float lengthSquared = rotated.LengthSquared;
             if (!Finite(rotated) || !float.IsFinite(lengthSquared)
                 || lengthSquared <= .000001f)
