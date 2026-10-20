@@ -71,11 +71,13 @@ public partial class MainActivity
     }
     private void CreateNativeLauncherView()
     {
-        if (_content == null || AndroidApp.Home == null || _nativeAssetRoot == null)
+        var home = AndroidApp.Home;
+        if (_content == null || home == null || _nativeAssetRoot == null)
         { RmlUiAndroidLauncherPreviewBarrier.Release(_nativeActivation); _nativeLauncherGlOwned = false; return; }
-        var options = new RmlUiAndroidLauncherOptions(_nativeAssetRoot, AndroidApp.Home.RmlUiRoomKeys,
-            AndroidApp.Home.RmlUiLocalRules,
-            NativeLauncherOpened, NativeOfflineRequested, NativeLauncherClosed, NativeSceneRetired, NativeSaveChangeRequested);
+        var options = new RmlUiAndroidLauncherOptions(_nativeAssetRoot, home.RmlUiRoomKeys,
+            home.RmlUiLocalRules,
+            NativeLauncherOpened, NativeOfflineRequested, NativeLauncherClosed, NativeSceneRetired, NativeSaveChangeRequested,
+            (currentView, lifetime, change, publish, token) => NativeOfflineRulesRequested(home, currentView, lifetime, change, publish, token));
         GameView? view = null;
         view = new GameView(this, _controls, new AndroidInput(),
             (_, _) => throw new InvalidOperationException("No local match has been admitted."),
@@ -168,6 +170,19 @@ public partial class MainActivity
                 bool success = AndroidApp.Home?.RmlUiManageAdventureSave(captured, out status, cancellation) == true;
                 return new(captured, success, status);
             }, change, token);
+    private Task<RmlUiOfflineRulesSaveResult> NativeOfflineRulesRequested(StartScreen home, GameView view, Guid lifetime,
+        RmlUiOfflineRulesChange change, Action<RmlUiOfflineRules?> publish, CancellationToken token)
+    {
+        var activation = _nativeActivation;
+        return RmlUiAndroidOfflineRulesWork.Run(PostNativeLauncher,
+            () => activation == _nativeActivation && ReferenceEquals(AndroidApp.Home, home)
+                && ReferenceEquals(_nativeLauncherView, view) && _nativePauseForeground
+                && _pending == null && _gameView == null && view.NativeLauncherCanManageSaves(lifetime)
+                && !NetSession.Active && !DemoPlayback.IsActive && !MatchStart.HasPendingCommit
+                && Menu.NeededSave == SaveWhen.Never && home?.CanManageAdventureSaves == true,
+            (captured, cancellation) => home!.RmlUiSaveOfflineRules(captured, cancellation),
+            publish, change, token, readCurrent: () => home.RmlUiLocalRules);
+    }
     private static bool SameNativeMatch(GameView view, RmlUiAndroidLocalWitness expected)
     {
         var current = view.NativeLocalState;
@@ -200,7 +215,8 @@ public partial class MainActivity
             var home = AndroidApp.Home;
             if (home?.RmlUiCanPresent != true) throw new InvalidOperationException("The existing local launch owner is not ready.");
             var options = new RmlUiAndroidLauncherOptions(_nativeAssetRoot, home.RmlUiRoomKeys, home.RmlUiLocalRules,
-                NativeLauncherOpened, NativeOfflineRequested, NativeLauncherClosed, NativeSceneRetired, NativeSaveChangeRequested);
+                NativeLauncherOpened, NativeOfflineRequested, NativeLauncherClosed, NativeSceneRetired, NativeSaveChangeRequested,
+                (currentView, lifetime, change, publish, token) => NativeOfflineRulesRequested(home, currentView, lifetime, change, publish, token));
             if (!view.AcknowledgeNativeHome(returned.Witness, options))
                 throw new InvalidOperationException("The native Home return was retired.");
             _gameView = null; _nativeLauncherView = view;

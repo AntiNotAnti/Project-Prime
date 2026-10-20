@@ -127,6 +127,29 @@ namespace MphRead.Mods.Launcher.Gui
         internal bool CanManageAdventureSaves => !_finished && _startup == null && !_prime.Overlays.IsOpen
             && !NetSession.Active && !DemoPlayback.IsActive && !MatchStart.HasPendingCommit && Menu.NeededSave == SaveWhen.Never;
 
+        internal MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRulesSaveResult RmlUiSaveOfflineRules(
+            MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRulesChange change,
+            System.Threading.CancellationToken cancellation)
+        {
+            string error = "LOCAL RULES REFUSED // CURRENT SETTINGS OWNER UNAVAILABLE";
+            if (!CanManageAdventureSaves || cancellation.IsCancellationRequested)
+                return new(change, false, error, RmlUiLocalRules);
+            // The lease is thread-affine. Acquire, compare, persist and release
+            // synchronously on this existing UI/settings owner.
+            using var write = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (write == null)
+                return new(change, false, "SETTINGS WERE REPLACED // RESTART BEFORE SAVING", RmlUiLocalRules);
+            if (!change.Validate(out error) || !CanManageAdventureSaves || cancellation.IsCancellationRequested)
+                return new(change, false, error.Length > 0 ? error : "RULE SAVE REQUEST RETIRED", RmlUiLocalRules);
+            bool saved = MphRead.Mods.Launcher.RmlUi.Core.RmlUiOfflineRules.TryCommit(
+                _settings, change.Expected, change.Next, GameState.CommitSettings, out error);
+            var current = RmlUiLocalRules;
+            if (saved && current == change.Next) Mods.GameSettings.Apply(_settings);
+            else saved = false;
+            return new(change, saved, saved ? "LOCAL MATCH RULES SAVED"
+                : error.Length > 0 ? error : "RULE SAVE OUTCOME UNVERIFIED // REOPEN RULES TO VERIFY", current);
+        }
+
         internal bool RmlUiManageAdventureSave(MphRead.Mods.Launcher.RmlUi.Core.RmlUiAdventureSaveChange change, out string status,
             System.Threading.CancellationToken cancellationToken = default)
         {

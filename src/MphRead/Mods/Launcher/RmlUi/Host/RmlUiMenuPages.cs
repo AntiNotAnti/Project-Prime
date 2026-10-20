@@ -693,6 +693,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             {
                 new(RmlUiBindingKind.Text, "offline_rules_error", "{{offline_rules_error}}"),
                 new(RmlUiBindingKind.Text, "offline_damage_value", "{{offline_damage_value}}"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_rules_apply", "offline_rules_busy"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_damage_value", "offline_rules_busy"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_point_goal", "offline_rules_busy"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_time_limit", "offline_rules_busy"),
+                new(RmlUiBindingKind.Boolean, "disabled:offline_time_goal", "offline_rules_busy"),
                 new(RmlUiBindingKind.Boolean, "visible:offline_point_goal_row", "offline_point_goal_visible"),
                 new(RmlUiBindingKind.Boolean, "visible:offline_time_limit_row", "offline_time_limit_visible"),
                 new(RmlUiBindingKind.Boolean, "visible:offline_time_goal_row", "offline_time_goal_visible"),
@@ -704,7 +709,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             };
             for (int i = 0; i < RmlUiIntentRegistry.OfflineRuleChoiceCount; i++)
                 if (i != 5) // One in the Chamber is a mode, not an independent toggle.
+                {
                     bindings.Add(new(RmlUiBindingKind.Text, $"offline_rule_{i}", "{{offline_rule" + i + "_label}}"));
+                    bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:offline_rule_{i}", "offline_rules_busy"));
+                }
             return bindings.ToArray();
         }
 
