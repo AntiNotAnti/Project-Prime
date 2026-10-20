@@ -57,6 +57,8 @@ namespace MphRead.Mods.Launcher
     /// <summary>Client-only identity carried through the persistent lobby; never serialized.</summary>
     public sealed record LobbyContext(string ServerName, string Endpoint, bool CreatedLocally = false);
 
+    public enum OfflineCharacterMode { Native, TrooperWallClingPractice }
+
     public enum LaunchKind
     {
         None,
@@ -89,6 +91,7 @@ namespace MphRead.Mods.Launcher
         // Enter the existing spectator camera after the joined match has loaded.
         public bool Spectate { get; init; }
         public bool IsPlaytest { get; init; }
+        public OfflineCharacterMode OfflineCharacter { get; init; }
 
         /// <summary>
         /// The hunter to play, already rolled if the player asked for a random

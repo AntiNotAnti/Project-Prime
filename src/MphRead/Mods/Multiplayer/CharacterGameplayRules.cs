@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Multiplayer;
 
-// Proposed private first slice. A gameplay rule is an explicit finite value;
+// Private offline mechanics. A gameplay rule is an explicit finite value;
 // imported assets, character previews, skin IDs and suit colors never select it.
 internal enum CharacterGameplayVariant : byte { Native, TrooperV1 }
 internal readonly record struct CharacterGameplayRules(byte Version, CharacterGameplayVariant Variant)

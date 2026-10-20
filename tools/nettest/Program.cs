@@ -47,6 +47,9 @@ namespace MphRead.NetTest
                     + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
+                    + "  --offline-character-gameplay       Test captured offline practice selection and replay exclusion.\n"
+                    + "  --character-wall-cling             Test local rule ownership and synthetic wall collisions.\n"
+                    + "  --character-wall-cling-scene <assets> <json> Test actual offline native arena traversal.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --campaign-save-management        Test Adventure save copy/archive and byte preservation.\n"
@@ -174,6 +177,16 @@ namespace MphRead.NetTest
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
+            if (args.Length == 1 && args[0] == "--offline-character-gameplay")
+                return OfflineCharacterGameplayTests.Run();
+            if (args.Length > 0 && args[0] == "--character-wall-cling-scene")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --character-wall-cling-scene <AMHE1 filesystem> <fresh result.json>"); return 1; }
+                return CharacterWallClingSceneTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
+            if (args.Length == 1 && args[0] == "--character-wall-cling")
+                return CharacterWallClingTests.Run();
             if (args.Length == 2 && args[0] == "--ncx-timeline" && args[1] is "off" or "on")
                 return ShotTimelineTests.Run(args[1] == "on");
             if (args.Length == 1 && args[0] == "--ncx-fixtures")

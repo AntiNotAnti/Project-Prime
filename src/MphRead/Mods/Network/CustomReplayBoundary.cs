@@ -12,7 +12,7 @@ internal static class CustomReplayBoundary
     // cannot make those unsupported custom archives inspectable as native ones.
     internal const int FirstFrozenAvailabilityProtocol = 70;
     private static bool _ownerlessSelected;
-    internal const string Error = "Replay recording and killcams are unavailable in custom weapon scenes. Start a fresh native scene to record.";
+    internal const string Error = "Replay recording and killcams are unavailable in scenes with unsupported custom gameplay. Start a fresh native scene to record.";
 
     internal static bool IsBlocked(Scene? scene = null)
     {
@@ -26,7 +26,7 @@ internal static class CustomReplayBoundary
             owner.CustomReplayUnsupported = true;
             _ownerlessSelected = false;
         }
-        return owner.CustomReplayUnsupported || owner.CustomCombat != null || owner.OfflineWeapons != null;
+        return owner.PrivateCharacterGameplayUnsupported || owner.CustomReplayUnsupported || owner.CustomCombat != null || owner.OfflineWeapons != null;
     }
 
     internal static bool TryActivateClient(out string? error)
