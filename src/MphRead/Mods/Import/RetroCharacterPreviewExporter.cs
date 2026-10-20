@@ -125,16 +125,16 @@ public static partial class RetroCharacterPreviewExporter
             {
                 cancellation.ThrowIfCancellationRequested();
                 var parts = new List<AuthoringPart>();
-                foreach (SourcePart part in PartsFor(spec.Id))
+                foreach (SourcePart part in PartsFor(spec.Id, edition))
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, cancellation));
+                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, edition, cancellation));
                 }
                 if (spec.AlternateForm != null)
                 {
                     string name = spec.Id + ".parts.json";
                     string path = Path.Combine(staging, name);
-                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, BundleSpec(spec.Id).Version, false,
+                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, BundleSpec(spec.Id, edition).Version, false,
                         parts.ToArray(), new[] { "source-materials", "first-person", "runtime-animation-and-morph" });
                     File.WriteAllText(path, JsonSerializer.Serialize(index));
                     staged.Add((path, Path.Combine(root, name)));

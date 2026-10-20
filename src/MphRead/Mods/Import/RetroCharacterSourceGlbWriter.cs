@@ -23,6 +23,14 @@ public static class RetroCharacterSourceGlbWriter
     public const int MaximumMaterials = 256;
 
     public static byte[] Write(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation = default)
+        => Capture(model, skeleton, primeTrooper: false, cancellation);
+
+    // This is a source authoring contract, not a runtime capability. Prime's
+    // external parent2 is not a missing joint to synthesize or remap to97.
+    public static byte[] WritePrimeTrooper(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation = default)
+        => Capture(model, skeleton, primeTrooper: true, cancellation);
+
+    private static byte[] Capture(Cmdl model, RetroNativeSkeleton skeleton, bool primeTrooper, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(skeleton);
@@ -56,17 +64,17 @@ public static class RetroCharacterSourceGlbWriter
                 throw new InvalidDataException("Source weights require an unchanged unit sum.");
             skin.Add(positive.ToArray());
         }
-        var captured = new Cmdl { Positions = (float[])model.Positions.Clone(), Normals = (float[])model.Normals.Clone(),
+        var captured = new Cmdl { Version = model.Version, Positions = (float[])model.Positions.Clone(), Normals = (float[])model.Normals.Clone(),
             Uv0 = (float[])model.Uv0.Clone(), ShortUvs = (float[]?)model.ShortUvs?.Clone(),
             Triangles = (Cmdl.Corner[])model.Triangles.Clone(), TriangleMaterial = (int[])model.TriangleMaterial.Clone(), Skin = skin,
             Materials = model.Materials.Select(m => m == null ? throw new InvalidDataException("Missing source material.") : new Cmdl.Material { Flags = m.Flags }).ToArray() };
         if (skeleton.Bones.Any(p => p.Value == null || p.Key != p.Value.Id))
             throw new InvalidDataException("Source skeleton keys must match their nonnull bone identities.");
         var capturedRig = new RetroNativeSkeleton(skeleton.Bones.ToDictionary(p => p.Key, p => p.Value with { }));
-        return WriteCaptured(captured, capturedRig, cancellation);
+        return WriteCaptured(captured, capturedRig, primeTrooper, cancellation);
     }
 
-    private static byte[] WriteCaptured(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation)
+    private static byte[] WriteCaptured(Cmdl model, RetroNativeSkeleton skeleton, bool primeTrooper, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(skeleton);
@@ -81,10 +89,13 @@ public static class RetroCharacterSourceGlbWriter
             throw new InvalidDataException("Source GLB input exceeds the complete geometry/rig budget.");
         var bones = skeleton.Bones.Values.OrderBy(b => b.Id).ToArray();
         var jointIndex = bones.Select((b, i) => (b.Id, i)).ToDictionary(p => p.Id, p => p.i);
+        var roots = bones.Where(b => !jointIndex.ContainsKey(b.Parent)).ToArray();
         if (bones.Any(b => !skeleton.Bones.TryGetValue(b.Id, out var value) || value != b)
-            || bones.Count(b => !jointIndex.ContainsKey(b.Parent)) != 1
-            || bones.Single(b => !jointIndex.ContainsKey(b.Parent)).Parent != 97)
-            throw new InvalidDataException("Source GLB requires the explicit single root97 skeleton contract.");
+            || roots.Length != 1 || roots[0].Parent != (primeTrooper ? 2u : 97u)
+            || primeTrooper && (model.Version != 2 || bones.Length != 35 || roots[0].Id != 3))
+            throw new InvalidDataException(primeTrooper
+                ? "Prime Trooper source GLB requires CMDL2,35 bones and the exact root3/parent2 contract."
+                : "Source GLB requires the explicit single root97 skeleton contract.");
         foreach (var b in bones)
         {
             Bounded(b.X); Bounded(b.Y); Bounded(b.Z);
@@ -218,6 +229,13 @@ public static class RetroCharacterSourceGlbWriter
             ["materials"] = materials, ["images"] = images, ["textures"] = textures, ["samplers"] = new JsonArray(new JsonObject { ["wrapS"] = 33071, ["wrapT"] = 33071 }),
             ["meshes"] = new JsonArray(new JsonObject { ["primitives"] = primitives }),
             ["extras"] = new JsonObject { ["sourceGlbWriterVersion"] = Version, ["sourceBasis"] = "(-x,z,y)", ["materialPolicy"] = MaterialPolicy } };
+        if (primeTrooper)
+        {
+            var extras = document["extras"]!.AsObject();
+            extras["sourceRootContract"] = "prime-trooper-root3-parent2-v1";
+            extras["sourceRootBoneId"] = 3;
+            extras["sourceExternalParentId"] = 2;
+        }
         byte[] json = Encoding.UTF8.GetBytes(document.ToJsonString()); int jl = checked((json.Length + 3) & ~3);
         long total = 28L + jl + binary.Length;
         if (json.Length > 4 * 1024 * 1024 || total > MaximumBytes) throw new InvalidDataException("Encoded source GLB exceeds bounded JSON/component limits.");
