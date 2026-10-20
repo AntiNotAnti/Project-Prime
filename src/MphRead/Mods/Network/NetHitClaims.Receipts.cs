@@ -94,8 +94,18 @@ public static partial class NetHitClaims
         _seenKeys[slot, at] = key; _seenPaymentKeys[slot, at] = payment;
         _seenBeams[slot, at] = (BeamType)claim.Beam;
         _seenOutcomes[slot, at] = RequestOutcome(claim);
-        Remember(slot, claim.ClaimId, ResultPending);
-        Answer(slot, claim.ClaimId, result, outcome: outcome);
+        // Retain the immutable terminal receipt without allowing a rejected
+        // old-life request to advance the current-life claim ordering frontier.
+        ushort priorNewest = _newestId[slot];
+        try
+        {
+            Remember(slot, claim.ClaimId, ResultPending);
+            Answer(slot, claim.ClaimId, result, outcome: outcome);
+        }
+        finally
+        {
+            if (!remember) _newestId[slot] = priorNewest;
+        }
     }
 
     private static bool ReceiptAdmissionBlocked(int slot)
