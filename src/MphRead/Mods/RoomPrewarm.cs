@@ -177,6 +177,11 @@ namespace MphRead.Mods
             }
             if (task == null)
                 return false;
+            // The normal lobby/continuous join finds the background room work
+            // already complete. Avoid constructing a diagnostic Stopwatch
+            // and scheduling a continuation for this zero-wait hot path.
+            if (task.IsCompletedSuccessfully)
+                return task.Result;
 
             var clock = Stopwatch.StartNew();
             try
