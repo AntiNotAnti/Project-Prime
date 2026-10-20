@@ -1,0 +1,298 @@
+{
+  "schema": 1,
+  "status": "implementation slices merged; release and device qualification pending",
+  "initialMain": "2d18ac05721366597afc1afdb57f061e73ee4423",
+  "integrationBase": "e34de1a301a62338b596712bc4ccead447167dca",
+  "baselineProtocol": 61,
+  "integrationProtocol": 62,
+  "protocolChangeOwner": "independent main PR799; this series adds no wire messages or protocol bump",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "architecture": "arm64",
+    "sdk": "10.0.401",
+    "windows": "SSH authentication denied; user-authorized Mac fallback",
+    "physicalAndroid": "not available"
+  },
+  "mergedPullRequests": [
+    {
+      "base": "2d18ac05721366597afc1afdb57f061e73ee4423",
+      "head": "3df84ae803eb5a98d9e3a7dd2e4e187e6fbd1f4a",
+      "merge": "5bc952147ce45f87d777ff0de4b2927f0c27ef9e",
+      "number": 787,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/787"
+    },
+    {
+      "base": "5bc952147ce45f87d777ff0de4b2927f0c27ef9e",
+      "head": "88ef139bf8b24e4ac7b2a70088ec3567b3a5bb19",
+      "merge": "758defcc708a48fa3913f192bcf567a76144ffb2",
+      "number": 788,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/788"
+    },
+    {
+      "base": "36a87be6b6d7a520b59697e4a64e223a5d941c54",
+      "head": "089273538f769245aff8f4067d7ea40bbedceaca",
+      "merge": "9172a470bc59b8877603cc5b6265c96344c0f740",
+      "number": 791,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/791"
+    },
+    {
+      "base": "9172a470bc59b8877603cc5b6265c96344c0f740",
+      "head": "0ba9b64e2351fcb1aeaf8a45d75152c8bb55310d",
+      "merge": "d51605175e6f366ff9a390c4933803710174110a",
+      "number": 792,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/792"
+    },
+    {
+      "base": "c58974850de3558fc5e666738fde1102704cf28e",
+      "head": "5d78dafd6ed9b3c01d4ef618fde09c5cbe96b6b3",
+      "merge": "710be80181158913bb7b30cc205a468db9069b3e",
+      "number": 795,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/795"
+    },
+    {
+      "base": "34923f434cccd5a02eea0b04e0614e2f68f32bf3",
+      "head": "397007d73becfb08e8fd0a63c5ac984dbfcdadf6",
+      "merge": "44dd8465b76ba31531e7cd3ff821d0ef55468780",
+      "number": 796,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/796"
+    },
+    {
+      "base": "44dd8465b76ba31531e7cd3ff821d0ef55468780",
+      "head": "3a55b974929f25764cda1a7027a8ca98bacd3721",
+      "merge": "fab3b50204695bd3638836cb8052c5bc3bed352e",
+      "number": 798,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/798"
+    },
+    {
+      "base": "e3eec955ebc8bd33eba1ec591bb15ca36fc8b552",
+      "head": "eb50ccdfcfec090d1929515a3eb21b4c0a44d0b9",
+      "merge": "e34de1a301a62338b596712bc4ccead447167dca",
+      "number": 801,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/801"
+    }
+  ],
+  "results": [
+    {
+      "name": "final-owner51",
+      "exit": 0,
+      "tail": [
+        "PASS: 51 owner presentation track assertions; synthetic file/pose only, animation remains reconstructed"
+      ]
+    },
+    {
+      "name": "final-touch101",
+      "exit": 0,
+      "tail": [
+        "TOUCH INSTANCES PASS 101 checks (production input/codec models; device verification pending)"
+      ]
+    },
+    {
+      "name": "final-timeline-off",
+      "exit": 0,
+      "tail": [
+        "PASS shot timeline storage/clock/identity (disabled)"
+      ]
+    },
+    {
+      "name": "final-timeline-on",
+      "exit": 0,
+      "tail": [
+        "PASS shot timeline storage/clock/identity (enabled)"
+      ]
+    },
+    {
+      "name": "final-baseline",
+      "exit": 0,
+      "tail": [
+        "}",
+        "UPSTREAM BASELINE PASS two independent constructed multi-life recorder runs"
+      ]
+    },
+    {
+      "name": "final-fidelity49",
+      "exit": 0,
+      "tail": [
+        "FIDELITY EXPORT PASS corrupt chunk disclosed without trusting partial records",
+        "PASS: 49 replay fidelity export assertions"
+      ]
+    },
+    {
+      "name": "final-replaycontrol",
+      "exit": 0,
+      "tail": [
+        "[replaycheck] input: replay controller context isolation passed",
+        "[replaycheck] studio: annotation sidecar round-trip passed"
+      ]
+    },
+    {
+      "name": "final-historical",
+      "exit": 0,
+      "tail": [
+        "PROTOCOL58 REPLAY PASS 323 byte/archive checks; no gameplay or visual acceptance claim."
+      ]
+    }
+  ],
+  "replayWorld": {
+    "scope": "synthetic records against real map assets; no authenticated UDP or GPU acceptance",
+    "modes": [
+      "Battle",
+      "BattleTeams",
+      "Survival",
+      "SurvivalTeams",
+      "Capture",
+      "Bounty",
+      "BountyTeams",
+      "Defender",
+      "DefenderTeams",
+      "Nodes",
+      "NodesTeams",
+      "Hardpoint",
+      "HardpointTeams",
+      "GunGame",
+      "OneInTheChamber",
+      "KillConfirmed",
+      "KillConfirmedTeams",
+      "Headhunter",
+      "Relic",
+      "PrimeHunter"
+    ],
+    "replicaPassSummaries": 20,
+    "completed": true,
+    "fileClipComparisons": 1240
+  },
+  "otherPasses": {
+    "lifecycle": 3738,
+    "timedShotArchive": 4668,
+    "historicalReplayCodec": 323,
+    "assetBackedTimedReplay": 118,
+    "lifecycleCheckpoint": 35,
+    "touchInstances": 101,
+    "ownerTrack": 51,
+    "fidelityExport": 49,
+    "cameraCache": 37,
+    "suggestionController": 32,
+    "hud": 978,
+    "wideCollision": 74,
+    "realGlProjection": 6
+  },
+  "sourceSha256": {
+    "src/MphRead.Android/GameView.RmlUiLauncher.cs": "690f8d8064ff070de5a1bd5bff1ba04b7000ece0dec9a15e3fd92c8e97b61a87",
+    "src/MphRead.Android/GameView.cs": "ca3dcdbbd571845049f20ebdcf61acd65e46374de0e42054adbc05c06a41f046",
+    "src/MphRead.Android/TouchControls.cs": "2d16e069b5b19b65f335f6e297355b106698ff9e786a8af15b6c6e0742e19bc4",
+    "src/MphRead.Android/TouchOverlayView.cs": "28dbca8b7f78439d1d215a3204f0860fb1560b647366d8a1ae734127bcb9aa67",
+    "src/MphRead/Mods/Input/TouchButtonInstances.cs": "91d4a1ceca86002fec90ae21e91fef4e9b35f86dfe91089396fd9f9045c4da1d",
+    "src/MphRead/Mods/Input/TouchSettings.cs": "033d7b6a24221bfe6ac9a2f3651442a67ed70b6f4bcbbd11dd9a0f8428408073",
+    "src/MphRead/Mods/Launcher/Core/TheatreEditorContracts.cs": "0d5813f9423a56c297113437fd0a9c61bc64d36b0f74b8d8cd445a9786adf53a",
+    "src/MphRead/Mods/Launcher/Core/TheatreEditorController.Suggestions.cs": "4bb72eca5dbf71f367af73a212ce791b8a08d5926cc895dbc09509c272d6e77e",
+    "src/MphRead/Mods/Launcher/Core/TheatreEditorController.cs": "9a07311c78e9063923f71adc0a933cbd9a2d62a98bcb2bb73133e529736db8f4",
+    "src/MphRead/Mods/Launcher/Gui/ReplayControlsView.cs": "e27987fe0c747fa813ae6bd6bdf26d9b86b3ea642ec48b20bf36907de87268f6",
+    "src/MphRead/Mods/Launcher/Gui/SettingsView.cs": "c30cb279c6d12fe756201d9037bf71f9002ac14b5a6f65d56876ae470fde82b2",
+    "src/MphRead/Mods/Launcher/Gui/TouchLayoutEditor.cs": "eb8e52745b390103a14b1be95cf0d0caf6e7f1e7569dfdfc1378398c3a01b29c",
+    "src/MphRead/Mods/Launcher/Portable/NativeFullSettingsController.cs": "0452c602fa3728ec275d6eb815be88fc43b329675ad60169f32f8d35e209723c",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/NativeSettingsVisualEditor.cs": "01c8639ac5800d96aad5573ef4ca744b291917a05c73528b8600c5e2df11757a",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/native-visual-editor.rml": "17c65d0d9bcd3c2c67ff0fe331187bc6a0fc9617b55d10203b84d0a84ef8fa8d",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.Editor.cs": "94af326677cf1c621609e00f0f55538095499b589c20546b65dc0291c1f4c082",
+    "src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiTheatreEditor.cs": "5838a317e7a76f71b409e0f07a873da7064d4d85cc8848281a1e1520de2cdc49",
+    "src/MphRead/Mods/ModEntry.cs": "297a40a768f59841ecb93ac7535d83a441e8f8a37772a89f1c91c44dda2e19ec",
+    "src/MphRead/Mods/Network/DemoRecorder.cs": "925bf345b779a74217e3efdce3c5cc31bb178d6b4dec3c9c206e6726a3188dfa",
+    "src/MphRead/Mods/Network/NetCampaignEvidence.Timeline.cs": "cab4888780edceff8babf01378a2066f09505420d809b09ef15f83025912dd99",
+    "src/MphRead/Mods/Network/PassiveReplayScene.cs": "a468913edbdadede5e19f0b4c5187f0d71c67319e21aa518b10728abb1c5da3e",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "ec60d945d0e3826028fa04774ca668c1449a3689a863fc4f79ffaab971016c1b",
+    "src/MphRead/Mods/Network/ReplayArtifacts.cs": "e0589cb217d602753ae67ee6aaafa34678b4aec05f092baf0a4a7bc3272e0eb4",
+    "src/MphRead/Mods/Network/ReplayControlCheck.cs": "ab1d6fe82e9f11907c2549dbcc4df6589af917253b1b32d8b7fe06cf999ea1ab",
+    "src/MphRead/Mods/Render/Characters/ViewModelAcceptanceCheck.cs": "038e6fefa0ee2214b52d5749437843ca2c48820e0210bb48886f0e914ec312e0",
+    "src/MphRead/Mods/Replay/ReplayCamera.cs": "b7e183a3a1e443f7946f21d70b25d9f5428c4948fca5e8295cfebeb11ec6fa04",
+    "src/MphRead/Mods/Replay/ReplayCombatDiagnostics.cs": "d56daeb02fb67fbbd199a3676db1fc60f1dac648df6b4b39bc3318a0f86a5b4f",
+    "src/MphRead/Mods/Replay/ReplayFidelityDiagnostics.cs": "2c00e132cc429c9d216bd2eae459ce6894c14f6be25e4c6ade92259bf8fa2eef",
+    "src/MphRead/Mods/Replay/ReplayHighlightsCommand.cs": "75b01994727baa2e8f504105a592de7aa37b21010e64a353e4b8655db6f8e6e1",
+    "src/MphRead/Mods/Replay/ReplayOwnerPresentation.cs": "9014950db378c556c5e49cebdd685528eabebc0744c7f913322da7bd104b2e47",
+    "src/MphRead/Mods/Replay/ReplayStudio.cs": "403efe6aca6195df210e6a184532afb906d59e52f0d639a9b1b286b897c18708",
+    "src/MphRead/Mods/Replay/ReplayWorkspace.cs": "4ebc5bada5f0519d88808cf740636cb956b2296255130e4668483ff30e11ffce",
+    "src/MphRead/Mods/Replay/SceneReplayMultiView.cs": "43e562cdc45404538023dd084fe023bf10da359f37f19c91e50fa7de3f530d5d",
+    "src/MphRead/Mods/Replay/SceneReplayOwnerPresentation.cs": "27aec0cc41e8d40944e0ecdf40799c25f4c70c9c1ff87c601dc99af53c3da6aa",
+    "src/MphRead/Mods/Settings/PreferenceText.cs": "00ff11864125f15e6467e9cccb09030849814bf7d9b361b1ca046de2b6aa17da",
+    "src/MphRead/Renderer.cs": "9fda1447a4e5aafe154bac100c3f2a59d9f8c53f82dbca6c8e3599b04b95e03e",
+    "tools/nettest/LifecycleCheckpointTests.cs": "cc153adeeb673fad98a835c6fc6fdfc5eebf365d6c9d704ba51e183a5b0bf9cc",
+    "tools/nettest/Program.cs": "920ead511bce726c9841eefde144f6577dd423f71700ca54a1ebf32624ac0c5d",
+    "tools/nettest/ReplayFidelityExportTests.cs": "77c0f853136319afbfc2e71936ec92d14a49108473ba318e0c1ed16bcc54708a",
+    "tools/nettest/ReplayOwnerTrackTests.cs": "8e67370bd50aecf5272214c336507a6c6c33c3d4c145c02ed9e75c0d3ed56707",
+    "tools/nettest/ShotTimelineTests.cs": "a720de6aa90eb1acb36b6e935c6d6b180c39729421587c304e76fd29e512412f",
+    "tools/nettest/TouchInstanceTests.cs": "882ab0f4eb0d8c0b79b4d207db7789b29c4467a77497e22015b33ab6af0f5b05",
+    "tools/nettest/UpstreamBaselineTests.cs": "beb9a9f80d8433a9bdadd01c5cb727a2273816b8ac901242c513f8937a5e9d6d",
+    "tools/replay-suggestion-check/Program.cs": "b17cf8dec10e4d728913b02bea7ab000ca76bf3cbd7ff68e9dde58bf83f09f80",
+    "tools/replay-suggestion-check/replay-suggestion-check.csproj": "6c01927397dbb6e95201bcf1b9346c31b9f0948e18b30a4c6682624d6ed5f820",
+    "tools/rmlui-editor-check/ControllerChecks.cs": "3b74e4a5ad32d8e2848e688cfaaafc3cd140a696b182c7fdde5de6b1c445cefc",
+    "tools/rmlui-editor-check/PresenterStubs.cs": "6aa401143992e8002ad42366453c7ec9c1cf031fe9d23588b9b5936e71e1a144",
+    "tools/rmlui-editor-check/Program.cs": "31da4bf927044caac18d1cb5c008051a66fd0415fd9bacfe6d87020ed15a630e",
+    "tools/rmlui-editor-check/prepare-source.py": "9d11bf76ff679e7dc964ad074cac62eceb3ff028d1c12026a30f59518ca508f4",
+    "tools/rmlui-editor-check/rmlui-editor-check.csproj": "5c5985866579925675c4c3db6e817f0be6a201a68c523b18093b6759a1556214",
+    "tools/rmlui-timeline-check/camera-owner/CameraPathCacheChecks.cs": "9e3e0fb07afc1a39cb6dbd71512d5985b73b1c7c44e8ee2fe73597586960064a",
+    "tools/rmlui-timeline-check/camera-owner/Program.cs": "d9667338e5a44ee5a04090bfa49a8ae4bb6499baf42837780a20a7f1863b4e49",
+    "tools/rmlui-timeline-check/camera-owner/owner-check.csproj": "5f8479b7c7188b48a1ea410ef6ce12bfbc7311a950a0597e4e95416394dcf201",
+    "tools/rmlui-timeline-check/editor-owner/ControllerChecks.cs": "d10c53285c63b36ed4ae33a60d138d4374554dbfa8d3044af53f47fa7cc984fa",
+    "tools/rmlui-timeline-check/editor-owner/PresenterStubs.cs": "6aa401143992e8002ad42366453c7ec9c1cf031fe9d23588b9b5936e71e1a144",
+    "tools/rmlui-timeline-check/editor-owner/Program.cs": "3257d139eabd91f8e9c61b8fe2fb0c0e7b0c01afb728797276cd2d73d560fd70",
+    "tools/rmlui-timeline-check/editor-owner/editor-owner-check.csproj": "476435fdb2667337e22e955e6005a38107ac2d78637fda9edc04d4718f3b833d",
+    "tools/rmlui-timeline-check/editor-owner/prepare-source.py": "1e3b14dc3b38dd0c864ffdb8602d3a49a4074adec72a4a890457609543d1a35f",
+    "tools/touchcheck/Program.cs": "336901617a55bbfde679d76835da3569e44dcb5a9714ddea452777922726240c",
+    "tools/upstream-improvements/baseline.json": "afa661abaa05a5aa550c692772700fbc88e754b2d9838f361dbd5fd545e85c43",
+    "tools/upstream-improvements/compare_fidelity.py": "70e945ff8f8f235239e258cafe39f34869812e4fc2531adea68479581dbafcff",
+    "tools/upstream-improvements/expected-synthetic.json": "f0589ccd206321173ce4c36da86fa3e91e9c2e04cb81418e59e8a6ca8c570099",
+    "tools/upstream-improvements/test_compare_fidelity.py": "c1a4509369276c50db645b9742331d42c08310d287ac806c67e8b0dcb7cef03f"
+  },
+  "limits": {
+    "ownerSamples": 65536,
+    "ownerRecordBytes": 139,
+    "ownerLoadJobs": 4,
+    "extraTouchInstances": 11,
+    "clipPressQueue": 16,
+    "highlightEvents": 100000,
+    "highlightCandidates": 2048
+  },
+  "notMeasured": [
+    "before/after p95/p99 frame times and 1% lows",
+    "enhanced capture CPU/GC/bytes per minute",
+    "physical Windows/Linux/Android",
+    "new Studio UI physical inputs and complete Four Views GPU fault loops",
+    "enhanced owner animation and owner-track exact video export"
+  ],
+  "knownFailures": [
+    "Existing full HD viewmodel fixture: charge/67 0/14 replacement sections; pose-only retry weapon equip failed. Isolated six-assertion projection run passes.",
+    "Initial system dotnet SDK resolution failed; pinned private SDK used.",
+    "One parallel MSBuild worker exited prematurely; serial builds pass."
+  ],
+  "builds": {
+    "desktop-nettest": {
+      "passed": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    "dedicated-server": {
+      "passed": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    "android-release-aot": {
+      "passed": true,
+      "errors": 0,
+      "warnings": 25
+    }
+  },
+  "binarySha256": {
+    "src/MphRead/bin/Release/net10.0/ProjectPrime.dll": "25610df6a26150afc86be067a947ea94e188e78ec69c829de032b1655c4ad33e",
+    "tools/nettest/bin/Release/net10.0/nettest.dll": "b0acc4a34fde5bbfb75c15ef6d0ffad1f1c1e8e4a827c811d8acb31d270965d5",
+    "/tmp/upstream-server-build/bin/MphRead/release/ProjectPrime.dll": "b4c405bab6f74a6153dde4b3337b03a2ec82a99b4991144d471a066fc6eba3d7",
+    "/tmp/upstream-android-build/bin/MphRead.Android/release/com.projectprime.game-Signed.apk": "58968d842a49a42c8b15fccba9f04faba6e809fb9e64011ef8ad36f2c50dc93f"
+  },
+  "realGlFinalProjection": {
+    "pass": true,
+    "assertions": 6,
+    "scope": "fixed-pose actual OpenGL only",
+    "clientSha256": "25610df6a26150afc86be067a947ea94e188e78ec69c829de032b1655c4ad33e",
+    "images": {
+      "projection-fov-120.png": "b48cee31c77f403556647f7355a07504ce269fdd9de40094e4cd1792a5268cbc",
+      "projection-fov-60.png": "2d8426867103b8d5a5a255bcf69729b2f06fc64a30242d772196dc19a8649380",
+      "projection-fov-78.png": "c275a93116188ccb84e1b21454694345762b93943e71dd71cc8a57d1958c6676"
+    }
+  }
+}

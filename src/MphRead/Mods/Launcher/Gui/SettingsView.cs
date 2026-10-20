@@ -2404,6 +2404,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             page.Children.Add(_touchEditor);
 
+            ChoiceRow? extraAction = null;
             void SyncEditorInspector()
             {
                 if (_touchEditor == null || _touchEditControlRow == null
@@ -2417,6 +2418,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _touchEditControlRow.Index = Math.Max(0, index);
                 _touchSelectedScale.Value = (int)MathF.Round(
                     _touchEditor.SelectedScale * 100);
+                if (extraAction != null) extraAction.Index = Math.Max(0, index);
                 _syncingTouchEditor = false;
             }
 
@@ -2485,21 +2487,25 @@ namespace MphRead.Mods.Launcher.Gui
             };
             resetRow.Children.Add(resetLayout);
             page.Children.Add(resetRow);
-            var extraRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var extraRow = new Grid { ColumnDefinitions = new("*,*"), RowDefinitions = new("Auto,Auto"), ColumnSpacing = 8, RowSpacing = 8 };
             void ExtraButton(string label, Action action)
             {
                 var button = new HubNavButton(label, compact: true, accent: HubTheme.Warm);
                 button.Click += (_, _) => { action(); SyncEditorInspector(); };
+                int cell = extraRow.Children.Count; Grid.SetColumn(button, cell % 2); Grid.SetRow(button, cell / 2);
                 extraRow.Children.Add(button);
             }
             ExtraButton("DUPLICATE", () => _touchEditor.DuplicateSelected());
             ExtraButton("NEXT EXTRA", () => _touchEditor.SelectNextInstance());
             ExtraButton("DELETE EXTRA", () => _touchEditor.DeleteSelectedInstance());
-            ExtraButton("ENABLE EXTRA", () => _touchEditor.ToggleSelectedInstance());
+            ExtraButton("TOGGLE EXTRA", () => _touchEditor.ToggleSelectedInstance());
             page.Children.Add(extraRow);
-            var extraAction = Add(page, new ChoiceRow("Extra button action", labels, 0));
-            extraAction.Changed += (_, _) => _touchEditor.ReassignSelected(
-                Mods.Input.TouchSettings.Order[Math.Clamp(extraAction.Index, 0, labels.Length - 1)].Control);
+            extraAction = Add(page, new ChoiceRow("Extra button action", labels, 0));
+            extraAction.Changed += (_, _) =>
+            {
+                if (!_syncingTouchEditor) _touchEditor.ReassignSelected(
+                    Mods.Input.TouchSettings.Order[Math.Clamp(extraAction.Index, 0, labels.Length - 1)].Control);
+            };
             Explain(page, "Duplicate adds an independent button (up to 11 extras). Tap it or use Next extra, then change its action, position, size or enabled state. Apply saves; Cancel discards the draft.");
 
             Heading(page, "Buttons");
