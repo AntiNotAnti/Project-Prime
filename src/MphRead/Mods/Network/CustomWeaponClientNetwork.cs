@@ -30,6 +30,14 @@ public static partial class NetSession
         if (!CustomWeaponReplicaReady || !request.IsValid || request.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,request.Owner.Generation,request.Life)) return false;
         return CurrentCustomCombat()?.Submit(request,Clock)==true;
     }
+    internal static bool TrySubmitCustomWeaponControl(CustomWeaponActionKind kind,byte optic,out CustomControlRequest request)
+    {
+        request=default;
+        if (!CustomWeaponReplicaReady || CurrentCustomCombat() is not { State: { } state } client
+            || state.State.Owner.Slot!=LocalSlot
+            || !NetPlayerLifecycle.Matches(LocalSlot,state.State.Owner.Generation,state.State.Owner.Life)) return false;
+        return client.TrySubmitControl(kind,optic,Clock,out request);
+    }
     private static void HandleCustomCombatResult(ReceivedPacket packet)
     {
         var client=CurrentCustomCombat(); if (client==null) return;

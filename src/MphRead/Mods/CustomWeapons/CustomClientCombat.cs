@@ -135,6 +135,19 @@ internal sealed class CustomClientCombat
             if (_pending[i]==null) { _pending[i]=new(action,null,now,now); _submitted=action.Sequence; _mode=1; return true; }
         return false;
     }
+    // Player controls supply only intent. The current canonical projection owns
+    // every identity field; the bounded publisher owns its next sequence, which
+    // can be ahead of the last authority projection while results are in flight.
+    // A failed submission must leave that sequence available for a later input.
+    internal bool TrySubmitControl(CustomWeaponActionKind kind,byte optic,double now,out CustomControlRequest request)
+    {
+        request=default;
+        if (State is not { } state || _submitted==uint.MaxValue) return false;
+        var candidate=new CustomControlRequest(state.Bootstrap,state.Manifest,state.State.Owner.Slot,state.State.Owner.Life,
+            state.Weapon,_submitted+1,kind,optic);
+        if (!Submit(candidate,now)) return false;
+        request=candidate; return true;
+    }
     internal bool Submit(in CustomControlRequest request,double now)
     {
         if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not { } state
