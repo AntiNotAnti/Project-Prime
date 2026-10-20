@@ -163,7 +163,11 @@ namespace MphRead.Entities
         /// or changes its authoritative statistics.</summary>
         private void ModDrawPostMatchIntroShutter()
         {
-            float elapsed = SceneGameState.MatchEndingSeconds - _scene.GameState.MatchTime;
+            float remaining = _scene.GameState.MatchTime;
+            // Harness screenshots may deliberately extend the results clock.
+            // Do not paint an eternal opaque slate over their native table.
+            if (remaining < 0 || remaining > SceneGameState.MatchEndingSeconds) return;
+            float elapsed = SceneGameState.MatchEndingSeconds - remaining;
             float fade = Mods.Launcher.LauncherPrefs.ReduceMotion ? 0.08f : 0.17f;
             float cover = 1f - Math.Clamp(elapsed / fade, 0f, 1f);
             if (cover > 0)
