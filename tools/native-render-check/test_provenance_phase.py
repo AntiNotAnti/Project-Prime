@@ -1,6 +1,7 @@
 """Execute the production receipt against an asset-free scene stub."""
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -10,7 +11,8 @@ from xml.sax.saxutils import escape
 class ProvenancePhaseTests(unittest.TestCase):
     def test_actual_receipt_identity_and_boundary_observations(self):
         root = Path(__file__).resolve().parent
-        dotnet = os.environ.get("DOTNET_EXE", str(Path.home() / ".dotnet/dotnet"))
+        dotnet = os.environ.get("DOTNET_EXE") or shutil.which("dotnet")
+        self.assertIsNotNone(dotnet, "Set DOTNET_EXE to .NET 10 dotnet")
         code = r'''
 using System;
 using System.Text.Json;
