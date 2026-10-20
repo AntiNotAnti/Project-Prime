@@ -15,16 +15,35 @@ internal static class ReplicaCheckpointCompatibilityTests
     // Main v10 has nine touch bytes per row and no pickup appendix. Staged
     // A2 v10 has no touch bytes and appends room/counts/facts. The converter
     // preserves the source row's received-frame bytes separately from touch.
-    internal static byte[] HistoricalFixture(ReplayReplicaCheckpoint checkpoint,
-        bool touch, bool pickups, ushort version = 10, byte protocol = 53, bool grants = false)
+    private static byte[] HistoricalMatchWidth(byte[] current, byte protocol)
     {
-        byte[] current = checkpoint.Bytes.ToArray();
+        if (protocol >= 60) return current;
         using var input = new MemoryStream(current, writable: false);
         using var reader = new BinaryReader(input);
         input.Position = 8 + 5 * sizeof(uint) + 2 * sizeof(long);
         reader.ReadByte();
         if (reader.ReadBoolean()) reader.ReadUInt32();
-        if (reader.ReadBoolean()) input.Position += MatchStatePacket.Size;
+        if (!reader.ReadBoolean()) return current;
+        int matchStart = checked((int)input.Position);
+        int legacyEnd = matchStart + MatchStatePacket.Protocol59Size;
+        int currentEnd = matchStart + MatchStatePacket.Size;
+        // Protocol60 widened RuleBits from16 to32 bits. Emit the actual
+        // historical width and refuse modern rules instead of dropping them.
+        if (current.AsSpan(legacyEnd, currentEnd - legacyEnd).IndexOfAnyExcept((byte)0) >= 0)
+            throw new InvalidOperationException("Historical fixture cannot discard modern match rule bits.");
+        return current.AsSpan(0, legacyEnd).ToArray().Concat(current.AsSpan(currentEnd).ToArray()).ToArray();
+    }
+
+    internal static byte[] HistoricalFixture(ReplayReplicaCheckpoint checkpoint,
+        bool touch, bool pickups, ushort version = 10, byte protocol = 53, bool grants = false)
+    {
+        byte[] current = HistoricalMatchWidth(checkpoint.Bytes.ToArray(), protocol);
+        using var input = new MemoryStream(current, writable: false);
+        using var reader = new BinaryReader(input);
+        input.Position = 8 + 5 * sizeof(uint) + 2 * sizeof(long);
+        reader.ReadByte();
+        if (reader.ReadBoolean()) reader.ReadUInt32();
+        if (reader.ReadBoolean()) input.Position += protocol < 60 ? MatchStatePacket.Protocol59Size : MatchStatePacket.Size;
         if (reader.ReadBoolean()) input.Position += SessionStatePacket.Size;
         input.Position += RosterPacket.Size;
         int rowStart = checked((int)input.Position);
@@ -74,6 +93,15 @@ internal static class ReplicaCheckpointCompatibilityTests
             RoomKey = "unit-checkpoint-layout", Mode = (byte)GameMode.Battle };
         var packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
         match.Write(packet.AsSpan(1)); state.Accept(packet, 0);
+        var modernState = new ReplayReplicaState();
+        var modernMatch = match; modernMatch.RuleBits = (uint)MatchModifierFlags.Quake3Movement;
+        var modernPacket = new byte[1 + MatchStatePacket.Size]; modernPacket[0] = (byte)PacketType.MatchState;
+        modernMatch.Write(modernPacket.AsSpan(1)); modernState.Accept(modernPacket, 0);
+        bool refusedModernRules = false;
+        try { HistoricalFixture(modernState.CaptureCheckpoint(), touch: true, pickups: false); }
+        catch (InvalidOperationException ex) when (ex.Message == "Historical fixture cannot discard modern match rule bits.")
+        { refusedModernRules = true; }
+        check(refusedModernRules, "historical fixture refuses nonzero modern upper match rule bits");
         var roster = RosterPacket.Create(); roster.MatchId = 2; roster.AuthorityEpoch = 9;
         roster.Revision = 1; roster.Count = 1; roster.Slots[0] = 0; roster.Generations[0] = 4;
         roster.Names[0] = "legacy-source";
@@ -140,7 +168,8 @@ internal static class ReplicaCheckpointCompatibilityTests
         // This fixture has no grant coverage, so exact empty state can be removed.
         using var emptyGrant = new MemoryStream(); using var emptyGrantWriter = new BinaryWriter(emptyGrant);
         state.TimedGrants.Write(emptyGrantWriter); emptyGrantWriter.Flush();
-        a2Tagged = a2Tagged[..^(sizeof(int) + checked((int)emptyGrant.Length))]; a2Tagged[6] = 55; a2Tagged[7] = 3;
+        a2Tagged = HistoricalMatchWidth(a2Tagged[..^(sizeof(int) + checked((int)emptyGrant.Length))], 55);
+        a2Tagged[6] = 55; a2Tagged[7] = 3;
         restored.RestoreCheckpoint(new(a2Tagged));
         check(restored.TryGetIntent(0, out var taggedTouch) && taggedTouch.NativeTouch == touch
             && restored.PickupItems[item.Spawn] == item && !restored.TimedGrants.HasCoverage,
