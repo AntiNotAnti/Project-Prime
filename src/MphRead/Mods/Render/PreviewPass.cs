@@ -101,7 +101,7 @@ namespace MphRead
         public static bool LauncherPreviewFormation { get; set; }
 
         /// <summary>Did anybody ask for a preview this frame?</summary>
-        private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
+        private static bool PreviewAsked => Mods.EndScreen.PanelAvailable || LauncherPreview;
 
         /// <summary>
         /// Whether a hunter was actually put on the screen last frame, by
