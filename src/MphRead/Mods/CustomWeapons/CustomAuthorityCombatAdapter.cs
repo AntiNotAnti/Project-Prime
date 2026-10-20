@@ -9,7 +9,7 @@ namespace MphRead.Mods.CustomWeapons;
 /// oracle is trusted, not a wire payload. This adapter does not implement that
 /// oracle, readiness, ingress or transport, and cannot be enabled by a packet.
 /// The source journal, private emission and canonical payment share one owner.</summary>
-internal sealed class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICustomWeaponEmitter, IDisposable
+internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICustomWeaponEmitter, IDisposable
 {
     internal const int LifeCapacity = 32, DeathCapacity = 128;
     internal const uint DeathRetention = 1024;
@@ -24,6 +24,7 @@ internal sealed class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICu
     {
         internal required WeaponOwnerContext Owner;
         internal required CustomLaunchPayments Payments;
+        internal required CustomEngineSourceHistory Sources;
         internal CustomSourceActionJournal? Journal;
     }
     private readonly record struct Death(WeaponOwnerContext Owner,uint World,uint Observed);
@@ -104,7 +105,8 @@ internal sealed class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICu
         CustomSourceActionJournal journal;
         try { journal = new(owner,slot.Clock,Manifest,_registry,new[] { new WeaponRuntimeId(10) },verifiedBirthSource,Now,canUseWeapon); }
         catch (ArgumentException) { payments.Dispose(); return false; }
-        var life = new Life { Owner = owner,Payments = payments,Journal = journal };
+        var life = new Life { Owner = owner,Payments = payments,Journal = journal,
+            Sources = new(owner,slot.Clock,verifiedBirthSource,Now) };
         _lives[at] = _current[owner.Slot] = life; return true;
     }
     internal bool ObserveSource(WeaponOwnerContext owner,uint verifiedSourceFrame,bool canUseWeapon)
@@ -324,14 +326,14 @@ internal sealed class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICu
             life.Payments.Advance(Now);
             if (life.Payments.IsQuarantined) life.Journal?.Retire(WeaponCancellation.RulesChanged);
             if (life.Journal == null && !life.Payments.HasRetainedEntries)
-            { life.Payments.Dispose(); _lives[i] = null; }
+            { life.Sources.Clear(); life.Payments.Dispose(); _lives[i] = null; }
         }
     }
     private void RetireSlot(int slot)
     {
         for (int i=0; i<_lives.Length; i++)
             if (_lives[i] is { } life && life.Owner.Slot == slot)
-            { life.Journal?.Retire(WeaponCancellation.OwnerChanged); life.Payments.Dispose(); _lives[i] = null; }
+            { life.Journal?.Retire(WeaponCancellation.OwnerChanged); life.Sources.Clear(); life.Payments.Dispose(); _lives[i] = null; }
         _current[slot] = null;
         if (_slots[slot] is { } entry)
             foreach (var beam in entry.Equip.Beams) { beam.Destroy(); _scene.RemoveEntity(beam); }
@@ -342,6 +344,7 @@ internal sealed class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICu
     {
         if (_disposed) return;
         _disposed = true;
+        DiscardSourceInputPhase();
         for (int slot=0; slot<_slots.Length; slot++) RetireSlot(slot);
         _contact = null; _damageEntered = false; _emittingEquip = null; _emittingPlayer = null;
     }

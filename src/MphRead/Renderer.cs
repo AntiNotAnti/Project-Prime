@@ -2569,16 +2569,23 @@ namespace MphRead
 #endif
                     ;
                 ModNoteMomentumInputAvailability(noPlayerInput || Mods.SpectatorMode.IsSpectating);
-                PlayerEntity.ProcessInput(this.Players, _keyboardState, _mouseState, noPlayerInput);
-                if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
+                CustomCombat?.BeginSourceInputPhase();
+                bool sourceControlsCompleted = false;
+                try
                 {
-                    Mods.Input.GamepadInput.Apply(this.Players.Main);
+                    PlayerEntity.ProcessInput(this.Players, _keyboardState, _mouseState, noPlayerInput);
+                    if (!noPlayerInput && !Mods.SpectatorMode.IsSpectating)
+                    {
+                        Mods.Input.GamepadInput.Apply(this.Players.Main);
+                    }
+                    // Everything accumulated before this step has now entered the
+                    // real player aim. Any movement arriving after this point is
+                    // presentation-only until the following simulation step.
+                    ModCommitLateAim();
+                    Mods.Network.NetHooks.AfterInput(this);
+                    sourceControlsCompleted = true;
                 }
-                // Everything accumulated before this step has now entered the
-                // real player aim. Any movement arriving after this point is
-                // presentation-only until the following simulation step.
-                ModCommitLateAim();
-                Mods.Network.NetHooks.AfterInput(this);
+                finally { CustomCombat?.CompleteSourceInputPhase(capture: sourceControlsCompleted); }
                 _room?.UpdateTransition();
             }
             if (!Mods.Network.DemoPlayback.IsActive)
