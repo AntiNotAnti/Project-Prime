@@ -95,3 +95,6 @@ Useful upstream references at the pinned SHA:
 **Validation truth:** inventory/asset-free tests are not evidence that any new
 character/arena is playable. Each later PR must report actual imports, builds,
 tests and evidence instead of marking acceptance complete on metadata alone.
+
+
+The October integration's separate Overcharged Echoes source candidate is documented in [SH-05B authoring evidence](second-hunt-overcharged-source-evidence-2026-10-19.md). It reserves MP2DarkSamusFinal under darksamus and exports the distinct Battle_3 source body through managed private receipts. It does not qualify or activate a runtime appearance, ball, cannon or HD material. The frozen source provenance above remains historical; no protected payload is shipped.

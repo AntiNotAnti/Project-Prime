@@ -281,6 +281,8 @@ namespace MphRead.Mods.Render.Characters
             Write(manifest);
             CharacterModelPack pack = CharacterModelPack.Load(root);
             Check(pack.Count == 6, "legacy native and all five private variants coexist");
+            Check(!PrivateCharacterAppearance.TryCreate(Hunter.Samus,"darksamus","MP2DarkSamusFinal",out _,out _),
+                "reserved Overcharged authoring source cannot acquire a qualified runtime appearance");
             Check(CharacterModelRuntime.TryResolvePrivateAppearance(pack, Hunter.Samus,
                     CharacterModelPart.Biped, 0, null, allowPrivatePreview: false, out var native),
                 "a native Samus seat resolves without a private preview capability");
@@ -305,6 +307,7 @@ namespace MphRead.Mods.Render.Characters
                 "private Troopers do not implicitly replace native Weavel seats");
             Check(!pack.TryResolvePrivate(Hunter.Weavel, darkChoice, CharacterModelPart.Biped, 0, out _)
                 && !pack.TryResolvePrivate(Hunter.Samus, new("darksamus", "MP3DarkSamus"), CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("darksamus", "MP2DarkSamusFinal"), CharacterModelPart.Biped, 0, out _)
                 && !pack.TryResolvePrivate(Hunter.Samus, new("missing", "MP2DarkSamus"), CharacterModelPart.Biped, 0, out _)
                 && !CharacterModelPack.Empty.TryResolvePrivate(Hunter.Samus, darkChoice, CharacterModelPart.Biped, 0, out _),
                 "wrong parent, reserved, unknown and absent appearances are unavailable without aliasing");

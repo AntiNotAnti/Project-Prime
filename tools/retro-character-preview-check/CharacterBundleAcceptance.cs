@@ -21,9 +21,16 @@ internal static class CharacterBundleAcceptance
             Check(RetroCharacterPreviewExporter.BundleSpec(spec.Id).RequiredComponents[0] == spec.Id + ".obj",
                 "required inventory detached from caller " + spec.Id);
         }
-        Check(specs.Select(s => s.RecipeHash).Distinct().Count() == 5, "appearance recipes remain independent");
-        Check(specs.Skip(1).Select(s => s.SourceFingerprint).Distinct().Count() == 1 && specs[0].SourceFingerprint != specs[1].SourceFingerprint,
+        Check(specs.Select(s => s.RecipeHash).Distinct().Count() == 6, "appearance recipes remain independent");
+        Check(specs.Where(s=>s.Id.StartsWith("trooper-",StringComparison.Ordinal)).Select(s => s.SourceFingerprint).Distinct().Count() == 1 && specs[0].SourceFingerprint != specs[1].SourceFingerprint,
             "four Troopers share pinned Prime source, Echoes has distinct source");
+        var normal=specs.Single(s=>s.Id=="darksamus-echoes");
+        var overcharged=specs.Single(s=>s.Id=="darksamus-overcharged-echoes");
+        Check(normal.SourceFingerprint==overcharged.SourceFingerprint && normal.RecipeHash!=overcharged.RecipeHash,
+            "distinct normal/Overcharged recipes bind the same verified Echoes edition");
+        Check(RetroCharacterPreviewExporter.Sources.Single(s=>s.Id==overcharged.Id).NativeName=="Battle_3"
+            && RetroCharacterPreviewExporter.Sources.Single(s=>s.Id==normal.Id).NativeName=="Dark_Samus",
+            "Overcharged source name cannot silently alias the normal body");
         foreach (string? id in new string?[] { null, "", "DARKSAMUS-ECHOES", "darksamus", "../darksamus-echoes", "trooper-power.obj", "trooper-power " })
             Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.BundleSpec(id!), "unknown/noncanonical identity refused");
         string root = Path.Combine(Path.GetTempPath(), "prime-character-contract-" + Guid.NewGuid().ToString("N"));
@@ -64,6 +71,16 @@ internal static class CharacterBundleAcceptance
                         "exact raw graph proof retained without named-semantic claim " + id);
                 }
             }
+            if(ids.Contains("darksamus-echoes") && ids.Contains("darksamus-overcharged-echoes"))
+            {
+                uint Body(string id)
+                {
+                    string obj=files.Single(f=>Path.GetFileNameWithoutExtension(f)==id);
+                    using var skeleton=System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(obj)!,id+".skeleton.json")));
+                    return skeleton.RootElement.GetProperty("Refs").GetProperty("Cmdl").GetUInt32();
+                }
+                Check(Body("darksamus-echoes")!=Body("darksamus-overcharged-echoes"),"actual Overcharged source model differs from the normal body");
+            }
             var original = Snapshot(root);
             Check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source, root).SequenceEqual(files), "repeat import reuses immutable generation paths");
             Check(Same(original, Snapshot(root)), "repeat import preserves receipt and generation bytes");
@@ -72,6 +89,21 @@ internal static class CharacterBundleAcceptance
             var progress = new SynchronousProgress(stage => { if (stage == ImportPublishStage.BeforeCommit) { beforeCommit = true; cancellation.Cancel(); } });
             Expect<OperationCanceledException>(() => RetroCharacterPreviewExporter.ExportFromOwnedGame(source, root, cancellation.Token, progress), "BeforeCommit cancellation");
             Check(beforeCommit && Same(original, Snapshot(root)), "BeforeCommit cancellation preserves all prior receipts/files");
+            if(ids.Length>1)
+            {
+                using var partialCancellation=new CancellationTokenSource();
+                int checks=0;
+                var partialProgress=new SynchronousProgress(stage=>
+                { if(stage==ImportPublishStage.Checking && ++checks==3)partialCancellation.Cancel(); });
+                try
+                {
+                    RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,partialCancellation.Token,partialProgress);
+                    throw new InvalidOperationException("Expected cancellation after first complete appearance");
+                }
+                catch(ImportBundleBatchCanceledException ex)
+                { Check(ex.CommittedIds.SequenceEqual(new[]{ids[0]}) && ex.Message.Contains(ids[0]),"actual selected batch reports first complete appearance before cancellation"); }
+                Check(Same(original,Snapshot(root)),"same-content partial update retains exact good generation bytes for both appearances");
+            }
             foreach (string id in ids)
             {
                 var inspected = LocalImportBundle.Inspect(root, id, RetroCharacterPreviewExporter.BundleSpec(id));

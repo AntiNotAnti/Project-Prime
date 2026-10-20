@@ -17,6 +17,9 @@ internal static class DarkSamusSourceFixtureTests
         Check(ExternalCharacterCatalog.Find("trooper")?.ChangesGameplay == true,
             "Trooper has separate ability flag");
         Check(ExternalCharacterCatalog.AllowsSkin("darksamus", "MP2DarkSamus"), "Echoes skin");
+        Check(ExternalCharacterCatalog.AllowsSkin("darksamus", "MP2DarkSamusFinal") && ExternalCharacterCatalog.All.Count==2,
+            "Overcharged is a reserved cosmetic of the same Dark Samus character");
+        Check(!ExternalCharacterCatalog.AllowsSkin("trooper", "MP2DarkSamusFinal"), "Overcharged cannot select another parent character");
         Check(!ExternalCharacterCatalog.AllowsSkin("darksamus", "../mp2"), "reject arbitrary asset identifier");
 
         byte[] ancs = Ancs();
@@ -29,6 +32,16 @@ internal static class DarkSamusSourceFixtureTests
         bad = (byte[])ancs.Clone(); Put32(bad, 8, 17);
         Expect<InvalidDataException>(() => RetroCharacterSource.FindCharacter(bad, "Dark_Samus"), "invalid character index");
 
+        byte[] variants=new byte[128];
+        Put32(variants,4,2);Put32(variants,8,0);Put16(variants,12,2);
+        Encoding.ASCII.GetBytes("Dark_Samus\0").CopyTo(variants,14);
+        Put32(variants,25,0x11111111);Put32(variants,29,0x22222222);Put32(variants,33,0x33333333);
+        Put32(variants,64,1);Put16(variants,68,2);
+        Encoding.ASCII.GetBytes("Battle_3\0").CopyTo(variants,70);
+        Put32(variants,79,0x44444444);Put32(variants,83,0x55555555);Put32(variants,87,0x33333333);
+        Check(RetroCharacterSource.FindCharacter(variants,"Dark_Samus").Cmdl==0x11111111
+            && RetroCharacterSource.FindCharacter(variants,"Battle_3").Cmdl==0x44444444,
+            "bounded multi-entry ANCS lookup keeps normal and Overcharged model identities distinct");
         byte[] cinf = Cinf();
         var skeleton = RetroCharacterSource.ReadSkeleton(cinf);
         Check(skeleton.Bones.Count == 1 && skeleton.Bones[10].Name == "Root" &&

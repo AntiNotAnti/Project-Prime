@@ -117,7 +117,7 @@ internal static class NativeCharacterPreviewAcceptance
         owner.BeginArenaImport(null);
         Check(!owner.Busy && Get(owner,"_characterImportIds") == null && Get(owner,"_operation") == null, "picker cancellation clears captured IDs without work");
         owner.RequestCharacterImport(true); var echoes = (string[])Get(owner,"_characterImportIds")!;
-        Check(echoes.SequenceEqual(new[] { "darksamus-echoes" }) && !ReferenceEquals(first, echoes), "Echoes all selects only its supported appearance in fresh array");
+        Check(echoes.SequenceEqual(new[] { "darksamus-echoes", "darksamus-overcharged-echoes" }) && !ReferenceEquals(first, echoes), "Echoes all selects both distinct supported source appearances in fresh array");
         owner.TakeArenaImport(); owner.BeginArenaImport(null); owner.CycleCharacterPreview(); owner.RequestCharacterImport(true);
         var troopers = (string[])Get(owner,"_characterImportIds")!;
         Check(troopers.SequenceEqual(new[] { "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma" }), "Prime all captures four Troopers without Echoes");

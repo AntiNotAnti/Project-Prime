@@ -67,6 +67,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     private bool _disposed;
     private string[]? _characterImportIds;
     private int _characterPreviewIndex;
+    internal string CharacterPreviewLabel => Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex].DisplayName;
     internal string CharacterPreviewId => Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex].Id;
     internal void CycleCharacterPreview() { if(_disposed||Closed||Busy)return; _characterPreviewIndex = (_characterPreviewIndex + 1) % Import.RetroCharacterPreviewExporter.Sources.Count; }
     internal void RequestCharacterImport(bool all)
