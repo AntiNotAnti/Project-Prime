@@ -10,7 +10,7 @@ import json
 import math
 from pathlib import Path
 from ncx_fastpath import audit as audit_parity, row_value, token
-from ncx_timeline import identity, integer, row_value as timeline_row
+from ncx_timeline import STAGES, integer, row_value as timeline_row
 
 U32 = (1 << 32) - 1
 
@@ -33,6 +33,7 @@ def audit(report, expected_mode=None):
         if mode not in ('Shadow', 'Paid'): raise ValueError('observation disabled')
         if expected_mode and mode.lower() != expected_mode: failures.append('unexpected policy mode')
         timeline = report['ShotTimeline']
+        integer(timeline['Schema'], 1, 1)
         if timeline['Clock']['Domain'] != 'ProcessStopwatch': raise ValueError('unknown clock')
         integer(timeline['Clock']['Frequency'], 1, (1 << 63) - 1)
         if timeline.get('Enabled') is not True or timeline.get('Complete') is not True:
@@ -45,9 +46,17 @@ def audit(report, expected_mode=None):
             if row['stage'] == 'ClaimReady' and row['state'] == 'VerifiedPaid':
                 ready[correlation(row['key'], row['shape'][0])].append((raw, row))
         received, terminals = defaultdict(list), defaultdict(list)
+        previous_timestamp = -1
         for event in timeline['Rows']:
             shot = timeline_row(event)
+            if event['Timestamp'] < previous_timestamp:
+                failures.append('authority timeline timestamp order regressed')
+            previous_timestamp = event['Timestamp']
+            if event['Stage'] not in STAGES:
+                incomplete.append('unknown authority timeline stage')
             if event['Stage'] not in ('claim-received', 'terminal-decided'): continue
+            if event['LocalFrame'] != event['AuthorityFrame']:
+                failures.append('authority frame domain mismatch')
             corr = (*shot, event['Victim'], event['VictimGeneration'], event['VictimLife'], event['ClaimId'])
             (received if event['Stage'] == 'claim-received' else terminals)[corr].append(event)
         for corr, entries in ready.items():
@@ -72,6 +81,8 @@ def audit(report, expected_mode=None):
             if not starts or not ends:
                 incomplete.append('missing exact authority received/terminal join'); continue
             start = min(starts, key=lambda e:e['Timestamp'])
+            if any(e['Timestamp'] < start['Timestamp'] for e in ends):
+                incomplete.append('matching terminal predates unique ready request')
             later = [e for e in ends if e['Timestamp'] >= start['Timestamp']]
             if not later:
                 failures.append('terminal precedes authority request'); continue
@@ -104,6 +115,6 @@ if __name__ == '__main__':
     parser.add_argument('--expected-mode', choices=('shadow', 'paid'))
     args = parser.parse_args()
     result = audit(json.loads(args.report.read_text()), args.expected_mode)
-    args.out.write_text(json.dumps(result, indent=2)+'\n')
+    with args.out.open('x') as output: output.write(json.dumps(result, indent=2)+'\n')
     print(result['status'], result['eligibleSamples'], result['p95AuthorityTicks'])
     raise SystemExit(0 if result['status']=='PASS' else 1)

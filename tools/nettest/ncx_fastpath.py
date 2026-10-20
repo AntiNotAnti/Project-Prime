@@ -372,10 +372,12 @@ def audit(reports):
                 capture_complete = False
                 failures.extend(label + ': ' + error for error in errors)
                 state = row['state']; damage = row['damage']; eligible = state in ('VerifiedPaid', 'VerifiedNative')
-                bypass = boolean(raw.get('PaidBypass', False))
+                bypass = boolean(raw['PaidBypass'] if mode == 'Paid' else raw.get('PaidBypass', False))
                 bypasses += int(bypass)
                 if bypass and (mode != 'Paid' or state != 'VerifiedPaid' or row['stage'] != 'ClaimReady'):
                     failures.append(label + ': paid bypass outside verified paid ready seam')
+                if mode == 'Paid' and state == 'VerifiedPaid' and not row['corrected'] and not bypass:
+                    failures.append(label + ': eligible paid receipt omitted actual bypass')
                 pay = state == 'VerifiedNative' and damage['status'] == 'Available'; reject = state == 'Reject'
                 if row['corrected']:
                     computed['CorrectedExcluded'] += 1
@@ -410,7 +412,7 @@ def audit(reports):
                 if integer(captured[field], 0, (1 << 63) - 1) != computed[field]: failures.append(label + ': structured counter mismatch: ' + field)
             if computed['CorrectedExcluded']: incomplete.append(label + ': corrected rows excluded from certification')
             if not positives: incomplete.append(label + ': no positive eligible independently compared row')
-            if integer(captured.get('PaidReceipts', 0), 0, (1 << 63) - 1) != bypasses:
+            if integer(captured['PaidReceipts'] if mode == 'Paid' else captured.get('PaidReceipts', 0), 0, (1 << 63) - 1) != bypasses:
                 failures.append(label + ': paid receipt bypass count mismatch')
             processes.append(dict(process=label, mode=mode, rows=len(rows), positiveEligibleComparisons=positives,
                                   positiveRejectComparisons=rejects, paidReceiptBypasses=bypasses,

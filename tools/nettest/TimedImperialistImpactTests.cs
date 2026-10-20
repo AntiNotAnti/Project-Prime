@@ -388,10 +388,22 @@ internal static class TimedImperialistImpactTests
         long Payments, long FastFirst, long FastRetry, long Corrections,
         CombatAckEntry NativeOutcome, CombatAckEntry FinalOutcome, byte[] FirstAck, byte[] RetryAck,
         uint Rng1Before, uint Rng2Before, uint Rng1After, uint Rng2After,
-        string Scores, string Semantics, string[] Replay, CombatFastRow[] Rows);
+        string Scores, string Semantics, string[] Replay, CombatFastRow[] Rows, object FastCapture);
 
     private static byte[] AckBytes(in CombatAckEntry outcome)
     { var bytes = new byte[CombatAckEntry.Size]; outcome.Write(bytes); return bytes; }
+
+    private static object ExportPaidArm(PaidReceiptArm arm) => new {
+        arm.Control, arm.Mode, arm.Before, arm.AfterNative, arm.AfterClaims,
+        arm.NativeSequence, arm.FinalSequence, arm.Payments, arm.FastFirst, arm.FastRetry, arm.Corrections,
+        NativeAck = Convert.ToHexString(AckBytes(arm.NativeOutcome)),
+        FinalAck = Convert.ToHexString(AckBytes(arm.FinalOutcome)),
+        FirstAck = Convert.ToHexString(arm.FirstAck), RetryAck = Convert.ToHexString(arm.RetryAck),
+        arm.Rng1Before, arm.Rng2Before, arm.Rng1After, arm.Rng2After,
+        ScoreSha256 = Digest(arm.Scores), SemanticSha256 = Digest(arm.Semantics),
+        ReplayRecords = arm.Replay.Length, ReplaySha256 = Digest(string.Join("\n", arm.Replay)),
+        arm.FastCapture
+    };
 
     private static CombatAckEntry ReceivePaidClaim(in HitClaimPacket claim)
     {
@@ -523,7 +535,7 @@ internal static class TimedImperialistImpactTests
                 NetHitClaims.HeadshotCorrections - corrections, native, final, AckBytes(first), AckBytes(retry),
                 rng1, rng2, f.Scene.Random.Rng1, f.Scene.Random.Rng2, scores,
                 JsonSerializer.Serialize(f.Scene.MatchEvents.Bus.Events.Skip(semanticStart).ToArray()),
-                replay.ToArray(), NetCombatFastPath.CaptureRows());
+                replay.ToArray(), NetCombatFastPath.CaptureRows(), NetCombatFastPath.Capture());
         }
         finally { ReplayCapture.Recorder.Accepted -= Capture; }
     }
@@ -552,8 +564,7 @@ internal static class TimedImperialistImpactTests
                 Console.WriteLine("FAST_PAID_SCENE " + JsonSerializer.Serialize(new {
                     Schema = 1, Control = control, Weapon = weapon, NativeHead = nativeHead,
                     ClaimHead = claimHead, Profile = profile,
-                    Off = off with { Replay = off.Replay.Select(Digest).ToArray() },
-                    Paid = paid with { Replay = paid.Replay.Select(Digest).ToArray() },
+                    Off = ExportPaidArm(off), Paid = ExportPaidArm(paid),
                     Scope = "Six declared actual native stock-contact fixtures; Off/Paid serialized claim and exact cached retry parity. No UDP, early unpaid settlement, timing or all-family certificate." }));
                 Check(off.Before == paid.Before && off.AfterNative == paid.AfterNative
                     && off.AfterClaims == paid.AfterClaims && off.NativeSequence == paid.NativeSequence

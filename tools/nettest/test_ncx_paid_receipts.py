@@ -66,6 +66,16 @@ class PaidReceiptLatencyTests(unittest.TestCase):
         r=report();r['ShotTimeline']['Rows'][-1]['AuthorityFrame']=100;self.assertEqual(audit(r)['status'],'FAIL')
     def test_invalid_typed_capture_is_incomplete(self):
         r=report();r['CombatFastPath']['Rows'][0]['PaidBypass']='true';self.assertEqual(audit(r)['status'],'INCOMPLETE')
+    def test_unknown_or_missing_timeline_schema_is_incomplete(self):
+        for value in (None, 2, True, '1'):
+            r=report();r['ShotTimeline']['Schema']=value
+            self.assertEqual(audit(r)['status'],'INCOMPLETE')
+        r=report();del r['ShotTimeline']['Schema'];self.assertEqual(audit(r)['status'],'INCOMPLETE')
+    def test_later_valid_retry_cannot_hide_regressed_timestamp_or_frame_domain(self):
+        r=report();rows=r['ShotTimeline']['Rows'];later=copy.deepcopy(rows[-1]);rows[-1]['Timestamp']=900
+        rows.append(later);self.assertEqual(audit(r)['status'],'FAIL')
+        r=report();prior=copy.deepcopy(r['ShotTimeline']['Rows'][-1]);prior.update(Timestamp=900,AuthorityFrame=98)
+        r['ShotTimeline']['Rows'].insert(0,prior);self.assertEqual(audit(r)['status'],'FAIL')
 
 
 if __name__=='__main__':unittest.main()
