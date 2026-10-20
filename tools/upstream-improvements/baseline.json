@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-19",
+  "base_commit": "2d18ac05721366597afc1afdb57f061e73ee4423",
+  "base_ref": "latest fetched origin/main at task start",
+  "open_prs_at_start": [],
+  "inventory_status": "source audited; baseline controlled campaigns not run",
+  "environment": {
+    "os": "macOS",
+    "sdk": "10.0.401",
+    "dotnet": "/Users/jarrett/.dotnet/dotnet",
+    "windows_ssh": {
+      "host_alias": "jarrett-remote",
+      "status": "authentication denied",
+      "tests_run": false
+    },
+    "system_dotnet": "host found but no installed SDK"
+  },
+  "compatibility": {
+    "live_protocol": 61,
+    "readable_replay_container_versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "capture_container_selection": "6 with timed-shot certificates, otherwise 3",
+    "archive_range_selection": "6 timed-shot; otherwise 5 indexed-fire continuation or 4 world-capable archive",
+    "wire_changes_authorized": false,
+    "checkpoint_note": "world-only checkpoint is not a packet decoder baseline",
+    "legacy_note": "container readability does not imply every historical protocol/content combination can play",
+    "recorded_protocol_range": [
+      4,
+      61
+    ],
+    "historical_protocol_policy": "best-effort defaults/omissions; live peers must match protocol61 exactly"
+  },
+  "coverage": [
+    {
+      "field": "Match/epoch/generation/life",
+      "source": "NetProtocol.cs; NetLifecycleTracker.cs; NetShotDiagnostics.cs",
+      "authority": "authority identity",
+      "clock": "match/authority frame",
+      "serialized": "yes, packets and checkpoints",
+      "replay_accessible": "yes; reject stale identity"
+    },
+    {
+      "field": "Shot ID / authored muzzle / direction / aim / view / reticle / charge",
+      "source": "NetFireEvents.cs; PlayerInput.cs; NetHooks.cs",
+      "authority": "owner-authored input, authority validation separate",
+      "clock": "SourceFrame + AckFrame/AckSubFrame",
+      "serialized": "yes, optional FireEvent pose/reticle; canonical replay intent",
+      "replay_accessible": "yes when optional flags present; legacy may omit"
+    },
+    {
+      "field": "Accepted damage / lethal / headshot / victim / health",
+      "source": "ReplayShotFact.cs; NetHitClaims.cs",
+      "authority": "authority accepted result",
+      "clock": "ResolveTick + LaunchFrame",
+      "serialized": "yes, 61-byte version-1 fact",
+      "replay_accessible": "yes; damage identity and lifecycle joins"
+    },
+    {
+      "field": "Timed-shot proof / funding / source knowledge",
+      "source": "ReplayTimedShotFact.cs; ReplayTimedShotFacts.cs",
+      "authority": "recorded authority observations, never replica damage authorization",
+      "clock": "AuthorityFrame + authored fire source/ack",
+      "serialized": "yes, optional format6 file-only tags251/252",
+      "replay_accessible": "yes where certificates captured"
+    },
+    {
+      "field": "Biped/alt/transition start / body/turret health / anchor",
+      "source": "NetPlayerFormState.cs; PlayerReplicationBridge.cs",
+      "authority": "authority form, local prediction kept distinct",
+      "clock": "Frame + StartedFrame",
+      "serialized": "yes, 28-byte PlayerFormState",
+      "replay_accessible": "yes; older recordings may have Unknown phase"
+    },
+    {
+      "field": "Body position / speed / facing / health / score",
+      "source": "NetProtocol.cs PlayerState; ReplayRecorder.cs",
+      "authority": "authority snapshot; movement owner semantics preserved",
+      "clock": "snapshot server tick and recording frame",
+      "serialized": "yes, snapshots and accepted timeline facts",
+      "replay_accessible": "yes; reconstruction is not exact owner render"
+    },
+    {
+      "field": "Pose history / collision rewind",
+      "source": "NetUnlagged.cs; NetShotInputHistory.cs",
+      "authority": "authority validation history",
+      "clock": "simulation/consumed input and ack clocks",
+      "serialized": "not a general standalone exact owner visual track",
+      "replay_accessible": "derive only from facts actually recorded"
+    },
+    {
+      "field": "Local camera transform / FOV / cannon animation at draw",
+      "source": "PlayerHud.cs; FrameTimingCheck.cs; SceneReplayMultiView.cs",
+      "authority": "local presentation only",
+      "clock": "fractional render presentation and generation fences",
+      "serialized": "shot view/reticle partial; continuous final draw stream absent",
+      "replay_accessible": "partial reconstruction; do not claim exact displayed frames"
+    },
+    {
+      "field": "Recording frame / events / markers / restoration kind",
+      "source": "ReplayTimeline/ReplayTimeline.cs; ReplayCapture.cs",
+      "authority": "accepted facts; markers derived",
+      "clock": "RecordingFrame + ServerTick",
+      "serialized": "yes, archive/timeline; bounded rolling clips",
+      "replay_accessible": "yes; NetworkBaseline differs from ReplicaCheckpoint"
+    },
+    {
+      "field": "World checkpoint / RNG / entities",
+      "source": "ReplayWorldCheckpoint.cs; ReplayReplicaCheckpointLayout.cs",
+      "authority": "private replay reconstruction",
+      "clock": "canonical replay frame",
+      "serialized": "yes, versioned world/replica checkpoints",
+      "replay_accessible": "yes; world-only does not prove packet decoder parity"
+    }
+  ],
+  "already_implemented": [
+    "wc02 wide collision indices",
+    "14-component HUD Studio and rich crosshair profiles",
+    "authority receipts and snapshot-owned scores",
+    "same-life death tombstone and generation fences",
+    "form reconciliation and owner animation preservation",
+    "OpenGL multiview state scopes",
+    "rolling replay clips and non-destructive reel sidecars",
+    "separate viewmodel projection and sampled scope FOV",
+    "normalized Android touch layout/editor"
+  ],
+  "baseline_measurements": {
+    "replay_hashes": null,
+    "shot_hashes": null,
+    "score_digest": null,
+    "first_last_life": null,
+    "frame_timing": null,
+    "two_clean_run_hash_parity": "NOT_RUN",
+    "wc02_execution": "NOT_RUN_BY_BASELINE_AUTHOR"
+  },
+  "campaigns": [
+    {
+      "name": "offline four-bot match",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "two-player LAN",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "150\u2013200 ms RTT jitter/loss/reorder",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Insta-Gib",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "standard weapons",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "third-person match",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "rapid morph/unmorph",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "custom-weapon isolation",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "GPU Four Views/reverse/resize/teardown",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Android physical touch/device",
+      "status": "NOT_RUN"
+    },
+    {
+      "name": "Windows platform validation",
+      "status": "NOT_RUN"
+    }
+  ],
+  "fixture_note": "Sanitized multi-life constructed production-recorder fixture and expected SHA256 values committed; real loaded authoritative recording and physical campaign still not run.",
+  "synthetic_fixture": {
+    "source": "tools/nettest/UpstreamBaselineTests.cs",
+    "expected": {
+      "SchemaVersion": 1,
+      "Scope": "synthetic-production-recorder; no gameplay/UDP/GPU",
+      "Protocol": 61,
+      "HunterIds": 7,
+      "Lives": 2,
+      "AcceptedShots": 4,
+      "WrongLifeRejected": 1,
+      "CrossMatchRejected": 4,
+      "CrossEpochRejected": 4,
+      "Records": 20,
+      "Events": 4,
+      "PacketSha256": "db1a6ea3b5dd4c1199f4fb04946a999da9f7998172c4f3d07586b6012f5055ed",
+      "EventSha256": "e73817c8a2bfc4f0d33e6c9bafd2b22f69ecbde422cdd69cb7d27110fa867e92",
+      "ShotSha256": "3c12bae80dd14d27e385dd0a505129c2e041a66e819a223629dfa98540bec5b2"
+    },
+    "status": "PASS standalone test referencing built production assembly; centralized candidate rerun pending",
+    "runs": "two independent recorder instances per process; two process invocations",
+    "scope": "constructed production recorder/codecs/lifecycle tracker, no gameplay UDP GPU or real recording"
+  }
+}
