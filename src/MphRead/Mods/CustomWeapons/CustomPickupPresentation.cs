@@ -9,6 +9,11 @@ internal static class CustomPickupPresentation
 {
     internal static void Draw(Scene scene,Vector3 center)
     {
+        if(scene.CustomRifleModel is {} model)
+        {
+            var transform=Matrix4.CreateScale(.75f)*Matrix4.CreateTranslation(center);
+            CustomRiflePresentation.Draw(scene,model,transform,1,0);return;
+        }
         Box(scene,center,new(.18f,.14f,.42f),new(.12f,.8f,.95f,1));
         Box(scene,center+new Vector3(0,.03f,.6f),new(.055f,.055f,.35f),new(.45f,.65f,.75f,1));
         Box(scene,center+new Vector3(0,.23f,0),new(.075f,.055f,.2f),new(.4f,1,.9f,1));
