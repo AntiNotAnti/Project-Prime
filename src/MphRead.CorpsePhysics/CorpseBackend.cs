@@ -94,9 +94,9 @@ public abstract class CorpseBackend : IRagdollPresentationBackend
                 }
             OnStep(); Steps++;
             for (int i = 0; i < Slots.Length; i++)
-                if (Slots[i].Active)
+                if (Slots[i].Spawn is {} birth)
                     foreach (var pose in Slots[i].Current)
-                        if (!pose.IsValid || pose.Position.Y < -12)
+                        if (!pose.IsValid || pose.Position.Y < birth.Origin.Position.Y - 12)
                         { RetireSlot(i); break; }
             return true;
         }

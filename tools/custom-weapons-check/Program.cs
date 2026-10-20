@@ -4,6 +4,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 3 && args[0] == "--corpse-static-native") return CorpseStaticNativeChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--corpse-affine-native") return CorpseAffineNativeChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--rifle-rig-gl") return CustomRifleRigGlChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--head-death-rig-gl") return HeadDeathRigGlChecks.Run(args[1],args[2]);
