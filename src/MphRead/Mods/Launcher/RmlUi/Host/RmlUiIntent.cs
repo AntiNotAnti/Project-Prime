@@ -349,7 +349,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.SettingsAction => argument is >= 0 and <= 14 or >= 16 and <= 255,
             RmlUiIntentKind.SettingsCategory => argument is >= 0 and < 13,
             RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => argument is >= 1 and < 4,
-            RmlUiIntentKind.OfflineChoice => argument is >= 0 and < 16,
+            RmlUiIntentKind.OfflineChoice => argument is >= 0 and < 17,
             RmlUiIntentKind.OfflineRuleToggle => argument is >= 0 and < OfflineRuleChoiceCount,
             RmlUiIntentKind.OfflineTrainingToggle => argument is >= 0 and < 5,
             RmlUiIntentKind.HunterRotate => argument is >= 0 and < 2,
@@ -439,7 +439,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.AdventureSelectSlot, argument, document, sequence);
             else if (TryIndex(action, "adventure:copy-destination:", 4, out argument) && argument >= 1)
                 intent = new(RmlUiIntentKind.AdventureCopyDestination, argument, document, sequence);
-            else if (TryIndex(action, "offline:choice:", 16, out argument) && argument >= 0)
+            else if (TryIndex(action, "offline:choice:", 17, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineChoice, argument, document, sequence);
             else if (TryIndex(action, "offline:rule:", OfflineRuleChoiceCount, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineRuleToggle, argument, document, sequence);

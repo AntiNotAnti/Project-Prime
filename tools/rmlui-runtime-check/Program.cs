@@ -78,7 +78,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
         RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => 3,
-        RmlUiIntentKind.OfflineChoice => 16,
+        RmlUiIntentKind.OfflineChoice => 17,
         RmlUiIntentKind.OfflineRuleToggle => RmlUiIntentRegistry.OfflineRuleChoiceCount,
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1

@@ -10,12 +10,16 @@ namespace MphRead.Mods.Launcher.RmlUi.Core;
 public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
     Hunter Hunter, int Suit, int Bots, int BotLevel)
 {
+    public OfflineCharacterMode Character { get; init; }
     public bool ValidateForm(IReadOnlyList<string> availableRooms)
     {
         GameMode requestedMode = Mode; // A struct method cannot capture this in a lambda.
         return !String.IsNullOrWhiteSpace(RoomKey)
             && availableRooms.Contains(RoomKey, StringComparer.OrdinalIgnoreCase)
             && OfflineLaunch.Modes.Any(x => x.Mode == requestedMode)
+            && (Character == OfflineCharacterMode.Native
+                || Character == OfflineCharacterMode.TrooperWallClingPractice
+                    && Hunter == Hunter.Weavel && Mode == GameMode.Battle && Bots == 0)
             && (uint)Hunter < 7 && Suit is >= 0 and <= 3
             && Bots is >= 0 and <= 7 && BotLevel is >= 0 and <= 3;
     }
@@ -154,6 +158,12 @@ public sealed class RmlUiOfflineDraft
             case 5: return Step(MphRead.Mods.Multiplayer.HunterRules.Pool(_lowTier), Current.Hunter,
                 hunter => Current = Current with { Hunter = hunter });
             case 6: Current = Current with { Suit = (Current.Suit + 1) % 4 }; return true;
+            case 16:
+                Current = Current.Character == OfflineCharacterMode.Native
+                    ? Current with { Character = OfflineCharacterMode.TrooperWallClingPractice,
+                        Hunter = Hunter.Weavel, Bots = 0, Mode = GameMode.Battle }
+                    : Current with { Character = OfflineCharacterMode.Native };
+                return true;
             default: return false;
         }
     }
@@ -172,5 +182,9 @@ public sealed class RmlUiOfflineDraft
     public string Bots => Current.Bots + " BOTS";
     public string Difficulty => new[] { "EASY", "NORMAL", "HARD", "INSANE" }[Current.BotLevel];
     public string HunterName => Current.Hunter.ToString().ToUpperInvariant();
+    public string CharacterName => Current.Character == OfflineCharacterMode.Native ? "NATIVE" : "TROOPER WALL-CLING";
+    public string CharacterNotice => Current.Character == OfflineCharacterMode.Native ? ""
+        : Valid ? "Weavel model and weapons. Jump into a tall wall to cling; Jump again to kick off. No drone, blaster or replays."
+        : "Wall-cling practice requires Weavel, Battle and zero bots.";
     public string SuitName => "SUIT " + (Current.Suit + 1);
 }

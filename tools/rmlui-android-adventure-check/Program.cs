@@ -66,6 +66,21 @@ var offlinePlan = new LaunchPlan { Kind = LaunchKind.Offline, RoomKey = "SYNTHET
     Hunter = Hunter.Trace, Bots = 3, BotLevel = 1 };
 Check(offlineRequest.MatchesPlan(offlinePlan, 2) && !offlineRequest.MatchesPlan(offlinePlan, 1), "existing Offline suit witness is preserved");
 Check(!resume.MatchesPlan(offlinePlan, 2) && !offlineRequest.MatchesPlan(plan, 2), "local tagged families cannot cross-admit");
+var practice = offline with { Hunter = Hunter.Weavel, Bots = 0,
+    Character = OfflineCharacterMode.TrooperWallClingPractice };
+var practiceRequest = RmlUiAndroidLocalLaunchRequest.ForOffline(practice);
+var practicePlan = offlinePlan with { Hunter = Hunter.Weavel, Bots = 0,
+    OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice, IsPlaytest = true };
+Check(practiceRequest.MatchesPlan(practicePlan, 2), "Android request retains explicit wall-cling practice identity");
+Check(!practiceRequest.MatchesPlan(practicePlan with { OfflineCharacter = OfflineCharacterMode.Native }, 2)
+    && !offlineRequest.MatchesPlan(offlinePlan with { OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice }, 2),
+    "native and practice Android handoffs cannot substitute mechanics");
+Check(!practiceRequest.MatchesPlan(practicePlan with { IsPlaytest = false }, 2)
+    && !offlineRequest.MatchesPlan(offlinePlan with { IsPlaytest = true }, 2),
+    "captured practice distinction requires its matching playtest lifetime");
+Check(!resume.MatchesPlan(plan with { OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice }, 0)
+    && !ship.MatchesPlan(shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice }, 0),
+    "Adventure and Ship handoffs cannot carry offline character mechanics");
 var admission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
 Check(admission.TryRequest(resume, out var captured) && !admission.TryRequest(ship, out _), "one request can await existing UI owner");
 Check(!admission.TryAccept(captured with { Request = ship }, shipPlan), "same generation cannot substitute a different captured request");

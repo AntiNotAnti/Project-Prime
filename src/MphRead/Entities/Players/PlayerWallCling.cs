@@ -8,8 +8,8 @@ namespace MphRead.Entities;
 
 public partial class PlayerEntity
 {
-    // Proposed PRIVATE/offline mechanics slice. Native remains the default;
-    // no launcher, wire, replay or career path binds TrooperV1 in this slice.
+    // Explicit offline wall-cling practice. Native remains the default;
+    // imported media and native Hunter IDs never select this rule.
     private CharacterGameplayRules _modCharacterGameplay = CharacterGameplayRules.Native;
     private bool _modCharacterGameplayBound, _modCharacterGameplayRetired;
     private bool _modCharacterGameplayInitializationStarted;
@@ -25,7 +25,7 @@ public partial class PlayerEntity
         }
     }
 
-    // Explicit synthetic rule selection for the private CPU fixture. It must
+    // Explicit local rule selection for the offline launcher/CPU fixture. It must
     // happen before Initialize, once, on the actual local player/Scene owner.
     internal bool ModTryBindCharacterGameplay(CharacterGameplayRules rules)
     {
@@ -35,6 +35,9 @@ public partial class PlayerEntity
             || !ReferenceEquals(global::MphRead.GameState.Current, _scene.GameState)
             || !ReferenceEquals(LegacyRegistry, _scene.Players)
             || !rules.IsValidFor(Hunter)
+            || rules.Variant != CharacterGameplayVariant.Native && (_scene.GameState.BalancedMode
+                || _scene.GameState.EnhancedHunters || _scene.GameState.MovementModel != Mods.Movement.MovementModel.Native
+                || ReplayCapture.LiveRecordingActive)
             || (uint)SlotIndex >= _scene.Players.Items.Count
             || !ReferenceEquals(_scene.Players.Items[SlotIndex], this)) return false;
         _modCharacterGameplay = rules;
@@ -42,6 +45,8 @@ public partial class PlayerEntity
         _modCharacterGameplayHunter = Hunter;
         _modCharacterGameplayScene = _scene.LifetimeGeneration;
         WallClingInit();
+        if (rules.Variant != CharacterGameplayVariant.Native)
+            _scene.MarkPrivateCharacterGameplayUnsupported();
         return true;
     }
 
@@ -55,6 +60,7 @@ public partial class PlayerEntity
         && ReferenceEquals(LegacyRegistry, _scene.Players)
         && !_scene.Exiting && !_scene.Services.IsReplica && !_scene.SideScene && !_scene.IsReplayLab && !NetSession.Active
         && !_scene.GameState.BalancedMode && !_scene.GameState.EnhancedHunters
+        && _scene.GameState.MovementModel == Mods.Movement.MovementModel.Native
         && (uint)SlotIndex < _scene.Players.Items.Count
         && ReferenceEquals(_scene.Players.Items[SlotIndex], this);
 

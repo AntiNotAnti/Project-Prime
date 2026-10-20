@@ -663,6 +663,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private static readonly Binding[] OfflineBindings =
         {
+            new(RmlUiBindingKind.Boolean, "visible:offline_match_panel", "!offline_training_mode"),
+            new(RmlUiBindingKind.Boolean, "visible:offline_training_panel", "offline_training_mode"),
             new(RmlUiBindingKind.Text, "offline_arena_value", "{{offline_arena_value}}"),
             new(RmlUiBindingKind.Text, "offline_mode_value", "{{offline_mode_value}}"),
             new(RmlUiBindingKind.Text, "offline_matchup_value", "{{offline_matchup_value}}"),
@@ -670,6 +672,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_skill_value", "{{offline_skill_value}}"),
             new(RmlUiBindingKind.Text, "offline_hunter_value", "{{offline_hunter_value}}"),
             new(RmlUiBindingKind.Text, "offline_suit_value", "{{offline_suit_value}}"),
+            new(RmlUiBindingKind.Text, "offline_character_value", "{{offline_character_value}}"),
+            new(RmlUiBindingKind.Text, "offline_character_notice", "{{offline_character_notice}}"),
+            new(RmlUiBindingKind.Text, "offline_start", "{{offline_start_label}}"),
             new(RmlUiBindingKind.Text, "offline_summary", "{{offline_summary}}"),
             new(RmlUiBindingKind.Text, "offline_error", "{{offline_error}}"),
             new(RmlUiBindingKind.Text, "offline_availability", "{{offline_availability}}"),

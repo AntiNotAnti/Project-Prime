@@ -39,13 +39,16 @@ namespace MphRead.Mods.Launcher
         // before mutating preferences, then Create only after accepting the map
         // and match modifier rules.
         public static LaunchPlan Preview(MenuSettings settings, string roomKey,
-            GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
+            GameMode mode, Hunter hunter, int suit, int bots, int botLevel,
+            OfflineCharacterMode character = OfflineCharacterMode.Native)
         {
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum or Quake3.", nameof(settings));
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
+                OfflineCharacter = character,
+                IsPlaytest = character != OfflineCharacterMode.Native,
                 Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
                 MatchRules = new Network.MatchDefinition
                 {
@@ -86,15 +89,18 @@ namespace MphRead.Mods.Launcher
                 if (ReplayCapture.LiveRecordingActive)
                     throw new ArgumentException(CustomReplayBoundary.Error);
             }
+            if (!OfflineCharacterGameplay.TryAdmit(plan, out string characterReason))
+                throw new ArgumentException(characterReason);
             return plan;
         }
 
         public static LaunchPlan Create(MenuSettings settings, string roomKey,
-            GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
+            GameMode mode, Hunter hunter, int suit, int bots, int botLevel,
+            OfflineCharacterMode character = OfflineCharacterMode.Native)
         {
             // Revalidate before persistence, including legacy callers. Public
             // UI owners catch refused previews and report the admission reason.
-            LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel);
+            LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel, character);
             settings.RoomKey = roomKey;
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastColor = Math.Clamp(suit, 0, 3);

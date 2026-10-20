@@ -14,6 +14,7 @@ internal static class OfflineMatchPreflight
     internal static bool TryAdmit(LaunchPlan plan, out string reason, bool prepareRoom = false)
     {
         reason = "";
+        if (!OfflineCharacterGameplay.TryAdmit(plan, out reason)) return false;
         if (plan.MatchRules.RiftlineM7Available
             && plan.Kind is not (LaunchKind.Offline or LaunchKind.Online or LaunchKind.Host))
         { reason = "Riftline M7 pickups require offline Battle; Adventure, demos and training are unsupported."; return false; }

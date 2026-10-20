@@ -111,7 +111,7 @@ namespace MphRead.Mods.Launcher
             // Adventure and demo return before the ordinary room preflight.
             // Explicit custom availability must be admitted before either
             // route can create or replace a scene.
-            if (plan.MatchRules.RiftlineM7Available
+            if ((plan.MatchRules.RiftlineM7Available || plan.OfflineCharacter != OfflineCharacterMode.Native)
                 && !OfflineMatchPreflight.TryAdmit(plan, out string customReason))
             { LastError = customReason; Console.WriteLine($"[launcher] {customReason}"); return false; }
             if (plan.Kind == LaunchKind.Adventure)
@@ -215,6 +215,13 @@ namespace MphRead.Mods.Launcher
             {
                 plan.MatchRules.ApplyModifiers(window.Scene.GameState);
                 AddLocalPlayers(window, plan, teamPlay);
+                if (!OfflineCharacterGameplay.TryBind(window.Scene, plan, out string characterReason))
+                {
+                    LastError = characterReason;
+                    window.EndScene();
+                    Console.WriteLine($"[launcher] {LastError}");
+                    return false;
+                }
             }
             window.AddRoom(roomKey, mode, playerCount: NetSession.Active
                 ? NetLaunch.RoomPlayerCount
