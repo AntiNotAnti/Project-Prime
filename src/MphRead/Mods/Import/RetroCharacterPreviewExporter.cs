@@ -93,7 +93,8 @@ public static partial class RetroCharacterPreviewExporter
         var selected = Sources.Where(x => x.Game == disc.Game && (selectedIds == null || selectedIds.Contains(x.Id, StringComparer.Ordinal))).ToArray();
         if (selected.Length == 0 || selectedIds != null && (selectedIds.Count != selected.Length || selectedIds.Distinct(StringComparer.Ordinal).Count() != selectedIds.Count))
             throw new InvalidDataException("Choose supported character previews from this source edition.");
-        var required = ExternalSourceRequirements.For(disc.Game);
+        ExternalSourceEdition edition = ExternalSourceRequirements.EditionFor(disc);
+        var required = ExternalSourceRequirements.For(disc.Game, edition);
         foreach (var archive in required)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -124,16 +125,16 @@ public static partial class RetroCharacterPreviewExporter
             {
                 cancellation.ThrowIfCancellationRequested();
                 var parts = new List<AuthoringPart>();
-                foreach (SourcePart part in PartsFor(spec.Id))
+                foreach (SourcePart part in PartsFor(spec.Id, edition))
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, cancellation));
+                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, edition, cancellation));
                 }
                 if (spec.AlternateForm != null)
                 {
                     string name = spec.Id + ".parts.json";
                     string path = Path.Combine(staging, name);
-                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, BundleSpec(spec.Id).Version, false,
+                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, BundleSpec(spec.Id, edition).Version, false,
                         parts.ToArray(), new[] { "source-materials", "first-person", "runtime-animation-and-morph" });
                     File.WriteAllText(path, JsonSerializer.Serialize(index));
                     staged.Add((path, Path.Combine(root, name)));
@@ -159,9 +160,9 @@ public static partial class RetroCharacterPreviewExporter
                         long length = new FileInfo(file.Temp).Length;
                         if (length is <= 0 or > LocalImportBundle.MaxComponentBytes || (total += length) > LocalImportBundle.MaxBundleBytes)
                             throw new InvalidDataException("Source character bundle exceeds its private component budget.");
-                        parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
+                        parts.Add(Path.GetFileName(file.Final), File.ReadAllBytes(file.Temp));
                     }
-                    yield return new(BundleSpec(spec.Id),parts);
+                    yield return new(BundleSpec(spec.Id, edition),parts);
                 }
             }
             return LocalImportBundle.PublishSequential(root,PrepareUpdates(),cancellation,progress)

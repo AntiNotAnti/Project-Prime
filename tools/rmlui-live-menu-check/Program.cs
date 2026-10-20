@@ -286,7 +286,7 @@ Check(!traversalEditor.Validate(out _) && traversalEditor.Draft.Match.MovementMo
     "Balanced conflict preserves Traversal selection");
 Check(MovementModelRules.TryParse("Traversal", out var traversalParsed) && traversalParsed == MovementModel.Traversal
     && MovementModelRules.FromRules(MatchModifierFlags.TraversalMovement) == MovementModel.Traversal
-    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 4
+    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 5
     && new MatchDefinition().MovementModel == MovementModel.Native,
     "Traversal model maps its fixed profile without changing Classic default");
 foreach (var conflicting in new[] { MatchModifierFlags.MomentumMovement, MatchModifierFlags.Quake3Movement })
@@ -714,6 +714,7 @@ Check(aimSetupBindings.TryGetValue("visible:offline_match_panel", out var hidden
     && !Flag(controller.Tick(), "offline_can_start"),
     "Aim Lab shows only drill settings and the correct heading");
 Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice, 3)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineChoice, 16)
     && !controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
     && !controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
     && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),

@@ -178,7 +178,8 @@ internal static class LobbyInteractionsGlAcceptance
         {
             Check(RmlUiIntentRegistry.IsValid(RmlUiIntentKind.LobbyRulesToggle, 16)
                 && RmlUiIntentRegistry.IsValid(RmlUiIntentKind.LobbyRulesToggle, 17)
-                && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.LobbyRulesToggle, 18), "online native action codec bounds retain Third Person16 and Movement17");
+                && RmlUiIntentRegistry.IsValid(RmlUiIntentKind.LobbyRulesToggle, 18)
+                && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.LobbyRulesToggle, 19), "online native action codec bounds retain Third Person16, Movement17 and Riftline M7 18");
             OpenRules();
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "CLASSIC", "actual rules modal seeds Classic");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle);

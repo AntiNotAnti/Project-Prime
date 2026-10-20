@@ -62,7 +62,7 @@ internal static class OwnedSourceSnapshotOwnedProbe
             var spec = RetroCharacterPreviewExporter.BundleSpec(id);
             var inspection = LocalImportBundle.Inspect(imports, id, spec); stateName = inspection.State.ToString();
             required = spec.RequiredComponents.Length; files = inspection.Files.Count; version = inspection.Receipt?.Version ?? 0;
-            Check(spec.Version == 5 && required == 19 && files == 23 && inspection.State == ImportBundleState.Ready
+            Check(spec.Version == 6 && required == 20 && files == 24 && inspection.State == ImportBundleState.Ready
                 && inspection.Receipt is { } receipt && receipt.Id == id && receipt.Version == spec.Version
                 && receipt.RecipeHash == spec.RecipeHash && receipt.SourceFingerprint == spec.SourceFingerprint
                 && receipt.Components.Length == files && receipt.RequiredComponents.Length == files,

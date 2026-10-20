@@ -485,6 +485,7 @@ namespace MphRead.Mods.Network
             double lastStateBroadcast = 0;
             double lastHostReap = double.NegativeInfinity;
             double lastHostMapPump = double.NegativeInfinity;
+            double lastControlMaintenance = double.NegativeInfinity;
             double lastUpdateCheck = double.NegativeInfinity;
             double hostedEmptySince = 0;
             _matchStarted = 0;
@@ -522,6 +523,7 @@ namespace MphRead.Mods.Network
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     PumpCustomNativeIntents();
                     PumpCustomReplica();
+                    PumpCustomPickups();
                     EnsureCareerMatchStarted(now);
                     PumpSocialMembership(now);
                     pumpStart = NetPerformanceEvidence.Start();
@@ -716,8 +718,15 @@ namespace MphRead.Mods.Network
                             }
                         }
                     }
-                    MaintainWaitlist(now);
-                    MaintainPartyReservations(now);
+                    // Queue and reservation deadlines operate in seconds. A
+                    // 20 Hz maintenance pass avoids per-frame scans on active
+                    // 60 Hz authorities while keeping offers responsive.
+                    if (now - lastControlMaintenance >= .05)
+                    {
+                        lastControlMaintenance = now;
+                        MaintainWaitlist(now);
+                        MaintainPartyReservations(now);
+                    }
                     // Pace around the simulation's absolute next deadline.
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
@@ -758,10 +767,19 @@ namespace MphRead.Mods.Network
                 // Use it only when there is enough room for that worst case;
                 // Unix sleeps are fine much closer to the deadline.
                 double coarseSleepRoom = OperatingSystem.IsWindows() ? 0.012 : 0.002;
-                if (remaining > coarseSleepRoom)
+                // Sleep on the transport's existing activity event rather
+                // than polling the entire game/control loop every millisecond.
+                // Retain the platform deadline guard and the 10 ms reliable
+                // servicing cadence; the receive worker signals on admission.
+                if (remaining > coarseSleepRoom + 0.001)
                 {
-                    Thread.Sleep(1);
-                    return;
+                    int waitMs = Math.Min(8, (int)Math.Floor(
+                        (remaining - coarseSleepRoom) * 1000.0));
+                    if (waitMs > 0)
+                    {
+                        _transport?.WaitForActivity(waitMs);
+                        return;
+                    }
                 }
                 if (remaining > 0.00025)
                 {
@@ -1072,22 +1090,27 @@ namespace MphRead.Mods.Network
             }
             var sim = new ServerSim();
             MatchDefinition entry = CurrentDefinition;
+            long authorityStart = System.Diagnostics.Stopwatch.GetTimestamp();
             // Join the lobby's in-flight prewarm before the authoritative scene
             // opens custom-map outputs. A fast START used to race the compiler,
             // duplicating work or observing files while they were being replaced.
-            if (!Mods.RoomPrewarm.JoinForLoad(entry.RoomKey))
+            bool prewarmed = Mods.RoomPrewarm.JoinForLoad(entry.RoomKey);
+            if (!prewarmed)
                 Mods.MapGen.CustomRooms.GenerateMissing(entry.RoomKey);
+            double prepareMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(authorityStart).TotalMilliseconds;
             if (Mods.MapGen.CustomRooms.WhyUnplayable(entry.RoomKey) is { } unplayable)
                 throw new ProgramException(unplayable);
             if (!Mods.Multiplayer.MapModeCapabilities.Supports(entry.RoomKey, entry.Mode,
                 LobbyRules.ResolveWorldProfile(entry, _maxPlayers), out string incompatible))
                 throw new ProgramException(incompatible);
+            long sceneStart = System.Diagnostics.Stopwatch.GetTimestamp();
             if (!sim.Start(entry.RoomKey, entry.Mode, _maxPlayers, SendSnapshot,
                 () => EndMatch(_now, "score"), BuildRoster(), BuildSessionState()))
             {
                 Log($"cannot run the match: the room \"{entry.RoomKey}\" would not load");
                 throw new ProgramException($"the server could not load \"{entry.RoomKey}\"");
             }
+            double sceneMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(sceneStart).TotalMilliseconds;
             _sim = sim;
             ConfigureCustomSourceCombat(sim.EvidenceScene!);
             // Spectator admission is known before world bootstrap. Apply it to
@@ -1117,6 +1140,9 @@ namespace MphRead.Mods.Network
             // NetHitClaims.
             NetHitClaims.CombatAckSink = SendVerdicts;
             SyncSimulationState(_now);
+            Log($"[server-load] room={entry.RoomKey} prewarm-ready={prewarmed} "
+                + $"source-wait-ms={prepareMilliseconds:0.0} world-create-ms={sceneMilliseconds:0.0} "
+                + $"total-ms={System.Diagnostics.Stopwatch.GetElapsedTime(authorityStart).TotalMilliseconds:0.0}");
         }
 
         /// <summary>
@@ -1262,6 +1288,7 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponInput: HandleCustomWeaponInput(packet,now); break;
                 case PacketType.CustomWeaponResultAck: HandleCustomResultAck(packet,now); break;
                 case PacketType.CustomWeaponReplicaAck: HandleCustomReplicaAck(packet); break;
+                case PacketType.CustomWeaponPickupAck: HandleCustomPickupAck(packet); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
                 case PacketType.MatchLoadFailed: HandleMatchLoadFailed(packet); break;

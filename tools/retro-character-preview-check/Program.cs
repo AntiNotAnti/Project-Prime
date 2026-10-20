@@ -25,6 +25,9 @@ try
     }
     CharacterBundleAcceptance.RunContract();
     SourceGlbWriterAcceptance.Run();
+    PrimeTrooperGlbAcceptance.Run();
+    CharacterMaterialArchiveAcceptance.Run();
+    CharacterGxProgramAcceptance.Run();
     GeneratedCannonAcceptance.Run();
     var chars = RetroCharacterPreviewExporter.Sources;
     Check(chars.Count == 6 && chars.Select(x=>x.Id).Distinct().Count()==6,

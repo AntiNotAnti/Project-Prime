@@ -224,7 +224,16 @@ namespace MphRead.Mods.Network
         {
             if (DemoPlayback.IsActive || !NetFactBatch.Validate(PacketType.ReplayShotFact, payload)) return;
             for (int offset = 0; offset < payload.Length; offset += ReplayShotFactPacket.Size)
-                Recorder.AcceptShotFact(payload.Slice(offset, ReplayShotFactPacket.Size), frame);
+            {
+                var bytes = payload.Slice(offset, ReplayShotFactPacket.Size);
+                // The transport pump and scene simulation share their owner.
+                // This is presentation-only, independent of recorder backpressure.
+                if (ReplayShotFactPacket.TryRead(bytes, out var fact)
+                    && fact.MatchId == NetSession.CurrentMatchId && fact.AuthorityEpoch == NetSession.AuthorityEpoch
+                    && GameState.Current.Owner is { } scene && !scene.Services.IsReplica)
+                    scene.ModAcceptNativeHeadHit(fact);
+                Recorder.AcceptShotFact(bytes, frame);
+            }
         }
 
         internal static void AcceptedCosmetics()

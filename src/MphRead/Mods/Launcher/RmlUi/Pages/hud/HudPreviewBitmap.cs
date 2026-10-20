@@ -104,8 +104,9 @@ public sealed class HudPreviewBitmap
                         x+=ChatFont.Widths[glyph]*pixel*aspect;
                     }
                 }
-                Text(element.Bounds.Y+2*unit,"SPEED 320.0 U/S");
-                Text(element.Bounds.Y+9*unit,"AIR EFF 85%");
+                Text(element.Bounds.Y+2*unit,"HORIZ 320.0 U/S");
+                Text(element.Bounds.Y+9*unit,"TOTAL 330.0 U/S | AIR");
+                Text(element.Bounds.Y+16*unit,"AIR EFF 85%");
             }
             else if(element.Index==4)DrawRadar(canvas,p,element,transform.UnitScale,alpha);
             else if(element.Index is 1 or 2 or 12 or 13)

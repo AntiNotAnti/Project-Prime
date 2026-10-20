@@ -43,6 +43,11 @@ internal static class NativeFullSettingsGlAcceptance
         var original = controller.Rows.Select(r=>r.Read()).ToArray();
         NativeHudEditorPage? hud = null; ulong sequence = 40000; int checks = 0;
         var geometry = new List<object>();
+        string authored = File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"rmlui","pages","settings","native-full.rml"));
+        var slots = System.Text.RegularExpressions.Regex.Matches(authored,"id=\"native_settings_row_([0-9]+)\"")
+            .Select(match=>int.Parse(match.Groups[1].Value,CultureInfo.InvariantCulture)).ToArray();
+        if(!slots.SequenceEqual(Enumerable.Range(0,NativeFullSettingsPage.Slots)))
+            throw new InvalidOperationException("Shipped Settings row slots do not match the presenter capacity.");
         host.Input.SetFramebufferScale(1,1); page.Open(); Settle();
         try
         {
@@ -93,7 +98,8 @@ internal static class NativeFullSettingsGlAcceptance
                 {
                     if(subpages.Length>0){Send(RmlUiIntentKind.SettingsAction,232+pane);Reveal("native_settings_subpage_"+pane,false);Contained(page.Document,"native_settings_subpage_"+pane,"meaningful "+subpages[pane]+" subpage");}
                     var rows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]&&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)).ToArray();
-                    Check(rows.Length<=180,"complete natural form fits bounded row slots");
+                    Check(rows.Length<=NativeFullSettingsPage.Slots,"complete natural form including Advanced fits bounded authored row slots: "+rows.Length);
+                    NativeFullSettingsPage.RequireRowCapacity(rows.Length);
                     if(rows.Length==0)continue;
                     string first=rows[0].Choices.Length>0||rows[0].IsBinding?"native_settings_cycle_0":"native_settings_value_0";
                     Reveal(first,false);Contained(page.Document,first,"first readable sectioned form control");

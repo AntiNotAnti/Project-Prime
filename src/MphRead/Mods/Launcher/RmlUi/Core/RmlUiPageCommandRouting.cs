@@ -25,6 +25,8 @@ public static class RmlUiPageCommandRouting
         or RmlUiIntentKind.HunterDeathNext
         or RmlUiIntentKind.HunterBeamNext or RmlUiIntentKind.HunterBeamColorNext
         or RmlUiIntentKind.HunterBeamSelect or RmlUiIntentKind.HunterBeamColorSelect
+        or RmlUiIntentKind.HunterSkinSelect or RmlUiIntentKind.HunterArmorSelect
+        or RmlUiIntentKind.HunterDeathSelect or RmlUiIntentKind.HunterCosmeticCategory
         or RmlUiIntentKind.HunterCosmeticsReset
         or RmlUiIntentKind.HunterCosmeticsSave or RmlUiIntentKind.HunterPreviewMode
         or RmlUiIntentKind.HunterPreviewDeath or RmlUiIntentKind.HunterRotate

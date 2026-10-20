@@ -121,7 +121,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             else if (name == "offline_training_mode" && wasTraining != value
                 && _page == RmlUiMenuPage.Offline)
             {
-                // This page hosts two exclusive setups; focus must follow the active one.
+                // Return focus to the new setup on same-page activity changes.
                 _pendingFocus = value ? "offline_training_start" : "offline_arena";
             }
         }

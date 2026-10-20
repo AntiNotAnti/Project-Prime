@@ -111,10 +111,12 @@ namespace MphRead.Mods.Replay
             ReplayExportQueue.PresentationFor(job)?.Apply();
 
             _job = job;
+            ReplayOwnerExport.Begin(job.Replay);
             _directory = Path.GetDirectoryName(job.FramePattern)
                 ?? Path.GetDirectoryName(job.SuggestedOutput);
             if (String.IsNullOrWhiteSpace(_directory))
             {
+                ReplayOwnerExport.End();
                 _job = null;
                 _segments = Array.Empty<ReplayVideoSegment>();
                 RestoreCameraState();
@@ -142,6 +144,7 @@ namespace MphRead.Mods.Replay
 
         public static void Cancel()
         {
+            ReplayOwnerExport.End();
             // Only Start's acquired playback lease authorizes a render retry receipt.
             // Detached metadata cleared during cancellation does not gain a new strong owner.
             var cancelled = _renderPlaybackOwner != null ? _job : null;
@@ -197,6 +200,9 @@ namespace MphRead.Mods.Replay
             {
                 return;
             }
+            // A load completing between draw and capture must wait for another
+            // picture. Never mix authority and captured POVs within a job.
+            if (!ReplayOwnerExport.Ready || !scene.OwnerExportPreparedForDraw) return;
 
             _state = ReplayExportState.Rendering;
             ReplayVideoSegment segment = _segments[_segmentIndex];
@@ -325,6 +331,7 @@ namespace MphRead.Mods.Replay
 
         private static void Finish()
         {
+            ReplayOwnerExport.End();
             ReplayVideoExportManifest? job = _job;
             _job = null;
             _segments = Array.Empty<ReplayVideoSegment>();
@@ -369,6 +376,7 @@ namespace MphRead.Mods.Replay
         }
         private static void Fail(string message)
         {
+            ReplayOwnerExport.End();
             CancelAudioWork(failure:true);
             ReplayExportQueue.NoteFailure(_job, message);
             _job = null; _segments = Array.Empty<ReplayVideoSegment>();

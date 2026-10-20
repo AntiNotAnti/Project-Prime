@@ -6,6 +6,13 @@ internal static class CanvasProgram
 {
     private static int Main(string[] args)
     {
+        if (args.Length == 3 && args[1] == "--offline-character")
+        {
+            string[] size = args[2].Split('x');
+            if (size.Length != 2 || !int.TryParse(size[0], out int w) || !int.TryParse(size[1], out int h)
+                || w is < 320 or > 4096 || h is < 240 or > 4096) throw new ArgumentException("Invalid offline-character viewport.");
+            return OfflineCharacterGlAcceptance.Run(Path.GetFullPath(args[0]), w, h);
+        }
         if (args.Length == 4 && args[1] == "--character-source-owned")
         {
             string[] size = args[3].Split('x');

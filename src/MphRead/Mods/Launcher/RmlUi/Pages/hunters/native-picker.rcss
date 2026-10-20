@@ -1,0 +1,66 @@
+/* Standalone loadout: one catalog scroll, one persistent command row, and a
+   stable engine-owned preview rectangle. Lobby selection keeps its own styles. */
+body { background-color:transparent; }
+#nav_hunters { color:#ffffff; background-color:#0b2942; border-bottom:3dp #78caff; }
+.native-hunter-panel { position:absolute; left:2%; right:2%; top:12dp; bottom:12dp; padding:16dp; background-color:rgba(5,19,31,94%); border:1dp #285274; }
+.native-hunter-panel > .eyebrow { font-size:12dp; line-height:16dp; color:#78caff; letter-spacing:1dp; }
+.native-hunter-panel h1 { font-size:28dp; line-height:32dp; margin:2dp 0; }
+.hunter-status { font-size:14dp; line-height:18dp; color:#ffe0a0; white-space:normal; }
+.hunter-grid { position:absolute; left:16dp; right:16dp; top:84dp; bottom:12dp; display:flex; }
+.hunter-picker { width:52%; height:100%; display:flex; flex-direction:column; min-height:0; }
+.hunter-options { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+.hunter-preview { width:46%; height:100%; margin-left:2%; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.section-title { margin:8dp 0 4dp; font-size:12dp; line-height:16dp; color:#78caff; letter-spacing:1dp; }
+.hint { font-size:12dp; line-height:16dp; color:#a6bdd0; white-space:normal; }
+.hunter-choices,.hunter-suits,.hunter-actions,.hunter-categories,.hunter-catalog-choices { display:flex; flex-wrap:wrap; }
+.native-hunter-panel button { box-sizing:border-box; tab-index:auto; min-height:36dp; margin:0 4dp 4dp 0; padding:6dp 8dp; font-size:14dp; line-height:18dp; color:#d8edff; background-color:#123554; border:1dp #356689; white-space:normal; }
+.native-hunter-panel button:hover,.native-hunter-panel button:focus { border-color:#b9e7ff; background-color:#225b81; }
+.native-hunter-panel button.selected { border-color:#b9e7ff; border-bottom:3dp #3eafff; background-color:#225b81; color:#ffffff; }
+.native-hunter-panel button:disabled { color:#7e95a8; background-color:#0c2236; border-color:#253e52; }
+.native-hunter-panel button.selected:disabled { color:#d8edff; border-color:#78caff; }
+.hunter-choices > button { flex:1; min-width:22%; }
+.hunter-suits > button { flex:1; min-width:22%; }
+.hunter-categories { margin-top:8dp; }
+.hunter-categories > button { flex:1; min-width:17%; }
+.hunter-catalog { padding-top:4dp; }
+.native-hunter-panel .catalog-next { display:block; width:99%; text-align:left; font-size:14dp; background-color:#0b263c; }
+.cosmetic-description { min-height:32dp; margin:2dp 4dp 8dp 0; }
+.hunter-catalog-choices > button { width:32%; min-height:48dp; text-align:left; padding:6dp; }
+.catalog-swatch { display:block; width:100%; height:5dp; margin-bottom:4dp; background-color:#78caff; }
+#hunter_cosmetics_state { color:#ffe0a0; margin:6dp 0; }
+#hunter_cosmetics_visibility { margin:4dp 0; }
+.hunter-equip-actions { flex-shrink:0; border-top:1dp #285274; padding-top:8dp; }
+.hunter-equip-actions > button { flex:1; min-width:15%; min-height:44dp; }
+#hunter_apply { flex:2; background-color:#145377; border-color:#78caff; }
+.hunter-preview-space { flex:1; min-height:80dp; width:100%; background-color:transparent; }
+#hunter_preview_state { flex-shrink:0; margin:0 0 4dp; }
+.native-hunter-preview-controls { flex-shrink:0; }
+.native-hunter-preview-controls > button { flex:1; min-width:29%; }
+@media (max-width: 900dp) {
+  .native-hunter-panel { padding:10dp; }
+  .hunter-grid { left:10dp; right:10dp; }
+  .hunter-picker { width:56%; }
+  .hunter-preview { width:42%; }
+  .hunter-categories > button { min-width:29%; }
+  .hunter-catalog-choices > button { width:48%; }
+  .hunter-equip-actions > button { min-width:30%; }
+  .hunter-equip-actions > #hunter_apply { min-width:60%; }
+  .native-hunter-preview-controls > button { min-width:45%; }
+  .hunter-preview > .hint { display:none; }
+}
+@media (max-height: 500dp) {
+  .native-hunter-panel { top:6dp; bottom:6dp; padding:8dp; }
+  .native-hunter-panel > .eyebrow { display:none; }
+  .native-hunter-panel h1 { font-size:22dp; line-height:24dp; }
+  .hunter-grid { top:50dp; left:8dp; right:8dp; bottom:8dp; }
+  .hunter-status { font-size:12dp; line-height:16dp; }
+  .native-hunter-preview-controls { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
+  .hunter-preview-space { flex:1; min-height:64dp; }
+}
+body.touch-targets .native-hunter-panel button { min-height:48dp; }
+body.large-text .native-hunter-panel button { font-size:17dp; line-height:22dp; }
+body.large-text .hint { font-size:15dp; line-height:20dp; }
+@media (max-height: 440dp) {
+  body.touch-targets .hunter-picker,body.large-text .hunter-picker { overflow-y:auto; display:block; }
+  body.touch-targets .hunter-options,body.large-text .hunter-options { overflow:visible; }
+}

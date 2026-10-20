@@ -349,6 +349,18 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 9; ++index) if (action == "hunter:beam-color-select:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterBeamColorSelect); intent.argument = index; return true;
     }
+    for (int index = 0; index < 7; ++index) if (action == "hunter:skin-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterSkinSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 21; ++index) if (action == "hunter:armor-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterArmorSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "hunter:death-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterDeathSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "hunter:category:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterCosmeticCategory); intent.argument = index; return true;
+    }
     for (int index = 0; index < 4; ++index) if (action == "hunter:suit:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterSuit); intent.argument = index; return true;
     }
@@ -367,7 +379,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 1; index < 4; ++index) if (action == "adventure:copy-destination:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::AdventureCopyDestination); intent.argument = index; return true;
     }
-    for (int index = 0; index < 16; ++index) if (action == "offline:choice:" + std::to_string(index)) {
+    for (int index = 0; index < 17; ++index) if (action == "offline:choice:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::OfflineChoice); intent.argument = index; return true;
     }
     for (int index = 0; index < PrimeOfflineRuleChoiceCount; ++index) if (action == "offline:rule:" + std::to_string(index)) {
@@ -459,8 +471,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 4; ++index) if (action == std::string("play:") + queue_actions[index]) {
         intent.kind = uint32_t(PrimeIntentKind::PlayQueueAction); intent.argument = index; return true;
     }
-    const char* social_names[] = {"friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back", "reserve-party-seats"};
-    for (int index = 0; index < 54; ++index) if (action == std::string("social:") + social_names[index]) {
+    const char* social_names[] = {"friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back", "reserve-party-seats", "privacy"};
+    for (int index = 0; index < 55; ++index) if (action == std::string("social:") + social_names[index]) {
         intent.kind = uint32_t(PrimeIntentKind::SocialAction); intent.argument = index; return true;
     }
     for (int index = 0; index < 12; ++index) if (action == "news:action:" + std::to_string(index)) {
@@ -721,9 +733,16 @@ void ScrollFocusedElement(Rml::Element* element)
     // Short inspectors can opt into centering so the whole input, including
     // its border, stays clear of the pane edge. Other controls keep nearest.
     const auto alignment = element->GetAttribute<Rml::String>("data-focus-scroll", "");
-    if (alignment != "none")
+    if (alignment != "none") {
+        // Pinned6.3's instant ScrollIntoView does not retire an active wheel
+        // controller. Cancel that target through a zero-distance Auto scroll
+        // before positioning focus, otherwise the next Update can move the
+        // focused control back outside its clipped viewport.
+        if (auto* scroller = element->GetClosestScrollableContainer())
+            scroller->ScrollTo({scroller->GetScrollLeft(), scroller->GetScrollTop()}, Rml::ScrollBehavior::Auto);
         element->ScrollIntoView(Rml::ScrollIntoViewOptions(
             alignment == "center" ? Rml::ScrollAlignment::Center : Rml::ScrollAlignment::Nearest));
+    }
     g_text_input.InvalidateCaret(); // scrolling follows ShowCursor/ActivateKeyboard
 
 }
@@ -969,9 +988,14 @@ PP_EXPORT int pp_rmlui_key(int key, int down, int modifiers)
     if (converted == Rml::Input::KI_UNKNOWN) return 0;
     DirtyVisual();
     if (down) g_text_input.ExternalMutation(nullptr, true); // caret/selection/delete/paste/cut; no text cache
+    auto* previous_focus = g_context->GetFocusElement();
     const bool propagated = down
         ? g_context->ProcessKeyDown(converted, ConvertModifiers(modifiers))
         : g_context->ProcessKeyUp(converted, ConvertModifiers(modifiers));
+    // Keyboard and gamepad Tab navigation use the same wheel-retirement fence
+    // as explicit managed/accessibility focus, without changing wheel motion.
+    if (down && previous_focus != g_context->GetFocusElement())
+        if (auto* focused = g_context->GetFocusElement()) ScrollFocusedElement(focused);
     return propagated ? 1 : 0;
 }
 

@@ -924,6 +924,8 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact or PacketType.CustomWeaponState or PacketType.CustomWeaponControlDenied
                     when Role == NetRole.Client && !_playback:
                     HandleCustomCombatResult(packet); break;
+                case PacketType.CustomWeaponPickupState when Role==NetRole.Client&&!_playback:
+                    HandleCustomPickupState(packet);break;
                 case PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent when Role==NetRole.Client&&!_playback:
                     HandleCustomReplica(packet);break;
                 case PacketType.PartyReservationState when Role == NetRole.Client:

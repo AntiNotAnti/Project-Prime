@@ -40,6 +40,7 @@ internal static class MomentumReplaySceneTests
             Require(first.Session.LastFrame >= 1800, "recorded asset-backed fixture covers at least 1800 visible frames");
             var references = new Dictionary<uint, Hashes>();
             bool stanceArchive = expected == MovementModel.Traversal && first.Session.Metadata!.ProtocolVersion >= 69;
+            if (stanceArchive) _checks += TraversalReplayPresentationTests.Run(source);
             var previousStance = new Dictionary<int, bool>();
             var stanceSeekTargets = new HashSet<uint>(); var stanceBoundaryFrames = new List<uint>();
             int snapshotStanceChecks = 0, crouchedFrames = 0, standingFrames = 0;
@@ -270,8 +271,8 @@ internal static class MomentumReplaySceneTests
         {
             MovementModel.Native => 0,
             MovementModel.Momentum => 1,
-            MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 62 ? 2 : 1,
-            MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 74 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 69 ? 2 : 1,
+            MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 76 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 62 ? 2 : 1,
+            MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 76 ? 5 : replay.Session.Metadata.ProtocolVersion >= 74 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 69 ? 2 : 1,
             _ => throw new InvalidDataException("Unknown expected replay movement model.")
         };
         if (expected == MovementModel.Traversal)

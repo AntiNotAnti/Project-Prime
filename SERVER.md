@@ -39,11 +39,11 @@ Momentum changes ordinary biped acceleration, air-strafing and manual bunny-hop
 momentum. Native jumps, alternate forms and abilities remain native. Balanced
 and Enhanced Hunter variants cannot be combined with optional movement profiles.
 Quake III enables full-speed air projection and strafe-jump speed building with
-no artificial total-speed cap. Its profile v3 also chains held jumps on legal
+no artificial total-speed cap. Its profile v4 also chains held jumps on legal
 landings and supports additive self-missile rocket jumps with normal self-damage.
 Traversal adds stronger air control, ramp jumps, Magmaul jumps, crouch/power sliding and tagged training-map
 surfing; see the [Traversal guide](docs/movement/traversal-movement.md).
-All live peers must use protocol 74; older clients are refused
+All live peers must use protocol 76; older clients are refused
 rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is
@@ -268,24 +268,82 @@ If the first command prints nothing, the installed systemd unit predates career 
 
 Dedicated servers can record anonymous network/combat/performance measurements for multiplayer quality studies. No player names, IP addresses, account IDs or chat are stored by this subsystem. Aggregate recording is enabled by default; uploads are disabled. Use `-notelemetry` to disable, or `PRIME_TELEMETRY_CONFIG` to select a configuration file. See [Protocol 19 combat and telemetry](docs/network/combat-telemetry.md) for retention, study modes and optional aggregate upload.
 
+## Hosted server resource admission
+
+The host pool keeps each authoritative match in its own child process. New
+matches are admitted only if a port is free **and** recent sampled CPU load
+leaves headroom. By default, admission stops when sampled parent + children
+CPU usage reaches 85% of the `.NET Environment.ProcessorCount` budget.
+Cold children are limited to at most `max(2, processor count)` simultaneous
+unmeasured starts until the one-second resource sampler runs. An already
+running match is **never** interrupted by resource-admission decisions.
+
+Optional environment limits on the allocator's service:
+
+| Environment variable | Meaning |
+| --- | --- |
+| `PROJECT_PRIME_HOST_MAX_MATCHES` | Max child matches (positive integer); otherwise bounded by ports/CPU |
+| `PROJECT_PRIME_HOST_MAX_CPU_CORES` | CPU core-seconds per wall-second budget; overrides the default 85% limit |
+| `PROJECT_PRIME_HOST_MAX_TOTAL_RSS_MB` | Combined parent/children resident MiB ceiling; zero/unset disables this optional limit |
+
+The RSS admission gate reserves at least one estimated additional child's RSS
+(maximum of 256 MiB and current child RSS), plus 128 MiB headroom.
+RSS can count shared mappings more than once. It is a conservative admission
+guard, **not** a memory availability probe or proof that a host has sufficient
+RAM. Calibrate these settings on the target machine with a verified **active**
+server-capacity run; do not infer them from idle children. Unrecognized and
+nonpositive settings use default/disabled behavior. Rejection explains which
+resource is constrained; retry after workloads complete.
+
+### Hosted child retirement
+
+The host pool unlists a retiring match immediately, then requests a graceful
+child shutdown on an independent worker instead of blocking the allocator's UDP
+loop. Linux/macOS sends `SIGTERM` through the system `kill` utility, which
+the game already handles via `ShutdownSignals`. The child has up to 8 seconds
+to finish replay/archive/network disposal before a process-tree kill fallback
+(another 2 seconds). Windows attempts a normal window-close request before
+the same fallback. A missing utility or unsupported console signal falls back
+to forced termination. The master waits for its owned children with a 12-second
+aggregate bound during master shutdown, unlike ordinary per-match retirement.
+
+
 ## Capacity benchmarking
 
-Dedicated server publishes use ReadyToRun and prewarm the combat/network hot
-paths before the first match. To measure how many isolated authoritative matches
-a specific Linux host can sustain, use the real-process harness:
+Dedicated server publishes use ReadyToRun and prewarm combat/network hot
+paths. The Linux real-process capacity harness now defaults to **active**:
+each isolated continuous server is joined by two independent real UDP
+`-netcheck -nographics` AI clients. A listening server with no clients does
+**not** simulate a world, and its idle CPU/RSS must never be advertised as
+active capacity.
 
 ```sh
 python3 tools/server-capacity-benchmark.py \
   --binary publish/linux-x64-server/ProjectPrime \
   --workdir /path/to/configured/server \
+  --client-binary /path/to/netcheck-capable/ProjectPrime \
+  --client-workdir /path/to/configured/client \
+  --mode active --clients-per-match 2 \
   --instances 1,2,4,8 --seconds 120 \
   --output capacity-results
 ```
 
-Each arm starts that many normal dedicated-server processes on separate ports,
-samples per-process CPU/RSS from `/proc`, and preserves the server logs and a
-JSON summary. Run it on the actual VPS/Pi class being evaluated; CPU percentages
-and ReadyToRun gains are hardware/runtime-specific.
+The default client binary/workdir are the server binary/workdir when omitted,
+provided that binary supports `-netcheck -nographics`. Use the standard
+non-server client publish when necessary. Each active arm waits for actual
+admissions, performs a warmup, measures server process CPU/RSS from `/proc`,
+and requires a nonzero server simulation step report. A missing report or
+early client exit fails the arm rather than silently claiming capacity. Raw
+server/client logs and per-arm JSON are preserved.
+
+For an explicit **idle** comparison, pass `--mode idle`. That mode does
+not validate active simulation. The client processes share CPU and memory
+bandwidth with the tested server processes: this is a *co-located load*
+measurement, not a production capacity guarantee with remote clients.
+Use separate load-generating hardware for deployment qualification and
+check 60 Hz deadline violations, p99 steps, UDP drop/retry counters, GC
+pauses, and RSS alongside throughput. Record the binary/runtime/source
+hashes and retain all runs, including failures.
 
 
 ## Advanced Match Rules

@@ -23,6 +23,8 @@
                 <button data-action="offline:choice:4" class="offline_choice"><span>DIFFICULTY</span><b id="offline_skill_value" /></button>
                 <button data-action="offline:choice:5" class="offline_choice"><span>HUNTER</span><b id="offline_hunter_value" /></button>
                 <button data-action="offline:choice:6" class="offline_choice"><span>SUIT</span><b id="offline_suit_value" /></button>
+                <button id="offline_character" data-action="offline:choice:16" class="offline_choice"><span>MECHANICS</span><b id="offline_character_value" /></button>
+                <p id="offline_character_notice" />
                 <button id="offline_rules_open" class="offline_action" data-action="offline:open-rules">ADVANCED MATCH RULES</button>
                 <div id="offline_summary" class="offline_summary" />
                 <button id="offline_start" class="offline_action primary" data-action="offline:launch-match">INITIATE BOT SIMULATION</button>

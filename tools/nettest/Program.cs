@@ -47,6 +47,9 @@ namespace MphRead.NetTest
                     + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
+                    + "  --offline-character-gameplay       Test captured offline practice selection and replay exclusion.\n"
+                    + "  --character-wall-cling             Test local rule ownership and synthetic wall collisions.\n"
+                    + "  --character-wall-cling-scene <assets> <json> Test actual offline native arena traversal.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
                     + "  --campaign-save-management        Test Adventure save copy/archive and byte preservation.\n"
@@ -117,6 +120,8 @@ namespace MphRead.NetTest
                     + "  --traversal-stance <assets> [json] Test physical crouch, tunnel clearance and earned sliding.\n"
                     + "  --traversal-scene <assets> [json]  Test earned ramp jumps, tagged surf and held input.\n"
                     + "  --traversal-bot-authority <assets> [json] Test genuine authority AI under Traversal.\n"
+                    + "  --ground-slope-rules               Test surface speed, qualified clipping and bounded slope force.\n"
+                    + "  --ground-slope-scene <assets> [json] Test earned ramps, slopes, slides and native controls.\n"
                     + "  --traversal-rules                  Test four-mode selection, stronger air control and ramp math.\n"
                     + "  --quake3-rules                     Test three-mode authoritative rules and protocol60 admission.\n"
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
@@ -128,6 +133,7 @@ namespace MphRead.NetTest
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
                     + "  --momentum-replay-metadata         Test recorded movement labels and cold/warm library cache.\n"
+                    + "  --traversal-replay-presentation <assets> <replay> Require real recorded crouch-walk and slide cosmetic activation.\n"
                     + "  --momentum-replay-scene <assets> <replay> <model> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-combat-online <assets> <port> <model> <json> [seconds] [seed] [latency] [loss] [reorder] [duplicate] [fault-seed] [hunter] [human-min] Run genuine owner combat.\n"
@@ -171,6 +177,16 @@ namespace MphRead.NetTest
                     + "  --form-scene <assets> [room]       Test authority form and detached turret lifecycle.");
                 return 0;
             }
+            if (args.Length == 1 && args[0] == "--offline-character-gameplay")
+                return OfflineCharacterGameplayTests.Run();
+            if (args.Length > 0 && args[0] == "--character-wall-cling-scene")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --character-wall-cling-scene <AMHE1 filesystem> <fresh result.json>"); return 1; }
+                return CharacterWallClingSceneTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
+            if (args.Length == 1 && args[0] == "--character-wall-cling")
+                return CharacterWallClingTests.Run();
             if (args.Length == 2 && args[0] == "--ncx-timeline" && args[1] is "off" or "on")
                 return ShotTimelineTests.Run(args[1] == "on");
             if (args.Length == 1 && args[0] == "--ncx-fixtures")
@@ -539,6 +555,19 @@ namespace MphRead.NetTest
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return TraversalSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--ground-slope-rules") return GroundSlopeTests.Run();
+            if (args.Length > 1 && args[0] == "--ground-slope-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "ground-slope-scene";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return GroundSlopeSceneTests.Run(output);
+            }
             if (args.Length > 0 && args[0] == "--traversal-rules") return TraversalRulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-rules") return Quake3RulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-replay-compatibility") return Quake3ReplayCompatibilityTests.Run();
@@ -689,6 +718,16 @@ namespace MphRead.NetTest
                     "--momentum-touch-gl" => MomentumTouchGlTests.Run(output),
                     _ => MomentumBotAuthorityTests.Run(output)
                 };
+            }
+            if (args.Length >= 3 && args[0] == "--traversal-replay-presentation")
+            {
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                if (!ServerSim.Available(out string reason)) throw new InvalidOperationException(reason);
+                Mods.Headless.Enter();
+                TraversalReplayPresentationTests.Run(replay, requireActiveTravel: true);
+                return 0;
             }
             if (args.Length >= 5 && args[0] == "--momentum-replay-scene")
             {
@@ -962,6 +1001,9 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--replay-fidelity-export") return ReplayFidelityExportTests.Run(args.Length > 1 ? args[1] : null);
             if (args.Length > 0 && args[0] == "--replay-owner-track") return ReplayOwnerTrackTests.Run();
+            if (args.Length > 2 && args[0] == "--replay-owner-scene") return ReplayOwnerSceneTests.Run(args[1], args[2]);
+            if (args.Length > 0 && args[0] == "--replay-director-shots") return ReplayDirectorShotTests.Run();
+            if (args.Length > 0 && args[0] == "--replay-context-analysis") return ReplayContextAnalysisTests.Run();
             if (args.Length > 0 && args[0] == "--touch-instances") return TouchInstanceTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle-checkpoint") return LifecycleCheckpointTests.Run();
             if (args.Length > 0 && args[0] == "--upstream-baseline") return UpstreamBaselineTests.Run(args.Length > 1 ? args[1] : null);

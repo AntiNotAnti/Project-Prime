@@ -28,7 +28,7 @@ internal sealed record ReplayDetachedExportTicket(int Version,Guid Id,string Wor
             ??throw new InvalidDataException("The export ticket is empty.");
         if(ticket.Version!=1||ticket.Id==Guid.Empty||ticket.WorkDirectory!=Path.GetDirectoryName(path)
             ||ticket.GeometryHash==0||ticket.Subject is <0 or >7||ticket.Manifest==null||ticket.Presentation==null
-            ||ticket.InputHashes==null||ticket.InputHashes.Count is <1 or >66
+            ||ticket.InputHashes==null||ticket.InputHashes.Count is <1 or >67
             ||!ticket.InputHashes.ContainsKey(ticket.Manifest.Replay)
             ||!ticket.InputHashes.ContainsKey(Path.Combine(ticket.WorkDirectory,"paths.txt"))
             ||ReplayDetachedExportFiles.Hash(ReplayDetachedExportFiles.RuntimeImage)!=ticket.RuntimeHash)

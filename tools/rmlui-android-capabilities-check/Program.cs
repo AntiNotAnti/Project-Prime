@@ -108,7 +108,9 @@ foreach (string action in forbidden)
     Check(pages.HandleIntent(stale, out var forwarded) && forwarded.Kind == 0, "unsupported stale token is consumed");
     Check(unrestricted.Allows(stale), "unrestricted capability leaves existing dispatch authority intact");
 }
-foreach (var (kind, argument) in new[] { (RmlUiIntentKind.OfflineChoice, -1), (RmlUiIntentKind.HunterSelect, 7),
+Check(local.Allows(new(RmlUiIntentKind.OfflineChoice, 16, home, ++sequence)),
+    "explicit local wall-cling practice selector is available through the configured offline owner");
+foreach (var (kind, argument) in new[] { (RmlUiIntentKind.OfflineChoice, -1), (RmlUiIntentKind.OfflineChoice, 17), (RmlUiIntentKind.HunterSelect, 7),
     (RmlUiIntentKind.HunterSuit, 4), (RmlUiIntentKind.OfflineSelectArena, 16), (RmlUiIntentKind.OfflineArenaPage, 0),
     ((RmlUiIntentKind)9999, 0) })
     Check(!local.Allows(new(kind, argument, home, ++sequence)), "invalid local arguments are denied");
@@ -231,9 +233,9 @@ var canceled = new RmlUiAndroidLauncherAdmission<Request, Plan>();
 Check(canceled.TryRequest(new(2), out var canceledWitness) && canceled.TryAccept(canceledWitness, new(2)), "accepted cancellation setup");
 Task.Run(canceled.Retire).GetAwaiter().GetResult();
 Check(!canceled.TryTakePlan(out _), "retirement discards an already accepted plan before owner consumption");
-Check(checks == 484, "capability/admission and current authored-action inventory checks remain complete");
+Check(checks == 488, "capability/admission and current authored-action inventory checks remain complete");
 HunterAcceptance.Run(root, Check);
-Check(checks == 660, "existing Hunter checks and current authored-action inventory remain complete");
+Check(checks == 664, "existing Hunter checks and current authored-action inventory remain complete");
 Guid previewOwner = Guid.NewGuid(), replacementOwner = Guid.NewGuid();
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked && !RmlUiAndroidLauncherPreviewBarrier.IsOwned(previewOwner),
     "preview barrier begins unowned");
@@ -254,7 +256,7 @@ Check(RmlUiAndroidLauncherPreviewBarrier.Blocked && RmlUiAndroidLauncherPreviewB
     && !RmlUiAndroidLauncherPreviewBarrier.TryAcquire(previewOwner), "stale old-owner release cannot unlock replacement owner");
 RmlUiAndroidLauncherPreviewBarrier.Release(replacementOwner);
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked, "barrier fixture leaves production static gate released");
-Check(checks == 669, "existing Hunter/barrier checks and current authored-action inventory remain complete");
+Check(checks == 673, "existing Hunter/barrier checks and current authored-action inventory remain complete");
 
 // Actual admission overload keeps the acknowledged plan private until native
 // launcher owner retirement succeeds. Callback failure consumes it permanently.

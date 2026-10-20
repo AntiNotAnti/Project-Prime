@@ -34,9 +34,13 @@ public partial class PlayerEntity
 
     internal void ModResetTraversalStance()
     {
+        ModStopTraversalSlideSfx();
         _modCrouched = _modCrouchWasDown = false;
         _modCrouchPresentation.Reset(); _modCrouchGait.Reset();
+        _modSlidePresentation.Reset(); _modCrouchWalk.Reset(); _modCrouchWalkReach = 0; _modTraversalPictureFrame = ulong.MaxValue;
         _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
+        if (!_scene.Quake3TechniquesActive || !ModMomentumBodyEligible)
+            ModResetGroundTravel();
     }
 
     // Native standing clearance, with fixed scratch capacity. Grow only when
@@ -136,7 +140,7 @@ public partial class PlayerEntity
             if (_modSlideEntryTicks > 0) _modSlideEntryTicks--;
             _modStanceFrame = _scene.FrameCount;
         }
-        if (fresh) _modSlideEntryTicks = TraversalMovementProfileV4.SlideEntryTicks;
+        if (fresh) _modSlideEntryTicks = TraversalMovementProfileV5.SlideEntryTicks;
         if (!_modCrouched || !down || !ModMomentumBodyEligible || jumpAccepted
             || Flags1.TestFlag(PlayerFlags1.CollidingLateral))
             _modSlideTicks = _modSlideEntryTicks = 0;
@@ -146,9 +150,11 @@ public partial class PlayerEntity
             // Consume a single fresh request at the first physical floor contact.
             // A held key cannot restart an expired slide or wait for a later boost.
             _modSlideEntryTicks = 0;
-            float minimum = TraversalMovementProfileV4.SlideMinimumSpeed / NativeVelocityUnitsPerSecond;
-            if (Speed.X * Speed.X + Speed.Z * Speed.Z >= minimum * minimum)
-                _modSlideTicks = TraversalMovementProfileV4.SlideTicks;
+            float minimum = TraversalMovementProfileV5.SlideMinimumSpeed / NativeVelocityUnitsPerSecond;
+            float speedSquared = ModHasFreshGroundTangent ? Speed.LengthSquared
+                : Speed.X * Speed.X + Speed.Z * Speed.Z;
+            if (speedSquared >= minimum * minimum)
+                _modSlideTicks = TraversalMovementProfileV5.SlideTicks;
         }
         _modCrouchWasDown = down;
     }

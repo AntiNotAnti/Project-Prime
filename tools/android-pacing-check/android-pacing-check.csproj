@@ -11,5 +11,6 @@
     <Compile Include="../../src/MphRead/Mods/Render/ModernTexturePromotionPacer.cs" Link="ModernTexturePromotionPacer.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/ShaderProgramCacheKey.cs" Link="ShaderProgramCacheKey.cs" />
     <Compile Include="../../src/MphRead.Android/AndroidAudioRatePolicy.cs" Link="AndroidAudioRatePolicy.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/GpuCompressedTextureMath.cs" Link="GpuCompressedTextureMath.cs" />
   </ItemGroup>
 </Project>

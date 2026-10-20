@@ -15,17 +15,19 @@ public partial class Scene
             if(!NetSession.Active)
             {
                 bool submitted=scene.OfflineWeapons?.SubmitInput(player,kind,optic,out sequence)==true;
-                if(submitted)scene._customFeedback?.Submitted(kind,sequence);
+                if(submitted){scene._customFeedback?.Submitted(kind,sequence);scene.SubmitCustomRiflePrediction(player,kind,sequence);}
                 return submitted;
             }
             if(!NetSession.TrySubmitCustomWeaponControl(kind,optic,out var request))return false;
-            sequence=request.Sequence;scene._customFeedback?.Submitted(kind,sequence);return true;
+            sequence=request.Sequence;scene._customFeedback?.Submitted(kind,sequence);scene.SubmitCustomRiflePrediction(player,kind,sequence);return true;
         }
     }
     private CustomWeaponInputController? _customInput;
     private CustomInputSink? _customInputSink;
     private PlayerEntity? _customInputPlayer;
     private ShotKey _customInputLife;
+    private WeaponOwnerContext _onlinePickupOwner;
+    private ulong _onlinePickupRevision;
     private void ReleaseCustomWeaponInput()
     {
         _customInput?.Reset();_customInput=null;_customInputSink=null;_customInputPlayer=null;_customInputLife=default;
@@ -105,6 +107,16 @@ public partial class Scene
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
         bool custom=controls.CustomWeapon.IsPressed;
         bool cycle=controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed;
+        if(NetSession.Active&&projection is {HasWeapon:true} pickup
+            &&NetSession.CustomWeaponPresentationState is {Knowledge.IsPresent:true} acquired
+            &&acquired.State.Owner==pickup.Owner&&(_onlinePickupOwner!=pickup.Owner||_onlinePickupRevision!=acquired.Knowledge.Revision))
+        {
+            bool first=_onlinePickupOwner!=pickup.Owner;
+            _onlinePickupOwner=pickup.Owner;_onlinePickupRevision=acquired.Knowledge.Revision;
+            player.ModPlayCustomPickupCue(first);
+            if(first&&inputAllowed&&!native&&!custom&&!cycle&&!player.ModNativeWheelReleaseIntent&&!player.ModCustomCycleMenuDown
+                &&!controls.Shoot.IsDown&&!player.Flags2.TestFlag(PlayerFlags2.Shooting)&&player.ModCustomPickupOutranksCurrent())custom=true;
+        }
         bool wheelHandled=player.ModResolveCustomWheelRelease(native||custom||cycle,inputAllowed,out var wheel);
         if(!wheelHandled)native|=player.ModNativeWheelReleaseIntent;
         else if(wheel is {} choice){native|=!choice.Custom;custom|=choice.Custom;}

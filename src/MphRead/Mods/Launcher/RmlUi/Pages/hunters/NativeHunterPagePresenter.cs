@@ -1,6 +1,7 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Cosmetics;
@@ -23,6 +24,12 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     private bool _disposed;
     private string _navigationMessage = "";
     private string _cosmeticVisibility = "";
+    private string _saveMessage = "";
+    private int _category;
+    private readonly RmlUiHost? _host;
+    private bool _previewDrag;
+    private float _dragX;
+    private string? _restoreFocus;
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
@@ -42,8 +49,9 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         && !_cosmetics.Current().Dirty && !_cosmetics.Current().Busy;
 
     public NativeHunterPagePresenter(RmlUiPageManager pages, ILauncherHunterChoiceStore store,
-        ILauncherCosmeticEquipService? cosmeticService = null)
+        ILauncherCosmeticEquipService? cosmeticService = null, RmlUiHost? host = null)
     {
+        _host = host;
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
         _controller = new LauncherHunterChoiceController(store);
         _cosmetics = new LauncherCosmeticDraftController(cosmeticService ?? new CurrentCosmeticEquipService(),
@@ -66,8 +74,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         bool accepted = intent.Kind switch
         {
             RmlUiIntentKind.HunterSelect => SelectHunter(intent.Argument),
-            RmlUiIntentKind.HunterSuit => _controller.SelectSuit(intent.Argument),
-            RmlUiIntentKind.HunterApply => _controller.Apply(),
+            RmlUiIntentKind.HunterSuit => !_cosmetics.Current().Busy && _controller.SelectSuit(intent.Argument),
+            RmlUiIntentKind.HunterApply => ApplyLoadout(),
             RmlUiIntentKind.HunterResetPreview => Discard(),
             RmlUiIntentKind.HunterCancel => CloseIfClean(),
             RmlUiIntentKind.HunterOpen => FullIfClean(),
@@ -78,6 +86,10 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             RmlUiIntentKind.HunterBeamColorNext => ChangeCosmetics(_cosmetics.NextBeamColor),
             RmlUiIntentKind.HunterBeamSelect => ChangeCosmetics(() => _cosmetics.SelectBeam(beamSelection)),
             RmlUiIntentKind.HunterBeamColorSelect => ChangeCosmetics(() => _cosmetics.SelectBeamColor(beamSelection)),
+            RmlUiIntentKind.HunterSkinSelect => ChangeCosmetics(() => _cosmetics.SelectSkin(beamSelection)),
+            RmlUiIntentKind.HunterArmorSelect => ChangeCosmetics(() => _cosmetics.SelectArmor(beamSelection)),
+            RmlUiIntentKind.HunterDeathSelect => SelectDeath(beamSelection),
+            RmlUiIntentKind.HunterCosmeticCategory => SelectCategory(beamSelection),
             RmlUiIntentKind.HunterCosmeticsReset => ChangeCosmetics(_cosmetics.Reset),
             RmlUiIntentKind.HunterLoadoutDefault => DefaultLoadout(),
             RmlUiIntentKind.HunterCosmeticsSave => _cosmetics.Equip(),
@@ -93,9 +105,33 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         if (accepted)
         {
             _navigationMessage = "";
+            if (intent.Kind != RmlUiIntentKind.HunterApply) _saveMessage = "";
             Refresh();
         }
         return accepted;
+    }
+
+    private bool ApplyLoadout()
+    {
+        var result = LauncherLoadoutApply.Apply(_controller, _cosmetics);
+        _saveMessage = result.Status;
+        if (result.Accepted) _restoreFocus = "hunter_category" + _category;
+        // An authorized command is consumed even when persistence fails, so the
+        // explicit failure/partial-save status is presented and the draft survives.
+        return true;
+    }
+
+    private bool SelectCategory(int category)
+    {
+        if (category is < 0 or > 4) return false;
+        _category = category;
+        return true;
+    }
+
+    private bool SelectDeath(int index)
+    {
+        if (!ChangeCosmetics(() => _cosmetics.SelectDeath(index))) return false;
+        return _preview.PreviewDeath();
     }
 
     private bool SelectHunter(int index)
@@ -140,14 +176,24 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     public void Pump()
     {
         if (_disposed) return;
+        if (_pages.Top != _page) CancelPreviewGesture();
         var previous = _cosmetics.Current();
         _cosmetics.Pump();
         if (previous != _cosmetics.Current())
         {
             _preview.ClearComparison();
+            if (previous.Busy && !_cosmetics.Current().Busy) _saveMessage = _cosmetics.Current().Status;
             Refresh();
         }
         else if (_cosmeticVisibility != CosmeticVisibility()) Refresh();
+    }
+
+    public void AfterUpdate()
+    {
+        if (_restoreFocus == null) return;
+        if (PreviewForeground && String.IsNullOrEmpty(_host!.FocusedElement()))
+            _host.FocusDocument(_page, _restoreFocus);
+        _restoreFocus = null;
     }
 
     private static string CosmeticVisibility()
@@ -197,7 +243,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             ["native_hunter_name"] = RmlUiBindingValue.FromText(
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(
-                _navigationMessage.Length == 0 ? state.Status : _navigationMessage),
+                _navigationMessage.Length > 0 ? _navigationMessage : _saveMessage.Length > 0 ? _saveMessage
+                    : state.Dirty || cosmetic.Dirty ? "LOADOUT DRAFT // EQUIP OR DISCARD" : "LOADOUT EQUIPPED"),
             ["native_hunter_hint"] = RmlUiBindingValue.FromText(
                 (GameFiles.Ready ? "LIVE ENGINE 3D PREVIEW" :
                     "3D PREVIEW REQUIRES CONFIGURED GAME FILES") +
@@ -219,7 +266,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).Description),
             ["disabled:hunter_discard"] = RmlUiBindingValue.FromBoolean(
                 cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
-            ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(!state.Dirty),
+            ["disabled:hunter_apply"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy || (!state.Dirty && !cosmetic.Dirty)),
             ["hunter_skin"] = RmlUiBindingValue.FromText("SKIN // " + cosmetic.SkinName),
             ["hunter_armor"] = RmlUiBindingValue.FromText("ARMOR EFFECT // " + cosmetic.ArmorName),
             ["hunter_death"] = RmlUiBindingValue.FromText("DEATH PRESENTATION // " + cosmetic.DeathName),
@@ -237,10 +284,6 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             ["disabled:hunter_beam"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_beam_color"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
             ["disabled:hunter_loadout_default"] = RmlUiBindingValue.FromBoolean(cosmetic.Busy),
-            ["disabled:hunter_cosmetics_save"] = RmlUiBindingValue.FromBoolean(
-                cosmetic.Busy || !cosmetic.Dirty),
-            ["disabled:hunter_cosmetics_reset"] = RmlUiBindingValue.FromBoolean(
-                cosmetic.Busy || !cosmetic.Dirty),
             ["class:hunter_preview_biped:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.Biped),
             ["class:hunter_preview_weapon:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.ViewModel),
             ["class:hunter_preview_alt:selected"] = RmlUiBindingValue.FromBoolean(preview.Mode == SkinContext.AltForm),
@@ -260,14 +303,91 @@ internal sealed class NativeHunterPagePresenter : IDisposable
                 cosmetic.Busy || cosmetic.Dirty);
         }
         for (int i = 0; i < 4; i++)
-            data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(
-                i == state.Choice.Suit);
+        {
+            data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == state.Choice.Suit);
+            data["disabled:hunter_suit" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            data["class:hunter_category" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == _category);
+            data["visible:hunter_catalog" + i] = RmlUiBindingValue.FromBoolean(i == _category);
+        }
+        void Option(string prefix, int index, string label, bool selected, string? swatch = null)
+        {
+            string id = "hunter_" + prefix + "_option" + index;
+            data["hunter_" + prefix + "_label" + index] = RmlUiBindingValue.FromText(label);
+            data["class:" + id + ":selected"] = RmlUiBindingValue.FromBoolean(selected);
+            data["disabled:" + id] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
+            data["visible:hunter_" + prefix + "_swatch" + index] = RmlUiBindingValue.FromBoolean(swatch != null);
+            if (swatch != null) data["color:hunter_" + prefix + "_swatch" + index] = RmlUiBindingValue.FromText(swatch);
+        }
+        var skins = CosmeticCatalog.Skins.Where(x => x.Hunter == null || x.Hunter == cosmetic.Hunter).ToArray();
+        for (int i = 0; i < skins.Length; i++)
+            Option("skin", i, skins[i].DisplayName, cosmetic.Draft.SkinKey == skins[i].Key);
+        for (int i = 0; i < CosmeticCatalog.ArmorEffects.Count; i++)
+        {
+            var item = CosmeticCatalog.ArmorEffects[i];
+            Option("armor", i, item.DisplayName, cosmetic.Draft.ArmorEffectKey == item.Key, Hex(item.PrimaryColor));
+        }
+        for (int i = 0; i < CosmeticCatalog.DeathPresentations.Count; i++)
+        {
+            var item = CosmeticCatalog.DeathPresentations[i];
+            Option("death", i, item.DisplayName, cosmetic.Draft.DeathEffectKey == item.Key, Hex(item.LightEffect));
+        }
+        for (int i = 0; i < CosmeticCatalog.BeamEffects.Count; i++)
+        {
+            var item = CosmeticCatalog.BeamEffects[i];
+            Option("beam", i, item.DisplayName, cosmetic.Draft.BeamEffectKey == item.Key, Hex(item.PrimaryColor));
+            Option("beam_color", i, BeamPalette.Names[i], cosmetic.Draft.BeamColor == i,
+                Hex(BeamPalette.Resolve((byte)i, CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).PrimaryColor)));
+        }
         _pages.Present(_page, ++_revision, data);
+    }
+
+    private static string Hex(OpenTK.Mathematics.Vector3 color)
+        => $"#{Math.Clamp((int)(color.X * 255), 0, 255):x2}{Math.Clamp((int)(color.Y * 255), 0, 255):x2}{Math.Clamp((int)(color.Z * 255), 0, 255):x2}";
+
+    private bool PreviewForeground => !_disposed && _host != null && _pages.Top == _page
+        && _host.CurrentInputDocument == _page;
+
+    private bool PreviewContains(float x, float y)
+        => PreviewForeground && Single.IsFinite(x) && Single.IsFinite(y)
+            && _host!.TryGetElementBounds(_page, "native_hunter_preview", out var left, out var top, out var width, out var height)
+            && x >= left && y >= top && x < left + width && y < top + height;
+
+    public void CancelPreviewGesture() => _previewDrag = false;
+
+    public bool PreviewPointerButton(float x, float y, bool down)
+    {
+        if (!down) { bool held = _previewDrag; CancelPreviewGesture(); return held; }
+        CancelPreviewGesture();
+        if (!PreviewContains(x, y)) return false;
+        _previewDrag = true; _dragX = x; return true;
+    }
+
+    public bool PreviewPointerMove(float x, float y)
+    {
+        if (!_previewDrag) return false;
+        if (!PreviewForeground || !Single.IsFinite(x) || !Single.IsFinite(y))
+        { CancelPreviewGesture(); return false; }
+        if (!_host!.TryGetElementBounds(_page, "native_hunter_preview", out _, out _, out var width, out _))
+        { CancelPreviewGesture(); return false; }
+        _preview.RotateBy(Math.Clamp((x - _dragX) / width, -1, 1) * MathF.Tau);
+        _dragX = x;
+        return true;
+    }
+
+    public bool PreviewWheel(float x, float y, double delta)
+    {
+        if (!PreviewContains(x, y) || !Double.IsFinite(delta)) return false;
+        _preview.ZoomBy((float)Math.Clamp(delta * .05, -.4, .4));
+        Refresh(); return true;
     }
 
     public void Dispose()
     {
         if (_disposed) return;
+        CancelPreviewGesture();
         _disposed = true;
         if (_page != default && _pages.Page == _page) _pages.ClosePage();
         _controller.Dispose();

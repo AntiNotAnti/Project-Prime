@@ -19,22 +19,26 @@ internal sealed class NativeSocialFriendsPage : IDisposable
     private readonly NativeSocialFriendsController _controller;
     private readonly NativePresenceController? _presence;
     private readonly Func<NativePartyLocalLobby?> _localLobby;
+    private readonly Func<NativePartyView>? _partyView;
+    private long _lastPartyRevision;
     private RmlUiDocumentToken _page, _confirmation;
     private long _revision, _lastDataRevision, _lastPresenceRevision;
     private bool _closed, _disposed;
     private NativeSocialJoinTarget? _networkJoin;
     private string _joinStatus = "";
+    private bool _privacyOpen;
     public bool JoinPending => _networkJoin != null;
     public bool Closed => _closed;
     public bool OpenPartyRequested { get; private set; }
     public string PartyInvitePrimeId { get; private set; } = "";
     public NativeSocialFriendsPage(RmlUiHost host, RmlUiPageManager pages,
         INativeSocialFriendsService service, NativePresenceController? presence = null,
-        Func<NativePartyLocalLobby?>? localLobby = null)
+        Func<NativePartyLocalLobby?>? localLobby = null, Func<NativePartyView>? partyView = null)
     {
         _host = host; _pages = pages;
         _controller = new NativeSocialFriendsController(service);
         _presence = presence;
+        _partyView = partyView;
         _localLobby = localLobby ?? CurrentSocialFriendsService.CaptureLocalLobby;
     }
 
@@ -64,14 +68,14 @@ internal sealed class NativeSocialFriendsPage : IDisposable
             || (intent.Document != _page && intent.Document != _confirmation)
             || !_pages.Accept(intent)) return false;
         int action = intent.Argument;
-        if (_networkJoin != null && action is not (8 or 52)) return false;
+        if (_networkJoin != null && action is not (8 or 52 or 54)) return false;
         if (action == 8 && _networkJoin != null)
         {
             _networkJoin = null; _joinStatus = "SOCIAL JOIN CANCELLED";
             _lastDataRevision = -1; Refresh(); return true;
         }
         if (_controller.Current().Confirmation.Length != 0
-            && action is not (46 or 47 or 52))
+            && action is not (46 or 47 or 52 or 54))
             return false;
         if (action == 52)
         {
@@ -84,6 +88,7 @@ internal sealed class NativeSocialFriendsPage : IDisposable
             PartyInvitePrimeId = action == 33 ? _controller.Current().Selected!.PrimeId : "";
             OpenPartyRequested = true;
         }
+        else if (action == 54) { _privacyOpen = !_privacyOpen; _lastDataRevision = -1; }
         else if (action == 46) _controller.Confirm();
         else if (action == 47) _controller.Dismiss();
         else if (action == 7) { _controller.Refresh(); _presence?.Refresh(); }
@@ -127,10 +132,13 @@ internal sealed class NativeSocialFriendsPage : IDisposable
         if (_networkJoin != null && !_controller.IsJoinCurrent(_networkJoin))
         { _networkJoin = null; _joinStatus = "SOCIAL ACCOUNT OR DESTINATION CHANGED // REFRESH SOCIAL"; _lastDataRevision = -1; }
         NativePresenceView? presence = _presence?.Current();
+        NativePartyView? party = _partyView?.Invoke();
         // No RML binding churn when a network operation has not changed.
-        if (snapshot.Revision == _lastDataRevision && (presence?.Revision ?? 0) == _lastPresenceRevision) return;
+        if (snapshot.Revision == _lastDataRevision && (presence?.Revision ?? 0) == _lastPresenceRevision
+            && (party?.Revision ?? 0) == _lastPartyRevision) return;
         _lastDataRevision = snapshot.Revision;
         _lastPresenceRevision = presence?.Revision ?? 0;
+        _lastPartyRevision = party?.Revision ?? 0;
         NativePresenceDirectory? directory = presence?.Directory is { } verified
             && verified.SelfPrimeId == snapshot.SelfPrimeId ? verified : null;
         if (snapshot.Confirmation.Length > 0 && !_host.IsAlive(_confirmation))
@@ -144,10 +152,14 @@ internal sealed class NativeSocialFriendsPage : IDisposable
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal);
         void Text(string id, string text) => data[id] = RmlUiBindingValue.FromText(text);
         void Bool(string id, bool value) => data[id] = RmlUiBindingValue.FromBoolean(value);
+        Bool("visible:social_privacy_options", _privacyOpen);
+        Bool("class:social_privacy_toggle:selected", _privacyOpen);
+        Text("social_privacy_toggle", _privacyOpen ? "HIDE PRIVACY SETTINGS" : "PRIVACY SETTINGS");
         Text("social_self_id", snapshot.Connected ? snapshot.SelfPrimeId : "NOT CONNECTED");
         Text("social_counts", snapshot.Connected
             ? snapshot.Total + " " + snapshot.Tab + " // SERVER VERIFIED"
-                + (snapshot.InvitationsAvailable ? "" : " // GAME INVITES NOT SYNCED") : "ACCOUNT UNAVAILABLE");
+                + (snapshot.InvitationsAvailable ? " // " + snapshot.PendingGameInvitations + " PENDING GAME INVITES"
+                    : " // GAME INVITES NOT SYNCED") : "ACCOUNT UNAVAILABLE");
         Text("social_status", _networkJoin != null ? "VERIFYING DESTINATION AND SERVER ADMISSION" :
             _joinStatus.Length != 0 ? _joinStatus : snapshot.Status);
         Text("social_error", snapshot.Status.StartsWith("SOCIAL UNAVAILABLE",
@@ -213,8 +225,15 @@ internal sealed class NativeSocialFriendsPage : IDisposable
             ? "Choose a verified player from Friends, Requests, Blocked or Prime ID lookup."
             : "Social mutations are accepted by the authenticated server.");
         Text("social_selected_expiry", invitation == null ? "" : "EXPIRES " + invitation.ExpiresAt.ToLocalTime().ToString("g"));
-        Text("social_party_summary", "OPEN PARTY TO VERIFY MEMBERSHIP AND INVITATIONS");
-        Text("social_session_notice", presence?.Status ?? "PRESENCE UNAVAILABLE");
+        NativePartySnapshot? partyState = snapshot.Connected && party?.Connected == true
+            && party.Snapshot?.SelfPrimeId == snapshot.SelfPrimeId ? party.Snapshot : null;
+        Text("social_party_summary", partyState == null ? "PARTY STATUS UNAVAILABLE // OPEN PARTY TO VERIFY"
+            : partyState.PartyId.Length == 0 ? "SOLO // " + partyState.Incoming.Length + " PARTY INVITATIONS"
+            : partyState.Members.Length + " / 8 IN PARTY // LEADER "
+                + (partyState.Members.FirstOrDefault(m => m.PrimeId == partyState.LeaderPrimeId)?.DisplayName ?? partyState.LeaderPrimeId)
+                + " // " + (partyState.Travel?.ServerName ?? "NO SHARED DESTINATION"));
+        Text("social_session_notice", directory == null ? presence?.Status ?? "PRESENCE UNAVAILABLE"
+            : directory.People.Length + " SHARED PRESENCES // " + presence!.Status);
         Text("social_presence_value", directory?.Privacy.Presence.ToUpperInvariant() ?? "UNAVAILABLE");
         Text("social_activity_value", directory?.Privacy.Activity.ToUpperInvariant() ?? "UNAVAILABLE");
         Text("social_invites_value", directory?.Privacy.Invites.ToUpperInvariant() ?? "UNAVAILABLE");

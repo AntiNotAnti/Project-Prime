@@ -208,7 +208,8 @@ public static partial class NetLobbyTest
         rig.Wait(()=>probe.Ready.HasValue,"late actual endpoint manually acknowledges native scene and receives its custom manifest",15000);
         probe.Send();
         rig.Wait(()=>probe.Confirmations>0&&rig.Server.TryGetCustomWeaponReady(late.Slot,out _)
-            &&rig.Server.TryGetCustomReplicaReady(late.Slot,out bool ready,out _)&&ready,
+            &&rig.Server.TryGetCustomReplicaReady(late.Slot,out bool ready,out _)&&ready
+            &&probe.Pickups?.IsReady==true&&probe.PickupAcks>0,
             "late endpoint resolves custom readiness and durably acknowledges its production replica baseline",10000);
     }
 

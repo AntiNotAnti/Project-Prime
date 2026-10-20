@@ -621,10 +621,11 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.OfflineChoice:
                 if (_offline == null || _busy || !RmlUiIntentRegistry.IsValid(kind, argument))
                     return false;
-                // Bot-match choices (0-6) and Aim Lab choices (7-15) belong to separate activities.
-                if (_trainingRoute != (argument >= 7)) return false;
+                // Choices 7-15 belong exclusively to training. Choice 16 is an
+                // Offline Battle mechanics selector and must remain available there.
+                if (_trainingRoute != (argument is >= 7 and <= 15)) return false;
                 if (argument == 0) _offline.RefreshArenas(_services.OfflineArenaKeys());
-                if (argument >= 7)
+                if (argument >= 7 && argument != 16)
                 {
                     if (_training == null || (argument >= 13 && !_trainingOptionsOpen)) return false;
                     bool changed = _training.Choice(argument);
@@ -654,6 +655,20 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.OfflineLaunchMatch:
                 if (_offline == null || _trainingRoute || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
                 RmlUiOfflineRequest offlineRequest = _offline.Current;
+                if (offlineRequest.Character != OfflineCharacterMode.Native)
+                {
+                    if (_services.ReadOfflineRules() is not { } practiceRules)
+                    { Status("REOPEN OFFLINE SETUP TO READ CURRENT MATCH RULES"); return false; }
+                    var practiceSettings = new MenuSettings();
+                    practiceRules.CopyTo(practiceSettings);
+                    try
+                    {
+                        _ = OfflineLaunch.Preview(practiceSettings, offlineRequest.RoomKey,
+                            offlineRequest.Mode, offlineRequest.Hunter, offlineRequest.Suit,
+                            offlineRequest.Bots, offlineRequest.BotLevel, offlineRequest.Character);
+                    }
+                    catch (ArgumentException ex) { Status(ex.Message); return false; }
+                }
                 Begin(Job.Offline, "VALIDATING LOCAL MATCH AND MAP CAPABILITIES",
                     async token => await _services.ValidateOfflineAsync(offlineRequest, token)
                         .ConfigureAwait(false));
@@ -1420,8 +1435,7 @@ public sealed class RmlUiMenuController : IDisposable
         {
             if (_trainingRoute != training)
             {
-                // Reusing the shared local draft must not carry a modal or pending match
-                // validation into the other activity.
+                // Retire stale modals and validation before reusing the shared draft.
                 Cancel();
                 _offlineRules = null;
                 _trainingOptionsOpen = false;
@@ -1925,6 +1939,10 @@ public sealed class RmlUiMenuController : IDisposable
         Text("theatre_status", _theatre == null ? "" : _status);
         Text("theatre_error", "");
         Text("theatre_launch_problem", "");
+        Flag("theatre_empty_visible", _theatre?.Count == 0);
+        Flag("theatre_status_visible", _theatre != null && _status.Length > 0);
+        Flag("theatre_error_visible", false);
+        Flag("theatre_launch_problem_visible", false);
         RmlUiReplayEntry? selectedReplay = _theatre?.Selected;
         Text("theatre_selected_title", selectedReplay?.Title ?? "SELECT A REPLAY");
         Text("theatre_metadata", selectedReplay is { } selection
@@ -2052,6 +2070,10 @@ public sealed class RmlUiMenuController : IDisposable
         Text("offline_skill_value", _offline?.Difficulty ?? "");
         Text("offline_hunter_value", _offline?.HunterName ?? "");
         Text("offline_suit_value", _offline?.SuitName ?? "");
+        Text("offline_character_value", _offline?.CharacterName ?? "");
+        Text("offline_character_notice", _offline?.CharacterNotice ?? "");
+        Text("offline_start_label", _offline?.Current.Character == OfflineCharacterMode.TrooperWallClingPractice
+            ? "START WALL-CLING PRACTICE" : "INITIATE BOT SIMULATION");
         Text("offline_summary", _offline == null ? "" :
             _offline.Mode + " // " + _offline.Bots + " // " + _offline.Difficulty);
         Text("offline_eyebrow_label", _trainingRoute ? "OPERATIONS // TRAINING" : "OPERATIONS // OFFLINE");

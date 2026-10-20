@@ -2847,7 +2847,10 @@ namespace MphRead.Entities
                     slideSfxAmount = 0xFFFF * _hSpeedMag / Fixed.ToFloat(Values.WalkSpeedCap);
                 }
             }
-            UpdateSlidingSfx(slideSfxAmount);
+            // Native slippery/form audio keeps its existing update point. Eligible Traversal
+            // feedback uses the completed contact below, without advancing smoothing twice.
+            bool traversalSlideFeedback = ModTraversalActive && ModMomentumEligible;
+            if (!traversalSlideFeedback) UpdateSlidingSfx(slideSfxAmount);
             bool momentumApplied = momentumAllowed && ModTryApplyMomentum(nativeJumpAccepted);
             if (!momentumApplied)
             {
@@ -3055,6 +3058,14 @@ namespace MphRead.Entities
             if ((!IsAltForm || Hunter == Hunter.Weavel) && Flags1.TestFlag(PlayerFlags1.Grounded))
             {
                 UpdateWalkingSfx();
+            }
+            if (traversalSlideFeedback)
+            {
+                float horizontalSpeed = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                float traversalAmount = Mods.Movement.TraversalSlideFeedback.Amount(horizontalSpeed,
+                    Fixed.ToFloat(Values.WalkSpeedCap),
+                    Flags1.TestFlag(PlayerFlags1.Standing) && ModTraversalActive && ModMomentumEligible, ModSliding);
+                UpdateSlidingSfx(Math.Max(slideSfxAmount, traversalAmount), allowTraversalFallback: true);
             }
             _scene.FinalizeMovementTelemetry(this);
             return momentumApplied;

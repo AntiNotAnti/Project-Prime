@@ -22,6 +22,8 @@ internal static class ReplayDetachedExportQueue
     private sealed class Admission:IDisposable
     {
         internal readonly FileStream Replay;
+        internal readonly FileStream? OwnerPresentation;
+        internal readonly string? OwnerPresentationHash;
         internal readonly Dictionary<string,FileStream> Waves=new(StringComparer.Ordinal);
         internal readonly Dictionary<string,string> WaveHashes=new(StringComparer.Ordinal);
         internal readonly GameFiles.ConfiguredFilesUse Files;
@@ -38,6 +40,22 @@ internal static class ReplayDetachedExportQueue
                 string source=frozen?.Manifest.Replay??manifest.Replay;
                 if(new FileInfo(source).LinkTarget!=null)throw new IOException("Choose an ordinary replay file.");
                 replay=new(source,FileMode.Open,FileAccess.Read,FileShare.Read);
+                string ownerPath = source + ReplayOwnerTrack.Extension;
+                bool expectedOwner = frozen?.InputHashes.ContainsKey(ownerPath) ?? File.Exists(ownerPath);
+                if (expectedOwner)
+                {
+                    var ownerInfo = new FileInfo(ownerPath);
+                    bool usable = ownerInfo.Exists && ownerInfo.LinkTarget == null && ownerInfo.Length <= 18 * 1024 * 1024;
+                    if (!usable && frozen != null)
+                        throw new IOException("The accepted owner presentation track is unavailable.");
+                    if (usable)
+                    {
+                        OwnerPresentation = new(ownerPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        // Admission only retains a handle. Hash/copy/validation
+                        // run on the existing preparation worker, never the UI.
+                        OwnerPresentationHash = frozen == null ? null : frozen.InputHashes[ownerPath];
+                    }
+                }
                 Audio=frozen?.Manifest.Audio??manifest.Audio;
                 foreach(var wave in Audio?.Sources??ImmutableArray<ReplayExportAudioReference>.Empty)
                 {
@@ -63,12 +81,12 @@ internal static class ReplayDetachedExportQueue
                 UserMapDirectory=frozen?.UserMapDirectory??Path.GetFullPath(CustomRooms.UserMapDirectory);
                 Replay=replay;replay=null;
             }
-            catch{replay?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();Files.Dispose();throw;}
+            catch{replay?.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();Files.Dispose();throw;}
         }
         internal void ReleaseStreams()
         {
             if(Interlocked.Exchange(ref _streamsReleased,1)!=0)return;
-            Replay.Dispose();foreach(var wave in Waves.Values)wave.Dispose();
+            Replay.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();
         }
         public void Dispose(){ReleaseStreams();Files.Dispose();}
     }
@@ -177,6 +195,11 @@ internal static class ReplayDetachedExportQueue
     {
         var token=job.Cancellation.Token;var inputs=job.Inputs;var hashes=new Dictionary<string,string>(StringComparer.Ordinal);
         string replay=Path.Combine(job.WorkDirectory,"replay.ppdemo");hashes.Add(replay,CopyInput(inputs.Replay,replay,token,job.ExpectedHash));
+        if (inputs.OwnerPresentation != null)
+        {
+            string owner = replay + ReplayOwnerTrack.Extension;
+            hashes.Add(owner, CopyInput(inputs.OwnerPresentation, owner, token, inputs.OwnerPresentationHash));
+        }
         var replacements=new Dictionary<string,string>(StringComparer.Ordinal);int index=0;
         foreach(var wave in inputs.Waves)
         {

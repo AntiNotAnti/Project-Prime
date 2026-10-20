@@ -103,7 +103,7 @@ internal static class TraversalSceneTests
                 Require(contact.All(t => t.TelemetrySpeed.HasValue
                     && MathF.Abs(t.TelemetrySpeed.Value - t.PlanarSpeed) <= .00001f),
                     "HUD speed uses actual body velocity after wall collision");
-                Require(contact.All(t => t.FormattedTelemetrySpeed == "SPEED "
+                Require(contact.All(t => t.FormattedTelemetrySpeed == "HORIZ "
                     + t.PlanarSpeed.ToString("0.0", CultureInfo.InvariantCulture) + " U/S"),
                     "formatted speed reflects postcollision body units per second");
             });
@@ -259,6 +259,8 @@ internal static class TraversalSceneTests
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y)
                         == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "horizontal solver preserves native Y bits");
                     Vector3 inputSpeed = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    if (sample.GroundSupport.HasValue)
+                        inputSpeed = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
                     Vector3 expected = model == MovementModel.Traversal
                         ? TraversalMovementProfileV4.Step(inputSpeed, sample.Input, sample.Crouched, sample.Sliding).Velocity
                         : Quake3MovementProfileV3.Step(inputSpeed, sample.Input).Velocity;

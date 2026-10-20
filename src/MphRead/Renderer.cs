@@ -2634,6 +2634,11 @@ namespace MphRead
                 Mods.Network.NetHooks.AfterSimulation();
                 StepCustomWeaponFeedback();
                 UpdateCustomWeaponPresentation();
+                // Reconcile current life, form and selection before a due
+                // mechanical cue can advance on the completed fixed step.
+                StepCustomRifleTracks();
+                StepHeadHitPresentation();
+                StepHeadDeathPresentation();
                 SemanticPublisher.Publish(this);
                 SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
@@ -2785,6 +2790,7 @@ namespace MphRead
                 return;
             }
             using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
+            using var directorSubject = BeginDirectorPicturePreparation();
             RefreshTextureQuality();
             BeginRenderDiagnostics();
             // A first-person pose belongs to exactly one picture. If this draw
@@ -3564,6 +3570,7 @@ namespace MphRead
             }
             // Collection now includes preview and outline geometry, so one
             // program choice can safely persist through every pass this frame.
+            using var directorSubject = BeginDirectorPictureRender();
             SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
 #if !MPHREAD_SERVER
@@ -3764,6 +3771,7 @@ namespace MphRead
 
         private void TransformCamera()
         {
+            PrepareOwnerPresentationDraw();
             // todo: only update this when the camera values change
             _viewMatrix = Matrix4.Identity;
             _viewInvRotMatrix = Matrix4.Identity;
@@ -4854,6 +4862,7 @@ namespace MphRead
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
             item.WeightedSkinning = false;
+            item.SourceGx = null;
             item.RetainedRoomOwned = false;
             item.RetainedGpuVisibilityEligible = false;
             item.RetainedBoundsMin = Vector3.Zero;
@@ -5003,6 +5012,7 @@ namespace MphRead
                     item.PaletteOverride = null;
                 }
             }
+            StampSourceGxSubmission(item);
             AddRenderItem(item);
         }
 
@@ -5413,6 +5423,8 @@ namespace MphRead
             }
 
             OfflineWeapons?.DrawPickups();
+            Mods.CustomWeapons.CustomPickupPresentation.DrawOnline(this);
+            DrawCustomRifleWorldEffects();
             Mods.Network.NetConfirmedImpacts.Draw(this);
             // PR-14: depth-tested world-only prismatic Insta-Gib shot trails.
             _ionFracture?.Draw(this);
@@ -5777,6 +5789,9 @@ namespace MphRead
                 _modelLeases.Clear();
             }
             Mods.Render.Characters.CharacterModelRuntime.Release(this);
+            ReleaseCustomRifleModel();
+            ReleaseHeadHitPresentation();
+            ReleaseHeadDeathPresentation();
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
@@ -5888,6 +5903,7 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
+            if (item.SourceGx != null) { DrawSourceGxRenderItem(item); return; }
             int sourcePass = Mods.Render.OpenGlPassProfiler.CurrentPass;
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
             using (Mods.Render.OpenGlDrawAttribution.Measure(item, sourcePass, geometry: false))

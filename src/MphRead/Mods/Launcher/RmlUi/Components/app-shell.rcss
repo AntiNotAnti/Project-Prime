@@ -73,31 +73,56 @@
     #primary_nav #nav_studio { width:98dp; }
     #profile { max-width:86dp; }
 }
+/* Short labels keep all five destinations and two utilities in one row. */
+.nav_short { display:none; }
 @media (max-width:640dp) {
-    /* Two short rows preserve every destination and Profile on small windows. */
-    #topbar { height:104dp; padding:0 12dp; }
-    #brand { display:flex; position:absolute; left:12dp; top:10dp; margin:0; }
-    .brand_title { font-size:15dp; line-height:18dp; }
-    .brand_subtitle { font-size:9dp; line-height:11dp; }
-    #account_cluster { position:absolute; right:12dp; top:8dp; margin:0; }
-    #profile { max-width:88dp; }
-    #primary_nav { position:absolute; left:8dp; right:8dp; bottom:0; height:48dp; }
-    #primary_nav .nav, #primary_nav #nav_studio { flex:1; width:auto; margin:0; padding:0 2dp; line-height:44dp; font-size:12dp; }
-    #top_rule { top:104dp; }
-    #stage { top:105dp; }
+    #topbar { height:56dp; padding:0 8dp; }
+    #brand { display:none; }
+    #primary_nav { flex:1; min-width:0; }
+    #primary_nav .nav, #primary_nav #nav_studio { flex:1; width:auto; margin:0; padding:0 3dp; line-height:52dp; font-size:12dp; }
+    .nav_full { display:none; }
+    .nav_short { display:inline; }
+    #account_cluster { flex:0 0 auto; margin-left:8dp; }
+    #profile { min-width:48dp; max-width:64dp; }
+    #header_settings { margin-left:4dp; }
+    #profile, #header_settings { padding:8dp 6dp; font-size:11dp; }
+    #top_rule { top:56dp; }
+    #stage { top:57dp; }
     #client_label, #build_info .divider { display:none; }
     #footerbar { padding:0 12dp; }
 }
 .studio-application #primary_nav .nav { width:120dp; }
 @media (max-width:640dp) { .studio-application #primary_nav .nav { flex:1; width:auto; } }
+/* Studio has two destinations, leaving room to retain its application identity
+   in windows where the full game navigation needs the entire header. */
+@media (max-width:1000dp) {
+    .studio-application #brand { display:flex; flex:0 1 190dp; margin-right:8dp; }
+    .studio-application #brand_mark { display:none; }
+    .studio-application .brand_title { font-size:14dp; line-height:18dp; white-space:normal; }
+    .studio-application #primary_nav .nav { flex:1; width:auto; }
+}
+@media (max-width:640dp) {
+    .studio-application #brand { flex-basis:155dp; }
+    .studio-application .brand_subtitle { font-size:10dp; letter-spacing:0; }
+}
 /* Increased touch targets are accounted for by their containing chrome. */
 body.touch-targets #footerbar { height:56dp; }
 body.touch-targets #stage { bottom:56dp; }
 body.touch-targets #system_status_toast { bottom:64dp; }
 body.touch-targets #primary_nav .nav { line-height:60dp; }
 @media (max-width:640dp) {
-    body.touch-targets #primary_nav .nav { line-height:44dp; }
-    body.touch-targets #topbar { height:112dp; }
-    body.touch-targets #top_rule { top:112dp; }
-    body.touch-targets #stage { top:113dp; }
+    body.touch-targets #primary_nav .nav { line-height:60dp; }
+    body.touch-targets #topbar { height:64dp; }
+    body.touch-targets #top_rule { top:64dp; }
+    body.touch-targets #stage { top:65dp; }
+}
+/* Large-text layouts use a separate utility row instead of clipping labels. */
+@media (max-width:640dp) {
+    body.large-text #topbar { height:108dp; }
+    body.large-text #brand { display:flex; position:absolute; top:10dp; left:12dp; }
+    body.large-text #account_cluster { position:absolute; right:12dp; top:8dp; }
+    body.large-text #primary_nav { position:absolute; left:8dp; right:8dp; bottom:0; height:48dp; }
+    body.large-text #screen #primary_nav .nav { font-size:16dp; line-height:44dp; }
+    body.large-text #top_rule { top:108dp; }
+    body.large-text #stage { top:109dp; }
 }

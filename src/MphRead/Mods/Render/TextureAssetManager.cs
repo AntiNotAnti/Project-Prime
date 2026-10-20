@@ -92,6 +92,20 @@ namespace MphRead.Mods.Render
             }
         }
 
+        // Explicit top-level source preview sampling. Uses this manager's
+        // allocator, budget and Scene lifetime; no alpha/channel conversion.
+        internal int UploadRgba(string key, int width, int height, byte[] rgba,
+            TextureSamplerDescriptor sampling)
+        {
+            string cacheKey = key + "|source-rgba|repeat-st|" + sampling.CacheKey;
+            if (_resident.TryGetValue(cacheKey, out Resident resident)) return resident.Binding;
+            var image = ModernTextureAsset.FromRgba(key, TextureAssetClass.Hunter,
+                TextureAssetChannel.Albedo, width, height, rgba);
+            if (width > DimensionLimit(TextureAssetClass.Hunter, TextureAssetChannel.Albedo)
+                || height > DimensionLimit(TextureAssetClass.Hunter, TextureAssetChannel.Albedo)) return 0;
+            return Upload(cacheKey, image, true, sampling, out _, out _);
+        }
+
         private int Upload(string cacheKey, PreparedTextureAsset asset, bool repeat,
             TextureSamplerDescriptor sampling, out int width, out int height)
         {
@@ -159,6 +173,25 @@ namespace MphRead.Mods.Render
             TextureSamplerDescriptor sampling)
         {
             ClearPriorUploadErrors();
+#if ANDROID
+            if (asset is CompressedTextureAsset gpu)
+            {
+                int internalFormat = gpu.Format switch
+                {
+                    GpuTextureCompressionFormat.Etc2Rgba8 => 0x9278, // GL_COMPRESSED_RGBA8_ETC2_EAC
+                    GpuTextureCompressionFormat.Astc4x4Rgba => 0x93B0, // GL_COMPRESSED_RGBA_ASTC_4x4_KHR
+                    _ => throw new NotSupportedException("Unsupported mobile GPU texture compression format.")
+                };
+                for (int level = 0; level < gpu.Mips.Length; level++)
+                {
+                    CompressedTextureMip mip = gpu.Mips[level];
+                    GlEs.CompressedTexImage2D(TextureTarget.Texture2D, level, internalFormat,
+                        mip.Width, mip.Height, mip.Data);
+                }
+                ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
+                return;
+            }
+#endif
             if (asset is ModernTextureAsset rgba)
             {
                 GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);

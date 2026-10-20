@@ -21,6 +21,8 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
     private const int MaxTextureBytes = 64 * 1024 * 1024;
     private readonly string _directory;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly int _maxDimension;
+    private readonly SemaphoreSlim? _decodeGate;
     private Task<Result>? _work;
     private string _requested = "", _ready = "";
     private Stamp _observed;
@@ -30,7 +32,11 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
     private readonly record struct Stamp(bool Exists, long Length, long Modified);
     private readonly record struct Result(string Source, Stamp Stamp, string Image);
 
-    internal RmlUiMapPreviewCache(string directory) => _directory = Path.GetFullPath(directory);
+    internal RmlUiMapPreviewCache(string directory, int maxDimension = 0, SemaphoreSlim? decodeGate = null)
+    {
+        if (maxDimension is < 0 or > 16384) throw new ArgumentOutOfRangeException(nameof(maxDimension));
+        _directory = Path.GetFullPath(directory); _maxDimension = maxDimension; _decodeGate = decodeGate;
+    }
 
     // Called by the owner thread. Passing an empty path retires the visible map.
     internal string Read(string source)
@@ -66,7 +72,7 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
         if (_work == null && stamp.Exists && _ready.Length == 0)
         {
             string requested = _requested;
-            _work = Task.Run(() => Convert(requested, stamp, _lifetime.Token));
+            _work = Task.Run(() => ConvertBounded(requested, stamp, _lifetime.Token));
         }
         return _ready;
     }
@@ -82,6 +88,18 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         { return default; }
+    }
+
+    private Result ConvertBounded(string source, Stamp stamp, CancellationToken token)
+    {
+        bool entered = false;
+        try
+        {
+            if (_decodeGate != null) { _decodeGate.Wait(token); entered = true; }
+            return Convert(source, stamp, token);
+        }
+        catch (OperationCanceledException) { return new(source, stamp, ""); }
+        finally { if (entered) _decodeGate!.Release(); }
     }
 
     private unsafe Result Convert(string source, Stamp stamp, CancellationToken token)
@@ -108,8 +126,27 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
             // Format/AsSpan length still describe the PNG's original channels.
             // Actual renderer thumbnails are RGB; use the requested surface's
             // bounded dimensions rather than truncating it to three channels.
-            byte[] tga = EncodeTga(new ReadOnlySpan<byte>((void*)image.ImagePointer,
-                checked(width * height * 4)), width, height);
+            var pixels = new ReadOnlySpan<byte>((void*)image.ImagePointer, checked(width * height * 4));
+            byte[] tga;
+            if (_maxDimension > 0 && Math.Max(width, height) > _maxDimension)
+            {
+                double ratio = _maxDimension / (double)Math.Max(width, height);
+                int thumbWidth = Math.Max(1, (int)(width * ratio));
+                int thumbHeight = Math.Max(1, (int)(height * ratio));
+                byte[] thumbnail = new byte[checked(thumbWidth * thumbHeight * 4)];
+                // Bounded nearest-neighbour card previews; full detail images retain
+                // the original decoder path. Never generate or alter map content.
+                for (int row = 0; row < thumbHeight; row++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    int sourceY = row * height / thumbHeight;
+                    for (int col = 0; col < thumbWidth; col++)
+                        pixels.Slice((sourceY * width + col * width / thumbWidth) * 4, 4)
+                            .CopyTo(thumbnail.AsSpan((row * thumbWidth + col) * 4, 4));
+                }
+                tga = EncodeTga(thumbnail, thumbWidth, thumbHeight);
+            }
+            else tga = EncodeTga(pixels, width, height);
             token.ThrowIfCancellationRequested();
             if (Inspect(source) != stamp) return new(source, stamp, "");
             string name = System.Convert.ToHexString(SHA256.HashData(tga)).ToLowerInvariant() + ".tga";

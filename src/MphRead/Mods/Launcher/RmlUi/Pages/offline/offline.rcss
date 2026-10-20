@@ -76,3 +76,12 @@
 
 .offline_panel h2 { margin: 4dp 0dp 8dp; }
 .offline_summary { margin: 8dp 0dp; }
+
+/* At the minimum supported width the modal's old 22dp padding left less
+   space than its explicit 86vw form/list budget. Preserve that native width
+   basis while leaving room for the vertical scrollbar and border. */
+@media (max-width:560dp) {
+    .offline_dialog { left:2vw; width:96vw; padding:12dp; }
+    .offline_rule_columns, .offline_dialog > .offline_actions, .offline_arena_list { width:86vw; }
+    .offline_dialog h1, .offline_dialog p { word-break:break-word; }
+}

@@ -26,6 +26,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         internal required CustomLaunchPayments Payments;
         internal required CustomEngineSourceHistory Sources;
         internal CustomSourceActionJournal? Journal;
+        internal CustomPickupKnowledgeFence? Knowledge;
         internal uint? RetiredAt;
     }
     private readonly record struct Death(WeaponOwnerContext Owner,uint World,uint Observed);
@@ -125,7 +126,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         var payments = new CustomLaunchPayments(owner,Manifest,_registry,Now);
         CustomSourceActionJournal journal;
         try { journal = new(owner,slot.Clock,Manifest,_registry,
-            _pickupOnly?Array.Empty<WeaponRuntimeId>():new[] { new WeaponRuntimeId(10) },verifiedBirthSource,Now,canUseWeapon); }
+            _pickupOnly?Array.Empty<WeaponRuntimeId>():new[] { new WeaponRuntimeId(10) },verifiedBirthSource,Now,canUseWeapon,Pickups?.World); }
         catch (ArgumentException) { payments.Dispose(); return false; }
         var life = new Life { Owner = owner,Payments = payments,Journal = journal,
             Sources = new(owner,slot.Clock,verifiedBirthSource,Now) };
@@ -414,6 +415,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         if (_disposed) return;
         foreach(var gate in _nativeFireGates)gate?.Advance(Now);
         if (!IsEligible) { Dispose(); return; }
+        Pickups?.Advance(Now);
         for (int i=0; i<_deaths.Length; i++)
             if (_deaths[i] is { } death && unchecked(Now-death.Observed) > DeathRetention) _deaths[i] = null;
         for (int slot=0; slot<_slots.Length; slot++)
@@ -422,7 +424,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if (!CurrentOwner(entry.Player,out var owner) || owner.Generation != entry.Generation || Spectating(entry.Player))
             { RetireSlot(slot); continue; }
             if (_current[slot] is { } life && life.Owner != owner)
-            { life.Journal?.Retire(WeaponCancellation.Respawn); life.RetiredAt=Now; _current[slot] = null; }
+            { life.Journal?.Retire(WeaponCancellation.Respawn); life.Knowledge?.Retire(); life.RetiredAt=Now; _current[slot] = null; }
         }
         for (int i=0; i<_lives.Length; i++)
         {
@@ -438,7 +440,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         for (int i=0; i<_lives.Length; i++)
             if (_lives[i] is { } life && life.Owner.Slot == slot)
-            { life.Journal?.Retire(WeaponCancellation.OwnerChanged); life.Sources.Clear(); life.Payments.Dispose(); _lives[i] = null; }
+            { life.Journal?.Retire(WeaponCancellation.OwnerChanged); life.Knowledge?.Retire(); life.Sources.Clear(); life.Payments.Dispose(); _lives[i] = null; }
         _current[slot] = null;
         if (_slots[slot] is { } entry)
             foreach (var beam in entry.Equip.Beams) { beam.Destroy(); _scene.RemoveEntity(beam); }
@@ -449,6 +451,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         if (_disposed) return;
         _disposed = true;
+        Pickups?.Retire();
         DiscardSourceInputPhase();
         for (int slot=0; slot<_slots.Length; slot++) RetireSlot(slot);
         _contact = null; _damageEntered = false; _emittingEquip = null; _emittingPlayer = null;

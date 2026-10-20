@@ -35,8 +35,8 @@ internal static class Quake3AdvancedRulesTests
     private static void NumericalContract()
     {
         Check(Quake3MovementProfileV1.ProfileVersion == 1 && Quake3MovementProfileV2.ProfileVersion == 2
-            && MovementModelRules.ProfileVersion(MovementModel.Quake3) == 3,
-            "current Q3 rule selects profile three while historical profiles one and two remain immutable");
+            && MovementModelRules.ProfileVersion(MovementModel.Quake3) == 4,
+            "current Q3 rule selects profile four while historical profiles one and two remain immutable");
         Check(Quake3MovementProfileV2.RocketImpulsePerDamage == .025f
             && Quake3MovementProfileV2.MaximumRocketImpulse == 1.2f
             && Quake3MovementProfileV2.RocketBodyAimHeight == .5f,
@@ -98,7 +98,7 @@ internal static class Quake3AdvancedRulesTests
     private static void RecordedProfileContract()
     {
         const string room = "MP3 PROVING GROUND";
-        foreach (byte protocol in new byte[] { 60, 61, 62, 70, 71, 72, 73, 74 })
+        foreach (byte protocol in new byte[] { 60, 61, 62, 70, 71, 72, 73, 74, 75 })
         foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3 })
         {
             var match = new MatchStatePacket { MatchId = 7, AuthorityEpoch = 23, RoomKey = room,

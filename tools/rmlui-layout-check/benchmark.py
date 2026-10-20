@@ -109,15 +109,20 @@ def run_arm(bridge, assets, label, arm_index):
 
 
 def main():
+    global FIXTURES
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--library', type=Path, required=True)
     parser.add_argument('--before', type=Path, required=True)
     parser.add_argument('--after', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--page', action='append', choices=sorted(FIXTURES), help='Repeat to benchmark only selected known fixtures; default is all fixtures')
     args = parser.parse_args()
+    if args.page:
+        FIXTURES = {path: FIXTURES[path] for path in dict.fromkeys(args.page)}
     library = args.library.resolve()
     variants = dict(before=args.before.resolve(), after=args.after.resolve())
     report = dict(schema_version=1, measurement='Actual native CPU draw-list backend 1; no GPU/framerate claim',
+                  selected_fixture_paths=list(FIXTURES),
                   framebuffer=dict(width=WIDTH, height=HEIGHT, density=DENSITY),
                   arm_order=['before', 'after', 'after', 'before'], cycles_per_arm=CYCLES,
                   warmup='Each fixture opened, published, updated, rendered and closed once per arm',

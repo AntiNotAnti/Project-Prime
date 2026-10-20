@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>CorpsePilotAndroid</RootNamespace>
+    <AssemblyName>CorpsePilot.Android</AssemblyName>
+    <ApplicationId>com.projectprime.corpsepilot</ApplicationId>
+    <ApplicationTitle>Corpse Physics Pilot</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
+    <!-- Test-only run-as stays enabled in the manifest; the network-capable
+         managed debugger/profiler transport is unnecessary for this pilot. -->
+    <AndroidIncludeDebugSymbols>false</AndroidIncludeDebugSymbols>
+    <AndroidEnableProfiler>false</AndroidEnableProfiler>
+    <AndroidNeedsInternetPermission>false</AndroidNeedsInternetPermission>
+    <AndroidUseAssemblyStore>true</AndroidUseAssemblyStore>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <UseMonoRuntime>true</UseMonoRuntime>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <SharedPilotBenchmark>../corpse-physics-pilot/PilotBenchmarks.cs</SharedPilotBenchmark>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- The SDK derives AndroidIncludeDebugSymbols from DebugSymbols late;
+         turn off that managed-debug transport without changing test run-as. -->
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition="Exists('$(SharedPilotBenchmark)')">
+    <DefineConstants>$(DefineConstants);SHARED_PILOT_BENCHMARKS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Both APK baselines consume the same audited core implementation. -->
+    <ProjectReference Include="../../src/MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" AdditionalProperties="Configuration=Release" />
+    <AndroidAsset Include="../../src/MphRead.CorpsePhysics/THIRD-PARTY-NOTICES.md" Link="Assets/THIRD-PARTY-NOTICES.md" />
+    <Compile Include="MainActivity.cs" />
+    <Compile Include="$(SharedPilotBenchmark)" Link="PilotBenchmarks.cs" Condition="Exists('$(SharedPilotBenchmark)')" />
+    <Compile Include="PilotSmoke.cs" Condition="!Exists('$(SharedPilotBenchmark)')" />
+  </ItemGroup>
+</Project>

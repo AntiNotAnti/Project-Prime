@@ -16,6 +16,8 @@ internal sealed class OpenGlScopedBindingCache
     internal static bool Enabled { get; } =
 #if ANDROID
         (Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BIND_CACHE") == "1"
+             || (Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BIND_CACHE") != "0"
+                 && OpenGlOptimizationPolicy.AndroidPerformanceOptedIn)
 #else
         (Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BIND_CACHE") != "0"
 #endif

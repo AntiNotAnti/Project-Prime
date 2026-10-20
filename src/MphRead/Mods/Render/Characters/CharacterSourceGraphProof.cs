@@ -36,12 +36,16 @@ internal sealed class CharacterSourceGraphProof
   Require(modelSha==CharacterSourceCannonRecipe.QualifiedBodySha256,"Only the exact original graph-bound body is qualified");
   RequireQualifiedSource(doc);
  }
- internal static void RequireQualifiedSource(RetroAnimationGraphProof.Document doc)
+ internal static void RequireQualifiedSource(RetroAnimationGraphProof.Document doc,string sourceCharacter="darksamus-echoes")
  {
   Require(doc.Format==1&&doc.SourceGameId=="G2ME01"&&doc.SourceAncsId==0x39900a11
-   &&doc.SourceAncsSha256==QualifiedAncsSha256&&doc.SourceAncsBytes==70744&&doc.SourceCharacterId=="darksamus-echoes"&&doc.SourceCharacterName=="Dark_Samus"
+   &&doc.SourceAncsSha256==QualifiedAncsSha256&&doc.SourceAncsBytes==70744&&doc.SourceCharacterId==sourceCharacter
+   &&sourceCharacter is "darksamus-echoes" or "darksamus-overcharged-echoes"
+   &&doc.SourceCharacterName==(sourceCharacter=="darksamus-echoes"?"Dark_Samus":"Battle_3")
+   &&doc.Cmdl==(sourceCharacter=="darksamus-echoes"?0xd2c3805bu:0xfaa12c05u)
+   &&doc.Cskr==(sourceCharacter=="darksamus-echoes"?0xb9ec2f8du:0x918e83d3u)&&doc.Cinf==0x4abc8a50
    &&doc.Roots.Length==76&&doc.Nodes.Length==87&&doc.Nodes.Count(n=>n.Type==0)==79&&doc.FullTransitions.Length==4&&doc.HalfTransitions.Length==6&&doc.TransitionNodes.Length==11
-   &&doc.SourceSnapshotFile=="darksamus-echoes.ancs.bin"&&!doc.NamedGraphSemanticsAccepted,"Only exact retained Echoes source graph proof is qualified; no evaluator");
+   &&doc.SourceSnapshotFile==sourceCharacter+".ancs.bin"&&!doc.NamedGraphSemanticsAccepted,"Only exact retained Echoes source graph proof is qualified; no evaluator");
  }
  internal static CharacterSourceGraphProof Load(string root,CharacterModelManifestEntry entry,CharacterModelAsset asset,string modelSha)
  {

@@ -34,6 +34,7 @@ public sealed class LauncherCosmeticDraftController : IDisposable
     private CosmeticLoadout _original, _draft;
     private CancellationTokenSource? _cancel;
     private Task<string>? _save;
+    private CosmeticLoadout? _submitted;
     private int _epoch;
     private bool _disposed;
     private string _status = "CHOOSE COSMETICS // EQUIP TO SAVE";
@@ -115,6 +116,35 @@ public sealed class LauncherCosmeticDraftController : IDisposable
     public bool NextArmor() => Step("armor");
     public bool NextDeath() => Step("death");
     public bool NextBeam() => Step("beam");
+    public bool SelectSkin(int index)
+    {
+        Verify();
+        if (_save != null || index < 0) return false;
+        var choices = CosmeticCatalog.Skins.Where(x => x.Hunter == null || x.Hunter == _hunter).ToArray();
+        if (index >= choices.Length) return false;
+        _draft = _draft with { SkinKey = choices[index].Key };
+        _status = "LOCAL SKIN DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
+    public bool SelectArmor(int index)
+    {
+        Verify();
+        if (_save != null || index < 0 || index >= CosmeticCatalog.ArmorEffects.Count) return false;
+        _draft = _draft with { ArmorEffectKey = CosmeticCatalog.ArmorEffects[index].Key };
+        _status = "LOCAL ARMOR DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
+    public bool SelectDeath(int index)
+    {
+        Verify();
+        if (_save != null || index < 0 || index >= CosmeticCatalog.DeathPresentations.Count) return false;
+        _draft = _draft with { DeathEffectKey = CosmeticCatalog.DeathPresentations[index].Key };
+        _status = "LOCAL DEATH DRAFT // EQUIP TO SAVE";
+        return true;
+    }
+
     public bool SelectBeam(int index)
     {
         Verify();
@@ -162,30 +192,34 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         return true;
     }
 
+    /// <summary>Validate the current draft without changing it or starting persistence.</summary>
+    public bool CanEquip(out string reason)
+    {
+        Verify();
+        reason = "";
+        if (_save != null) reason = "SAVING COSMETICS // WAIT BEFORE EQUIPPING";
+        else if (_draft != _original && CosmeticCatalog.Resolve(_hunter, _service.Capture(_hunter)) != _original)
+            reason = "LOADOUT CHANGED ELSEWHERE // DISCARD TO REFRESH";
+        else if (CosmeticCatalog.Resolve(_hunter, _draft) != _draft)
+            reason = "INVALID COSMETIC KEY // SELECT AN AVAILABLE OPTION";
+        return reason.Length == 0;
+    }
+
     public bool Equip()
     {
         Verify();
-        if (_save != null) return false;
+        if (!CanEquip(out string reason)) { _status = reason; return false; }
         if (_draft == _original)
         {
             _status = _service.PendingSync(_hunter)
                 ? "ALREADY EQUIPPED LOCALLY // ACCOUNT SYNC PENDING" : "ALREADY EQUIPPED";
             return true;
         }
-        if (CosmeticCatalog.Resolve(_hunter, _service.Capture(_hunter)) != _original)
-        {
-            _status = "LOADOUT CHANGED ELSEWHERE // DISCARD TO REFRESH";
-            return false;
-        }
-        CosmeticLoadout toSubmit = CosmeticCatalog.Resolve(_hunter, _draft);
-        if (toSubmit != _draft)
-        {
-            _status = "INVALID COSMETIC KEY // SELECT AN AVAILABLE OPTION";
-            return false;
-        }
+        CosmeticLoadout toSubmit = _draft;
         var cancel = new CancellationTokenSource();
         _cancel = cancel;
         ++_epoch;
+        _submitted = toSubmit;
         try
         {
             _save = _service.EquipAsync(_hunter, toSubmit, cancel.Token)
@@ -195,7 +229,7 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
-            _cancel = null; cancel.Dispose(); _save = null;
+            _cancel = null; cancel.Dispose(); _save = null; _submitted = null;
             _status = "EQUIP FAILED // " + error.Message;
             return false;
         }
@@ -210,12 +244,29 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         _save = null;
         _cancel?.Dispose();
         _cancel = null;
-        _original = CosmeticCatalog.Resolve(_hunter, _service.Capture(_hunter));
-        _draft = _original;
-        if (task.IsCanceled) _status = "LOCAL EQUIP STATE RELOADED";
-        else if (task.IsFaulted) _status = "EQUIP FAILED // " +
-            (task.Exception?.GetBaseException().Message ?? "UNKNOWN ERROR");
-        else _status = task.Result;
+        CosmeticLoadout submitted = _submitted ?? _draft;
+        _submitted = null;
+        CosmeticLoadout persisted = CosmeticCatalog.Resolve(_hunter, _service.Capture(_hunter));
+        if (persisted == submitted)
+        {
+            // Local persistence can succeed even when subsequent synchronization fails.
+            _original = persisted;
+            _draft = persisted;
+            _status = task.IsCanceled ? "EQUIPPED LOCALLY // ACCOUNT SYNC CANCELLED"
+                : task.IsFaulted ? "EQUIPPED LOCALLY // ACCOUNT SYNC FAILED: " +
+                    (task.Exception?.GetBaseException().Message ?? "UNKNOWN ERROR")
+                : task.Result;
+        }
+        else
+        {
+            // Keep both the submitted draft and its original CAS base. An external
+            // write must still require Discard rather than becoming our new baseline.
+            _draft = submitted;
+            _status = task.IsCanceled ? "EQUIP CANCELLED // DRAFT KEPT"
+                : task.IsFaulted ? "EQUIP FAILED // DRAFT KEPT: " +
+                    (task.Exception?.GetBaseException().Message ?? "UNKNOWN ERROR")
+                : "LOADOUT NOT EQUIPPED // DRAFT KEPT // " + task.Result;
+        }
     }
 
     public void Dispose()
@@ -227,6 +278,7 @@ public sealed class LauncherCosmeticDraftController : IDisposable
         _cancel?.Cancel();
         _cancel?.Dispose();
         _cancel = null;
+        _submitted = null;
         _save = null; // asynchronous callbacks never mutate controller state
     }
 }

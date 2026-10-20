@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using MphRead;
 using MphRead.Mods;
@@ -61,6 +63,25 @@ internal static class NativeSettingsAcceptance
         var settings = new MenuSettings();
         using (var controller = new NativeFullSettingsController(settings))
         {
+            var rowBudgets = controller.Rows.GroupBy(row => (row.Category, Subpage: NativeFullSettingsPage.RowSubpage(row))).ToArray();
+            foreach (var pane in rowBudgets)
+            {
+                // Includes Advanced rows and the entire searchable draft catalog.
+                NativeFullSettingsPage.RequireRowCapacity(pane.Count());
+                Check(pane.Count() <= NativeFullSettingsPage.Slots,
+                    $"complete {pane.Key.Category}/{pane.Key.Subpage} form including Advanced fits {NativeFullSettingsPage.Slots} slots ({pane.Count()} rows)");
+            }
+            Check(rowBudgets.Sum(pane => pane.Count()) == controller.Rows.Count && rowBudgets.Max(pane => pane.Count()) >= 88,
+                "row budget covers the complete managed catalog including the largest touch/gamepad forms");
+            bool rejectedOverflow = false;
+            try { NativeFullSettingsPage.RequireRowCapacity(NativeFullSettingsPage.Slots + 1); }
+            catch (InvalidOperationException error) { rejectedOverflow = error.Message.Contains("authored capacity", StringComparison.Ordinal); }
+            Check(rejectedOverflow, "an oversized future form fails explicitly instead of silently truncating settings");
+            string authoredSettings = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "rmlui", "pages", "settings", "native-full.rml"));
+            var authoredSlots = Regex.Matches(authoredSettings, "id=\"native_settings_row_([0-9]+)\"")
+                .Select(match => int.Parse(match.Groups[1].Value)).ToArray();
+            Check(authoredSlots.SequenceEqual(Enumerable.Range(0, NativeFullSettingsPage.Slots)),
+                "shipped authored settings row IDs exactly match the bounded presenter capacity");
             string[] originalRows = controller.Rows.Select(r => r.Read()).ToArray();
             var invalid = controller.Rows.Where(r => r.Validate(r.Value) != null)
                 .Select(r => r.Category + "/" + r.Label + ": " + r.Validate(r.Value)).ToArray();

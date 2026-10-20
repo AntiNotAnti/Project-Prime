@@ -675,6 +675,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_skill_value", "{{offline_skill_value}}"),
             new(RmlUiBindingKind.Text, "offline_hunter_value", "{{offline_hunter_value}}"),
             new(RmlUiBindingKind.Text, "offline_suit_value", "{{offline_suit_value}}"),
+            new(RmlUiBindingKind.Text, "offline_character_value", "{{offline_character_value}}"),
+            new(RmlUiBindingKind.Text, "offline_character_notice", "{{offline_character_notice}}"),
+            new(RmlUiBindingKind.Text, "offline_start", "{{offline_start_label}}"),
             new(RmlUiBindingKind.Text, "offline_summary", "{{offline_summary}}"),
             new(RmlUiBindingKind.Text, "offline_error", "{{offline_error}}"),
             new(RmlUiBindingKind.Text, "offline_availability", "{{offline_availability}}"),
@@ -845,6 +848,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             })
                 bindings.Add(new(RmlUiBindingKind.Boolean, "disabled:" + target, expr));
             bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_delete_confirmation", "theatre_delete_confirmation"));
+            foreach (string notice in new[] { "theatre_empty", "theatre_status", "theatre_error", "theatre_launch_problem" })
+                bindings.Add(new(RmlUiBindingKind.Boolean, "visible:" + notice, notice + "_visible"));
+            bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_cancel_job", "theatre_busy"));
             bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_recover", "theatre_advanced_tools"));
             bindings.Add(new(RmlUiBindingKind.Boolean, "visible:theatre_export", "theatre_advanced_tools"));
             for (int i = 0; i < 8; i++)

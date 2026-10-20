@@ -57,10 +57,14 @@ internal readonly record struct RmlUiAndroidLocalLaunchRequest
     {
         if (Kind == RmlUiAndroidLocalLaunchKind.Offline)
             return plan.Kind == LaunchKind.Offline && plan.RoomKey == Offline.RoomKey && plan.Mode == Offline.Mode
+                && Offline.Character is OfflineCharacterMode.Native or OfflineCharacterMode.TrooperWallClingPractice
+                && plan.OfflineCharacter == Offline.Character
+                && plan.IsPlaytest == (Offline.Character != OfflineCharacterMode.Native)
                 && plan.Hunter == Offline.Hunter && plan.Bots == Offline.Bots && plan.BotLevel == Offline.BotLevel
                 && currentSuit == Offline.Suit && plan.SaveSlot == 0 && !plan.NewGame
                 && !plan.AdventureDestination.HasValue && !plan.ExitShipToSurface;
-        if (plan.Kind != LaunchKind.Adventure || plan.Hunter != Hunter || plan.Spectate || plan.IsPlaytest) return false;
+        if (plan.Kind != LaunchKind.Adventure || plan.Hunter != Hunter || plan.Spectate || plan.IsPlaytest
+            || plan.OfflineCharacter != OfflineCharacterMode.Native) return false;
         return Kind == RmlUiAndroidLocalLaunchKind.Adventure
             ? plan.SaveSlot == Slot.Slot && plan.NewGame == NewGame && !plan.AdventureDestination.HasValue && !plan.ExitShipToSurface
             : Kind == RmlUiAndroidLocalLaunchKind.Ship && plan.SaveSlot == Dock.Slot && !plan.NewGame

@@ -48,6 +48,7 @@ namespace MphRead
         internal Mods.Render.RetainedBatchState CachedBatchState;
         internal ulong CachedStateKey;
         internal Mods.Render.RetainedMaterialIdentity? CachedMaterialIdentity;
+        internal Mods.Render.Characters.CharacterSourceGxDraw? SourceGx;
         internal object? MatrixPaletteSource;
         internal long MatrixPaletteVersion;
         internal float MatrixPaletteScale;

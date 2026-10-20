@@ -114,6 +114,8 @@ public static partial class NetLobbyTest
         private bool _protect;
         private readonly bool _impaired,_publicAvailability;
         private uint _firstSource,_secondSource;
+        private Vector3 _publicLaneFirst,_publicLaneSecond;
+        private readonly System.Collections.Generic.Dictionary<CustomWeaponAction,CustomResourceKnowledge> _actionKnowledge=new();
         internal ActionWorldSnapshot Latest => Volatile.Read(ref _latest) ?? throw new InvalidOperationException("No engine snapshot.");
         internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false,bool publicAvailability=false)
         {
@@ -202,6 +204,12 @@ public static partial class NetLobbyTest
                 NetDamage.ForgetSlot(player.SlotIndex);
             }
             bool clear=false; Vector3 origin=first.Position;
+            if(_publicAvailability)
+            {
+                // Declared native spawn4 floor placement. Subsequent acquisition
+                // advances actual UDP owner positions through authored contact.
+                origin=new(2.291504f,.5f,-22.847168f);first.ModPlaceAt(origin);
+            }
             foreach (int height in new[] { 0,2,5 })
             {
                 foreach (var direction in new[] { Vector3.UnitZ,Vector3.UnitX,-Vector3.UnitX,-Vector3.UnitZ })
@@ -214,6 +222,7 @@ public static partial class NetLobbyTest
                 if (clear) break;
             }
             if (!clear) throw new InvalidOperationException("Actual room has no clear fixture body/head lane.");
+            if(_publicAvailability){_publicLaneFirst=first.Position;_publicLaneSecond=second.Position;}
             if (_protect) Field(second,"_spawnInvulnTimer",(ushort)2000);
         }
         private static void Field(PlayerEntity player,string name,object value)
@@ -245,6 +254,13 @@ public static partial class NetLobbyTest
             },"native death/Spawn on the simulation thread advances the firing player's life");
         private void WaitInitialStates()
         {
+            if(_publicAvailability)
+            {
+                Rig.Wait(()=>A.State is {HasWeapon:false}&&B.State is {HasWeapon:false}
+                    &&FirstReady.Pickups?.IsReady==true&&SecondReady.Pickups?.IsReady==true,
+                    "both public lives publish empty inventory and durably consume actual authored pickup baseline");
+                AcquirePublic(First);return;
+            }
             Rig.Wait(()=>A.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
                 && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
                 && Rig.Server.TryGetCustomReplicaReady(First.Slot,out bool firstReady,out _) && firstReady
@@ -258,12 +274,13 @@ public static partial class NetLobbyTest
             SecondReady.Send(); Rig.Wait(()=>SecondReady.Confirmations>0,"last actual participant completes custom readiness");
             if(_publicAvailability) Observe(First,++_firstSource,false);
             Observe(Second,_secondSource,false);
+            if(_publicAvailability){WaitInitialStates();return;}
             Rig.Wait(()=>A.State.HasValue && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
                 && Rig.Server.TryGetCustomReplicaReady(First.Slot,out bool firstReady,out _) && firstReady
                 && Rig.Server.TryGetCustomReplicaReady(Second.Slot,out bool secondReady,out _) && secondReady,
                 "last participant's fresh actual source publishes its independent initial resources after both recipient baselines");
         }
-        internal void Observe(Client client,uint source,bool shoot,bool head=false,uint? ackOverride=null)
+        internal void Observe(Client client,uint source,bool shoot,bool head=false,uint? ackOverride=null,Vector3? position=null)
         {
             var world=Latest; bool first=client==First;
             var actor=first ? world.First:world.Second; var target=first ? world.Second:world.First;
@@ -273,17 +290,26 @@ public static partial class NetLobbyTest
             uint ack=ackOverride ?? (_impaired ? (client==First ? A:B).SnapshotWorld:world.World);
             Check(ack!=0,"source names an actually available native snapshot world");
             var input=new IntentPacket { MatchId=owner.MatchId,AuthorityEpoch=owner.AuthorityEpoch,SlotGeneration=owner.Generation,
-                LifeId=owner.Life,Frame=source,Position=actor.Position,Aim=aim,AckFrame=ack,
+                LifeId=owner.Life,Frame=source,Position=position??actor.Position,Aim=aim,AckFrame=ack,
                 Buttons=IntentButtons.InPlayState|(shoot ? IntentButtons.Shoot:0),WeaponSelect=(byte)BeamType.PowerBeam,
                 HasState=true,HasFireEvents=true,HasAnalogMove=true,HasContinuousFireTick=true };
             // Empty explicit native fire-event list prevents native fallback
             // emission while preserving actual Shoot physical input evidence.
             byte[] bytes=new byte[CompactIntentCodec.Size(input)]; CompactIntentCodec.Write(input,bytes);
-            client.Send(PacketType.Intent,bytes);
+            PacketType packet=PacketType.Intent;
+            if(_publicAvailability&&Knowledge(client).IsPresent)
+            {
+                var ready=(first?FirstReady:SecondReady).Ready!.Value;
+                var wrapped=new byte[CustomInputCarrier.EmptyPrefixSize+bytes.Length];
+                if(!CustomInputCarrier.TryWrite(ready.Bootstrap,ready.Manifest,Knowledge(client),null,bytes,wrapped,out int written)
+                    ||written!=wrapped.Length)throw new InvalidOperationException("Public fixture source stamp cannot encode.");
+                bytes=wrapped;packet=PacketType.CustomWeaponInput;
+            }
+            client.Send(packet,bytes);
             var retry=Stopwatch.StartNew(); long nextRetry=50;
             Rig.Wait(()=>{ var actorNow=client==First ? Latest.First:Latest.Second;
                 if (_impaired && retry.ElapsedMilliseconds>=nextRetry)
-                { client.Send(PacketType.Intent,bytes); nextRetry=retry.ElapsedMilliseconds+50; }
+                { client.Send(packet,bytes); nextRetry=retry.ElapsedMilliseconds+50; }
                 return actorNow.HasSource && actorNow.Source.Input.Frame==source; },
                 "actual UDP source reaches placement/control and first immutable engine observation",_impaired ? 8000:4000);
             var sample=client==First ? Latest.First:Latest.Second;
@@ -296,15 +322,71 @@ public static partial class NetLobbyTest
             var actor=client==First ? Latest.First:Latest.Second;
             var ready=(client==First ? FirstReady:SecondReady).Ready!.Value;
             var source=actor.Source;
-            return new(ready.Bootstrap,ready.Manifest,(byte)client.Slot,actor.Owner.Life,new(10),sequence,
+            var action=new CustomWeaponAction(ready.Bootstrap,ready.Manifest,(byte)client.Slot,actor.Owner.Life,new(10),sequence,
                 source.Input.Frame,kind==CustomWeaponActionKind.Fire ? source.Input.AckFrame:0,
                 kind==CustomWeaponActionKind.Fire ? source.Input.AckSubFrame:(byte)0,kind,optic,
                 kind==CustomWeaponActionKind.Fire ? source.Body+Vector3.UnitY*.4f:Vector3.Zero,
                 kind==CustomWeaponActionKind.Fire ? source.Aim:Vector3.Zero);
+            _actionKnowledge.TryAdd(action,Knowledge(client));return action;
         }
         internal static byte[] Bytes(CustomWeaponAction action)
         { byte[] bytes=new byte[CustomPrivateAction.Size]; new CustomPrivateAction(action,default).Write(bytes); return bytes; }
-        internal void Send(Client client,CustomWeaponAction action) => client.Send(PacketType.CustomWeaponAction,Bytes(action));
+        internal void Send(Client client,CustomWeaponAction action)
+        {
+            var bytes=new byte[CustomPrivateAction.Size];
+            new CustomPrivateAction(action,_actionKnowledge.TryGetValue(action,out var known)?known:Knowledge(client)).Write(bytes);
+            client.Send(PacketType.CustomWeaponAction,bytes);
+        }
+        internal CustomResourceKnowledge Knowledge(Client client)
+        {
+            var state=(client==First?A:B).State;var owner=(client==First?Latest.First:Latest.Second).Owner;
+            return state is {HasWeapon:true} value&&value.State.Owner==owner?value.Knowledge:default;
+        }
+        internal void AcquirePublic(Client client)
+        {
+            if(!_publicAvailability)return;
+            var probe=client==First?A:B;var receiver=client==First?FirstReady:SecondReady;
+            var owner=(client==First?Latest.First:Latest.Second).Owner;
+            if(probe.State is {HasWeapon:true} existing&&existing.State.Owner==owner)return;
+            Refresh(client);
+            Rig.Wait(()=>probe.State is {HasWeapon:false} empty&&empty.State.Owner==owner&&receiver.Pickups?.IsReady==true,
+                "public acquiring life starts empty with actual recipient pickup baseline");
+            var wait=Stopwatch.StartNew();long heartbeat=0;
+            Rig.Wait(()=>
+            {
+                if(wait.ElapsedMilliseconds>=heartbeat)
+                {Refresh(First);Refresh(Second);heartbeat=wait.ElapsedMilliseconds+250;}
+                return receiver.Pickups!.TryState(0,out var item)&&item.Available;
+            },"actual authored pickup becomes available; repeat owners wait genuine1800 simulation ticks",45000);
+            receiver.Pickups!.TryState(0,out var available);
+            Mutate(scene=>
+            {
+                var player=scene.Players.Items[client.Slot];player.ModPlaceAt(new(2.291504f,.5f,-22.847168f));
+                player.Speed=Vector3.Zero;
+            },"explicit native spawn4 floor placement precedes actual UDP pickup approach");
+            var start=new Vector3(2.291504f,.5f,-22.847168f);
+            var center=receiver.Pickups.Layout.Placements[0].Position;center.Y=start.Y;
+            int steps=0;
+            for(;steps<40&&!(probe.State is {HasWeapon:true} funded&&funded.State.Owner==owner);steps++)
+            {
+                uint source=client==First?(_firstSource=Math.Max(_firstSource+1,Latest.World+1))
+                    :(_secondSource=Math.Max(_secondSource+1,Latest.World+1));
+                Observe(client,source,false,position:Vector3.Lerp(start,center,Math.Min(1,(steps+1)/30f)));
+            }
+            Rig.Wait(()=>probe.State is {HasWeapon:true} funded&&funded.State.Owner==owner&&funded.Knowledge.IsPresent
+                &&receiver.Pickups.TryState(0,out var consumed)&&consumed.Key.Incarnation==available.Key.Incarnation+1&&!consumed.Available,
+                "real authored contact funds only approached current life and publishes next incarnation/private knowledge");
+            Check(steps>0&&probe.State!.Value.State is {Magazine:4,Reserve:16,Phase:CustomWeaponPhase.Unequipped}
+                &&!probe.State.Value.Selected.IsValid,"public first ownership is actual contact-funded4/16 with native selection preserved");
+            Mutate(scene=>
+            {
+                scene.Players.Items[First.Slot].ModPlaceAt(_publicLaneFirst);
+                scene.Players.Items[Second.Slot].ModPlaceAt(_publicLaneSecond);
+                scene.Players.Items[First.Slot].Speed=scene.Players.Items[Second.Slot].Speed=Vector3.Zero;
+            },"public contact fixture restores declared clear combat lane without changing HP or resources");
+            Refresh(First);Refresh(Second);
+            Console.WriteLine($"PUBLIC PICKUP acquired slot{client.Slot} life{owner.Life}, incarnation{available.Key.Incarnation}, actual UDP approach steps{steps}; no direct funding.");
+        }
         internal CustomReceiptMessage Settle(Client client,CustomWeaponAction action)
         {
             var probe=client==First ? A:B; Send(client,action);
@@ -318,6 +400,7 @@ public static partial class NetLobbyTest
         }
         internal void Equip(Client client,bool freshSources=false)
         {
+            AcquirePublic(client);
             var probe=client==First ? A:B;
             if (freshSources) Refresh(client);
             var equip=Settle(client,Action(client,1,CustomWeaponActionKind.Equip));
@@ -502,9 +585,9 @@ public static partial class NetLobbyTest
         using var f=new ActionTransportFixture(completeRoom:false,publicAvailability:publicAvailability);
         if(publicAvailability)
         {
-            Check(f.Latest.First is { HasState:true,State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
+            Check(f.Latest.First is { HasState:false,HasSource:true }
                 &&!f.Latest.Second.HasState&&!f.A.State.HasValue&&!f.B.State.HasValue,
-                "ready public actor binds source-owned unequipped inventory without publishing private resources before room readiness");
+                "ready public actor binds a genuine source without manufacturing inventory before room readiness");
             var ready=f.FirstReady.Ready!.Value;
             var premature=new CustomControlRequest(ready.Bootstrap,ready.Manifest,(byte)f.First.Slot,
                 f.Latest.First.Owner.Life,new(10),1,CustomWeaponActionKind.Equip,0);
@@ -512,14 +595,14 @@ public static partial class NetLobbyTest
             f.First.Send(PacketType.CustomWeaponControl,bytes);
             uint waiting=f.Latest.World;
             f.WaitWorld(waiting+6,"public incomplete capability room continues native simulation without custom activation");
-            Check(f.Latest.First.State.Phase==CustomWeaponPhase.Unequipped&&!f.Latest.Second.HasState
+            Check(!f.Latest.First.HasState&&!f.Latest.Second.HasState
                 &&!f.A.State.HasValue&&!f.B.State.HasValue&&f.A.Receipts.Count==0&&f.Latest.Contacts==0&&f.Latest.Payments==0
                 &&(!f.Rig.Server.TryGetCustomActionPending(f.First.Slot,out int pending)||pending==0),
                 "public partial readiness publishes no private projection and reserves no premature control deadline or action effects");
             f.CompleteRoom();
-            Check(f.A.State is { State.Phase:CustomWeaponPhase.Unequipped }
-                &&f.B.State is { State.Phase:CustomWeaponPhase.Unequipped }&&f.Latest.StepFailures==0,
-                "public whole-room readiness publishes source-owned resources with native selection preserved");
+            Check(f.A.State is { HasWeapon:true,State.Phase:CustomWeaponPhase.Unequipped }
+                &&f.B.State is { HasWeapon:false }&&f.Latest.StepFailures==0,
+                "public ready room funds only actual approaching owner while native victim remains empty");
             f.Equip(f.First,freshSources:true);
             return;
         }
@@ -607,14 +690,15 @@ public static partial class NetLobbyTest
             && next.AuthorityEpoch==oldOwner.AuthorityEpoch,"actual native Spawn advances life within the same admitted occupant");
         f.Refresh(f.First);
         f.Rig.Wait(()=>f.A.State is { } state && state.State.Owner==next
-            && state.State.Phase==CustomWeaponPhase.Unequipped && state.State.Magazine==4 && state.State.Reserve==16,
-            "fresh accepted post-respawn source automatically publishes a new independent unequipped inventory");
+            && (publicAvailability ? !state.HasWeapon&&state.State.Magazine==0&&state.State.Reserve==0
+                : state.State.Phase==CustomWeaponPhase.Unequipped&&state.State.Magazine==4&&state.State.Reserve==16),
+            "fresh post-respawn source publishes explicit public absence or developer fixture inventory");
         int receiptPackets=f.A.ReceiptPackets,contactPackets=f.A.ContactPackets;
         ObserveCustomReadiness(f.Rig,350,"old-life application obligations retry after a genuine native respawn");
         Check(f.A.ReceiptPackets>receiptPackets && f.A.ContactPackets>contactPackets && f.A.Receipts[3]==receipt
             && f.A.Contacts[3]==contact && f.A.Contacts[3].Outcome.Contact.Key.Action.Owner==oldOwner,
             "respawn retains exact old full-life receipt/contact tokens and immutable payloads");
-        Check(f.A.State!.Value.State.Owner==next && f.A.State.Value.State.Magazine==4
+        Check(f.A.State!.Value.State.Owner==next && f.A.State.Value.State.Magazine==(publicAvailability?0:4)
             && f.A.State.Value.State.LastAcceptedShotId==0 && f.Latest.Second.Health==135 && f.Latest.Contacts==1,
             "retrying old-life results neither rolls back fresh-life resources nor pays victim twice");
         f.A.Ack(receipt.Ack with { Life=next.Life }); f.A.Ack(contact.Ack with { Life=next.Life });
@@ -624,8 +708,9 @@ public static partial class NetLobbyTest
         f.A.Ack(receipt.Ack); f.A.Ack(contact.Ack);
         f.Rig.Wait(()=>f.Rig.Server.TryGetCustomActionPending(f.First.Slot,out int count) && count==0,
             "same bootstrap/connection may acknowledge exact retained old-life results after native respawn");
+        if(publicAvailability)f.AcquirePublic(f.First);
         Check(f.Latest.First.Owner==next && f.Latest.First.State.Magazine==4 && f.Latest.First.State.Reserve==16
-            && f.Latest.StepFailures==0,"old-life ACK retirement leaves fresh inventory and simulation intact");
+            && f.Latest.StepFailures==0,"old-life ACK retirement and genuine public reacquisition leave fresh inventory intact");
     }
 
     private static void CustomActionUdpImpaired(bool publicAvailability=false)

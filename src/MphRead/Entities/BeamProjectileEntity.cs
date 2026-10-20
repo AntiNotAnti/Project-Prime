@@ -1328,7 +1328,14 @@ namespace MphRead.Entities
             }
             try
             {
-                if (DrawFuncId == 0) Draw00();
+                if(ModCustomShot is {} custom&&custom.Definition.Identity.ContentId==Mods.CustomWeapons.RiftlineM7.ContentId)
+                {
+                    var from=ModBeamDrawBack;
+                    if(Age<=.035f&&Owner is PlayerEntity local
+                        &&local.ModTryCustomRifleTrailStart(custom.Owner,custom.Identity.Weapon,out var visualStart))from=visualStart;
+                    Mods.CustomWeapons.CustomRiflePresentation.Trail(_scene,from,ModBeamDrawPosition,1);
+                }
+                else if (DrawFuncId == 0) Draw00();
                 else if (DrawFuncId == 1) Draw01();
                 else if (DrawFuncId == 2) Draw02();
                 else if (DrawFuncId == 3) Draw03();

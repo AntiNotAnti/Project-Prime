@@ -8,7 +8,7 @@
         <div id="home_left_rail">
         <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
             <div class="home_rail_heading">
-                <span class="eyebrow">COMMUNITY UPDATES</span>
+                <span class="eyebrow">DISPATCH</span>
                 <span class="home_rail_tag" id="home_feature_category">NEWS</span>
             </div>
             <div class="home_feature_title" id="home_feature_title">PROJECT PRIME UPDATE</div>
@@ -103,7 +103,7 @@
         <div id="home_right_rail">
         <div id="session_panel" class="enter_right">
             <div class="session_header">
-                <div class="eyebrow">CURRENT SESSION</div>
+                <div class="eyebrow">YOUR PARTY</div>
                 <div class="session_state"><span id="home_session_state" data-prime-text="{{home_session_state}}">SOLO</span><span id="home_party_count">1 / 4</span></div>
             </div>
             <div id="home_party_slot0" class="session_player">
@@ -135,7 +135,7 @@
             </div>
             <div id="home_social_summary" class="session_hint" />
             <div class="home_social_stats">
-                <div class="home_social_stat"><b id="home_friends_online">UNKNOWN</b><span>SHARING PRESENCE</span></div>
+                <div class="home_social_stat"><b id="home_friends_online">UNKNOWN</b><span>ONLINE</span></div>
                 <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
                 <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
             </div>

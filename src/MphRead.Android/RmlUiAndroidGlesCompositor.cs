@@ -1,6 +1,7 @@
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
 using System;
 using System.Collections.Generic;
+using System.Buffers;
 using System.Runtime.InteropServices;
 using Android.Opengl;
 using Java.Nio;
@@ -61,6 +62,15 @@ void main() { o_color = texture(u_image, v_uv); }";
 
     private readonly Dictionary<ulong, Geometry> _geometry = new();
     private readonly Dictionary<ulong, int> _textures = new();
+    private readonly List<ulong> _releasedHandles = new();
+    private RmlUiAndroidGlesState? _stateSnapshot;
+
+    private RmlUiAndroidGlesState CaptureState()
+    {
+        if (_stateSnapshot == null) return _stateSnapshot = new RmlUiAndroidGlesState();
+        _stateSnapshot.Capture();
+        return _stateSnapshot;
+    }
     private int _ownerThread;
     private EGLContext? _context;
     private ulong _generation;
@@ -84,7 +94,7 @@ void main() { o_color = texture(u_image, v_uv); }";
         if (width > 16384 || height > 16384)
             throw new ArgumentOutOfRangeException(nameof(width), "RmlUi target exceeds the permitted framebuffer range.");
         VerifyContext();
-        var state = new RmlUiAndroidGlesState();
+        RmlUiAndroidGlesState state = CaptureState();
         try
         {
             // Explicit canvas texture-object sampling must not be overridden by an inherited unit0 sampler.
@@ -181,10 +191,11 @@ void main() { o_color = texture(u_image, v_uv); }";
         GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureWrapS, GLES30.GlClampToEdge);
         GLES30.GlTexParameteri(GLES30.GlTexture2d, GLES30.GlTextureWrapT, GLES30.GlClampToEdge);
     }
-    private static ByteBuffer Direct(byte[] contents)
+    private static ByteBuffer Direct(byte[] contents, int length = -1)
     {
-        ByteBuffer bytes = ByteBuffer.AllocateDirect(contents.Length)!;
-        bytes.Put(contents);
+        if (length < 0) length = contents.Length;
+        ByteBuffer bytes = ByteBuffer.AllocateDirect(length)!;
+        bytes.Put(contents, 0, length);
         bytes.Position(0);
         return bytes;
     }
@@ -260,7 +271,8 @@ void main() { o_color = texture(u_image, v_uv); }";
 
     private void SynchronizeResources(RmlUiDrawListFrame frame)
     {
-        var released = new List<ulong>();
+        List<ulong> released = _releasedHandles;
+        released.Clear();
         foreach (ulong handle in _geometry.Keys)
             if (!frame.Geometry.ContainsKey(handle)) released.Add(handle);
         foreach (ulong handle in released) { DeleteGeometry(_geometry[handle]); _geometry.Remove(handle); }
@@ -282,14 +294,26 @@ void main() { o_color = texture(u_image, v_uv); }";
             _geometry.Add(handle, gpu);
             GLES30.GlBindVertexArray(gpu.Vao);
             GLES30.GlBindBuffer(GLES30.GlArrayBuffer, gpu.VertexBuffer);
-            byte[] vertexBytes = MemoryMarshal.AsBytes(source.Vertices.AsSpan()).ToArray();
-            using (ByteBuffer vertices = Direct(vertexBytes))
-                GLES30.GlBufferData(GLES30.GlArrayBuffer, vertexBytes.Length, vertices, GLES30.GlStaticDraw);
+            ReadOnlySpan<byte> sourceVertexBytes = MemoryMarshal.AsBytes(source.Vertices.AsSpan());
+            int vertexLength = sourceVertexBytes.Length;
+            byte[] vertexScratch = ArrayPool<byte>.Shared.Rent(vertexLength);
+            try
+            {
+                sourceVertexBytes.CopyTo(vertexScratch.AsSpan(0, vertexLength));
+                using ByteBuffer vertices = Direct(vertexScratch, vertexLength);
+                GLES30.GlBufferData(GLES30.GlArrayBuffer, vertexLength, vertices, GLES30.GlStaticDraw);
+            }
+            finally { ArrayPool<byte>.Shared.Return(vertexScratch); }
             GLES30.GlBindBuffer(GLES30.GlElementArrayBuffer, gpu.IndexBuffer);
-            byte[] indexBytes = new byte[checked(source.Indices.Length * sizeof(int))];
-            System.Buffer.BlockCopy(source.Indices, 0, indexBytes, 0, indexBytes.Length);
-            using (ByteBuffer indices = Direct(indexBytes))
-                GLES30.GlBufferData(GLES30.GlElementArrayBuffer, indexBytes.Length, indices, GLES30.GlStaticDraw);
+            int indexLength = checked(source.Indices.Length * sizeof(int));
+            byte[] indexScratch = ArrayPool<byte>.Shared.Rent(indexLength);
+            try
+            {
+                System.Buffer.BlockCopy(source.Indices, 0, indexScratch, 0, indexLength);
+                using ByteBuffer indices = Direct(indexScratch, indexLength);
+                GLES30.GlBufferData(GLES30.GlElementArrayBuffer, indexLength, indices, GLES30.GlStaticDraw);
+            }
+            finally { ArrayPool<byte>.Shared.Return(indexScratch); }
             GLES30.GlEnableVertexAttribArray(0);
             GLES30.GlVertexAttribPointer(0, 2, GLES30.GlFloat, false, 20, 0);
             GLES30.GlEnableVertexAttribArray(1);
@@ -344,9 +368,15 @@ void main() { o_color = texture(u_image, v_uv); }";
         GLES30.GlActiveTexture(GLES30.GlTexture0);
         GLES30.GlEnable(GLES30.GlScissorTest);
 
+        int boundTexture = -1, boundVao = -1;
+        RmlUiGlesRect? lastScissor = null;
         foreach (RmlUiGlesOperation op in operations)
         {
-            GLES30.GlScissor(op.Scissor.X, op.Scissor.Y, op.Scissor.Width, op.Scissor.Height);
+            if (!lastScissor.HasValue || lastScissor.Value != op.Scissor)
+            {
+                GLES30.GlScissor(op.Scissor.X, op.Scissor.Y, op.Scissor.Width, op.Scissor.Height);
+                lastScissor = op.Scissor;
+            }
             GLES30.GlUniformMatrix4fv(_transformUniform, 1, false, op.Transform, 0);
             GLES30.GlUniform2f(_translateUniform, op.TranslationX, op.TranslationY);
             switch (op.Kind)
@@ -380,9 +410,18 @@ void main() { o_color = texture(u_image, v_uv); }";
                     else GLES30.GlDisable(GLES30.GlStencilTest);
                     break;
             }
-            GLES30.GlBindTexture(GLES30.GlTexture2d, op.Texture == 0 ? _whiteTexture : _textures[op.Texture]);
+            int texture = op.Texture == 0 ? _whiteTexture : _textures[op.Texture];
+            if (boundTexture != texture)
+            {
+                GLES30.GlBindTexture(GLES30.GlTexture2d, texture);
+                boundTexture = texture;
+            }
             Geometry mesh = _geometry[op.Geometry];
-            GLES30.GlBindVertexArray(mesh.Vao);
+            if (boundVao != mesh.Vao)
+            {
+                GLES30.GlBindVertexArray(mesh.Vao);
+                boundVao = mesh.Vao;
+            }
             GLES30.GlDrawElements(GLES30.GlTriangles, mesh.Indices, GLES30.GlUnsignedInt, 0);
         }
         GLES30.GlBindVertexArray(0);
@@ -494,7 +533,7 @@ void main() { o_color = texture(u_image, v_uv); }";
         }
         else
         {
-            var state = new RmlUiAndroidGlesState();
+            RmlUiAndroidGlesState state = CaptureState();
             try
             {
                 ReleaseCachedGeometryAndTextures();

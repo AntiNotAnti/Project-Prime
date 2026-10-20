@@ -10,14 +10,14 @@ Traversal is an original optional ruleset, not a claim of exact Quake physics. I
 - **Held hops:** hold Jump to jump again on a new physical landing. Holding never spends an airborne Space Jump. A fresh press retains native ability behavior.
 - **Ramp jumps:** jump while running uphill. A recent walkable collision can retain its positive slope ascent in addition to the native jump. Flat ground, downhill movement, stale contacts, moving platforms and airborne grace flags cannot provide ramp lift. Lift is bounded by incoming horizontal speed.
 - **Explosive jumps:** aim a missile or charged Magmaul splash near the feet. Self-blasts test the accepted biped capsule against the native blast radius. Native damage curves, immunity, line of sight and lethal self-damage still apply. Additive three-dimensional impulse uses base weapon splash strength and linear distance attenuation from the capsule, shared with Quake III missile jumps. Health handicaps do not change physical push. The authority derives unpaid self-hit outcomes from its own explosion witness; it never trusts the claimed blast origin or push. Magmaul behavior in Classic and Quake III is unchanged.
-- **Crouch and power slide:** hold Left Ctrl (rebindable in Input settings). Crouch lowers the body and eye to 65% height while keeping the feet and radius fixed; walking while crouched uses half normal desired speed. Keep Forward held and press Crouch after reaching running speed to start a 72-tick (1.2-second) low-friction slide. Entry requires 90% of normal running speed (about 6.48 world units/second); slow walking and stationary crouching do not slide. A fresh crouch up to six simulation ticks (100 ms) before physical landing can start one slide on contact. Sliding adds no speed bonus or ground acceleration. Releasing Crouch, a fresh accepted Jump, leaving ground or hitting a lateral wall ends the slide; holding cannot refresh its duration. Release and press again to start another earned slide. An active slide takes precedence over automatic held-Jump hops; pressing Jump freshly still jumps normally. A blocked ceiling keeps the body crouched until standing fits. Alternate forms retain native behavior. Slides use a steady low leg pose while moving, including when Forward stays held. Crouch-walking uses a shorter stride, lower foot lift and a gait clock driven by completed horizontal travel. Walking arms follow that clock; native shooting/charge clips remain intact. Rendered camera/cannon walking bob is reduced while crouch-walking and suppressed during glides. The rendered body and first-person eye ease through a six-tick transition; collision and source-time weapon facts change immediately and remain authoritative. Gamepad Crouch is rebindable and initially unbound so existing bindings are preserved.
-- **Training-map surf:** use the tagged lane in **TRAVERSAL TRAINING**. Tagged sloped contacts retain airborne steering and gravity and clip inward velocity without ordinary slope speed loss. They do not count as landings or grant hops. Walls, ceilings, moving entities, untagged slopes and ordinary maps retain native collision behavior.
+- **Crouch and power slide:** hold Left Ctrl (rebindable in Input settings). Crouch lowers the body and eye to 65% height while keeping the feet and radius fixed; walking while crouched uses half normal desired speed. Keep Forward held and press Crouch after reaching running speed to start a 72-tick (1.2-second) low-friction slide. Entry requires 90% of normal running speed (about 6.48 world units/second); slow walking and stationary crouching do not slide. A fresh crouch up to six simulation ticks (100 ms) before physical landing can start one slide on contact. Sliding adds no speed bonus or ground acceleration. Releasing Crouch, a fresh accepted Jump, leaving ground or hitting a lateral wall ends the slide; holding cannot refresh its duration. Release and press again to start another earned slide. An active slide takes precedence over automatic held-Jump hops; pressing Jump freshly still jumps normally. A blocked ceiling keeps the body crouched until standing fits. Alternate forms retain native behavior. Slides blend into a dedicated asymmetric extended/tucked-leg pose, including when Forward stays held. Crouch-walking uses planted support intervals, low foot lift and small pelvis shifts driven by completed horizontal travel. Native upper-body walking, shooting, charge and ability curves keep their own clocks and weapon posture. Rendered camera/cannon walking bob is reduced while crouch-walking and suppressed during glides. The rendered body and first-person eye ease through a six-tick transition; collision and source-time weapon facts change immediately and remain authoritative. Gamepad Crouch is rebindable and initially unbound so existing bindings are preserved.
+- **Training-map surf:** use the tagged lane in **TRAVERSAL TRAINING**. Tagged sloped contacts retain airborne steering and gravity and clip inward velocity without ordinary slope speed loss. They do not count as landings or grant hops. Walls, ceilings and moving entities retain native collision behavior. Ordinary walkable slopes use the current grounded surface-speed policy; they do not become surf surfaces.
 
 The training map has an uphill ramp at X=-30, a tagged surf lane at X=-10, an identical untagged control at X=10, a low tunnel at X=30, and a thin side-rail clearance obstacle at X=38.75. Geometry and the map recipe are original; generated assets stay in the user's extracted-data directory.
 
 ## Tuning display
 
-Optional movement modes show horizontal speed in world units/second and airborne strafe efficiency. Speed comes from the body after collision. Efficiency compares the horizontal speed-squared gain that survived that tick with the best directional acceleration gain available at the same speed and input magnitude. `--` means the measurement is unavailable. Open the HUD editor and select **movement.telemetry** to move, scale, tint, hide or change its opacity. Save/use the edited HUD profile to apply it. Both editor previews, undo/redo, reset and profile export/import support it. This display never drives gameplay, packets, or replays and is hidden when movement is ineligible.
+Optional movement modes show horizontal and total speed in world units/second, completed AIR/SLIDING/CROUCH/GROUND state, and airborne strafe efficiency. Both speeds and contact/stance come from the body after collision; landing clears air-efficiency text. Efficiency compares the horizontal speed-squared gain that survived that tick with the best directional acceleration gain available at the same speed and input magnitude. `--` means the measurement is unavailable. Open the HUD editor and select **movement.telemetry** to move, scale, tint, hide or change its opacity. Save/use the edited HUD profile to apply it. Both editor previews, undo/redo, reset and profile export/import support it. This display never drives gameplay, packets, or replays and is hidden when movement is ineligible.
 
 ## Authoring and compatibility
 
@@ -42,7 +42,42 @@ See [rocket, slide and HUD reliability results](reliability-polish-results.md) f
 
 Protocol 74 selects Traversal profile v4 with a 72-tick (1.2-second) slide and
 friction 0.45. The v3 entry threshold and single-use landing window are retained.
-Recorded protocols 71–73 keep v3, 69–70 keep v2, and 68 keeps v1. Quake3 remains
-profile v3. Prior profile classes and native wire widths are unchanged.
+Recorded protocols 74–75 keep v4, 71–73 keep v3, 69–70 keep v2, and 68 keeps v1.
+Prior profile classes and native wire widths are unchanged.
 
 See [slide readability and crouch gait results](slide-gait-results.md) for the held-Forward reproduction and verification scope.
+
+Protocol 76 selects Traversal v5 and Quake III v4. Continuing eligible movement
+on a fresh, static, walkable support solves acceleration/friction using surface
+speed, then redirects travel along the plane. Contact redirection retains only
+the velocity entering that contact, after any wall response. First airborne
+landings, accepted jumps, separating blast impulses, slippery/damaging contacts,
+platforms, finite edges and steep faces keep their native response. Classic and
+Momentum are unchanged.
+
+Earned Traversal slides receive a bounded gravity component along supported
+slopes once per fixed tick (6 world units/second squared before projection).
+Uphill slides slow gradually; downhill gravity counters friction and can build
+modest speed. Flat slide coefficients and the non-refreshable 72-tick duration
+are unchanged. This force never creates a slide entitlement or runs per triangle.
+
+The dedicated slide pose blends into asymmetric extended/tucked legs and a torso
+lean over six fixed ticks, then recovers over six ticks. Its cosmetic heading
+follows world travel independently of aim. Native shot/ability curves and
+canonical weapon facts remain authoritative. See the [ramp verification](ramp-momentum-results.md)
+and [dedicated slide presentation results](dedicated-slide-results.md).
+
+Crouch footwork now follows completed horizontal travel with a 62% support phase,
+low swing lift, gradual direction changes and six-tick start/stop blending.
+Fresh local walkable support aligns the step to the floor. Remote capture uses
+completed playout positions and accepted velocity rather than snapshot-arrival
+bursts; passive replicas capture the same cosmetic timelines. Checkpoint restore
+clears cosmetic history and rebuilds it from subsequent completed steps.
+See [planted crouch footwork results](planted-crouch-results.md) for measured scope.
+
+Supported physical Traversal slides reuse the native terrain slide loop (or its
+native rolling loop on floors without a slide entry), with a
+bounded amount based on final horizontal speed. Walking emissions are suppressed
+while sliding; native sound clocks, shared RNG draws, source ownership and teardown
+remain intact. Player volume controls the existing source. See
+[movement feedback results](movement-feedback-results.md) for validation scope.

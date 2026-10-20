@@ -175,6 +175,8 @@ internal static class MomentumBotAuthorityTests
                     Require(sample.Slot == 0 && sample.SimulationFrame == frame, "solver diagnostic identifies actual bot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "solver preserves native vertical bits");
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    if (sample.GroundSupport.HasValue)
+                        incoming = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
                     var result = model switch
                     {
                         MovementModel.Traversal => TraversalMovementProfileV4.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),

@@ -59,8 +59,8 @@ internal sealed class HudStudioCanvas : Control
         foreach (var point in _touches.Values) { if (!found) { first = point; found = true; } else return Math.Sqrt(Math.Pow(point.X - first.X, 2) + Math.Pow(point.Y - first.Y, 2)); }
         return 0;
     }
-    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE", "SPEED 320.0 U/S\nAIR EFF 85%" };
-    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17),new(750,90) };
+    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE", "HORIZ 320.0 U/S\nTOTAL 330.0 U/S | AIR\nAIR EFF 85%" };
+    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17),new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f) };
     public HudStudioCanvas(HudStudioHistory history)
     {
         History = history; Focusable = true; MinHeight = 260;
@@ -153,8 +153,9 @@ internal sealed class HudStudioCanvas : Control
                                 x+=ChatFont.Widths[glyph]*pixel*aspect;
                             }
                         }
-                        Text(rect.Y+2*unit,"SPEED 320.0 U/S");
-                        Text(rect.Y+9*unit,"AIR EFF 85%");
+                        Text(rect.Y+2*unit,"HORIZ 320.0 U/S");
+                        Text(rect.Y+9*unit,"TOTAL 330.0 U/S | AIR");
+                        Text(rect.Y+16*unit,"AIR EFF 85%");
                     }
                     else if(i==4) DrawRadar(context,rect);
                     else if (i is 1 or 2 or 12 or 13) DrawMeter(context, rect, i is 1 or 12,i>=12);

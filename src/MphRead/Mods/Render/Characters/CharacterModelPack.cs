@@ -90,7 +90,7 @@ namespace MphRead.Mods.Render.Characters
         // Only source variants supported by the existing PORT preview exporter.
         // Corruption remains catalog-reserved rather than silently supported.
         internal static bool TryCreate(Hunter hunter, string? character, string? skin,
-            out PrivateCharacterAppearance appearance, out string sourceCharacter)
+            out PrivateCharacterAppearance appearance, out string sourceCharacter, bool generatedSource = false)
         {
             appearance = default;
             sourceCharacter = "";
@@ -101,6 +101,7 @@ namespace MphRead.Mods.Render.Characters
             sourceCharacter = canonical switch
             {
                 "MP2DarkSamus" => "darksamus-echoes",
+                "MP2DarkSamusFinal" when generatedSource => "darksamus-overcharged-echoes",
                 "MP1PowerTrooper" => "trooper-power",
                 "MP1IceTrooper" => "trooper-ice",
                 "MP1WaveTrooper" => "trooper-wave",
@@ -167,10 +168,12 @@ namespace MphRead.Mods.Render.Characters
             internal CharacterSourceCannonRecipe? SourceCannon { get; }
             internal CharacterSourceGraphProof? SourceGraphProof { get; }
             internal CharacterSourceAnimationArchive? SourceAnimations { get; }
+            internal CharacterSourceGxMaterials? SourceMaterials { get; }
             internal object CacheIdentity => _owner;
-            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256,SourceAnimations?.Sha256);
+            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256,SourceAnimations?.Sha256,SourceMaterials?.Archive.Sha256,SourceMaterials==null?null:CharacterSourceGxProgram.Policy);
             private SourcePreviewLease(CharacterModelPack owner,CharacterModelAsset asset,string sha,long generation)
                 { (_owner,Asset,ModelSha256,Generation)=(owner,asset,sha,generation);
+                SourceMaterials=owner._sourceMaterials.GetValueOrDefault(asset)?.Materials;
                 SourceCannon=owner._sourceCannons.GetValueOrDefault(asset);
                 SourceGraphProof=owner._sourceGraphs.GetValueOrDefault(asset);
                 SourceAnimations=owner._sourceAnimations.GetValueOrDefault(asset); }
@@ -259,6 +262,7 @@ namespace MphRead.Mods.Render.Characters
             if(_sourceCannons.TryGetValue(asset,out var cannon))cannon.Revalidate(_sourceRoot,proof.Entry,sha);
             if(_sourceGraphs.TryGetValue(asset,out var graph))graph.Revalidate(_sourceRoot,proof.Entry,sha);
             if(_sourceAnimations.TryGetValue(asset,out var animations))animations.Revalidate(_sourceRoot,proof.Entry,sha);
+            RevalidateSourceMaterials(asset);
             _sourceRootWitness.RequireUnchanged(_sourceRoot);
             _=ContainedPath(_sourceRoot,proof.Entry.Model);_=ContainedPath(_sourceRoot,proof.Entry.Provenance!);
         }
@@ -289,7 +293,7 @@ namespace MphRead.Mods.Render.Characters
         {
             asset = null!;
             return PrivateCharacterAppearance.TryCreate(hunter, appearance.CharacterId, appearance.SkinSource,
-                out var canonical, out _) && _privateAssets.TryGetValue((canonical, part, lod), out asset!);
+                out var canonical, out _, generatedSource: true) && _privateAssets.TryGetValue((canonical, part, lod), out asset!);
         }
 
         public static CharacterModelPack Empty { get; } = new(new());
@@ -380,7 +384,7 @@ namespace MphRead.Mods.Render.Characters
                 if (privateEntry)
                 {
                     if (!PrivateCharacterAppearance.TryCreate(hunter, entry.CharacterId, entry.SkinSource,
-                            out var selected, out sourceCharacter) || entry.Provenance == null
+                            out var selected, out sourceCharacter, generatedSource: sourcePreview) || entry.Provenance == null
                         || entry.ProvenanceSha256 == null || !(entry.Part==CharacterModelPart.Biped || cannonPreview&&entry.Part==CharacterModelPart.ViewModel)
                         || entry.Lod != 0 || entry.Skinning != CharacterSkinningMode.Weighted4 || entry.MobileModel != null)
                         throw new InvalidDataException("Private appearance requires a supported catalog character/skin, matching native parent, provenance and one Weighted4 LOD0 biped.");
@@ -456,6 +460,8 @@ namespace MphRead.Mods.Render.Characters
             pack._sourceRoot=root;
             pack._sourceManifestSha=Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant();
             foreach(var proof in proofs)pack._sourceProofs.Add(proof.Asset,(proof.Entry,proof.Source,proof.Sha));
+            foreach(var proof in proofs.Where(p => p.Source == "darksamus-overcharged-echoes"))
+                pack.CaptureSourceMaterials(proof.Asset, proof.Source);
             return pack;
         }
 
@@ -481,6 +487,8 @@ namespace MphRead.Mods.Render.Characters
                 && value.ValueKind == (expected ? JsonValueKind.True : JsonValueKind.False);
             if (receipt.TryGetProperty("format", out var generatedFormat) && generatedFormat.ValueKind == JsonValueKind.Number && generatedFormat.TryGetInt32(out int generatedVersion) && generatedVersion == 2)
                 return ValidateGeneratedSourceProvenance(receipt, entry, asset, appearance, sourceCharacter, verifiedModelSha);
+            if (sourceCharacter == "darksamus-overcharged-echoes")
+                throw new InvalidDataException("Final accepts only its exact generated source profile.");
             if (!receipt.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.Number
                 || !format.TryGetInt32(out int version) || version != 1
                 || !Text("sourceCharacter", sourceCharacter) || !Text("nativeHunter", asset.Hunter.ToString())
