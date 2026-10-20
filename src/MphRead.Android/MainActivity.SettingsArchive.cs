@@ -22,7 +22,7 @@ public partial class MainActivity
 
     private Task<Stream?> PickSettingsDocument(bool export)
     {
-        if (_settingsDocument != null) throw new InvalidOperationException("A settings document picker is already open.");
+        if (_settingsDocument != null || _sourcePicker?.HasPending == true) throw new InvalidOperationException("A document picker is already open.");
         var completion = new TaskCompletionSource<Stream?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _settingsDocument = completion;
         _settingsDocumentExport = export;
@@ -44,6 +44,7 @@ public partial class MainActivity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
+        if (CompleteSourceDocument(requestCode, resultCode, data)) return;
         if (requestCode != SettingsDocumentRequest) return;
         var completion = _settingsDocument;
         _settingsDocument = null;

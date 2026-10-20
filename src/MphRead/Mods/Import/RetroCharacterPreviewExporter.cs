@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Security.Cryptography;
 using System.Threading;
 using MphRead.Mods.Import.Retro;
-using MphRead.Mods.Platform;
 
 namespace MphRead.Mods.Import;
 
@@ -50,8 +49,7 @@ public static partial class RetroCharacterPreviewExporter
             { AlternateForm = new("ball", 0x654a3f97, "Dark_Samus_MorphBall", 1) },
     });
 
-    public static string DefaultRoot => Path.Combine(AppPaths.UserDataDirectory,
-        "source-character-previews");
+    public static string DefaultRoot => CharacterImportPaths.Resolve(OperatingSystem.IsAndroid());
 
     public static int RunCommand(string? sourcePath)
     {

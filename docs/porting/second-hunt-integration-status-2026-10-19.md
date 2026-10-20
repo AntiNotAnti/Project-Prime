@@ -47,6 +47,7 @@ Our slices add no wire change.
 | [842](https://github.com/AntiNotAnti/Project-Prime/pull/842) | Native Home rule controls, native/managed mode cache restoration and stable keyboard focus | `0ccee5caf6a43f4d3db41cf5b83843a4ecf533e6` |
 | [850](https://github.com/AntiNotAnti/Project-Prime/pull/850) | Complete transactional Echoes ANIM/CINF banks and existing private source-rig playback handoff | `a9f4bbcd404c232f62a46bdc154afe3fdc12769a` |
 | [856](https://github.com/AntiNotAnti/Project-Prime/pull/856) | Deterministic Echoes source GLBs/provenance and read-only normal animated diagnostic preview | `81a3462e7d16220b303d78f3af7ab2064cbc089c` |
+| [859](https://github.com/AntiNotAnti/Project-Prime/pull/859) | Generated normal Echoes cannon recipe, fixed source cut and read-only Body/Cannon preview | `cafa432247d99025231a0130e51c1f8ba2408331` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
