@@ -4,6 +4,7 @@ using MphRead.Mods;
 
 InputOwnershipChecks.Run();
 WeaponTouchChecks.Run();
+StylusResponseChecks.Run();
 
 var controls = new TouchControls();
 controls.Layout(1920, 1080, 1);
@@ -28,7 +29,7 @@ float sensitivity = InputSettings.AltSwipeSensitivity;
 InputSettings.AltSwipeSensitivity = 1;
 try
 {
-    foreach (int refresh in new[] { 30, 60, 120, 144 })
+    foreach (int refresh in new[] { 30, 60, 120, 144, 240 })
     {
         controls = new TouchControls();
         controls.Layout(1920, 1080, 1);

@@ -97,6 +97,13 @@ namespace MphRead.Mods.Input
             set => _mode = Enum.IsDefined(value) ? value : TouchMode.Touch;
         }
 
+        private static TouchStylusResponse _stylusResponse;
+        public static TouchStylusResponse StylusResponse
+        {
+            get => _stylusResponse;
+            set => _stylusResponse = Enum.IsDefined(value) ? value : TouchStylusResponse.Direct;
+        }
+
         // Android visual/device acceptance is required before enabling by default.
         public static bool DirectWeaponSelection { get; set; }
         public static bool ButtonsVisible { get; set; } = true;
@@ -399,6 +406,7 @@ namespace MphRead.Mods.Input
         public static void Reset()
         {
             Mode = TouchMode.Touch;
+            StylusResponse = TouchStylusResponse.Direct;
             DirectWeaponSelection = false;
             ButtonsVisible = true;
             ButtonScale = 1f;
@@ -433,6 +441,12 @@ namespace MphRead.Mods.Input
             if (key == InstancesSettingKey)
             {
                 ReplaceInstances(TryParseInstances(value, out var instances) ? instances : Array.Empty<TouchButtonInstance>());
+                return true;
+            }
+            if (key == "touch_stylus_response")
+            {
+                StylusResponse = Enum.TryParse<TouchStylusResponse>(value, true, out var response)
+                    && Enum.IsDefined(response) ? response : TouchStylusResponse.Direct;
                 return true;
             }
             if (key == "touch_direct_weapon_selection")
@@ -521,6 +535,7 @@ namespace MphRead.Mods.Input
         {
             if (_instancesEdited) lines.Add(InstancesSettingKey + "=" + SerializeInstances(_instances));
             lines.Add($"touch_mode={Mode}");
+            lines.Add($"touch_stylus_response={StylusResponse}");
             lines.Add($"touch_direct_weapon_selection={DirectWeaponSelection.ToString().ToLowerInvariant()}");
             lines.Add($"{ButtonsSettingKey}={ButtonsVisible.ToString().ToLowerInvariant()}");
             lines.Add($"{ButtonScaleSettingKey}={ButtonScale.ToString("0.###", CultureInfo.InvariantCulture)}");

@@ -1505,7 +1505,7 @@ namespace MphRead.Droid
                 // So the touch controls stay on screen through one whether or
                 // not a pad is in the player's hands, or the story stops at
                 // the first scan with nothing to press.
-                _controls.UpdateController(Mods.Input.GamepadManager.ActiveState);
+                _controls.UpdateControllerSnapshot(Mods.Input.GamepadManager.Snapshot);
                 _controls.ForceVisible = GameState.DialogPause;
                 PlayerEntity main = PresentedScene?.Players.Main ?? PlayerEntity.Main;
                 if (main == null || !main.LoadFlags.TestFlag(LoadFlags.Active))
@@ -1968,7 +1968,8 @@ namespace MphRead.Droid
                 }
                 else
                 {
-                    (float X, float Y) delta = _controls.TakeAimDelta();
+                    (float X, float Y) delta = _controls.TakeAimDelta(useStylusResponse:
+                        !main.IsAltForm && !main.IsMorphing && !main.IsUnmorphing);
                     _input.MovePointer(delta.X * AimScale, delta.Y * AimScale);
                 }
             }

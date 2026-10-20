@@ -2204,6 +2204,9 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach (PadRow row in padRows) row.InvalidateVisual();
                 foreach (PadRow row in _replayPadRows) row.InvalidateVisual();
                 foreach (KeyRow row in _keyRows) row.InvalidateVisual();
+                if (_touchModeRow != null) _touchModeRow.Index = (int)Mods.Input.TouchSettings.Mode;
+                if (_touchStylusResponseRow != null) _touchStylusResponseRow.Index = (int)Mods.Input.TouchSettings.StylusResponse;
+                if (_touchDirectWeaponRow != null) _touchDirectWeaponRow.On = Mods.Input.TouchSettings.DirectWeaponSelection;
                 if (_touchButtonsRow != null)
                     _touchButtonsRow.On = Mods.Input.TouchSettings.ButtonsVisible;
                 if (_touchButtonScale != null)
@@ -2232,6 +2235,9 @@ namespace MphRead.Mods.Launcher.Gui
             page.Children.Add(reset);
         }
 
+        private ChoiceRow? _touchModeRow;
+        private ChoiceRow? _touchStylusResponseRow;
+        private ToggleRow? _touchDirectWeaponRow;
         private ToggleRow? _touchButtonsRow;
         private SliderRow? _touchButtonScale;
         private SliderRow? _touchStickScale;
@@ -2362,6 +2368,15 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             Heading(page, "Touch controls");
+            _touchModeRow = Add(page, new ChoiceRow("Touch input", new[] { "Auto", "Touch", "Aim only", "Off" },
+                (int)Mods.Input.TouchSettings.Mode));
+            _touchStylusResponseRow = Add(page, new ChoiceRow("Stylus response", new[] { "Direct", "Classic" },
+                (int)Mods.Input.TouchSettings.StylusResponse));
+            _touchDirectWeaponRow = Add(page, new ToggleRow("Direct wheel selection (experimental)",
+                Mods.Input.TouchSettings.DirectWeaponSelection));
+            Explain(page, "Auto hides the overlay after controller activity until that controller disconnects. "
+                + "Touch keeps on-screen controls available. Aim only combines touch aiming with controller movement. "
+                + "Direct responds immediately; Classic retains the original touch hold and smoothing.");
             _touchButtonsRow = Add(page, new ToggleRow("Enable on-screen touch buttons",
                 Mods.Input.TouchSettings.ButtonsVisible));
             _touchButtonScale = Add(page, new SliderRow("Global button size",
@@ -3033,6 +3048,9 @@ namespace MphRead.Mods.Launcher.Gui
                     Math.Clamp(_clipSecondsRow.Index, 0, Mods.Network.DemoClip.Lengths.Length - 1)];
             if (_touchButtonsRow != null)
             {
+                if (_touchModeRow != null) Mods.Input.TouchSettings.Mode = (Mods.Input.TouchMode)_touchModeRow.Index;
+                if (_touchStylusResponseRow != null) Mods.Input.TouchSettings.StylusResponse = (Mods.Input.TouchStylusResponse)_touchStylusResponseRow.Index;
+                if (_touchDirectWeaponRow != null) Mods.Input.TouchSettings.DirectWeaponSelection = _touchDirectWeaponRow.On;
                 Mods.Input.TouchSettings.ButtonsVisible = _touchButtonsRow.On;
                 if (_touchButtonScale != null)
                     Mods.Input.TouchSettings.ButtonScale = _touchButtonScale.Value / 100f;

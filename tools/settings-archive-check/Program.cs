@@ -104,8 +104,9 @@ try
     {
         foreach (string text in new[] { "auto_update=maybe", "bright_skin_style=999", "window_size=3xno", "window_mode=unknown", "aim_trainer={oops" })
             Reject(() => PreferenceText.Parse(text, true));
-        foreach (string text in new[] { "invert_x=maybe", "touch_buttons=no", "touch_button_scale=NaN", "gamepad_preset=unknown", "gamepad_wheel_order=0,1,1,3,4,5", "clip_key=999999" })
+        foreach (string text in new[] { "invert_x=maybe", "touch_buttons=no", "touch_mode=99", "touch_stylus_response=banana", "touch_direct_weapon_selection=maybe", "touch_button_scale=NaN", "gamepad_preset=unknown", "gamepad_wheel_order=0,1,1,3,4,5", "clip_key=999999" })
             Reject(() => PreferenceText.Parse(text, false));
+        Require(PreferenceText.Parse("touch_mode=AimOnly\ntouch_stylus_response=Classic\ntouch_direct_weapon_selection=true", false).Count == 3);
         var values = PreferenceText.Parse("retired_option=old\nretired_option=new\nsensitivity=2", false);
         Require(values["retired_option"] == "new");
         Require(PreferenceText.Parse("window_mode=borderless fullscreen\nwindow_size=1280x720", true).Count == 2);

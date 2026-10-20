@@ -28,6 +28,11 @@ internal static class InputOwnershipChecks
             touch.PointerMove(1, 100, 100, 0, 0);
             if (touch.TakeAimDelta() != (0f, 0f)) throw new Exception("old pointer survived handoff");
 
+            touch.UpdateControllerSnapshot(new GamepadSnapshot("active-pad", new GamepadState { Connected = true, LeftX = .8f }, 1));
+            if (!touch.PadDriving) throw new Exception("active pad not latched");
+            touch.UpdateControllerSnapshot(new GamepadSnapshot("idle-second-pad", new GamepadState { Connected = true }, 2));
+            if (touch.PadDriving) throw new Exception("disconnected active pad leaves idle replacement hiding touch");
+
             TouchSettings.Mode = TouchMode.AimOnly;
             touch.ReloadSettings();
             touch.PointerDown(3, 100, 500); // left half is aim too
