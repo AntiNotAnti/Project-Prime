@@ -106,6 +106,65 @@ Check(droneAdmission.TryRequest(droneRequest, out var droneCapture)
 Check(droneAdmission.TryTakePlan(() => true, out var deliveredDrone, out var deliveredRequest)
     && deliveredDrone.Equals(dronePlan) && deliveredRequest == droneRequest
     && !droneAdmission.TryTakePlan(() => true, out _, out _), "exact detached drone plan/request retires atomically once");
+// New mode3 handoff is an immutable exact-identity boundary. Shared launcher
+// policy separately validates the supported count/difficulty/suit ranges.
+var combat = practice with { Character = OfflineCharacterMode.TrooperScoutDroneCombatPractice, Bots = 1 };
+var combatRequest = RmlUiAndroidLocalLaunchRequest.ForOffline(combat);
+var combatPlan = practicePlan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDroneCombatPractice, Bots = 1 };
+Check((int)combat.Character == 3 && combatRequest.MatchesPlan(combatPlan, 2),
+    "Android captures literal mode3 combat with its exact one-bot private lifetime");
+Check(!combatRequest.MatchesPlan(dronePlan, 2) && !combatRequest.MatchesPlan(practicePlan, 2)
+    && !combatRequest.MatchesPlan(offlinePlan, 2) && !droneRequest.MatchesPlan(combatPlan, 2)
+    && !practiceRequest.MatchesPlan(combatPlan, 2) && !offlineRequest.MatchesPlan(combatPlan, 2),
+    "combat, drone, wall-cling and native captures cannot substitute mechanics");
+for (int bots = 0; bots <= 7; bots++)
+for (int level = 0; level <= 3; level++)
+for (int suit = 0; suit <= 3; suit++)
+{
+    var exact = combat with { Bots = bots, BotLevel = level, Suit = suit };
+    var request = RmlUiAndroidLocalLaunchRequest.ForOffline(exact);
+    var exactPlan = combatPlan with { Bots = bots, BotLevel = level };
+    Check(request.MatchesPlan(exactPlan, suit), "each supported raw combat tuple retains exact Android identity");
+    Check(!request.MatchesPlan(exactPlan with { Bots = (bots + 1) % 8 }, suit)
+        && !request.MatchesPlan(exactPlan with { BotLevel = (level + 1) % 4 }, suit)
+        && !request.MatchesPlan(exactPlan, (suit + 1) % 4),
+        "even another valid bot/difficulty/suit cannot replace the captured combat tuple");
+}
+foreach (var bad in new[] {
+    combatPlan with { Bots = 0 }, combatPlan with { Bots = 2 }, combatPlan with { Bots = -1 }, combatPlan with { Bots = 8 },
+    combatPlan with { BotLevel = -1 }, combatPlan with { BotLevel = 4 }, combatPlan with { BotLevel = 2 },
+    combatPlan with { IsPlaytest = false }, combatPlan with { Hunter = Hunter.Samus },
+    combatPlan with { Mode = GameMode.BattleTeams }, combatPlan with { RoomKey = "OTHER" },
+    combatPlan with { Kind = LaunchKind.Online }, combatPlan with { Kind = LaunchKind.Adventure },
+    combatPlan with { OfflineCharacter = (OfflineCharacterMode)4 }, combatPlan with { SaveSlot = 1 },
+    combatPlan with { NewGame = true }, combatPlan with { AdventureDestination = CampaignPlanet.Alinos },
+    combatPlan with { ExitShipToSurface = true } })
+    Check(!combatRequest.MatchesPlan(bad, 2), "mutating any captured combat identity cannot cross Android handoff");
+Check(!combatRequest.MatchesPlan(combatPlan, -1) && !combatRequest.MatchesPlan(combatPlan, 4),
+    "out-of-range current suits cannot equal captured valid combat suit");
+Check(!resume.MatchesPlan(plan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDroneCombatPractice }, 0)
+    && !ship.MatchesPlan(shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDroneCombatPractice }, 0),
+    "Adventure and Ship cannot acquire combat mechanics");
+var combatTaggedShip = shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDroneCombatPractice };
+Check(!RmlUiAndroidLocalLaunchRequest.TryShip(effect with { Plan = combatTaggedShip }, out var forbiddenShip)
+    || !forbiddenShip.MatchesPlan(combatTaggedShip, 0),
+    "a combat-tagged ship effect cannot pass final Android handoff even if the factory captures it");
+var combatAdmission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
+Check(combatAdmission.TryRequest(combatRequest, out var combatCapture)
+    && !combatAdmission.TryAccept(combatCapture with { Request = droneRequest }, dronePlan)
+    && !combatAdmission.TryAccept(combatCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(combat with { Bots = 2 }) }, combatPlan with { Bots = 2 })
+    && !combatAdmission.TryAccept(combatCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(combat with { BotLevel = 2 }) }, combatPlan with { BotLevel = 2 })
+    && !combatAdmission.TryAccept(combatCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(combat with { Suit = 1 }) }, combatPlan)
+    && combatAdmission.TryAccept(combatCapture, combatPlan),
+    "same-generation Android owner cannot exchange captured combat mechanics, count, difficulty or suit");
+Check(combatAdmission.TryTakePlan(() => true, out var deliveredCombat, out var deliveredCombatRequest)
+    && deliveredCombat.Equals(combatPlan) && deliveredCombatRequest == combatRequest
+    && !combatAdmission.TryTakePlan(() => true, out _, out _),
+    "exact combat request and plan retire atomically once");
+
 var admission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
 Check(admission.TryRequest(resume, out var captured) && !admission.TryRequest(ship, out _), "one request can await existing UI owner");
 Check(!admission.TryAccept(captured with { Request = ship }, shipPlan), "same generation cannot substitute a different captured request");

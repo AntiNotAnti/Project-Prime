@@ -36,7 +36,7 @@ internal static class ScoutDroneGlTests
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
     private sealed class Failure : Exception { internal Failure(string label) : base(label) { } }
     private sealed record OwnedManifest(int Files, long Bytes, string Sha256);
-    private readonly record struct Controls(bool Morph = false, bool Attack = false, bool Jump = false);
+    private readonly record struct Controls(bool Morph = false, bool Attack = false, bool Jump = false, bool Zoom = false);
     private readonly record struct State(ulong Tick, Vector3 Position, Vector3 Speed, int Health, int BodyHealth,
         bool Alt, bool Morphing, bool Unmorphing, int FireState, int FireFrame, int Cooldown, int Shots, int Damage,
         int AnimationFrame, string Flights);
@@ -88,6 +88,7 @@ internal static class ScoutDroneGlTests
             {
                 GLFW.SwapInterval(0); renderer = GL.GetString(StringName.Renderer); version = GL.GetString(StringName.Version);
                 RunScene(window, room, cases, label => stage = label);
+                RunLaserScene(window, room, cases, label => stage = label);
             }
             stage = "SaveAbsence";
             savesAbsent = !Directory.Exists(Path.Combine(temporary, "Savedata"))
@@ -119,7 +120,7 @@ internal static class ScoutDroneGlTests
                 CoreSha256Before = coreBefore, CoreSha256After = HashFile(corePath), ToolSha256Before = toolBefore, ToolSha256After = HashFile(toolPath),
                 OwnedBefore = before, OwnedAfter = after, TemporaryContextDeleted = !Directory.Exists(temporary), SaveFilesAbsent = savesAbsent,
                 PicturesSaved = 0, SourcePayloadsWritten = false, cases,
-                Scope = "Actual owned-AMHE1 offline local Weavel practice Scene/shaders/world/HUD and native keyboard Morph/Jump/AltAttack. Psycho Bit mobile and native half-turret planted fallbacks only. HUD-only/opacity-control pictures are render-only diagnostics. No imported Trooper/source parity, standing-body cylinder/headshots, laser, online, replay, physical input, display cadence or performance qualification."
+                Scope = "Actual owned-AMHE1 offline local Weavel practice Scene/shaders/world/HUD and native keyboard Morph/Jump/AltAttack/Zoom. Separate native laser Scene checks cached57..122 rays, real TrailSingle pixel contribution, merge/death/teardown and draw-only immutability. Psycho Bit mobile and native half-turret planted fallbacks only. HUD-only/opacity-control pictures are render-only diagnostics. No imported Trooper/source parity, standing-body cylinder/headshots, laser opponent damage, online, replay, physical input, display cadence or performance qualification."
             }, new JsonSerializerOptions { WriteIndented = true });
             if (outputPath != null) { string path = Path.GetFullPath(outputPath); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, json); }
             Console.WriteLine(json);
@@ -288,6 +289,215 @@ internal static class ScoutDroneGlTests
                     Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "native Scene teardown is GL-clean");
                     cases.Add(new { Kind = "Teardown", RetainedPool = retainedPool.Length, RetiredSceneTextures = textures.Length,
                         PrivateOwnersRemaining = player.DroneBeams.Count, ReplayExclusionRetained = scene.PrivateCharacterGameplayUnsupported });
+                }
+            }
+        }
+    }
+
+    // Separate real Scene keeps the original full primary773 acceptance intact.
+    // This adds actual cached-ray rendering, not bot damage/source-model parity.
+    private static void RunLaserScene(NativeWindow window, string room, List<object> cases, Action<string> stage)
+    {
+        Scene? scene = null; var keyboard = SyntheticInput.CreateKeyboard();
+        int steps = 0, pictures = 0, extraPictures = 0, maximumTrails = 0, pixelWitnesses = 0;
+        try
+        {
+            stage("LaserLoadOwnedNativeScene"); Bound();
+            scene = new Scene(window.FramebufferSize, keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { });
+            var plan = new LaunchPlan { Kind = LaunchKind.Offline, Hunter = Hunter.Weavel, RoomKey = room, Mode = GameMode.Battle,
+                Bots = 0, IsPlaytest = true, OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice,
+                MatchRules = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle, TimeLimitSeconds = 0, PointGoal = 10000 } };
+            plan.MatchRules.ApplyInitialConfiguration(scene.GameState); scene.AddPlayer(Hunter.Weavel);
+            Check(OfflineCharacterGameplay.TryBind(scene, plan, out _), "laser Scene binds the actual zero-bot private plan before initialization");
+            var player = scene.Players.Main;
+            scene.AddRoom(room, GameMode.Battle, playerCount: 1); MphRead.Sound.Sfx.Load(scene); scene.OnLoad(); scene.OnResize();
+            RenderOptions.CharacterModelReplacements = false; RenderOptions.ShowCustomCosmetics = false; Features.ReticleOpacity = 1;
+            foreach (var control in player.Controls.All) { control.Type = ButtonType.Key; control.Key = Keys.Unknown; }
+            player.Controls.Shoot.Key = Keys.Enter; player.Controls.Morph.Key = Keys.B; player.Controls.AltAttack.Key = Keys.F;
+            player.Controls.Jump.Key = Keys.Space; player.Controls.Zoom.Key = Keys.Z;
+            player.Controls.MouseAim = false; player.Controls.KeyboardAim = true;
+            SetKey(keyboard, Keys.Enter, true);
+            for (int i = 0; i < 600 && !player.LoadFlags.TestFlag(LoadFlags.Spawned); i++) Step();
+            SetKey(keyboard, Keys.Enter, false);
+            Check(player.LoadFlags.TestFlag(LoadFlags.Spawned), "laser fixture uses real native shoot-to-spawn");
+            scene.CameraSequences.Current?.End(); for (int i = 0; i < 240; i++) Step();
+            Check(player.ModIsInPlay && !player.IsAltForm && player.ScoutDroneEnabled, "living native biped enters real laser fixture");
+            Split();
+            stage("LaserCompleteCachedTimeline");
+            StartLaser(); int shotsBefore = player.DroneShots;
+            for (int frame = 0; frame <= 133; frame++)
+            {
+                Step(); Check(player.DroneLaserProcessedFrame == frame, "actual simulation visits exact laser source frame" + frame);
+                bool visible = frame >= 57 && frame <= 122;
+                Check(player.DroneLaserOn == visible, "cached laser visibility has exact57..122 domain at frame" + frame);
+                Check(player.DroneShots == shotsBefore && player.DroneFireState == 0, "laser does not start a primary volley in a draw or simulation step");
+                if (visible)
+                    Check(Finite(player.DroneLaserOrigin) && Finite(player.DroneLaserEnd)
+                        && (player.DroneLaserEnd - player.DroneLaserOrigin).LengthSquared > .000001f,
+                        "visible actual collision-bounded cached ray is finite and nonempty");
+                else Check(player.DroneLaserOrigin == Vector3.Zero && player.DroneLaserEnd == Vector3.Zero,
+                    "off-frame cached source geometry is cleared rather than rendered late");
+                if (new[] { 56, 57, 87, 113, 117, 122, 123 }.Contains(frame)) Draw("laser-frame" + frame, visible, pixelControl: visible);
+            }
+            Check(player.DroneLaserFrame == -1 && player.DroneLaserCooldown == 600
+                && player.DroneLaserOpportunities == 15 && player.DroneLaserSoundCount == 1,
+                "full native laser ends134 steps with600 wait,15 opportunities and one shot cue");
+            Check(pixelWitnesses > 0 && maximumTrails == 2, "actual source TrailSingle pair contributes pixels through the shared native renderer");
+
+            stage("LaserMergeCancellation");
+            DrainLaserWait(); StartLaser();
+            for (int i = 0; i < 58; i++) Step();
+            Check(player.DroneLaserProcessedFrame == 57 && player.DroneLaserOn, "merge cancellation begins with an actual visible cached ray");
+            Draw("laser-before-merge", true, pixelControl: false);
+            Step(new(Morph: true));
+            Check(!player.DroneLaserOn && player.DroneLaserFrame == -1, "native Morph start immediately cancels actual laser ownership");
+            for (int i = 0; i < 120 && (player.IsAltForm || player.IsUnmorphing); i++) Step();
+            Check(!player.IsAltForm && !player.IsUnmorphing, "native merge completes without forged form or health");
+            Draw("laser-after-merge", false, pixelControl: false);
+
+            stage("LaserNativeDeathCancellation");
+            Split(); DrainLaserWait(); StartLaser();
+            for (int i = 0; i < 58; i++) Step();
+            Check(player.DroneLaserProcessedFrame == 57 && player.DroneLaserOn, "native death cancellation starts with a real visible laser");
+            Draw("laser-before-death", true, pixelControl: false);
+            player.TakeDamage(9999, DamageFlags.Death | DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln | DamageFlags.NoSfx, null, null);
+            Check(player.Health == 0 && !player.DroneLaserOn, "actual native death immediately fences the cached laser from drawing");
+            for (int i = 0; i < 8; i++) Step(requireAlive: false);
+            Check(player.DroneLaserFrame == -1 && player.DroneLaserOrigin == Vector3.Zero && player.DroneLaserEnd == Vector3.Zero,
+                "native death simulation clears cached laser frame and ray ownership");
+            Draw("laser-after-death", false, pixelControl: false);
+            cases.Add(new { Kind = "LaserTimeline", SimulationSteps = steps, FullScenePictures = pictures,
+                ExtraOpacityControlPictures = extraPictures, MaximumMatchedLaserTrails = maximumTrails,
+                PixelWitnesses = pixelWitnesses, player.DroneLasers, player.DroneLaserOpportunities,
+                player.DroneLaserHitAttempts, player.DroneLaserSoundCount,
+                Scope = "real zero-bot native Scene, keyboard Zoom/Morph and native death; no opponent damage/cross-platform/source parity claim" });
+
+            void Step(Controls controls = default, bool requireAlive = true)
+            {
+                Bound(); SetKey(keyboard, Keys.B, controls.Morph); SetKey(keyboard, Keys.F, controls.Attack);
+                SetKey(keyboard, Keys.Space, controls.Jump); SetKey(keyboard, Keys.Z, controls.Zoom);
+                scene.OnSimulationFrame(); steps++;
+                Check(!NetSession.Active && (!requireAlive || player.Health > 0) && Finite(player.Position) && Finite(player.Speed),
+                    "finite native laser simulation has exact offline and living/death owner");
+            }
+            void Split()
+            {
+                Check(!player.IsAltForm, "laser split starts through native biped owner");
+                Step(new(Morph: true)); Check(player.Controls.Morph.IsPressed, "laser fixture observes real Morph edge");
+                for (int i = 0; i < 120 && (!player.IsAltForm || player.IsMorphing); i++) Step(); Step();
+                Check(player.IsAltForm && !player.IsMorphing && player.DroneBody.Health > 0,
+                    "actual native split owns the living planted body before laser input");
+            }
+            void DrainLaserWait()
+            {
+                for (int i = 0; i < 601 && player.DroneLaserCooldown > 0; i++) Step();
+                Check(player.DroneLaserCooldown == 0 && player.DroneLaserFrame == -1, "only native simulation exhausts laser wait");
+            }
+            void StartLaser()
+            {
+                int count = player.DroneLasers; Step(new(Zoom: true));
+                Check(player.Controls.Zoom.IsPressed && player.DroneLasers == count + 1 && player.DroneLaserFrame == 0
+                    && player.DroneLaserProcessedFrame == -1 && !player.DroneLaserOn,
+                    "real Zoom edge starts exactly one actual windup without a premature cached ray");
+            }
+            string Capture()
+            {
+                // Only the private in-memory digest leaves this method. Include
+                // simulation, HP, animations, flights, cached endpoints and all
+                // public counters; no original pose/geometry arrays are exported.
+                static string Bits(Vector3 v) => BitConverter.SingleToInt32Bits(v.X) + ","
+                    + BitConverter.SingleToInt32Bits(v.Y) + "," + BitConverter.SingleToInt32Bits(v.Z);
+                string value = scene.FrameCount + "|" + player.Health + "|" + player.DroneBody.Health + "|"
+                    + Bits(player.Position) + "|" + Bits(player.Speed) + "|" + player.IsAltForm + "|" + player.IsMorphing + "|" + player.IsUnmorphing + "|"
+                    + player.DroneFireState + "|" + player.DroneFireFrame + "|" + player.DroneCooldown + "|" + player.DroneShots + "|"
+                    + player.DroneDamageTotal + "|" + player.DroneLaserFrame + "|" + player.DroneLaserProcessedFrame + "|"
+                    + player.DroneLaserCooldown + "|" + player.DroneLaserOn + "|" + player.DroneLaserPattern + "|" + BitConverter.SingleToInt32Bits(player.DroneLaserDistance) + "|"
+                    + Bits(player.DroneLaserOrigin) + "|" + Bits(player.DroneLaserEnd) + "|" + player.DroneLasers + "|" + player.DroneLaserOpportunities + "|"
+                    + player.DroneLaserHitAttempts + "|" + player.DroneLaserSoundCount + "|" + FlightWitness(player.DroneBeams);
+                foreach (var model in player.GetModels()) value += "|" + string.Join(",", model.AnimInfo.Frame);
+                return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+            }
+            void Draw(string label, bool visible, bool pixelControl)
+            {
+                Bound(); string before = Capture(); scene.OnDrawFrame();
+                var items = new[] { "_decalItems", "_nonDecalItems", "_translucentItems" }
+                    .SelectMany(n => (List<RenderItem>)Get(scene, n)!).Distinct().ToArray();
+                int binding = (int)Get(player, "_trailBindingId1")!;
+                var trails = items.Where(i => i.Type == RenderItemType.TrailSingle
+                    && i.Diffuse == new Vector3(1, .15f, .1f) && i.TextureBindingId == binding).ToArray();
+                Check(trails.Length == (visible ? 2 : 0), "actual native queue contains exactly two cached laser crossed strips iff visible: " + label);
+                maximumTrails = Math.Max(maximumTrails, trails.Length);
+                if (visible)
+                {
+                    Vector3 span = player.DroneLaserEnd - player.DroneLaserOrigin;
+                    Check(binding > 0 && GL.IsTexture(binding), "laser strips use actual scene-owned native trail texture");
+                    Check(trails.All(t => !t.Lighting && t.ItemCount == 8 && t.Points.Length >= 8
+                        && t.Points.Take(8).All(Finite) && (t.Transform.Row3.Xyz - player.DroneLaserOrigin).LengthSquared < .0000001f
+                        && ((t.Points[1] + t.Points[3]) / 2 - span).LengthSquared < .0000001f
+                        && (t.Points[5] + t.Points[7]).LengthSquared < .0000001f),
+                        "submitted native strips exactly consume cached collision-bounded endpoints and finite crossed geometry");
+                }
+                Check(scene.OnRenderFrame(), "actual world/HUD renderer consumes cached laser picture"); pictures++;
+                Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError && Capture() == before,
+                    "native laser picture is GL-clean and cannot tick, damage, advance animation or move cached ray");
+                int changed = 0; string? pixelSha = null;
+                if (pixelControl)
+                {
+                    byte[] on = ReadPixels(); byte[] off = Array.Empty<byte>();
+                    float[] alphas = trails.Select(t => t.Alpha).ToArray();
+                    try
+                    {
+                        foreach (var trail in trails) trail.Alpha = 0;
+                        Check(scene.OnRenderFrame(), "same cached native frame supports explicitly render-only zero-opacity control"); extraPictures++;
+                        off = ReadPixels();
+                        changed = Changed(on, off, scene.Size.X, scene.Size.Y, 0, 0, scene.Size.X, scene.Size.Y);
+                        Check(changed > 0, "cached actual laser strips make a nonzero framebuffer contribution: " + label);
+                        pixelWitnesses++;
+                        pixelSha = Convert.ToHexStringLower(SHA256.HashData(on));
+                    }
+                    finally
+                    {
+                        for (int i = 0; i < trails.Length; i++) trails[i].Alpha = alphas[i];
+                        Array.Clear(on); Array.Clear(off);
+                    }
+                    Check(Capture() == before, "extra actual laser opacity-control picture preserves simulation/HP/cached ray state");
+                    Check(scene.OnRenderFrame(), "actual native frame restored after render-only opacity control"); extraPictures++;
+                }
+                DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
+                Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError && Capture() == before,
+                    "laser present/AfterRenderFrame and all extra pictures remain GL-clean and simulation immutable");
+                cases.Add(new { Kind = "LaserPicture", Label = label, SceneTick = scene.FrameCount,
+                    player.DroneLaserProcessedFrame, player.DroneLaserOn, MatchedTrails = trails.Length, ChangedPixels = changed,
+                    PixelSha256 = pixelSha, RenderOnlyExtraPictures = pixelControl ? 2 : 0 });
+            }
+            byte[] ReadPixels()
+            {
+                int alignment = GL.GetInteger(GetPName.PackAlignment); var bytes = new byte[checked(scene.Size.X * scene.Size.Y * 4)];
+                try { GL.PixelStore(PixelStoreParameter.PackAlignment, 1); GL.ReadPixels(0, 0, scene.Size.X, scene.Size.Y, PixelFormat.Rgba, PixelType.UnsignedByte, bytes); }
+                finally { GL.PixelStore(PixelStoreParameter.PackAlignment, alignment); }
+                Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "in-memory native laser framebuffer witness is GL-clean"); return bytes;
+            }
+        }
+        finally
+        {
+            if (scene != null)
+            {
+                var player = scene.Players.Main; var pool = player.DroneBeams.ToArray();
+                int[] textures = ((HashSet<int>)Get(scene, "_ownedTextures")!).ToArray();
+                try { MomentumSceneTests.Release(scene); }
+                finally
+                {
+                    Check(!player.DroneLaserOn && player.DroneLaserFrame == -1 && player.DroneLaserOrigin == Vector3.Zero
+                        && player.DroneLaserEnd == Vector3.Zero && !player.ScoutDroneEnabled,
+                        "actual Scene teardown clears all cached laser ownership and geometry");
+                    Check(pool.All(b => b.Owner == null && b.Lifespan == 0 && !ContainsEntity(scene, b))
+                        && player.DroneBeams.Count == 0 && Get(player, "_droneModel") == null,
+                        "laser Scene teardown retires native flight/fallback ownership");
+                    Check(((HashSet<int>)Get(scene, "_ownedTextures")!).Count == 0 && textures.All(id => !GL.IsTexture(id)),
+                        "laser Scene releases actual texture resources with GL context alive");
+                    Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "laser Scene cleanup remains GL-clean");
+                    cases.Add(new { Kind = "LaserTeardown", RetiredSceneTextures = textures.Length,
+                        CachedRayRemaining = player.DroneLaserOn, PrivateFlightsRemaining = player.DroneBeams.Count });
                 }
             }
         }

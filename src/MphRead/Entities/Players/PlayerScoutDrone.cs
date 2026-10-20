@@ -26,7 +26,7 @@ public partial class PlayerEntity
         {
             // The rule getter retires a lost Scene/player/rules owner. Every
             // emission checks this gate again; native Spawn is not admission.
-            return ModCharacterGameplay == CharacterGameplayRules.TrooperDroneV1;
+            return ModCharacterGameplay.UsesScoutDrone;
         }
     }
     internal int DroneFireState => _droneFireState;
@@ -79,6 +79,7 @@ public partial class PlayerEntity
     private void ScoutDroneResetForLife()
     {
         ScoutDroneResetBurst(0);
+        ScoutDroneLaserReset();
         _dronePadFall = false;
         _droneFloorGap = -1;
         ScoutDroneRetireFlights();
@@ -104,7 +105,11 @@ public partial class PlayerEntity
 
     private void ScoutDroneMerge()
     {
-        if (ScoutDroneEnabled && _droneFireState != 0) ScoutDroneResetBurst(DroneWaitSteps);
+        if (ScoutDroneEnabled)
+        {
+            if (_droneFireState != 0) ScoutDroneResetBurst(DroneWaitSteps);
+            ScoutDroneLaserEnd();
+        }
         _dronePadFall = false;
     }
 
@@ -122,9 +127,17 @@ public partial class PlayerEntity
         {
             if (_droneFireState != 0) ScoutDroneResetBurst(DroneWaitSteps);
             else if (_droneCooldown > 0) _droneCooldown--;
+            if (_droneLaserFrame >= 0) ScoutDroneLaserEnd();
+            else if (_droneLaserWait > 0) _droneLaserWait--;
             return;
         }
+        // Independent waits keep counting while the other attack runs. Laser
+        // wins simultaneous held inputs only when the primary is fully folded.
         if (_droneCooldown > 0 && _droneFireState == 0) _droneCooldown--;
+        if (_droneLaserWait > 0 && _droneLaserFrame < 0) _droneLaserWait--;
+        if (_droneLaserFrame >= 0) { ScoutDroneLaserStep(); return; }
+        if (_droneFireState == 0 && _droneLaserWait == 0 && Controls.Zoom.IsDown)
+        { ScoutDroneLaserStart(); return; }
         bool held = Controls.AltAttack.IsDown;
         switch (_droneFireState)
         {
@@ -249,14 +262,18 @@ public partial class PlayerEntity
             * GetTransformMatrix(facing, Vector3.UnitY, drawPosition.AddY(Fixed.ToFloat(Values.AltColYPos)));
         UpdateTransforms(_droneModel, transform, 0);
         GetDrawItems(_droneModel, _droneModel.Model.Nodes[0], _curAlpha, 0, overrideColor: brightSkin, outlineColor: outline);
+        DrawScoutDroneLaser();
     }
 
     private void DrawScoutDroneHud()
     {
         string state = _droneFireState switch { 1 => "UNFOLDING", 2 => "FIRING", 3 => "FOLDING",
             _ => _droneCooldown > 0 ? "COOLING " + ((_droneCooldown + 59) / 60) : "READY" };
+        string laser = _droneLaserFrame >= 0 ? DroneLaserProcessedFrame < 57 ? "WINDUP" : _droneLaserVisible ? "SWEEP" : "RECOVERY"
+            : _droneLaserWait > 0 ? "COOLING " + ((_droneLaserWait + 59) / 60) : "READY";
+        DrawText2D(128, 122, Align.Center, 0, "LASER " + laser);
         DrawText2D(128, 132, Align.Center, 0, "DRONE " + state);
-        DrawText2D(128, 142, Align.Center, 0, "JUMP: HOVER / ALT ATTACK: BURST");
+        DrawText2D(128, 142, Align.Center, 0, "JUMP: HOVER / ALT: BURST / ZOOM: LASER");
         // Native reticle projected along the same simulation aim as both muzzles.
         Vector3 center = Position.AddY(Fixed.ToFloat(Values.AltColYPos));
         Vector3 aim = NormalizeSpatialOr(_gunVec1, Vector3.UnitZ);

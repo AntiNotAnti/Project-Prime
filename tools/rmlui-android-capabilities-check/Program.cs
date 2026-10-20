@@ -83,7 +83,7 @@ void Hidden(RmlUiDocumentToken document, string id)
         "capability hides actual control: " + id);
 
 foreach (string id in new[] { "nav_community", "nav_studio", "profile", "header_settings", "drawer_browser",
-    "drawer_training", "drawer_adventure", "home_feature_rail", "home_social", "home_social_rail",
+    "drawer_training", "drawer_adventure", "home_feature_rail", "home_social", "home_social_rail", "home_social_open",
     "home_drawer_multiplayer", "home_drawer_training", "home_drawer_adventure" }) Hidden(home, id);
 Check(native.Strings.GetValueOrDefault((home.DocumentId, "home_drawer_footer"))
     == "CONFIGURED LOCAL PLAY // NO 3D PREVIEW IN THIS ROUTE"
@@ -156,7 +156,7 @@ foreach (string relative in new[] { "Components/app-shell.rml", "Pages/home/home
     }
 }
 Check(auditedIds.SetEquals(appliedIds), "every capability visibility override targets an actual authored DOM ID");
-Check(auditedIds.Count == 23, "authored capability DOM inventory includes original controls, unsupported headings and five added workspace/social actions");
+Check(auditedIds.Count == 24, "authored capability DOM inventory includes original controls, unsupported headings, workspace/social actions and the moved Social sibling");
 
 var offline = pages.ShowBaseline(RmlUiMenuPage.Offline);
 Hidden(offline, "offline_training_panel"); Hidden(offline, "offline_rules_open");
@@ -190,6 +190,9 @@ Check(pages.Back(out back) && back.Kind == RmlUiIntentKind.Navigate && back.Argu
 pages.ShowBaseline(RmlUiMenuPage.Home);
 pages.SetBool("home_social_rail_visible", true); pages.SetBool("home_friends_visible", true); pages.Flush();
 Hidden(pages.Document, "home_social_rail");
+Hidden(pages.Document, "home_social_open");
+host.SetBool(pages.Document, "visible:home_social_open", true); pages.Flush();
+Hidden(pages.Document, "home_social_open");
 host.SetBool(pages.Document, "visible:nav_studio", true); pages.Flush();
 Hidden(pages.Document, "nav_studio");
 host.SetBool(pages.Document, "visible:profile", true); pages.PresentChrome(pages.Document);
@@ -233,9 +236,9 @@ var canceled = new RmlUiAndroidLauncherAdmission<Request, Plan>();
 Check(canceled.TryRequest(new(2), out var canceledWitness) && canceled.TryAccept(canceledWitness, new(2)), "accepted cancellation setup");
 Task.Run(canceled.Retire).GetAwaiter().GetResult();
 Check(!canceled.TryTakePlan(out _), "retirement discards an already accepted plan before owner consumption");
-Check(checks == 488, "capability/admission and current authored-action inventory checks remain complete");
+Check(checks == 491, "capability/admission and current authored-action inventory checks remain complete");
 HunterAcceptance.Run(root, Check);
-Check(checks == 664, "existing Hunter checks and current authored-action inventory remain complete");
+Check(checks == 667, "existing Hunter checks and current authored-action inventory remain complete");
 Guid previewOwner = Guid.NewGuid(), replacementOwner = Guid.NewGuid();
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked && !RmlUiAndroidLauncherPreviewBarrier.IsOwned(previewOwner),
     "preview barrier begins unowned");
@@ -256,7 +259,7 @@ Check(RmlUiAndroidLauncherPreviewBarrier.Blocked && RmlUiAndroidLauncherPreviewB
     && !RmlUiAndroidLauncherPreviewBarrier.TryAcquire(previewOwner), "stale old-owner release cannot unlock replacement owner");
 RmlUiAndroidLauncherPreviewBarrier.Release(replacementOwner);
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked, "barrier fixture leaves production static gate released");
-Check(checks == 673, "existing Hunter/barrier checks and current authored-action inventory remain complete");
+Check(checks == 676, "existing Hunter/barrier checks and current authored-action inventory remain complete");
 
 // Actual admission overload keeps the acknowledged plan private until native
 // launcher owner retirement succeeds. Callback failure consumes it permanently.

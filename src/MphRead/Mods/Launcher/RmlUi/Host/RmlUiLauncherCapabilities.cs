@@ -20,7 +20,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             "drawer_browser", "drawer_training", "drawer_adventure",
             "home_drawer_multiplayer", "home_drawer_training", "home_drawer_adventure",
-            "home_feature_rail", "home_social", "home_party_slot2", "home_party_slot3", "home_social_summary", "home_social_rail"
+            "home_feature_rail", "home_social", "home_party_slot2", "home_party_slot3", "home_social_summary", "home_social_rail", "home_social_open"
         };
         private static readonly string[] UnsupportedOfflineElements = { "offline_training_panel", "offline_rules_open" };
         private static readonly string[] UnsupportedArenaElements = { "offline_arena_search", "offline_arena_search_apply" };

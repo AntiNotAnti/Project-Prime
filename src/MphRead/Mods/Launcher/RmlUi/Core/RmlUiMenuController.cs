@@ -2076,6 +2076,7 @@ public sealed class RmlUiMenuController : IDisposable
         {
             OfflineCharacterMode.TrooperWallClingPractice => "START WALL-CLING PRACTICE",
             OfflineCharacterMode.TrooperScoutDronePractice => "START DRONE PRACTICE",
+            OfflineCharacterMode.TrooperScoutDroneCombatPractice => "START DRONE COMBAT PRACTICE",
             _ => "INITIATE BOT SIMULATION"
         });
         Text("offline_summary", _offline == null ? "" :

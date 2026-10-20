@@ -612,12 +612,19 @@ Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharac
     "second mechanics cycle selects explicit valid zero-bot Scout Drone practice");
 var capturedDrone = offlinePager.Current;
 Check(offlinePager.CharacterNotice.Contains("Native fallback models", StringComparison.Ordinal)
-    && offlinePager.CharacterNotice.Contains("No laser, blaster or replays", StringComparison.Ordinal),
+    && offlinePager.CharacterNotice.Contains("Zoom for a laser", StringComparison.Ordinal)
+    && offlinePager.CharacterNotice.Contains("No blaster or replays", StringComparison.Ordinal),
     "drone notice keeps current native fallback and missing-feature scope explicit");
+Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice
+    && (int)offlinePager.Current.Character == 3 && offlinePager.Current.Bots == 1 && offlinePager.Valid
+    && offlinePager.CharacterName == "DRONE COMBAT PRACTICE",
+    "third cycle explicitly captures combat practice with one native opponent");
+var capturedCombat = offlinePager.Current;
 Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.Native
     && offlinePager.CharacterNotice == "" && capturedWall.Character == OfflineCharacterMode.TrooperWallClingPractice
-    && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice,
-    "third cycle restores Native while both earlier immutable captures retain their identities");
+    && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice
+    && capturedCombat.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice && capturedCombat.Bots == 1,
+    "fourth cycle restores Native while all earlier immutable captures retain their identities");
 Check(new RmlUiOfflineDraft(new[] { "Arena 00" }, Hunter.Weavel, 0, 0, 0).Current.Character == OfflineCharacterMode.Native
     && !(capturedDrone with { Character = (OfflineCharacterMode)77 }).ValidateForm(new[] { capturedDrone.RoomKey }),
     "fresh drafts never inherit mechanics and unknown values remain refused");

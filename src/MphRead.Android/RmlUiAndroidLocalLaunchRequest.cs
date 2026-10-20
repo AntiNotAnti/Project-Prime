@@ -57,7 +57,7 @@ internal readonly record struct RmlUiAndroidLocalLaunchRequest
     {
         if (Kind == RmlUiAndroidLocalLaunchKind.Offline)
             return plan.Kind == LaunchKind.Offline && plan.RoomKey == Offline.RoomKey && plan.Mode == Offline.Mode
-                && Offline.Character is OfflineCharacterMode.Native or OfflineCharacterMode.TrooperWallClingPractice or OfflineCharacterMode.TrooperScoutDronePractice
+                && Offline.Character is OfflineCharacterMode.Native or OfflineCharacterMode.TrooperWallClingPractice or OfflineCharacterMode.TrooperScoutDronePractice or OfflineCharacterMode.TrooperScoutDroneCombatPractice
                 && plan.OfflineCharacter == Offline.Character
                 && plan.IsPlaytest == (Offline.Character != OfflineCharacterMode.Native)
                 && plan.Hunter == Offline.Hunter && plan.Bots == Offline.Bots && plan.BotLevel == Offline.BotLevel

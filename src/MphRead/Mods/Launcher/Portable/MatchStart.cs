@@ -214,7 +214,7 @@ namespace MphRead.Mods.Launcher
             else
             {
                 plan.MatchRules.ApplyModifiers(window.Scene.GameState);
-                AddLocalPlayers(window, plan, teamPlay);
+                AddLocalPlayers(window.Scene, plan, teamPlay);
                 if (!OfflineCharacterGameplay.TryBind(window.Scene, plan, out string characterReason))
                 {
                     LastError = characterReason;
@@ -518,30 +518,33 @@ namespace MphRead.Mods.Launcher
         /// full of one's own reflection, and alternating teams is what makes
         /// the Teams modes mean anything offline.
         /// </summary>
-        private static void AddLocalPlayers(RenderWindow renderer, LaunchPlan plan,
+        // Shared ordinary local population owner; the initialized-Scene tests
+        // exercise this same path without manufacturing bot actors afterwards.
+        internal static void AddLocalPlayers(Scene scene, LaunchPlan plan,
             bool teamPlay)
         {
+            if (plan.OfflineCharacter == OfflineCharacterMode.TrooperScoutDroneCombatPractice) teamPlay = false;
             int bots = Math.Clamp(plan.Bots, 0, PlayerEntity.SlotCapacity - 1);
             // PlayerEntity.Create refuses every slot past MaxPlayers, and the
             // offline default is still the four a DS match could hold, so
             // asking for seven opponents would silently produce three. Set
             // rather than raise: the launcher comes back between matches now,
             // and a seven-bot match must not leave the next one at eight.
-            renderer.Scene.Players.MaxPlayers = Math.Max(4, bots + 1);
+            scene.Players.MaxPlayers = Math.Max(4, bots + 1);
             // The player's own suit, and the first one for each bot: they are
             // each a different hunter (see below), so nobody collides and
             // there is nothing for PlayerColors to resolve offline.
-            renderer.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor,
+            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor,
                 team: teamPlay ? 0 : -1);
             for (int i = 1; i <= bots; i++)
             {
                 var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);
-                renderer.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
+                scene.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
             }
             int level = Math.Clamp(plan.BotLevel, 0, 3);
-            for (int i = 0; i < renderer.Scene.Players.Items.Count; i++)
+            for (int i = 0; i < scene.Players.Items.Count; i++)
             {
-                PlayerEntity player = renderer.Scene.Players.Items[i];
+                PlayerEntity player = scene.Players.Items[i];
                 if (player.IsBot)
                 {
                     player.BotLevel = level;
