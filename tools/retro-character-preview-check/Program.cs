@@ -25,11 +25,11 @@ try
     }
     CharacterBundleAcceptance.RunContract();
     var chars = RetroCharacterPreviewExporter.Sources;
-    Check(chars.Count == 5 && chars.Select(x=>x.Id).Distinct().Count()==5,
-        "five independent local model source identities");
+    Check(chars.Count == 6 && chars.Select(x=>x.Id).Distinct().Count()==6,
+        "six independent local model source identities");
     Check(chars.Count(x => x.Game == ExternalGameKind.MetroidPrime) == 4 &&
-        chars.Count(x => x.Game == ExternalGameKind.Echoes) == 1,
-        "four Trooper looks and Dark Samus");
+        chars.Count(x => x.Game == ExternalGameKind.Echoes) == 2,
+        "four Trooper looks and two distinct Echoes Dark Samus source bodies");
 
     var body = new Cmdl
     {
@@ -92,7 +92,7 @@ try
         RetroCharacterSkinWeights.Write(body, new MemoryStream()),
         "incomplete skin cannot be used as a rig");
 
-    Console.WriteLine("PASS: five source character identities, safe local OBJ output and invalid geometry refusal");
+    Console.WriteLine("PASS: six source character identities, safe local OBJ output and invalid geometry refusal");
     return 0;
 }
 catch(Exception ex)

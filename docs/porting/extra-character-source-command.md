@@ -17,7 +17,7 @@ server, installed into the runtime character packs or uploaded to
 Community. Existing seven playable hunter IDs, hitboxes, network packets,
 replays, and player selection remain unchanged.
 
-The four Trooper appearances and Echoes Dark Samus remain **nonplayable
+The four Trooper appearances and the normal/Overcharged Echoes Dark Samus bodies remain **nonplayable
 model previews**, not completed character ports. Real-media acceptance,
 native skin/animation retargeting, HUD/viewmodel and alternate-form
 rendering remain the next milestones.

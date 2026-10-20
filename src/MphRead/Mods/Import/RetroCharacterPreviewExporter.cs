@@ -24,7 +24,17 @@ public static class RetroCharacterPreviewExporter
     public const int MaxTriangles = 500_000;
     public const long MaxOutputBytes = 256L * 1024 * 1024;
     public sealed record SourceCharacter(
-        string Id, ExternalGameKind Game, uint Ancs, string NativeName);
+        string Id, ExternalGameKind Game, uint Ancs, string NativeName)
+    {
+        public string DisplayName => Id switch
+        {
+            "darksamus-echoes"=>"Dark Samus (Echoes)",
+            "darksamus-overcharged-echoes"=>"Overcharged Dark Samus (Echoes)",
+            "trooper-power"=>"Power Trooper (Prime)","trooper-ice"=>"Ice Trooper (Prime)",
+            "trooper-wave"=>"Wave Trooper (Prime)","trooper-plasma"=>"Plasma Trooper (Prime)",
+            _=>Id
+        };
+    }
     public static IReadOnlyList<SourceCharacter> Sources { get; } = Array.AsReadOnly(new[]
     {
         new SourceCharacter("darksamus-echoes", ExternalGameKind.Echoes, 0x39900a11, "Dark_Samus"),
@@ -32,6 +42,9 @@ public static class RetroCharacterPreviewExporter
         new SourceCharacter("trooper-ice", ExternalGameKind.MetroidPrime, 0x8169653a, "ice_trooper"),
         new SourceCharacter("trooper-wave", ExternalGameKind.MetroidPrime, 0x8169653a, "wave_trooper"),
         new SourceCharacter("trooper-plasma", ExternalGameKind.MetroidPrime, 0x8169653a, "plasma_trooper"),
+        // A distinct source body in the same verified ANCS, never an alias of
+        // Dark_Samus or a playable/native-Hunter registration.
+        new SourceCharacter("darksamus-overcharged-echoes", ExternalGameKind.Echoes, 0x39900a11, "Battle_3"),
     });
 
     public static string DefaultRoot => Path.Combine(AppPaths.UserDataDirectory,
