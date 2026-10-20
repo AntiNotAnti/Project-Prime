@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using MphRead;
 using MphRead.Entities;
@@ -169,12 +170,19 @@ internal static class MomentumServerPerformanceBenchmark
         long snapshots = 0, snapshotBytes = 0, intents = 0, verifiedSnapshotBodies = 0;
         uint lastSnapshot = 0;
         bool measuring = false;
+        using var snapshotHash = verify ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256) : null;
+        long hashedSnapshotPayloads = 0;
         Action<int, IntentPacket>? originalSink = NetBotInput.Sink;
         try
         {
             Require(sim.Start(room, GameMode.Battle, Players, payload =>
             {
                 snapshots++; snapshotBytes += payload.Length;
+                if (snapshotHash != null && measuring)
+                {
+                    snapshotHash.AppendData(payload);
+                    hashedSnapshotPayloads++;
+                }
                 if (!verify || scene == null) return;
                 var header = SnapshotHeader.Read(payload);
                 Require(header.Frame > lastSnapshot && header.MatchId == roster.MatchId && header.AuthorityEpoch == roster.AuthorityEpoch,
@@ -317,6 +325,8 @@ internal static class MomentumServerPerformanceBenchmark
             int gen0 = GC.CollectionCount(0) - g0, gen1 = GC.CollectionCount(1) - g1, gen2 = GC.CollectionCount(2) - g2;
             long solverApplications = scene.DeveloperMomentumSteps - solverBefore;
             Totals after = Counters();
+            if (verify) Require(hashedSnapshotPayloads > 0 && hashedSnapshotPayloads == after.Snapshots - countersBefore.Snapshots,
+                "verification digest covers every actual published snapshot in the measured window");
             Identities();
             var workloadFailures = new List<string>();
             if (sim.StepFailures != failedBefore) workloadFailures.Add("Native simulation step failure invalidates measured window.");
@@ -385,7 +395,10 @@ internal static class MomentumServerPerformanceBenchmark
                     throughputScope = "logical published snapshot payloads and AI intent events; no UDP packet/byte throughput claim" },
                 verification = new { diagnosticsEnabled = verify, solverApplications, solverSampleTicks, positiveInputSolverTicks, solverObservedSlots,
                     observedSlotsScope = "LastMomentumStep is one bounded cell; later eligible bots can overwrite earlier slots, so no per-slot invocation count claim",
-                    verifiedSnapshotBodies, allEightAliveObservedDuringWarmup = firstAllEightAliveWarmStep > 0 },
+                    verifiedSnapshotBodies, allEightAliveObservedDuringWarmup = firstAllEightAliveWarmStep > 0,
+                    snapshotPayloadsHashed = hashedSnapshotPayloads,
+                    snapshotPayloadSha256 = snapshotHash == null ? null : Convert.ToHexString(snapshotHash.GetHashAndReset()),
+                    snapshotDigestScope = "verification only: concatenated actual published snapshot payload bytes in measured window; timing disabled; not all per-frame game state" },
                 networkAndCollision = new { stepFailures = sim.StepFailures - failedBefore, dropped = sim.DroppedSteps - droppedBefore,
                     stalls = sim.Stalls - stallsBefore, overruns = raw.Count(value => value > 1000d / 60),
                     claimsReceived = Delta(after.Claims, countersBefore.Claims), claimsApplied = Delta(after.AppliedClaims, countersBefore.AppliedClaims),

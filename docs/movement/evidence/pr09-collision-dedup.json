@@ -1,0 +1,1940 @@
+{
+  "scope": "32 predeclared timing arms; two Native/Momentum ABBA cycles per map/version; all arms retained; elapsed wall sim.Step not CPU sampling; 5percent original Momentum-v-Native p95 gate unchanged",
+  "parity": [
+    {
+      "map": "PG",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "8067f389ad87ee09dd50e1049e37339e3c9db6b835776482df0cc6d615bd83a9",
+      "snapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "snapshotPayloadCount": 3600
+    },
+    {
+      "map": "PG",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "51200484020027d577dfa64ea735c272ff99c0b0a35093419ed9498b0bb5fe41",
+      "snapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "snapshotPayloadCount": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "615b527438a181add2ff374f45bc4af96ce0242376fafbc83fcfbdf8e33c1996",
+      "snapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "snapshotPayloadCount": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "3033a97a465064faf0dcb6cbfb36752225bd349bd5b03a5c1d4c4f00a1424c3b",
+      "snapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "snapshotPayloadCount": 3600
+    }
+  ],
+  "groups": [
+    {
+      "map": "PG",
+      "version": "baseline",
+      "medianP95": {
+        "Native": 0.2884,
+        "Momentum": 0.32255
+      },
+      "momentumRelativeNative": 0.11841192787794741,
+      "original5PercentGate": false,
+      "arms": [
+        {
+          "name": "timing-PG-baseline-1-1-Native",
+          "model": "Native",
+          "p95": 0.2842
+        },
+        {
+          "name": "timing-PG-baseline-1-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.3189
+        },
+        {
+          "name": "timing-PG-baseline-1-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.32130000000000003
+        },
+        {
+          "name": "timing-PG-baseline-1-4-Native",
+          "model": "Native",
+          "p95": 0.2908
+        },
+        {
+          "name": "timing-PG-baseline-2-1-Native",
+          "model": "Native",
+          "p95": 0.2883
+        },
+        {
+          "name": "timing-PG-baseline-2-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.33140000000000003
+        },
+        {
+          "name": "timing-PG-baseline-2-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.32380000000000003
+        },
+        {
+          "name": "timing-PG-baseline-2-4-Native",
+          "model": "Native",
+          "p95": 0.28850000000000003
+        }
+      ]
+    },
+    {
+      "map": "PG",
+      "version": "candidate",
+      "medianP95": {
+        "Native": 0.25335,
+        "Momentum": 0.2972
+      },
+      "momentumRelativeNative": 0.17308071837379124,
+      "original5PercentGate": false,
+      "arms": [
+        {
+          "name": "timing-PG-candidate-1-1-Native",
+          "model": "Native",
+          "p95": 0.2515
+        },
+        {
+          "name": "timing-PG-candidate-1-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.2879
+        },
+        {
+          "name": "timing-PG-candidate-1-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.2953
+        },
+        {
+          "name": "timing-PG-candidate-1-4-Native",
+          "model": "Native",
+          "p95": 0.2544
+        },
+        {
+          "name": "timing-PG-candidate-2-1-Native",
+          "model": "Native",
+          "p95": 0.2636
+        },
+        {
+          "name": "timing-PG-candidate-2-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.29910000000000003
+        },
+        {
+          "name": "timing-PG-candidate-2-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.3062
+        },
+        {
+          "name": "timing-PG-candidate-2-4-Native",
+          "model": "Native",
+          "p95": 0.2523
+        }
+      ]
+    },
+    {
+      "map": "SAN",
+      "version": "baseline",
+      "medianP95": {
+        "Native": 0.3533,
+        "Momentum": 0.3618
+      },
+      "momentumRelativeNative": 0.024058873478630005,
+      "original5PercentGate": true,
+      "arms": [
+        {
+          "name": "timing-SAN-baseline-1-1-Native",
+          "model": "Native",
+          "p95": 0.3532
+        },
+        {
+          "name": "timing-SAN-baseline-1-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.35550000000000004
+        },
+        {
+          "name": "timing-SAN-baseline-1-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.36510000000000004
+        },
+        {
+          "name": "timing-SAN-baseline-1-4-Native",
+          "model": "Native",
+          "p95": 0.3477
+        },
+        {
+          "name": "timing-SAN-baseline-2-1-Native",
+          "model": "Native",
+          "p95": 0.3534
+        },
+        {
+          "name": "timing-SAN-baseline-2-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.35850000000000004
+        },
+        {
+          "name": "timing-SAN-baseline-2-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.37560000000000004
+        },
+        {
+          "name": "timing-SAN-baseline-2-4-Native",
+          "model": "Native",
+          "p95": 0.35350000000000004
+        }
+      ]
+    },
+    {
+      "map": "SAN",
+      "version": "candidate",
+      "medianP95": {
+        "Native": 0.3138,
+        "Momentum": 0.32510000000000006
+      },
+      "momentumRelativeNative": 0.03601019757807533,
+      "original5PercentGate": true,
+      "arms": [
+        {
+          "name": "timing-SAN-candidate-1-1-Native",
+          "model": "Native",
+          "p95": 0.31470000000000004
+        },
+        {
+          "name": "timing-SAN-candidate-1-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.3154
+        },
+        {
+          "name": "timing-SAN-candidate-1-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.3163
+        },
+        {
+          "name": "timing-SAN-candidate-1-4-Native",
+          "model": "Native",
+          "p95": 0.3158
+        },
+        {
+          "name": "timing-SAN-candidate-2-1-Native",
+          "model": "Native",
+          "p95": 0.3129
+        },
+        {
+          "name": "timing-SAN-candidate-2-2-Momentum",
+          "model": "Momentum",
+          "p95": 0.33390000000000003
+        },
+        {
+          "name": "timing-SAN-candidate-2-3-Momentum",
+          "model": "Momentum",
+          "p95": 0.3366
+        },
+        {
+          "name": "timing-SAN-candidate-2-4-Native",
+          "model": "Native",
+          "p95": 0.31070000000000003
+        }
+      ]
+    }
+  ],
+  "productionPatch": {
+    "baseSha": "64894cd4558f5869a7968e02e9594c897d338c3e",
+    "sourcePath": "src/MphRead/Formats/CollisionDetection.cs",
+    "baselineSha256": "df04b78e0b96ca3ec939c249f9eab20a1682f47b21c075a3d950272deac41457",
+    "candidateSha256": "75758fbc6d04985b739d0684e1d590b997b26c4d12b90f2f432727db984face4"
+  },
+  "observer": {
+    "testOnlySourceSha256": "f4101ef5bd23aca41f99f1de6ce26921a33013c6e53167250db914945cae7d21",
+    "scope": "Identical verification-only snapshot payload observer source in both tools; no hash work in timing",
+    "binarySha256": {
+      "baseline": {
+        "ProjectPrime.dll": "eb5d5b680dc1bf8d502b7a40f36739230817063d28551049a0f562ad0c39c79c",
+        "nettest.dll": "819913223fc9188b1dab8e1317e55111a337bca468cc1c1cb253281be7bcbf43"
+      },
+      "candidate": {
+        "ProjectPrime.dll": "231494a94f740022dadfaca97f423f5eb017638c52e9332d719de1f92f0e11cb",
+        "nettest.dll": "c92272b337f1ad3cc61e83f0645290956e334039a27f47b40745ec7bad44a12d"
+      }
+    }
+  },
+  "all32TimingWorkHashesEqualVerification": true,
+  "sameModelCandidateChanges": [
+    {
+      "map": "PG",
+      "Native": -0.12153259361997215,
+      "Momentum": -0.07859246628429695
+    },
+    {
+      "map": "SAN",
+      "Native": -0.11180300028304546,
+      "Momentum": -0.10143725815367599
+    }
+  ],
+  "schema": 1,
+  "releaseAccepted": false,
+  "timingEnvironment": {
+    "runtime": ".NET 10.0.12",
+    "os": "Microsoft Windows 10.0.26200",
+    "architecture": "X64",
+    "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "processors": 16,
+    "stopwatchFrequency": 10000000,
+    "tieredCompilation": "0",
+    "tieredPgo": "0",
+    "readyToRun": "0",
+    "threadCyclesRequested": false,
+    "threadCyclesSupport": "Windows QueryThreadCycleTime opt-in",
+    "shotProofMode": "Shadow",
+    "acceptedShotPlayback": true,
+    "timedShotProofMode": "Off",
+    "campaignEvidenceEnabled": false,
+    "soakRequested": false,
+    "serverPerformanceInstrumentation": false
+  },
+  "scenario": {
+    "room": "MP3 PROVING GROUND",
+    "players": 8,
+    "steps": 3600,
+    "simulationHz": 60,
+    "warmupSteps": 1200,
+    "warmupPolicy": "fixed 1200 native simulation steps in both models; genuine combat deaths preserved",
+    "kind": "actual eight-bot ServerSim authority with genuine AI, native spawning/combat/respawn; no transport",
+    "seed1": 431,
+    "seed2": 1038686107
+  },
+  "executionOrder": "Eight verification arms first; then PG baseline ABBA twice, PG candidate ABBA twice, SAN baseline ABBA twice, SAN candidate ABBA twice. Each arm is a fresh process. Fixed implementation-block order may confound causal attribution; no runs omitted or repeated.",
+  "allTimingArms": [
+    {
+      "arm": "timing-PG-baseline-1-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.19228286111111131,
+        "p50": 0.1824,
+        "p95": 0.2842,
+        "p99": 0.36310000000000003,
+        "p999": 1.4626000000000001,
+        "worst": 3.2691000000000003,
+        "processCpuMilliseconds": 703.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6928137,
+        "simulationStepsPerWallSecond": 5196.202095888116
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-1-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.22249061111111135,
+        "p50": 0.221,
+        "p95": 0.3189,
+        "p99": 0.38270000000000004,
+        "p999": 1.1834,
+        "worst": 5.5057,
+        "processCpuMilliseconds": 796.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.80223,
+        "simulationStepsPerWallSecond": 4487.491118507161
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-1-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2224000555555548,
+        "p50": 0.22060000000000002,
+        "p95": 0.32130000000000003,
+        "p99": 0.38970000000000005,
+        "p999": 1.193,
+        "worst": 5.5012,
+        "processCpuMilliseconds": 796.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8019213,
+        "simulationStepsPerWallSecond": 4489.218580426783
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-1-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.19677911111111138,
+        "p50": 0.1865,
+        "p95": 0.2908,
+        "p99": 0.36110000000000003,
+        "p999": 1.5094,
+        "worst": 3.4162000000000003,
+        "processCpuMilliseconds": 703.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7089409,
+        "simulationStepsPerWallSecond": 5077.997333769289
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-2-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.19499586111111056,
+        "p50": 0.18510000000000001,
+        "p95": 0.2883,
+        "p99": 0.37060000000000004,
+        "p999": 1.5232,
+        "worst": 3.3931,
+        "processCpuMilliseconds": 703.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7025322,
+        "simulationStepsPerWallSecond": 5124.320280266157
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-2-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.22946366666666626,
+        "p50": 0.2273,
+        "p95": 0.33140000000000003,
+        "p99": 0.433,
+        "p999": 1.2541,
+        "worst": 5.5473,
+        "processCpuMilliseconds": 812.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8273651,
+        "simulationStepsPerWallSecond": 4351.162503712086
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-2-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2221274166666671,
+        "p50": 0.2212,
+        "p95": 0.32380000000000003,
+        "p99": 0.3875,
+        "p999": 1.1862000000000001,
+        "worst": 5.4489,
+        "processCpuMilliseconds": 796.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8008564,
+        "simulationStepsPerWallSecond": 4495.187901351603
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-baseline-2-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.19616688888888892,
+        "p50": 0.1872,
+        "p95": 0.28850000000000003,
+        "p99": 0.3388,
+        "p999": 1.4468,
+        "worst": 3.3737000000000004,
+        "processCpuMilliseconds": 687.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7067098,
+        "simulationStepsPerWallSecond": 5094.028694663637
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-1-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.17331913888888917,
+        "p50": 0.165,
+        "p95": 0.2515,
+        "p99": 0.30560000000000004,
+        "p999": 1.4233,
+        "worst": 3.2625,
+        "processCpuMilliseconds": 625,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6244672,
+        "simulationStepsPerWallSecond": 5764.914474291044
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-1-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2014387777777776,
+        "p50": 0.199,
+        "p95": 0.2879,
+        "p99": 0.3594,
+        "p999": 1.1675,
+        "worst": 5.5812,
+        "processCpuMilliseconds": 718.75,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.726395,
+        "simulationStepsPerWallSecond": 4955.981249870938
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-1-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.20554819444444417,
+        "p50": 0.2038,
+        "p95": 0.2953,
+        "p99": 0.3579,
+        "p999": 1.2052,
+        "worst": 5.4362,
+        "processCpuMilliseconds": 734.375,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7411936,
+        "simulationStepsPerWallSecond": 4857.030605768857
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-1-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.17432186111111087,
+        "p50": 0.1648,
+        "p95": 0.2544,
+        "p99": 0.32980000000000004,
+        "p999": 1.4478,
+        "worst": 3.3637,
+        "processCpuMilliseconds": 625,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6280756,
+        "simulationStepsPerWallSecond": 5731.794070650094
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-2-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.1810930833333333,
+        "p50": 0.1723,
+        "p95": 0.2636,
+        "p99": 0.3265,
+        "p999": 1.4453,
+        "worst": 3.314,
+        "processCpuMilliseconds": 656.25,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.652493,
+        "simulationStepsPerWallSecond": 5517.3005687417335
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-2-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.20711761111111093,
+        "p50": 0.202,
+        "p95": 0.29910000000000003,
+        "p99": 0.4852,
+        "p999": 1.2163000000000002,
+        "worst": 5.5479,
+        "processCpuMilliseconds": 750,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7469127,
+        "simulationStepsPerWallSecond": 4819.840390985452
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-2-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.21287441666666757,
+        "p50": 0.2111,
+        "p95": 0.3062,
+        "p99": 0.3598,
+        "p999": 1.2216,
+        "worst": 5.6703,
+        "processCpuMilliseconds": 765.625,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7676119,
+        "simulationStepsPerWallSecond": 4689.869972052283
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-PG-candidate-2-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.17405372222222243,
+        "p50": 0.1656,
+        "p95": 0.2523,
+        "p99": 0.3148,
+        "p999": 1.4625000000000001,
+        "worst": 3.5313000000000003,
+        "processCpuMilliseconds": 625,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6271687,
+        "simulationStepsPerWallSecond": 5740.082373370992
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-1-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2575040277777779,
+        "p50": 0.2561,
+        "p95": 0.3532,
+        "p99": 0.4056,
+        "p999": 0.9670000000000001,
+        "worst": 2.5949,
+        "processCpuMilliseconds": 937.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9275394,
+        "simulationStepsPerWallSecond": 3881.236743150749
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-1-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.254829333333333,
+        "p50": 0.2412,
+        "p95": 0.35550000000000004,
+        "p99": 0.4237,
+        "p999": 2.4868,
+        "worst": 6.6756,
+        "processCpuMilliseconds": 921.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.918644,
+        "simulationStepsPerWallSecond": 3918.8194774036515
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-1-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2609916944444441,
+        "p50": 0.2477,
+        "p95": 0.36510000000000004,
+        "p99": 0.44370000000000004,
+        "p999": 2.5206,
+        "worst": 6.8269,
+        "processCpuMilliseconds": 937.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9408616,
+        "simulationStepsPerWallSecond": 3826.2800820014336
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-1-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2555749722222225,
+        "p50": 0.2548,
+        "p95": 0.3477,
+        "p99": 0.3977,
+        "p999": 0.9573,
+        "worst": 2.608,
+        "processCpuMilliseconds": 906.25,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9206886,
+        "simulationStepsPerWallSecond": 3910.116840808065
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-2-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2569868333333331,
+        "p50": 0.2555,
+        "p95": 0.3534,
+        "p99": 0.4045,
+        "p999": 0.9761000000000001,
+        "worst": 2.8073,
+        "processCpuMilliseconds": 921.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.925677,
+        "simulationStepsPerWallSecond": 3889.045531000554
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-2-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2582989444444445,
+        "p50": 0.24450000000000002,
+        "p95": 0.35850000000000004,
+        "p99": 0.4319,
+        "p999": 2.6126,
+        "worst": 6.9144000000000005,
+        "processCpuMilliseconds": 937.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9311645,
+        "simulationStepsPerWallSecond": 3866.126769222839
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-2-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2689750833333331,
+        "p50": 0.2551,
+        "p95": 0.37560000000000004,
+        "p99": 0.44720000000000004,
+        "p999": 2.5851,
+        "worst": 6.8239,
+        "processCpuMilliseconds": 968.75,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9696013,
+        "simulationStepsPerWallSecond": 3712.8663090695113
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-baseline-2-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2584067777777776,
+        "p50": 0.25720000000000004,
+        "p95": 0.35350000000000004,
+        "p99": 0.3941,
+        "p999": 1.0024,
+        "worst": 2.7152000000000003,
+        "processCpuMilliseconds": 921.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.9307799,
+        "simulationStepsPerWallSecond": 3867.724260053317
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-1-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.23071811111111099,
+        "p50": 0.22870000000000001,
+        "p95": 0.31470000000000004,
+        "p99": 0.35600000000000004,
+        "p999": 1.0814000000000001,
+        "worst": 2.645,
+        "processCpuMilliseconds": 812.5,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8311126,
+        "simulationStepsPerWallSecond": 4331.543042422892
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-1-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2296569166666664,
+        "p50": 0.2162,
+        "p95": 0.3154,
+        "p99": 0.38230000000000003,
+        "p999": 2.4813,
+        "worst": 6.7514,
+        "processCpuMilliseconds": 828.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8280848,
+        "simulationStepsPerWallSecond": 4347.380847951804
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-1-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.22905177777777758,
+        "p50": 0.2157,
+        "p95": 0.3163,
+        "p99": 0.3665,
+        "p999": 2.5587,
+        "worst": 6.727,
+        "processCpuMilliseconds": 828.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8258199,
+        "simulationStepsPerWallSecond": 4359.304008053087
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-1-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2311956111111111,
+        "p50": 0.22870000000000001,
+        "p95": 0.3158,
+        "p99": 0.3603,
+        "p999": 0.9273,
+        "worst": 2.6122,
+        "processCpuMilliseconds": 828.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8328009,
+        "simulationStepsPerWallSecond": 4322.76189903253
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-2-1-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.22962811111111137,
+        "p50": 0.22820000000000001,
+        "p95": 0.3129,
+        "p99": 0.3539,
+        "p999": 0.9272,
+        "worst": 2.6163000000000003,
+        "processCpuMilliseconds": 828.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8271681,
+        "simulationStepsPerWallSecond": 4352.198785228783
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-2-2-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2419805000000005,
+        "p50": 0.2301,
+        "p95": 0.33390000000000003,
+        "p99": 0.3929,
+        "p999": 2.4807,
+        "worst": 6.699400000000001,
+        "processCpuMilliseconds": 875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8723687,
+        "simulationStepsPerWallSecond": 4126.695513032506
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-2-3-Momentum",
+      "model": "Momentum",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.2438391111111108,
+        "p50": 0.2311,
+        "p95": 0.3366,
+        "p99": 0.3965,
+        "p999": 2.4945,
+        "worst": 6.756,
+        "processCpuMilliseconds": 890.625,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8790923,
+        "simulationStepsPerWallSecond": 4095.1331276590636
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12115240,
+        "bytesPerStep": 3365.3444444444444,
+        "bytesPerAlivePlayerStep": 476.4902068748525,
+        "bytesPerActivePlayerStep": 420.66805555555555,
+        "aliveSteps": 25426,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12115528,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    },
+    {
+      "arm": "timing-SAN-candidate-2-4-Native",
+      "model": "Native",
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.22854969444444417,
+        "p50": 0.2265,
+        "p95": 0.31070000000000003,
+        "p99": 0.35250000000000004,
+        "p999": 0.9211,
+        "worst": 2.6393,
+        "processCpuMilliseconds": 828.125,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.8232981,
+        "simulationStepsPerWallSecond": 4372.656757011829
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 11717016,
+        "bytesPerStep": 3254.7266666666665,
+        "bytesPerAlivePlayerStep": 457.85690281739676,
+        "bytesPerActivePlayerStep": 406.8408333333333,
+        "aliveSteps": 25591,
+        "activeSteps": 28800,
+        "processAllocationBytes": 11717304,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      }
+    }
+  ],
+  "correctness": {
+    "bothVersions": "collision-query-check any-hit/mask/nested workspace/50000 warmed zero-allocation queries, exact 618-row nearest snapshot equality; Native gold56, rewind18489, replay rules82",
+    "candidateReplay": {
+      "status": "PASS",
+      "scope": "Frozen648 collision candidate; actual PR06 full Native/Momentum recordings and durable archives; CPU scene/full-report equality plus actual production durable packet checker, no GL or performance acceptance",
+      "binarySha256BeforeAndAfter": {
+        "ProjectPrime.dll": "231494a94f740022dadfaca97f423f5eb017638c52e9332d719de1f92f0e11cb",
+        "nettest.dll": "c92272b337f1ad3cc61e83f0645290956e334039a27f47b40745ec7bad44a12d"
+      },
+      "results": [
+        {
+          "model": "native",
+          "case": "scene",
+          "exitCode": 0
+        },
+        {
+          "model": "native",
+          "case": "packet",
+          "exitCode": 0
+        },
+        {
+          "model": "momentum",
+          "case": "scene",
+          "exitCode": 0
+        },
+        {
+          "model": "momentum",
+          "case": "packet",
+          "exitCode": 0
+        }
+      ],
+      "models": {
+        "native": {
+          "allReportFieldsEqual": true,
+          "comparedFieldCount": 22,
+          "differentFields": [],
+          "digest": "BAE5662C01088E7195A093652563122EAB1B2F6C1E9169D5410BC54FA87618B6",
+          "checks": 85673,
+          "frames": 2982,
+          "continuedFrames": 2762,
+          "durableSeekCount": 6
+        },
+        "momentum": {
+          "allReportFieldsEqual": true,
+          "comparedFieldCount": 22,
+          "differentFields": [],
+          "digest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+          "checks": 85586,
+          "frames": 2979,
+          "continuedFrames": 2759,
+          "durableSeekCount": 6
+        }
+      }
+    }
+  },
+  "limits": [
+    "Elapsed wall-clock Step measurements, not per-step CPU milliseconds or thread-cycle conversion.",
+    "Same-model baseline/candidate snapshot/work parity passes. Different Native/Momentum worlds perform differing AI/visibility/combat work; full delta is not solver-only.",
+    "Observed same-model p95 decreases do not establish a randomized CPU causal effect. Proving Ground relative5% proxy still FAILS; Sanctorus passes this proxy only.",
+    "Verification hashes cover actual published snapshot payloads, not all nonserialized game state. Timing runs disable hashing and diagnostic solver capture."
+  ]
+}
