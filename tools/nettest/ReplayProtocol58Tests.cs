@@ -6,7 +6,7 @@ using MphRead.Mods.Network;
 
 namespace MphRead.NetTest;
 
-// Explicit byte fixtures for archival body layouts of protocols 56–64.
+// Explicit byte fixtures for archival body layouts of protocols 56–65.
 // No transport, gameplay simulation, rendering or scene replay is exercised.
 internal static class ReplayProtocol58Tests
 {
@@ -24,10 +24,10 @@ internal static class ReplayProtocol58Tests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 64 && ReplayIdentityCompatibility.Supports(60)
+            Check(NetConfig.ProtocolVersion == 65 && ReplayIdentityCompatibility.Supports(60)
                 && ReplayIdentityCompatibility.Supports(61) && ReplayIdentityCompatibility.Supports(62)
-                && ReplayIdentityCompatibility.Supports(63) && ReplayIdentityCompatibility.Supports(64) && !ReplayIdentityCompatibility.Supports(65),
-                "explicit reviewed current protocol boundary preserves protocol60/61/62/63 replay support");
+                && ReplayIdentityCompatibility.Supports(63) && ReplayIdentityCompatibility.Supports(64) && ReplayIdentityCompatibility.Supports(65) && !ReplayIdentityCompatibility.Supports(66),
+                "explicit reviewed current protocol boundary preserves protocol60/61/62/63/64 replay support");
             Checkpoints(); Metadata(); ConvertedRules();
             Console.WriteLine($"PROTOCOL58 REPLAY PASS {_checks} byte/archive checks; no gameplay or visual acceptance claim.");
             return 0;
@@ -65,9 +65,9 @@ internal static class ReplayProtocol58Tests
         foreach (bool timed in new[] { false, true })
         {
             byte[] current = Checkpoint(timed, thirdPerson: true, momentum: true);
-            Check(current[6] == 64 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == (timed ? 13 : 12), "current writer identifies reviewed layout");
+            Check(current[6] == 65 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == (timed ? 13 : 12), "current writer identifies reviewed layout");
             var destination = new ReplayReplicaState();
-            foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64 })
+            foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 })
             {
                 // Published 56–59 bodies share a 105-byte match; protocol 60 widens it.
                 // Camera starts at 58; fixed Momentum-v1 starts at 59.
@@ -83,12 +83,12 @@ internal static class ReplayProtocol58Tests
                     && destination.TimedShots.Enabled == timed
                     && destination.Match?.RuleBits == (ushort)((protocol >= 58 ? MatchModifierFlags.ThirdPersonCamera : 0)
                         | (protocol >= 59 ? MatchModifierFlags.MomentumMovement : 0)),
-                    "56–64 body restores and recaptures without losing match bits");
-                if (protocol is 60 or 61 or 62 or 63)
+                    "56–65 body restores and recaptures without losing match bits");
+                if (protocol is 60 or 61 or 62 or 63 or 64)
                     Check(historical.Length == expected.Length && historical[6] == protocol
                         && historical.AsSpan(0,6).SequenceEqual(expected.AsSpan(0,6))
                         && historical.AsSpan(7).SequenceEqual(expected.AsSpan(7)),
-                        "published protocol60/61/62/63 checkpoint body and features remain byte-exact apart from explicit protocol header");
+                        "published protocol60/61/62/63/64 checkpoint body and features remain byte-exact apart from explicit protocol header");
             }
             void Reject(byte[] malformed, string label)
             {
@@ -97,7 +97,7 @@ internal static class ReplayProtocol58Tests
             }
             foreach (int length in new[] { 0, 4, 6, 7, 8, current.Length - 1 })
                 Reject(current.AsSpan(0, length).ToArray(), "truncated checkpoint " + length);
-            var future = current.ToArray(); future[6] = 65; Reject(future, "unreviewed future protocol");
+            var future = current.ToArray(); future[6] = 66; Reject(future, "unreviewed future protocol");
             var old = current.ToArray(); old[6] = 55; Reject(old, "wrong historical feature contract");
             var unknown = current.ToArray(); unknown[7] |= 0x80; Reject(unknown, "unknown feature bit");
             var mismatched = current.ToArray(); mismatched[7] ^= (byte)ReplayReplicaCheckpointFeatures.TimedShots;
@@ -113,7 +113,7 @@ internal static class ReplayProtocol58Tests
         const int matchAt = 47;
         if (current[4] is not (12 or 13) || current[45] != 0 || current[46] != 1)
             throw new InvalidOperationException("Historical fixture requires an unrevisioned present match.");
-        if (protocol is 60 or 61 or 62 or 63 or 64)
+        if (protocol is 60 or 61 or 62 or 63 or 64 or 65)
         {
             byte[] sameWidth = current.ToArray(); sameWidth[6] = protocol;
             return sameWidth;
@@ -148,7 +148,7 @@ internal static class ReplayProtocol58Tests
 
     private static void Metadata()
     {
-        foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64 })
+        foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65 })
         foreach (bool? continuation in new bool?[] { null, false, true })
         {
             ReplayMetadata metadata = Fixture(protocol, continuation);
@@ -171,6 +171,13 @@ internal static class ReplayProtocol58Tests
                     && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(62,continuation)))
                     && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(63,continuation))),
                     "protocol64 timed metadata body preserves protocol60/61/62/63 bytes without new appendices or feature bits");
+            if (protocol == 65)
+                Check(encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(60,continuation)))
+                    && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(61,continuation)))
+                    && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(62,continuation)))
+                    && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(63,continuation)))
+                    && encoded.AsSpan().SequenceEqual(ReplayFormatV3.EncodeMetadata(Fixture(64,continuation))),
+                    "protocol65 timed metadata body preserves protocol60/61/62/63/64 bytes without new appendices or feature bits");
             var decoded = ReplayFormatV3.DecodeMetadata(protocol, encoded, 6);
             Check(decoded.ProtocolVersion == protocol && decoded.TimedShotCertificates
                 && decoded.IndexedFireContinuation == continuation
@@ -191,7 +198,7 @@ internal static class ReplayProtocol58Tests
             var magic = encoded.ToArray(); magic[^6] ^= 1; Reject(magic, "wrong capability magic");
             var capability = encoded.ToArray(); capability[^2] = 2; Reject(capability, "wrong capability revision");
             var policy = encoded.ToArray(); policy[^1] = 3; Reject(policy, "invalid continuation policy");
-            foreach (byte unsupported in new byte[] { 55, 65 })
+            foreach (byte unsupported in new byte[] { 55, 66 })
             {
                 Check(Refused(() => ReplayFormatV3.EncodeMetadata(Fixture(unsupported, continuation))), "unreviewed metadata protocol refused by encoder");
                 Check(Refused(() => ReplayFormatV3.DecodeMetadata(unsupported, encoded, 6)), "unreviewed metadata protocol refused by decoder");

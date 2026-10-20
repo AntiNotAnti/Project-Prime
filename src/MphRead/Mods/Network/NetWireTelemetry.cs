@@ -80,7 +80,7 @@ public sealed class NetWireTelemetry
     }
     public static NetTrafficKind Classify(PacketType type) => type switch
     {
-        PacketType.Intent => NetTrafficKind.Intent,
+        PacketType.Intent or PacketType.CustomWeaponInput => NetTrafficKind.Intent,
         PacketType.SlotIntent => NetTrafficKind.SlotIntent,
         PacketType.SnapshotFast => NetTrafficKind.SnapshotFast,
         PacketType.Snapshot or PacketType.PlayerSlowState or PacketType.WorldState => NetTrafficKind.SlowWorld,

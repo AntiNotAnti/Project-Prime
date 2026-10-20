@@ -38,6 +38,7 @@ namespace MphRead.Mods.Network
         CustomWeaponAction = 86, CustomWeaponReceipt = 87, CustomWeaponContact = 88,
         CustomWeaponResultAck = 89, CustomWeaponState = 90,
         CustomWeaponControl = 91, CustomWeaponControlDenied = 92,
+        CustomWeaponInput = 93, // opt-in unreliable wrapper; ordinary native Intent bytes remain unchanged
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -462,7 +463,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63/64 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64/65 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -470,7 +471,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65)
                 status = Read(src);
             else
             {
@@ -2585,7 +2586,9 @@ namespace MphRead.Mods.Network
         // application-result acknowledgement and state lanes. Native payloads stay unchanged.
         // Protocol 64 adds typed custom source-control requests and denials.
         // Native payloads and the protocol-62 movement profile threshold stay unchanged.
-        public const int ProtocolVersion = 64;
+        // Protocol 65 adds an opt-in unreliable native-input/custom-control wrapper.
+        // Ordinary native Intent bytes and protocol-62 movement thresholds remain unchanged.
+        public const int ProtocolVersion = 65;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
