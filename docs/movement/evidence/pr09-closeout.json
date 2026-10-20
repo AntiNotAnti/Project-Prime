@@ -1,0 +1,129 @@
+{
+  "status": "Implementation delivered; closed at user request with explicit unverified qualification",
+  "auditedSource": "00b8846413f84d91b775802e7a9d3b73d448674f",
+  "userCloseoutRequest": "complete the goal. i want to tune the movement currently it doesnt seem very quake like",
+  "followOnDirection": "Quake III / Quake Live: strafe-jump speed building",
+  "phases": [
+    {
+      "phase": "PR-00",
+      "pr": 704,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/704",
+      "mergeCommit": "e2f8418d245dcb157fdd873dc32f504c71eccbd1",
+      "mergedAt": "2026-10-19T17:50:39Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-01",
+      "pr": 705,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/705",
+      "mergeCommit": "bea1d7db408832518ec8b437b9e38dd315e1ec30",
+      "mergedAt": "2026-10-19T17:51:44Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-02",
+      "pr": 707,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/707",
+      "mergeCommit": "564db55f5af8f8b84ce9ebc49ddc295a11a67dbc",
+      "mergedAt": "2026-10-19T18:03:36Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-03",
+      "pr": 710,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/710",
+      "mergeCommit": "33924591813765f39a6747f1acd695cbf07ec017",
+      "mergedAt": "2026-10-19T18:37:52Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-04",
+      "pr": 713,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/713",
+      "mergeCommit": "d726c766a10affaa0d8f95bc25bce9d178528215",
+      "mergedAt": "2026-10-19T19:03:12Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-05",
+      "pr": 715,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/715",
+      "mergeCommit": "24fb2bcf5c874630d175a10e57687a65b100c3e0",
+      "mergedAt": "2026-10-19T19:11:49Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-06",
+      "pr": 721,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/721",
+      "mergeCommit": "5af77affba1ab33c1f57feb918809ff24172e699",
+      "mergedAt": "2026-10-19T19:34:29Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-07",
+      "pr": 724,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/724",
+      "mergeCommit": "ad75bbcd74de04fa3a9c395814bb1f2f02b75f43",
+      "mergedAt": "2026-10-19T20:06:45Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-08",
+      "pr": 730,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/730",
+      "mergeCommit": "b1780d624eeb2b378a23edd4dfa373375bed0b87",
+      "mergedAt": "2026-10-19T21:34:42Z",
+      "state": "MERGED"
+    },
+    {
+      "phase": "PR-09",
+      "pr": 769,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/769",
+      "mergeCommit": "00b8846413f84d91b775802e7a9d3b73d448674f",
+      "mergedAt": "2026-10-20T01:12:27Z",
+      "state": "MERGED"
+    }
+  ],
+  "performanceDecision": {
+    "date": "2026-10-19",
+    "acceptedCurrentTradeoff": true,
+    "optimizationDeferred": true,
+    "measurementControlsRemainInconclusive": true,
+    "evidence": "pr09-cpu-attempt02.json"
+  },
+  "hostedCi": {
+    "verifiedPassing": false,
+    "codeSourceRun": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/39352134943",
+    "lastObservedStatus": "queued; jobs created; no terminal result",
+    "scope": "User requests implementation closeout while final CI qualification remains explicitly unverified; no green CI or universal release claim"
+  },
+  "sourceAndRuntimeEvidence": [
+    "pr09-current-paid-compatibility.json",
+    "pr09-current42-compatibility.json",
+    "pr09-claim-life-ordering.json",
+    "pr09-cap-envelope.json"
+  ],
+  "explicitlyNotVerified": [
+    "Final hosted build/replay/math/campaign workflow outcomes",
+    "Windows focus loss/reacquisition and achieved physical refresh behavior (hardware exists)",
+    "macOS OS-event input: TCC denies event-post/accessibility; no events posted",
+    "Physical controller and physical Android input",
+    "Current Linux asset-backed runtime and current Android precise movement/jump runtime",
+    "Optimal or competitive balance across all maps/modes"
+  ],
+  "preservedDisclosures": [
+    "Original failed performance and observer controls",
+    "56 cap incoming-overspeed labels and one-ULP reported speed boundary",
+    "Seven impaired05 advisory corrections and prior final-Y sample remain unclassified; later reproduced corrections have low/zero native Speed",
+    "Separate Native Nodes capture control did not complete a capture"
+  ],
+  "defaults": {
+    "classicDefault": true,
+    "momentum": "explicit match-wide operator opt-in",
+    "protocol": 59,
+    "profile": 1,
+    "historicalReplayDecodingRetained": true,
+    "rollback": "Classic at a legal pre-start/new-match lifecycle boundary; no mid-life mode rewrite"
+  }
+}

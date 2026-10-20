@@ -2,7 +2,9 @@
 
 This immutable profile is selected by the authoritative Momentum match rule;
 Classic/Native remains the default. Its identity is `MomentumProfileVersion = 1`.
-Final acceptance still requires the PR-09 device, network and performance gates.
+The [v1 implementation closeout](pr09-closeout.md) retains scoped network/input/
+collision evidence, the accepted performance tradeoff and unverified CI/device
+qualification. Quake III / Quake Live tuning is a separate profile change.
 Because recordings can carry this profile,
 coefficient changes require a new profile identity and historical decoding.
 
@@ -46,12 +48,15 @@ steering can add perpendicular momentum. With this acceleration rate the project
 cap can be reached in one tick from rest; that is explicit, not hidden by a total
 velocity clamp.
 
-The **1.5 multiplier is an initial private safety budget**, not a measurement that
-combat or every map tolerates 50% faster movement. Sustained perpendicular air-wish
-stress must activate it without NaN, allocation or cumulative rounding growth.
-Ordinary solver-only motion cannot create velocity above it. Actual combat,
-map traversal, maximum-speed sweeps, hit claims and balance remain release gates;
-revise/version the candidate if those trials reject it.
+The **1.5 multiplier is the retained v1 safety budget**, not a measurement that
+combat or every map tolerates 50% faster movement. [PR-09i](pr09i-results.md)
+earns cap engagement through ordinary input in all 28 Hunter/map/direction
+pairs, retaining distributions, traversal outcomes and collision counters.
+Pure/profile stress also exercises allocation and cumulative rounding behavior.
+The policy limits steering-generated magnitude to the greater of the regular
+cap and incoming magnitude. This is not a globally exact reported body-speed
+ceiling or competitive-balance guarantee; the numerical boundary below remains
+explicit. Changing this budget requires a new profile identity.
 
 ## Jump and landing policy
 
@@ -103,6 +108,12 @@ incoming budget on each subsequent air turn. Y bits are preserved. Stress checks
 exercise both direct physical units and the native ×30 / ÷30 round trip without
 widening tolerances.
 
+In the actual PR-09i trial, 56 `IncomingOverCap` decisions remain retained;
+their reported scalar norms reconstruct to the nominal cap at float32
+precision. Maximum reported body/solver speed is 10.799561500549316, one
+float32 ULP above the nominal 10.799560546875. No cause is inferred from those
+scalar norms alone, and the incoming exemption is not flattened or hidden.
+
 ## Evidence and limits
 
 `--momentum-profile` tests the contact policy, normal landing versus takeoff,
@@ -114,6 +125,9 @@ edges, native spawn, jump, collision and landing. CPU host schedules at
 real high-refresh rendering test. See [PR-03 results](pr03-results.md) for commands,
 counts, numeric artifacts, CI state and remaining acceptance.
 
-Physical mouse/controller/touch, bot navigation, competitive combat, network
-impairments and real device/render parity are unverified in this slice. Neither
-solver-only timing nor this calibration certifies the whole-scene +5% p95 budget.
+Those PR-03 calibration results do not by themselves establish input/bot/network
+or device acceptance. Later [PR-04](pr04-results.md), [PR-07](pr07-results.md)
+and [PR-09](pr09-results.md) add named positive runtime evidence, with physical
+and focus/display limits still disclosed. Neither solver-only timing nor this
+calibration certifies the original whole-scene +5% p95 budget; its failures and
+the operator's accepted tradeoff remain in [PR-09h](pr09h-results.md).

@@ -1,7 +1,9 @@
 # Momentum acceptance matrix
 
 This audit maps implementation-plan sections 7 and 9 and PR-09 to retained
-results. **Release acceptance is incomplete.** PASS below means the named fixture
+results. **V1 implementation is delivered; final hosted CI and listed physical
+qualification remain unverified.** [Closeout](pr09-closeout.md) records the
+operator's decision to move into separate tuning. PASS below means the named fixture
 and source lease passed, not every platform, mode or input combination. Earlier
 results keep their original revision; current-main builds do not refresh their
 runtime evidence. The recent [receipt-ordering compatibility refresh](../implementation/claim-life-ordering-compatibility-2026-10-19.md)
