@@ -1,52 +1,6 @@
 {
   "status": "PASS within stated scopes",
   "fullAcceptanceBase": "6a434a4ac4ff47fa243b7ef33b578db9fb5661a9",
-  "latestCompatibility": {
-    "baseSha": "835a5ba5ad8b5112930f86ee2b7e04521103a827",
-    "previousOnlineBase": "6a434a4ac4ff47fa243b7ef33b578db9fb5661a9",
-    "overlayManifestSha256": "392a5009733240e5db0d2cc354f31d566862fdd35a8581c0737b830c30cf9309",
-    "buildExitCode": 0,
-    "scope": "Final835 compatibility pass; identical55 gameplay/UI overlay hashes; prior fullonline proof remains6aCore03/tool04; no newonline/performanceclaim",
-    "binaries": {
-      "ProjectPrime.dll": "101f8a96eeae2901395a4d7dd2337d2e98a33d14e5a483dfb874bdcd17f7e99e",
-      "nettest.dll": "8190670d158793ec8868e97da1791a750f6ff1a45c1851939a91c724f168c8d6"
-    },
-    "allSourceBinaryLeasesUnchanged": true
-  },
-  "latestCases": [
-    {
-      "name": "quake3-rules",
-      "exitCode": 0
-    },
-    {
-      "name": "quake3-scene",
-      "exitCode": 0
-    },
-    {
-      "name": "quake3-replay-compatibility",
-      "exitCode": 0
-    },
-    {
-      "name": "instagib-ion-fracture",
-      "exitCode": 0
-    },
-    {
-      "name": "momentum-replay-rules",
-      "exitCode": 0
-    },
-    {
-      "name": "momentum-replay-metadata",
-      "exitCode": 0
-    },
-    {
-      "name": "architecture",
-      "exitCode": 0
-    },
-    {
-      "name": "protocol58-replay",
-      "exitCode": 0
-    }
-  ],
   "sourceFilesSha256": {
     "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "af6b3ac93ce5e66181e762f937b09e1d177877d3589e8b94adf0f2aa927758b3",
     "src/MphRead/Mods/GameSettings.cs": "9c70bceb64daf5719b000b2788e814aac486adb9d236b3811eb3a10660b9615f",
@@ -313,20 +267,298 @@
   "upstreamIntegration": {
     "pullRequests": [
       773,
-      774
+      774,
+      775,
+      776
     ],
-    "scope": "Imperialist visual sizing and performance documentation; seven changed files disjoint from movement/network/menu overlay; full live acceptance retains its earlier base identity."
+    "scope": "Combined committed build includes presentation sizing, performance documentation, opt-in render profiling and custom authority contacts; all 55 feature C# hashes match the original acceptance cohort."
   },
   "staticRegistryCheck": {
     "passed": true,
     "script": "tools/group-reservation-check/check_registry.py",
     "scope": "all packet identifiers retain their assigned values; current protocol expectation updated to 60"
   },
-  "hostedCI": "NOT VERIFIED at publication; merge does not wait for CI or review.",
+  "hostedCI": "Partial results observed after merge: Linux movement equations/allocations and scene ownership passed; semantic-event content-free compilation failed due to an upstream linked-fixture dependency. The narrow fixture repair is independently verified on Windows (47 checks), not claimed as hosted CI success. Other jobs pending/unverified; no wait for CI or review.",
   "limits": [
     "No new timing or performance-budget acceptance; optimization remains deferred.",
     "No Mac builds/simulation, rendered GL, physical-device/focus or universal platform qualification.",
     "Human feel and high-speed map qualification remain open.",
-    "Eight focused compatibility checks on latest main; full live cohort remains explicitly on the preceding base with identical movement/network/menu source hashes."
-  ]
+    "Full original acceptance remains attributed to 6a434a4ac; eight intermediate checks to 835a5ba5; all 15 combined checks and a fresh live recording/replay to committed 03e07a005. Later render-only main changes are not relabeled as runtime-tested.",
+    "Combined live cohort retained 8/30 broad displacement diagnostic triggers with no overflow, including native respawn and damage impulses. These are not acceptance thresholds or proof of seamless high-speed traversal."
+  ],
+  "intermediateCompatibility": {
+    "baseSha": "835a5ba5ad8b5112930f86ee2b7e04521103a827",
+    "previousOnlineBase": "6a434a4ac4ff47fa243b7ef33b578db9fb5661a9",
+    "overlayManifestSha256": "392a5009733240e5db0d2cc354f31d566862fdd35a8581c0737b830c30cf9309",
+    "buildExitCode": 0,
+    "scope": "Final835 compatibility pass; identical55 gameplay/UI overlay hashes; prior fullonline proof remains6aCore03/tool04; no newonline/performanceclaim",
+    "binaries": {
+      "ProjectPrime.dll": "101f8a96eeae2901395a4d7dd2337d2e98a33d14e5a483dfb874bdcd17f7e99e",
+      "nettest.dll": "8190670d158793ec8868e97da1791a750f6ff1a45c1851939a91c724f168c8d6"
+    },
+    "allSourceBinaryLeasesUnchanged": true
+  },
+  "intermediateCases": [
+    {
+      "name": "quake3-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-replay-compatibility",
+      "exitCode": 0
+    },
+    {
+      "name": "instagib-ion-fracture",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay-metadata",
+      "exitCode": 0
+    },
+    {
+      "name": "architecture",
+      "exitCode": 0
+    },
+    {
+      "name": "protocol58-replay",
+      "exitCode": 0
+    }
+  ],
+  "combinedAcceptance": {
+    "status": "PASS",
+    "baseSha": "03e07a00513d453febdecfdc768c1382a7df97b3",
+    "scope": "clean committed combined branch; actual Windows CPU/headless checks and genuine UDP cohort; no Mac, timing/performance, rendered GL or physical-device acceptance",
+    "provenance": {
+      "baseSha": "03e07a00513d453febdecfdc768c1382a7df97b3",
+      "overlayManifestSha256": "b6016ef9b41a0d522c2ea3f7fe29c2a3388bde82a85c3f897eba8b7cc6d8699b",
+      "buildExitCode": 0,
+      "buildSeconds": 52.578624200003105,
+      "scope": "Clean committed03e07a005 combined branch: all15checks and genuineQ3 authority+2scriptedhumanowners+bot40sec recording/replay; unchangedsource/binarylease; noMac/performance/GL/deviceacceptance",
+      "binaries": {
+        "ProjectPrime.dll": "bab438dcfb8f6a7b17435bdef2f1e20e820eee975b727d921447e4479fbc3887",
+        "nettest.dll": "15241eadc8ed31424f329049f9eafbc4ac4661fa6cbdf7db79cc1825f60b7d08"
+      },
+      "allSourceBinaryLeasesUnchanged": true,
+      "sourceFileCount": 55,
+      "cleanCommittedCheckout": true,
+      "onlineProvenanceSha256": "ea4279cbf4f5dbd37a7d97fc9e8c1280e1657e4b4f5459bf1e338b998dbef58b",
+      "onlineReplaySha256": "74b65d6d4938026d8940a2e5a7e08fa18eb8d34cfec04667829e2d6049d09414"
+    },
+    "cases": [
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "instagib-ion-fracture",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-bot-authority",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixtures",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixture-lobby",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-hit-oracle",
+        "exitCode": 0
+      },
+      {
+        "name": "combat-fast-receipts",
+        "exitCode": 0
+      },
+      {
+        "name": "claim-receipts",
+        "exitCode": 0
+      },
+      {
+        "name": "combat-paid-scene",
+        "exitCode": 0
+      }
+    ],
+    "botAuthority": {
+      "checks": 257110,
+      "scenes": 14
+    },
+    "online": {
+      "processes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "checks": 23232,
+          "model": "Quake3",
+          "profileVersion": 1,
+          "solverSteps": 1408,
+          "ownerAnomalyCount": 8,
+          "ownerAnomalyOverflow": 0,
+          "recordedFrames": 2399
+        },
+        {
+          "checks": 25698,
+          "model": "Quake3",
+          "profileVersion": 1,
+          "solverSteps": 2222,
+          "ownerAnomalyCount": 30,
+          "ownerAnomalyOverflow": 0,
+          "recordedFrames": null
+        }
+      ],
+      "roster": {
+        "humans": 2,
+        "authorityBots": 1
+      },
+      "replay": {
+        "checks": 72699,
+        "frames": 2399,
+        "firstFrame": 0,
+        "lastFrame": 2399,
+        "checkpointFrames": [
+          220,
+          300,
+          600,
+          900,
+          1200,
+          1500,
+          1800,
+          2100
+        ],
+        "seeks": [
+          {
+            "requested": 1500,
+            "target": 1500,
+            "updates": 13,
+            "steps": 1500,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 35,
+            "target": 35,
+            "updates": 1,
+            "steps": 35,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1100,
+            "target": 1100,
+            "updates": 2,
+            "steps": 200,
+            "restoreFrame": 900,
+            "source": "memory"
+          },
+          {
+            "requested": 615,
+            "target": 615,
+            "updates": 1,
+            "steps": 15,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 0,
+            "target": 0,
+            "updates": 1,
+            "steps": 0,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1799,
+            "target": 1799,
+            "updates": 3,
+            "steps": 299,
+            "restoreFrame": 1500,
+            "source": "memory"
+          },
+          {
+            "requested": 1201,
+            "target": 1201,
+            "updates": 1,
+            "steps": 1,
+            "restoreFrame": 1200,
+            "source": "memory"
+          },
+          {
+            "requested": 610,
+            "target": 610,
+            "updates": 1,
+            "steps": 10,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 2399,
+            "target": 2399,
+            "updates": 8,
+            "steps": 899,
+            "restoreFrame": 1500,
+            "source": "memory"
+          }
+        ]
+      },
+      "diagnostics": "Owner displacement triggers 8/30 are diagnostic, not an acceptance threshold. Largest jumps show native health0\u219299 respawns and zero solver velocity; one owner1 row has damage51\u21923 and native knockback. All available flagged solver boundaries preserveY. No controlled cross-run causal comparison is claimed."
+    },
+    "integratedMainSha": "47d446e22c8a95e694cee241405e449780220da6"
+  },
+  "semanticFixtureRepair": {
+    "baseSha": "3b42fb5dc1af2254fb17de22fd6f1d3968a3d421",
+    "overlayFiles": {
+      "tools/match-events-check/SceneStubs.cs": "118de3f2a85b38c93f3f3af009970b7bcdc68b6b08072c068dbed41c369ca11c"
+    },
+    "baselineBuildExit": 1,
+    "fixedBuildExit": 0,
+    "runExit": 0,
+    "binarySha256": "fc78378baa876d2d6d080fa0fe5d43a69e1f66891cb05d2b37893ebb91cd47ad",
+    "diffFiles": [
+      "tools/match-events-check/SceneStubs.cs"
+    ],
+    "scope": "one test-only identity substitute in existing content-free semantic fixture; no production/movement changes",
+    "checks": 47,
+    "warnings": 0,
+    "errors": 0,
+    "buildCommand": "dotnet build tools/match-events-check/match-events-check.csproj -c Release",
+    "runCommand": "dotnet run --project tools/match-events-check/match-events-check.csproj -c Release --no-build"
+  }
 }
