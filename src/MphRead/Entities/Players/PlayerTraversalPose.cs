@@ -39,6 +39,31 @@ public partial class PlayerEntity
         Vector3 forward = -world.Row2.Xyz.WithY(0);
         if (forward.LengthSquared < 1e-8f) forward = Vector3.UnitZ;
         else forward.Normalize();
+        float slide = walkingGait ? ModSlideVisualAmount * amount : 0;
+        float alpha = Mods.Render.FrameTiming.HighRefreshPresentation
+            ? (float)Mods.Render.FrameTiming.PresentationAlpha : 1;
+        Vector2 heading = _modSlidePresentation.SampleDirection(alpha);
+        Vector3 travel = new(heading.X, 0, heading.Y);
+        Vector3 leftHip = model.Nodes[skeleton.Left[0]].Animation.Row3.Xyz;
+        Vector3 rightHip = model.Nodes[skeleton.Right[0]].Animation.Row3.Xyz;
+        float reach = (model.Nodes[skeleton.Left[1]].Animation.Row3.Xyz - leftHip).Length
+            + (model.Nodes[skeleton.Left[2]].Animation.Row3.Xyz
+                - model.Nodes[skeleton.Left[1]].Animation.Row3.Xyz).Length;
+        Vector3 shift = -travel * (reach * .12f * slide);
+        Vector3 pivot = (leftHip + rightHip) * .5f;
+        Matrix4 lean = Matrix4.CreateFromQuaternion(Quaternion.FromAxisAngle(
+            new Vector3(travel.Z, 0, -travel.X), -MathHelper.DegreesToRadians(12) * slide));
+        Matrix4 upperPose = Matrix4.CreateTranslation(-pivot) * lean
+            * Matrix4.CreateTranslation(pivot + shift - Vector3.UnitY * drop);
+        // Lean the torso while the cannon branch retains its native aim rotation.
+        // Its elbow follows the body; only its orientation is counter-rotated.
+        Matrix4 aimCorrection = Matrix4.Identity;
+        if (slide > 0 && skeleton.AimRoot >= 0)
+        {
+            Vector3 elbow = Matrix.Vec3MultMtx4(model.Nodes[skeleton.AimRoot].Animation.Row3.Xyz, upperPose);
+            aimCorrection = Matrix4.CreateTranslation(-elbow) * Matrix4.Transpose(lean)
+                * Matrix4.CreateTranslation(elbow);
+        }
         Vector3 FootTarget(int[] bones, Vector3 neutral)
         {
             Vector3 ankle = model.Nodes[bones[2]].Animation.Row3.Xyz;
@@ -48,18 +73,29 @@ public partial class PlayerEntity
             // excursion around it, and lower only the airborne foot lift.
             float stride = 1 + (Mods.Movement.TraversalGaitPresentation.StrideScale - 1) * amount;
             float lift = 1 + (Mods.Movement.TraversalGaitPresentation.SwingLiftScale - 1) * amount;
-            return new(neutral.X + (ankle.X - neutral.X) * stride,
+            Vector3 walking = new(neutral.X + (ankle.X - neutral.X) * stride,
                 ankle.Y <= neutral.Y ? ankle.Y : neutral.Y + (ankle.Y - neutral.Y) * lift,
                 neutral.Z + (ankle.Z - neutral.Z) * stride);
+            bool extended = bones == skeleton.Left;
+            Vector3 glide = neutral + travel * (reach * (extended ? .35f : -.15f));
+            return Vector3.Lerp(walking, glide, slide);
         }
-        var left = Leg(model, skeleton.Left, drop, forward, FootTarget(skeleton.Left, skeleton.LeftFoot));
-        var right = Leg(model, skeleton.Right, drop, forward, FootTarget(skeleton.Right, skeleton.RightFoot));
+        var left = Leg(model, skeleton.Left, drop, forward, FootTarget(skeleton.Left, skeleton.LeftFoot), shift, walkingGait);
+        var right = Leg(model, skeleton.Right, drop, forward, FootTarget(skeleton.Right, skeleton.RightFoot), shift, walkingGait);
         for (int index = 0; index < model.Nodes.Count; index++)
         {
             Node node = model.Nodes[index];
             Matrix4 pose = node.Animation;
             int group = skeleton.Groups[index];
-            if (group == 0) pose.Row3.Y -= drop;
+            if (group == 0)
+            {
+                if (slide <= 0) pose.Row3.Y -= drop;
+                else
+                {
+                    pose *= upperPose;
+                    if (skeleton.AimBranch[index]) pose *= aimCorrection;
+                }
+            }
             else if (group == 1) pose *= left.Hip;
             else if (group == 2) pose *= left.Knee;
             else if (group == 4) pose *= right.Hip;
@@ -71,12 +107,25 @@ public partial class PlayerEntity
     }
 
     private static (Matrix4 Hip, Matrix4 Knee, Matrix4 Foot) Leg(Model model, int[] bones, float drop,
-        Vector3 forward, Vector3 targetAnkle)
+        Vector3 forward, Vector3 targetAnkle, Vector3 shift = default, bool constrain = false)
     {
         Vector3 hip = model.Nodes[bones[0]].Animation.Row3.Xyz;
         Vector3 knee = model.Nodes[bones[1]].Animation.Row3.Xyz;
         Vector3 ankle = model.Nodes[bones[2]].Animation.Row3.Xyz;
         Vector3 lowered = hip - Vector3.UnitY * drop;
+        // Preserve the canonical path's original arithmetic exactly; even a
+        // zero cosmetic translation is applied only to the visual solve.
+        if (constrain) lowered += shift;
+        float thigh = (knee - hip).Length, shin = (ankle - knee).Length;
+        // Keep cosmetic targets within reach without lifting a planted ankle.
+        // This also bounds extension on Hunters with shorter native legs.
+        float vertical = targetAnkle.Y - lowered.Y;
+        float maximum = MathF.Max(.001f, thigh + shin - .0001f);
+        Vector3 planar = (targetAnkle - lowered).WithY(0);
+        float horizontalReach = MathF.Sqrt(MathF.Max(0, maximum * maximum - vertical * vertical));
+        if (constrain && planar.LengthSquared > horizontalReach * horizontalReach && planar.LengthSquared > 1e-12f)
+            targetAnkle = new Vector3(lowered.X, targetAnkle.Y, lowered.Z)
+                + planar.Normalized() * horizontalReach;
         // Retain some of the animated leg's bend plane for natural asymmetric
         // stances; near-straight legs keep the stable body-forward fallback.
         Vector3 axis = ankle - hip;
@@ -87,7 +136,7 @@ public partial class PlayerEntity
             if (animatedPole.LengthSquared > 1e-6f && Vector3.Dot(animatedPole, forward) > 0)
                 forward = (forward * .8f + animatedPole.Normalized() * .2f).Normalized();
         }
-        Vector3 target = ModCrouchKnee(lowered, targetAnkle, (knee - hip).Length, (ankle - knee).Length, forward);
+        Vector3 target = ModCrouchKnee(lowered, targetAnkle, thigh, shin, forward);
         return (MoveBone(hip, lowered, knee - hip, target - lowered),
             MoveBone(knee, target, ankle - knee, targetAnkle - target),
             Matrix4.CreateTranslation(targetAnkle - ankle));
@@ -139,6 +188,8 @@ public partial class PlayerEntity
     {
         internal readonly int[] Left, Right, Groups;
         internal readonly Vector3 LeftFoot, RightFoot;
+        internal readonly int AimRoot;
+        internal readonly bool[] AimBranch;
         internal readonly bool Valid;
         internal CrouchSkeleton(Model model)
         {
@@ -150,6 +201,11 @@ public partial class PlayerEntity
             }
             Left = new[] { Find("L_hip"), Find("L_knee"), Find("L_ankle") };
             Right = new[] { Find("R_hip"), Find("R_knee"), Find("R_ankle") };
+            AimRoot = Find("R_elbow");
+            AimBranch = new bool[model.Nodes.Count];
+            for (int index = 0; index < AimBranch.Length; index++)
+                for (int ancestor = index; ancestor >= 0; ancestor = model.Nodes[ancestor].ParentIndex)
+                    if (ancestor == AimRoot) { AimBranch[index] = true; break; }
             Valid = Array.TrueForAll(Left, index => index >= 0) && Array.TrueForAll(Right, index => index >= 0)
                 && model.AnimationGroups.Node.Count > (int)PlayerAnimation.Idle
                 && model.AnimationGroups.Node[(int)PlayerAnimation.Idle].Count > 0;

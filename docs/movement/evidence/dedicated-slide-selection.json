@@ -1,0 +1,530 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "slice": "dedicated slide animation",
+  "baseSha": "2771fda3bfb7996315cc1d6754fcd7fc76a18638",
+  "protocol": 76,
+  "quake3ProfileVersion": 4,
+  "traversalProfileVersion": 5,
+  "versionChange": false,
+  "source": {
+    "manifestSha256": "2a824a89b8eda79d5d931184c70986cd99c8e6cad7235483ac5cd8509324df52",
+    "sourceFiles": 6201,
+    "overlaySha256": "81d2642b19235d55b2f69f2a474a7ca3090b80b2d2b133dd8241e5fb30de4ea6",
+    "changedFiles": {
+      "src/MphRead/Entities/Players/PlayerTraversalGait.cs": {
+        "sha256": "659d6b3ba00f22d90704d2aa91bc2ab65abaccad0e71021a001dbff9f3c1c4cd",
+        "bytes": 2441
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": {
+        "sha256": "232012f90322d49599a61bea1b82e4a1ae53335f7824bfe164ff58c3d3d0c3fc",
+        "bytes": 13054
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": {
+        "sha256": "feefdb605237df997122e2089bee3ceff9c564e7bc0836ec5047d3bd8457384c",
+        "bytes": 4701
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": {
+        "sha256": "a38e7f40745eb1dbf8faf5ca39bf165d23eed310972bd9257a734f05a5a1e7cc",
+        "bytes": 9687
+      },
+      "src/MphRead/Mods/Movement/TraversalSlidePresentation.cs": {
+        "sha256": "11f7d4337f4e5a384e102d5c8ad7837172fa5cf6ef767408d9b9ef860768def4",
+        "bytes": 4986
+      },
+      "tools/nettest/TraversalCrouchPoseTests.cs": {
+        "sha256": "3df5a91648a8732dd7763f06d271ce2c362c09f2a4fc76487b3fb6c78e541e4e",
+        "bytes": 39956
+      },
+      "tools/nettest/TraversalSlidePoseTests.cs": {
+        "sha256": "d79b5531044cf5ac99b9f43a83613560ad394dbf1f2335228d9476097a049b7f",
+        "bytes": 23456
+      },
+      "tools/nettest/TraversalSlidePresentationTests.cs": {
+        "sha256": "b25369ed3e2fac1275866776dfd3ecfb2c7bda006485adceea2ebc166f544bc7",
+        "bytes": 8551
+      }
+    },
+    "finalRootMatchesFrozenManifest": {
+      "status": "PASS",
+      "fileCount": 6201,
+      "runtimeTestMismatches": 0,
+      "documentationDeltas": [
+        "docs/movement/traversal-movement.md"
+      ],
+      "sourceManifestSha256": "2a824a89b8eda79d5d931184c70986cd99c8e6cad7235483ac5cd8509324df52"
+    }
+  },
+  "build": {
+    "status": "PASS",
+    "production": "candidate01 normal Windows Release; retained unchanged for candidate02",
+    "productionWarningCount": 1,
+    "productionErrorCount": 0,
+    "productionWarning": "existing CS0649 NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks",
+    "testTool": "candidate02 nettest-only Release rebuild with BuildProjectReferences=false; only TraversalSlidePoseTests.cs differs from candidate01",
+    "testToolWarningCount": 0,
+    "testToolErrorCount": 0,
+    "productionManifestSha256": "b1ab2971c635193bcc9460a532e7f601a4f63542dd5c7780ca7518e64370248c",
+    "binaries": {
+      "ProjectPrime.dll": "965dab214013b389ae92c5f6d03fe3fa124b9cafdda18cb8d2f2054dda304153",
+      "nettest.dll": "429ef3825c5bdb24bd63aff9a0f599fc769204c17e55b84a3bce72dc7e1d4819"
+    },
+    "nativeRenderToolSha256": "6e93fbe686391bcd0503940fc9b6e9ac49f57ce60efd3683890a1794e9a49cca",
+    "retainedProductionAndReferencesUnchanged": true
+  },
+  "cpuGates": [
+    {
+      "name": "stance-rules",
+      "status": "PASS",
+      "assertions": 3879
+    },
+    {
+      "name": "traversal-stance",
+      "status": "PASS",
+      "outerAssertions": 89569,
+      "independentChildCounts": "reported separately per Hunter; do not add to outer count"
+    },
+    {
+      "name": "ground-slope-rules",
+      "status": "PASS",
+      "assertions": 335
+    },
+    {
+      "name": "ground-slope-scene",
+      "status": "PASS",
+      "assertions": 413037
+    },
+    {
+      "name": "native-baseline",
+      "status": "PASS",
+      "trajectories": 56,
+      "tolerance": 1e-05
+    },
+    {
+      "name": "metadata",
+      "status": "PASS",
+      "assertions": 165
+    },
+    {
+      "name": "replay-compatibility",
+      "status": "PASS",
+      "assertions": 659
+    },
+    {
+      "name": "protocol58",
+      "status": "PASS",
+      "byteArchiveChecks": 932
+    }
+  ],
+  "perHunter": [
+    {
+      "hunter": "Samus",
+      "canonicalChecks": 1113,
+      "gaitChecks": 13921,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.4305115e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.34487343,
+      "fullGlideRightAdvance": -0.14780235,
+      "fullGlideTorsoRotationRadians": 0.20905696,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Kanden",
+      "canonicalChecks": 1113,
+      "gaitChecks": 14231,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.4603138e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.3655014,
+      "fullGlideRightAdvance": -0.15664291,
+      "fullGlideTorsoRotationRadians": 0.20905694,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Spire",
+      "canonicalChecks": 1113,
+      "gaitChecks": 14541,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.0728836e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.3931179,
+      "fullGlideRightAdvance": -0.16847992,
+      "fullGlideTorsoRotationRadians": 0.20905693,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Noxus",
+      "canonicalChecks": 1113,
+      "gaitChecks": 13549,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.3113022e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.4414482,
+      "fullGlideRightAdvance": -0.18919182,
+      "fullGlideTorsoRotationRadians": 0.20905416,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Trace",
+      "canonicalChecks": 1113,
+      "gaitChecks": 13549,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.3113022e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.4414482,
+      "fullGlideRightAdvance": -0.18919182,
+      "fullGlideTorsoRotationRadians": 0.20905416,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Sylux",
+      "canonicalChecks": 1113,
+      "gaitChecks": 13921,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.4305115e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.34487343,
+      "fullGlideRightAdvance": -0.14780235,
+      "fullGlideTorsoRotationRadians": 0.20905696,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    },
+    {
+      "hunter": "Weavel",
+      "canonicalChecks": 1113,
+      "gaitChecks": 13921,
+      "dedicatedSlideChecks": 1453,
+      "measurementRows": 38,
+      "lods": [
+        0,
+        1
+      ],
+      "maximumSegmentLengthError": 1.4305115e-06,
+      "segmentLengthTolerance": 0.0005,
+      "fullGlideLeftAdvance": 0.34487343,
+      "fullGlideRightAdvance": -0.14780235,
+      "fullGlideTorsoRotationRadians": 0.20905696,
+      "aimTurnPictures": 4,
+      "aimTurnActualMouseDelta": [
+        16,
+        0
+      ],
+      "aimTurnInputTicks": 24,
+      "worldHeadingDotMinimum": 0.99,
+      "bodyFacingDotMaximum": 0.95,
+      "releaseAmounts": [
+        0.9259259,
+        0.74074066,
+        0.5,
+        0.25925925,
+        0.07407408,
+        0
+      ],
+      "scope": "Actual W32/Ctrl slide; both loaded native LODs; CPU geometry and source-invariance only"
+    }
+  ],
+  "currentReplay": {
+    "status": "PASS",
+    "producer": "retained actual ramp candidate06 Traversal UDP recording; no new cohort",
+    "archiveSha256": "56dd07f40d1a64d0ee87ab30080d0eea0d0227a937860fa32e07890bc2e69ae4",
+    "originalArchiveUnchanged": true,
+    "checks": 115830,
+    "frames": 2399,
+    "recordedProtocol": 76,
+    "recordedProfileVersion": 5,
+    "gameplayPresentationDigest": "169ED54359D2ACF93BD04E8F6912E70B12E8CD60A225EAD7472C57E8593C039B",
+    "snapshotPoseChecks": 7018,
+    "snapshotStanceChecks": 7018,
+    "crouchedFrames": 402,
+    "standingFrames": 1997,
+    "minimumRecordedPlayers": 2,
+    "maximumRecordedPlayers": 3
+  },
+  "nativeGL": {
+    "status": "PASS",
+    "attempt": 2,
+    "launchContext": "existing active console session through limited Interactive scheduled task; no display guard bypass",
+    "sessionId": 1,
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "version": "4.6.0 NVIDIA 617.42",
+    "clientMvid": "5388b238-2cfd-486e-95ff-8a9fb5b76630",
+    "room": "MP3 PROVING GROUND",
+    "hunter": "Samus",
+    "scope": "Windows native continuous 60 Hz renderer; actual Ctrl+W/S/A/D full walk cycles and running held-W+Ctrl slide; external camera follows actual body; frozen body-hidden negative controls and exact RGB repeats; no actor state writes; no perfect world foot-plant claim",
+    "scheduler": "production FrameTiming.Advance; presentation generation fence preserved",
+    "captureGroups": 55,
+    "pngs": 165,
+    "heldForwardSlideGroups": 7,
+    "exactRgbRepeatGroups": 55,
+    "positiveBodyHiddenGroups": 55,
+    "unstablePixels": 0,
+    "minimumBodySilhouettePixels": 6496,
+    "continuousPresentationGeneration": 1,
+    "segments": [
+      {
+        "name": "forward",
+        "durationSeconds": 2.0166666666666666,
+        "distance": 3.4303288497030735,
+        "completedCycles": 1.0502304935671751,
+        "pictures": 10
+      },
+      {
+        "name": "backward",
+        "durationSeconds": 2.066666666666667,
+        "distance": 3.9815572140505537,
+        "completedCycles": 1.055164724436301,
+        "pictures": 10
+      },
+      {
+        "name": "left",
+        "durationSeconds": 2.816666666666667,
+        "distance": 3.476763376966119,
+        "completedCycles": 1.0512482898124935,
+        "pictures": 18
+      },
+      {
+        "name": "right",
+        "durationSeconds": 1.9333333333333333,
+        "distance": 3.139402371365577,
+        "completedCycles": 1.0600837430541203,
+        "pictures": 9
+      },
+      {
+        "name": "held-forward-slide",
+        "durationSeconds": 1.5,
+        "distance": 5.271860912442207,
+        "completedCycles": 0,
+        "pictures": 7
+      }
+    ],
+    "pngArchiveSha256": "02c0f139eee10b002a35bf9812df888d99f879e18c35db91424442e66790fff1",
+    "cleanup": {
+      "detailedRetirement": {
+        "legacyListNamesBefore": 224,
+        "legacyListsRecognizedBefore": 224,
+        "legacyListsRecognizedAfter": 0,
+        "meshListFieldsAfter": 0,
+        "sceneModelLeasesAfter": 0,
+        "bufferNamesBefore": 244,
+        "buffersRecognizedBefore": 244,
+        "bufferNamesRecognizedAfter": 0,
+        "vertexArrayNamesBefore": 122,
+        "vertexArraysRecognizedBefore": 122,
+        "vertexArraysRecognizedAfter": 0,
+        "programNamesBefore": 7,
+        "programsRecognizedBefore": 7,
+        "programsRecognizedAfter": 0,
+        "deletionPendingProgramsAfter": 0,
+        "attachedShaderNamesBefore": 0,
+        "shadersRecognizedAfter": 0,
+        "deletionPendingShadersAfter": 0,
+        "textureNamesBefore": 278,
+        "texturesRecognizedAfter": 0,
+        "framebufferNamesBefore": 1,
+        "framebuffersRecognizedAfter": 0,
+        "renderbufferNamesBefore": 1,
+        "renderbuffersRecognizedAfter": 0,
+        "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+      },
+      "ownedTexturesBefore": 276,
+      "ownedTexturesAfter": 0,
+      "framebufferBefore": 1,
+      "framebufferAfter": 0,
+      "programCountBefore": 4,
+      "programOwnerFieldsReleased": true,
+      "ownedProgramsAfter": 0,
+      "recognizedProgramNamesAfter": 0,
+      "pendingDeletedProgramCountAfter": 0,
+      "currentProgramAfter": 0,
+      "depthSnapshotBytesBefore": 2073600,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 89,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 588432,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1006248,
+      "retainedBytesAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 28,
+      "glyphBytesBefore": 7168,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 6,
+      "spriteBytesBefore": 1536,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    },
+    "representativeImagesInspected": [
+      "gait-held-forward-slide-084",
+      "gait-forward-084",
+      "gait-left-084"
+    ],
+    "attempt01": {
+      "status": "SETUP_FAILURE",
+      "pngs": 0,
+      "failure": "No active primary display is available. Wake or connect a display and retry OpenGL initialization.",
+      "context": "SSH session; before CheckWindow construction",
+      "resolution": "same frozen tool and binaries launched through existing active console Interactive scheduled task"
+    }
+  },
+  "priorCandidate01": {
+    "status": "PRESERVED_FAILURE",
+    "productionUnchanged": true,
+    "failure": "six Hunters keyboard aim fixture did not turn ordinary body; Kanden segment comparison used Walk baseline instead of actual Idle0",
+    "candidate02Delta": "test only: real gathered MouseState.Position input and independently sampled native Idle0 baseline; original tolerances and turn threshold retained"
+  },
+  "leaseUnchanged": true,
+  "cleanup": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTaskCount": 0,
+    "frozenSourceBinaryLeaseUnchanged": true
+  },
+  "evidence": {
+    "evidenceSha256": "ddab29f577c89deea23df6fb3cf3b64770b6cd1e0afad5e3adeafc3734b29dfb",
+    "bytes": 2146941,
+    "fileCount": 30,
+    "sourceBinaryLeaseUnchanged": true,
+    "sourceManifestSha256": "2a824a89b8eda79d5d931184c70986cd99c8e6cad7235483ac5cd8509324df52",
+    "binaries": {
+      "ProjectPrime.dll": "965dab214013b389ae92c5f6d03fe3fa124b9cafdda18cb8d2f2054dda304153",
+      "nettest.dll": "429ef3825c5bdb24bd63aff9a0f599fc769204c17e55b84a3bce72dc7e1d4819"
+    },
+    "pngArchiveSha256": "02c0f139eee10b002a35bf9812df888d99f879e18c35db91424442e66790fff1"
+  },
+  "limits": [
+    "CPU all-Hunter/both-LOD acceptance; native GL Samus only",
+    "No physical-device, performance, or perfect world foot-plant claim",
+    "Raw PNGs, asset paths and network endpoints excluded from this summary"
+  ]
+}

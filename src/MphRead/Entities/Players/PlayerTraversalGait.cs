@@ -11,7 +11,7 @@ public partial class PlayerEntity
         or PlayerAnimation.WalkBackward or PlayerAnimation.WalkLeft or PlayerAnimation.WalkRight;
     private bool ModCrouchGaitActive => ModCrouchBodyAllowed && ModCrouchVisualAmount > 0
         && _modCrouchGait.Ready && _modCrouchVisualGeneration == FrameTiming.PresentationGeneration
-        && (ModIsWalkingClip(Biped1Anim) || _modCrouchGait.Gliding);
+        && (ModIsWalkingClip(Biped1Anim) || _modCrouchGait.Gliding || ModSlideVisualAmount > 0);
 
     // A separate animation cursor belongs exclusively to the picture. Native
     // animation frames, canonical restoration and source-time muzzle reads do

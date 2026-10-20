@@ -47,10 +47,6 @@ Prior profile classes and native wire widths are unchanged.
 
 See [slide readability and crouch gait results](slide-gait-results.md) for the held-Forward reproduction and verification scope.
 
-Protocol 76 selects Traversal profile v5 and Quake3 profile v4 for ramp/slope
-movement. Native payload widths and the protocol 69 accepted-stance boundary
-remain unchanged. Passive playback retains the recorded profile attribution.
-
 Protocol 76 selects Traversal v5 and Quake III v4. Continuing eligible movement
 on a fresh, static, walkable support solves acceleration/friction using surface
 speed, then redirects travel along the plane. Contact redirection retains only
@@ -64,3 +60,9 @@ slopes once per fixed tick (6 world units/second squared before projection).
 Uphill slides slow gradually; downhill gravity counters friction and can build
 modest speed. Flat slide coefficients and the non-refreshable 72-tick duration
 are unchanged. This force never creates a slide entitlement or runs per triangle.
+
+The dedicated slide pose blends into asymmetric extended/tucked legs and a torso
+lean over six fixed ticks, then recovers over six ticks. Its cosmetic heading
+follows world travel independently of aim. Native shot/ability curves and
+canonical weapon facts remain authoritative. See the [ramp verification](ramp-momentum-results.md)
+and [dedicated slide presentation results](dedicated-slide-results.md).
