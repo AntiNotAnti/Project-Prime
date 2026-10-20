@@ -283,6 +283,19 @@ internal static class ReplayIdentityCompatibility
             Require(converted.Length == 1 + SessionStatePacket.Size);
             Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 131072u) == 0);
         }
+        // M7 availability was reserved through protocol 69. Its live activation
+        // does not add custom replay support: refuse this rule in every archive
+        // until the custom replay contract is implemented.
+        if (type == PacketType.MatchState)
+        {
+            Require(converted.Length == 1 + MatchStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 262144u) == 0);
+        }
+        if (type == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 262144u) == 0);
+        }
         return converted;
     }
 

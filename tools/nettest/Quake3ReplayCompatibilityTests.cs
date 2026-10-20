@@ -18,7 +18,7 @@ internal static class Quake3ReplayCompatibilityTests
             bool refused = false;
             try { ReplayIdentityCompatibility.Convert(packet, protocol); }
             catch (InvalidDataException) { refused = true; }
-            Check(refused, $"Historical protocol {protocol} accepted a new movement bit.");
+            Check(refused, $"Historical protocol {protocol} accepted an unsupported newer rule bit.");
         }
         for (int protocol = 4; protocol <= 59; protocol++)
         {
@@ -46,15 +46,15 @@ internal static class Quake3ReplayCompatibilityTests
         }
         byte[] current = new byte[1 + MatchStatePacket.Size]; current[0] = (byte)PacketType.MatchState;
         BinaryPrimitives.WriteUInt32LittleEndian(current.AsSpan(104), 65536u);
-        foreach (int protocol in new[] { 60,61,62,63,64,65,66,67,68,69 })
+        foreach (int protocol in new[] { 60,61,62,63,64,65,66,67,68,69,70 })
             Check(ReplayIdentityCompatibility.Convert(current,protocol).SequenceEqual(current)
                 && MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(current,protocol)[1..]).RuleBits == 65536u,
-                "Protocol60/61/62/63/64/65/66/67/68/69 preserve exact native MatchState payload and Quake3 rules.");
+                "Protocol60/61/62/63/64/65/66/67/68/69/70 preserve exact native MatchState payload and Quake3 rules.");
         var sessionCurrent = new byte[1 + SessionStatePacket.Size]; sessionCurrent[0] = (byte)PacketType.SessionState;
         BinaryPrimitives.WriteUInt32LittleEndian(sessionCurrent.AsSpan(1 + SessionStatePacket.Protocol28Size),65536u);
-        foreach (int protocol in new[] { 60,61,62,63,64,65,66,67,68,69 })
+        foreach (int protocol in new[] { 60,61,62,63,64,65,66,67,68,69,70 })
             Check(ReplayIdentityCompatibility.Convert(sessionCurrent,protocol).SequenceEqual(sessionCurrent),
-                "Protocol60/61/62/63/64/65/66/67/68/69 preserve exact native SessionState payload and movement bit16.");
+                "Protocol60/61/62/63/64/65/66/67/68/69/70 preserve exact native SessionState payload and movement bit16.");
         BinaryPrimitives.WriteUInt32LittleEndian(current.AsSpan(104), 131072u);
         for (int protocol = 4; protocol < 68; protocol++) Reject(current, protocol);
         Check(ReplayIdentityCompatibility.Convert(current, 68).SequenceEqual(current)
@@ -64,6 +64,12 @@ internal static class Quake3ReplayCompatibilityTests
         for (int protocol = 31; protocol < 68; protocol++) Reject(sessionCurrent, protocol);
         Check(ReplayIdentityCompatibility.Convert(sessionCurrent, 68).SequenceEqual(sessionCurrent),
             "Protocol68 retains Traversal bit17 without changing SessionState width.");
+        BinaryPrimitives.WriteUInt32LittleEndian(current.AsSpan(104), 262144u);
+        for (int protocol = 4; protocol < 70; protocol++) Reject(current, protocol);
+        Reject(current,70);
+        BinaryPrimitives.WriteUInt32LittleEndian(sessionCurrent.AsSpan(1 + SessionStatePacket.Protocol28Size),262144u);
+        for (int protocol = 31; protocol < 70; protocol++) Reject(sessionCurrent, protocol);
+        Reject(sessionCurrent,70);
         BinaryPrimitives.WriteUInt32LittleEndian(current.AsSpan(104), 32768u);
         Check(MovementModelRules.FromRules((MatchModifierFlags)
             MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(current, 59)[1..]).RuleBits) == MovementModel.Momentum,
@@ -73,14 +79,14 @@ internal static class Quake3ReplayCompatibilityTests
             var status = new ServerStatusPacket { Protocol = 60, MaxPlayers = 8, ServerName = "fixture",
                 Match = new MatchStatePacket { RoomKey = "fixture", RuleBits = 65536u } };
             byte[] wire = new byte[size]; ServerStatusPacket decoded;
-            foreach (byte protocol in new byte[] { 60,61,62,63,64,65,66,67,68,69 })
+            foreach (byte protocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70 })
             {
                 status.Protocol = protocol; status.Write(wire);
                 Check(ServerStatusPacket.TryRead(wire,out decoded) && decoded.Protocol == protocol
                     && decoded.Match.RuleBits == 65536u && decoded.ServerName == "fixture",
-                    "Reviewed protocol60/61/62/63/64/65/66/67/68/69 discovery preserves native current-width status.");
+                    "Reviewed protocol60/61/62/63/64/65/66/67/68/69/70 discovery preserves native current-width status.");
             }
-            foreach (byte unsupported in new byte[] { 0,59,70,255 })
+            foreach (byte unsupported in new byte[] { 0,59,71,255 })
             {
                 status.Protocol = unsupported; status.Write(wire);
                 Check(!ServerStatusPacket.TryRead(wire,out _),"Unreviewed or wrong-width protocol discovery refuses current-width status.");
@@ -94,6 +100,15 @@ internal static class Quake3ReplayCompatibilityTests
             status.Protocol = 68; status.Write(wire);
             Check(ServerStatusPacket.TryRead(wire,out decoded) && decoded.Match.RuleBits == 131072u,
                 "Protocol68 discovery preserves Traversal in the reviewed current width.");
+            status.Match.RuleBits=262144u;
+            for(byte protocol=60;protocol<70;protocol++)
+            {
+                status.Protocol=protocol;status.Write(wire);
+                Check(!ServerStatusPacket.TryRead(wire,out _),"Pre70 status cannot advertise reserved availability bit18.");
+            }
+            status.Protocol=70;status.Write(wire);
+            Check(ServerStatusPacket.TryRead(wire,out decoded)&&decoded.Match.RuleBits==262144u,
+                "Protocol70 status preserves explicit availability without changing widths or packet IDs.");
             status.Protocol = 59; status.Match.RuleBits = 32768u; status.Write(wire);
             byte[] old = new byte[size - 2];
             wire.AsSpan(0, MatchStatePacket.Protocol59Size).CopyTo(old);

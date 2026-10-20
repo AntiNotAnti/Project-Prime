@@ -182,7 +182,8 @@ namespace MphRead.Mods.Network
                 case PacketType.MatchState:
                     if (payload.Length != MatchStatePacket.Size) throw Malformed();
                     var match = MatchStatePacket.Read(payload);
-                    if (!Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
+                    if (((MatchModifierFlags)match.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0
+                        || !Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
                         || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
                             && ((MatchModifierFlags)match.RuleBits & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0
                         || string.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
@@ -202,7 +203,8 @@ namespace MphRead.Mods.Network
                     accepted = true;
                     break;
                 case PacketType.SessionState:
-                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)) throw Malformed();
+                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)
+                        || configuration.Match.RiftlineM7Available) throw Malformed();
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;

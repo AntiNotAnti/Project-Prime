@@ -127,7 +127,7 @@ internal static class TraversalRulesTests
             Check(LobbyRules.ValidateDefinition(Definition(invalid), out _) == LobbyResultCode.InvalidConfiguration,
                 "unknown enum fails match admission");
         }
-        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 18)),
+        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 19)),
             "next unassigned modifier bit remains invalid");
     }
 

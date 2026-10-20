@@ -40,6 +40,26 @@ internal static partial class CustomAuthoritySceneChecks
         public bool TryGet(WeaponOwnerContext owner,out CustomSourceReadyContext context)
         { context = Context.GetValueOrDefault(); return Context.HasValue && context.Ready.Slot == owner.Slot; }
     }
+    // Explicit reservation/audience fixture. It supplies no pose, certificate,
+    // health or resource authority and does not model packet delivery.
+    private sealed class ExecutionDelivery : ICustomCombatDelivery
+    {
+        internal bool Allowed=true;
+        internal int Prepared,Launches,Contacts;
+        internal readonly List<CustomActionReceipt> Receipts=new();
+        private readonly HashSet<CustomWeaponAction> _prepared=new();
+        public bool MayExecute(in CustomWeaponAction action)=>Allowed;
+        public bool HasActionReservation(in CustomWeaponAction action)=>true;
+        public bool HasContactReservation(in CustomWeaponAction action)=>true;
+        public bool HasControlWitness(in CustomWeaponAction action)=>false;
+        public bool TryPrepareAudience(in CustomWeaponAction action){Prepared++;_prepared.Add(action);return true;}
+        public bool HasPreparedAudience(in CustomWeaponAction action)=>_prepared.Contains(action);
+        public bool Publish(in CustomActionReceipt receipt){Receipts.Add(receipt);return true;}
+        public bool Publish(in CustomContactOutcome outcome){Contacts++;return true;}
+        public bool PublishLaunch(in CustomReplicaLaunch launch){Launches++;return true;}
+        public void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input){}
+        public void AfterSourcePhase(CustomAuthorityCombatAdapter root){}
+    }
     private sealed class Fixture : IDisposable
     {
         private readonly ServerSim _sim = new();
@@ -64,7 +84,7 @@ internal static partial class CustomAuthoritySceneChecks
         private uint _sequence;
         internal long StepFailures => _sim.StepFailures;
         internal void Step() => _sim.Step();
-        internal Fixture(bool engineSources = false,bool automaticSourceBoundary = false)
+        internal Fixture(bool engineSources = false,bool automaticSourceBoundary = false,ICustomCombatDelivery? delivery = null)
         {
             var roster = RosterPacket.Create(); roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 2;
             for (byte slot=0; slot<2; slot++)
@@ -120,9 +140,9 @@ internal static partial class CustomAuthoritySceneChecks
                 {
                     BoundaryPeer = new(Bootstrap(),Owner.Slot,1,0);
                     Boundary = new(BoundaryPeer);
-                    Root = Scene.EnableDeveloperEngineCustomCombat(true,Boundary);
+                    Root = Scene.EnableDeveloperEngineCustomCombat(true,Boundary,delivery);
                 }
-                else Root = engineSources ? Scene.EnableDeveloperEngineCustomCombat(true,Readiness)
+                else Root = engineSources ? Scene.EnableDeveloperEngineCustomCombat(true,Readiness,delivery)
                     : Scene.EnableDeveloperCustomCombat(true,Oracle);
                 Readiness.Context = new(new(Bootstrap(),Root.Manifest.Digest,Owner.Slot,
                     WeaponMechanics.SchemaVersion,WeaponMechanics.BehaviorVersion,CustomWeaponReady.PrecisionCapability),1000,1000,1);
@@ -290,7 +310,7 @@ internal static partial class CustomAuthoritySceneChecks
                 Console.WriteLine("SCOPE: actual authority placement/control validation and post-control/pre-projectile observation barrier; native input carriers seeded through AcceptSlotIntent. NOT_RUN: endpoint authentication, custom action admission, missing-source recovery, modifiers, local/bot source parity or custom transport.");
                 return 0;
             }
-            DamageAndSequence(); HeadAndScore(); ProtectedContact(); TurretContact(); MissingHistoryAndCapacity();
+            ExecutionBarrier(); DamageAndSequence(); HeadAndScore(); ProtectedContact(); TurretContact(); MissingHistoryAndCapacity();
             Trade(false); Trade(true); RespawnAndReplacement(); LateImpactTrade(); SharedCounterBoundaries(); CanonicalReplayFrontier();
             RulesRetirement(); StreamRetirement(); SceneCleanup(); AdvanceAllocation(); RetainedLifeBudget();
             Console.WriteLine($"PASS {_checks} real-scene custom authority combat checks.");
@@ -934,6 +954,59 @@ internal static partial class CustomAuthoritySceneChecks
         Check(f.Process(f.EngineAction(CustomWeaponActionKind.Equip,1000)).Result == WeaponActionResult.Accepted
             && f.Process(f.EngineAction(CustomWeaponActionKind.Optic,1000,optic:1)).Result == WeaponActionResult.Accepted,
             "engine-observed neutral source authorizes equip and optic with no supplied certificate");
+    }
+    private static void ExecutionBarrier()
+    {
+        var delivery=new ExecutionDelivery();using var f=new Fixture(engineSources:true,delivery:delivery);
+        CaptureEngineInput(f,1000);Frame(1001);
+        Check(f.Process(f.EngineAction(CustomWeaponActionKind.Equip,1000)).Result==WeaponActionResult.Accepted
+            &&f.Process(f.EngineAction(CustomWeaponActionKind.Optic,1000,optic:1)).Result==WeaponActionResult.Accepted,
+            "past engine-observed neutral source settles equip/optic behind explicit delivery reservation fixture");
+        CaptureEngineInput(f,1001,shoot:true,ack:1001);Frame(1002);
+        var fire=f.EngineAction(CustomWeaponActionKind.Fire,1001,1001,optic:1);
+        Check(InspectEngine(f,fire,out var valid)==CustomSourceDecision.Verified&&valid.IsValidFor(fire)
+            &&f.Oracle.Supplied.Count==0,"queued execution-barrier Fire has a genuinely engine-derived source before audience closes");
+        uint settled=0,committed=0;
+        Check(f.Root.TryState(f.Shooter,out var before)&&f.Root.TryStateMetadata(f.Shooter,out _,out settled,out committed),
+            "execution-barrier fixture reads canonical state before queued Fire");
+        var lives=(Array)typeof(CustomAuthorityCombatAdapter).GetField("_current",Hidden)!.GetValue(f.Root)!;
+        var life=lives.GetValue(f.Owner.Slot)!;
+        var payments=(CustomLaunchPayments)life.GetType().GetField("Payments",Hidden)!.GetValue(life)!;
+        uint highest=payments.HighestSequence;int health=f.Victim.Health;ushort damage=NetDamage.Sequence(f.Victim.SlotIndex);
+        Check(f.Root.Offer(fire)==CustomQueueResult.Queued,"execution barrier changes only after exact Fire is already queued");
+        delivery.Allowed=false;
+        Check(InspectEngine(f,fire,out var unavailable)==CustomSourceDecision.Rejected&&unavailable==default,
+            "closed delivery barrier rejects before returning the otherwise verified engine certificate");
+        Check(f.Root.TryProcess(f.Shooter,out var denied)&&denied.Action==fire
+            &&denied.Disposition==CustomJournalDisposition.SourceDenied&&denied.Result==WeaponActionResult.InvalidLife
+            &&denied.Emission==CustomEmissionDisposition.NotAttempted&&denied.Source==null&&denied.Before==null&&denied.After==null,
+            "already-bound Fire settles terminal source denial instead of waiting for a favorable audience");
+        Check(f.Root.TryState(f.Shooter,out var after)&&after==before&&after.Magazine==4&&after.Reserve==16
+            &&after.LastAcceptedShotId==0&&payments.HighestSequence==highest&&!payments.IsQuarantined
+            &&f.Root.AcceptedEmissions==0&&f.Root.TerminalContacts==0&&f.Root.PositivePayments==0
+            &&delivery.Prepared==0&&delivery.Launches==0&&delivery.Contacts==0&&f.Pool.All(beam=>beam.Lifespan<=0)
+            &&f.Victim.Health==health&&NetDamage.Sequence(f.Victim.SlotIndex)==damage,
+            "closed audience prepares no observers, advances no resources/payment identity and cannot emit or change HP");
+        Check(f.Root.TryStateMetadata(f.Shooter,out _,out uint terminal,out uint source)&&terminal==fire.Sequence
+            &&terminal==settled+1&&source==committed&&delivery.Receipts.Last()==denied,
+            "source denial advances exactly its nonce while leaving committed source and resources unchanged");
+        delivery.Allowed=true;int receipts=delivery.Receipts.Count;
+        Check(f.Root.Offer(fire)==CustomQueueResult.Duplicate&&!f.Root.TryProcess(f.Shooter,out _)
+            &&f.Root.TryReceipt(fire,out var retry)&&retry==denied&&delivery.Receipts.Count==receipts
+            &&f.Root.TryState(f.Shooter,out after)&&after==before,
+            "exact denied nonce remains immutable after audience recovery and cannot re-offer or pay");
+        CaptureEngineInput(f,1002);CaptureEngineInput(f,1003,shoot:true,ack:1003);Frame(1004);
+        var fresh=f.EngineAction(CustomWeaponActionKind.Fire,1003,1003,optic:1);var accepted=f.Process(fresh);
+        Check(accepted.Action.Sequence==fire.Sequence+1&&accepted.Result==WeaponActionResult.Accepted
+            &&accepted.Emission==CustomEmissionDisposition.Spawned&&accepted.Source is {} certificate&&certificate.IsValidFor(fresh)
+            &&delivery.Prepared==1&&delivery.Launches==1&&f.Root.AcceptedEmissions==1,
+            "fresh released-to-pressed engine source and next nonce execute once after audience recovery");
+        foreach(var beam in f.Pool.Where(beam=>beam.ModCustomShot?.Sequence==fresh.Sequence))
+            for(int i=0;i<2&&f.Root.TerminalContacts==0;i++)beam.Process();
+        Check(f.Root.PositivePayments==1&&f.Root.TerminalContacts==1&&delivery.Contacts==1&&f.Victim.Health==health-65
+            &&f.Root.TryState(f.Shooter,out after)&&after.Magazine==3&&after.Reserve==16,
+            "recovered new action makes exactly one real65HP canonical payment without repaying denied action");
+        Console.WriteLine("EXECUTION BARRIER SCOPE: real engine source phases, source admission, journal, emission and canonical HP; execution permission and preallocated-result/audience obligations are explicit trusted delivery fixtures, not UDP readiness proof.");
     }
     private static CustomSourceDecision InspectEngine(Fixture f,CustomWeaponAction action,out CustomSourceCertificate source)
         => ((ICustomSourceAdmission)f.Root).Inspect(action,out source);

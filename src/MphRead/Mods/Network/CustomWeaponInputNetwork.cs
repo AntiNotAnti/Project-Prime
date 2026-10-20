@@ -26,7 +26,7 @@ public sealed partial class DedicatedServer
         // a previously unseen nonce. An old/duplicate input can recover native
         // events but can never retrofit a custom trigger into frozen history.
         bool current=HandleDecodedIntent(packet,now,peer,intent);
-        if (!current || scene==null || entry is not { Combat:not null } || !CustomRoomReady(scene)
+        if (!current || scene==null || entry is not { Combat:not null } || !CustomCanReceiveAction(scene,entry.Combat)
             || !entry.Combat.AcceptsMode(request.Owner,2)
             || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)) return;
         // Native input can repeat at60Hz. An exact retained nonce is not another

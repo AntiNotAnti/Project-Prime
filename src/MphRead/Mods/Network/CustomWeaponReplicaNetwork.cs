@@ -23,7 +23,7 @@ public sealed partial class DedicatedServer
     }
     private void PumpCustomReplica()
     {
-        if(!DeveloperCustomWeaponCombat||_transport==null||_customReadyEntries==null
+        if(!CustomWeaponCombatEnabled||_transport==null||_customReadyEntries==null
             ||_sim?.EvidenceScene is not {CustomCombat:not null} scene||_customAudience==null
             ||_customAudienceStart!=CurrentStartIdentity)return;
         double now=NetSession.Clock;

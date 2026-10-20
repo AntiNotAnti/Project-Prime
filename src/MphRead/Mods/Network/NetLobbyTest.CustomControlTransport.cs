@@ -113,9 +113,9 @@ public static partial class NetLobbyTest
         private ControlSourceSnapshot? _source;
         private uint _sourceFrame;
         internal ControlSourceSnapshot? Source => Volatile.Read(ref _source);
-        internal ControlTransportFixture(bool impaired=false)
+        internal ControlTransportFixture(bool impaired=false,bool publicAvailability=false,int maxPlayers=2)
         {
-            Engine=new(impaired:impaired); A=new(Engine.First,Engine.A); B=new(Engine.Second,Engine.B);
+            Engine=new(impaired:impaired,publicAvailability:publicAvailability,maxPlayers:maxPlayers); A=new(Engine.First,Engine.A); B=new(Engine.Second,Engine.B);
             _sourceFrame=Engine.Latest.First.InputFrame;
             const BindingFlags hidden=BindingFlags.Instance|BindingFlags.NonPublic;
             var sim=(ServerSim)typeof(DedicatedServer).GetField("_sim",hidden)!.GetValue(Engine.Rig.Server)!;
@@ -219,14 +219,14 @@ public static partial class NetLobbyTest
             _sink.SetValue(null,_previous); Engine.Dispose();
         }
     }
-    public static int RunCustomControlTransport(string data)
+    public static int RunCustomControlTransport(string data,bool publicAvailability=false)
     {
         string directory=Directory.GetCurrentDirectory(); _checks=0;
         try
         {
             Directory.SetCurrentDirectory(Path.GetFullPath(data)); Paths.UpdatePaths(); Paths.ChooseMphPath(); Headless.Enter();
-            CustomControlUdpLostTap(); CustomControlUdpOrdering(); CustomControlUdpDenied();
-            CustomControlUdpRespawn(); CustomControlUdpCapacity(); CustomControlUdpExpiry(); CustomControlUdpLoss();
+            CustomControlUdpLostTap(publicAvailability); CustomControlUdpOrdering(publicAvailability); CustomControlUdpDenied(publicAvailability);
+            CustomControlUdpRespawn(publicAvailability); CustomControlUdpCapacity(publicAvailability); CustomControlUdpExpiry(publicAvailability); CustomControlUdpLoss(publicAvailability);
             Console.WriteLine($"PASS {_checks} reliable custom control UDP/engine checks.");
             Console.WriteLine("SCOPE: actual dedicated UDP control/source/result handlers, fully coalesced native tap, released-input canonical Fire, ordered one-head-per-source processing, typed no-source denial, real native respawn, bounded capacity and160ms RTT/10% client datagram faults. Native scene-load acknowledgements and room/health/respawn setup are explicit fixtures inherited from K. No source certificates, movement replay or rendered input UI are injected or claimed.");
             return 0;
@@ -234,9 +234,9 @@ public static partial class NetLobbyTest
         catch (Exception ex) { Console.Error.WriteLine("CUSTOM CONTROL UDP FAIL "+ex); return 1; }
         finally { NetSession.Stop(); Directory.SetCurrentDirectory(directory); }
     }
-    private static void CustomControlUdpLostTap()
+    private static void CustomControlUdpLostTap(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(); f.Equip();
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability); f.Equip();
         var fire=f.Request(3,CustomWeaponActionKind.Fire,1); f.Reserve(fire);
         var frames=f.CoalescedTap(); var result=f.Settle(fire,false);
         f.Engine.Rig.Wait(()=>f.A.HasContact(fire) && f.Engine.Latest.Second.Health==135,"reliable Fire survives wholly unconsumed native press and removes65 canonical HP");
@@ -253,9 +253,9 @@ public static partial class NetLobbyTest
         f.A.Ack(result.Ack); f.A.Ack(f.A.Contact(fire).Ack); f.WaitPending(0,"exact receipt/contact application ACKs release lost-tap request");
         Check(f.Engine.Latest.StepFailures==0,"lost-tap source barrier and canonical effects have no simulation exceptions");
     }
-    private static void CustomControlUdpOrdering()
+    private static void CustomControlUdpOrdering(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture();
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability);
         var second=f.Request(2,CustomWeaponActionKind.Optic,1); f.Reserve(second); f.Fresh();
         uint before=f.Engine.Latest.World; f.Engine.WaitWorld(before+3,"out-of-order request is held across real source and combat phases");
         Check(!f.A.HasReceipt(second) && f.Engine.Latest.First.State.Phase==CustomWeaponPhase.Unequipped,
@@ -271,9 +271,9 @@ public static partial class NetLobbyTest
         f.WaitPending(0,"both ordered control application acknowledgements retire without gaps");
         Check(f.Engine.Latest.First.State.Magazine==4 && f.Engine.Latest.StepFailures==0,"ordered control setup has no ammo or simulation side effects");
     }
-    private static void CustomControlUdpDenied()
+    private static void CustomControlUdpDenied(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(); f.Equip();
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability); f.Equip();
         var fire=f.Request(3,CustomWeaponActionKind.Fire,1); f.Reserve(fire); uint deniedSource=f.Fresh(Vector3.Zero);
         f.Engine.Rig.Wait(()=>f.A.HasDenial(fire),"actual rejected first post-fence placement yields typed no-source terminal");
         var denied=f.A.Denial(fire);
@@ -288,9 +288,9 @@ public static partial class NetLobbyTest
         f.WaitPending(0,"same-life recovery acknowledgement retires normally");
         Check(f.Engine.Latest.StepFailures==0,"actual negative source and ordered recovery have no engine exception");
     }
-    private static void CustomControlUdpRespawn()
+    private static void CustomControlUdpRespawn(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(); f.Equip();
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability); f.Equip();
         var old=f.Request(3,CustomWeaponActionKind.Fire,1); f.Reserve(old); f.Engine.RespawnFirst();
         f.Engine.Rig.Wait(()=>f.A.HasDenial(old),"real native respawn retires old-life unbound request without a canonical shot");
         var denied=f.A.Denial(old); var next=f.Engine.Latest.First.Owner;
@@ -305,9 +305,9 @@ public static partial class NetLobbyTest
         Check(f.Engine.Latest.Second.Health==200 && f.Engine.Latest.Contacts==0 && f.Engine.Latest.StepFailures==0,
             "old-life result retirement never causes a delayed shot or engine failure");
     }
-    private static void CustomControlUdpCapacity()
+    private static void CustomControlUdpCapacity(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(); var first=f.Request(1,CustomWeaponActionKind.Equip);
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability); var first=f.Request(1,CustomWeaponActionKind.Equip);
         for (uint sequence=1;sequence<=16;sequence++)
         {
             var request=sequence==1 ? first:first with { Sequence=sequence,Kind=CustomWeaponActionKind.Optic,Optic=1 };
@@ -326,9 +326,9 @@ public static partial class NetLobbyTest
             "same previously backpressured request can bind only after capacity release and another fresh source");
         Check(f.Engine.Latest.StepFailures==0,"control capacity/fresh-source backpressure has no simulation exception");
     }
-    private static void CustomControlUdpExpiry()
+    private static void CustomControlUdpExpiry(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(); var request=f.Request(1,CustomWeaponActionKind.Equip); f.Reserve(request);
+        using var f=new ControlTransportFixture(publicAvailability:publicAvailability); var request=f.Request(1,CustomWeaponActionKind.Equip); f.Reserve(request);
         f.Engine.Rig.Wait(()=>f.A.HasDenial(request),"no new consumed source produces bounded typed timeout instead of an indefinitely latched control",5000);
         var denied=f.A.Denial(request);
         Check(denied.Reason==CustomControlDenialReason.SourceUnavailable && !f.A.HasReceipt(request)
@@ -339,9 +339,9 @@ public static partial class NetLobbyTest
         f.A.Ack(denied.Ack); f.WaitPending(0,"typed source-wait timeout still needs explicit application ACK");
         Check(f.Engine.Latest.StepFailures==0,"bounded source wait and late input preserve actual simulation");
     }
-    private static void CustomControlUdpLoss()
+    private static void CustomControlUdpLoss(bool publicAvailability=false)
     {
-        using var f=new ControlTransportFixture(impaired:true); long before=f.Engine.DroppedDatagrams(); f.Equip();
+        using var f=new ControlTransportFixture(impaired:true,publicAvailability:publicAvailability); long before=f.Engine.DroppedDatagrams(); f.Equip();
         var fire=f.Request(3,CustomWeaponActionKind.Fire,1); f.Reserve(fire); uint source=f.Fresh(); var receipt=f.Settle(fire,false);
         f.Engine.Rig.Wait(()=>f.A.HasContact(fire) && f.Engine.Latest.Second.Health==135,"reliable custom control survives actual160ms RTT/10% datagram loss while all native input stays released",8000);
         Check(receipt.Receipt.Result==WeaponActionResult.Accepted && receipt.Receipt.Action.SourceFrame==source
