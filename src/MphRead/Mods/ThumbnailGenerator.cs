@@ -119,11 +119,21 @@ namespace MphRead.Mods
             string root = meta.FirstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             if (String.IsNullOrWhiteSpace(root)) return false;
 
-            string entityPath = Paths.Combine(root, meta.EntityPath);
-            var file = new FileInfo(entityPath);
-            if (!file.Exists) return !builtIn; // Custom map compilation can be deferred.
-            if (file.Length == 0) return false;
-            long modified = file.LastWriteTimeUtc.Ticks;
+            FileInfo file;
+            long modified;
+            try
+            {
+                string entityPath = Paths.Combine(root, meta.EntityPath);
+                file = new FileInfo(entityPath);
+                if (!file.Exists) return !builtIn; // Custom map compilation can be deferred.
+                if (file.Length == 0) return false;
+                modified = file.LastWriteTimeUtc.Ticks;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[rooms] could not inspect the entity file for {roomKey}: {ex.Message}");
+                return !builtIn;
+            }
             if (_spawnCache.TryGetValue(roomKey, out var cached)
                 && String.Equals(cached.Path, file.FullName, StringComparison.Ordinal)
                 && cached.Size == file.Length && cached.Modified == modified)
