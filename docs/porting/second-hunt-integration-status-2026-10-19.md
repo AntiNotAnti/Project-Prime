@@ -40,6 +40,7 @@ Our slices add no wire change.
 | [828](https://github.com/AntiNotAnti/Project-Prime/pull/828) | Bounded animation duration metadata and pure original ending timeline | `6366ce762a692a3b2bcf0bf61e3920c095f15b78` |
 | [830](https://github.com/AntiNotAnti/Project-Prime/pull/830) | Optional fixed-step campaign timing and immutable ending facts | `1c8ea00a0b3ae779638ecba50a78b9696438e038` |
 | [832](https://github.com/AntiNotAnti/Project-Prime/pull/832) | Bounded credits models, exact animation binding and CPU decoder ownership | `e24be8ae318627fa1c86f8fc2a96704ddd563759` |
+| [833](https://github.com/AntiNotAnti/Project-Prime/pull/833) | Detached original backgrounds/font metrics and bounded CPU glyph/color layout | `3dd5a0b833e67e43d840997c6a30b475fad5e017` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document

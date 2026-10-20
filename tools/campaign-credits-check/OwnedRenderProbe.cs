@@ -8,6 +8,7 @@ using System.Text.Json;
 using ModelSource = MphRead.Mods.Campaign.CampaignCreditsModelSource;
 using Binding = MphRead.Mods.Campaign.CampaignCreditsAnimationBinding;
 using Duration = MphRead.Mods.Campaign.CampaignCreditsAnimationDuration;
+using Sampler = MphRead.Mods.Campaign.CampaignCreditsWidgetSampler;
 
 // Opt-in AMHE1 CPU decode/evaluation with metadata-only output.
 // No GL, source payload export, UI, audio or save owner.
@@ -61,7 +62,7 @@ internal static class OwnedRenderProbe
         internal long Bytes;
     }
 
-    internal static int Run(string ownedRoot)
+    internal static int Run(string ownedRoot, bool sampleWidgets = false)
     {
         int checks = 0;
         string stage = "Initialize";
@@ -77,6 +78,9 @@ internal static class OwnedRenderProbe
         int decodedTexturePairs = 0;
         long decodedPixelSamples = 0;
         bool cachesUnchanged = false;
+        int widgetSamplers = 0, geometrySamples = 0, canonicalGeometryFrames = 0;
+        int maximumGeometryTriangles = 0, geometryAbaChecks = 0, snapshotStabilityChecks = 0;
+        long geometryTriangles = 0, geometryCorners = 0;
         string assemblyPath = typeof(ModelSource).Assembly.Location;
         string? assemblyBefore = null, assemblyAfter = null;
         string? errorType = null, errorMessageSha256 = null;
@@ -103,6 +107,7 @@ internal static class OwnedRenderProbe
                 var pixels = VerifyPixels(decoded);
                 Evaluate(decoded, 0);
                 sampledStillFrames++;
+                if (sampleWidgets) VerifyWidgetSamples(model, null, decoded);
                 modelMetadata.Add(new { pin.FileId, model.SourceSha256, model.ByteLength,
                     model.NodeCount, model.MaterialCount, model.MeshCount, model.TextureCount,
                     model.MatrixCount, model.PixelCount, model.VertexCount, model.TriangleCount,
@@ -145,6 +150,7 @@ internal static class OwnedRenderProbe
                     Evaluate(decoded, frame);
                     sampledAnimationFrames++;
                 }
+                if (sampleWidgets) VerifyWidgetSamples(model, binding, decoded);
                 animationMetadata.Add(new { pin.FileId, ModelFileId = modelPin.FileId,
                     binding.SourceSha256, binding.ModelSha256, ByteLength = bytes.Length,
                     duration.SlotCount, duration.NodeFrames, duration.MaterialFrames,
@@ -167,6 +173,9 @@ internal static class OwnedRenderProbe
                 && sampledAnimationFrames == 1156 && sampledAnimationFrames == AnimationPins.Sum(p => p.Frames)
                 && nodeMatrixSamples == 14072 && materialSamples == 6126,
                 "CPU decode/frame sampling inventory differs.");
+            if (sampleWidgets)
+                Check(widgetSamplers == 26 && canonicalGeometryFrames == 1164 && geometryAbaChecks == 26,
+                    "Owned widget sampler/frame inventory differs.");
         }
         catch (Exception error)
         {
@@ -206,13 +215,19 @@ internal static class OwnedRenderProbe
         bool unchanged = inputs.All(i => i.Before == i.After);
         bool assemblyUnchanged = assemblyBefore != null && assemblyBefore == assemblyAfter;
         bool passed = errorType == null && unchanged && assemblyUnchanged && cachesUnchanged
-            && inputs.Count == 26 && models.Count == 8 && animationMetadata.Count == 18 && decodedModels == 26;
+            && inputs.Count == 26 && models.Count == 8 && animationMetadata.Count == 18 && decodedModels == 26
+            && (!sampleWidgets || widgetSamplers == 26 && canonicalGeometryFrames == 1164 && geometryAbaChecks == 26);
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             Schema = 1, Edition = "AMHE1", Passed = passed, Stage = stage, Checks = checks,
             ErrorType = errorType, ErrorMessageSha256 = errorMessageSha256,
             MetadataOutputOnly = true, ModelsDecoded = decodedModels > 0,
             AnimationsEvaluated = sampledAnimationFrames > 0,
+            WidgetSamplingRequested = sampleWidgets, WidgetSamplers = widgetSamplers,
+            GeometrySamples = geometrySamples, CanonicalGeometryFrames = canonicalGeometryFrames,
+            GeometryTriangles = geometryTriangles, GeometryCorners = geometryCorners,
+            MaximumGeometryTriangles = maximumGeometryTriangles, GeometryAbaChecks = geometryAbaChecks,
+            SnapshotStabilityChecks = snapshotStabilityChecks, IndependentGeometryOrPixelParityClaimed = false,
             DecodedModelInstances = decodedModels, PrivateMutableObjects = mutableOwners.Count,
             SampledAnimationFrames = sampledAnimationFrames, SampledStillFrames = sampledStillFrames,
             NodeMatrixSamples = nodeMatrixSamples, MaterialSamples = materialSamples,
@@ -241,6 +256,68 @@ internal static class OwnedRenderProbe
         {
             checks++;
             if (!condition) throw new InvalidDataException(message);
+        }
+        void VerifyWidgetSamples(ModelSource.Snapshot source, Binding.Snapshot? animation, Model reference)
+        {
+            var sampler = new Sampler(source, animation);
+            int frames = animation?.FrameCount ?? 1;
+            Check(sampler.SourceSha256 == source.SourceSha256 && sampler.AnimationSha256 == animation?.SourceSha256
+                && sampler.FrameCount == frames, "Widget sampler source/frame identity differs.");
+            widgetSamplers++;
+            Sampler.Snapshot? earliest = null;
+            Sampler.Triangle[]? earliestCopy = null;
+            earliest = Sample(0, loop: false);
+            earliestCopy = earliest.Triangles.ToArray();
+            canonicalGeometryFrames++;
+            Sampler.Snapshot last = earliest;
+            for (int frame = 1; frame < frames; frame++)
+            {
+                last = Sample(frame, loop: false);
+                canonicalGeometryFrames++;
+            }
+            var held = Sample(long.MaxValue, loop: false);
+            Check(held.Triangles.SequenceEqual(last.Triangles), "Long-age hold differs from the sampled final frame.");
+            var looped = Sample(long.MaxValue, loop: true);
+            var phase = Sample(frames <= 1 ? 0 : long.MaxValue % frames, loop: false);
+            Check(looped.Triangles.SequenceEqual(phase.Triangles), "Long-age loop differs from its bounded frame phase.");
+            Check(Sample(0, loop: false, alpha: 0).Triangles.Count == 0,
+                "Zero-alpha widget emitted geometry.");
+            var again = Sample(0, loop: false);
+            Check(again.Triangles.SequenceEqual(earliestCopy) && earliest.Triangles.SequenceEqual(earliestCopy),
+                "Widget age-zero ABA or earlier immutable snapshot changed.");
+            geometryAbaChecks++;
+
+            Sampler.Snapshot Sample(long age, bool loop, float alpha = 1)
+            {
+                var snapshot = sampler.Sample(age, loop, alpha);
+                int expected = frames <= 1 ? 0 : loop ? (int)(age % frames) : (int)Math.Min(age, frames - 1L);
+                Check(snapshot.AnimationFrame == expected && snapshot.Triangles.Count <= source.TriangleCount,
+                    "Widget phase/triangle extent exceeds its source admission.");
+                bool valid = true;
+                foreach (var triangle in snapshot.Triangles)
+                {
+                    var key = triangle.Texture;
+                    valid &= VertexFinite(triangle.A) && VertexFinite(triangle.B) && VertexFinite(triangle.C)
+                        && Unit(triangle.Color.X) && Unit(triangle.Color.Y) && Unit(triangle.Color.Z) && Unit(triangle.Color.W)
+                        && float.IsFinite(triangle.Depth) && key.ModelSha256 == source.SourceSha256
+                        && ((key.TextureId == -1 && key.PaletteId == -1)
+                            || (key.TextureId >= 0 && key.TextureId < reference.Recolors[0].Textures.Count
+                                && key.PaletteId >= 0 && key.PaletteId < reference.Recolors[0].Palettes.Count))
+                        && (triangle.WrapS is RepeatMode.Clamp or RepeatMode.Repeat)
+                        && (triangle.WrapT is RepeatMode.Clamp or RepeatMode.Repeat);
+                }
+                Check(valid, "Widget triangle finite/color/texture/wrap contract is invalid.");
+                if (earliestCopy != null)
+                {
+                    Check(earliest!.Triangles.SequenceEqual(earliestCopy),
+                        "Later widget sampling mutated the earliest snapshot.");
+                    snapshotStabilityChecks++;
+                }
+                geometrySamples++; geometryTriangles += snapshot.Triangles.Count;
+                geometryCorners += snapshot.Triangles.Count * 3L;
+                maximumGeometryTriangles = Math.Max(maximumGeometryTriangles, snapshot.Triangles.Count);
+                return snapshot;
+            }
         }
         Model DecodePrivate(ModelSource.Snapshot source, Binding.Snapshot? animation)
         {
@@ -348,6 +425,9 @@ internal static class OwnedRenderProbe
         }
     }
 
+    private static bool VertexFinite(Sampler.Vertex vertex) => float.IsFinite(vertex.Position.X)
+        && float.IsFinite(vertex.Position.Y) && float.IsFinite(vertex.Position.Z)
+        && float.IsFinite(vertex.Texcoord.X) && float.IsFinite(vertex.Texcoord.Y);
     private static int GroupFrame(int frame, int count) => count <= 1 ? 0 : Math.Min(frame, count - 1);
     private static bool Unit(float value) => float.IsFinite(value) && value is >= 0 and <= 1;
     private static bool Unit(Vector3 value) => Unit(value.X) && Unit(value.Y) && Unit(value.Z);
