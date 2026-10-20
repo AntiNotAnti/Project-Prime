@@ -17,7 +17,8 @@ namespace MphRead.Entities
         private void ModDrawPostMatchReport()
         {
             if (!_scene.GameState.Multiplayer
-                || _scene.GameState.MatchState != MatchState.Ending)
+                || _scene.GameState.MatchState != MatchState.Ending
+                || _scene.GameState.MatchTime < 0)
             {
                 return;
             }
@@ -156,6 +157,23 @@ namespace MphRead.Entities
                     _killFeedSpecial, scale: 0.29f);
             }
             ModDrawPostMatchIntroShutter();
+        }
+
+        /// <summary>
+        /// The six-second scoreboard has finished, but the shared server can
+        /// still be completing its replay allowance or map handoff. Display
+        /// a minimal native transition status instead of extending the table
+        /// beyond the player's requested results window.
+        /// </summary>
+        private void ModDrawPostMatchHandoff()
+        {
+            string action = NetSession.PersistentLobby ? "RETURNING TO LOBBY"
+                : NetSession.Active ? "PREPARING NEXT ARENA"
+                : "RETURNING TO MATCH MENU";
+            DrawText2D(128, 85, Align.Center, 0, action, _killFeedInk, scale: 0.65f);
+            DrawText2D(128, 99, Align.Center, 0,
+                NetSession.Active ? "SESSION CONNECTED" : "MATCH COMPLETE",
+                _killFeedSpecial, scale: 0.37f);
         }
 
         /// <summary>Fade out of the final replay's quiet slate shutter into
