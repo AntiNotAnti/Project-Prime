@@ -77,7 +77,7 @@ with authentication refusal, so the user-authorized Mac fallback was used.
 | Evidence | Result |
 | --- | --- |
 | Desktop / dedicated Release | Pass, zero warnings/errors |
-| Android Release/AOT | Pass, 119 assemblies, 25 existing XML-documentation warnings |
+| Android Release/AOT | Pass, 119 assemblies, 25 existing compiler/documentation warnings |
 | Signed APK | v2/v3 signatures pass; arm64-v8a and x86_64 include ProjectPrime AOT |
 | Credits generated fixtures | 239 pass; bounded malformed-pointer refusal allocates 912 bytes |
 | External import suites | Pass, including 2,126 source-companion, 952 material, 191 texture, 137 texture-bank and 128 material-bank checks |
