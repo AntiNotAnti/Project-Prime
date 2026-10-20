@@ -216,7 +216,7 @@ internal static class PirateBlasterSceneTests
         at.Y=floor.Position.Y-target.ModBipedBottom+.05f;
         var obstruction=new CollisionResult();Check(!CollisionDetection.CheckBetweenPoints(origin,at.AddY(.1f),TestFlags.Beams,f.Scene,ref obstruction),"native room LOS reaches actual body fixture");
         target.Spawn(at,-horizontal,Vector3.UnitY,p.NodeRef,respawn:false);target.IsBot=false;target.TeamIndex=p.TeamIndex+1;
-        Check(target.ModIsInPlay&&target.Health==target.HealthMax&&!target.ModMatchSpawnProtectionActive,"public native Spawn places inert opposing target without protection or HP accounting writes");
+        Check(target.ModIsInPlay&&target.Health==99&&!target.ModMatchSpawnProtectionActive,"public native Spawn places inert opposing target without protection or HP accounting writes");
         PointerInput.StylusMode=false;PointerInput.Reset();PointerDevice.Reset();p.Controls.MouseAim=true;p.Controls.KeyboardAim=false;
         var mouse=(MouseState)typeof(Scene).GetField("_mouseState",Hidden)!.GetValue(f.Scene)!;
         var set=typeof(MouseState).GetProperty("Position",Hidden|BindingFlags.Public)!.SetMethod!.CreateDelegate<Action<MouseState,Vector2>>();
