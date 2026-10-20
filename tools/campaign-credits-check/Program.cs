@@ -2,10 +2,15 @@ try
 {
     if (args.Length == 2 && args[0] == "--probe") return OwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-timeline") return OwnedTimelineProbe.Run(args[1]);
-    if (args.Length != 0) throw new ArgumentException("Use no arguments for generated fixtures, --probe OWNED_MPH_ROOT for source metadata, or --probe-timeline OWNED_MPH_ROOT for pure timeline metadata.");
+    if (args.Length == 2 && args[0] == "--probe-render") return OwnedRenderProbe.Run(args[1]);
+    if (args.Length != 0) throw new ArgumentException("Use no arguments for generated fixtures, --probe OWNED_MPH_ROOT for source metadata, or --probe-timeline OWNED_MPH_ROOT for pure timeline metadata, or --probe-render OWNED_MPH_ROOT for model/animation admission metadata.");
     CreditsFixtures.Run();
     AnimationDurationFixtures.Run();
     CreditsTimelineFixtures.Run();
+    CreditsModelFixtures.Run();
+    CreditsAnimationBindingFixtures.Run();
+    CreditsDecodeFixtures.Run();
+    CreditsMutationFixtures.Run();
     return 0;
 }
 catch (Exception error)

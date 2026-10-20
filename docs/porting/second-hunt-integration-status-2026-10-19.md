@@ -14,7 +14,7 @@ The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
 Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
-current main advanced to 67 through concurrent custom-weapon work in PR819.
+current main advanced to 69 through concurrent custom-weapon and Traversal work.
 Our slices add no wire change.
 
 ## Completed and merged slices
@@ -38,6 +38,7 @@ Our slices add no wire change.
 | [824](https://github.com/AntiNotAnti/Project-Prime/pull/824) | Private model-bound paired-UV companion, final compiler emission and immutable runtime adoption | `da443dc9e86c7bb51402ce0024797379497f1d10` |
 | [826](https://github.com/AntiNotAnti/Project-Prime/pull/826) | Bounded detached original credits/results source document | `d948432362e5cfb969ed7573945d14fe22e40e5d` |
 | [828](https://github.com/AntiNotAnti/Project-Prime/pull/828) | Bounded animation duration metadata and pure original ending timeline | `6366ce762a692a3b2bcf0bf61e3920c095f15b78` |
+| [830](https://github.com/AntiNotAnti/Project-Prime/pull/830) | Optional fixed-step campaign timing and immutable ending facts | `1c8ea00a0b3ae779638ecba50a78b9696438e038` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document

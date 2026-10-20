@@ -243,13 +243,37 @@ namespace MphRead
             return (count, result);
         }
 
+        // Credits admissions own detached bytes and bind animation to that exact model.
+        // A reserved identity excludes legacy model-name fixups and all cache/metadata paths.
+        internal static Model ReadCreditsModel(Mods.Campaign.CampaignCreditsModelSource.Snapshot model,
+            Mods.Campaign.CampaignCreditsAnimationBinding.Snapshot? animation = null)
+        {
+            ArgumentNullException.ThrowIfNull(model);
+            if (animation != null && animation.ModelSha256 != model.SourceSha256)
+                throw new InvalidDataException("Credits animation belongs to a different admitted model.");
+            string identity = "__campaign_credits_" + model.SourceSha256 + "_" + (animation?.SourceSha256 ?? "still");
+            string modelPath = identity + ".bin";
+            return ReadModel(identity, modelPath, animation == null ? null : identity + "_anim.bin", null,
+                new[] { new RecolorMetadata("default", modelPath) }, firstHunt: false, decodeTextures: true,
+                suppliedModel: model.Memory, suppliedAnimation: animation?.Memory);
+        }
+
         private static Model ReadModel(string name, string modelPath, string? animationPath, string? animationShare,
             IReadOnlyList<RecolorMetadata> recolorMeta, bool firstHunt, bool decodeTextures = false,
-            Mods.MapGen.MapSourceGeometryReadSpec? sourceGeometry = null)
+            Mods.MapGen.MapSourceGeometryReadSpec? sourceGeometry = null,
+            ReadOnlyMemory<byte>? suppliedModel = null, ReadOnlyMemory<byte>? suppliedAnimation = null)
         {
-            string root = firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
+            if (suppliedModel.HasValue && (firstHunt || sourceGeometry != null || animationShare != null
+                || recolorMeta.Count != 1 || recolorMeta[0].ModelPath != modelPath
+                || recolorMeta[0].TexturePath != modelPath || recolorMeta[0].PalettePath != modelPath
+                || recolorMeta[0].ReplaceIds.Count != 0 || recolorMeta[0].ReplacePath != null
+                || suppliedAnimation.HasValue != (animationPath != null)))
+                throw new InvalidDataException("Credits supplied-byte decoder options are inconsistent.");
+            if (!suppliedModel.HasValue && suppliedAnimation.HasValue)
+                throw new InvalidDataException("Supplied animation requires its admitted model bytes.");
+            string root = suppliedModel.HasValue ? "" : firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             string path = Paths.Combine(root, modelPath);
-            ReadOnlySpan<byte> initialBytes = ReadBytes(path, firstHunt);
+            ReadOnlySpan<byte> initialBytes = suppliedModel.HasValue ? suppliedModel.Value.Span : ReadBytes(path, firstHunt);
             var sourceSnapshot = sourceGeometry?.Load(root, initialBytes);
             Header header = ReadStruct<Header>(initialBytes[0..Sizes.Header]);
             IReadOnlyList<RawNode> nodes = DoOffsets<RawNode>(initialBytes, header.NodeOffset, header.NodeCount);
@@ -265,7 +289,7 @@ namespace MphRead
                 // GenerateLists returns before calling it. One empty list per
                 // display list, because mesh.DlistId indexes this by
                 // position.
-                instructions.Add(Mods.Headless.Active
+                instructions.Add(Mods.Headless.Active && !suppliedModel.HasValue
                     ? Array.Empty<RenderInstruction>()
                     : DoRenderInstructions(initialBytes, dlist));
             }
@@ -508,7 +532,7 @@ namespace MphRead
                 textureMatrices.Add(textureMatrix);
             }
             IReadOnlyList<int> nodeWeights = DoOffsets<int>(initialBytes, header.NodeWeightOffset, header.NodeWeightCount);
-            AnimationResults animations = LoadAnimation(name, animationPath, nodes, firstHunt);
+            AnimationResults animations = LoadAnimation(name, animationPath, nodes, firstHunt, suppliedAnimation);
             if (animationShare != null)
             {
                 AnimationResults shared = LoadAnimation(name, animationShare, nodes, firstHunt);
@@ -553,16 +577,18 @@ namespace MphRead
                 { SourceGeometry = sourceSnapshot };
         }
 
-        private static AnimationResults LoadAnimation(string model, string? path, IReadOnlyList<RawNode> nodes, bool firstHunt)
+        private static AnimationResults LoadAnimation(string model, string? path, IReadOnlyList<RawNode> nodes, bool firstHunt,
+            ReadOnlyMemory<byte>? suppliedBytes = null)
         {
             string temp = model;
             var results = new AnimationResults();
-            if (path == null)
+            if (!suppliedBytes.HasValue && path == null)
             {
                 return results;
             }
-            path = Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path);
-            var bytes = new ReadOnlySpan<byte>(ReadFileBytes(path));
+            // Choose supplied bytes before consulting configured roots or returning for a null path.
+            ReadOnlySpan<byte> bytes = suppliedBytes.HasValue ? suppliedBytes.Value.Span
+                : ReadFileBytes(Paths.Combine(firstHunt ? Paths.FhFileSystem : Paths.FileSystem, path!));
             AnimationHeader header = ReadStruct<AnimationHeader>(bytes);
             IReadOnlyList<uint> nodeGroupOffsets = DoOffsets<uint>(bytes, header.NodeGroupOffset, header.Count);
             IReadOnlyList<uint> materialGroupOffsets = DoOffsets<uint>(bytes, header.MaterialGroupOffset, header.Count);

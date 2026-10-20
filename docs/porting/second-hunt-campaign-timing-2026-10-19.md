@@ -134,3 +134,14 @@ cannot recover missing past timing; they intentionally remain unknown.
 Rollback removes the counter hook and nullable extension/display. Existing
 progress, movies, kill/death counters and save/receipt ownership remain intact;
 new timing JSON is additive data that older serializers may ignore.
+
+After the frozen qualification, an intermittent full-image preview appeared
+blank. Independent PNG decoding proved identical pixels to the PPM capture
+and exploratory run (pixel SHA256
+`6883a0563236fc31fb05cd897ff6e3284d05b35f29847c2c7c4433c47f2d95f9`,
+23,857 bright pixels). Raw pixel crops show all seven totals lines. Fresh
+unchanged frozen-binary runs passed58 checks at both framebuffer sizes.
+The discrepancy belongs to the image preview; no production change was needed.
+Metadata and synthetic crops are retained under `visual-investigation/`.
+PR830 merged as `1c8ea00a0b3ae779638ecba50a78b9696438e038`;
+its production/test bytes retain the frozen qualification identity.
