@@ -865,6 +865,7 @@ namespace MphRead.Droid
                 {
                     EsBindings.Load();
                     GlEs.Reset();
+                    AndroidTextureCompressionPolicy.ProbeCurrentContext();
                     _contextBindingsReady = true;
                     // Something rather than whatever was in the buffer, for the
                     // seconds the room takes to load.
