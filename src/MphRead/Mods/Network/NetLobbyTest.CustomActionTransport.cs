@@ -115,10 +115,11 @@ public static partial class NetLobbyTest
         private readonly bool _impaired;
         private uint _firstSource,_secondSource;
         internal ActionWorldSnapshot Latest => Volatile.Read(ref _latest) ?? throw new InvalidOperationException("No engine snapshot.");
-        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2)
+        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false)
         {
             ResetActionLag();
-            Rig=new(simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:true,customCombat:true);
+            if(tokenOwnerSecond&&ownerToken==Guid.Empty)throw new ArgumentException("Second-slot token owner fixture requires an actual owner token.");
+            Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:true,customCombat:true);
             try
             {
                 _impaired=impaired;
@@ -129,9 +130,10 @@ public static partial class NetLobbyTest
                     NetLag.Configure("160"); NetLag.ConfigureLoss("10%"); NetLag.ConfigureSeed("431");
                     Console.WriteLine("CUSTOM ACTION UDP FAULTS: "+NetLag.Describe()+"; client transports only");
                 }
-                First=Rig.Add(9140); Second=Rig.Add(9141);
+                First=Rig.Add(9140,tokenOwnerSecond ? default:ownerToken); Second=Rig.Add(9141,tokenOwnerSecond ? ownerToken:default);
                 FirstReady=new(First); SecondReady=new(Second); A=new(First); B=new(Second);
-                Rig.ReadyAll(); Rig.Expect(First,First.Command(LobbyCommandType.StartMatch),LobbyResultCode.Ok);
+                var startOwner=tokenOwnerSecond ? Second:First;
+                Rig.ReadyAll(); Rig.Expect(startOwner,startOwner.Command(LobbyCommandType.StartMatch),LobbyResultCode.Ok);
                 First.Loaded(); Second.Loaded();
                 Rig.Wait(()=>First.State?.Phase==SessionPhase.InMatch && FirstReady.Ready.HasValue && SecondReady.Ready.HasValue,
                     "actual dedicated match supplies both endpoint-bound custom manifests",15000);

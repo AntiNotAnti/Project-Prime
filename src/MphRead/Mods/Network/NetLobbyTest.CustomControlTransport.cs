@@ -155,7 +155,7 @@ public static partial class NetLobbyTest
         internal void Reserve(CustomControlRequest request,int count=1)
         { Send(request); WaitPending(count,"actual authenticated control request reserves bounded results before a fresh source exists"); }
         private uint NextSource()
-        { _sourceFrame=Math.Max(_sourceFrame+1,Engine.Latest.World+1); return _sourceFrame; }
+        { _sourceFrame=Math.Max(_sourceFrame+1,Math.Max(Engine.Latest.World+1,Engine.Latest.First.InputFrame+1)); return _sourceFrame; }
         private byte[] Input(uint frame,bool shoot,Vector3? position=null)
         {
             var world=Engine.Latest; var actor=world.First; var target=world.Second; var owner=actor.Owner;

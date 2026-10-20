@@ -30,6 +30,7 @@ public static partial class NetLobbyTest
         internal CustomReadinessWire? ReplicaWire;
         internal int ReplicaPages,ReplicaEvents,ReplicaAcks,WithheldReplicaAcks;
         internal bool DiscardReplicaBaselineAcks,DiscardReplicaEventAcks;
+        internal byte[]? LastReplicaBaselineAck,LastReplicaEventAck;
         internal CustomReadinessProbe(Client client)
         {
             _client = client; _registry = new(true,new[] { _definition });
@@ -68,13 +69,11 @@ public static partial class NetLobbyTest
                 if (packet.Type==PacketType.CustomWeaponReplicaPage) ReplicaPages++; else ReplicaEvents++;
                 if (ack.Id!=0)
                 {
+                    byte[] bytes=new byte[CustomReplicaAck.Size];
+                    Check(CustomReplicaCodec.TryWriteAck(ReplicaWire,ack,bytes),"durable public fact produces exact recipient digest acknowledgement");
+                    if(ack.Baseline) LastReplicaBaselineAck=bytes; else LastReplicaEventAck=bytes;
                     if (ack.Baseline ? DiscardReplicaBaselineAcks:DiscardReplicaEventAcks) WithheldReplicaAcks++;
-                    else
-                    {
-                        byte[] bytes=new byte[CustomReplicaAck.Size];
-                        Check(CustomReplicaCodec.TryWriteAck(ReplicaWire,ack,bytes),"durable public fact produces exact recipient digest acknowledgement");
-                        _client.Send(PacketType.CustomWeaponReplicaAck,bytes);ReplicaAcks++;
-                    }
+                    else { _client.Send(PacketType.CustomWeaponReplicaAck,bytes);ReplicaAcks++; }
                 }
             }
             if (packet.Type == PacketType.CustomWeaponReadyConfirmed)
