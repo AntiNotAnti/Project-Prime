@@ -209,14 +209,16 @@ internal static class NativeCharacterPreviewAcceptance
             controller.RequestCharacterSourcePreview();Check(!restricted.TryTakeCharacterSourcePreview(out _),"game-file restriction fences even a direct pending controller request");
         }
         // Actual worker paths need no commercial data: canonical normal is absent,
-        // and Trooper has no supported runtime source profile.
+        // and Trooper still has no supported runtime source profile. Keep this
+        // refusal aligned with the qualified body source-program family.
+        const string unsupportedProfile = "support normal and Overcharged Echoes";
         foreach(string id in new[]{"darksamus-echoes","trooper-power"})
         {
             using var preview=new NativeCharacterSourcePreviewPage(host,pages,id,asModal:false);preview.Open();
             Task task=(Task)Get(preview,"_load")!;Await(task);preview.Tick();
             string status=(string)Get(preview,"_status")!;
             Check(preview.Request==null&&Get(preview,"_selection")==null
-                &&status.Contains(id=="darksamus-echoes"?"Update the selected source bundle":"supports normal Echoes",StringComparison.Ordinal),
+                &&status.Contains(id=="darksamus-echoes"?"Update the selected source bundle":unsupportedProfile,StringComparison.Ordinal),
                 "missing/unsupported source returns bounded error with no render request: "+id);
             Check(preview.Handle(new(RmlUiIntentKind.HunterCancel,0,preview.Document,1))&&preview.Closed,"Back remains usable after source load refusal: "+id);
         }
@@ -228,7 +230,7 @@ internal static class NativeCharacterPreviewAcceptance
             Check(ReferenceEquals(Get(covered,"_load"),completed)&&(string)Get(covered,"_status")! ==prior
                 &&covered.Request==null&&native.Publications==publications,"covered source page defers completed worker adoption and native publication");
             pages.CloseModal();covered.Tick();
-            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains("supports normal Echoes",StringComparison.Ordinal),
+            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains(unsupportedProfile,StringComparison.Ordinal),
                 "restored source page adopts only its own completed worker result");
         }
         foreach(string retirement in new[]{"back","dispose","dead-document"})
