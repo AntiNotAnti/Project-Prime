@@ -464,7 +464,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -472,7 +472,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67)
                 status = Read(src);
             else
             {
@@ -2591,7 +2591,9 @@ namespace MphRead.Mods.Network
         // Ordinary native Intent bytes and protocol-62 movement thresholds remain unchanged.
         // Protocol 66 adds opt-in typed recipient replica pages, events and application ACKs.
         // Prior packet IDs, native bytes and protocol-62 movement thresholds remain unchanged.
-        public const int ProtocolVersion = 66;
+        // Protocol 67 activates the opt-in recipient replica lane after baseline application ACK.
+        // Packet IDs94–96 and native payloads retain their protocol-66 shapes.
+        public const int ProtocolVersion = 67;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

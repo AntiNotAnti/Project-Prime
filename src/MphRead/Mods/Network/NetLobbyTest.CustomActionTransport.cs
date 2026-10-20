@@ -115,10 +115,10 @@ public static partial class NetLobbyTest
         private readonly bool _impaired;
         private uint _firstSource,_secondSource;
         internal ActionWorldSnapshot Latest => Volatile.Read(ref _latest) ?? throw new InvalidOperationException("No engine snapshot.");
-        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false)
+        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2)
         {
             ResetActionLag();
-            Rig=new(simulate:true,room:"MP3 PROVING GROUND",maxPlayers:2,customReadiness:true,customCombat:true);
+            Rig=new(simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:true,customCombat:true);
             try
             {
                 _impaired=impaired;
@@ -241,8 +241,10 @@ public static partial class NetLobbyTest
         private void WaitInitialStates()
         {
             Rig.Wait(()=>A.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
-                && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped },
-                "fresh actual input automatically publishes independent initial four/sixteen unequipped state");
+                && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
+                && Rig.Server.TryGetCustomReplicaReady(First.Slot,out bool firstReady,out _) && firstReady
+                && Rig.Server.TryGetCustomReplicaReady(Second.Slot,out bool secondReady,out _) && secondReady,
+                "fresh actual input automatically publishes independent initial four/sixteen unequipped state and recipient baselines are acknowledged");
             Check(A.State!.Value.State.Owner==Latest.First.Owner && B.State!.Value.State.Owner==Latest.Second.Owner,
                 "initial wire resources name exact full current engine lives");
         }
@@ -250,8 +252,10 @@ public static partial class NetLobbyTest
         {
             SecondReady.Send(); Rig.Wait(()=>SecondReady.Confirmations>0,"last actual participant completes custom readiness");
             Observe(Second,_secondSource,false);
-            Rig.Wait(()=>A.State.HasValue && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped },
-                "last participant's fresh actual source publishes its independent initial resources");
+            Rig.Wait(()=>A.State.HasValue && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
+                && Rig.Server.TryGetCustomReplicaReady(First.Slot,out bool firstReady,out _) && firstReady
+                && Rig.Server.TryGetCustomReplicaReady(Second.Slot,out bool secondReady,out _) && secondReady,
+                "last participant's fresh actual source publishes its independent initial resources after both recipient baselines");
         }
         internal void Observe(Client client,uint source,bool shoot,bool head=false,uint? ackOverride=null)
         {

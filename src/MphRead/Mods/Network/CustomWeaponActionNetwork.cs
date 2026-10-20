@@ -22,8 +22,17 @@ public sealed partial class DedicatedServer
             if (Offers>=64) return false; Offers++; return true;
         }
     }
-    private static void InvalidateCustomEntry(CustomReadyEntry? entry)
-    { entry?.State.Invalidate(); entry?.Combat?.Outbox.Close(); }
+    private void InvalidateCustomEntry(CustomReadyEntry? entry)
+    {
+        if(entry==null)return;
+        _customAudience?.CancelPrepared((byte)entry.Peer.SlotIndex,entry.State.Wire.Bootstrap,NetSession.NetFrame);
+        entry.State.Invalidate();entry.Combat?.Outbox.Close();entry.Replica?.Close();
+    }
+    private bool PublishCustomReceipt(CustomActionPeer combat,in CustomActionReceipt receipt)
+    {
+        if(!combat.Outbox.Publish(receipt))return false;
+        _customAudience?.FinalizeReceipt(receipt);return true;
+    }
     private CustomReadyEntry? CurrentCustomActionEntry(int slot,Scene scene)
     {
         if ((uint)slot>=8) return null;
@@ -38,8 +47,12 @@ public sealed partial class DedicatedServer
     {
         if (_phase!=SessionPhase.InMatch || _bots.Count!=0 || _peers.Count==0) return false;
         foreach (var peer in _peers)
-            if (peer.Spectating || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { State.Evidence:not null } entry
-                || entry.Peer!=peer || entry.State.Evidence!.Manifest!=scene.CustomCombat?.Manifest.Digest) return false;
+        {
+            if(CurrentCustomRecipientEntry(peer,scene) is not {Replica.IsReady:true} recipient
+                ||recipient.Replica.HasExpired(NetSession.Clock))return false;
+            if(!peer.Spectating&&(CurrentCustomActionEntry(peer.SlotIndex,scene) is not {State.Evidence:not null} entry
+                ||entry.Peer!=peer||entry.State.Evidence!.Manifest!=scene.CustomCombat?.Manifest.Digest))return false;
+        }
         return true;
     }
     private sealed class LiveCustomCombatDelivery(DedicatedServer server,Scene scene) : ICustomCombatDelivery
@@ -49,16 +62,24 @@ public sealed partial class DedicatedServer
         public bool HasContactReservation(in CustomWeaponAction action)
             => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasContactReservation(action)==true;
         public bool Publish(in CustomActionReceipt receipt)
-            => server.CurrentCustomResultEntry(receipt.Action,scene)?.Combat?.Outbox.Publish(receipt)==true;
+        {
+            return server.CurrentCustomResultEntry(receipt.Action,scene)?.Combat is {} combat
+                &&server.PublishCustomReceipt(combat,receipt);
+        }
         public bool Publish(in CustomContactOutcome outcome)
         {
             var identity=outcome.Contact.Key.Action;
             if (!identity.IsValid || server.CurrentCustomActionEntry(identity.Owner.Slot,scene)?.Combat is not { } combat) return false;
-            return combat.Outbox.Publish(outcome);
+            if(!combat.Outbox.Publish(outcome))return false;
+            server._customAudience?.PublishContact(outcome,NetSession.Clock);return true;
         }
         public void AfterSourcePhase(CustomAuthorityCombatAdapter root) => server.ProcessCustomActions(scene,root);
         public bool HasControlWitness(in CustomWeaponAction action)
             => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasControlWitness(action)==true;
+        public bool TryPrepareAudience(in CustomWeaponAction action)
+            =>server.CustomRoomReady(scene)&&server._customAudience?.Prepare(action,NetSession.Clock)==true;
+        public bool HasPreparedAudience(in CustomWeaponAction action)=>server._customAudience?.HasPrepared(action)==true;
+        public bool PublishLaunch(in CustomReplicaLaunch launch)=>server._customAudience?.PublishLaunch(launch,NetSession.Clock)==true;
         public void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input)
             => server.BindCustomControl(scene,root,input);
     }
@@ -80,10 +101,10 @@ public sealed partial class DedicatedServer
         var queued=root.Offer(action);
         if (queued==CustomQueueResult.Queued) return;
         if (queued==CustomQueueResult.Duplicate && root.TryReceipt(action,out var receipt))
-        { entry.Combat.Outbox.Publish(receipt); return; }
+        { PublishCustomReceipt(entry.Combat,receipt); return; }
         if (queued is CustomQueueResult.Retired or CustomQueueResult.WindowExceeded)
         {
-            entry.Combat.Outbox.Publish(new CustomActionReceipt(action,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
+            PublishCustomReceipt(entry.Combat,new CustomActionReceipt(action,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
                 WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null)); return;
         }
         entry.Combat.Outbox.ReleaseUnprocessed(action); // Backpressure/foreign is nonterminal; retry exact bytes.
@@ -120,7 +141,7 @@ public sealed partial class DedicatedServer
                     if (!root.TryProcess(scene.Players.Items[slot],out _)) break;
             for (int n=0;n<CustomActionOutbox.Capacity;n++)
                 if (combat.Outbox.TryPending(n,out var pending) && !root.IsActionLifeActive(pending.Owner))
-                    combat.Outbox.Publish(new CustomActionReceipt(pending,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
+                    PublishCustomReceipt(combat,new CustomActionReceipt(pending,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
                         WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null));
             combat.Outbox.AdvanceFlights(NetSession.NetFrame);
             var player=scene.Players.Items[slot];

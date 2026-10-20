@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 66, "protocol 66 preserves the queue/bot wire contract");
+            Check(NetConfig.ProtocolVersion == 67, "protocol 67 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -595,7 +595,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 66 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 67 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
@@ -1007,6 +1007,7 @@ namespace MphRead.Mods.Network
             public NetTransport Transport = new(0);
             public readonly uint Id;
             public readonly IPEndPoint Server;
+            public readonly bool InitialSpectator;
             public int Slot = -1;
             public SessionStatePacket? State;
             public RosterPacket Roster = RosterPacket.Create();
@@ -1021,15 +1022,17 @@ namespace MphRead.Mods.Network
             public readonly Dictionary<uint, LobbyCommandResultPacket> Results = new();
             public Action<ReceivedPacket>? PacketReceived;
             private uint _command;
-            public Client(int port, uint id, Guid token = default, byte? protocol = null)
+            public Client(int port, uint id, Guid token = default, byte? protocol = null, bool initialSpectator = false)
             {
+                InitialSpectator = initialSpectator;
                 Id = id; Server = new IPEndPoint(IPAddress.Loopback, port);
                 Transport.AnswerPingsImmediately(); Hello(token, protocol);
             }
             public void Hello(Guid token = default, byte? protocol = null)
             {
-                byte[] bytes = new byte[22]; bytes[0] = protocol ?? NetConfig.ProtocolVersion; bytes[1] = Slot < 0 ? (byte)255 : (byte)Slot;
+                byte[] bytes = new byte[InitialSpectator ? 23 : 22]; bytes[0] = protocol ?? NetConfig.ProtocolVersion; bytes[1] = Slot < 0 ? (byte)255 : (byte)Slot;
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(2), Id); token.TryWriteBytes(bytes.AsSpan(6));
+                if (InitialSpectator) bytes[22] = 1;
                 Send(PacketType.Hello, bytes);
             }
             public void Identify(byte hunter = 0)
@@ -1109,9 +1112,9 @@ namespace MphRead.Mods.Network
                 _thread = new Thread(() => { try { Server.Run(); } catch (Exception ex) { _error = ex; } }) { IsBackground = true };
                 _thread.Start(); Wait(() => Server.Listening, "server listening");
             }
-            public Client Add(uint id, Guid token = default)
+            public Client Add(uint id, Guid token = default, bool initialSpectator = false)
             {
-                var client = new Client(Server.BoundPort, id, token); Clients.Add(client);
+                var client = new Client(Server.BoundPort, id, token, initialSpectator: initialSpectator); Clients.Add(client);
                 Wait(() => client.Slot >= 0 && client.State != null, "client admitted"); client.Identify();
                 Stable(); return client;
             }
