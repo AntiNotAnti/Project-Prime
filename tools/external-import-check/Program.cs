@@ -144,6 +144,7 @@ try
     EchoesLocalMapFixtureTests.Run();
     EchoesPrivateMapFixtureTests.Run();
     LocalImportBundleTests.Run();
+    LocalImportBatchTests.Run();
     DarkSamusSourceFixtureTests.Run();
     EchoesWorldSourceFixtureTests.Run();
     EchoesVisualLayerFixtureTests.Run();

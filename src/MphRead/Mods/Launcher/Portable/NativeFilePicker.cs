@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -74,20 +75,24 @@ namespace MphRead.Mods.Launcher
         /// <param name="title">The dialog's own title.</param>
         /// <param name="description">What the extension is called, for the filter row.</param>
         /// <param name="extension">The extension, without a dot.</param>
+        /// <param name="additionalExtensions">Other supported extensions for the same source.</param>
         public static Task<string?> OpenFile(string title, string description,
-            string extension)
+            string extension, params string[] additionalExtensions)
         {
+            string[] extensions = new[] { extension }.Concat(additionalExtensions).Distinct(StringComparer.Ordinal).ToArray();
+            if (extensions.Any(value => value.Length is < 1 or > 12 || !value.All(char.IsAsciiLetterOrDigit)))
+                throw new ArgumentException("File picker extensions must be short ASCII names.");
             if (OperatingSystem.IsWindows())
             {
-                return WindowsFile(title, description, extension, Owner);
+                return WindowsFile(title, description, extensions, Owner);
             }
             if (OperatingSystem.IsMacOS())
             {
-                return Task.Run(() => MacFile(title, extension));
+                return Task.Run(() => MacFile(title, extensions));
             }
             if (OperatingSystem.IsLinux())
             {
-                return Task.Run(() => LinuxFile(title, description, extension));
+                return Task.Run(() => LinuxFile(title, description, extensions));
             }
             return Task.FromResult<string?>(null);
         }
@@ -143,7 +148,7 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private static Task<string?> WindowsFile(string title, string description,
-            string extension, IntPtr owner)
+            string[] extensions, IntPtr owner)
         {
             var result = new TaskCompletionSource<string?>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -165,13 +170,13 @@ namespace MphRead.Mods.Launcher
                         Owner = owner,
                         // Nulls inside the filter, which is how comdlg32 reads
                         // it: pairs of strings, the list ended by an empty one.
-                        Filter = $"{description} (*.{extension})\0*.{extension}\0"
+                        Filter = description + "\0" + string.Join(";", extensions.Select(value => "*." + value)) + "\0"
                             + "Every file (*.*)\0*.*\0\0",
                         FilterIndex = 1,
                         File = buffer,
                         MaxFile = MaxPath,
                         Title = title,
-                        DefaultExtension = extension,
+                        DefaultExtension = extensions[0],
                         Flags = OpenFileFlags
                     };
                     result.SetResult(GetOpenFileNameW(ref options)
@@ -230,7 +235,7 @@ namespace MphRead.Mods.Launcher
             return false;
         }
 
-        private static string? LinuxFile(string title, string description, string extension)
+        private static string? LinuxFile(string title, string description, string[] extensions)
         {
             string? tool = LinuxTool();
             if (tool == null)
@@ -245,13 +250,13 @@ namespace MphRead.Mods.Launcher
                 arguments.Add("--getopenfilename");
                 arguments.Add(Environment.GetFolderPath(
                     Environment.SpecialFolder.UserProfile));
-                arguments.Add($"*.{extension}|{description}");
+                arguments.Add(string.Join(" ", extensions.Select(value => "*." + value)) + "|" + description);
             }
             else
             {
                 arguments.Add("--file-selection");
                 arguments.Add($"--title={title}");
-                arguments.Add($"--file-filter={description} | *.{extension}");
+                arguments.Add("--file-filter=" + description + " | " + string.Join(" ", extensions.Select(value => "*." + value)));
                 arguments.Add("--file-filter=Every file | *");
             }
             return RunTool(tool, arguments);
@@ -259,7 +264,7 @@ namespace MphRead.Mods.Launcher
 
         // --------------------------------------------------------------- macos
 
-        private static string? MacFile(string title, string extension)
+        private static string? MacFile(string title, string[] extensions)
         {
             // AppleScript quoting is the same as C's for these two characters,
             // and a title is ours rather than the player's -- but a prompt is
@@ -269,7 +274,7 @@ namespace MphRead.Mods.Launcher
             {
                 "-e",
                 $"POSIX path of (choose file with prompt \"{prompt}\" "
-                    + $"of type {{\"{extension}\"}})"
+                    + "of type {" + string.Join(",", extensions.Select(value => "\"" + value + "\"")) + "})"
             });
         }
 

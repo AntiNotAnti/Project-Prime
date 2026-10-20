@@ -39,6 +39,7 @@ public partial class Scene
         private readonly CameraMode _mode;
         private readonly Vector3 _position, _facing, _up, _right;
         private readonly float _fov, _modelFov;
+        private readonly string _ownerProvenance;
         private readonly bool _free;
         private readonly int _subject, _frustumIndex, _frustumCount;
         private readonly Matrix4 _view, _inv, _invY, _projection, _modelProjection;
@@ -67,6 +68,7 @@ public partial class Scene
             _projection = scene._perspectiveMatrix;
             _modelProjection = scene._viewModelPerspectiveMatrix;
             _modelFov = scene._viewModelFov;
+            _ownerProvenance = scene.ReplayOwnerProvenance;
             _frustumIndex = scene.FrustumInfo.Index;
             _frustumCount = scene.FrustumInfo.Count;
             _planes = scene.FrustumInfo.Planes.ToArray();
@@ -108,6 +110,7 @@ public partial class Scene
             _scene._perspectiveMatrix = _projection;
             _scene._viewModelPerspectiveMatrix = _modelProjection;
             _scene._viewModelFov = _modelFov;
+            _scene.ReplayOwnerProvenance = _ownerProvenance;
             _scene.FrustumInfo.Index = _frustumIndex;
             _scene.FrustumInfo.Count = _frustumCount;
             Array.Copy(_planes, _scene.FrustumInfo.Planes, _planes.Length);

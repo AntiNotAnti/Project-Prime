@@ -108,6 +108,21 @@ internal sealed class ReplayOwnerTrack
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
+    private static int _activeLoads;
+    internal static Task<ReplayOwnerTrack?> LoadAsyncBounded(string replay, CancellationToken cancellation = default,
+        Action? beforeLoadForCheck = null)
+    {
+        // Rapid seeks may retire worlds faster than disk hashing completes.
+        // Admit at most four jobs; saturation uses ordinary authority playback.
+        if (Interlocked.Increment(ref _activeLoads) > 4)
+        { Interlocked.Decrement(ref _activeLoads); return Task.FromResult<ReplayOwnerTrack?>(null); }
+        return Task.Run(() =>
+        {
+            try { beforeLoadForCheck?.Invoke(); return Load(replay,cancellation); }
+            finally { Interlocked.Decrement(ref _activeLoads); }
+        });
+    }
+
     internal static ReplayOwnerTrack? Load(string replay, CancellationToken cancellation = default)
     {
         try
