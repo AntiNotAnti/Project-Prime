@@ -183,7 +183,7 @@ internal static class EnhancedRetirementTests
         {
             _checks = 0; NetSession.Stop();
             Check(!EnhancedHistoricalMatrixTests.CanRecordBaseline, "candidate cannot regenerate pinned historical fixtures");
-            Check(NetConfig.ProtocolVersion == 65, "protocol 65 retains Enhanced retirement compatibility");
+            Check(NetConfig.ProtocolVersion == 66, "protocol 66 retains Enhanced retirement compatibility");
             Check((uint)MatchModifierFlags.EnhancedHunters == 1024 && (uint)MatchModifierFlags.BalancedMode == 8192,
                 "historic modifier IDs remain reserved and distinct");
             Check(EnhancedHunterNetState.Size == 26 && EnhancedMovementEvent.Size == 8

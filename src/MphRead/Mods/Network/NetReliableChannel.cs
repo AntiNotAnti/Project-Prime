@@ -96,7 +96,8 @@ public sealed class NetReliableChannel
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
     public static bool IsReliable(PacketType type) => type is PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
         or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
-        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest
+        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+        or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
         or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
         or PacketType.PartyReservationRequest or PacketType.PartyReservationState or PacketType.PartyReservationAction
         or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
@@ -108,7 +109,8 @@ public sealed class NetReliableChannel
         or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant;
     public static bool IsCritical(PacketType type) => type is not (PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
         or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
-        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest
+        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+        or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
         or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.Roster or PacketType.LobbyCommand
         or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward
         or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome

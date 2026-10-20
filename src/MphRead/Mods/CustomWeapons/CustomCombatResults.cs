@@ -69,24 +69,24 @@ internal static class CustomCombatResults
         for (int i=0;i<32;i++) if (hash[i*2]!=digits[digest[i]>>4] || hash[i*2+1]!=digits[digest[i]&15]) return false;
         return true;
     }
-    private static bool SnapshotValid(in WeaponStateSnapshot state,WeaponOwnerContext owner,WeaponDefinition definition)
+    internal static bool SnapshotValid(in WeaponStateSnapshot state,WeaponOwnerContext owner,WeaponDefinition definition)
         => state.Owner==owner && state.Weapon==definition.Identity && (byte)state.Phase <= (byte)CustomWeaponPhase.Reloading
             && state.Magazine >= 0 && state.Magazine <= definition.Mechanics.MagazineCapacity
             && state.Reserve >= 0 && state.Reserve <= definition.Mechanics.MaximumReserve && state.Reserve <= ushort.MaxValue
             && state.Optic >= 0 && state.Optic <= definition.Mechanics.OpticMagnificationsMilli.Count
             && (state.LastAcceptedShotId != 0 || state.LastAcceptedShotTick==0 && state.FireReadyTick==0);
-    private static void WriteSnapshot(Span<byte> bytes,in WeaponStateSnapshot state)
+    internal static void WriteSnapshot(Span<byte> bytes,in WeaponStateSnapshot state)
     {
         BinaryPrimitives.WriteUInt32LittleEndian(bytes,state.Tick); bytes[4]=(byte)state.Phase; bytes[5]=(byte)state.Magazine;
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[6..],(ushort)state.Reserve); bytes[8]=(byte)state.Optic;
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[9..],state.FireReadyTick); BinaryPrimitives.WriteUInt32LittleEndian(bytes[13..],state.ReloadCompleteTick);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[17..],state.LastAcceptedShotId); BinaryPrimitives.WriteUInt32LittleEndian(bytes[21..],state.LastAcceptedShotTick);
     }
-    private static WeaponStateSnapshot ReadSnapshot(ReadOnlySpan<byte> bytes,WeaponOwnerContext owner,WeaponDefinition definition)
+    internal static WeaponStateSnapshot ReadSnapshot(ReadOnlySpan<byte> bytes,WeaponOwnerContext owner,WeaponDefinition definition)
         => new(owner,definition.Identity,BinaryPrimitives.ReadUInt32LittleEndian(bytes),(CustomWeaponPhase)bytes[4],bytes[5],
             BinaryPrimitives.ReadUInt16LittleEndian(bytes[6..]),bytes[8],BinaryPrimitives.ReadUInt32LittleEndian(bytes[9..]),
             BinaryPrimitives.ReadUInt32LittleEndian(bytes[13..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[17..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[21..]));
-    private static bool SourceValid(in CustomSourceCertificate source,in CustomWeaponAction action,uint authority)
+    internal static bool SourceValid(in CustomSourceCertificate source,in CustomWeaponAction action,uint authority)
         => source.IsValidFor(action) && !Before(authority,source.ObservedWorldFrame) && !Before(authority,source.TargetWorldFrame)
             && !Before(source.ObservedWorldFrame,source.TargetWorldFrame)
             && (source.TargetWorldFrame!=source.ObservedWorldFrame || source.TargetWorldSubFrame==0)

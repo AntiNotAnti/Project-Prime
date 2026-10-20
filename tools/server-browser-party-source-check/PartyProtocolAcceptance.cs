@@ -12,7 +12,7 @@ internal static class PartyProtocolAcceptance
         using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("packet-registry-baseline.json")!)
         using(var baseline=JsonDocument.Parse(input))
         {
-            Check(NetConfig.ProtocolVersion==65,"actual DLL uses protocol 65");
+            Check(NetConfig.ProtocolVersion==66,"actual DLL uses protocol 66");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
             var approved = new (string Name, byte Id)[]
@@ -21,7 +21,8 @@ internal static class PartyProtocolAcceptance
                 ("CustomWeaponManifest",83), ("CustomWeaponReady",84), ("CustomWeaponReadyConfirmed",85),
                 ("CustomWeaponAction",86), ("CustomWeaponReceipt",87), ("CustomWeaponContact",88),
                 ("CustomWeaponResultAck",89), ("CustomWeaponState",90),
-                ("CustomWeaponControl",91), ("CustomWeaponControlDenied",92)
+                ("CustomWeaponControl",91), ("CustomWeaponControlDenied",92), ("CustomWeaponInput",93),
+                ("CustomWeaponReplicaPage",94), ("CustomWeaponReplicaEvent",95), ("CustomWeaponReplicaAck",96)
             };
             foreach (var added in approved)
                 Check(Enum.TryParse<PacketType>(added.Name,out var type) && (byte)type == added.Id,

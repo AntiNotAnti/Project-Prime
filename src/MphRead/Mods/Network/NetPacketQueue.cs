@@ -50,7 +50,8 @@ public sealed class NetPacketQueue
         PacketType.PostMatchReport => NetPacketPriority.Critical,
         PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
             or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
-            or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
+            or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+            or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
         PacketType.Intent or PacketType.CustomWeaponInput or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
