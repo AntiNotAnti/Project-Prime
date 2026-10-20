@@ -35,6 +35,9 @@ malformed rooms fall back independently. The batch is limited to66 native
 rooms and1048576 output vertices; each room also has strict input/output
 budgets. The draw owner rechecks the real visited-room bit even for ready
 cached detail. No source geometry is requested for an unexplored room.
+Selected-room door markers and location-name lookup now recheck that same
+live exploration state. A retained hidden selection shows the cartridge's
+unknown-location label and no room-specific doors, for either map style.
 Scene cleanup and player destruction retire the same worker independently
 of HUD restoration, including leaving while the native map is still open.
 

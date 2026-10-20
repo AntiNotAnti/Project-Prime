@@ -411,7 +411,7 @@ namespace MphRead.Entities
                     {
                         roomName = unknownEntry.String1.AsSpan();
                     }
-                    if (_navMapDrawNode != null)
+                    if (_navMapDrawNode != null && CheckRoomVisited(_navMapDrawNode))
                     {
                         for (int i = 1; i <= 35; i++)
                         {
@@ -850,9 +850,11 @@ namespace MphRead.Entities
                 _position.Z + _navInitRoomNodePos.Z - roomOffset.Z);
             UpdateTransforms(_navPlayerPosModel, playerPosTransform, 0);
             GetDrawItems(_navPlayerPosModel, 0);
-            if (_navMapDrawNode == null || _navMapDrawNode.Name.StartsWith("Con") || !_scene.NavMapRoomSymbols.HasValue)
+            if (_navMapDrawNode == null || !CheckRoomVisited(_navMapDrawNode)
+                || _navMapDrawNode.Name.StartsWith("Con") || !_scene.NavMapRoomSymbols.HasValue)
             {
-                // doors are only draw for a selected non-connector room
+                // Selected-room annotations obey the same live exploration
+                // gate as geometry, even if an older selection is retained.
                 return;
             }
             // hack(?) to make the door lighting appear as it does in-game where the light vectors are all zeroes

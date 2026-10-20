@@ -108,7 +108,7 @@ internal static class CampaignMapGlTests
             scene.AddPlayer(Hunter.Samus);scene.AddRoom("UNIT2_LAND",GameMode.SinglePlayer,playerCount:1);
             MphRead.Sound.Sfx.Load(scene);
             scene.OnLoad();scene.OnResize();
-            var player=scene.Players.Main;
+            var player=scene.Players.Main;int lastDoorDraws=0;
             foreach(var control in player.Controls.All){control.Type=ButtonType.Key;control.Key=Keys.Unknown;}
             player.Controls.Pause.Key=Keys.Tab;player.Controls.Shoot.Key=Keys.Enter;
             player.Controls.MoveRight.Key=Keys.D;player.Controls.AimRight.Key=Keys.Right;player.Controls.AimDown.Key=Keys.Down;
@@ -161,14 +161,17 @@ internal static class CampaignMapGlTests
             int hiddenId=ExploredRooms.First(id=>Metadata.GetRoomById(id)!.Name.Equals(selected,StringComparison.OrdinalIgnoreCase));
             Select(selected);Set(player,"_navPanTimer",0f);
             Set(player,"_navDrawRotX",0f);Set(player,"_navDrawRotY",28.125f);
-            Draw("before-hidden");
+            Draw("before-hidden");int beforeHiddenDoors=lastDoorDraws;
+            Check(beforeHiddenDoors>0,"visible selected room submits native door annotations");
             int hiddenPolygons=ready[selected].Polygons.Count;ClearVisited(save,hiddenId);
             Check(load.TryGetRoom(selected,out _),"hidden recheck retains already Ready loader snapshot");
-            int hidden=Draw("hidden-cached");
+            int hidden=Draw("hidden-cached");int hiddenDoors=lastDoorDraws;
+            Check(hiddenDoors==0,"hidden retained selection cannot submit native door annotations");
             Check(hidden==Expected()&&hidden==on-hiddenPolygons,"native visibility gate rechecks cached detail after fixture visited bit clears");
             TogglePause();TogglePause();var reopened=(CampaignMapDetailLoad)Get(player,"_navMapDetail");WaitLoad(reopened);
             Check(!reopened.Completion.Result.ContainsKey(selected),"new pause opening does not request a hidden room");
             Draw("hidden-reopened");
+            Check(lastDoorDraws==0,"reopened hidden retained selection cannot submit native door annotations");
             var fan=new List<object>();
             foreach(int id in new[]{49,51})
             {
@@ -181,6 +184,7 @@ internal static class CampaignMapGlTests
             cases.Add(new{requestedWidth=requested.X,requestedHeight=requested.Y,framebufferWidth=scene.Size.X,framebufferHeight=scene.Size.Y,
                 roomId=scene.RoomId,fixtureHash,exploredRoomIds=ExploredRooms,connectorArea=scene.AreaId,connectorBits=connectors,
                 selectedRoomId=48,offDetailDraws=off,onDetailDraws=on,hiddenCachedDraws=hidden,hiddenRoomId=hiddenId,
+                beforeHiddenDoorDraws=beforeHiddenDoors,hiddenCachedDoorDraws=hiddenDoors,
                 results=load.Completion.Result.Select(p=>new{room=p.Key,p.Value.Ready,p.Value.Reason,polygons=p.Value.Polygons.Count}),pan,fan});
             TogglePause();Check(!scene.GameState.MenuPause,"native Pause binding exits map");
             Check(Get(player,"_navMapDetail")==null,"native Pause exit retires detail owner");
@@ -207,11 +211,14 @@ internal static class CampaignMapGlTests
             int Draw(string? label)
             {
                 Bound();scene.OnDrawFrame();
-                var items=new[]{"_decalItems","_nonDecalItems","_translucentItems"}.SelectMany(n=>(List<RenderItem>)Get(scene,n)).Distinct().Where(i=>i.Type==RenderItemType.Ngon).ToArray();
+                var queued=new[]{"_decalItems","_nonDecalItems","_translucentItems"}.SelectMany(n=>(List<RenderItem>)Get(scene,n)).Distinct().ToArray();
+                var items=queued.Where(i=>i.Type==RenderItemType.Ngon).ToArray();
+                var doorIds=((ModelInstance)Get(player,"_navDoorModel")).Model.Meshes.Select(m=>m.ListId).Where(id=>id!=0).ToHashSet();
+                lastDoorDraws=queued.Count(i=>i.Type==RenderItemType.Mesh&&doorIds.Contains(i.ListId));
                 int count=items.Length,vertexCount=items.Sum(i=>i.ItemCount);
                 Check(scene.OnRenderFrame(),"actual native Scene render remains active");
                 if(label!=null)
-                {string path=Path.Combine(output,requested.X+"x"+requested.Y+"-"+label+".png");Check(ScreenCapture.SaveWindow(scene,path),"private native map/HUD framebuffer captured before swap");pictures.Add(new{file=Path.GetFileName(path),sha256=HashFile(path),detailDraws=count,vertices=vertexCount});}
+                {string path=Path.Combine(output,requested.X+"x"+requested.Y+"-"+label+".png");Check(ScreenCapture.SaveWindow(scene,path),"private native map/HUD framebuffer captured before swap");pictures.Add(new{file=Path.GetFileName(path),sha256=HashFile(path),detailDraws=count,vertices=vertexCount,doorDraws=lastDoorDraws});}
                 DesktopGraphicsSession.Present(window);scene.AfterRenderFrame();return count;
             }
         }
