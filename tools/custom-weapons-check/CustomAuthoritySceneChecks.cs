@@ -11,7 +11,7 @@ using OpenTK.Mathematics;
 // Real authority emission/collision/health/payment integration through an explicit
 // developer seam. Source certificates are deliberately injected trusted fixtures:
 // no authenticated ingress, source-history/readiness producer or transport is tested.
-internal static class CustomAuthoritySceneChecks
+internal static partial class CustomAuthoritySceneChecks
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
     private const BindingFlags StaticHidden = BindingFlags.Static | BindingFlags.NonPublic;
@@ -234,7 +234,7 @@ internal static class CustomAuthoritySceneChecks
         public void Dispose()
         { try { NetUnlagged.AbortShot(); Root.Dispose(); } finally { try { _sim.Stop(); } finally { NetSession.Stop(); } } }
     }
-    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false,bool readinessOnly = false)
+    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false,bool readinessOnly = false,bool snapshotOnly = false,string? snapshotCase = null)
     {
         _checks = 0;
         string directory = Directory.GetCurrentDirectory();
@@ -251,6 +251,15 @@ internal static class CustomAuthoritySceneChecks
             NetShotProof.Mode = ShotProofMode.Off; NetTimedShotProof.Mode = TimedGrantProofMode.Off;
             NetDynamicGeometryHistory.ProductionEnabled = true; NetDynamicGeometryHistory.ShadowEnabled = false;
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
+            if (snapshotOnly)
+            {
+                if (snapshotCase=="wall") ReplicaCaptureTerminal();
+                else if (snapshotCase=="scope") ReplicaCaptureNativeScope();
+                else { ReplicaCaptureEmpty(); ReplicaCaptureAtomic(); ReplicaCaptureFlight(); ReplicaCaptureTerminal(); ReplicaCaptureRespawn(); ReplicaCaptureNativeScope(); }
+                Console.WriteLine($"PASS {_checks} real authority replica capture checks.");
+                Console.WriteLine("SCOPE: read-only authority value capture of actual private custom projectiles and public state. Source oracle and native lifecycle/scene setup are explicit fixtures. No live fanout, late-join install, client rendering or transport claim.");
+                return 0;
+            }
             if (readinessOnly)
             {
                 AutomaticReadinessBoundary(); RejectedReadinessBoundary(); ReadinessBoundaryLifecycle();
