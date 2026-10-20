@@ -16,6 +16,7 @@ internal sealed class NativeCommunityPreview : IDisposable
     private readonly INativeCommunityPreviewSource? _source;
     private readonly string _directory;
     private readonly RmlUiMapPreviewCache _images;
+    private readonly SemaphoreSlim? _downloadGate;
     private Task<Result>? _download;
     private CancellationTokenSource? _cancel;
     private string _selected = "", _requested = "", _png = "", _status = "", _image = "";
@@ -23,10 +24,12 @@ internal sealed class NativeCommunityPreview : IDisposable
     private bool _disposed;
     private readonly record struct Result(string Hash, string Png, string Status);
 
-    internal NativeCommunityPreview(INativeCommunityPreviewSource? source, string directory)
+    internal NativeCommunityPreview(INativeCommunityPreviewSource? source, string directory,
+        int maxDimension = 0, SemaphoreSlim? downloadGate = null, SemaphoreSlim? decodeGate = null)
     {
         _source = source; _directory = Path.GetFullPath(directory);
-        _images = new(Path.Combine(_directory, "decoded"));
+        _downloadGate = downloadGate;
+        _images = new(Path.Combine(_directory, "decoded"), maxDimension, decodeGate);
     }
 
     internal View Read(NativeCommunityEntry? selected)
@@ -72,8 +75,10 @@ internal sealed class NativeCommunityPreview : IDisposable
 
     private async Task<Result> Download(string hash, CancellationTokenSource cancel)
     {
+        bool entered = false;
         try
         {
+            if (_downloadGate != null) { await _downloadGate.WaitAsync(cancel.Token).ConfigureAwait(false); entered = true; }
             byte[]? bytes = await _source!.ReadPreviewAsync(hash, cancel.Token).ConfigureAwait(false);
             cancel.Token.ThrowIfCancellationRequested();
             if (bytes == null) return new(hash, "", "CREATOR HAS NOT ADDED A COMPATIBLE PNG PREVIEW");
@@ -103,7 +108,7 @@ internal sealed class NativeCommunityPreview : IDisposable
         catch (OperationCanceledException) { return new(hash, "", "PREVIEW REQUEST RETIRED"); }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         { return new(hash, "", "PREVIEW UNAVAILABLE // RETRY WITH REFRESH"); }
-        finally { cancel.Dispose(); }
+        finally { if (entered) _downloadGate!.Release(); cancel.Dispose(); }
     }
 
     private void Set(string image, string status)

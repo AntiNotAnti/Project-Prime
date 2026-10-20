@@ -349,6 +349,18 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 9; ++index) if (action == "hunter:beam-color-select:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterBeamColorSelect); intent.argument = index; return true;
     }
+    for (int index = 0; index < 7; ++index) if (action == "hunter:skin-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterSkinSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 21; ++index) if (action == "hunter:armor-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterArmorSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "hunter:death-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterDeathSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "hunter:category:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterCosmeticCategory); intent.argument = index; return true;
+    }
     for (int index = 0; index < 4; ++index) if (action == "hunter:suit:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterSuit); intent.argument = index; return true;
     }

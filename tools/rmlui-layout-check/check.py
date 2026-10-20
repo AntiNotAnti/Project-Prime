@@ -27,7 +27,7 @@ CASES = [(w, h, 1.0) for w, h in SIZES] + [(1280, 720, 2.0), (2560, 1440, 2.0), 
 FIXTURES = {
     'pages/home/home.rml': ['activity_selector', 'deploy', 'home_feature_open', 'profile', 'header_settings'],
     'pages/lobby/lobby.rml': ['lobby_player0', 'lobby_player7', 'lobby_match_rules', 'lobby_chat_input', 'lobby_chat_send', 'lobby_ready', 'lobby_start', 'lobby_leave'],
-    'pages/hunters/native-picker.rml': ['hunter_choice0', 'hunter_apply', 'hunter_cancel'],
+    'pages/hunters/native-picker.rml': ['hunter_choice0', 'hunter_skin_option6', 'hunter_category4', 'hunter_apply', 'hunter_cancel'],
     'pages/community/native-discover.rml': ['native_community_public', 'native_community_find', 'native_community_row0', 'native_community_row7', 'native_community_install', 'native_community_back'],
     'pages/license/native-overview.rml': ['native_license_close', 'native_license_refresh'],
     'pages/social/social.rml': ['social_friends', 'social_search', 'social_back'],
@@ -172,6 +172,7 @@ def seed(bridge, doc, path, touch=False, large_text=False):
             bridge.text(doc, f'native_community_meta{i}', f'Creator: {LONG_NAME} // Revision {i+1} // 4 players // Verified package')
         bridge.text(doc, 'native_community_title', 'ALIMBIC CITADEL — EXTENDED COMMUNITY ARENA')
         bridge.text(doc, 'native_community_description', LONG_DESCRIPTION)
+        bridge.boolean(doc, 'visible:native_community_technical', True)
         bridge.text(doc, 'native_community_hash', 'SHA256: ' + 'a1b2c3d4'*8)
         bridge.text(doc, 'native_community_status', '8 verified community maps // Updated just now')
     if path == 'pages/license/native-overview.rml':

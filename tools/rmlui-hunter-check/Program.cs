@@ -329,6 +329,113 @@ Check(!(validPreview with { Yaw = float.NaN }).IsValid
     && !(validPreview with { DeathRequest = -1 }).IsValid,
     "renderer preview contract rejects malformed nonfinite or unsupported visual state");
 
+// Direct visible choices share catalog filtering and never persist by selection.
+using (var direct = new LauncherCosmeticDraftController(new CosmeticFake(), Hunter.Samus))
+{
+    for (int h = 0; h < 7; h++)
+    {
+        direct.Reset(); Check(direct.SwitchHunter((Hunter)h), "direct catalog switches clean Hunter " + h);
+        for (int i = 0; i < 7; i++)
+        {
+            Check(direct.SelectSkin(i), "direct skin index " + i);
+            var skin = CosmeticCatalog.ResolveSkin(direct.Current().Draft.SkinKey, (Hunter)h);
+            Check(skin.Hunter == null || skin.Hunter == (Hunter)h, "direct skin belongs to selected Hunter");
+        }
+        Check(direct.SelectArmor(20) && direct.SelectDeath(7)
+            && !direct.SelectSkin(-1) && !direct.SelectSkin(7)
+            && !direct.SelectArmor(-1) && !direct.SelectArmor(21)
+            && !direct.SelectDeath(-1) && !direct.SelectDeath(8), "direct choices enforce catalog bounds");
+    }
+}
+var unifiedIdentity = new Fake(); var unifiedCosmetics = new CosmeticFake();
+using (var choice = new LauncherHunterChoiceController(unifiedIdentity))
+using (var cosmetics = new LauncherCosmeticDraftController(unifiedCosmetics, Hunter.Samus))
+{
+    choice.SelectSuit(2); cosmetics.SelectArmor(20);
+    var identityBefore = choice.Current(); var cosmeticBefore = cosmetics.Current();
+    Check(choice.CanApply(out _) && cosmetics.CanEquip(out _)
+        && choice.Current() == identityBefore && cosmetics.Current() == cosmeticBefore
+        && unifiedIdentity.Writes == 0 && unifiedCosmetics.EquipCalls == 0,
+        "unified preflight leaves drafts, status, revisions and stores unchanged");
+    var result = LauncherLoadoutApply.Apply(choice, cosmetics);
+    Check(result.Accepted && result.IdentitySaved && result.CosmeticsStarted
+        && unifiedIdentity.Writes == 1 && unifiedCosmetics.EquipCalls == 1
+        && !cosmetics.SelectSkin(1) && !cosmetics.SelectArmor(1) && !cosmetics.SelectDeath(1),
+        "one loadout action saves local identity then starts exactly one guarded cosmetic equip");
+    Check(!LauncherLoadoutApply.Apply(choice, cosmetics).Accepted && unifiedIdentity.Writes == 1
+        && unifiedCosmetics.EquipCalls == 1, "busy unified apply cannot duplicate persistence");
+    unifiedCosmetics.Finish("EQUIPPED LOCALLY // ACCOUNT SYNC PENDING"); cosmetics.Pump();
+    Check(!cosmetics.Current().Dirty && cosmetics.Current().PendingSync
+        && LauncherLoadoutApply.Apply(choice, cosmetics).Status.Contains("SYNC PENDING", StringComparison.Ordinal)
+        && unifiedIdentity.Writes == 1 && unifiedCosmetics.EquipCalls == 1,
+        "unified repeat preserves pending-sync local success without repeated writes");
+}
+var staleIdentity = new Fake(); var staleCosmetics = new CosmeticFake();
+using (var choice = new LauncherHunterChoiceController(staleIdentity))
+using (var cosmetics = new LauncherCosmeticDraftController(staleCosmetics, Hunter.Samus))
+{
+    choice.SelectSuit(1); cosmetics.SelectSkin(2);
+    staleCosmetics.ExternalChange(Hunter.Samus, CosmeticLoadout.Default with { ArmorEffectKey = "armor.phase" });
+    var before = cosmetics.Current();
+    Check(!cosmetics.CanEquip(out var reason) && reason.Contains("CHANGED ELSEWHERE", StringComparison.Ordinal)
+        && cosmetics.Current() == before && !LauncherLoadoutApply.Apply(choice, cosmetics).Accepted
+        && staleIdentity.Writes == 0 && staleCosmetics.EquipCalls == 0,
+        "cosmetic CAS preflight blocks the whole action without changing status or identity");
+    cosmetics.Reset(); cosmetics.SelectSkin(2); staleIdentity.Current = new(Hunter.Samus, 3);
+    var identityBefore = choice.Current();
+    Check(!choice.CanApply(out _) && choice.Current() == identityBefore
+        && !LauncherLoadoutApply.Apply(choice, cosmetics).Accepted && staleCosmetics.EquipCalls == 0,
+        "identity CAS preflight blocks cosmetic persistence without mutating the draft");
+}
+var failIdentity = new Fake { ThrowOnSave = true }; var failCosmetics = new CosmeticFake();
+using (var choice = new LauncherHunterChoiceController(failIdentity))
+using (var cosmetics = new LauncherCosmeticDraftController(failCosmetics, Hunter.Samus))
+{
+    choice.SelectSuit(1); cosmetics.SelectArmor(2);
+    Check(!LauncherLoadoutApply.Apply(choice, cosmetics).Accepted && choice.Current().Dirty
+        && cosmetics.Current().Dirty && failCosmetics.EquipCalls == 0,
+        "identity save failure leaves both drafts and never starts cosmetics");
+    failIdentity.ThrowOnSave = false; failCosmetics.ThrowOnEquip = true;
+    var partial = LauncherLoadoutApply.Apply(choice, cosmetics);
+    Check(!partial.Accepted && partial.IdentitySaved && !partial.CosmeticsStarted
+        && partial.Status.Contains("COSMETICS NOT SAVED", StringComparison.Ordinal)
+        && !choice.Current().Dirty && cosmetics.Current().Dirty,
+        "cosmetic start failure explicitly reports partial local save and retains retryable cosmetics");
+}
+foreach (bool cancel in new[] { false, true })
+{
+    var service = new CosmeticFake { PersistOnEquip = false };
+    using var cosmetics = new LauncherCosmeticDraftController(service, Hunter.Samus);
+    cosmetics.SelectSkin(6); var submitted = cosmetics.Current().Draft;
+    Check(cosmetics.Equip(), "nonpersisted async cosmetic operation starts");
+    if (cancel) service.Cancel(); else service.Fail();
+    cosmetics.Pump();
+    Check(!cosmetics.Current().Busy && cosmetics.Current().Dirty && cosmetics.Current().Draft == submitted
+        && cosmetics.Current().Status.Contains("DRAFT KEPT", StringComparison.Ordinal)
+        && cosmetics.CanEquip(out _), "fault/cancel retains the exact unpersisted draft for retry");
+}
+var externalService = new CosmeticFake { PersistOnEquip = false };
+using (var cosmetics = new LauncherCosmeticDraftController(externalService, Hunter.Samus))
+{
+    cosmetics.SelectSkin(1); var submitted = cosmetics.Current().Draft; cosmetics.Equip();
+    externalService.ExternalChange(Hunter.Samus, CosmeticLoadout.Default with { ArmorEffectKey = "armor.phase" });
+    externalService.Fail(); cosmetics.Pump();
+    Check(cosmetics.Current().Draft == submitted && !cosmetics.CanEquip(out var reason)
+        && reason.Contains("CHANGED ELSEWHERE", StringComparison.Ordinal),
+        "failed async save retains the original CAS base and cannot overwrite an external change");
+}
+var durableService = new CosmeticFake();
+using (var cosmetics = new LauncherCosmeticDraftController(durableService, Hunter.Samus))
+{
+    cosmetics.SelectDeath(7); var submitted = cosmetics.Current().Draft; cosmetics.Equip();
+    durableService.Fail(); cosmetics.Pump();
+    Check(!cosmetics.Current().Dirty && cosmetics.Current().Equipped == submitted && cosmetics.Current().PendingSync,
+        "sync task fault after durable local save remains locally equipped and pending");
+}
+using (var choice = new LauncherHunterChoiceController(new Fake()))
+using (var cosmetics = new LauncherCosmeticDraftController(new CosmeticFake(), Hunter.Kanden))
+    Check(!LauncherLoadoutApply.Apply(choice, cosmetics).Accepted, "mismatched Hunter drafts cannot be committed together");
+
 Console.WriteLine("RML local Hunter identity and cosmetic contracts complete.");
 
 sealed class Fake : ILauncherHunterChoiceStore
@@ -352,6 +459,7 @@ sealed class CosmeticFake : ILauncherCosmeticEquipService
     private TaskCompletionSource<string>? _reply;
     private CancellationToken _token;
     public int EquipCalls;
+    public bool PersistOnEquip = true, ThrowOnEquip;
     public bool Cancelled => _token.IsCancellationRequested;
     public CosmeticFake()
     {
@@ -362,13 +470,16 @@ sealed class CosmeticFake : ILauncherCosmeticEquipService
     public Task<string> EquipAsync(Hunter hunter, CosmeticLoadout loadout, CancellationToken token)
     {
         EquipCalls++;
-        _loads[(int)hunter] = CosmeticCatalog.Resolve(hunter, loadout);
+        if (ThrowOnEquip) throw new InvalidOperationException("simulated cosmetic disk failure");
+        if (PersistOnEquip) _loads[(int)hunter] = CosmeticCatalog.Resolve(hunter, loadout);
         _pending[(int)hunter] = true;
         _token = token;
         _reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
         return _reply.Task;
     }
     public void Finish(string message) => _reply?.TrySetResult(message);
+    public void Fail() => _reply?.TrySetException(new InvalidOperationException("simulated sync failure"));
+    public void Cancel() => _reply?.TrySetCanceled();
     public void ExternalChange(Hunter hunter, CosmeticLoadout changed)
         => _loads[(int)hunter] = CosmeticCatalog.Resolve(hunter, changed);
 }

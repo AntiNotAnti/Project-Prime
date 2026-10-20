@@ -20,13 +20,14 @@ public sealed class LauncherHunterPreviewController : IDisposable
     private readonly int _owner = Environment.CurrentManagedThreadId;
     private SkinContext _mode;
     private float _yaw;
-    private int _zoomSteps, _deathRequest;
+    private int _deathRequest;
+    private float _zoom = 1f;
     private bool _loopDeath, _compareNative, _disposed;
 
     public LauncherHunterPreviewSnapshot Current()
     {
         Check();
-        return new(_mode, _yaw, 1f + _zoomSteps * 0.05f, _loopDeath, _deathRequest)
+        return new(_mode, _yaw, _zoom, _loopDeath, _deathRequest)
         { CompareNative = _compareNative };
     }
 
@@ -46,20 +47,32 @@ public sealed class LauncherHunterPreviewController : IDisposable
     {
         Check();
         if (direction is not (0 or 1)) return false;
-        float next = _yaw + (direction == 0 ? -1 : 1) * (MathF.PI / 12);
-        if (next >= MathF.PI) next -= MathF.Tau;
-        else if (next < -MathF.PI) next += MathF.Tau;
-        _yaw = next;
+        return RotateBy((direction == 0 ? -1 : 1) * (MathF.PI / 12));
+    }
+
+    public bool RotateBy(float radians)
+    {
+        Check();
+        if (!Single.IsFinite(radians)) return false;
+        _yaw = (_yaw + radians) % MathF.Tau;
+        if (_yaw >= MathF.PI) _yaw -= MathF.Tau;
+        else if (_yaw < -MathF.PI) _yaw += MathF.Tau;
         return true;
     }
 
     public bool Zoom(int direction)
     {
         Check();
-        if (direction is not (0 or 1)) return false;
-        int next = Math.Clamp(_zoomSteps + (direction == 0 ? -1 : 1), -4, 4);
-        if (next == _zoomSteps) return false;
-        _zoomSteps = next;
+        return direction is 0 or 1 && ZoomBy(direction == 0 ? -.05f : .05f);
+    }
+
+    public bool ZoomBy(float delta)
+    {
+        Check();
+        if (!Single.IsFinite(delta)) return false;
+        float next = Math.Clamp(_zoom + delta, .8f, 1.2f);
+        if (next == _zoom) return false;
+        _zoom = next;
         return true;
     }
 
@@ -100,7 +113,8 @@ public sealed class LauncherHunterPreviewController : IDisposable
         Check();
         // HunterStand.ResetPreview preserves the chosen form and loop toggle.
         _yaw = 0;
-        _zoomSteps = _deathRequest = 0;
+        _zoom = 1f;
+        _deathRequest = 0;
         return true;
     }
 

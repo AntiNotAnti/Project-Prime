@@ -170,6 +170,9 @@ internal static class CommunityLibraryGlAcceptance
         }
         void Activate(string id, RmlUiIntentKind kind, int argument, bool pointer = true)
         {
+            if (id is "native_community_history" or "native_community_copy_link" or "native_community_report"
+                && pages.Top == parent && !host.FocusDocument(parent, id))
+                Activate("native_community_details", RmlUiIntentKind.CommunityDetailAction, 7, pointer);
             var box = Reach(id); var document = pages.Top; host.DiscardIntents();
             if (pointer)
             {

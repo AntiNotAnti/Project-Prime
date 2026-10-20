@@ -26,6 +26,9 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
     private readonly NativeCommunityReportPage _report;
     private readonly NativeCommunityImportPage _import;
     private readonly NativeCommunityPreview _preview;
+    private readonly NativeCommunityPreview[] _thumbnails = new NativeCommunityPreview[8];
+    private readonly long[] _shownThumbnails = new long[8];
+    private bool _technical;
     private long _shownPreviewRevision;
     private bool _creatorMode, _shownCreatorMode;
     private RmlUiDocumentToken _page;
@@ -75,6 +78,14 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
         _controller = new NativeCommunityDiscoverController(reader);
         _preview = new(reader as INativeCommunityPreviewSource, Path.Combine(
             MphRead.Mods.Platform.AppPaths.UserDataDirectory, "rmlui-media", "community-previews"));
+        // Only two card downloads and two card decodes may run at once. The
+        // selected full-size preview retains its independent existing worker.
+        var downloads = new SemaphoreSlim(2, 2);
+        var decodes = new SemaphoreSlim(2, 2);
+        for (int i = 0; i < _thumbnails.Length; i++)
+            _thumbnails[i] = new(reader as INativeCommunityPreviewSource, Path.Combine(
+                MphRead.Mods.Platform.AppPaths.UserDataDirectory, "rmlui-media", "community-previews"),
+                maxDimension: 384, downloadGate: downloads, decodeGate: decodes);
         _install = new NativeCommunityInstallController(installer);
         _creator = new NativeCommunityCreatorController(creator);
         _history = new NativeCommunityRevisionsPage(host, pages, revisions ?? new NativeCommunityRevisionsService(), _install);
@@ -113,6 +124,10 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
                     || report.Catalog == NativeCommunityCatalog.Installed || report.SelectedEntry is not { } reported) return false;
                 return _report.Open(reported, report.Witness);
             case RmlUiIntentKind.CommunityTab:
+                if (intent.Argument == 7)
+                {
+                    _technical = !_technical; _shownRevision = -1; Refresh(); return true;
+                }
                 if (intent.Argument == 2)
                 {
                     _install.Cancel();
@@ -268,18 +283,28 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
         _transfers.Refresh();
         NativeCommunityDiscoverController.Snapshot snapshot = _controller.Tick();
         NativeCommunityPreview.View preview = _preview.Read(!_creatorMode && !snapshot.Busy ? snapshot.SelectedEntry : null);
+        var thumbnails = new NativeCommunityPreview.View[_thumbnails.Length];
+        bool thumbnailsChanged = false;
+        for (int i = 0; i < _thumbnails.Length; i++)
+        {
+            thumbnails[i] = _thumbnails[i].Read(!_creatorMode && !snapshot.Busy && i < snapshot.Rows.Count ? snapshot.Rows[i] : null);
+            thumbnailsChanged |= thumbnails[i].Revision != _shownThumbnails[i];
+        }
         NativeCommunityInstallView install = _install.Tick();
         NativeCreatorView creator = _creator.Tick();
         if (snapshot.Revision == _shownRevision
             && install.Revision == _shownInstallRevision
             && creator.Revision == _shownCreatorRevision
-            && _creatorMode == _shownCreatorMode && preview.Revision == _shownPreviewRevision) return;
+            && _creatorMode == _shownCreatorMode && preview.Revision == _shownPreviewRevision && !thumbnailsChanged) return;
         bool installedSelected = snapshot.SelectedEntry is { } current
             && install.CompletedMapId == current.MapId
             && install.CompletedHash.Equals(current.LatestHash,
                 StringComparison.OrdinalIgnoreCase);
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
+            ["visible:native_community_technical"] = RmlUiBindingValue.FromBoolean(_technical),
+            ["class:native_community_details:selected"] = RmlUiBindingValue.FromBoolean(_technical),
+            ["native_community_details"] = RmlUiBindingValue.FromText(_technical ? "HIDE PACKAGE DETAILS" : "PACKAGE DETAILS"),
             ["image:native_community_preview"] = RmlUiBindingValue.FromText(preview.Image),
             ["visible:native_community_preview"] = RmlUiBindingValue.FromBoolean(preview.Image.Length > 0),
             ["native_community_preview_status"] = RmlUiBindingValue.FromText(preview.Status),
@@ -375,6 +400,9 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
         };
         for (int i = 0; i < 8; i++)
         {
+            data["image:native_community_thumbnail" + i] = RmlUiBindingValue.FromText(thumbnails[i].Image);
+            data["visible:native_community_thumbnail" + i] = RmlUiBindingValue.FromBoolean(thumbnails[i].Image.Length > 0);
+            _shownThumbnails[i] = thumbnails[i].Revision;
             bool visible = _creatorMode ? i < creator.Rows.Length : i < snapshot.Rows.Count;
             data["visible:native_community_row" + i] = RmlUiBindingValue.FromBoolean(visible);
             data["class:native_community_row" + i + ":selected"] =
@@ -418,6 +446,7 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
         if (_disposed) return;
         _disposed = true;
         _preview.Dispose();
+        foreach (var thumbnail in _thumbnails) thumbnail.Dispose();
         _report.Dispose();
         _import.Dispose();
         _transfers.Dispose();

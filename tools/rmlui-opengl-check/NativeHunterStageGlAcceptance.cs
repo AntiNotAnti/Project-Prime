@@ -193,7 +193,7 @@ internal static partial class NativeHunterStageGlAcceptance
                     }
                 }
                 foreach (var target in new[] { (Id: "hunter_apply", Kind: RmlUiIntentKind.HunterApply),
-                    (Id: "hunter_cosmetics_save", Kind: RmlUiIntentKind.HunterCosmeticsSave),
+                    (Id: "hunter_discard", Kind: RmlUiIntentKind.HunterResetPreview),
                     (Id: "hunter_cancel", Kind: RmlUiIntentKind.HunterCancel) })
                 {
                     host.DiscardIntents();
@@ -243,13 +243,13 @@ internal static partial class NativeHunterStageGlAcceptance
                     PreviewStillContained();
                 }
                 Check(host.FocusDocument(picker, "hunter_choice0"), "restore initial small picker selection focus"); Settle();
-                var beforeWheel = Rect("hunter_choice0"); var wheelPane = Rect("native_hunter_picker");
+                var beforeWheel = Rect("hunter_choice0"); var wheelPane = Rect("native_hunter_options");
                 host.Input.PointerMoved(wheelPane.X + wheelPane.Width / 2, wheelPane.Y + wheelPane.Height / 2);
                 host.Input.PointerWheel(-3); Settle();
                 Check(Rect("hunter_choice0").Y < beforeWheel.Y, "actual native wheel scrolls left-pane content");
                 PreviewStillContained();
                 Check(host.FocusDocument(picker, "hunter_choice0"), "restore selection focus after native wheel"); Settle();
-                Rows.Add(new { page = "PickerSmallInput", footer = "Apply/Save/Back actual native focus, hit-test and pointer",
+                Rows.Add(new { page = "PickerSmallInput", footer = "Equip/Discard/Back actual native focus, hit-test and pointer",
                     wheel = "actual native wheel changes only left content", previewRect = new {
                         previewRect.X, previewRect.Y, previewRect.Width, previewRect.Height } });
             }
@@ -334,10 +334,10 @@ internal static partial class NativeHunterStageGlAcceptance
 
             layout.Manager.ClosePage();
             // Exercise the real presenter and native events with explicit local
-            // persistence services. These actions never equip or contact an account.
+            // persistence services. Equip writes only these in-memory fixture stores.
             var localChoice = new LocalChoiceStore();
             var localCosmetics = new LocalCosmetics();
-            using (var presenter = new NativeHunterPagePresenter(layout.Manager, localChoice, localCosmetics))
+            using (var presenter = new NativeHunterPagePresenter(layout.Manager, localChoice, localCosmetics, host))
             {
                 presenter.Open(); host.Update();
                 var document = presenter.PreviewDocument;
@@ -397,6 +397,51 @@ internal static partial class NativeHunterStageGlAcceptance
                 var custom = localCosmetics.Capture(Hunter.Samus);
                 Check(custom != CosmeticLoadout.Default && presenter.PreviewSelection.Cosmetics == custom
                     && presenter.CanNavigateAway, "native comparison fixture starts with custom equipped cosmetics");
+                Check(host.CurrentInputDocument == document && layout.Manager.Top == document,
+                    "preview gesture fixture owns the actual foreground input document");
+                Check(host.TryGetElementBounds(document, "native_hunter_preview", out float gx, out float gy,
+                    out float gw, out float gh) && gw > 0 && gh > 0,
+                    "gesture fixture measures the actual engine preview rectangle");
+                float cx = gx + gw / 2, cy = gy + gh / 2;
+                var gestureStart = presenter.PreviewState;
+                Check(!presenter.PreviewPointerButton(gx - 1, cy, true)
+                    && !presenter.PreviewPointerMove(cx, cy)
+                    && !presenter.PreviewWheel(gx + gw, cy, 1)
+                    && presenter.PreviewState == gestureStart,
+                    "outside drag and exact right-edge wheel do not change preview state");
+                Check(presenter.PreviewPointerButton(cx, cy, true)
+                    && presenter.PreviewPointerMove(cx + gw / 8, cy)
+                    && presenter.PreviewState.Yaw != gestureStart.Yaw,
+                    "framebuffer-space drag inside measured preview rotates the real presenter");
+                var released = presenter.PreviewState;
+                Check(presenter.PreviewPointerButton(cx, cy, false)
+                    && !presenter.PreviewPointerMove(cx + gw / 4, cy)
+                    && presenter.PreviewState == released,
+                    "pointer release ends preview rotation immediately");
+                Check(presenter.PreviewWheel(cx, cy, 1)
+                    && presenter.PreviewState.Zoom > gestureStart.Zoom,
+                    "wheel inside the measured preview changes presenter zoom");
+                Check(presenter.PreviewPointerButton(cx, cy, true), "start preview drag before modal cover");
+                var covered = presenter.PreviewState;
+                var cover = layout.Manager.OpenModal(new("gesture-cover", "pages/social/confirm.rml", "social_confirm_cancel"));
+                host.Update(); presenter.Pump();
+                Check(host.CurrentInputDocument == cover && layout.Manager.Top == cover
+                    && !presenter.PreviewPointerMove(cx + gw / 8, cy)
+                    && !presenter.PreviewWheel(cx, cy, 1)
+                    && !presenter.PreviewPointerButton(cx, cy, true)
+                    && presenter.PreviewState == covered,
+                    "modal foreground blocks preview wheel/drag and cancels the held gesture");
+                Check(layout.Manager.CloseModal(), "close fixture modal cover"); host.Update();
+                Check(!presenter.PreviewPointerMove(cx + gw / 4, cy)
+                    && presenter.PreviewState == covered,
+                    "restoring the picker does not resume a drag cancelled by modal cover");
+                Check(presenter.PreviewPointerButton(cx, cy, true), "start explicit capture-cancel fixture");
+                presenter.CancelPreviewGesture();
+                Check(!presenter.PreviewPointerMove(cx + gw / 8, cy)
+                    && presenter.PreviewState == covered,
+                    "explicit preview gesture cancellation releases drag ownership");
+                Check(PickerAction("hunter_preview_reset", RmlUiIntentKind.HunterPreviewReset),
+                    "restore preview orientation after gesture checks");
                 DrawComparison("custom");
                 Check(PickerAction("hunter_compare_native", RmlUiIntentKind.HunterCompareNative)
                     && presenter.PreviewState.CompareNative
@@ -408,13 +453,14 @@ internal static partial class NativeHunterStageGlAcceptance
                     "second actual Compare Native restores the exact unchanged custom draft");
                 DrawComparison("restored");
                 Check(PickerAction("hunter_compare_native", RmlUiIntentKind.HunterCompareNative)
-                    && PickerAction("hunter_armor", RmlUiIntentKind.HunterArmorNext)
+                    && PickerAction("hunter_category1", RmlUiIntentKind.HunterCosmeticCategory, pointer: true)
+                    && PickerAction("hunter_armor_option1", RmlUiIntentKind.HunterArmorSelect, pointer: true)
                     && !presenter.PreviewState.CompareNative && !presenter.CanNavigateAway,
                     "a real cosmetic edit exits comparison and stages an unsaved draft");
                 var unsavedCosmetics = presenter.PreviewSelection.Cosmetics;
                 Check(!host.FocusDocument(document, "hunter_choice1"),
                     "unsaved cosmetics visibly disable switching to another Hunter");
-                Check(NativeSemanticReadback.Read(host, document).Label("hunter_skin_description").Length > 0,
+                Check(NativeSemanticReadback.Read(host, document).Label("hunter_armor_description").Length > 0,
                     "real cosmetic catalog description is readable in native picker");
                 Check(unsavedCosmetics != custom
                     && PickerAction("hunter_compare_native", RmlUiIntentKind.HunterCompareNative)
@@ -422,7 +468,7 @@ internal static partial class NativeHunterStageGlAcceptance
                     && PickerAction("hunter_compare_native", RmlUiIntentKind.HunterCompareNative)
                     && presenter.PreviewSelection.Cosmetics == unsavedCosmetics && !presenter.CanNavigateAway,
                     "comparison preserves the exact unsaved cosmetic draft and its navigation guard");
-                Check(PickerAction("hunter_cosmetics_reset", RmlUiIntentKind.HunterCosmeticsReset)
+                Check(PickerAction("hunter_discard", RmlUiIntentKind.HunterResetPreview)
                     && presenter.PreviewSelection.Cosmetics == custom && presenter.CanNavigateAway,
                     "cosmetic Discard restores the equipped custom loadout after comparison");
                 Check(PickerAction("hunter_compare_native", RmlUiIntentKind.HunterCompareNative)
@@ -437,7 +483,7 @@ internal static partial class NativeHunterStageGlAcceptance
                 DrawComparison("default-draft");
                 Check(!PickerAction("hunter_cancel", RmlUiIntentKind.HunterCancel) && !presenter.Closed,
                     "default cosmetic draft guards actual Back navigation");
-                Check(PickerAction("hunter_cosmetics_reset", RmlUiIntentKind.HunterCosmeticsReset)
+                Check(PickerAction("hunter_discard", RmlUiIntentKind.HunterResetPreview)
                     && presenter.CanNavigateAway && presenter.PreviewSelection.Cosmetics == custom,
                     "Discard reverses Reset Loadout to the exact equipped loadout");
                 Check(localChoice.Writes == 0 && localCosmetics.Writes == 0,
@@ -463,9 +509,26 @@ internal static partial class NativeHunterStageGlAcceptance
                 PickerAction("hunter_discard", RmlUiIntentKind.HunterResetPreview);
                 Check(presenter.CanNavigateAway && presenter.PreviewSelection.Hunter == Hunter.Samus,
                     "Discard restores the original local choice before leaving");
+                Check(PickerAction("hunter_suit1", RmlUiIntentKind.HunterSuit)
+                    && PickerAction("hunter_category1", RmlUiIntentKind.HunterCosmeticCategory, pointer: true)
+                    && PickerAction("hunter_armor_option1", RmlUiIntentKind.HunterArmorSelect),
+                    "keyboard suit/catalog selection and pointer category selection stage one loadout");
+                var equippedDraft = presenter.PreviewSelection;
+                Check(equippedDraft.Suit == 1 && equippedDraft.Cosmetics.ArmorEffectKey == "armor.lightning"
+                    && equippedDraft.Cosmetics != custom && !presenter.CanNavigateAway,
+                    "direct catalog index1 chooses Lightning rather than fixture Phase index8");
+                Check(PickerAction("hunter_apply", RmlUiIntentKind.HunterApply, pointer: true),
+                    "one actual Equip Loadout pointer action reaches unified persistence");
+                for (int step = 0; step < 100 && !presenter.CanNavigateAway; step++)
+                { Thread.Sleep(10); presenter.Pump(); host.Update(); }
+                Check(presenter.CanNavigateAway && localChoice.Writes == 1 && localCosmetics.Writes == 1
+                    && localChoice.Capture().Hunter == equippedDraft.Hunter
+                    && localChoice.Capture().Suit == equippedDraft.Suit
+                    && localCosmetics.Capture(equippedDraft.Hunter) == equippedDraft.Cosmetics,
+                    "unified Equip persists exact identity and cosmetics once to private fixture services");
                 PickerAction("hunter_cancel", RmlUiIntentKind.HunterCancel);
-                Check(presenter.Closed && localChoice.Writes == 0 && localCosmetics.Writes == 0,
-                    "clean Back closes without persistence or account calls");
+                Check(presenter.Closed && localChoice.Writes == 1 && localCosmetics.Writes == 1,
+                    "clean Back after Equip closes without additional persistence");
             }
             LobbyIdentityCards(window, host, layout, width, height, output);
             QuitAlignedScreens(host, layout, width, height, output);
@@ -755,13 +818,15 @@ internal static partial class NativeHunterStageGlAcceptance
     private sealed class LocalCosmetics : ILauncherCosmeticEquipService
     {
         internal int Writes { get; private set; }
-        public CosmeticLoadout Capture(Hunter hunter) => new(
-            "skin." + hunter.ToString().ToLowerInvariant() + ".obsidian", "armor.phase", "death.cryo_shatter");
+        private readonly Dictionary<Hunter, CosmeticLoadout> _equipped = new();
+        public CosmeticLoadout Capture(Hunter hunter) => _equipped.TryGetValue(hunter, out var equipped)
+            ? equipped : new("skin." + hunter.ToString().ToLowerInvariant() + ".obsidian", "armor.phase", "death.cryo_shatter");
         public bool PendingSync(Hunter hunter) => false;
         public Task<string> EquipAsync(Hunter hunter, CosmeticLoadout loadout, CancellationToken cancellation)
         {
-            Writes++;
-            throw new InvalidOperationException("This native navigation fixture must not equip cosmetics.");
+            cancellation.ThrowIfCancellationRequested();
+            Writes++; _equipped[hunter] = loadout;
+            return Task.FromResult("LOCAL FIXTURE EQUIPPED");
         }
     }
 }

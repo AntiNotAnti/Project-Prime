@@ -84,6 +84,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void ReleaseNativeInput(RmlUiHost? host = null, bool revertDisplayTrial = true)
     {
+        _hunterChoice?.CancelPreviewGesture();
         _pendingReplayTimeline=null;
         _playback?.ReleaseTimelineInput();
         _hudEditor?.ReleaseInput(); _hudPointerHeld = false;

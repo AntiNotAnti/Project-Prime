@@ -140,7 +140,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         CommunityTransferAction = 276,
         HunterRandom = 277,
         HunterBeamNext = 278, HunterBeamColorNext = 279,
-        HunterBeamSelect = 280, HunterBeamColorSelect = 281
+        HunterBeamSelect = 280, HunterBeamColorSelect = 281,
+        HunterSkinSelect = 282, HunterArmorSelect = 283, HunterDeathSelect = 284,
+        HunterCosmeticCategory = 285
     }
 
     public enum RmlUiRouteArgument
@@ -338,6 +340,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
             RmlUiIntentKind.HunterBeamSelect => argument is >= 0 and < 9,
             RmlUiIntentKind.HunterBeamColorSelect => argument is >= 0 and < 9,
+            RmlUiIntentKind.HunterSkinSelect => argument is >= 0 and < 7,
+            RmlUiIntentKind.HunterArmorSelect => argument is >= 0 and < 21,
+            RmlUiIntentKind.HunterDeathSelect => argument is >= 0 and < 8,
+            RmlUiIntentKind.HunterCosmeticCategory => argument is >= 0 and < 5,
             RmlUiIntentKind.HunterSuit => argument is >= 0 and < 4,
             RmlUiIntentKind.HunterPreviewMode => argument is >= 0 and < 4,
             RmlUiIntentKind.SettingsAction => argument is >= 0 and <= 14 or >= 16 and <= 255,
@@ -413,6 +419,14 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HunterBeamSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:beam-color-select:", 9, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterBeamColorSelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:skin-select:", 7, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterSkinSelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:armor-select:", 21, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterArmorSelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:death-select:", 8, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterDeathSelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:category:", 5, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterCosmeticCategory, argument, document, sequence);
             else if (TryIndex(action, "hunter:suit:", 4, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterSuit, argument, document, sequence);
             else if (TryIndex(action, "hunter:preview-mode:", 4, out argument) && argument >= 0)
@@ -532,6 +546,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.HunterSelect => "hunter:select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterBeamSelect => "hunter:beam-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterBeamColorSelect => "hunter:beam-color-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterSkinSelect => "hunter:skin-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterArmorSelect => "hunter:armor-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterDeathSelect => "hunter:death-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterCosmeticCategory => "hunter:category:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterSuit => "hunter:suit:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterPreviewMode => "hunter:preview-mode:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.SettingsAction => "settings:action:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
