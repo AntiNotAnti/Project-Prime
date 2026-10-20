@@ -2616,6 +2616,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            RetirePauseMapDetail();
             _soundSource.StopAllSfx();
             if (_furlEffect != null)
             {

@@ -158,6 +158,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         Menu("Display","Frame pacing","FrameRateCap",new[]{"display","30","60","75","90","100","120","144","165","180","200","240","360","unlimited"});
         Menu("Display","Frame pacing","ShowFps",OnOff);
         Menu("Display","HUD","SmoothNativeHud",OnOff);
+        Add(typeof(LauncherPrefs),null,"Display","Campaign map","DetailedCampaignMap");
         Add(typeof(Features),null,"Display","HUD","ProHud","KillFeedEnabled","ProHudFixedWeapon");
         Add(typeof(Crosshair),null,"Display","HUD","Size","Style");
         Add(typeof(Radar),null,"Display","HUD","Enabled","ShowBackground","ShowOutlines");

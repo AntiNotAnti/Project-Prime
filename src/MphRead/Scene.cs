@@ -196,15 +196,7 @@ namespace MphRead
                         if (entity.Type == EntityType.Door)
                         {
                             DoorEntityData data = ((Entity<DoorEntityData>)entity).Data;
-                            float heightFactor = 1;
-                            if (meta.Name == "UNIT2_C2") // Fan Room Alpha
-                            {
-                                heightFactor = 2.05f;
-                            }
-                            else if (meta.Name == "UNIT2_C3") // Fan Room Beta
-                            {
-                                heightFactor = 1.305f;
-                            }
+                            float heightFactor = Mods.Campaign.CampaignMapDetail.RoomHeightScale(meta.Name);
                             DoorMetadata doorMeta = Metadata.Doors[(int)data.DoorType];
                             Vector3 lockPos = entity.Position + entity.UpVector * doorMeta.LockOffset;
                             lockPos = lockPos.WithY(lockPos.Y * heightFactor);
