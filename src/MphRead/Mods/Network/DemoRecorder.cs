@@ -54,6 +54,7 @@ internal static class DemoRecorder
     public static string? LastError => _lastError ?? _lastWriter?.Error?.Message;
     public static bool Start()
     {
+        if (!ReplayCapture.CanStartLiveRecording(out var error)) { _lastError = error; return false; }
         if (IsRecording || !NetSession.Active || DemoPlayback.IsActive || NetSession.ServerMatch == null) return false;
         string room = NetSession.ServerMatch.Value.RoomKey;
         foreach (char c in Path.GetInvalidFileNameChars()) room = room.Replace(c, '_');

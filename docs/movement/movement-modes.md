@@ -39,8 +39,8 @@ performance tradeoff, pending hosted CI and explicit platform/input limits.
 Mac and Windows hardware are available; Windows focus recovery/achieved refresh,
 macOS OS-event input, physical controllers and physical Android remain
 unverified or blocked as stated there. A passing CPU or synthetic input fixture
-is not a physical-device claim. Quake III / Quake Live tuning is follow-on work;
-it must preserve the existing recorded v1 behavior.
+is not a physical-device claim. A separate [Quake III strafe-jump tuning draft](quake3-practice-tuning.md)
+is available through `-momentumq3dev`; it is offline-only and preserves recorded v1 behavior.
 
 The original implementation uses calibrated native units and an immutable v1
 profile; see [tuning](tuning-v1.md) for coefficients and limits. These are

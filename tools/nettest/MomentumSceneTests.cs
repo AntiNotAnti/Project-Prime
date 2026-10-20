@@ -88,7 +88,7 @@ internal static class MomentumSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM SCENE FAIL " + ex); return 1; }
     }
 
-    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard, string room = "MP3 PROVING GROUND", bool matchRule = false)
+    internal static Scene Load(Hunter hunter, bool momentum, out KeyboardState keyboard, string room = "MP3 PROVING GROUND", bool matchRule = false, MomentumPracticeTuning? practiceTuning = null)
     {
         Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
         keyboard = SyntheticInput.CreateKeyboard();
@@ -120,7 +120,7 @@ internal static class MomentumSceneTests
                     scene.GameState.Mode = GameMode.Battle;
                     _admissionChecked = true;
                 }
-                Require(scene.TryEnableDeveloperMomentum(captureDiagnostics: true), "explicit pre-load developer opt-in");
+                Require(scene.TryEnableDeveloperMomentum(captureDiagnostics: true, practiceTuning: practiceTuning), "explicit pre-load developer opt-in");
                 Require(!scene.TryEnableDeveloperMomentum(true), "pre-step repeated opt-in refused");
             }
             scene.OnLoad();

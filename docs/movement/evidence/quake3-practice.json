@@ -1,0 +1,476 @@
+{
+  "status": "PASS",
+  "source": {
+    "genuineBaseSha": "a471fd3d58fbca817070aadccad4950301f5f6dd",
+    "overlayFilesSha256": {
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "08271470628097de9567639ad19e33d8c353f5b7380c96fee6412681e7c732c8",
+      "src/MphRead/Mods/ModEntry.cs": "74357bfc0a39ab1c070f47cabf84f677a50681b237d42796eeb30229e8522d51",
+      "src/MphRead/Mods/Movement/MomentumDeveloperLaunch.cs": "16d71ed325d377d54535cf3484ab7079a66c98c32c25b43f0511228abdfcdfa0",
+      "src/MphRead/Mods/Movement/MomentumPracticeTuning.cs": "d67a880c882860c2bbc160938d29807f69c31c0cb30f51a267dfdc8662398daf",
+      "src/MphRead/Mods/Network/DemoClip.cs": "73c65eec7366b9738905f987f8ed9765e1bb42d527e4c4af80d6cc5a5afc6ed5",
+      "src/MphRead/Mods/Network/DemoRecorder.cs": "035db5d4270bdaf5914c51bb23338663ec61e7a9ff865f01a6d110a3c2a2068d",
+      "src/MphRead/Mods/Network/ReplayCapture.cs": "16e6f77c11085ab386d5b439d95a37ff8962e9fd2104d7d567a3257bc16421a2",
+      "src/MphRead/Mods/Network/ServerReplayRecorder.cs": "00b6a824018cebf691f587626e00c4169093aa22b0620b3f1c22307ec633e429",
+      "src/MphRead/SceneMomentumMovement.cs": "9f9cd6f59330c8ccb12b21adf04f1516d1a72ad5057857730e58ce7704e18a97",
+      "tools/nettest/MomentumAdmissionTests.cs": "02ee480a1da392e8b689332e55f4a0c32aabcfdfc0defe600a1e628a4a67dc6f",
+      "tools/nettest/MomentumPracticeSceneTests.cs": "0cc6cf1372bf6c5d7a315091232023c0234837ef5a801b3ebde9de9b53a16345",
+      "tools/nettest/MomentumPracticeTuningTests.cs": "802ffc62385da461731d813896b7ab2b3cf6f1246f3712bc649e23970bf2864f",
+      "tools/nettest/MomentumSceneTests.cs": "c333df04665413ac881afdb6ec35a28d197a9defe856b3ce84c3d5e14d0bf4d1",
+      "tools/nettest/Program.cs": "a8c6fcd8b16e78393acbc0ff3ac1d8beb0f4d413c157f2f86f5570f8b4c8ae5e"
+    },
+    "manifestSha256": "bed673e9b54119e2f076369f1309bf895dda8caaed808265dcf6b52fedd97fef",
+    "dirtyOverlayIntentional": true,
+    "noProductionFilesEditedByTestingAgent": true
+  },
+  "normalBuild": {
+    "exitCode": 0,
+    "warnings": 0,
+    "errors": 0,
+    "elapsedSeconds": 52.01,
+    "properties": {
+      "MphReadRmlUiGlSmoke": "ordinary default true",
+      "MphReadReplayPreviewFailureFixture": false
+    }
+  },
+  "binaryAndRuntimeSha256": {
+    "ProjectPrime.dll": "a5c47e09eb2dd6ecde51af90260839976f4b3628c044e1156f114d6dfc657b04",
+    "nettest.dll": "4bf9df93fc631b5146b0a3c2bc5be79807e54249b917ef644bf8a3576819dfc2",
+    "nettest.pdb": "a619c8b7b0c745afc2610f924ab69e556d378f773f4bd4147583d0c154f2dabe",
+    "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+    "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+  },
+  "checks": [
+    {
+      "name": "admission",
+      "exitCode": 0,
+      "count": 44
+    },
+    {
+      "name": "practice-tuning",
+      "exitCode": 0,
+      "count": 230
+    },
+    {
+      "name": "practice-scene",
+      "exitCode": 0,
+      "count": 24032
+    },
+    {
+      "name": "math",
+      "exitCode": 0,
+      "count": 104
+    },
+    {
+      "name": "profile",
+      "exitCode": 0,
+      "count": 20048
+    },
+    {
+      "name": "offline-scenes",
+      "exitCode": 0,
+      "count": 57346
+    },
+    {
+      "name": "jump-scenes",
+      "exitCode": 0,
+      "count": 187405
+    },
+    {
+      "name": "rules",
+      "exitCode": 0,
+      "count": 146
+    },
+    {
+      "name": "replay-rules",
+      "exitCode": 0,
+      "count": 82
+    },
+    {
+      "name": "replay-metadata",
+      "exitCode": 0,
+      "count": 54
+    },
+    {
+      "name": "combat-family-policies",
+      "exitCode": 0,
+      "count": 325
+    },
+    {
+      "name": "native-gold",
+      "exitCode": 0,
+      "count": 56
+    }
+  ],
+  "additionalChecks": [
+    {
+      "name": "protocol58",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "count": 204
+    },
+    {
+      "name": "cli-missing-room",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "passed": true
+    },
+    {
+      "name": "cli-missing-seconds",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "passed": true
+    },
+    {
+      "name": "cli-invalid-tuning",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "passed": true
+    }
+  ],
+  "cliRefusalReasons": [
+    "Missing room: usage",
+    "Missing seconds value: usage",
+    "Negative GroundAcceleration: finite/nonnegative validation refused"
+  ],
+  "scene": {
+    "assertions": 24032,
+    "room": "MP3 PROVING GROUND",
+    "schedule": "jump-only: Space tick0; moving: W ticks0..95, A ticks49..95, Space tick48; release through tick179; fixed native simulation steps",
+    "rows": [
+      {
+        "hunter": "Samus",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Kanden",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Spire",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Noxus",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Trace",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Sylux",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      },
+      {
+        "hunter": "Weavel",
+        "nativeJump": {
+          "Steps": 0,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 0,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "practiceJump": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 0,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 0,
+          "PeakSpeed": 0
+        },
+        "version1": {
+          "Steps": 180,
+          "AirGainSamples": 0,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 13.627677,
+          "PeakSpeed": 7.1997075
+        },
+        "practice": {
+          "Steps": 180,
+          "AirGainSamples": 18,
+          "DiagonalSamples": 47,
+          "NativeYBitComparisons": 180,
+          "Airborne": true,
+          "Landed": true,
+          "Displacement": 16.018604,
+          "PeakSpeed": 8.817804
+        }
+      }
+    ],
+    "scope": "Actual offline CPU scene, synthetic keyboard and native spawn/intro skip; no transforms/velocities written, no physical device, GL, online or replay qualification",
+    "policySeams": "Admission uses synthetic readiness/recorder pending/registry-owner change with state restored. Retired-draft fallback uses actual spawned scene with synthetic supported-rule selection and separately labeled synthetic bot identity/private adapter call; no real mixed-roster AI lifecycle claimed."
+  },
+  "environment": {
+    "platform": "Windows x64",
+    "runtime": "10.0.401",
+    "allInheritedPRIMEVariablesCleared": true,
+    "perCaseUserDataIsolated": true,
+    "sourceAndBinariesUnchangedAfterChecks": true
+  },
+  "retainedSetupFailure": {
+    "attempt": "incremental bundle prerequisite check",
+    "reason": "Existing shallow object store lacked a merge prerequisite; bundle refused before build. Direct genuine shallow fetch of exact base succeeded. No product or test execution failure."
+  },
+  "scopeLimits": [
+    "Private offline experiment only; no physical-device, GL, real online or replay playback qualification.",
+    "No timing/performance acceptance; build elapsed is operational metadata only.",
+    "Existing v1 and declared replay/schema checks passed; no release-wide claim."
+  ],
+  "ownedWindowsFunctionalLease": "Released; owned workers stopped",
+  "hostedCI": "NOT VERIFIED: local results do not substitute for hosted CI; publication does not wait for CI or review.",
+  "rawArtifacts": [
+    "windows-evidence-01.zip",
+    "windows-evidence-01/cli-native-logs.zip"
+  ],
+  "unchangedContracts": {
+    "src/MphRead/Mods/Movement/MomentumProfileV1.cs": "f15f91656d17131daf0830a89ed7973fbad04cdf099d8fe3f014d4b4250c8c8b",
+    "src/MphRead/Mods/Movement/MomentumMath.cs": "4543d847388510d063c8ac59eae1612c199d530087d36457cb8f29e2ef020aa4",
+    "src/MphRead/Mods/Network/SessionProtocol.cs": "fb8f5dd447d8ab937909064414ee32fbacb010ee2d9806dc976f8a4599c01443",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "c26707c45a8a1f9beddf3507fab2593c2b8fe9abf6785ae46772b3f0add10fa7",
+    "src/MphRead/Mods/Network/ReplayFormatV3.cs": "23c79a154c93bd6f0973465a58fd6cef577dfc4e205b0db4f4dd11de1e094c70"
+  },
+  "independentSourceVerification": "All 14 overlay file hashes matched the final local source; test exit codes and pre/post source/binary lease were independently checked before publication."
+}

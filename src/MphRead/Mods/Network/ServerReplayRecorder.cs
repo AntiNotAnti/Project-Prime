@@ -55,6 +55,7 @@ namespace MphRead.Mods.Network
 
         public static bool Start(ReplayMetadata metadata)
         {
+            if (!ReplayCapture.CanStartLiveRecording(out var error)) { _lastError = error; return false; }
             if (!_policy.Enabled) return false;
             Stop();
             _lastError = null; _lastWriter = null;

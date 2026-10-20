@@ -17,6 +17,11 @@ public partial class Scene
 {
     private bool _developerMomentumRequested, _developerMomentumRetired;
     private bool _developerMomentumDiagnostics, _developerMomentumInputBlocked = true;
+    private MomentumPracticeTuning? _developerMomentumPracticeTuning;
+    private PlayerEntity? _developerMomentumPracticeOwner;
+    private int _developerMomentumPracticeSlot = -1;
+    // Retain the selection after retirement: this scene cannot produce a v1-labelled recording.
+    internal MomentumPracticeTuning? DeveloperMomentumPracticeTuning => _developerMomentumPracticeTuning;
     internal long DeveloperMomentumSteps { get; private set; }
     internal MomentumStepSample? LastMomentumStep { get; private set; }
 
@@ -24,13 +29,22 @@ public partial class Scene
     /// Private offline experiment, selected once after room setup and before the
     /// first simulation tick. No preference, lobby, server or replay binds it.
     /// </summary>
-    internal bool TryEnableDeveloperMomentum(bool captureDiagnostics = false)
+    internal bool TryEnableDeveloperMomentum(bool captureDiagnostics = false, MomentumPracticeTuning? practiceTuning = null)
     {
         if (_developerMomentumRequested || FrameCount != 0 || !_roomLoaded
             || !DeveloperMomentumSceneEligible()
             || Players.Main == null
             || Players.Main.ModCharacterGameplay.Variant != CharacterGameplayVariant.Native)
             return false;
+        if (practiceTuning != null && (ReplayCapture.LiveRecordingActive
+            || Players.Main.IsBot || !MomentumOwnsPlayer(Players.Main))) return false;
+        practiceTuning?.Validate();
+        _developerMomentumPracticeTuning = practiceTuning;
+        if (practiceTuning != null)
+        {
+            _developerMomentumPracticeOwner = Players.Main;
+            _developerMomentumPracticeSlot = Players.Main.SlotIndex;
+        }
         _developerMomentumRequested = true;
         _developerMomentumDiagnostics = captureDiagnostics;
         return true;
@@ -80,7 +94,15 @@ public partial class Scene
         && !Exiting && !_cleanupComplete && !_visualReleaseComplete
         && !SideScene && !Services.IsReplica && !IsReplayLab && AimTrainer == null
         && GameState.Multiplayer && !GameState.BalancedMode && !GameState.EnhancedHunters
-        && !NetSession.Active && !Services.PlayerReplication.Active && !DemoPlayback.IsActive;
+        && !NetSession.Active && !Services.PlayerReplication.Active && !DemoPlayback.IsActive
+        && (_developerMomentumPracticeTuning == null || !ReplayCapture.LiveRecordingActive
+            && ReferenceEquals(Players.Main, _developerMomentumPracticeOwner)
+            && _developerMomentumPracticeOwner != null
+            && _developerMomentumPracticeOwner.SlotIndex == _developerMomentumPracticeSlot
+            && _developerMomentumPracticeSlot == NetHooks.LocalSlot
+            && !_developerMomentumPracticeOwner.IsBot
+            && !NetHooks.IsPuppet(_developerMomentumPracticeOwner)
+            && _developerMomentumPracticeOwner.ModCharacterGameplay.Variant == CharacterGameplayVariant.Native);
 
     internal bool DeveloperMomentumInputAllowed => !_developerMomentumInputBlocked;
 

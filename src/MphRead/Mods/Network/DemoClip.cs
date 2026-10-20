@@ -28,6 +28,7 @@ internal static class DemoClip
         ? Math.Min(Seconds, (last - first) / 60.0) : 0;
     public static string? Save()
     {
+        if (!ReplayCapture.CanStartLiveRecording(out var error)) { LastError = error; return null; }
         if (IsSaving) return _pendingPath;
         var timeline = ReplayCapture.Recorder.Timeline;
         if (!Active || timeline.FirstRecordingFrame is not uint first || timeline.LastRecordingFrame is not uint last) return null;
