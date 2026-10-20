@@ -586,3 +586,21 @@ Unsupported Windows/Linux/GLES/device gates remain NOT_RUN; historical M4 Pro
 receipts do not certify a newly built integration binary.
 
 `sanitize_gl_evidence.py verify` checks derivative hashes/lengths and numeric projections. With `--original-root`, it also checks the external originals against their SHA256/lengths; neither mode depends on private host paths embedded in command labels.
+
+### Sustained frame timing
+
+Ordinary timing accepts `-seconds 8..1804`; the first 240 simulation ticks remain
+warmup, so 604 requests ten minutes and 1804 requests thirty minutes of measured
+simulation time. Existing capture modes remain bounded to 120 seconds and pose
+mode remains exactly 24 seconds. Slow runs may have different elapsed wall time;
+the existing timeout and dropped-simulation counters remain visible.
+
+Raw interval storage is allocated before loading/warmup, bounded to 4096 returned
+frames per requested measured second (at most about 59 MiB). It never grows in
+the measured loop. Overflow records `droppedIntervalRecords`, stops with nonzero
+exit, and sets `timingEvidenceComplete` false. Do not accept a partial run.
+Allocation, collection and measurement-end counters freeze at the final measured
+interval, excluding later receipt generation, percentile sorting, JSON and scene
+cleanup. `managedBytes`/`workingSetBytes` remain post-run observations, not peak
+residency. A callback interval includes the harness's post-Present bookkeeping;
+the profiler's raw capture timestamps the actual swap-return boundary separately.

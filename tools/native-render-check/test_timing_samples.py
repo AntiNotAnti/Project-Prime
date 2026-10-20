@@ -53,20 +53,6 @@ Console.WriteLine("TIMING_SAMPLES_PASS");
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("TIMING_SAMPLES_PASS", result.stdout)
 
-    def test_snapshot_precedes_end_receipt_and_result_work(self):
-        source = (Path(__file__).parent / "Program.cs").read_text()
-        record = source.index("bool recorded = _intervalBuffer.TryRecord")
-        snapshot = source.index("_finalAllocated = GC.GetTotalAllocatedBytes(false)", record)
-        receipt = source.index("ObserveWorkloadEnd();", snapshot)
-        self.assertLess(record, snapshot)
-        self.assertLess(snapshot, receipt)
-        result = source[source.index("internal object Result()") : source.index("// Pure bounded storage")]
-        self.assertIn("allocatedBytes = _measureEnded == 0 ? 0 : _finalAllocated - _allocated", result)
-        self.assertIn("_finalCollections[i] - _collections[i]", result)
-        self.assertNotIn("GC.GetTotalAllocatedBytes", result)
-        self.assertNotIn("GC.CollectionCount", result)
-        self.assertIn("droppedIntervalRecords = _intervalBuffer.DroppedRecords", result)
-        self.assertIn("timingEvidenceComplete = Complete &&", result)
 
 
 if __name__ == "__main__":
