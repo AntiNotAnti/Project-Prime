@@ -81,32 +81,12 @@
                 <div id="hunter_catalog2" class="hunter-catalog" style="display:none">
                     <button id="hunter_beam" class="catalog-next" data-action="hunter:beam-next">INSTA-GIB BEAM</button>
                     <div id="hunter_beam_description" class="hint cosmetic-description" role="status"/>
-                    <div class="hunter-catalog-choices">
-                        <button id="hunter_beam_option0" class="catalog-option" data-action="hunter:beam-select:0"><span id="hunter_beam_swatch0" class="catalog-swatch"/><span id="hunter_beam_label0">OPTION 1</span></button>
-                        <button id="hunter_beam_option1" class="catalog-option" data-action="hunter:beam-select:1"><span id="hunter_beam_swatch1" class="catalog-swatch"/><span id="hunter_beam_label1">OPTION 2</span></button>
-                        <button id="hunter_beam_option2" class="catalog-option" data-action="hunter:beam-select:2"><span id="hunter_beam_swatch2" class="catalog-swatch"/><span id="hunter_beam_label2">OPTION 3</span></button>
-                        <button id="hunter_beam_option3" class="catalog-option" data-action="hunter:beam-select:3"><span id="hunter_beam_swatch3" class="catalog-swatch"/><span id="hunter_beam_label3">OPTION 4</span></button>
-                        <button id="hunter_beam_option4" class="catalog-option" data-action="hunter:beam-select:4"><span id="hunter_beam_swatch4" class="catalog-swatch"/><span id="hunter_beam_label4">OPTION 5</span></button>
-                        <button id="hunter_beam_option5" class="catalog-option" data-action="hunter:beam-select:5"><span id="hunter_beam_swatch5" class="catalog-swatch"/><span id="hunter_beam_label5">OPTION 6</span></button>
-                        <button id="hunter_beam_option6" class="catalog-option" data-action="hunter:beam-select:6"><span id="hunter_beam_swatch6" class="catalog-swatch"/><span id="hunter_beam_label6">OPTION 7</span></button>
-                        <button id="hunter_beam_option7" class="catalog-option" data-action="hunter:beam-select:7"><span id="hunter_beam_swatch7" class="catalog-swatch"/><span id="hunter_beam_label7">OPTION 8</span></button>
-                        <button id="hunter_beam_option8" class="catalog-option" data-action="hunter:beam-select:8"><span id="hunter_beam_swatch8" class="catalog-swatch"/><span id="hunter_beam_label8">OPTION 9</span></button>
-                    </div>
+                    
                 </div>
                 <div id="hunter_catalog3" class="hunter-catalog" style="display:none">
                     <button id="hunter_beam_color" class="catalog-next" data-action="hunter:beam-color-next">BEAM COLOR</button>
                     <div class="hint cosmetic-description">Color applies to Insta-Gib beams.</div>
-                    <div class="hunter-catalog-choices">
-                        <button id="hunter_beam_color_option0" class="catalog-option" data-action="hunter:beam-color-select:0"><span id="hunter_beam_color_swatch0" class="catalog-swatch"/><span id="hunter_beam_color_label0">OPTION 1</span></button>
-                        <button id="hunter_beam_color_option1" class="catalog-option" data-action="hunter:beam-color-select:1"><span id="hunter_beam_color_swatch1" class="catalog-swatch"/><span id="hunter_beam_color_label1">OPTION 2</span></button>
-                        <button id="hunter_beam_color_option2" class="catalog-option" data-action="hunter:beam-color-select:2"><span id="hunter_beam_color_swatch2" class="catalog-swatch"/><span id="hunter_beam_color_label2">OPTION 3</span></button>
-                        <button id="hunter_beam_color_option3" class="catalog-option" data-action="hunter:beam-color-select:3"><span id="hunter_beam_color_swatch3" class="catalog-swatch"/><span id="hunter_beam_color_label3">OPTION 4</span></button>
-                        <button id="hunter_beam_color_option4" class="catalog-option" data-action="hunter:beam-color-select:4"><span id="hunter_beam_color_swatch4" class="catalog-swatch"/><span id="hunter_beam_color_label4">OPTION 5</span></button>
-                        <button id="hunter_beam_color_option5" class="catalog-option" data-action="hunter:beam-color-select:5"><span id="hunter_beam_color_swatch5" class="catalog-swatch"/><span id="hunter_beam_color_label5">OPTION 6</span></button>
-                        <button id="hunter_beam_color_option6" class="catalog-option" data-action="hunter:beam-color-select:6"><span id="hunter_beam_color_swatch6" class="catalog-swatch"/><span id="hunter_beam_color_label6">OPTION 7</span></button>
-                        <button id="hunter_beam_color_option7" class="catalog-option" data-action="hunter:beam-color-select:7"><span id="hunter_beam_color_swatch7" class="catalog-swatch"/><span id="hunter_beam_color_label7">OPTION 8</span></button>
-                        <button id="hunter_beam_color_option8" class="catalog-option" data-action="hunter:beam-color-select:8"><span id="hunter_beam_color_swatch8" class="catalog-swatch"/><span id="hunter_beam_color_label8">OPTION 9</span></button>
-                    </div>
+                    
                 </div>
                 <div id="hunter_catalog4" class="hunter-catalog" style="display:none">
                     <button id="hunter_death" class="catalog-next" data-action="hunter:death-next">DEATH PRESENTATION</button>
