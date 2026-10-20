@@ -63,7 +63,18 @@ internal static class ReplayFormCompatibilityChecks
         roster.Write(rosterPacket.AsSpan(1)); decoder.Accept(rosterPacket, 0); decoder.Accept(canonical, 10);
         byte[] current = decoder.CaptureCheckpoint().Bytes.ToArray();
         int at = 47 + MatchStatePacket.Size + 1 + RosterPacket.Size;
-        using var stream = new MemoryStream(); stream.Write(current.AsSpan(0, 7)); stream.Write(current.AsSpan(8, at - 8));
+        // The fixture targets protocol 48, whose MatchState has the pre-60
+        // ushort rules width. Do not relabel a current uint-rules body as old.
+        const int matchAt = 47;
+        require(current.AsSpan(matchAt + MatchStatePacket.Protocol59Size,
+                MatchStatePacket.Size - MatchStatePacket.Protocol59Size).IndexOfAnyExcept((byte)0) < 0,
+            "historical match fixture discards only zero high rule bits");
+        using var stream = new MemoryStream();
+        stream.Write(current.AsSpan(0, 7)); // Historical header has no feature byte.
+        stream.Write(current.AsSpan(8, matchAt - 8));
+        stream.Write(current.AsSpan(matchAt, MatchStatePacket.Protocol59Size));
+        stream.Write(current.AsSpan(matchAt + MatchStatePacket.Size,
+            at - matchAt - MatchStatePacket.Size));
         for (int i = 0; i < RosterPacket.MaxSlots; i++)
         {
             stream.Write(current.AsSpan(at, 7 + PlayerState.Protocol48Size)); at += 7 + PlayerState.Size;
@@ -82,7 +93,16 @@ internal static class ReplayFormCompatibilityChecks
             "historical player-width fixture strips only empty pickup data");
         stream.Write(current.AsSpan(at, current.Length - at - pickupTailBytes));
         byte[] historical = stream.ToArray(); historical[4] = 9; historical[5] = 0; historical[6] = 48;
+        require(historical.Length == current.Length - 1
+            - (MatchStatePacket.Size - MatchStatePacket.Protocol59Size)
+            - RosterPacket.MaxSlots * (PlayerState.Size - PlayerState.Protocol48Size
+                + IntentPacket.TouchCanonicalSize - IntentPacket.FullSize)
+            - pickupTailBytes,
+            "protocol48 fixture removes exactly feature, match, player, intent and empty pickup extensions");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(historical));
+        require(restored.Match is { } historicalMatch && historicalMatch.MatchId == match.MatchId
+            && historicalMatch.AuthorityEpoch == match.AuthorityEpoch && historicalMatch.RuleBits == match.RuleBits,
+            "protocol48 detached checkpoint preserves historical match identity and rules");
         require(restored.TryGetPlayer(0, out var restoredPlayer) && restoredPlayer.Health == 77
             && restored.TryGetPlayer(1, out var second) && second.Health == 55,
             "protocol48 detached checkpoint reads old player width without consuming following lifecycle/intent fields");

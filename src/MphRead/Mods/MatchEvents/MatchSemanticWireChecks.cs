@@ -223,7 +223,15 @@ internal static class MatchSemanticWireChecks
             // fixed roster, then eight lifecycle/player/intent blocks.
             int firstPlayer = 47 + MatchStatePacket.Size + 1 + RosterPacket.Size;
             using var historical = new MemoryStream();
-            historical.Write(source.AsSpan(0, 7)); historical.Write(source.AsSpan(8, firstPlayer - 8));
+            const int matchAt = 47;
+            require(source.AsSpan(matchAt + MatchStatePacket.Protocol59Size,
+                    MatchStatePacket.Size - MatchStatePacket.Protocol59Size).IndexOfAnyExcept((byte)0) < 0,
+                "historical semantic fixture discards only zero high match rule bits");
+            historical.Write(source.AsSpan(0, 7));
+            historical.Write(source.AsSpan(8, matchAt - 8));
+            historical.Write(source.AsSpan(matchAt, MatchStatePacket.Protocol59Size));
+            historical.Write(source.AsSpan(matchAt + MatchStatePacket.Size,
+                firstPlayer - matchAt - MatchStatePacket.Size));
             int at = firstPlayer;
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
