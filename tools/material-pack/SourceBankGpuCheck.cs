@@ -139,8 +139,12 @@ internal static class SourceBankGpuCheck
             RenderOptions.TextureReplacements = false;
             RefreshAndUpdate();
             WaitForIdle(scene);
-            if (Bindings()[0] != Bindings()[1]) throw new Exception("Disabled bank replacements did not share the native fallback.");
-            CheckTexture(Bindings()[0], 1, 1, new byte[] { 255, 255, 255, 255 }, "disabled fallback");
+            // Once created, authored handles remain stable because existing
+            // materials/render items may hold them. Disabling reuploads the
+            // native fallback into each handle rather than merging identities.
+            if (!Bindings().SequenceEqual(stable)) throw new Exception("Disabled bank replacements changed stable authored handles.");
+            foreach (int binding in Bindings())
+                CheckTexture(binding, 1, 1, new byte[] { 255, 255, 255, 255 }, "disabled fallback");
             RenderOptions.TextureReplacements = true;
             Reload();
             RefreshAndUpdate();
