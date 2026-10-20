@@ -1,0 +1,565 @@
+{
+  "schema": 1,
+  "slice": "NCX-03",
+  "status": "COMPLETE_SCOPED_SHADOW",
+  "sourceCommit": "75c32ac79794acc29534780888c64ce468125ff6",
+  "integrationMain": "017373d45fd7adbf59c7703b373e65cc25ce464d",
+  "codeInputsSha256": "99966e2686424833c2a71a354ed1580a2b4d9f9084335795d33b5f8a09630d5f",
+  "engineSha256": "8e25e9cd3a666db8da2bf3262faa069f4bdf5325ec54da74274e4ef9080626f3",
+  "nettestSha256": "4f6c1abf27d10b4d6b849a853dca3c2b8a1ea5fd9dd92e619433632cf2a3cd25",
+  "protocol": 59,
+  "sourceClosure": {
+    "path": "artifacts/ncx/NCX-03/source-10.json",
+    "sha256": "ca17beccd5d5fca152c8efbb4ed016a298da4ce859f0b9e374feefd7aaef5e9f"
+  },
+  "build": {
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0,
+    "path": "artifacts/ncx/NCX-03/build-10.log",
+    "sha256": "641fa2a45520b9375c2acfb3856d33edb8588d98d643b8295f8552b51a9cca27"
+  },
+  "checks": {
+    "focusedRoutes": 30,
+    "modes": [
+      "off",
+      "shadow"
+    ],
+    "status": "PASS",
+    "scalarAssertionsEach": 64,
+    "decisionAssertionsEach": 52,
+    "nativeControlledAssertionsEachInvocation": 313,
+    "arbitrationAssertionsEach": 1157,
+    "continuousAssertionsEach": 667,
+    "receiptAssertionsEach": 698,
+    "pythonNcxTests": 67,
+    "pythonDispatchTests": 5,
+    "pythonComparatorTests": 23,
+    "focusedManifest": {
+      "path": "artifacts/ncx/NCX-03/focused-results-10.json",
+      "sha256": "4ef1638a0db367746c846b6ecd70f56fccd18cf6321af3774dd06c3a14cfca18"
+    },
+    "pythonLogs": [
+      {
+        "path": "artifacts/ncx/NCX-03/python-ncx-10.log",
+        "sha256": "ff26d9245c40d4dcbaadeaef7b2c57d155e5af47b604d97a9f62d7a139164ec2"
+      },
+      {
+        "path": "artifacts/ncx/NCX-03/python-dispatch-10.log",
+        "sha256": "75cf72c543b7f2f42122e6c6a046f80bdbd43712fe7549ec18662a67efb9ccac"
+      },
+      {
+        "path": "artifacts/ncx/NCX-03/python-comparator-10.log",
+        "sha256": "33266b5eca585d5c5ba3bc2863100e8955aabfe43c780e8db8ae5aca4776b508"
+      }
+    ]
+  },
+  "nativeControlled": {
+    "controlsPerExecution": 10,
+    "executions": 2,
+    "internalArms": [
+      "off",
+      "shadow"
+    ],
+    "auditorStatuses": {
+      "PASS": 8,
+      "INCOMPLETE": 12
+    },
+    "positiveDamageControlsPerExecution": 4,
+    "blockedControlsPerExecution": 1,
+    "fallbackControlsPerExecution": 5,
+    "exactParity": [
+      "health",
+      "paymentCount",
+      "scoreArrays",
+      "semanticEvents",
+      "Rng1",
+      "Rng2",
+      "canonicalReplayMetadataAndBytes"
+    ],
+    "audit": {
+      "path": "artifacts/ncx/NCX-03/actual-native-audit-10.json",
+      "sha256": "d72b28037499b43b9de9d72966910bf13b89367779c6d405275cf44ceb9db932"
+    },
+    "scope": "Existing native ordered Imperialist contact only; not a fresh claim frontier certificate or authenticated UDP/native-family qualification"
+  },
+  "nativeFidelity": {
+    "engineExit": 1,
+    "passingCasesEachMode": 46,
+    "allPassingHashesMatchNcx01": true,
+    "knownDivergence": "weapon.missile.splash, tick177 victim.position4096.z expected52814 actual52815",
+    "goldensUnchanged": true,
+    "customRewindAssertionsEachMode": 156,
+    "manifest": {
+      "path": "artifacts/ncx/NCX-03/oracle-results-10.json",
+      "sha256": "0c45aa3ee0c7dc006cfd84f38bbd1c3bcbeb54ff96c043212bfb388effbadf9b"
+    }
+  },
+  "udp": {
+    "scope": "Real loopback UDP; synthetic configured faults, normal Power Beam Volley scenario; exact already-paid receipt material, no new fast payment, geographic/performance or rendered acceptance",
+    "priorSource": "713fb9139923d657013cc14a5e782ff518e9485e",
+    "priorEngineSha256": "faef4312a4acb078bd08240768b333a896945ac19d89d5982663b721137ac9a4",
+    "priorCases": [
+      {
+        "case": "local",
+        "campaignStatus": "PASS",
+        "fastStatus": "PASS",
+        "receiptStatus": "PASS",
+        "drainStatus": "PASS",
+        "commands": 3,
+        "fastCounters": {
+          "Schema": 1,
+          "Mode": 1,
+          "PerShooter": 1024,
+          "Overflow": 0,
+          "Invalid": 0,
+          "UnjoinedTerminal": 0,
+          "fastEligible": 15,
+          "fastWouldPay": 0,
+          "fastWouldReject": 0,
+          "missingSource": 0,
+          "headMismatch": 0,
+          "wallMismatch": 0,
+          "orderingDeferred": 15,
+          "familyUnsupported": 16,
+          "wouldDoublePay": 0,
+          "wouldAlterTrade": 0,
+          "Compared": 15,
+          "Disagreements": 0,
+          "Uncompared": 0,
+          "CorrectedExcluded": 0
+        },
+        "receiptProcesses": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 15,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 15,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 15,
+            "keyedRetirements": 15,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "source": "713fb9139923d657013cc14a5e782ff518e9485e",
+        "assemblySha256": "faef4312a4acb078bd08240768b333a896945ac19d89d5982663b721137ac9a4",
+        "manifestSha256": "5b80fc15ca80ca9bca473d9154957ff6836a18feafc9683605d0426359eb5f16",
+        "summarySha256": "5ca7075c9603fcaa2f6a18b4f5fb7f6be59c319eadc337f535674f37230949f0"
+      },
+      {
+        "case": "impaired",
+        "campaignStatus": "FAIL",
+        "fastStatus": "PASS",
+        "receiptStatus": "PASS",
+        "drainStatus": "PASS",
+        "commands": 3,
+        "fastCounters": {
+          "Schema": 1,
+          "Mode": 1,
+          "PerShooter": 1024,
+          "Overflow": 0,
+          "Invalid": 0,
+          "UnjoinedTerminal": 0,
+          "fastEligible": 27,
+          "fastWouldPay": 0,
+          "fastWouldReject": 0,
+          "missingSource": 0,
+          "headMismatch": 4,
+          "wallMismatch": 0,
+          "orderingDeferred": 27,
+          "familyUnsupported": 29,
+          "wouldDoublePay": 0,
+          "wouldAlterTrade": 0,
+          "Compared": 27,
+          "Disagreements": 0,
+          "Uncompared": 0,
+          "CorrectedExcluded": 0
+        },
+        "receiptProcesses": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 30,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 30,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 30,
+            "keyedRetirements": 30,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "source": "713fb9139923d657013cc14a5e782ff518e9485e",
+        "assemblySha256": "faef4312a4acb078bd08240768b333a896945ac19d89d5982663b721137ac9a4",
+        "manifestSha256": "c1a29597f8278d492d8b8e78bed8db75220c7e555748fdf99b7d59fb02dc6ad7",
+        "summarySha256": "03b846132fcbbc6ede3dce52eca3fe217c1258b6cd13055b182264a7ba70df1f"
+      },
+      {
+        "case": "eight",
+        "campaignStatus": "PASS",
+        "fastStatus": "PASS",
+        "receiptStatus": "PASS",
+        "drainStatus": "PASS",
+        "commands": 9,
+        "fastCounters": {
+          "Schema": 1,
+          "Mode": 1,
+          "PerShooter": 1024,
+          "Overflow": 0,
+          "Invalid": 0,
+          "UnjoinedTerminal": 0,
+          "fastEligible": 220,
+          "fastWouldPay": 0,
+          "fastWouldReject": 0,
+          "missingSource": 0,
+          "headMismatch": 2,
+          "wallMismatch": 0,
+          "orderingDeferred": 220,
+          "familyUnsupported": 227,
+          "wouldDoublePay": 0,
+          "wouldAlterTrade": 0,
+          "Compared": 220,
+          "Disagreements": 0,
+          "Uncompared": 0,
+          "CorrectedExcluded": 0
+        },
+        "receiptProcesses": [
+          {
+            "process": "client-0",
+            "counts": {
+              "Delivered": 78,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 78,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 78,
+            "keyedRetirements": 78,
+            "unresolved": 0
+          },
+          {
+            "process": "client-1",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          },
+          {
+            "process": "client-2",
+            "counts": {
+              "Delivered": 46,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 46,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 46,
+            "keyedRetirements": 46,
+            "unresolved": 0
+          },
+          {
+            "process": "client-3",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          },
+          {
+            "process": "client-4",
+            "counts": {
+              "Delivered": 38,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 38,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 38,
+            "keyedRetirements": 38,
+            "unresolved": 0
+          },
+          {
+            "process": "client-5",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          },
+          {
+            "process": "client-6",
+            "counts": {
+              "Delivered": 67,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 67,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 67,
+            "keyedRetirements": 67,
+            "unresolved": 0
+          },
+          {
+            "process": "client-7",
+            "counts": {
+              "Delivered": 0,
+              "TimedOut": 0,
+              "CapacityEvicted": 0,
+              "LifeRetired": 0,
+              "OccupantRetired": 0,
+              "MatchRetired": 0,
+              "SessionRetired": 0,
+              "Created": 0,
+              "Outstanding": 0
+            },
+            "keyedDeclarations": 0,
+            "keyedRetirements": 0,
+            "unresolved": 0
+          }
+        ],
+        "source": "713fb9139923d657013cc14a5e782ff518e9485e",
+        "assemblySha256": "faef4312a4acb078bd08240768b333a896945ac19d89d5982663b721137ac9a4",
+        "manifestSha256": "67ee34cbc98c46bcd78ac662c1531061e784cbdbb67bc6c6773df8e40562ba9c",
+        "summarySha256": "7f819b6596bda3e284debe45f48fcacbb75dbd7cbb4f7034d87f356d45aede00"
+      }
+    ],
+    "priorTotalEligibleComparisons": 262,
+    "finalSource": "75c32ac79794acc29534780888c64ce468125ff6",
+    "finalEngineSha256": "8e25e9cd3a666db8da2bf3262faa069f4bdf5325ec54da74274e4ef9080626f3",
+    "finalCase": {
+      "directory": "udp-eight-extreme-10",
+      "campaignStatus": "PASS",
+      "failures": [],
+      "drain": "PASS",
+      "receipts": "PASS",
+      "shadow": "PASS",
+      "positiveEligibleComparisons": 131,
+      "processCount": 9,
+      "auditedProcesses": [
+        {
+          "process": "process-0",
+          "mode": "Shadow",
+          "rows": 427,
+          "positiveEligibleComparisons": 131,
+          "positiveRejectComparisons": 0,
+          "counters": {
+            "fastEligible": 131,
+            "fastWouldPay": 0,
+            "fastWouldReject": 0,
+            "missingSource": 0,
+            "headMismatch": 4,
+            "wallMismatch": 0,
+            "orderingDeferred": 131,
+            "familyUnsupported": 137,
+            "wouldDoublePay": 0,
+            "wouldAlterTrade": 0,
+            "Compared": 131,
+            "Disagreements": 0,
+            "Uncompared": 0,
+            "CorrectedExcluded": 0
+          }
+        }
+      ],
+      "manifest": {
+        "path": "artifacts/ncx/NCX-03/udp-eight-extreme-10/manifest.json",
+        "sha256": "5d72652b9c91226683e234d51703fa87fccfc045f985ebf34cafba6e3245a964"
+      },
+      "summary": {
+        "path": "artifacts/ncx/NCX-03/udp-eight-extreme-10/summary.json",
+        "sha256": "2ff5e4613b5974d08bb92eccdbf06427872043b4de0debd9326a98b84895434f"
+      },
+      "fastAudit": {
+        "path": "artifacts/ncx/NCX-03/udp-eight-extreme-10/ncx-fastpath.json",
+        "sha256": "43937842fa899702306f1c72929de63f931b3c3938bbacf67a18b3aa31d0e794"
+      },
+      "receiptAudit": {
+        "path": "artifacts/ncx/NCX-03/udp-eight-extreme-10/ncx-receipts.json",
+        "sha256": "3ad0fe02441a53ec030f0430ad7a6b2557dffe202dbf595e45f95910d843df79"
+      }
+    },
+    "sameBinaryOffControl": {
+      "directory": "udp-impaired-off-08-control",
+      "campaignStatus": "PASS",
+      "scope": "Original manifest abbreviated source713fb9139 resolves to full priorSource by exact qualified assembly; original manifest retained; one off pass and one shadow close failure do not establish causality"
+    },
+    "priorSource09NoPositive": {
+      "directory": "udp-impaired-shadow-09",
+      "campaignStatus": "FAIL",
+      "failures": [
+        "Requested scoped shadow parity: INCOMPLETE"
+      ],
+      "drain": "PASS",
+      "receipts": "PASS",
+      "shadow": "INCOMPLETE",
+      "positiveEligibleComparisons": 0,
+      "processCount": 3,
+      "auditedProcesses": [
+        {
+          "process": "process-0",
+          "mode": "Shadow",
+          "rows": 0,
+          "positiveEligibleComparisons": 0,
+          "positiveRejectComparisons": 0,
+          "counters": {
+            "fastEligible": 0,
+            "fastWouldPay": 0,
+            "fastWouldReject": 0,
+            "missingSource": 0,
+            "headMismatch": 0,
+            "wallMismatch": 0,
+            "orderingDeferred": 0,
+            "familyUnsupported": 0,
+            "wouldDoublePay": 0,
+            "wouldAlterTrade": 0,
+            "Compared": 0,
+            "Disagreements": 0,
+            "Uncompared": 0,
+            "CorrectedExcluded": 0
+          }
+        }
+      ],
+      "manifest": {
+        "path": "artifacts/ncx/NCX-03/udp-impaired-shadow-09/manifest.json",
+        "sha256": "f6e002c60284065be96ace7a32613e624772fbf6827e0de6544529d122320bde"
+      },
+      "summary": {
+        "path": "artifacts/ncx/NCX-03/udp-impaired-shadow-09/summary.json",
+        "sha256": "cee2385a12bae4f27fc31eddb04765e27ade7fded73a0f53824bd3db4cd44095"
+      },
+      "fastAudit": {
+        "path": "artifacts/ncx/NCX-03/udp-impaired-shadow-09/ncx-fastpath.json",
+        "sha256": "4d1c63e78f53fcbb686019d0ee130455e0b6090bb95dd52dbfb718780e55767e"
+      },
+      "receiptAudit": {
+        "path": "artifacts/ncx/NCX-03/udp-impaired-shadow-09/ncx-receipts.json",
+        "sha256": "f9d6c30b2b434a9937f2fdefae87522f01eba4ce8e64dacfac068f3d2f1db691"
+      }
+    },
+    "retainedCloseFailure": {
+      "status": "FAIL",
+      "analysis": {
+        "path": "artifacts/ncx/NCX-03/shutdown-analysis-08.json",
+        "sha256": "18077f9a32cb7b7762aa11b3ee535de28b6837e9fe27f5190e9e6f4f625c999b"
+      },
+      "offShadowCausality": "UNDETERMINED; matched off control passed, stochastic world/network timing differs",
+      "followup": "NCX-09 transport recovery gate remains open"
+    }
+  },
+  "retainedEvidence": {
+    "priorCheckpoint": {
+      "path": "artifacts/ncx/NCX-03/final-evidence-09.json",
+      "sha256": "2b789cd2865d70875a9e4567b66496ed940237fbcb6d6c5fd3c61b79c7fa3353"
+    },
+    "stagingFailure": "udp-eight-extreme-09: ENOSPC before games, exit120; not a gameplay qualification",
+    "storage": "Byte-identical completed dependency files retained as independently verified APFS copy-on-write clones, no hardlinks or removed evidence"
+  },
+  "certification": {
+    "unauthorizedWouldPay": 0,
+    "predictedDoublePayments": 0,
+    "unexplainedCertifiedSubsetParityDifferences": 0,
+    "newClaimSettlementEnabled": false,
+    "default": "off",
+    "unsupportedFamilies": "LegacyRequired; no weapon-name blanket exemption",
+    "freshClaimOrdering": "Existing native/historical/death/trade barrier retained",
+    "wouldAlterTradeScope": "Immediate native lethal-result parity only; cross-shooter arbitration validated separately",
+    "movement": "Owner-reported, unchanged",
+    "simulationHz": 60,
+    "sourceCapture": "Fast shadow may enable existing typed evidence capture while timed mode remains Off; no modifier enforcement"
+  },
+  "limits": [
+    "No whole-family or fresh-claim certification",
+    "No actual-pixel, high-Hz, CPU, one-way-delay or superiority claim",
+    "No Windows/Linux/Android physical-release qualification",
+    "Known fidelity and post-drain close failures retained; global transport/release gate not passed"
+  ]
+}

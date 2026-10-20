@@ -338,9 +338,17 @@ namespace MphRead.NetTest
                 NetHitClaims.Receive(0, body);
                 Check(NetPlayerLifecycle.OldLifeClaims == 1 && NetHitClaims.AppliedHere == 0,
                     "delayed claim cannot damage victim's next life");
+                var newest = (ushort[])typeof(NetHitClaims).GetField("_newestId",
+                    BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+                Check(newest[0] == 0, "wrong-victim-life receipt retains current claim-order frontier");
+                var retained = (ushort[,])typeof(NetHitClaims).GetField("_seenIds",
+                    BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+                Check(Enumerable.Range(0, NetHitClaims.SeenCapacity).Any(index => retained[0, index] == claim.ClaimId),
+                    "wrong-life terminal receipt remains retained despite not advancing ordering");
                 claim.VictimLifeId = 8; claim.ShooterLifeId = 1;
                 claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
                 Check(NetPlayerLifecycle.OldLifeClaims == 2, "claim from previous shooter life refused");
+                Check(newest[0] == 0, "wrong-shooter-life receipt retains current claim-order frontier");
                 claim.ShooterLifeId = 2; claim.ClaimId = 1;
                 claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
                 Check(NetHitClaims.RepeatsHere == 0, "stale-life claim does not poison current claim ordering");

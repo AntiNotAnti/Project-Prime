@@ -64,7 +64,7 @@ namespace MphRead.Mods.Network
     /// which is why claims are resolved in fire-frame order at the end of
     /// their grace window rather than one at a time as they land.
     /// </summary>
-    public static class NetHitClaims
+    public static partial class NetHitClaims
     {
         private const int Slots = PlayerEntity.SlotCapacity;
 
@@ -209,6 +209,7 @@ namespace MphRead.Mods.Network
 
         private struct Outgoing
         {
+            public byte ShooterSlot;
             public ushort MatchId;
             public ulong AuthorityEpoch;
             public ushort ShooterGeneration;
@@ -413,6 +414,7 @@ namespace MphRead.Mods.Network
                 }
                 index = oldest;
                 NetHitPrediction.Settle(_outbox[index].VictimSlot, _outbox[index].Id, confirmed: false);
+                RetireReceipt(ref _outbox[index], ClaimReceiptRetirement.CapacityEvicted);
                 Unanswered++;
             }
             // The same world the intent is acking, and it has to be: the
@@ -432,6 +434,7 @@ namespace MphRead.Mods.Network
                 : NetSmoothing.AckPoint(out uint readFrame, out _) ? readFrame : NetSession.AppliedSnapshotFrame;
             _outbox[index] = new Outgoing
             {
+                ShooterSlot = (byte)attacker.SlotIndex,
                 MatchId = NetSession.CurrentMatchId,
                 AuthorityEpoch = NetSession.AuthorityEpoch,
                 ShooterGeneration = shotKey?.Generation ?? NetPlayerLifecycle.Generation(attacker.SlotIndex),
@@ -465,7 +468,14 @@ namespace MphRead.Mods.Network
                 _nextId = 1;
             }
             Declared++;
+            _receiptsCreated++;
             NetCampaignEvidence.ClaimDeclared();
+            if (NetCampaignEvidence.Enabled)
+                NetCampaignEvidence.Timeline("claim-declared", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId),
+                    componentId, continuousPhase, NetShotProof.Kind(claimFlags), (byte)slot,
+                    NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), id,
+                    ackFrame: ack, weapon: beam == BeamType.None ? HitClaimPacket.NoBeam : (byte)beam,
+                    value: (int)Math.Min(damage, int.MaxValue));
             NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket(beam)]++;
             if (NetLog.Enabled) NetShotDiagnostics.Trace("claim", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId), beam,
                 $"id={id} victim={slot} ack={ack} damage={damage}");
@@ -524,6 +534,7 @@ namespace MphRead.Mods.Network
                     HitPoint = entry.HitPoint,
                     Direction = entry.Direction
                 };
+                NetCampaignEvidence.TimelineClaim("claim-offered", NetSession.LocalSlot, packet);
                 packet.Write(dest[offset..]);
                 offset += HitClaimPacket.Size;
                 if (entry.Sends > 0)
@@ -573,7 +584,7 @@ namespace MphRead.Mods.Network
                 }
                 if (entry.Age > DeliveryMaxAge)
                 {
-                    entry.Live = false;
+                    RetireReceipt(ref entry, ClaimReceiptRetirement.TimedOut);
                     Unanswered++;
                     if (NetLog.Enabled) NetShotDiagnostics.Trace("unanswered",
                         new ShotKey(entry.AuthorityEpoch, entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
@@ -630,7 +641,14 @@ namespace MphRead.Mods.Network
                         NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
                         entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
                         NetShotProof.Kind(entry.Flags)), ack);
-                    entry.Live = false;
+                    RetireReceipt(ref entry, ClaimReceiptRetirement.Delivered);
+                    if (NetCampaignEvidence.Enabled)
+                        NetCampaignEvidence.Timeline("terminal-delivered", new ShotKey(entry.AuthorityEpoch,
+                            entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                            entry.ComponentId, (entry.Flags & HitClaimPacket.FlagContinuousTick) != 0 ? entry.Frame : 0,
+                            NetShotProof.Kind(entry.Flags), entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId,
+                            entry.Id, ack.DamageSequence, ackFrame: entry.AckFrame, weapon: entry.Beam,
+                            value: ack.DamageApplied, result: ack.Result);
                     if (entry.Beam == (byte)BeamType.ShockCoil) NetHitPrediction.SettleDrain(entry.Id, ack.Accepted);
                     if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
                     {
@@ -754,7 +772,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static readonly ushort[] _newestId = new ushort[Slots];
         private static readonly byte[] _lastResult = new byte[Slots];
-        private const int SeenCapacity = 128;
+        // Covers ordinary multi-component/continuous activity throughout the
+        // receipt retry window. This is bounded; exhaustion refuses new claims.
+        internal const int SeenCapacity = 4096;
+        private const int ClaimIdReorderWindow = 128;
         private const byte ResultPending = 255;
         private static readonly ushort[,] _seenIds = new ushort[Slots, SeenCapacity];
         private static readonly ShotPaymentKey[,] _seenPaymentKeys = new ShotPaymentKey[Slots, SeenCapacity];
@@ -766,6 +787,9 @@ namespace MphRead.Mods.Network
         private static readonly byte[,] _seenResults = new byte[Slots, SeenCapacity];
         private static readonly BeamType[,] _seenBeams = new BeamType[Slots, SeenCapacity];
         private static readonly ShotKey[,] _seenKeys = new ShotKey[Slots, SeenCapacity];
+        private static readonly uint[,] _seenTerminalFrames = new uint[Slots, SeenCapacity];
+        private static readonly uint[] _receiptUnsafeUntil = new uint[Slots];
+        private static readonly bool[] _receiptUnsafe = new bool[Slots];
 
         /// <summary>
         /// Hits the authority resolved itself, for the duplicate test: the
@@ -1361,8 +1385,10 @@ namespace MphRead.Mods.Network
                     break;
                 }
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
+                using var fastRequest = NetCombatFastPath.Request(shooterSlot, claim);
                 Received++;
                 NetCampaignEvidence.ClaimReceived();
+                NetCampaignEvidence.TimelineClaim("claim-received", shooterSlot, claim);
                 using var claimEvidence = NetCampaignEvidence.Enabled
                     ? NetTimedCampaignJoin.Claim(shooterSlot, claim) : default;
                 if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
@@ -1375,7 +1401,8 @@ namespace MphRead.Mods.Network
                 if (!ValidContinuousClaimShape(claim))
                 {
                     RefusedHere++;
-                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch, remember: false);
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch,
+                        remember: false, outcome: RequestOutcome(claim));
                     continue;
                 }
                 // A terminal receipt describes its original lives. Retry it
@@ -1388,8 +1415,13 @@ namespace MphRead.Mods.Network
                     && _seenResults[shooterSlot, receiptAt] != ResultPending)
                 {
                     RepeatsHere++;
-                    Answer(shooterSlot, claim.ClaimId, _seenResults[shooterSlot, receiptAt],
+                    AnswerRequest(shooterSlot, claim, _seenResults[shooterSlot, receiptAt],
                         remember: false, outcome: _seenOutcomes[shooterSlot, receiptAt]);
+                    continue;
+                }
+                if (ReceiptAdmissionBlocked(shooterSlot))
+                {
+                    RefuseReceiptCapacity(shooterSlot, claim);
                     continue;
                 }
                 // A source explicitly retired before emission cannot be rescued by
@@ -1398,18 +1430,19 @@ namespace MphRead.Mods.Network
                 if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey))
                 {
                     if (TryPaidOutcome(shooterSlot, claim, out var paidTerminal))
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: paidTerminal);
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate, outcome: paidTerminal);
                     else
                     {
                         RefusedHere++;
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch, remember: false);
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultInvalidLaunch, remember: false,
+                            outcome: RequestOutcome(claim));
                     }
                     continue;
                 }
                 if (!NetPlayerLifecycle.Matches(claim.VictimSlot, claim.VictimGeneration, claim.VictimLifeId))
                 {
                     NetPlayerLifecycle.OldLifeClaims++;
-                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultWrongLife, remember: false,
+                    AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultWrongLife, remember: false,
                         outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
                             VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
                     continue;
@@ -1435,7 +1468,7 @@ namespace MphRead.Mods.Network
                                 && _seenPaymentKeys[shooterSlot, seenAt] == NetShotProof.PaymentKey(shooterSlot, claim)))
                     {
                         RepeatsHere++;
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate,
                             remember: false, outcome: _seenOutcomes[shooterSlot, seenAt]);
                     }
                     else if (claim.ClaimId != 0 && claim.ShotId != 0
@@ -1455,21 +1488,15 @@ namespace MphRead.Mods.Network
                         // earlier life reused its ClaimId. Full shot keys remain distinct.
                         bool cache = _seenIds[shooterSlot, seenAt] != claim.ClaimId
                             || _seenKeys[shooterSlot, seenAt] == key;
-                        if (cache)
-                        {
-                            _seenKeys[shooterSlot, seenAt] = key;
-                            _seenBeams[shooterSlot, seenAt] = (BeamType)claim.Beam;
-                            _seenPaymentKeys[shooterSlot, seenAt] = NetShotProof.PaymentKey(shooterSlot, claim);
-                        }
                         ushort currentNewest = _newestId[shooterSlot];
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate,
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate,
                             remember: cache, outcome: NetShotProof.Mode == ShotProofMode.Enforce ? physicalOutcome : _takenOutcome);
                         _newestId[shooterSlot] = currentNewest;
                     }
                     else
                     {
                         NetPlayerLifecycle.OldLifeClaims++;
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultWrongLife,
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultWrongLife,
                             remember: false, outcome: outcome);
                     }
                     continue;
@@ -1490,26 +1517,25 @@ namespace MphRead.Mods.Network
                             || _seenBeams[shooterSlot, seenAt] != (BeamType)claim.Beam
                             || _seenPaymentKeys[shooterSlot, seenAt] != NetShotProof.PaymentKey(shooterSlot, claim)))
                     {
-                        Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultRefused, remember: false,
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultRefused, remember: false,
                             outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
                                 VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
                         continue;
                     }
                     byte result = _seenIds[shooterSlot, seenAt] == claim.ClaimId
                         ? _seenResults[shooterSlot, seenAt] : HitVerdictPacket.ResultTooOld;
-                    if (result != ResultPending) Answer(shooterSlot, claim.ClaimId, result);
+                    if (result != ResultPending) AnswerRequest(shooterSlot, claim, result,
+                        remember: _seenIds[shooterSlot, seenAt] == claim.ClaimId,
+                        outcome: _seenIds[shooterSlot, seenAt] == claim.ClaimId ? null : RequestOutcome(claim));
                     continue;
                 }
                 int claimAt = SeenIndex(shooterSlot, claim.ClaimId);
                 // An outstanding claim owns its receipt slot through settlement.
                 // A later modulo collision must not replace the identity that
                 // will receive the first claim's terminal result.
-                if (_seenIds[shooterSlot, claimAt] != 0 && _seenResults[shooterSlot, claimAt] == ResultPending)
+                if (_seenIds[shooterSlot, claimAt] != 0 && !ReceiptReusable(shooterSlot, claimAt))
                 {
-                    ClaimsCapacityRefused++;
-                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultClaimCapacity, remember: false,
-                        outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
-                            VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
+                    RefuseReceiptCapacity(shooterSlot, claim);
                     continue;
                 }
                 _seenBeams[shooterSlot, claimAt] = (BeamType)claim.Beam;
@@ -1525,6 +1551,17 @@ namespace MphRead.Mods.Network
                 }
                 if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
                 { DuplicateHere++; Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: continuousPaid); continue; }
+                var fastReceipt = NetCombatFastPath.ClaimReady(shooterSlot, claim);
+                if (NetCombatFastPath.PaidEnabled && fastReceipt.State == FastDecisionState.VerifiedPaid)
+                {
+                    // Every admission/lifecycle/receipt gate above still owns
+                    // this request. The immutable native payment already exists;
+                    // omit only redundant Judge/proof diagnostics, never pay again.
+                    NetCombatFastPath.PaidReceipt(shooterSlot, claim);
+                    DuplicateHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: fastReceipt.Paid);
+                    continue;
+                }
                 byte immediate = Judge(shooterSlot, claim);
                 var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
                 if (TryPaidOutcome(shooterSlot, claim, out var paid)
@@ -1548,25 +1585,27 @@ namespace MphRead.Mods.Network
         }
 
         // Full lookup keeps IDs separated when they share a modulo bucket.
-        // Prefer an empty cell, then a terminal receipt; outstanding claims are
-        // pinned (at most PendingPerShooter, less than SeenCapacity).
+        // Outstanding claims and retryable terminal receipts are pinned.
+        // Only terminals older than the complete delivery window may be reused.
         private static int SeenIndex(int slot, ushort id)
         {
-            int home = id % SeenCapacity, empty = -1, terminal = -1;
+            int home = id % SeenCapacity, terminal = -1;
             for (int n = 0; n < SeenCapacity; n++)
             {
                 int at = (home + n) % SeenCapacity;
                 if (id != 0 && _seenIds[slot, at] == id) return at;
-                if (_seenIds[slot, at] == 0) { if (empty < 0) empty = at; }
-                else if (_seenResults[slot, at] != ResultPending && terminal < 0) terminal = at;
+                // IDs are only cleared for the entire slot, never one cell.
+                // The first empty cell therefore ends this probe chain.
+                if (_seenIds[slot, at] == 0) return at;
+                else if (ReceiptReusable(slot, at) && terminal < 0) terminal = at;
             }
-            return empty >= 0 ? empty : terminal >= 0 ? terminal : home;
+            return terminal >= 0 ? terminal : home;
         }
 
         private static bool Seen(int slot, ushort id) => id == 0
-            || _seenIds[slot, SeenIndex(slot, id)] == id
+            || _seenIds[slot, SeenIndex(slot, id)] == id && !ReceiptReusable(slot, SeenIndex(slot, id))
             || (_newestId[slot] != 0 && !NetLifecycleTracker.Newer(id, _newestId[slot])
-                && unchecked((ushort)(_newestId[slot] - id)) >= SeenCapacity);
+                && unchecked((ushort)(_newestId[slot] - id)) >= ClaimIdReorderWindow);
 
         private static void Remember(int slot, ushort id, byte result)
         {
@@ -1574,6 +1613,7 @@ namespace MphRead.Mods.Network
             int at = SeenIndex(slot, id);
             _seenIds[slot, at] = id;
             _seenResults[slot, at] = result;
+            if (result != ResultPending) _seenTerminalFrames[slot, at] = NetSession.NetFrame;
         }
 
         /// <summary>
@@ -2510,7 +2550,8 @@ namespace MphRead.Mods.Network
             bool lifeDrain = false;
             if (continuous && !NetContinuousAdmission.Validate(shooterSlot, proofClaim, out lifeDrain))
             { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch); return; }
-            using var tickPayment = continuous ? NetContinuousPayments.Begin(ContinuousKey(shooterSlot, proofClaim))
+            using var tickPayment = continuous ? NetContinuousPayments.Begin(ContinuousKey(shooterSlot, proofClaim),
+                emittedShotId: proofClaim.ShotId, claimId: proofClaim.ClaimId)
                 : new NetContinuousPayments.Reservation(true);
             if (!tickPayment.Allowed)
             { ClaimsCapacityRefused++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
@@ -2755,6 +2796,10 @@ namespace MphRead.Mods.Network
                 NetTimedCampaignJoin.Terminal(slot, NetTimedCampaignJoin.TryRequestKey(slot, id, out var requested)
                     ? requested : remember && _seenIds[slot, at] == id
                         && _seenKeys[slot, at].ShotId == answer.ShotId ? _seenKeys[slot, at] : null, answer);
+            if (NetCombatFastPath.TryRequest(slot, id, out var fastKey))
+                NetCombatFastPath.Terminal(fastKey, answer);
+            else if (remember && _seenIds[slot, at] == id && _seenKeys[slot, at].ShotId == answer.ShotId)
+                NetCombatFastPath.Terminal(_seenPaymentKeys[slot, at], answer);
             if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
             if (_verdictCount[slot] >= VerdictCapacity) return;
             _verdicts[slot, _verdictCount[slot]++] = answer;
@@ -2792,11 +2837,14 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            RetireReceipts(ClaimReceiptRetirement.SessionRetired);
+            RecordPendingCancellation(ClaimReceiptRetirement.SessionRetired);
             Array.Clear(_outbox);
             Array.Clear(_pending); _claimsPendingCurrent = 0;
             Array.Clear(_authorityComponents); Array.Clear(_authorityKinds);
             Array.Clear(_seenIds);
             Array.Clear(_seenResults);
+            Array.Clear(_seenTerminalFrames); Array.Clear(_receiptUnsafe); Array.Clear(_receiptUnsafeUntil);
             Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
             Array.Clear(_newestId);
             Array.Clear(_lastResult);
@@ -2866,7 +2914,8 @@ namespace MphRead.Mods.Network
                 {
                     if (_outbox[i].Live && _outbox[i].Beam == (byte)BeamType.ShockCoil)
                         NetHitPrediction.SettleDrain(_outbox[i].Id, false);
-                    _outbox[i].Live = false;
+                    RetireReceipt(ref _outbox[i], preserveFlights ? ClaimReceiptRetirement.LifeRetired
+                        : ClaimReceiptRetirement.OccupantRetired);
                 }
             }
             for (int i = 0; i < PendingCapacity; i++)
@@ -2880,6 +2929,7 @@ namespace MphRead.Mods.Network
             }
             if (!preserveFlights)
             {
+                _receiptUnsafe[slot] = false; _receiptUnsafeUntil[slot] = 0;
                 _verdictCount[slot] = 0;
                 for (int i = 0; i < SeenCapacity; i++) { _seenIds[slot, i] = 0; _seenResults[slot, i] = 0; }
             }
@@ -2902,9 +2952,12 @@ namespace MphRead.Mods.Network
         /// <summary>Every claim in flight is about a room that is going away.</summary>
         public static void ForgetPending()
         {
+            RetireReceipts(ClaimReceiptRetirement.MatchRetired);
+            RecordPendingCancellation(ClaimReceiptRetirement.MatchRetired);
             Array.Clear(_authorityComponents); Array.Clear(_authorityKinds);
             Array.Clear(_seenIds);
             Array.Clear(_seenResults);
+            Array.Clear(_seenTerminalFrames); Array.Clear(_receiptUnsafe); Array.Clear(_receiptUnsafeUntil);
             Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
             Array.Clear(_newestId);
             Array.Clear(_verdictCount);

@@ -40,9 +40,11 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         TheatrePlaybackSnapshot state = _controller.Snapshot();
         if(WorkspaceMode)EnsureWorkspaceOwners();
         _host.SetBool(_document,"visible:replay_four_views",_editorBackend!=null);
-        _host.SetBool(_document,"visible:replay_view_labels",FourViews&&_editorBackend!=null);
+        _host.SetBool(_document,"visible:replay_view_labels",FourViews&&_editorBackend!=null
+            &&!MphRead.Mods.Network.ReplayController.IsSeeking);
         _host.SetText(_document,"replay_four_views",FourViews?"SINGLE VIEW":"FOUR VIEWS");
-        _host.SetBool(_document,"disabled:replay_four_views",!state.Active||state.ExportRendering);
+        _host.SetBool(_document,"disabled:replay_four_views",!state.Active||state.ExportRendering
+            ||!FourViews&&MphRead.Mods.Network.ReplayController.IsSeeking);
         _host.SetText(_document, "replay_pause", state.PlayAction ? "PLAY" : "PAUSE");
         _host.SetText(_document, "replay_time", Time(state.Frame) + " / " + Time(state.Duration));
         _host.SetText(_document, "replay_state", state.State.ToUpperInvariant() + " // MOVEMENT: " + state.Movement.ToUpperInvariant());
@@ -89,7 +91,9 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         if(HandleWorkspaceIntent(intent))return true;
         if(IsOpen&&intent.Kind==RmlUiIntentKind.ReplayAction&&intent.Argument==(int)TheatrePlaybackAction.FourViews)
         {
-            if(_editorBackend==null||intent.Document!=_document||!_pages.Accept(intent)||_controller.Snapshot().ExportRendering)return false;
+            if(_editorBackend==null||intent.Document!=_document||!_pages.Accept(intent)
+                ||_controller.Snapshot().ExportRendering
+                ||!FourViews&&MphRead.Mods.Network.ReplayController.IsSeeking)return false;
             Viewport.Release();_fourViewProblem="";FourViews=!FourViews;Present();return true;
         }
         if (intent.Kind == RmlUiIntentKind.ReplayAction && (intent.Argument == (int)TheatrePlaybackAction.CameraToolsTransform || intent.Argument == (int)TheatrePlaybackAction.CameraToolsHandles || intent.Argument == (int)TheatrePlaybackAction.CameraToolsCurveKey))

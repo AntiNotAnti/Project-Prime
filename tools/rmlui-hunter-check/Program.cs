@@ -65,6 +65,12 @@ using (var cosmetics = new LauncherCosmeticDraftController(cosmeticStore, Hunter
         "nine styles and nine colors can be directly selected without an account request");
     Check(cosmetics.Reset() && cosmetics.Current().Draft == CosmeticLoadout.Default,
         "direct beam selection is discardable");
+    for (int i = 0; i < CosmeticCatalog.BeamEffects.Count; i++)
+        Check(cosmetics.NextBeam(), "beam cycling visits style " + i);
+    for (int i = 0; i < BeamPalette.Names.Count; i++)
+        Check(cosmetics.NextBeamColor(), "color cycling visits preset " + i);
+    Check(cosmetics.Current().Draft == CosmeticLoadout.Default,
+        "full cycle wraps to original loadout without saving");
     Check(cosmetics.NextSkin() && cosmetics.NextArmor() && cosmetics.NextDeath()
         && cosmetics.NextBeam() && cosmetics.NextBeamColor()
         && cosmetics.Current().Dirty && cosmeticStore.EquipCalls == 0

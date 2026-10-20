@@ -12,12 +12,12 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | Slice | Deliverable | Status |
 | --- | --- | --- |
 | NCX-00 | Exact-source baseline, ownership and capability audit | Complete; 23 reference routes pass, characterized fidelity failure retained |
-| NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Next; comparator binary/visual/A/A gates unrun |
-| NCX-02 | Canonical causal payment identity and definitive terminal results | Pending NCX-01 |
-| NCX-03 | Bounded shadow fast-decision layer | Pending NCX-02 |
-| NCX-04 | Certified narrow-family fast settlement | Pending NCX-03 evidence |
-| NCX-05 | Independently certified family extensions and explicit fallbacks | Pending NCX-04 |
-| NCX-06 | Prediction retirement and confirmation presentation | Pending NCX-05 |
+| NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Complete scoped measurement; 31 routes, positive keyed pixels, three Prime controls, seven requested cadence observations and 18 A/A cases; native failures/unsupported comparisons retained |
+| NCX-02 | Canonical causal payment identity and definitive terminal results | Complete; pinned causal receipts, typed retirement, native parity and 315 exact UDP deliveries |
+| NCX-03 | Bounded shadow fast-decision layer | Complete scoped shadow; 30 routes, 95 Python checks, 10 native controls and 131 final-source UDP paid comparisons; retained shutdown failure |
+| NCX-04 | Certified narrow-family fast settlement | Complete exact paid receipts; 51 routes, 109 Python checks, six native controls, matched UDP189/172 samples with p95 zero ticks; no fresh fast damage |
+| NCX-05 | Independently certified family extensions and explicit fallbacks | Complete scoped capability/fallback inventory; 90 routes, 109 Python checks, 163 delivered UDP receipts and 149 exact paid comparisons; zero fresh promotions |
+| NCX-06 | Prediction retirement and confirmation presentation | Ready after NCX-05 merge |
 | NCX-07 | Same-shot victim and observer confirmed-impact fidelity | Pending NCX-06 |
 | NCX-08 | Continuous fire, multi-entity and death boundaries | Pending NCX-07 |
 | NCX-09 | Demonstrated transport/recovery faults and measured improvements | Pending NCX-08 |
@@ -35,3 +35,34 @@ Local raw artifacts live under `artifacts/ncx/NCX-NN/`; committed manifests live
 `tools/nettest/baselines/`. Never commit game assets, player/account identifiers, credentials
 or private packet/video captures. Release and superiority claims require the full evidence
 defined in the plan, including rendered pixels, paired statistics and physical devices.
+
+NCX-01 merged as [PR #754](https://github.com/AntiNotAnti/Project-Prime/pull/754),
+`33cb131a3f616bd61cb341b3688c7c2a825c0257`. CI was queued/running at the explicit immediate
+merge request; those checks are not reported as PASS.
+
+NCX-02 merged as [PR #757](https://github.com/AntiNotAnti/Project-Prime/pull/757),
+`5d68d2ee8cfbf592c698c24139f99a8222dbe10b`. CI was queued/running at the immediate
+merge request; those checks are not reported as PASS.
+
+NCX-03 qualification is recorded in [ncx-shadow.md](ncx-shadow.md) and
+[the exact-source manifest](../../tools/nettest/baselines/ncx-shadow.json).
+The source08 impaired post-drain graceful-close failure remains FAIL and is
+tracked for NCX-09; it does not become a passing resilience or release gate.
+
+NCX-03 merged as [PR #764](https://github.com/AntiNotAnti/Project-Prime/pull/764),
+`5b1d9c1c57006869a022c3048e4c01f1422dd3c1`. All 36 checks were queued at merge;
+those checks are not reported as PASS.
+
+NCX-04 evidence is in [ncx-paid-receipts.md](ncx-paid-receipts.md) and
+[the source manifest](../../tools/nettest/baselines/ncx-paid-receipts.json).
+Already-paid duplicates were already decided in the same Receive call; the
+shortcut removes redundant validation without a measured latency gain claim.
+
+NCX-04 merged as [PR #766](https://github.com/AntiNotAnti/Project-Prime/pull/766),
+`b581785e6aeb71c9156c96ac9f5bfbae281075da`. At immediate merge, 34 checks were
+queued and one in progress; those checks are not reported as PASS.
+
+NCX-05 scope and evidence are in [ncx-family-capabilities.md](ncx-family-capabilities.md)
+and [the source manifest](../../tools/nettest/baselines/ncx-family-capabilities.json).
+Fresh family obligations remain unsatisfied and explicitly fall back; no blanket
+weapon eligibility or live custom-network adapter is introduced.

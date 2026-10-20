@@ -1,0 +1,137 @@
+{
+  "status": "PASS",
+  "scope": "Fresh ordinary e500 main integration: normalCore+nettest full build and four focused correctness cases. Separate compile/help-only adaptive test integration against unchanged normalCore. No new replay/live-cohort/cap/performance campaign; earlier017/42/F and actual9c cap evidence retain their source leases.",
+  "normalSourceAndBuild": {
+    "genuineCommitSha": "e5009324427eefcd826c373a3e51a1dd77c44dd9",
+    "sourceClean": true,
+    "sourceSha256": {
+      "src/MphRead/Mods/Network/NetHitClaims.Receipts.cs": "6711cbea262f15f94026262773a629ee2d69c82a5458889ae35b311bdf46acd7",
+      "src/MphRead/Mods/Network/NetHitClaims.cs": "874a83f2b8a9d65ccc22bae964b7680ebaca414320dcbf0d2250737b69863a44",
+      "src/MphRead/Mods/Network/NetCombatFastPath.cs": "24849e90002775b43e95eff46f77b70d4c215a075bb24c2d2d6344aa0bc31f6f",
+      "src/MphRead/Mods/Network/NetCombatFastDamage.cs": "c9a41360367c703e17bf43bb0b16efbb3df692d0ac0cf0b8f32ca528911bb6d2",
+      "tools/nettest/LifecycleTests.cs": "5017fc76e6f7becc5c20a0ed855f9ea5492be84c98a2e693726c943dbdae3fa6",
+      "tools/nettest/CombatFastReceiptTests.cs": "1be1d894e5ad4413bcf17105362622e772d3e71c2aa0d52475d1dd85833ee6d5",
+      "tools/nettest/TimedImperialistImpactTests.cs": "d45aa7e9117544f16f265eab100981292fcf505ceac2ec30ef464e9a159142f1"
+    },
+    "buildExitCode": 0,
+    "buildSeconds": 48.99947460000112,
+    "normalProperties": {
+      "MphReadRmlUiGlSmoke": "ordinary desktop default true",
+      "MphReadReplayPreviewFailureFixture": false
+    },
+    "binaryAndRuntimeSha256": {
+      "ProjectPrime.dll": "603d5592520a5d0a149525a14c539c7f67d6d0d7671408ab15f3cbaaf8aa6cbd",
+      "nettest.dll": "78eb155f23e6c71ce28061dfca2b926f49612a50b7be61c2d5a8580804d5f317",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    }
+  },
+  "normalFocusedCases": [
+    {
+      "name": "lifecycle",
+      "exitCode": 0
+    },
+    {
+      "name": "claim-receipts",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-fast-receipts",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-paid-scene",
+      "exitCode": 0
+    }
+  ],
+  "observedAssertionCounts": {
+    "lifecycle": 3738,
+    "claimReceiptsConstructed": 698,
+    "paidReceiptReceiveAnswerConstructed": 481,
+    "nativePaidReceiptOffPaid": 304,
+    "nativePaidSceneControls": 6
+  },
+  "normalEnvironment": {
+    "PRIME_COMBAT_FASTPATH": "unset/Off in normal child processes",
+    "PRIME_NCX_*": "unset",
+    "PRIME_PRESENTATION_HZ": "unset",
+    "PRIME_BENCHMARK_STEP_SPANS": "unset",
+    "paidFixtureScope": "--combat-paid-scene explicitly exercises declared Off/Paid controls internally; no authenticated UDP or fresh unpaid fast-settlement qualification"
+  },
+  "normalPhaseFinalLease": {
+    "sourceSha256Unchanged": true,
+    "binaryAndRuntimeSha256BeforeAndAfter": {
+      "ProjectPrime.dll": "603d5592520a5d0a149525a14c539c7f67d6d0d7671408ab15f3cbaaf8aa6cbd",
+      "nettest.dll": "78eb155f23e6c71ce28061dfca2b926f49612a50b7be61c2d5a8580804d5f317",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    },
+    "scope": "Fresh normal currente500 integration, four bounded correctness cases only; paid mode exercised only inside declared fixture; no new performance, replay or live cohorts"
+  },
+  "normalToolPreservation": {
+    "relativeWindowsDirectory": "normal-frozen-bin",
+    "normalSourceCommit": "e5009324427eefcd826c373a3e51a1dd77c44dd9",
+    "preservedFileCount": 343,
+    "nettestPdbPresent": true,
+    "keyFileSha256": {
+      "ProjectPrime.dll": "603d5592520a5d0a149525a14c539c7f67d6d0d7671408ab15f3cbaaf8aa6cbd",
+      "nettest.dll": "78eb155f23e6c71ce28061dfca2b926f49612a50b7be61c2d5a8580804d5f317",
+      "nettest.pdb": "1f1d7d33d713e26930793f90bdcd8d5efe9506c0281621681dd34a1abdfaf8f6",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "nettest.deps.json": "b976a9964e344ff5fa6e5c6ead35d68113d5611c9a3f7c8917876768c5d3b6eb"
+    },
+    "fullManifestSha256": "0de1830155ebf5a3a39727a12b55055b7f9ac8abed2e6e7e2a5c8ba442f048aa",
+    "scope": "Exact original normal output preserved before tool-only overlay; original normal four-case evidence not relabeled as integratedtool runtime"
+  },
+  "adaptiveCompileIntegration": {
+    "source": {
+      "normalBaseSha": "e5009324427eefcd826c373a3e51a1dd77c44dd9",
+      "primarySourceBaseSha": "88e80a51beb1d282c17e5667b07d1b00ff48becd",
+      "sourceBaseDelta": "docs only; production and nettest sources identical before optional overlay",
+      "files": {
+        "tools/nettest/MomentumBalanceAdaptiveSceneTests.cs": "8cea0f02e11d0cfa76b6b481902112931792c091de26648ff8acd747335cdee6",
+        "tools/nettest/MomentumBalanceSceneTests.cs": "0a01e3868e978ca6444b96ba3ccc08b2d4896135b60842a26e75ce737c09e5bd",
+        "tools/nettest/Program.cs": "c122726131f53b611a0af26a5d2200e27c606560e3cf2ca7b86f67c680d415bb"
+      },
+      "fourMovementInputDependenciesSha256": {
+        "src/MphRead/Entities/Players/PlayerInput.cs": "5c9434816e15a1af2b480d5f6f6992910f984e0211f896d40269a40b12143d82",
+        "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "dbaf5bd6432040322cb7a83ea977010b617f14af5a646e933ef83c3d0bcc505e",
+        "src/MphRead/Mods/Movement/MomentumMath.cs": "4543d847388510d063c8ac59eae1612c199d530087d36457cb8f29e2ef020aa4",
+        "src/MphRead/Mods/Movement/MomentumProfileV1.cs": "f15f91656d17131daf0830a89ed7973fbad04cdf099d8fe3f014d4b4250c8c8b"
+      },
+      "adaptiveControllerAndHelperByteEqualFrozenCapture": true,
+      "helperOnlyPartialKeywordAddedAgainstNormalBase": true,
+      "existingProgramByteEqualAfterRemovingOnlyOptionalAdaptiveHelpAndRoute": true,
+      "scope": "Compile/help integration only; original cap runtime capture remains9c source/Core lease; no new cap run"
+    },
+    "buildExitCode": 0,
+    "normalCoreSha256BeforeAndAfter": "603d5592520a5d0a149525a14c539c7f67d6d0d7671408ab15f3cbaaf8aa6cbd",
+    "normalFrozenManifest": "normal-frozen-manifest.json",
+    "scope": "Compile/help integration only; original cap capture remains frozen9c evidence; no new controller cases or performance",
+    "integratedBinaryAndRuntimeSha256": {
+      "ProjectPrime.dll": "603d5592520a5d0a149525a14c539c7f67d6d0d7671408ab15f3cbaaf8aa6cbd",
+      "nettest.dll": "b3a70025768855ef092d95ca83c5c8fa3cd8e00e352e4ca8cabc6d01d4cb4453",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    },
+    "normalNettestAndPdbFrozenSha256": {
+      "nettest.dll": "78eb155f23e6c71ce28061dfca2b926f49612a50b7be61c2d5a8580804d5f317",
+      "nettest.pdb": "1f1d7d33d713e26930793f90bdcd8d5efe9506c0281621681dd34a1abdfaf8f6",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "nettest.deps.json": "b976a9964e344ff5fa6e5c6ead35d68113d5611c9a3f7c8917876768c5d3b6eb"
+    },
+    "helpExitCode": 0,
+    "helpRoutesVerified": [
+      "--combat-fast-damage",
+      "--combat-fast-decisions",
+      "--combat-fast-scene",
+      "--combat-fast-receipts",
+      "--combat-paid-scene",
+      "--momentum-balance-adaptive-scene"
+    ],
+    "buildZeroWarningsAndErrors": true
+  },
+  "hostedCiStatus": "NOT_OBSERVED in this task; no hosted CI pass claimed",
+  "ownedWindowsFunctionalLease": "Released; no owned e500 workers remained after collection; no further checks scheduled"
+}

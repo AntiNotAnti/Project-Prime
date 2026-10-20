@@ -35,16 +35,22 @@ public partial class PlayerEntity
         if (Hunter is < Hunter.Samus or > Hunter.Weavel) return false;
 
         float dt = (float)FrameTiming.StepSeconds;
-        MomentumTuning tuning = MomentumProfileV1.Tuning;
+        // The selected draft survives retirement for recording refusal only.
+        // An admitted online/offline v1 rule must never consume a retired draft.
+        MomentumPracticeTuning? practice = !IsBot && _scene.DeveloperMomentumActive
+            ? _scene.DeveloperMomentumPracticeTuning : null;
+        MomentumTuning tuning = practice?.Tuning ?? MomentumProfileV1.Tuning;
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
             Speed.Y, nativeJumpAccepted);
         var input = new MomentumInput(new Vector2(x, y),
             new Vector3(_field70, 0, _field74), new Vector3(-_field78, 0, -_field7C),
-            MomentumProfileV1.GroundSpeed, MomentumProfileV1.UsesGroundFriction(contact), dt);
+            practice?.GroundSpeed ?? MomentumProfileV1.GroundSpeed, MomentumProfileV1.UsesGroundFriction(contact), dt);
         Vector3 before = Speed;
-        MomentumProfileResult result = MomentumProfileV1.Step(new Vector3(before.X * NativeVelocityUnitsPerSecond, 0,
-            before.Z * NativeVelocityUnitsPerSecond), input);
+        Vector3 horizontal = new(before.X * NativeVelocityUnitsPerSecond, 0,
+            before.Z * NativeVelocityUnitsPerSecond);
+        MomentumProfileResult result = practice == null ? MomentumProfileV1.Step(horizontal, input)
+            : new MomentumProfileResult(practice.Step(horizontal, input), false, false);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);

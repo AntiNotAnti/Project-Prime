@@ -633,6 +633,8 @@ sealed partial class CheckWindow : RenderWindow
             windowStateTransitions = _windowStateTransitions,
             wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = Stopwatch.GetElapsedTime(_measureStarted).TotalSeconds,
             simulationFrames = Scene.FrameCount, samples = _intervals.Count,
+            // Chronological application frame returns, serialized only after Run.
+            frameIntervalsMs = _intervals,
             meanCompletedFrameFps = _intervals.Count == 0 ? 0 : 1000 / _intervals.Average(),
             frameIntervalP50Ms = P(50), frameIntervalP95Ms = P(95), frameIntervalP99Ms = P(99),
             onePercentLowEstimateFps = P(99) > 0 ? 1000 / P(99) : 0,

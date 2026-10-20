@@ -3,11 +3,16 @@ import unittest
 import movement_validation_evidence as module
 
 
-def report(enabled=True):
+def report(enabled=True, schema=None):
     hunters = [dict(Hunter=h, Alt=alt, **{f: 0 for f in module.COUNTS + module.MAXIMA})
                for h in range(7) for alt in (False, True)]
-    return {'MovementValidation': dict(Enabled=enabled, HardRejections=0, Invalid=0,
-                                      Overflow=0, Hunters=hunters, Rows=[])}
+    if schema == 2:
+        hunters = [dict(row, MovementModel=model, ProfileVersion=model)
+                   for model in (0, 1) for row in hunters]
+    result = {'MovementValidation': dict(Enabled=enabled, HardRejections=0, Invalid=0,
+                                        Overflow=0, Hunters=hunters, Rows=[])}
+    if schema is not None: result['MovementValidation']['Schema'] = schema
+    return result
 
 
 def candidate(hunter=0, **changes):
@@ -125,6 +130,69 @@ class MovementEvidenceTests(unittest.TestCase):
         for field in ('Hunters', 'Rows'):
             self.setUp(); self.server['MovementValidation'][field] = None; self.assert_status('FAIL')
         self.setUp(); self.server['MovementValidation']['Rows'] = [{}]; self.assert_status('FAIL')
+
+    def test_explicit_historical_schema_one_and_missing_schema(self):
+        for schema in (None, 1):
+            value = report(schema=schema)['MovementValidation']
+            result = module.inspect(value, True, True)
+            self.assertEqual(set(result['perModel']), {'Native'})
+            self.assertEqual(result['perHunter'], result['perModel']['Native']['perHunter'])
+        for schema in (0, 3, True, None, '2', 2.0):
+            value = report()['MovementValidation']; value['Schema'] = schema
+            with self.assertRaises(ValueError): module.inspect(value, True, True)
+
+    def test_schema_two_separates_identical_hunters_and_exact_row_frames(self):
+        self.server = report(schema=2)
+        value = self.server['MovementValidation']
+        for index in (0, 14):
+            value['Hunters'][index].update(Baselines=1, Evaluated=2, WouldRefuse=1, MaximumHorizontal=2.)
+        value['Rows'] = [candidate(MovementModel=0, ProfileVersion=0), candidate(MovementModel=1, ProfileVersion=1)]
+        self.assert_status('PASS')
+        data = self.audit()['metrics']['authority']
+        self.assertNotIn('perHunter', data)
+        for model in ('Native', 'Momentum'):
+            self.assertEqual(data['perModel'][model]['totals']['WouldRefuse'], 1)
+            self.assertEqual(data['perModel'][model]['measuredHunters'], ['Samus'])
+        self.assertEqual(data['totals']['WouldRefuse'], 2)
+        value['Rows'][1]['MovementModel'] = 0; value['Rows'][1]['ProfileVersion'] = 0
+        self.assert_status('FAIL')
+
+    def test_schema_two_strict_group_keys_profiles_and_completeness(self):
+        for changes in (dict(MovementModel=2), dict(MovementModel=True), dict(MovementModel='Momentum'),
+                        dict(ProfileVersion=2), dict(ProfileVersion=True), dict(ProfileVersion=1)):
+            value = report(schema=2)['MovementValidation']; value['Hunters'][0].update(changes)
+            with self.assertRaises(ValueError): module.inspect(value, True, True)
+        for field in ('MovementModel', 'ProfileVersion'):
+            value = report(schema=2)['MovementValidation']; del value['Hunters'][0][field]
+            with self.assertRaises(KeyError): module.inspect(value, True, True)
+        for index in (1, 14):
+            value = report(schema=2)['MovementValidation']; value['Hunters'][index] = copy.deepcopy(value['Hunters'][0])
+            with self.assertRaises(ValueError): module.inspect(value, True, True)
+        value = report(schema=2)['MovementValidation']; value['Hunters'].pop()
+        with self.assertRaises(ValueError): module.inspect(value, True, True)
+        value = report()['MovementValidation']; value['Hunters'][0].update(MovementModel=1, ProfileVersion=1)
+        with self.assertRaises(ValueError): module.inspect(value, True, True)
+
+    def test_schema_two_rows_must_match_their_own_group(self):
+        for changes in (dict(MovementModel=1, ProfileVersion=0), dict(MovementModel=2, ProfileVersion=1),
+                        dict(MovementModel=1, ProfileVersion=2), dict(MovementModel=1, ProfileVersion=1)):
+            self.server = report(schema=2); value = self.server['MovementValidation']
+            value['Hunters'][0].update(Baselines=1, Evaluated=1, WouldRefuse=1, MaximumHorizontal=2.)
+            value['Rows'] = [candidate(**changes)]
+            self.assert_status('FAIL')
+        self.server = report(schema=2); value = self.server['MovementValidation']
+        value['Hunters'][14].update(Baselines=1, Evaluated=1, WouldRefuse=1, MaximumHorizontal=2.)
+        value['Rows'] = [candidate(MovementModel=1, ProfileVersion=1)]
+        self.assert_status('PASS')
+        del value['Rows'][0]['ProfileVersion']; self.assert_status('FAIL')
+
+    def test_schema_two_disabled_and_overflow_remain_strict(self):
+        value = report(False, schema=2)['MovementValidation']; module.inspect(value, False, True)
+        value['Hunters'][14]['Baselines'] = 1
+        with self.assertRaises(ValueError): module.inspect(value, False, True)
+        for field in ('Invalid', 'HardRejections', 'Overflow'):
+            value = report(schema=2)['MovementValidation']; value[field] = 1
+            with self.assertRaises(ValueError): module.inspect(value, True, True)
 
 
 if __name__ == '__main__': unittest.main()

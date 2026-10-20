@@ -1,0 +1,8 @@
+{
+  "groundSpeed": 7.199707,
+  "groundAcceleration": 10,
+  "groundFriction": 6,
+  "stopSpeedFraction": 0.3125,
+  "airAcceleration": 1,
+  "airWishSpeedFraction": 1
+}

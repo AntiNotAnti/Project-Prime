@@ -96,7 +96,8 @@ internal static class NetCheckSimulation
         bool stationaryTarget = HitRig.IsSniper && (HitRig.Mode == HitRig.RigMode.AltStatic || HitRig.Mode == HitRig.RigMode.AltContact
             || HitRig.Mode == HitRig.RigMode.SelfMoving || HitRig.Mode == HitRig.RigMode.SelfWall);
         bool contactAttacker = HitRig.Mode == HitRig.RigMode.AltCrossing || HitRig.Mode == HitRig.RigMode.AltContact && HitRig.IsSniper;
-        bool scenario = SpectatorMode.IsSpectating || ((!contactAttacker || NetContactLagComp.AttacksAttempted > 0)
+        bool scenario = HitRig.NcxObserverRole ? NetCampaignEvidence.NcxObserverHasEvidence
+            : SpectatorMode.IsSpectating || ((!contactAttacker || NetContactLagComp.AttacksAttempted > 0)
             && (!HitRig.Active || !HitRig.IsSniper || HitRig.Triggers > 0));
         Console.WriteLine($"[netchecksim] altScenarioExercised={scenario} stationaryTarget={stationaryTarget}");
         if (NetCampaignDrain.Enabled)

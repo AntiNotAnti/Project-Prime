@@ -33,11 +33,14 @@ Unknown, rather than silently described as Classic. Historical archive
 compatibility remains versioned; metadata labels do not enable movement on
 replica bodies or change the recording format.
 
-Momentum remains an experimental opt-in. The final four/eight-player, impaired
-combat, performance and physical platform acceptance gates are recorded in the
-PR-09 results when executed. Available hardware includes Mac and Windows;
-Android physical-device input is currently unverified. A passing CPU or
-synthetic input fixture is not a physical-device claim.
+Momentum remains an experimental opt-in. The [v1 closeout](pr09-closeout.md)
+records completed four/eight-player and impaired-combat evidence, the accepted
+performance tradeoff, pending hosted CI and explicit platform/input limits.
+Mac and Windows hardware are available; Windows focus recovery/achieved refresh,
+macOS OS-event input, physical controllers and physical Android remain
+unverified or blocked as stated there. A passing CPU or synthetic input fixture
+is not a physical-device claim. A separate [Quake III strafe-jump tuning draft](quake3-practice-tuning.md)
+is available through `-momentumq3dev`; it is offline-only and preserves recorded v1 behavior.
 
 The original implementation uses calibrated native units and an immutable v1
 profile; see [tuning](tuning-v1.md) for coefficients and limits. These are

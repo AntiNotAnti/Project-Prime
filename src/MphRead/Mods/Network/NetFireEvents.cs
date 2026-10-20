@@ -375,6 +375,8 @@ public static class NetFireEvents
             var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
                 intent.SlotGeneration, life, fire.ShotId);
             var admission = state.Ledger.Accept(key, fire, intent.Frame);
+            if (admission == ShotAdmission.Accepted)
+                NetCampaignEvidence.TimelineFire("source-admitted", key, fire);
             if (admission is not (ShotAdmission.Accepted or ShotAdmission.Duplicate))
                 NetCampaignEvidence.AdmissionRejected(key, fire, admission.ToString());
         }
@@ -501,6 +503,7 @@ public static class NetFireEvents
                 return BeamResultFlags.NoSpawn;
             timedAttempt = admittedDiscrete ? NetTimedShotProof.AcceptedAttempt(player, key, fire) : null;
             var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, player);
+            using var fastSource = NetCombatFastPath.Source(timedAttempt);
             var result = player.ModSpawnAcceptedShot(fire, out var timedEmission, modifiers);
             if (result != BeamResultFlags.NoSpawn)
             {
@@ -737,6 +740,7 @@ public static class NetFireEvents
             poseValid ? view.Normalized() : default,
             poseValid && reticleValid ? reticle : default,
             NetPlayerLifecycle.Get(player.SlotIndex), player.ModCaptureFireTarget());
+        NetCampaignEvidence.TimelineFire("source-authored", ShotKey.For(player.SlotIndex, id), state.Active);
         NetShotProof.Admit(player, ShotKey.For(player.SlotIndex, id), state.Active);
     }
     internal static void NoteContinuousRamp(PlayerEntity player, int ramp)

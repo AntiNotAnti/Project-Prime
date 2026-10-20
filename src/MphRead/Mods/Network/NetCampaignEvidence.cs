@@ -20,6 +20,39 @@ internal static partial class NetCampaignEvidence
 {
     private static readonly string? Path = Environment.GetEnvironmentVariable("PRIME_NET2_EVIDENCE");
     internal static bool Enabled => !String.IsNullOrWhiteSpace(Path);
+    private static readonly long[] CompletedRewindSamples = new long[NetShotDiagnostics.WeaponCount],
+        CompletedRewindFrames = new long[NetShotDiagnostics.WeaponCount],
+        CompletedRewindClamps = new long[NetShotDiagnostics.WeaponCount];
+
+    // World diagnostics reset when the last peer leaves or a match changes.
+    // Evidence is process-owned, so retain those completed worlds before reset.
+    internal static void RetainShotRewindBeforeReset()
+    {
+        if (!Enabled) return;
+        for (int i = 0; i < NetShotDiagnostics.WeaponCount; i++)
+        {
+            CompletedRewindSamples[i] += NetShotDiagnostics.RewindSamples[i];
+            CompletedRewindFrames[i] += NetShotDiagnostics.RewindFrames[i];
+            CompletedRewindClamps[i] += NetShotDiagnostics.RewindClamps[i];
+        }
+    }
+
+    internal sealed record ShotRewindReport(string Scope, long[] SamplesByWeapon,
+        long[] FramesByWeapon, long[] ClampsByWeapon, LagShadowSnapshot CurrentWorldPolicy);
+
+    internal static ShotRewindReport CaptureShotRewind()
+    {
+        long[] Sum(long[] completed, long[] current)
+        {
+            var values = new long[completed.Length];
+            for (int i = 0; i < values.Length; i++) values[i] = completed[i] + current[i];
+            return values;
+        }
+        return new("Process-lifetime served shot rewind counters, including completed worlds; authority report required for authority acceptance. Policy is current-world only.",
+            Sum(CompletedRewindSamples, NetShotDiagnostics.RewindSamples),
+            Sum(CompletedRewindFrames, NetShotDiagnostics.RewindFrames),
+            Sum(CompletedRewindClamps, NetShotDiagnostics.RewindClamps), LagCompensationPolicy.CaptureTotal());
+    }
     // A 30-minute eight-slot campaign can retain two rows per continuous shot.
     // This is an opt-in evidence bound, independent of gameplay/transport queues.
     internal static readonly int EvidenceRowLimit = ReadRowLimit();
@@ -151,7 +184,8 @@ internal static partial class NetCampaignEvidence
         ClientDeclaredCountingUnit = "New client claim declarations; excludes retries and survives match reset",
         CountingUnit = "Process-lifetime authority claim entries received including retries; applied claim decisions" };
     private static readonly long AllocatedAtStart = GC.GetTotalAllocatedBytes();
-    internal static bool RigHasEvidence => _frames >= 60 && States.Count > 0
+    internal static bool RigHasEvidence => HitRig.NcxObserverRole ? NcxObserverHasEvidence
+        : _frames >= 60 && States.Count > 0
         && (SpectatorMode.IsSpectating || !HitRig.IsSniper
             || (HitRig.Mode is HitRig.RigMode.BombSamus or HitRig.RigMode.BombKanden or HitRig.RigMode.BombLockjaw
                 ? NetBombEvidence.RequestsAuthored > 0
@@ -270,6 +304,7 @@ internal static partial class NetCampaignEvidence
             var fire = intent.FireEvents[i];
             var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
                 intent.SlotGeneration, fire.SourceLife != 0 ? fire.SourceLife : intent.LifeId, fire.ShotId);
+            if (offered) TimelineFire("intent-offered", key, fire);
             if (seen.Contains(key)) continue;
             if (seen.Count >= RowLimit) { _overflow++; continue; }
             seen.Add(key);
@@ -307,6 +342,7 @@ internal static partial class NetCampaignEvidence
     internal static void Committed(ShotKey key, in FireEvent fire)
     {
         if (!Enabled || fire.ShotId == 0) return;
+        TimelineFire("source-emitted", key, fire);
         Add(Shots, new("committed", key, fire.SourceFrame,
             NetSession.NetFrame, fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase));
     }
@@ -314,6 +350,8 @@ internal static partial class NetCampaignEvidence
     internal static void Disposition(AcceptedShot shot, ShotDisposition disposition, string reason)
     {
         if (!Enabled) return;
+        if (disposition is ShotDisposition.Rejected or ShotDisposition.Expired)
+            TimelineFire(disposition == ShotDisposition.Expired ? "source-expired" : "source-rejected", shot.Key, shot.Fire);
         Add(Shots, new(disposition.ToString().ToLowerInvariant(), shot.Key, shot.Fire.SourceFrame,
             NetSession.NetFrame, shot.Fire.Weapon, shot.Fire.Charge, shot.Fire.Kind, shot.Fire.ContinuousPhase, reason));
     }
@@ -354,6 +392,7 @@ internal static partial class NetCampaignEvidence
     internal static void AdmissionRejected(ShotKey key, FireEvent fire, string reason)
     {
         if (!Enabled) return;
+        TimelineFire("source-rejected", key, fire);
         Add(Shots, new("admission-rejected", key, fire.SourceFrame, NetSession.NetFrame,
             fire.Weapon, fire.Charge, fire.Kind, fire.ContinuousPhase, reason));
     }
@@ -505,10 +544,17 @@ internal static partial class NetCampaignEvidence
                 TimedCaseJoins = NetTimedCampaignJoin.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                CombatFastPath = NetCombatFastPath.Capture(),
+                CombatFamilies = CombatFamilyPolicies.Capture(),
+                ShotTimeline = CaptureShotTimeline(),
+                ExpectedContacts = NetCampaignHitOracle.Capture(),
+                PresentationSchedule,
                 AiClient = NetAiClient.Capture(),
                 TurretOutcomes,
                 TimedGrants, TimedGrantStates, TimedGrantViews, PickupClaims, PickupVerdicts, PickupItems, PickupProofs,
                 CampaignClaims = CaptureClaims(),
+                ClaimReceiptAccounting = NetHitClaims.CaptureReceiptAccounting(),
+                ShotRewind = CaptureShotRewind(),
                 HitClaims = new { NetHitClaims.Declared, NetHitClaims.Applied, NetHitClaims.Duplicate,
                     NetHitClaims.RefusedDeadShooter, NetHitClaims.RefusedDeadVictim, NetHitClaims.RefusedOther,
                     NetHitClaims.Unanswered, NetHitClaims.Resends, NetHitClaims.Received, NetHitClaims.AppliedHere,

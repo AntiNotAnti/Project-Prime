@@ -28,8 +28,13 @@ internal static class MomentumOnlineSceneTests
     { _checks++; if (!condition) throw new InvalidOperationException(message); }
     private static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
-    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12, string? replayPath = null, bool touchModel = false)
+    internal static int Run(int port, MovementModel expected, string outputPath, int seconds = 12, string? replayPath = null, bool touchModel = false, MomentumOnlineAcceptanceOptions? acceptanceOptions = null)
     {
+        if (acceptanceOptions?.Spectator == true)
+            return MomentumOnlineAcceptance.RunSpectator(port, expected, outputPath, seconds, acceptanceOptions);
+        if (acceptanceOptions?.MinimumTransitions > 0)
+            return MomentumOnlineAcceptance.RunTransitions(port, expected, outputPath, seconds, acceptanceOptions);
+        using var acceptance = acceptanceOptions == null ? null : new MomentumOnlineAcceptance(acceptanceOptions);
         Scene? scene = null;
         var clock = Stopwatch.StartNew();
         string path = Path.GetFullPath(outputPath);
@@ -49,6 +54,7 @@ internal static class MomentumOnlineSceneTests
             Require(NetLaunch.Connect("127.0.0.1", port, name, Hunter.Samus, timeoutMs: 15000, color: 0),
                 "actual UDP Connect: " + NetLaunch.LastJoinError);
             Require(NetSession.IsClient && !NetSession.IsAuthority, "real UDP client role, no authority impersonation");
+            acceptance?.PrepareLobby();
             var wait = Stopwatch.StartNew();
             while (!NetSession.ShouldLoadMatch && wait.Elapsed.TotalSeconds < 40)
             {
@@ -97,7 +103,13 @@ internal static class MomentumOnlineSceneTests
 
             var remoteSlots = new HashSet<int>(); var previousRemote = new Dictionary<int, Vector3>();
             var samples = new List<object>(); int remoteMoving = 0, inputTicks = 0, impulses = 0, directSamples = 0, airborneTicks = 0, landings = 0;
-            int altTicks = 0, airborneMorphTicks = 0, bipedReturnTicks = 0;
+            int altTicks = 0, airborneMorphTicks = 0, bipedReturnTicks = 0, padCoincidentJumpInputs = 0;
+            var excludedPadJumpSamples = new List<object>();
+            var acceptedJumpSamples = new List<object>(); var postSeamVerticalChanges = new List<object>();
+            int acceptedMomentumJumps = 0, postSeamVerticalChangeCount = 0, highFinalJumpInputCount = 0;
+            var highFinalJumpInputs = new List<object>(); long previousSolverDelta = 0;
+            var ownerAnomalies = new List<object>(); int ownerAnomalyCount = 0, ownerAnomalyOverflow = 0;
+            Vector3 previousOwnerDisplacement = Vector3.Zero;
             Vector3 origin = player.Position; float previousYSpeed = player.Speed.Y; bool airborne = false;
             long firstSteps = scene.DeveloperMomentumSteps; ulong firstSceneFrame = scene.FrameCount;
             double readyTime = clock.Elapsed.TotalSeconds; int tick = 0;
@@ -143,8 +155,40 @@ internal static class MomentumOnlineSceneTests
                 // Recording acceptance adds real mid-air form transitions; the
                 // short protocol/rule worker keeps its original input script.
                 set(keyboard, Keys.Tab, replayPath != null && tick % 600 is 220 or 350);
+                ushort padMinBefore = acceptanceOptions == null ? (ushort)0
+                    : (ushort)typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)!;
+                object? jumpBypassBefore = acceptanceOptions != null && expected == MovementModel.Momentum && tick % 90 == 30
+                    ? MomentumBypassEvidence(scene, player) : null;
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
+                Vector3 ownerPositionBefore = player.Position, ownerSpeedBefore = player.Speed;
+                uint ownerNetFrameBefore = NetSession.NetFrame;
+                object? ownerGatesBefore = acceptanceOptions != null ? MomentumBypassEvidence(scene, player) : null;
                 scene.OnSimulationFrame(); CheckConnection();
+                Vector3 ownerDisplacement = player.Position - ownerPositionBefore;
+                float horizontalDisplacement = new Vector2(ownerDisplacement.X, ownerDisplacement.Z).Length;
+                Vector3 displacementChange = ownerDisplacement - previousOwnerDisplacement;
+                float horizontalDisplacementChange = new Vector2(displacementChange.X, displacementChange.Z).Length;
+                if (acceptanceOptions != null && (horizontalDisplacement > .25f || horizontalDisplacementChange > .25f))
+                {
+                    ownerAnomalyCount++;
+                    if (ownerAnomalies.Count < 128)
+                    {
+                        float[] V(Vector3 value) => new[] { value.X, value.Y, value.Z };
+                        ownerAnomalies.Add(new { tick, preNetFrame = ownerNetFrameBefore, postNetFrame = NetSession.NetFrame,
+                            epoch = NetSession.AuthorityEpoch, match = NetSession.CurrentMatchId, slot = player.SlotIndex,
+                            generation = NetPlayerLifecycle.Generation(player.SlotIndex), life = NetPlayerLifecycle.Get(player.SlotIndex),
+                            preSceneFrame = frame, postSceneFrame = scene.FrameCount,
+                            prePosition = V(ownerPositionBefore), postPosition = V(player.Position),
+                            preNativeSpeed = V(ownerSpeedBefore), postNativeSpeed = V(player.Speed),
+                            displacement = V(ownerDisplacement), previousDisplacement = V(previousOwnerDisplacement),
+                            horizontalDisplacement, horizontalDisplacementChange,
+                            boundary = JumpBoundaryEvidence(scene, player, tick, frame,
+                                scene.DeveloperMomentumSteps - before, previousSolverDelta, ownerGatesBefore) });
+                    }
+                    else ownerAnomalyOverflow++;
+                }
+                previousOwnerDisplacement = ownerDisplacement;
+                acceptance?.Observe(scene);
                 Require(NetSession.CurrentMatchId == matchId && NetSession.AuthorityEpoch == epoch,
                     "live fixture remains in its actual frozen match generation");
                 Require(NetSession.WorldIsReady && NetRoomChange.GameplayReady && !NetSession.FreezeGameplay,
@@ -165,10 +209,63 @@ internal static class MomentumOnlineSceneTests
                         && MathF.Abs(sample.NativeVelocityAfter.Z - result.Velocity.Z / 30) <= .00001f, "actual online rule uses v1 horizontal solver");
                     directSamples++;
                 }
+                bool observedMomentumJump = acceptanceOptions != null && expected == MovementModel.Momentum && delta == 1
+                    && scene.LastMomentumStep!.Value.ContactPhase == MomentumContactPhase.LegalJump;
+                if (observedMomentumJump)
+                {
+                    var jump = scene.LastMomentumStep!.Value;
+                    Require(jump.SimulationFrame == frame && player.Controls.Jump.IsPressed,
+                        "actual native jump acceptance names current input/frame");
+                    Require(jump.NativeVelocityBefore.Y > .01f
+                        && jump.NativeVelocityBefore.Y <= Fixed.ToFloat(player.Values.JumpSpeed) + .00001f,
+                        "accepted native jump impulse before gravity/collision retains native ceiling");
+                    Require(BitConverter.SingleToInt32Bits(jump.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(jump.NativeVelocityAfter.Y),
+                        "actual accepted jump Y remains bit-identical across horizontal solver");
+                    acceptedMomentumJumps++; impulses++;
+                    bool changedUpward = player.Speed.Y > jump.NativeVelocityAfter.Y + .00001f;
+                    if (acceptedJumpSamples.Count < 16 || changedUpward)
+                    {
+                        object evidence = JumpBoundaryEvidence(scene, player, tick, frame, delta, previousSolverDelta, jumpBypassBefore);
+                        if (acceptedJumpSamples.Count < 16) acceptedJumpSamples.Add(evidence);
+                        if (changedUpward)
+                        {
+                            postSeamVerticalChangeCount++;
+                            if (postSeamVerticalChanges.Count < 16) postSeamVerticalChanges.Add(evidence);
+                            if (postSeamVerticalChangeCount <= 4)
+                                Console.WriteLine("[momentum-jump-contact] " + JsonSerializer.Serialize(evidence));
+                        }
+                    }
+                }
+                if (acceptanceOptions != null && expected == MovementModel.Momentum && player.Controls.Jump.IsPressed
+                    && player.Speed.Y > Fixed.ToFloat(player.Values.JumpSpeed) + .00001f)
+                {
+                    highFinalJumpInputCount++;
+                    object evidence = JumpBoundaryEvidence(scene, player, tick, frame, delta, previousSolverDelta, jumpBypassBefore);
+                    if (highFinalJumpInputs.Count < 16) highFinalJumpInputs.Add(evidence);
+                    if (highFinalJumpInputCount <= 4) Console.WriteLine("[momentum-jump-candidate] " + JsonSerializer.Serialize(evidence));
+                }
                 if (player.Controls.MoveUp.IsDown || player.Controls.MoveRight.IsDown || player.Controls.MoveDown.IsDown) inputTicks++;
                 if (player.Controls.Jump.IsPressed && player.Speed.Y > .01f && player.Speed.Y > previousYSpeed + .01f)
                 {
-                    Require(player.Speed.Y <= Fixed.ToFloat(player.Values.JumpSpeed) + .00001f, "actual native legal jump retains native impulse ceiling"); impulses++;
+                    ushort padMinAfter = acceptanceOptions == null ? (ushort)0
+                        : (ushort)typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)!;
+                    bool nativePadInterval = acceptanceOptions != null && (padMinBefore > 0 || padMinAfter > 0)
+                        && player.Flags1.TestFlag(PlayerFlags1.UsedJumpPad);
+                    if (nativePadInterval)
+                    {
+                        padCoincidentJumpInputs++;
+                        if (excludedPadJumpSamples.Count < 16) excludedPadJumpSamples.Add(new { tick, y = player.Speed.Y,
+                            previousY = previousYSpeed, padMinBefore, padMinAfter, flags1 = player.Flags1.ToString() });
+                    }
+                    else if (acceptanceOptions != null && expected == MovementModel.Momentum)
+                    {
+                        // The actual native acceptance label above owns jump checks.
+                        // A pressed but rejected jump is not a jump impulse.
+                    }
+                    else
+                    {
+                        Require(player.Speed.Y <= Fixed.ToFloat(player.Values.JumpSpeed) + .00001f, $"actual native legal jump retains native impulse ceiling tick={tick} y={player.Speed.Y:R} previousY={previousYSpeed:R} ceiling={Fixed.ToFloat(player.Values.JumpSpeed):R} health={player.Health} flags1={player.Flags1} flags2={player.Flags2} padLock={typeof(PlayerEntity).GetField("_jumpPadControlLock", Hidden)!.GetValue(player)} padMin={typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)} damageAge={typeof(PlayerEntity).GetField("_timeSinceDamage", Hidden)!.GetValue(player)} accel={typeof(PlayerEntity).GetField("_accelerationTimer", Hidden)!.GetValue(player)}"); impulses++;
+                    }
                 }
                 previousYSpeed = player.Speed.Y;
                 bool grounded = player.Flags1.TestFlag(PlayerFlags1.Grounded);
@@ -181,7 +278,7 @@ internal static class MomentumOnlineSceneTests
                 {
                     int slot = remote.SlotIndex;
                     if (slot == localSlot || slot >= NetSession.SlotOccupied.Length || !NetSession.SlotOccupied[slot]
-                        || remote.IsBot || remote.Health == 0 || !remote.LoadFlags.TestFlag(LoadFlags.Active)) continue;
+                        || remote.IsBot || NetSession.SlotIsBot[slot] || remote.Health == 0 || !remote.LoadFlags.TestFlag(LoadFlags.Active)) continue;
                     Require(NetHooks.IsPuppet(remote) && !scene.MomentumOwnsPlayer(remote), "actual remote human has no local movement ownership");
                     Require(Finite(remote.Position) && Finite(remote.Speed), "actual remote collision body remains finite");
                     remoteSlots.Add(slot);
@@ -190,7 +287,7 @@ internal static class MomentumOnlineSceneTests
                 }
                 if (tick % 60 == 0) samples.Add(new { tick, frame = scene.FrameCount, localSlot, solverSteps = scene.DeveloperMomentumSteps - firstSteps,
                     position = new[] { player.Position.X, player.Position.Y, player.Position.Z }, speed = new[] { player.Speed.X, player.Speed.Y, player.Speed.Z }, remoteHumans = remoteSlots.Count });
-                tick++;
+                previousSolverDelta = delta; tick++;
             }
             if (touch != null)
             {
@@ -201,8 +298,11 @@ internal static class MomentumOnlineSceneTests
             }
             Require(inputTicks > 0 && (player.Position - origin).Length > .01f, "actual local input displaces native body");
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
+            if (acceptanceOptions != null && expected == MovementModel.Momentum)
+                Require(acceptedMomentumJumps > 0, "extended match earns actual native accepted jump samples");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
+            acceptance?.Complete();
             uint? recordedFrames = null;
             if (replayPath != null)
             {
@@ -225,9 +325,12 @@ internal static class MomentumOnlineSceneTests
             }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { checks = _checks, model = expected.ToString(), profileVersion = MomentumProfileV1.MomentumProfileVersion,
+                acceptance = acceptance?.Report,
+                ownerAnomalyCount, ownerAnomalyOverflow, ownerAnomalies,
+                ownerAnomalyScope = "Test-only post-step body displacement/change trigger >0.25 units per simulation call; not a movement acceptance threshold. Maximum128 rows; overflow explicit. Native Speed and positional displacement differ in meaning. Scratch candidates are not a current collision response witness.",
                 port, localSlot, matchId, authorityEpoch = epoch, name, seconds, ticks = tick, firstSceneFrame, finalSceneFrame = scene.FrameCount,
                 solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, airborneTicks, landings,
-                altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames,
+                altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames, padCoincidentJumpInputs, excludedPadJumpSamples, acceptedMomentumJumps, acceptedJumpSamples, postSeamVerticalChangeCount, postSeamVerticalChanges, highFinalJumpInputCount, highFinalJumpInputs,
                 inputSource = touchModel ? "linked production Android TouchControls + explicit GameView digital keyboard boundary" : "synthetic keyboard",
                 touchSamples, touchDirectionalSamples, touchDiagonalSamples, touchReleases,
                 touchSchedule = touchModel ? "240 fixed steps: 48 up, 48 up-right, 48 down, 48 up-left, 48 released; native keyboard jump every 90 steps at phase30" : null,
@@ -241,6 +344,7 @@ internal static class MomentumOnlineSceneTests
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM ONLINE SCENE FAIL " + ex); return 1; }
         finally
         {
+            NetCampaignEvidence.Write("simulation-client");
             DemoRecorder.Stop();
             try { if (scene != null) MomentumSceneTests.Release(scene); }
             finally
@@ -249,6 +353,43 @@ internal static class MomentumOnlineSceneTests
                 if (touchModel) NetLag.Configure(previousRtt + ":" + previousJitter);
             }
         }
+    }
+    private static object MomentumBypassEvidence(Scene scene, PlayerEntity player)
+    {
+        object? Read(string name) => typeof(PlayerEntity).GetField(name, Hidden)!.GetValue(player);
+        return new { active = scene.MomentumMovementActive, eligible = player.ModMomentumEligible, health = player.Health,
+            flags1 = player.Flags1.ToString(), flags2 = player.Flags2.ToString(),
+            damageAge = Read("_timeSinceDamage"),
+            frozen = Read("_frozenTimer"), field6D0 = Read("_field6D0"), padLock = Read("_jumpPadControlLock"), padMin = Read("_jumpPadControlLockMin"),
+            q3Gravity = Read("_q3LaunchGravity"), q3Frames = Read("_q3LaunchFrames"), accelerationTimer = Read("_accelerationTimer"),
+            slipperiness = Read("_slipperiness"), standingEntity = Read("_standingEntCol") != null, crestTimer = Read("_spireLedgeCrestTimer"),
+            attachedEnemy = player.AttachedEnemy != null, cameraSequence = scene.CameraSequences.Current != null,
+            player.IsAltForm, player.IsMorphing, player.IsUnmorphing, player.IsPrimeHunter };
+    }
+    private static object JumpBoundaryEvidence(Scene scene, PlayerEntity player, int tick, ulong frame,
+        long solverDelta, long previousSolverDelta, object? bypassBefore)
+    {
+        var latest = scene.LastMomentumStep;
+        bool sameFrame = latest is { } current && current.SimulationFrame == frame;
+        bool currentStep = sameFrame && solverDelta == 1;
+        float gravity = (float)typeof(PlayerEntity).GetField("_gravity", Hidden)!.GetValue(player)!;
+        var collision = (CollisionResult[])typeof(PlayerEntity).GetField("_collisionScratch", Hidden)!.GetValue(player)!;
+        Vector3? afterGravity = currentStep ? latest!.Value.NativeVelocityAfter.AddY(gravity / 2) : null;
+        float[]? V(Vector3? value) => value is { } vector ? new[] { vector.X, vector.Y, vector.Z } : null;
+        return new { tick, frame, solverDelta, previousSolverDelta, sameFrame, latestSampleFrame = latest?.SimulationFrame,
+            contact = currentStep ? latest!.Value.ContactPhase.ToString() : null,
+            beforeSolver = V(currentStep ? latest!.Value.NativeVelocityBefore : null),
+            afterSolver = V(currentStep ? latest!.Value.NativeVelocityAfter : null),
+            finalNativeVelocity = V(player.Speed), gravity, bypassBefore, bypassAfter = MomentumBypassEvidence(scene, player),
+            nativeJumpCeiling = Fixed.ToFloat(player.Values.JumpSpeed), flags1 = player.Flags1.ToString(),
+            queryScratchCandidates = collision.Where(contact => contact.Plane.Xyz.LengthSquared > .000001f).Take(8).Select(contact =>
+            {
+                Vector3 normal = contact.Plane.Xyz;
+                float? dot = afterGravity is { } velocity ? Vector3.Dot(velocity, normal) : null;
+                return new { kind = contact.Field0, normal = new[] { normal.X, normal.Y, normal.Z }, dotAfterGravity = dot,
+                    projectedY = dot.HasValue ? afterGravity!.Value.Y + normal.Y * -MathF.Min(dot.Value, 0) : (float?)null };
+            }).ToArray(),
+            scope = "query scratch is cleared at CheckCollision entry; this diagnostic retains no call/count witness, entries may be unused, and a bypass may leave an earlier call; edge response can derive another normal; not resolved-contact proof" };
     }
     private static void CheckConnection() => Require(NetSession.Active && NetSession.IsClient && !NetSession.IsAuthority
         && !NetSession.Refused && !NetSession.SessionTimedOut && !NetSession.ConnectionLost,

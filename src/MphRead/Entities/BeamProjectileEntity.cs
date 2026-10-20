@@ -134,7 +134,11 @@ namespace MphRead.Entities
             {
                 if (ModCustomShot != null && NetSession.Active)
                     _scene.CustomCombat?.ApplyContact(player,this,damage,flags,direction,impactPoint);
-                else player.TakeDamage(damage, flags, direction, this);
+                else
+                {
+                    player.TakeDamage(damage, flags, direction, this);
+                    NetCombatFastPath.NativeAfter(player, this, before);
+                }
                 if (ModCustomShot is { } accepted)
                     _scene.OfflineWeapons?.Impact(accepted,player,before,turretBefore,flags,impactPoint);
             }
@@ -1305,6 +1309,7 @@ namespace MphRead.Entities
         public override void GetDrawInfo()
         {
             if (Age < 0 || _scene.Services.IsReplica && _replayImpactHidden) return;
+            using var ncxOwner = _scene.NcxBeamItems(this);
 
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;

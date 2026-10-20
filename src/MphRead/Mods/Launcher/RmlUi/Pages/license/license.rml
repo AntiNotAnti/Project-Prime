@@ -16,7 +16,6 @@
     </div>
     <div class="license_tabs">
         <button id="license_overview" data-action="license:overview">OVERVIEW</button>
-        <button id="license_customization" data-action="license:customization">CUSTOMIZATION</button>
         <button id="license_stats" data-action="license:stats">STATS</button>
         <button id="license_history" data-action="license:history">MATCH HISTORY</button>
         <button id="license_achievements" data-action="license:achievements">ACHIEVEMENTS</button>
@@ -31,12 +30,6 @@
             <p>Career totals come only from server-accepted matches.</p>
             <div id="license_overview_metrics" class="license_lines" />
             <h3>LAST FIVE // RECENT FORM</h3><p id="license_recent_form" />
-        </div>
-        <div id="license_face_1" class="license_face">
-            <h2>CUSTOMIZATION</h2>
-            <p>Preview and equip each Hunter's skins, armor effects and death presentations. Local equips remain saved if account synchronization fails.</p>
-            <button data-action="license:customization">OPEN HUNTER CUSTOMIZATION</button>
-            <p id="license_cosmetic_count" />
         </div>
         <div id="license_face_2" class="license_face"><h2>CAREER STATS</h2><div id="license_metrics" class="license_lines" /></div>
         <div id="license_face_3" class="license_face">

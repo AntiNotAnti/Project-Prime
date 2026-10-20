@@ -1,0 +1,618 @@
+{
+  "status": "PASS",
+  "scope": "Fresh33cb131 compatibility refresh; NCX opt-in only in explicit timeline-on test; no full matrix or performance acceptance",
+  "provenance": {
+    "baseSha": "33cb131a3f616bd61cb341b3688c7c2a825c0257",
+    "files": {
+      "tools/nettest/Program.cs": "fdcd165a47a71ca10a202fa21c3a93786ded5222def6e2b3d59882a51f3eb3c2",
+      "tools/nettest/MomentumCombatOnlineTests.cs": "3978289fe9c5fb038de7ed005de6751889a10387979ba345e45c5759a942cce9",
+      "tools/nettest/MomentumOnlineAcceptance.cs": "6fd4d29870a44a6fed4923463518486fa2fce6dfc9928eab503dda298c817d12",
+      "tools/nettest/MomentumTeamObjectiveTests.cs": "b0e3eafdabb5df4c0a88abe2c070d26a57a342c7d2e98a7c168dc886223bcae3"
+    },
+    "overlayVerified": true,
+    "buildExitCode": 0,
+    "buildSeconds": 49.40681559999939,
+    "binarySha256": {
+      "ProjectPrime.dll": "507ac4384ec68fd96b7cc23f00cbf6d5d19de79b5551ab8e97759f5def37fc38",
+      "nettest.dll": "b6c1f15900a10bd46ebcfbe637862485586bc554e828dc1a5ccdf503ab0086f0",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    }
+  },
+  "checks": [
+    {
+      "name": "gold",
+      "exitCode": 0
+    },
+    {
+      "name": "rewind",
+      "exitCode": 0
+    },
+    {
+      "name": "replay-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-evidence",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-combat",
+      "exitCode": 0
+    },
+    {
+      "name": "confirmed-impacts",
+      "exitCode": 0
+    },
+    {
+      "name": "native-impact-witness",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-targets",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-healing-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "self-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "timed-campaign-joins",
+      "exitCode": 0
+    },
+    {
+      "name": "protocol58-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-visibility",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-hit-oracle",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-fixtures",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-fixture-lobby",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-observer-evidence",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-timeline-off",
+      "exitCode": 0
+    },
+    {
+      "name": "ncx-timeline-on",
+      "exitCode": 0
+    },
+    {
+      "name": "native-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay",
+      "exitCode": 0
+    }
+  ],
+  "productionDurablePacketChecks": [
+    {
+      "mode": "native",
+      "exitCode": 0
+    },
+    {
+      "mode": "momentum",
+      "exitCode": 0
+    }
+  ],
+  "replayInputSha256": {
+    "native-full-01.ppdemo": "b3727f3f340a3eb5435853323e68ae62c7442f7b45327026c4c5c4ad13101258",
+    "momentum-full-01.ppdemo": "7ef6e59192b53487e8882dc5705abe1b3cd4ccfa80c123069a1d76606af5ad0c",
+    "native-full-durable-02/durable.ppdemo": "c1738aa496b503c724eed8d0dbe6d48d96b21aad8bcc24dd8c6b9cd08d136a00",
+    "momentum-full-durable-02/durable.ppdemo": "26f335eafa8bab018844841f72af6ddcdf304be3b0275c9f053e629f7e9e04f8"
+  },
+  "models": {
+    "Native": {
+      "checks": 22,
+      "joinedPayments": 15,
+      "rewindSamples": 48,
+      "rewindFrames": 722,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "damageApplied": 619,
+      "solverSteps": [
+        0,
+        0
+      ],
+      "observedHealthDecreases": [
+        19,
+        24
+      ],
+      "claimsDeclared": [
+        9,
+        16
+      ],
+      "faults": [
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9100
+        },
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9101
+        }
+      ],
+      "evidenceHealth": [
+        {
+          "process": "server",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner0",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner1",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        }
+      ],
+      "binaryProvenance": {
+        "nettest.dll": "b6c1f15900a10bd46ebcfbe637862485586bc554e828dc1a5ccdf503ab0086f0",
+        "ProjectPrime.dll": "507ac4384ec68fd96b7cc23f00cbf6d5d19de79b5551ab8e97759f5def37fc38"
+      },
+      "replayScene": {
+        "checks": 85673,
+        "expectedModel": "Native",
+        "frames": 2982,
+        "firstFrame": 0,
+        "lastFrame": 2982,
+        "gameplayPresentationDigest": "BAE5662C01088E7195A093652563122EAB1B2F6C1E9169D5410BC54FA87618B6",
+        "snapshotPoseChecks": 5964,
+        "morphFrames": 549,
+        "midairMorphFrames": 311,
+        "altFrames": 391,
+        "airborneFrames": 2738,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 2,
+        "checkpointFrames": [
+          220,
+          300,
+          600,
+          900,
+          1200,
+          1500,
+          1800,
+          2100,
+          2400,
+          2700
+        ],
+        "checkpointSizes": [
+          585815,
+          585825,
+          585815,
+          586399,
+          585847,
+          586431,
+          585857,
+          586441,
+          586431,
+          585323
+        ],
+        "continuedFrames": 2762,
+        "memoryCheckpointCount": 9,
+        "memoryCheckpointBytes": 5275521,
+        "seeks": [
+          {
+            "requested": 1500,
+            "target": 1500,
+            "updates": 13,
+            "steps": 1500,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 35,
+            "target": 35,
+            "updates": 1,
+            "steps": 35,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1100,
+            "target": 1100,
+            "updates": 2,
+            "steps": 200,
+            "restoreFrame": 900,
+            "source": "memory"
+          },
+          {
+            "requested": 615,
+            "target": 615,
+            "updates": 1,
+            "steps": 15,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 0,
+            "target": 0,
+            "updates": 1,
+            "steps": 0,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1799,
+            "target": 1799,
+            "updates": 3,
+            "steps": 299,
+            "restoreFrame": 1500,
+            "source": "memory"
+          },
+          {
+            "requested": 1201,
+            "target": 1201,
+            "updates": 1,
+            "steps": 1,
+            "restoreFrame": 1200,
+            "source": "memory"
+          },
+          {
+            "requested": 610,
+            "target": 610,
+            "updates": 1,
+            "steps": 10,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 2982,
+            "target": 2982,
+            "updates": 13,
+            "steps": 1482,
+            "restoreFrame": 1500,
+            "source": "memory"
+          }
+        ],
+        "durableEnabled": true,
+        "durableSeeks": [
+          {
+            "requested": 301,
+            "target": 301,
+            "updates": 1,
+            "steps": 1,
+            "simulationSteps": 1,
+            "restoreFrame": 300,
+            "source": "file"
+          },
+          {
+            "requested": 799,
+            "target": 799,
+            "updates": 2,
+            "steps": 199,
+            "simulationSteps": 199,
+            "restoreFrame": 600,
+            "source": "file"
+          },
+          {
+            "requested": 1250,
+            "target": 1250,
+            "updates": 1,
+            "steps": 50,
+            "simulationSteps": 50,
+            "restoreFrame": 1200,
+            "source": "file"
+          },
+          {
+            "requested": 1800,
+            "target": 1800,
+            "updates": 1,
+            "steps": 0,
+            "simulationSteps": 0,
+            "restoreFrame": 1800,
+            "source": "file"
+          },
+          {
+            "requested": 2500,
+            "target": 2500,
+            "updates": 1,
+            "steps": 100,
+            "simulationSteps": 100,
+            "restoreFrame": 2400,
+            "source": "file"
+          },
+          {
+            "requested": 301,
+            "target": 301,
+            "updates": 1,
+            "steps": 1,
+            "simulationSteps": 1,
+            "restoreFrame": 300,
+            "source": "file"
+          }
+        ],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      }
+    },
+    "Momentum": {
+      "checks": 22,
+      "joinedPayments": 10,
+      "rewindSamples": 55,
+      "rewindFrames": 827,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "damageApplied": 342,
+      "solverSteps": [
+        2203,
+        2671
+      ],
+      "observedHealthDecreases": [
+        16,
+        20
+      ],
+      "claimsDeclared": [
+        12,
+        9
+      ],
+      "faults": [
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9100
+        },
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9101
+        }
+      ],
+      "evidenceHealth": [
+        {
+          "process": "server",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner0",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner1",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        }
+      ],
+      "binaryProvenance": {
+        "nettest.dll": "b6c1f15900a10bd46ebcfbe637862485586bc554e828dc1a5ccdf503ab0086f0",
+        "ProjectPrime.dll": "507ac4384ec68fd96b7cc23f00cbf6d5d19de79b5551ab8e97759f5def37fc38"
+      },
+      "replayScene": {
+        "checks": 85586,
+        "expectedModel": "Momentum",
+        "frames": 2979,
+        "firstFrame": 0,
+        "lastFrame": 2979,
+        "gameplayPresentationDigest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+        "snapshotPoseChecks": 5958,
+        "morphFrames": 550,
+        "midairMorphFrames": 218,
+        "altFrames": 390,
+        "airborneFrames": 2609,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 2,
+        "checkpointFrames": [
+          220,
+          300,
+          600,
+          900,
+          1200,
+          1500,
+          1800,
+          2100,
+          2400,
+          2700
+        ],
+        "checkpointSizes": [
+          586379,
+          586389,
+          586379,
+          586399,
+          586389,
+          586409,
+          586399,
+          586419,
+          586409,
+          586429
+        ],
+        "continuedFrames": 2759,
+        "memoryCheckpointCount": 9,
+        "memoryCheckpointBytes": 5278773,
+        "seeks": [
+          {
+            "requested": 1500,
+            "target": 1500,
+            "updates": 13,
+            "steps": 1500,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 35,
+            "target": 35,
+            "updates": 1,
+            "steps": 35,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1100,
+            "target": 1100,
+            "updates": 2,
+            "steps": 200,
+            "restoreFrame": 900,
+            "source": "memory"
+          },
+          {
+            "requested": 615,
+            "target": 615,
+            "updates": 1,
+            "steps": 15,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 0,
+            "target": 0,
+            "updates": 1,
+            "steps": 0,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1799,
+            "target": 1799,
+            "updates": 3,
+            "steps": 299,
+            "restoreFrame": 1500,
+            "source": "memory"
+          },
+          {
+            "requested": 1201,
+            "target": 1201,
+            "updates": 1,
+            "steps": 1,
+            "restoreFrame": 1200,
+            "source": "memory"
+          },
+          {
+            "requested": 610,
+            "target": 610,
+            "updates": 1,
+            "steps": 10,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 2979,
+            "target": 2979,
+            "updates": 13,
+            "steps": 1479,
+            "restoreFrame": 1500,
+            "source": "memory"
+          }
+        ],
+        "durableEnabled": true,
+        "durableSeeks": [
+          {
+            "requested": 301,
+            "target": 301,
+            "updates": 1,
+            "steps": 1,
+            "simulationSteps": 1,
+            "restoreFrame": 300,
+            "source": "file"
+          },
+          {
+            "requested": 799,
+            "target": 799,
+            "updates": 2,
+            "steps": 199,
+            "simulationSteps": 199,
+            "restoreFrame": 600,
+            "source": "file"
+          },
+          {
+            "requested": 1250,
+            "target": 1250,
+            "updates": 1,
+            "steps": 50,
+            "simulationSteps": 50,
+            "restoreFrame": 1200,
+            "source": "file"
+          },
+          {
+            "requested": 1800,
+            "target": 1800,
+            "updates": 1,
+            "steps": 0,
+            "simulationSteps": 0,
+            "restoreFrame": 1800,
+            "source": "file"
+          },
+          {
+            "requested": 2500,
+            "target": 2500,
+            "updates": 1,
+            "steps": 100,
+            "simulationSteps": 100,
+            "restoreFrame": 2400,
+            "source": "file"
+          },
+          {
+            "requested": 301,
+            "target": 301,
+            "updates": 1,
+            "steps": 1,
+            "simulationSteps": 1,
+            "restoreFrame": 300,
+            "source": "file"
+          }
+        ],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      }
+    }
+  },
+  "releaseAccepted": false,
+  "macPythonConsumerTests": {
+    "tests": 42,
+    "result": "PASS",
+    "scope": "New NCX Python timeline/visibility consumer tests; no rendering/performance claim."
+  },
+  "limits": "Focused current-source compatibility refresh only; current46 Defender team and3de eight-owner cohorts retain their original leases. No new full team/eight-owner/performance matrix. Replay digests match these preserved inputs; no universal cross-CPU bit identity claim."
+}

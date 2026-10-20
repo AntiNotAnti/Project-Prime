@@ -1,0 +1,269 @@
+{
+  "schema": 1,
+  "slice": "NCX-05",
+  "status": "COMPLETE_SCOPED_CAPABILITIES_AND_FALLBACKS",
+  "sourceCommit": "e026b2d642c4e2fdc5e9d6e90a6c701088592d1e",
+  "integrationMain": "00b8846413f84d91b775802e7a9d3b73d448674f",
+  "codeInputsSha256": "d5eb45290ac724558ca0e2405246487faf6039ab84c392de34bded8d989f6cde",
+  "engineSha256": "5bcdc08c9cc675a56961723159df5c0ceeaaf2dea9dd6e019481c1a4e589ba60",
+  "nettestSha256": "4ca69a4bc340ed4152fdfdff26c1892b67ae55d60ed5b8eadc637949f566ba9d",
+  "sourceClosure": {
+    "path": "artifacts/ncx/NCX-05/source-03.json",
+    "sha256": "6a593dca82f3e57970c0338803596c6ecd378fb790b91e3efd65a3f8a8926a52"
+  },
+  "build": {
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0,
+    "path": "artifacts/ncx/NCX-05/build-03-main-integration.log",
+    "sha256": "344cd2599d70e8c5b3b04c9d4df126df5caa0cdbadbe3fedeb8491514d3e1d70"
+  },
+  "behavior": {
+    "freshFamiliesPromoted": 0,
+    "freshKnownStock": "Shadow: explicit legacy fallback with missing independent proofs",
+    "unknownAndCustomLive": "Unsupported; existing suppression/native fallback",
+    "paidReceipt": "Existing exact primary direct PB/Imperialist only; full material/key/admission gates unchanged",
+    "nativeContact": "Existing first-segment Imperialist Shadow only",
+    "defaultFastMode": "off",
+    "wireLayoutChanged": false,
+    "movement": "Owner reported, unchanged",
+    "simulationHz": 60,
+    "metadataIsProof": false
+  },
+  "checks": {
+    "focusedRoutes": 90,
+    "routesPerMode": 30,
+    "modes": [
+      "off",
+      "shadow",
+      "paid"
+    ],
+    "status": "PASS",
+    "familyPolicyAssertionsEach": 325,
+    "timingProfilesEach": 1620,
+    "constructedReceiveAssertionsEach": 481,
+    "actualNativePaidAssertionsEach": 304,
+    "actualNativeShadowAssertionsEach": 313,
+    "customPureContractAssertionsEach": 3291,
+    "focusedManifest": {
+      "path": "artifacts/ncx/NCX-05/focused-results-03.json",
+      "sha256": "d546fe6b765cb2e74ed805462eeb873de793d5f61b09fdbba712e37cd5224076"
+    },
+    "customManifest": {
+      "path": "artifacts/ncx/NCX-05/custom-contracts-results-03.json",
+      "sha256": "99f42042112879a933a84908f0905441ed72b3b7b2c16a2bf2fa2ad024a7dcaa"
+    },
+    "pythonTests": {
+      "ncx": 80,
+      "dispatch": 6,
+      "comparator": 23,
+      "logs": [
+        {
+          "path": "artifacts/ncx/NCX-05/python-ncx-02.log",
+          "sha256": "0022040b9123f1b4483e350d6815a368e169647f4b4eafee87265c33bcedb8b5"
+        },
+        {
+          "path": "artifacts/ncx/NCX-05/python-dispatch-02.log",
+          "sha256": "6d8e693b6207cea40f0277130d5db438e6ece5a8fa571de080ee3f0fe47afeba"
+        },
+        {
+          "path": "artifacts/ncx/NCX-05/python-comparator-02.log",
+          "sha256": "d03c7e099661bdae3d6e9f139eada9347a5d95928aa71266e4f4e0645db4fa2c"
+        }
+      ],
+      "source": "fc58ddbdf6640ce9c0c26f340519b001f29dd9bf",
+      "note": "Python harness unchanged by latestmain test/docs-only integration; retained source02 run."
+    }
+  },
+  "nativeFidelity": {
+    "status": "PASS_WITH_CHARACTERIZED_BASELINE_FAILURE",
+    "rawExitEach": 1,
+    "passingCasesEachMode": 46,
+    "passingHashesMatchNcx01": true,
+    "knownDivergence": "weapon.missile.splash tick177 victim.position4096.z expected52814 actual52815",
+    "goldensUnchanged": true,
+    "customRewindAssertionsEachMode": 156,
+    "manifest": {
+      "path": "artifacts/ncx/NCX-05/oracle-results-03.json",
+      "sha256": "a076bd6bd844969572c008b9e5980c57a7b4e34d5cdb662649189465ca6c3c1e"
+    }
+  },
+  "udp": {
+    "campaignStatus": "PASS",
+    "drain": "PASS",
+    "receiptAccounting": "PASS",
+    "declaredReceiptTotals": {
+      "Delivered": 163,
+      "TimedOut": 0,
+      "CapacityEvicted": 0,
+      "LifeRetired": 0,
+      "OccupantRetired": 0,
+      "MatchRetired": 0,
+      "SessionRetired": 0,
+      "Created": 163,
+      "Outstanding": 0
+    },
+    "fastAudit": "PASS",
+    "positiveEligibleComparisons": 149,
+    "paidReceiptBypasses": 149,
+    "latencyAudit": "PASS",
+    "eligibleLatencySamples": 149,
+    "p95AuthorityTicks": 0,
+    "processCount": 9,
+    "configuration": {
+      "players": 8,
+      "scenario": "powerbeam",
+      "profile": "moderate",
+      "configuredRttMs": 100,
+      "jitterMs": 20,
+      "lossPercent": 1,
+      "reorderPercent": 0,
+      "duplicatePercent": 0,
+      "requestedSeconds": 90,
+      "boundedDrainSeconds": 20,
+      "seed": 8128
+    },
+    "evidence": [
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/manifest.json",
+        "sha256": "58e1388945ae9b25b0ae55ff06252af562407211306a88b107f38d9cecdcfa11"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/summary.json",
+        "sha256": "41b4805796cd0df846fe4a960cc5d093daa1be0f64577cf0743625c3caff9882"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-fastpath.json",
+        "sha256": "790f955696562ddc2f8eb8c0f9d7169ee83defa63ec57b286cc9da9f5b3e7c33"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-paid-receipts.json",
+        "sha256": "a8fa7b29780038766a1c1ff8e1d2f42066818273807814d34b56eb4ddff5ed22"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-receipts.json",
+        "sha256": "1b41d26ffd6e2a077f2d93ac0f26dad145931a3cbe915e8c737c87af79bdfc01"
+      }
+    ],
+    "scope": "Real loopback UDP synthetic impairment, unchanged existing paid PB cohort; no other live family/visual/performance certification; authority-local latency excludes client delivery"
+  },
+  "retainedFailures": [
+    {
+      "status": "FAIL",
+      "reason": "Copied preliminary manifest path prevented helper startup before any route/game; corrected unused load, original tracebacks retained",
+      "records": [
+        {
+          "path": "artifacts/ncx/NCX-05/focused-controller-01.log",
+          "sha256": "697333fc0741e1560e40c757c70207192d7a30641517d87542d9cff758b84d0f"
+        },
+        {
+          "path": "artifacts/ncx/NCX-05/oracle-controller-01.log",
+          "sha256": "6b503f9170d4525b9e64c14c98ae08a99957b1541f518350f85fcf2d28206ec8"
+        }
+      ]
+    },
+    {
+      "status": "FAIL",
+      "record": "artifacts/ncx/NCX-03/udp-impaired-08",
+      "reason": "Post-drain graceful-close handshake remains open NCX09; no fix inferred from passing smoke"
+    },
+    {
+      "status": "FAIL_EXACT_BINARY_EQUALITY_PROBE",
+      "record": {
+        "path": "artifacts/ncx/NCX-05/main-integration-binary-probe-03.json",
+        "sha256": "c065e4752d87cc5a318e115d74029d447c8f437dda7ebd3368e1a1bb63d44071"
+      },
+      "reason": "Test/docs-only main integration changed informational commit metadata. Requalified new exact binary; prior evidence retained with original source."
+    }
+  ],
+  "limits": [
+    "Nominal metadata inventory is obligations, not source/geometry/funding/closed-frontier proof",
+    "No fresh-hit or whole-family fast promotion",
+    "Custom M7 remains offline, no authenticated live adapter",
+    "No new visual/latency gain/CPU superiority or physical-platform release claim",
+    "Known native fidelity and transport failures remain retained"
+  ],
+  "priorQualifiedSource": "fc58ddbdf6640ce9c0c26f340519b001f29dd9bf",
+  "priorUdp": {
+    "campaignStatus": "PASS",
+    "drain": "PASS",
+    "receiptAccounting": "PASS",
+    "declaredReceiptTotals": {
+      "Delivered": 163,
+      "TimedOut": 0,
+      "CapacityEvicted": 0,
+      "LifeRetired": 0,
+      "OccupantRetired": 0,
+      "MatchRetired": 0,
+      "SessionRetired": 0,
+      "Created": 163,
+      "Outstanding": 0
+    },
+    "fastAudit": "PASS",
+    "positiveEligibleComparisons": 149,
+    "paidReceiptBypasses": 149,
+    "latencyAudit": "PASS",
+    "eligibleLatencySamples": 149,
+    "p95AuthorityTicks": 0,
+    "processCount": 9,
+    "configuration": {
+      "players": 8,
+      "scenario": "powerbeam",
+      "profile": "moderate",
+      "configuredRttMs": 100,
+      "jitterMs": 20,
+      "lossPercent": 1,
+      "reorderPercent": 0,
+      "duplicatePercent": 0,
+      "requestedSeconds": 90,
+      "boundedDrainSeconds": 20,
+      "seed": 8128
+    },
+    "evidence": [
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/manifest.json",
+        "sha256": "58e1388945ae9b25b0ae55ff06252af562407211306a88b107f38d9cecdcfa11"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/summary.json",
+        "sha256": "41b4805796cd0df846fe4a960cc5d093daa1be0f64577cf0743625c3caff9882"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-fastpath.json",
+        "sha256": "790f955696562ddc2f8eb8c0f9d7169ee83defa63ec57b286cc9da9f5b3e7c33"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-paid-receipts.json",
+        "sha256": "a8fa7b29780038766a1c1ff8e1d2f42066818273807814d34b56eb4ddff5ed22"
+      },
+      {
+        "path": "artifacts/ncx/NCX-05/udp-eight-moderate-paid-03/ncx-receipts.json",
+        "sha256": "1b41d26ffd6e2a077f2d93ac0f26dad145931a3cbe915e8c737c87af79bdfc01"
+      }
+    ],
+    "scope": "Real loopback UDP synthetic impairment, unchanged existing paid PB cohort; no other live family/visual/performance certification; authority-local latency excludes client delivery"
+  },
+  "capabilityReport": {
+    "status": "PASS",
+    "nominalRecords": 72,
+    "multiplayerRows": 18,
+    "samplesPerRow": 4,
+    "fresh": {
+      "Shadow": 72,
+      "Eligible": 0
+    },
+    "conditionalPaidReceipt": {
+      "Eligible": 16,
+      "Unsupported": 56
+    },
+    "nativeContact": {
+      "Shadow": 8,
+      "Unsupported": 64
+    },
+    "note": "Charge samples are nominal inventory, not independent families or satisfied proofs. Paid eligibility still requires all actual claim/payment material gates.",
+    "audit": {
+      "path": "artifacts/ncx/NCX-05/family-report-audit-03.json",
+      "sha256": "95f79111aff4062922f4d1ef344d7dbbdcb02b04050643afaabfc37f968ca9b4"
+    }
+  }
+}

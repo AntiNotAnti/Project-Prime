@@ -1,0 +1,3393 @@
+{
+  "status": "PASS",
+  "scope": "Bounded synthetic ordinary-input cap observation, actual authored offline Native/Momentum bodies; not competitive balance, physical devices, general collision safety, maximum achievable speed or performance acceptance",
+  "checks": 358935,
+  "counts": {
+    "validPairs": 28,
+    "cappedPairs": 28,
+    "collisionReviewPairs": 0,
+    "externalPathPairs": 0,
+    "expectedPairs": 28
+  },
+  "fixtureJsonSha256": "9b9b562277e8939c937f95324d7310388d21d9a5223dd6404ac47a099d49738e",
+  "predeclaredSha256": "52b44edc1abc0a736573bfc08d630160c5d954433539a75d813c494b1c9f568c",
+  "sourceLease": {
+    "baseSha": "9c13d4409517410c995282645873c6a9a0c42112",
+    "committedProductionFiles": {
+      "src/MphRead/Mods/Network/NetHitClaims.Receipts.cs": "6711cbea262f15f94026262773a629ee2d69c82a5458889ae35b311bdf46acd7",
+      "tools/nettest/LifecycleTests.cs": "5017fc76e6f7becc5c20a0ed855f9ea5492be84c98a2e693726c943dbdae3fa6"
+    },
+    "controllerFiles": {
+      "tools/nettest/MomentumBalanceSceneTests.cs": "0a01e3868e978ca6444b96ba3ccc08b2d4896135b60842a26e75ce737c09e5bd",
+      "tools/nettest/MomentumBalanceAdaptiveSceneTests.cs": "8cea0f02e11d0cfa76b6b481902112931792c091de26648ff8acd747335cdee6",
+      "tools/nettest/Program.cs": "8f1fee42b8aff81d1c70f889c24e1d12603d36828d90a14e98d8c81b28dbaa0b"
+    },
+    "dependencies": {
+      "src/MphRead/Entities/Players/PlayerInput.cs": "5c9434816e15a1af2b480d5f6f6992910f984e0211f896d40269a40b12143d82",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "dbaf5bd6432040322cb7a83ea977010b617f14af5a646e933ef83c3d0bcc505e",
+      "src/MphRead/Mods/Movement/MomentumMath.cs": "4543d847388510d063c8ac59eae1612c199d530087d36457cb8f29e2ef020aa4",
+      "src/MphRead/Mods/Movement/MomentumProfileV1.cs": "f15f91656d17131daf0830a89ed7973fbad04cdf099d8fe3f014d4b4250c8c8b"
+    },
+    "binarySha256": {
+      "ProjectPrime.dll": "e9a1c554bef375b19c206e93c2acd9035e4534792e01ec797e2fd9c77133bea7",
+      "nettest.dll": "d3092d5f9a63e64547744acea5d8ad0400d111d3c019a9c4fe3854d69c28ea3b",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "nettest.deps.json": "b976a9964e344ff5fa6e5c6ead35d68113d5611c9a3f7c8917876768c5d3b6eb"
+    },
+    "buildExitCode": 0,
+    "sourceBuildStatus": "PASS_SOURCE_AND_TOOL_BUILD"
+  },
+  "platform": "Microsoft Windows 10.0.26200",
+  "architecture": "X64",
+  "runtime": ".NET 10.0.12",
+  "profileVersion": 1,
+  "retentionSpeedCap": 10.799561,
+  "runner": {
+    "attempts": 1,
+    "exitCode": 0,
+    "runnerFailure": null,
+    "binaryHashesUnchanged": true,
+    "runtimeSettings": {
+      "PRIME_SHOT_PROOF": "shadow",
+      "PRIME_ACCEPTED_SHOTS": "1"
+    }
+  },
+  "aggregate": {
+    "assertions": 358935,
+    "calibrationPairs": 14,
+    "envelopePairs": 28,
+    "bodySamplesIncludingCalibration": 31920,
+    "allEnvelopeArmsHave480CommandsAndBodySamples": true,
+    "all28InputTraceHashPairsEqual": true,
+    "regularIncomingAirCapWitnesses": 5390,
+    "firstRegularCapTickMinimum": 104,
+    "firstRegularCapTickMaximum": 104,
+    "maximumYawPredictionErrorDegrees": 0,
+    "clampedMomentumCommands": 35,
+    "momentumBypassTicks": 0,
+    "incomingOverCapDecisions": 56,
+    "reportedIncomingOverCapMaximumSpeed": 10.799561,
+    "retentionCapExactFloat32": 10.799560546875,
+    "oneFloat32UlpAboveCap": 10.799561500549316,
+    "allReportedIncomingOverCapSpeedsWithinOneFloat32Ulp": true,
+    "maximumReportedBodySpeed": 10.7995615,
+    "maximumReportedAirSeamSpeed": 10.7995615,
+    "maximumUncappedAirSeamSpeed": 10.85353,
+    "incomingOverspeedScope": "56 recorded decisions retained. Reported speeds reconstruct within one float32 ULP of the cap; no provenance cause is asserted from speed alone. Existing incoming-overspeed exemption is checked without flattening. No exact globally constant speed ceiling or long-run maximum claim.",
+    "nativeCollisionOverflows": 0,
+    "nativeRecoveryFallbacks": 0,
+    "observedExternalPathTicks": 0,
+    "objectiveArrivalsAndCensoring": {
+      "native": {
+        "3": {
+          "arrived": 28,
+          "censored": 0
+        },
+        "6": {
+          "arrived": 7,
+          "censored": 21
+        },
+        "10": {
+          "arrived": 7,
+          "censored": 21
+        }
+      },
+      "momentum": {
+        "3": {
+          "arrived": 28,
+          "censored": 0
+        },
+        "6": {
+          "arrived": 28,
+          "censored": 0
+        },
+        "10": {
+          "arrived": 7,
+          "censored": 21
+        }
+      }
+    },
+    "momentumSpeedMedianRange": [
+      6.880286,
+      10.79956
+    ],
+    "nativeSpeedMedianRange": [
+      7.1997066,
+      7.199707
+    ],
+    "allReportedIncomingOverCapSpeedsRoundToCapFloat32": true,
+    "totalActualSpeedLimitedSteps": 5446,
+    "minimumActualAcceptedMomentumJumpsPerArm": 6,
+    "allPairedActualSpawnPositionAndFacingDifferencesZero": true,
+    "actualHorizontalYBitSeamChecks": 15960
+  },
+  "setupAttempts": [
+    {
+      "attempt": 1,
+      "status": "FAIL_SETUP",
+      "captureStarted": false,
+      "reason": "Observed normal runtime/reference copy size1440172279bytes exceeded preliminary1GiB budget; no checkout/copy/build/capture. Original failure preserved.",
+      "receiptSha256": "0e1a5e47fd546a5ce30ec3bac2d014510954193a0919d70fc6aa2e5fd33c07e3"
+    },
+    {
+      "attempt": 2,
+      "status": "PASS_SOURCE_AND_TOOL_BUILD",
+      "captureAttempts": 1,
+      "copyBudgetBytes": 2147483648,
+      "copiedRuntimeAndReferenceBytes": 1440172279,
+      "minimumFreeReserveBytes": 8589934592
+    }
+  ],
+  "host": {
+    "cpu": [
+      {
+        "Name": "AMD Ryzen 7 9850X3D 8-Core Processor           ",
+        "NumberOfCores": 8,
+        "NumberOfLogicalProcessors": 16,
+        "MaxClockSpeed": 4700
+      }
+    ],
+    "normalAndAdaptiveCoreHashesEqual": true,
+    "postCaptureToolSha256": "D3092D5F9A63E64547744ACEA5D8AD0400D111D3C019A9C4FE3854D69C28EA3B"
+  },
+  "cases": [
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Samus",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Samus",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Kanden",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Kanden",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Spire",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Spire",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Noxus",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Noxus",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Trace",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Trace",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Sylux",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Sylux",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Weavel",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482716,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238754,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "35F82C0C2B5F6D4BBB53EE6E1DAFB347FA441563FD196423FB23D94490CAAD27",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 372,
+        "incomingOverCapDecisions": 5,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP3 PROVING GROUND",
+      "hunter": "Weavel",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 7.1997066,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.189895
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6482644,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 7.1997066,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615,
+          "maximum": 10.7995615,
+          "mean": 10.23875
+        },
+        "movingAirSpeed": {
+          "sampleCount": 426,
+          "p50": 10.79956,
+          "p95": 10.799561,
+          "p99": 10.7995615
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 10.238755,
+        "actualMomentumAcceptedJumps": 7,
+        "inferredNativeUpwardPresses": 7,
+        "rawCommandTraceSha256": "5FB04A9C1EEEB547A03AB9D0511C49197BEB044D907979F7D39729A4555B3456",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 375,
+        "incomingOverCapDecisions": 2,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Samus",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Samus",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Kanden",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Kanden",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Spire",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Spire",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Noxus",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Noxus",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Trace",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Trace",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Sylux",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Sylux",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Weavel",
+      "scenario": "adaptive-air-strafe-right",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 3.2958984,
+          "p05": 7.0749946,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.147857
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.6146784,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 3.2958987,
+          "p05": 6.305348,
+          "p50": 8.252181,
+          "p95": 10.594615,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 8.333663
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 8.598941,
+          "p95": 10.582643,
+          "p99": 10.79956
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": false,
+            "firstArrivalTick": null,
+            "timeSeconds": null,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 8.333663,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "7B19E98C36CB0CA8920A38B382A7FD8E5CD235108EE2B6865FA6E6DAFB9C1A1F",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 12,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      }
+    },
+    {
+      "room": "MP1 SANCTORUS",
+      "hunter": "Weavel",
+      "scenario": "adaptive-air-strafe-left",
+      "failure": null,
+      "capCoverage": "regular incoming air-cap witness; no external path observed in pre/post state",
+      "rawInputTraceHashesEqual": true,
+      "native": {
+        "speed": {
+          "minimum": 2.4012272,
+          "p05": 6.4625363,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708,
+          "maximum": 7.199708,
+          "mean": 7.0731616
+        },
+        "movingAirSpeed": {
+          "sampleCount": 387,
+          "p50": 7.199707,
+          "p95": 7.1997075,
+          "p99": 7.199708
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 29,
+            "timeSeconds": 0.48333332,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 294,
+            "timeSeconds": 4.9,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 373,
+            "timeSeconds": 6.2166667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.5296955,
+        "actualMomentumAcceptedJumps": 0,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": null,
+        "regularCapWitnesses": 0,
+        "incomingOverCapDecisions": 0,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 0
+      },
+      "momentum": {
+        "speed": {
+          "minimum": 0.2032336,
+          "p05": 0.7720187,
+          "p50": 6.880286,
+          "p95": 10.428048,
+          "p99": 10.79956,
+          "maximum": 10.7995615,
+          "mean": 6.259566
+        },
+        "movingAirSpeed": {
+          "sampleCount": 389,
+          "p50": 7.0668607,
+          "p95": 10.493647,
+          "p99": 10.799561
+        },
+        "objectives": [
+          {
+            "distance": 3,
+            "reached": true,
+            "firstArrivalTick": 26,
+            "timeSeconds": 0.43333334,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 6,
+            "reached": true,
+            "firstArrivalTick": 51,
+            "timeSeconds": 0.85,
+            "observationSeconds": 8
+          },
+          {
+            "distance": 10,
+            "reached": true,
+            "firstArrivalTick": 298,
+            "timeSeconds": 4.9666667,
+            "observationSeconds": 8
+          }
+        ],
+        "planarPathTraversalRate": 6.283518,
+        "actualMomentumAcceptedJumps": 6,
+        "inferredNativeUpwardPresses": 6,
+        "rawCommandTraceSha256": "744784EAEF16AD251073F7145470F572DF1B76C9755610B0ABF26D76F1A0F5F7",
+        "firstRegularCapTick": 104,
+        "regularCapWitnesses": 11,
+        "incomingOverCapDecisions": 1,
+        "observedExternalPathTicks": 0,
+        "momentumBypassTicks": 0,
+        "collisionOverflows": 0,
+        "recoveryFallbacks": 0,
+        "maxPredictionErrorDegrees": 0,
+        "clampedCommands": 5
+      }
+    }
+  ],
+  "conditions": {
+    "simulationHz": 60,
+    "rendering": "headless",
+    "network": "offline",
+    "players": 1,
+    "samplesPerArm": 480,
+    "seed": "existing unchanged Rng1 8128 / Rng2 0x8128a5a5 native spawn; no reseed/retry search",
+    "schedule": "W1-48; then mirrored D/A and Space49 plus fixed stationary Native landing period; no contact-dependent jump input",
+    "controller": "Each 60Hz Momentum input observes actual velocity/body/gun yaw; wish targets perpendicular to actual incoming velocity. Pure default dynamic-camera yaw predictor chooses raw mouse via20 bounded inverse iterations, +/-256px, quantized1/256px. No engine lookahead or state writes.",
+    "baseline": "Fresh Native arm replays the exact recorded Momentum raw key/mouse trace, not an independently adaptive policy. Controller-generated traces differ by Hunter/map/mirror; every prescribed case and failure is retained.",
+    "predictor": "PlayerInput.UpdateAimY(0), UpdateAimX, UpdateAimFacing default zero-pitch/nozoom path only; actual next facing checked within0.02degree, otherwise capture fails closed. No private aim method invocation or production API.",
+    "capWitness": "Numerical regular-cap witness: actual eligible air/legal-jump step is SpeedLimited with no incoming overspeed, uncapped outside cap and actual seam inside. Pre/post pad/boost/hazard/acceleration/locks/Q3 and eligibility observations qualify provenance; any observed external path prevents unqualified arm acceptance. Incoming speed alone does not establish impulse history; incoming overspeed exemptions retained.",
+    "collision": "Actual native counter deltas and body trajectories only. Zero overflow/recovery does not by itself prove no penetration; nonzero counters require review. Fixed geometry can prevent cap coverage without implying a solver failure.",
+    "retention": "All480 commands/body/solver observations retained when completed; failing arms retain generated command and completed sample prefixes; all later prescribed cases still attempted; missing calibration explicitly not run. No favorable rerolls or profile changes."
+  },
+  "calibrationPairCount": 14,
+  "independentRootReview": {
+    "scope": "Independent retained numeric review; no engine run or timing",
+    "checks": 27612,
+    "regularCapWitnesses": 5390,
+    "incomingOverCapDecisions": 56,
+    "clampedCommands": 35,
+    "firstCapTick": 104,
+    "objectiveArrivals": {
+      "native": {
+        "3": 28,
+        "6": 7,
+        "10": 7
+      },
+      "momentum": {
+        "3": 28,
+        "6": 28,
+        "10": 7
+      }
+    },
+    "maximumYawErrorRecomputedFromSerializedAnglesDegrees": 3.9999999984274837e-05,
+    "reportedErrorMetricNote": "Original float wrap reports zero; independent double arithmetic retains sub-0.02degree differences",
+    "rawFixtureSha256": "9b9b562277e8939c937f95324d7310388d21d9a5223dd6404ac47a099d49738e"
+  },
+  "sourceCompatibilityReview": {
+    "publishedBase": "88e80a51beb1d282c17e5667b07d1b00ff48becd",
+    "executedBaseRemains": "9c13d4409517410c995282645873c6a9a0c42112",
+    "fourMovementInputDependencyHashesUnchanged": true,
+    "laterProgramChanges": "Additional NCX04 routes retained; adaptive route and controller unchanged",
+    "currentIntegrationCompile": "PASS; see pr09-current-paid-compatibility.json; fresh e500 normal build/four focused cases and separate tool-only overlay compile/help; actual cap capture retains 9c lease"
+  }
+}

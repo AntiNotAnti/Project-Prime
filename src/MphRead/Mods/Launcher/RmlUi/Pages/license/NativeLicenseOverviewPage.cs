@@ -28,7 +28,6 @@ internal sealed class NativeLicenseOverviewPage : IDisposable
     private bool _overlay;
     public bool IsOverlay => _overlay;
     public bool Closed { get; private set; }
-    public bool OpenCustomizationRequested { get; private set; }
 
     public NativeLicenseOverviewPage(RmlUiPageManager pages, INativeLicenseOverviewReader reader, RmlUiHost? host = null)
     {
@@ -51,14 +50,13 @@ internal sealed class NativeLicenseOverviewPage : IDisposable
 
     public bool Handle(in RmlUiIntent intent)
     {
-        if (_disposed || Closed || OpenCustomizationRequested || intent.Kind != RmlUiIntentKind.LicenseAction
+        if (_disposed || Closed || intent.Kind != RmlUiIntentKind.LicenseAction
             || _page != intent.Document || _pages.Top != _page
             || !_pages.Accept(intent)) return false;
         switch (intent.Argument)
         {
             case >= 25 and <= 29: _cardTab = intent.Argument - 25; _cardDirty = true; ClearCredentials(); break;
             case 0: _controller.SetFace(NativeLicenseFace.Overview); break;
-            case 1: OpenCustomizationRequested = true; break;
             case 2: _controller.SetFace(NativeLicenseFace.Stats); break;
             case 3: _controller.SetFace(NativeLicenseFace.History); break;
             case 4: _controller.SetFace(NativeLicenseFace.Achievements); break;

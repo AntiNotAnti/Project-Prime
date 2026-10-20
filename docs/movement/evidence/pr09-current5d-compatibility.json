@@ -1,0 +1,457 @@
+{
+  "status": "PASS",
+  "scope": "Fresh NCX02 main plus identical collision candidate and verification-only observer overlays; focused correctness, replay and two-owner fault combat only. Four bot verify arms are parity controls, not new timing. Existing648 timing and46team evidence retain their original leases.",
+  "sourceAndBuild": {
+    "baseSha": "5d68d2ee8cfbf592c698c24139f99a8222dbe10b",
+    "files": {
+      "src/MphRead/Formats/CollisionDetection.cs": "75758fbc6d04985b739d0684e1d590b997b26c4d12b90f2f432727db984face4",
+      "tools/nettest/MomentumServerPerformanceBenchmark.cs": "f4101ef5bd23aca41f99f1de6ce26921a33013c6e53167250db914945cae7d21"
+    },
+    "overlayVerified": true,
+    "buildExitCode": 0,
+    "buildSeconds": 51.976688099995954,
+    "binarySha256": {
+      "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+      "nettest.dll": "3d3ff6b1056a8e39a7dcffa2cbd97a7932b5ebe8228d75b0fbd8e99ab894e9ad",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    }
+  },
+  "normalGameplayNcx": "All PRIME_NCX_* and PRIME_PRESENTATION_HZ absent; no NCX fixture, grant, placement or readiness overrides",
+  "focusedCases": [
+    {
+      "name": "claim-receipts",
+      "exitCode": 0
+    },
+    {
+      "name": "claim-stress",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-arbitration",
+      "exitCode": 0
+    },
+    {
+      "name": "gold",
+      "exitCode": 0
+    },
+    {
+      "name": "rewind",
+      "exitCode": 0
+    },
+    {
+      "name": "replay-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-evidence",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-combat",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-targets",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-healing-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "self-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "timed-campaign-joins",
+      "exitCode": 0
+    },
+    {
+      "name": "protocol58-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "native-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay",
+      "exitCode": 0
+    }
+  ],
+  "focusedCaseCount": 15,
+  "knownCounts": {
+    "claimReceiptConstructedChecks": 698,
+    "combatArbitrationAssetAssertions": 1157,
+    "continuousCombatAssetAssertions": 667,
+    "continuousHealingPredictionAssertions": 44,
+    "selfPredictionAssertions": 55,
+    "timedCampaignJoinConstructedChecks": 22,
+    "protocolArchiveByteChecks": 204,
+    "nativeGoldTrajectories": 56,
+    "rewindSceneAssertions": 18489,
+    "replayRuleAssertions": 82
+  },
+  "productionCoreDurablePacketChecks": [
+    {
+      "mode": "native",
+      "exitCode": 0
+    },
+    {
+      "mode": "momentum",
+      "exitCode": 0
+    }
+  ],
+  "fourVerifyOnlyParityMatches": [
+    {
+      "map": "PG",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "8067f389ad87ee09dd50e1049e37339e3c9db6b835776482df0cc6d615bd83a9",
+      "priorWorkloadAndStableCounterSha256": "8067f389ad87ee09dd50e1049e37339e3c9db6b835776482df0cc6d615bd83a9",
+      "snapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "priorSnapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "PG",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "51200484020027d577dfa64ea735c272ff99c0b0a35093419ed9498b0bb5fe41",
+      "priorWorkloadAndStableCounterSha256": "51200484020027d577dfa64ea735c272ff99c0b0a35093419ed9498b0bb5fe41",
+      "snapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "priorSnapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "615b527438a181add2ff374f45bc4af96ce0242376fafbc83fcfbdf8e33c1996",
+      "priorWorkloadAndStableCounterSha256": "615b527438a181add2ff374f45bc4af96ce0242376fafbc83fcfbdf8e33c1996",
+      "snapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "priorSnapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "3033a97a465064faf0dcb6cbfb36752225bd349bd5b03a5c1d4c4f00a1424c3b",
+      "priorWorkloadAndStableCounterSha256": "3033a97a465064faf0dcb6cbfb36752225bd349bd5b03a5c1d4c4f00a1424c3b",
+      "snapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "priorSnapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    }
+  ],
+  "replayInputSha256": {
+    "native-full-01.ppdemo": "b3727f3f340a3eb5435853323e68ae62c7442f7b45327026c4c5c4ad13101258",
+    "momentum-full-01.ppdemo": "7ef6e59192b53487e8882dc5705abe1b3cd4ccfa80c123069a1d76606af5ad0c",
+    "native-full-durable-02/durable.ppdemo": "c1738aa496b503c724eed8d0dbe6d48d96b21aad8bcc24dd8c6b9cd08d136a00",
+    "momentum-full-durable-02/durable.ppdemo": "26f335eafa8bab018844841f72af6ddcdf304be3b0275c9f053e629f7e9e04f8"
+  },
+  "models": {
+    "Native": {
+      "checks": 22,
+      "joinedPayments": 13,
+      "rewindSamples": 57,
+      "rewindFrames": 865,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "damageApplied": 466,
+      "solverSteps": [
+        0,
+        0
+      ],
+      "observedHealthDecreases": [
+        21,
+        17
+      ],
+      "claimsDeclared": [
+        12,
+        8
+      ],
+      "faults": [
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9100
+        },
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9101
+        }
+      ],
+      "naturalLifecycle": {
+        "localNativeSpawnedLives": [
+          4,
+          3
+        ],
+        "authorityMaxNativeDeathsByHumanSlot": {
+          "0": 4,
+          "1": 2
+        },
+        "scope": "Native counters sampled in the actual admitted stream; no forced health/lifecycle writes, not an independent per-frame death audit"
+      },
+      "clientClaimCounters": [
+        {
+          "Declared": 12,
+          "Applied": 4,
+          "Duplicate": 6,
+          "RefusedDeadShooter": 2,
+          "RefusedDeadVictim": 0,
+          "RefusedOther": 0,
+          "Unanswered": 0,
+          "Resends": 10,
+          "Received": 0,
+          "AppliedHere": 0,
+          "DuplicateHere": 0,
+          "VoidedDeadShooter": 0,
+          "VoidedDeadVictim": 0,
+          "RefusedHere": 0,
+          "TooOldHere": 0,
+          "RepeatsHere": 0
+        },
+        {
+          "Declared": 8,
+          "Applied": 1,
+          "Duplicate": 7,
+          "RefusedDeadShooter": 0,
+          "RefusedDeadVictim": 0,
+          "RefusedOther": 0,
+          "Unanswered": 0,
+          "Resends": 4,
+          "Received": 0,
+          "AppliedHere": 0,
+          "DuplicateHere": 0,
+          "VoidedDeadShooter": 0,
+          "VoidedDeadVictim": 0,
+          "RefusedHere": 0,
+          "TooOldHere": 0,
+          "RepeatsHere": 0
+        }
+      ],
+      "authorityClaimCounters": {
+        "Declared": 0,
+        "Applied": 0,
+        "Duplicate": 0,
+        "RefusedDeadShooter": 0,
+        "RefusedDeadVictim": 0,
+        "RefusedOther": 0,
+        "Unanswered": 0,
+        "Resends": 0,
+        "Received": 0,
+        "AppliedHere": 0,
+        "DuplicateHere": 0,
+        "VoidedDeadShooter": 0,
+        "VoidedDeadVictim": 0,
+        "RefusedHere": 0,
+        "TooOldHere": 0,
+        "RepeatsHere": 0
+      },
+      "evidenceHealth": [
+        {
+          "process": "server",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner0",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner1",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        }
+      ],
+      "binarySha256BeforeAndAfter": {
+        "nettest.dll": "3d3ff6b1056a8e39a7dcffa2cbd97a7932b5ebe8228d75b0fbd8e99ab894e9ad",
+        "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9"
+      },
+      "replayScene": {
+        "checks": 85673,
+        "frames": 2982,
+        "gameplayPresentationDigest": "BAE5662C01088E7195A093652563122EAB1B2F6C1E9169D5410BC54FA87618B6",
+        "checkpointCount": 10,
+        "continuedFrames": 2762,
+        "durableFileSeekCount": 6,
+        "comparedReportFieldCount": 22,
+        "allFieldsEqualCurrent33": true,
+        "differentFields": [],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      }
+    },
+    "Momentum": {
+      "checks": 22,
+      "joinedPayments": 9,
+      "rewindSamples": 90,
+      "rewindFrames": 1369,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "damageApplied": 260,
+      "solverSteps": [
+        2164,
+        2686
+      ],
+      "observedHealthDecreases": [
+        13,
+        30
+      ],
+      "claimsDeclared": [
+        7,
+        22
+      ],
+      "faults": [
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9100
+        },
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 1,
+          "ReorderRate": 0.05,
+          "DuplicateRate": 0.01,
+          "Seed": 9101
+        }
+      ],
+      "naturalLifecycle": {
+        "localNativeSpawnedLives": [
+          4,
+          2
+        ],
+        "authorityMaxNativeDeathsByHumanSlot": {
+          "0": 3,
+          "1": 1
+        },
+        "scope": "Native counters sampled in the actual admitted stream; no forced health/lifecycle writes, not an independent per-frame death audit"
+      },
+      "clientClaimCounters": [
+        {
+          "Declared": 7,
+          "Applied": 1,
+          "Duplicate": 6,
+          "RefusedDeadShooter": 0,
+          "RefusedDeadVictim": 0,
+          "RefusedOther": 0,
+          "Unanswered": 0,
+          "Resends": 2,
+          "Received": 0,
+          "AppliedHere": 0,
+          "DuplicateHere": 0,
+          "VoidedDeadShooter": 0,
+          "VoidedDeadVictim": 0,
+          "RefusedHere": 0,
+          "TooOldHere": 0,
+          "RepeatsHere": 0
+        },
+        {
+          "Declared": 22,
+          "Applied": 13,
+          "Duplicate": 7,
+          "RefusedDeadShooter": 0,
+          "RefusedDeadVictim": 1,
+          "RefusedOther": 1,
+          "Unanswered": 0,
+          "Resends": 30,
+          "Received": 0,
+          "AppliedHere": 0,
+          "DuplicateHere": 0,
+          "VoidedDeadShooter": 0,
+          "VoidedDeadVictim": 0,
+          "RefusedHere": 0,
+          "TooOldHere": 0,
+          "RepeatsHere": 0
+        }
+      ],
+      "authorityClaimCounters": {
+        "Declared": 0,
+        "Applied": 0,
+        "Duplicate": 0,
+        "RefusedDeadShooter": 0,
+        "RefusedDeadVictim": 0,
+        "RefusedOther": 0,
+        "Unanswered": 0,
+        "Resends": 0,
+        "Received": 0,
+        "AppliedHere": 0,
+        "DuplicateHere": 0,
+        "VoidedDeadShooter": 0,
+        "VoidedDeadVictim": 0,
+        "RefusedHere": 0,
+        "TooOldHere": 0,
+        "RepeatsHere": 0
+      },
+      "evidenceHealth": [
+        {
+          "process": "server",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner0",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        },
+        {
+          "process": "owner1",
+          "Overflow": 0,
+          "ConnectionLost": false,
+          "SemanticOverrun": false,
+          "SemanticDisconnects": 0
+        }
+      ],
+      "binarySha256BeforeAndAfter": {
+        "nettest.dll": "3d3ff6b1056a8e39a7dcffa2cbd97a7932b5ebe8228d75b0fbd8e99ab894e9ad",
+        "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9"
+      },
+      "replayScene": {
+        "checks": 85586,
+        "frames": 2979,
+        "gameplayPresentationDigest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+        "checkpointCount": 10,
+        "continuedFrames": 2759,
+        "durableFileSeekCount": 6,
+        "comparedReportFieldCount": 22,
+        "allFieldsEqualCurrent33": true,
+        "differentFields": [],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      }
+    }
+  },
+  "ownedWorkerLease": "Released; no owned Windows dotnet/python workers remained after collection",
+  "ncxPythonChecks": {
+    "tests": 51,
+    "exitCode": 0,
+    "scope": "Current5d NCX offline script tests; separate from actual Windows scene and UDP evidence"
+  }
+}

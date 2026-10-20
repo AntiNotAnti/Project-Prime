@@ -167,10 +167,10 @@ internal static class LicenseAcceptance
         Capture("public-visible");
 
         Click("native_license_tab_overview", 0);
-        Check(Visible("native_license_tab_customization") && Visible("native_license_customize"),
-            "Hunter License exposes reachable customization navigation");
+        Check(!Visible("native_license_tab_customization") && !Visible("native_license_customize"),
+            "Hunter License exposes no cosmetic buttons; Hunters owns customization");
         Click("native_license_close", 20);
-        Check(page.Closed, "actual native Back click closes License presenter");
+        Check(page.Closed, "native License Back retires the account document");
         page.Dispose();
         Check(!host.IsAlive(document)
             && !page.Handle(new(RmlUiIntentKind.LicenseAction, 9, document, ulong.MaxValue)),

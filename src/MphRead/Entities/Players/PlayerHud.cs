@@ -1160,6 +1160,18 @@ namespace MphRead.Entities
 
         private Vector2 GetReticlePresentationPosition()
         {
+            // The third-person shoulder renders the world from a displaced
+            // viewpoint. The usual fixed 0.5/0.5 reticle follows the virtual
+            // camera rather than the gun's native muzzle-to-aim ray, so it
+            // points somewhere a real projectile cannot travel. Reproject
+            // that existing ray through the current rendered camera instead.
+            // This also applies to the native HUD and custom crosshair shapes.
+            // Projectile simulation, hit registration and recorded POV stay
+            // entirely on their original camera/aim path.
+            if (_scene.ModTryGetThirdPersonShotReticle(_muzzlePos,
+                    _aimPosition, out Vector2 thirdPersonReticle))
+                return thirdPersonReticle;
+
             // On an exact replay shot frame the camera uses the recorded view
             // and the crosshair uses the separately recorded reticle position.
             // Do not blend either toward a neighbouring 60 Hz sample.
