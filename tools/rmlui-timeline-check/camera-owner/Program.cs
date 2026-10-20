@@ -14,6 +14,7 @@ ReplayCamera.NativePresented.Publish(scene,transport,transport.SeekGeneration,tr
 Matrix4.LookAt(new Vector3(9,8,7),new Vector3(9,8,6),Vector3.UnitY),Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(80),16f/9,.1f,1000));}
 TheatreCameraToolsEdit Move(TheatreCameraToolsContext context)=>new(TheatreCameraToolsChange.Move,context,ImmutableArray.Create(context.Camera.Keys[0].Frame),context.Camera.Keys,context.Camera.Keys.SetItem(0,context.Camera.Keys[0] with{Frame=15}));
 try{
+CameraPathCacheChecks.Run(Check);
 DemoPlayback.LogicalPath=DemoPlayback.PlaybackPath=source;
 var track=new ReplayCameraTrack();track.Put(new(10,Vector3.One,Quaternion.Identity,1.2f));track.Put(new(20,new Vector3(2),Quaternion.Identity,1.4f));Check(track.Save(source),"retained owner writes synthetic source-bound v3 camera");
 var identity=ReplayCameraTrackIdentity.Create(source);byte[] encoded=track.EncodeReviewed(identity);
