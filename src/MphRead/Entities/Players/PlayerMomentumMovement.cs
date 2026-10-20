@@ -1,3 +1,4 @@
+using System;
 using MphRead.Mods.Movement;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Render;
@@ -11,6 +12,18 @@ public partial class PlayerEntity
 {
     private Vector3 _modRampSupport;
     private ulong _modRampSupportFrame = ulong.MaxValue;
+    private ulong _modGroundTravelFrame = ulong.MaxValue;
+    private void ModResetGroundTravel() => _modRampSupportFrame = _modGroundTravelFrame = ulong.MaxValue;
+    private bool ModHasFreshGroundTangent => _scene.FrameCount > 0
+        && _modRampSupportFrame == _scene.FrameCount - 1
+        && Flags1.TestFlag(PlayerFlags1.Standing) && GroundSlopeMovement.Walkable(_modRampSupport)
+        && MathF.Abs(Vector3.Dot(Speed, _modRampSupport)) <= .0005f;
+
+    private bool ModWalkableGroundContact(in CollisionResult result) => ModUsesQuake3Techniques
+        && ModMomentumEligible && result.Field0 == 0 && result.EntityCollision == null
+        && result.Slipperiness == 0 && !result.Flags.TestFlag(CollisionFlags.Damaging)
+        && result.Terrain is not Terrain.Lava
+        && !ModSurfContact(result) && GroundSlopeMovement.Walkable(result.Plane.Xyz);
 
     internal bool ModTraversalActive => _scene.GameState.MovementModel == MovementModel.Traversal
         && ModUsesQuake3Techniques;
@@ -81,8 +94,8 @@ public partial class PlayerEntity
         bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
         bool traversal = !developerOwns && _scene.GameState.MovementModel == MovementModel.Traversal;
         MomentumTuning tuning = practice?.Tuning ?? (traversal ? ModCrouched
-            ? TraversalMovementProfileV4.CrouchTuning(ModSliding) : TraversalMovementProfileV4.Tuning
-            : quake3 ? Quake3MovementProfileV3.Tuning : MomentumProfileV1.Tuning);
+            ? TraversalMovementProfileV5.CrouchTuning(ModSliding) : TraversalMovementProfileV5.Tuning
+            : quake3 ? Quake3MovementProfileV4.Tuning : MomentumProfileV1.Tuning);
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
             Speed.Y, nativeJumpAccepted);
@@ -93,15 +106,28 @@ public partial class PlayerEntity
         Vector3 before = Speed;
         Vector3 horizontal = new(before.X * NativeVelocityUnitsPerSecond, 0,
             before.Z * NativeVelocityUnitsPerSecond);
+        bool groundTravel = (quake3 || traversal) && input.Grounded && !nativeJumpAccepted
+            // Separating blast/jump velocity must retain its native vertical impulse.
+            && ModHasFreshGroundTangent;
+        if (groundTravel) horizontal = GroundSlopeMovement.Flatten(before) * NativeVelocityUnitsPerSecond;
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
-            : traversal ? TraversalMovementProfileV4.Step(horizontal, input, ModCrouched, ModSliding)
-            : quake3 ? Quake3MovementProfileV3.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
-        // Y is never multiplied/divided: preserve native jump/gravity bits.
+            : traversal ? TraversalMovementProfileV5.Step(horizontal, input, ModCrouched, ModSliding)
+            : quake3 ? Quake3MovementProfileV4.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
+        // The planar solver preserves native Y bits. Only proven continuing
+        // ground travel below redirects velocity onto the support plane.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);
         _scene.NoteDeveloperMomentumStep(new MomentumStepSample(_scene.FrameCount, SlotIndex, before, Speed,
-            input, tuning, contact, result.SpeedLimited, result.IncomingOverCap, ModCrouched, ModSliding));
+            input, tuning, contact, result.SpeedLimited, result.IncomingOverCap, ModCrouched, ModSliding,
+            groundTravel ? _modRampSupport : null));
+        if (groundTravel)
+        {
+            Vector3 surface = GroundSlopeMovement.Follow(result.Velocity, _modRampSupport);
+            if (traversal && ModSliding) surface = GroundSlopeMovement.Slide(surface, _modRampSupport, dt);
+            Speed = surface / NativeVelocityUnitsPerSecond;
+            _modGroundTravelFrame = _scene.FrameCount;
+        }
         return true;
     }
 }

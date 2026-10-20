@@ -26,8 +26,8 @@ internal static class TraversalStanceTests
             Check(TraversalStance.HeightRatio == .65f && TraversalMovementProfileV2.ProfileVersion == 2
                 && TraversalMovementProfileV1.ProfileVersion == 1,
                 "new stance profile preserves immutable historical Traversal v1");
-            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 4,
-                "live Traversal selects profile four while historical stance profiles remain immutable");
+            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 5,
+                "live Traversal selects profile five while historical stance profiles remain immutable");
             Check(TraversalMovementProfileV2.SlideTicks == 48
                 && TraversalMovementProfileV2.SlideMinimumSpeed == TraversalMovementProfileV2.GroundSpeed * 1.1f
                 && TraversalMovementProfileV2.CrouchSpeed == TraversalMovementProfileV2.GroundSpeed * .5f,

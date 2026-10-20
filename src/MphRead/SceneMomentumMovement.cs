@@ -12,7 +12,8 @@ namespace MphRead;
 internal readonly record struct MomentumStepSample(ulong SimulationFrame, int Slot,
     Vector3 NativeVelocityBefore, Vector3 NativeVelocityAfter,
     MomentumInput Input, MomentumTuning Tuning, MomentumContactPhase ContactPhase,
-    bool SpeedLimited, bool IncomingOverCap, bool Crouched = false, bool Sliding = false);
+    bool SpeedLimited, bool IncomingOverCap, bool Crouched = false, bool Sliding = false,
+    Vector3? GroundSupport = null);
 
 public partial class Scene
 {

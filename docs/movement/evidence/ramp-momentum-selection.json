@@ -1,0 +1,1244 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "finalIntegration": {
+    "baseSha": "2ed2da6862ee63761e4cae84f7320bd0933fc63f",
+    "protocol": 76,
+    "quake3ProfileVersion": 4,
+    "traversalProfileVersion": 5,
+    "sourceManifestSha256": "b2364bda01cb80a8e8f4ff202a2f1b5f6e35d94fe666879fbb94376f9e189e7b",
+    "overlaySha256": "efe7f56230fe9f2f49079f4daa4096ae607c1bf0ee31512e2aedb396b4e47186",
+    "binaries": {
+      "ProjectPrime.dll": "3947706670c30cf061ccbc2170a3c5137ac243dfed46c688b930e7814b161d5b",
+      "nettest.dll": "d10f7281dd3727bfe6675de407c984b440c9c3fa66266a80b6603c7a9b467b55"
+    },
+    "buildProvenance": {
+      "production": "candidate07 complete normal Windows Release production build",
+      "outputReuse": false,
+      "configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false
+    },
+    "buildDiagnostics": {
+      "normalReleaseCandidate07": {
+        "warnings": 1,
+        "errors": 0,
+        "warningCodes": [
+          "CS0649"
+        ]
+      }
+    },
+    "focusedGateCounts": [
+      {
+        "name": "ground-slope-rules",
+        "exitCode": 0,
+        "count": 335,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "ground-slope-scene",
+        "exitCode": 0,
+        "count": 413037,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "traversal-stance",
+        "exitCode": 0,
+        "count": 89569,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "stance-rules",
+        "exitCode": 0,
+        "count": 1926,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0,
+        "count": 56,
+        "unit": "trajectories"
+      },
+      {
+        "name": "metadata",
+        "exitCode": 0,
+        "count": 165,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "replay-compatibility",
+        "exitCode": 0,
+        "count": 659,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "protocol58",
+        "exitCode": 0,
+        "count": 932,
+        "unit": "byte/archive checks"
+      }
+    ],
+    "runtimeCleanup": {
+      "scope": "Owned ramp momentum QA runtime entrypoints; compiler servers and unrelated work excluded",
+      "processes": [],
+      "ownedRuntimeProcessCount": 0,
+      "checkedUtc": "2026-10-20T18:29:23.5512397Z"
+    },
+    "scope": "Fresh candidate07 normal Windows Release integration build with eight targeted ground/stance/gait/native/replay gates and actual retained-recording replay. Full21 gates, UDP producer cohorts, historical archive and custom integration evidence remain attributed to candidate06/05 as specified.",
+    "status": "PASS",
+    "groundSceneJsonExactlyMatchesFullQualification06": true,
+    "retainedRecordingReplays": [
+      {
+        "model": "Quake3",
+        "status": "PASS",
+        "processResults": null,
+        "finalProcessResults": null,
+        "archiveSha256": "4c334f5645b2b1d9394277c95e04a6091015bd840ecc824bba22edad69e60291",
+        "sourceBinaryLeaseUnchanged": true,
+        "recordingSource": "retained candidate05 actual Quake3 UDP cohort; no new candidate06 Q3 cohort",
+        "recordingSourceManifestSha256": "89b787d85dcbbc9d471f0d6b06fe41d1baaed018252066eac7b20a53bcfdbfdc",
+        "recordingBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "bc948ba2e12e0c90cee8a3417a7d5948247d23230e70281fad158422e49b51bf"
+        },
+        "replayBinaries": {
+          "ProjectPrime.dll": "3947706670c30cf061ccbc2170a3c5137ac243dfed46c688b930e7814b161d5b",
+          "nettest.dll": "d10f7281dd3727bfe6675de407c984b440c9c3fa66266a80b6603c7a9b467b55"
+        },
+        "original05ArchiveUnchanged": null,
+        "originalArchiveUnchanged": true,
+        "digestMatchesCandidate06Replay": true,
+        "retainedProducerProcessResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "recordedWorldReplay": {
+          "checks": 78691,
+          "frames": 2368,
+          "recordedProtocol": 76,
+          "recordedProfileVersion": 4,
+          "expectedModel": "Quake3",
+          "gameplayPresentationDigest": "450DF52E7C713191412BCD001B1C674859806657B8C90036389E7979FF85BAF2",
+          "snapshotPoseChecks": 6746,
+          "snapshotStanceChecks": 0,
+          "crouchedFrames": 0,
+          "standingFrames": 0,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3,
+          "checkpointFrames": [
+            220,
+            300,
+            600,
+            900,
+            1200,
+            1500,
+            1800,
+            2100
+          ],
+          "memoryCheckpointCount": 7,
+          "continuedFrames": 2148
+        }
+      },
+      {
+        "model": "Traversal",
+        "status": "PASS",
+        "processResults": null,
+        "finalProcessResults": null,
+        "archiveSha256": "56dd07f40d1a64d0ee87ab30080d0eea0d0227a937860fa32e07890bc2e69ae4",
+        "sourceBinaryLeaseUnchanged": true,
+        "recordingSource": "candidate06 fresh real Traversal UDP cohort",
+        "recordingSourceManifestSha256": "f7cf8a6d0e4d078d5dadc08681aa2f552ab933bf30a8b622125c49f0c63827b2",
+        "recordingBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "f02d998d088eb19f47b4729c0fb90d2d7e4c4a66d5d511c97d888c320ab5bc76"
+        },
+        "replayBinaries": {
+          "ProjectPrime.dll": "3947706670c30cf061ccbc2170a3c5137ac243dfed46c688b930e7814b161d5b",
+          "nettest.dll": "d10f7281dd3727bfe6675de407c984b440c9c3fa66266a80b6603c7a9b467b55"
+        },
+        "original05ArchiveUnchanged": null,
+        "originalArchiveUnchanged": true,
+        "digestMatchesCandidate06Replay": true,
+        "retainedProducerProcessResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "recordedWorldReplay": {
+          "checks": 115830,
+          "frames": 2399,
+          "recordedProtocol": 76,
+          "recordedProfileVersion": 5,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "169ED54359D2ACF93BD04E8F6912E70B12E8CD60A225EAD7472C57E8593C039B",
+          "snapshotPoseChecks": 7018,
+          "snapshotStanceChecks": 7018,
+          "crouchedFrames": 402,
+          "standingFrames": 1997,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3,
+          "checkpointFrames": [
+            161,
+            202,
+            220,
+            300,
+            600,
+            900,
+            1200,
+            1500,
+            1800,
+            2100
+          ],
+          "memoryCheckpointCount": 7,
+          "continuedFrames": 2238
+        }
+      }
+    ]
+  },
+  "fullQualification": {
+    "schema": 1,
+    "baseSha": "46e6c360186d1116a716ce3339bcf2b97c2292a7",
+    "protocol": 76,
+    "quake3ProfileVersion": 4,
+    "traversalProfileVersion": 5,
+    "sourceManifestSha256": "f7cf8a6d0e4d078d5dadc08681aa2f552ab933bf30a8b622125c49f0c63827b2",
+    "overlaySha256": "19269c96e3e0770955398f6b0a69248bd57719b059dbdd7465e6f402b8af3e0c",
+    "binaries": {
+      "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+      "nettest.dll": "f02d998d088eb19f47b4729c0fb90d2d7e4c4a66d5d511c97d888c320ab5bc76"
+    },
+    "buildProvenance": {
+      "production": "reused candidate05 complete normal Windows Release production/reference outputs",
+      "testTool": "candidate06 nettest-only Release rebuild; no project-reference compilation",
+      "outputReuse": true,
+      "configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "productionSourceManifestSha256": "89b787d85dcbbc9d471f0d6b06fe41d1baaed018252066eac7b20a53bcfdbfdc",
+      "sourceDifferencesFrom05": [
+        "tools/nettest/MomentumReplaySceneTests.cs",
+        "tools/nettest/Quake3AdvancedSceneTests.cs",
+        "tools/nettest/TraversalStanceSceneTests.cs"
+      ]
+    },
+    "buildDiagnostics": {
+      "normalProductionCandidate05": {
+        "warnings": 1,
+        "errors": 0,
+        "warningCodes": [
+          "CS0649"
+        ]
+      },
+      "nettestCandidate06": {
+        "warnings": 0,
+        "errors": 0,
+        "warningCodes": []
+      },
+      "customToolCandidate06": {
+        "warnings": 0,
+        "errors": 0,
+        "warningCodes": []
+      }
+    },
+    "focusedGateCounts": [
+      {
+        "name": "ground-slope-rules",
+        "exitCode": 0,
+        "count": 335,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "ground-slope-scene",
+        "exitCode": 0,
+        "count": 413037,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "quake3-scene",
+        "exitCode": 0,
+        "count": 24169,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "traversal-scene",
+        "exitCode": 0,
+        "count": 82331,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "traversal-stance",
+        "exitCode": 0,
+        "count": 89569,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "traversal-rules",
+        "exitCode": 0,
+        "count": 255,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "quake3-advanced-scene",
+        "exitCode": 0,
+        "count": 171054,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "stance-rules",
+        "exitCode": 0,
+        "count": 1926,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "stance-network",
+        "exitCode": 0,
+        "count": 178,
+        "unit": "assertions"
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0,
+        "count": 56,
+        "unit": "trajectories"
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0,
+        "count": null,
+        "unit": "assertions/checks",
+        "countNote": "Fixture emits PASS without a numeric assertion counter."
+      },
+      {
+        "name": "metadata",
+        "exitCode": 0,
+        "count": 165,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "replay-compatibility",
+        "exitCode": 0,
+        "count": 659,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "profile",
+        "exitCode": 0,
+        "count": 20048,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "telemetry",
+        "exitCode": 0,
+        "count": 7,
+        "unit": "formatting/cache checks"
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0,
+        "count": 228,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "quake3-advanced-rules",
+        "exitCode": 0,
+        "count": 1100,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "momentum-rules",
+        "exitCode": 0,
+        "count": 197,
+        "unit": "assertions/checks"
+      },
+      {
+        "name": "quake3-authority",
+        "exitCode": 0,
+        "count": 257032,
+        "unit": "assertions/checks",
+        "actualAuthorityScenes": 14
+      },
+      {
+        "name": "traversal-authority",
+        "exitCode": 0,
+        "count": 273310,
+        "unit": "assertions/checks",
+        "actualAuthorityScenes": 14
+      },
+      {
+        "name": "stance-authority",
+        "exitCode": 0,
+        "count": 267,
+        "unit": "assertions/checks"
+      }
+    ],
+    "online": [
+      {
+        "model": "Quake3",
+        "status": "PASS",
+        "processResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "finalProcessResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "archiveSha256": "4c334f5645b2b1d9394277c95e04a6091015bd840ecc824bba22edad69e60291",
+        "sourceBinaryLeaseUnchanged": true,
+        "recordingSource": "retained candidate05 actual Quake3 UDP cohort; no new candidate06 Q3 cohort",
+        "recordingSourceManifestSha256": "89b787d85dcbbc9d471f0d6b06fe41d1baaed018252066eac7b20a53bcfdbfdc",
+        "recordingBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "bc948ba2e12e0c90cee8a3417a7d5948247d23230e70281fad158422e49b51bf"
+        },
+        "replayBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "f02d998d088eb19f47b4729c0fb90d2d7e4c4a66d5d511c97d888c320ab5bc76"
+        },
+        "original05ArchiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 78691,
+          "frames": 2368,
+          "recordedProtocol": 76,
+          "recordedProfileVersion": 4,
+          "expectedModel": "Quake3",
+          "gameplayPresentationDigest": "450DF52E7C713191412BCD001B1C674859806657B8C90036389E7979FF85BAF2",
+          "snapshotPoseChecks": 6746,
+          "snapshotStanceChecks": 0,
+          "crouchedFrames": 0,
+          "standingFrames": 0,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3,
+          "checkpointFrames": [
+            220,
+            300,
+            600,
+            900,
+            1200,
+            1500,
+            1800,
+            2100
+          ],
+          "memoryCheckpointCount": 7,
+          "continuedFrames": 2148
+        }
+      },
+      {
+        "model": "Traversal",
+        "status": "PASS",
+        "processResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "finalProcessResults": {
+          "server": 0,
+          "owner0": 0,
+          "owner1": 0
+        },
+        "archiveSha256": "56dd07f40d1a64d0ee87ab30080d0eea0d0227a937860fa32e07890bc2e69ae4",
+        "sourceBinaryLeaseUnchanged": true,
+        "recordingSource": "candidate06 fresh real Traversal UDP cohort",
+        "recordingSourceManifestSha256": "f7cf8a6d0e4d078d5dadc08681aa2f552ab933bf30a8b622125c49f0c63827b2",
+        "recordingBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "f02d998d088eb19f47b4729c0fb90d2d7e4c4a66d5d511c97d888c320ab5bc76"
+        },
+        "replayBinaries": {
+          "ProjectPrime.dll": "5504bffe2f8b1231398dd01e0b1f52edbde5bee4f2265c821f0db29fec8baa65",
+          "nettest.dll": "f02d998d088eb19f47b4729c0fb90d2d7e4c4a66d5d511c97d888c320ab5bc76"
+        },
+        "original05ArchiveUnchanged": null,
+        "recordedWorldReplay": {
+          "checks": 115830,
+          "frames": 2399,
+          "recordedProtocol": 76,
+          "recordedProfileVersion": 5,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "169ED54359D2ACF93BD04E8F6912E70B12E8CD60A225EAD7472C57E8593C039B",
+          "snapshotPoseChecks": 7018,
+          "snapshotStanceChecks": 7018,
+          "crouchedFrames": 402,
+          "standingFrames": 1997,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3,
+          "checkpointFrames": [
+            161,
+            202,
+            220,
+            300,
+            600,
+            900,
+            1200,
+            1500,
+            1800,
+            2100
+          ],
+          "memoryCheckpointCount": 7,
+          "continuedFrames": 2238
+        }
+      }
+    ],
+    "history": [
+      {
+        "name": "historical61",
+        "exitCode": 0,
+        "archiveSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 80101,
+          "frames": 2399,
+          "recordedProtocol": 61,
+          "recordedProfileVersion": 1,
+          "expectedModel": "Quake3",
+          "gameplayPresentationDigest": "F7857D0527E01CB5E84E5DE1A00E4891D54C867857C6FA50A4CBA4556FED9CA7",
+          "snapshotPoseChecks": 7017,
+          "snapshotStanceChecks": 0,
+          "crouchedFrames": 0,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "historical62",
+        "exitCode": 0,
+        "archiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 80101,
+          "frames": 2399,
+          "recordedProtocol": 62,
+          "recordedProfileVersion": 2,
+          "expectedModel": "Quake3",
+          "gameplayPresentationDigest": "46F7E4DC02A6ADC624E9F9CC822AF31BDE4C9C9C9BA3E17823EF50867B687DDB",
+          "snapshotPoseChecks": 7017,
+          "snapshotStanceChecks": 0,
+          "crouchedFrames": 0,
+          "minimumRecordedPlayers": 2,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "historical68",
+        "exitCode": 0,
+        "archiveSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 87551,
+          "frames": 2400,
+          "recordedProtocol": 68,
+          "recordedProfileVersion": 1,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "F71C2E6DFFDAAA8AE7A2C2C5421F0B359DD569EDAEF49820BA08C823F0916B54",
+          "snapshotPoseChecks": 7200,
+          "snapshotStanceChecks": 0,
+          "crouchedFrames": 0,
+          "minimumRecordedPlayers": 3,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "historical69",
+        "exitCode": 0,
+        "archiveSha256": "e5c68d47c4aed0d9edc209952b80968642b83f9cadcbf29f2e1f533e3dee97c6",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 116994,
+          "frames": 2400,
+          "recordedProtocol": 69,
+          "recordedProfileVersion": 2,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "AAAD7F6E82F13082DD7C63759D89A07027F8C9764A76160EFFAD6811F62E202C",
+          "snapshotPoseChecks": 7200,
+          "snapshotStanceChecks": 7200,
+          "crouchedFrames": 405,
+          "minimumRecordedPlayers": 3,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "historical71",
+        "exitCode": 0,
+        "archiveSha256": "fd6d21c75f3fade0b1b0f568401d52b0b8072dc3192354882777e13231cf12fb",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 116975,
+          "frames": 2400,
+          "recordedProtocol": 71,
+          "recordedProfileVersion": 3,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "B858586471FC6BC405AB4FD7A01D097B241B6544249B7A66A47A5D11EDE9F0A7",
+          "snapshotPoseChecks": 7200,
+          "snapshotStanceChecks": 7200,
+          "crouchedFrames": 400,
+          "minimumRecordedPlayers": 3,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "historical74",
+        "exitCode": 0,
+        "archiveSha256": "d038adf03fd285d297e84eeb8288ee8fa0e9fb127b7a96e5d34afccf87292a35",
+        "archiveUnchanged": true,
+        "recordedWorldReplay": {
+          "checks": 116975,
+          "frames": 2400,
+          "recordedProtocol": 74,
+          "recordedProfileVersion": 4,
+          "expectedModel": "Traversal",
+          "gameplayPresentationDigest": "56CFCC0DC67045EC6960EE14A5438A13BEDC1C9D18695FBD66A8C25F158198DD",
+          "snapshotPoseChecks": 7200,
+          "snapshotStanceChecks": 7200,
+          "crouchedFrames": 401,
+          "minimumRecordedPlayers": 3,
+          "maximumRecordedPlayers": 3
+        }
+      },
+      {
+        "name": "protocol58",
+        "exitCode": 0,
+        "byteArchiveChecks": 932
+      }
+    ],
+    "custom": {
+      "buildExitCode": 0,
+      "customToolSha256": "b331eca57ce97675c8270b8a5b19fa0f0b566c941e57d1b2615e403292cea0ab",
+      "sourceBinariesUnchangedAfterToolBuild": true,
+      "sourceBinaryLeaseUnchanged": true,
+      "status": "PASS",
+      "tests": [
+        {
+          "name": "pure",
+          "exitCode": 0,
+          "checks": 22724
+        },
+        {
+          "name": "online-pickup-scene",
+          "exitCode": 0,
+          "checks": 22
+        },
+        {
+          "name": "pickup-protocol",
+          "exitCode": 0,
+          "checks": 371
+        },
+        {
+          "name": "pickup-claims",
+          "exitCode": 0,
+          "checks": 3087
+        },
+        {
+          "name": "pickup-network",
+          "exitCode": 0,
+          "checks": 6219
+        },
+        {
+          "name": "pickup-replay",
+          "exitCode": 0,
+          "checks": 84
+        }
+      ],
+      "originalRifleAssetContractChecks": 4252
+    },
+    "runtimeCleanup": {
+      "scope": "Owned ramp momentum QA runtime entrypoints; compiler servers and unrelated work excluded",
+      "processes": [],
+      "ownedRuntimeProcessCount": 0,
+      "checkedUtc": "2026-10-20T18:19:46.5957630Z"
+    },
+    "scope": "Windows Release frozen-source CPU movement contracts, actual UDP cohorts and replay only; no GL, physical-device or performance acceptance",
+    "status": "PASS",
+    "groundSlopeScene": {
+      "checks": 413037,
+      "failedCaseCount": 0,
+      "slideControls": [
+        {
+          "hunter": "Samus",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Samus",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Samus",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Samus",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Samus",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "earned-uphill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            114,
+            185
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "elevated-deck-crouch-retains-real-floor",
+          "slideTicks": 28,
+          "slideTickRange": [
+            80,
+            107
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.145709,
+          "lastSteepSpeed": null,
+          "deckInteriorTicks": 21,
+          "continuousDeckContact": true,
+          "deckYMin": 8.5,
+          "deckYMax": 8.5
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "uphill-crest-real-ledge-cancels-slide",
+          "slideTicks": 13,
+          "slideTickRange": [
+            196,
+            208
+          ],
+          "steepSlideTicks": 0,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 7.199707,
+          "firstSlideSpeed": 7.1214614,
+          "lastSteepSpeed": null,
+          "departureTick": 208,
+          "departureCenterZ": 7.954095,
+          "nextTickSlideCancelled": true,
+          "actualLowerFloorLanding": true
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "earned-supported-downhill-slide",
+          "slideTicks": 72,
+          "slideTickRange": [
+            9,
+            80
+          ],
+          "steepSlideTicks": 72,
+          "positiveSteepGainTicks": 72,
+          "entrySpeed": 6.773887,
+          "firstSlideSpeed": 6.7937946,
+          "lastSteepSpeed": 7.8844957
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "deck-descent-earned-overspeed-braking",
+          "slideTicks": 72,
+          "slideTickRange": [
+            154,
+            225
+          ],
+          "steepSlideTicks": 14,
+          "positiveSteepGainTicks": 0,
+          "entrySpeed": 14.861154,
+          "firstSlideSpeed": 14.820406,
+          "lastSteepSpeed": 14.317682
+        }
+      ]
+    },
+    "candidateHistory": {
+      "candidate01": {
+        "status": "FAIL",
+        "sourceManifestSha256": "abc6279f95f5df7eec1fc010d8156defd6924b12a10cf9e5a8f7c06047f14542"
+      },
+      "candidate02": {
+        "status": "FAIL",
+        "sourceManifestSha256": "7a5e6ee6573f4360667e97a8092147683a62846b969be27867931025d4fa0c32"
+      },
+      "candidate03": {
+        "sourceManifestSha256": "0328e2fc5de8034100ca0dc4268e73356e00cf7b38b8ab577f4c6923595efee7",
+        "status": "FAIL"
+      },
+      "candidate04": {
+        "sourceManifestSha256": "29c64e5456701777a3d170235c526b65de56c949b47c1c0de6b65ad72dea84fb",
+        "status": "INTERMEDIATE_FIXTURE_QUALIFICATION_PASS",
+        "sceneAssertions": 413037
+      },
+      "candidate05": {
+        "sourceManifestSha256": "89b787d85dcbbc9d471f0d6b06fe41d1baaed018252066eac7b20a53bcfdbfdc",
+        "overlaySha256": "02bcd3d1b73bd2faa1668983522d58d568defd8dff280ee0d98121b53bdc4013",
+        "status": "PASS_ALL21_FOCUSED_AND_Q3_UDP_FAIL_STALE_REPLAY_FIXTURE",
+        "sceneAssertions": 413037,
+        "all21FocusedGatesPassed": true,
+        "failure": "Replay CheckMode fixture omitted protocol76 profile branches and failed before gameplay; original failure and archive preserved."
+      },
+      "candidate06": {
+        "sourceManifestSha256": "f7cf8a6d0e4d078d5dadc08681aa2f552ab933bf30a8b622125c49f0c63827b2",
+        "overlaySha256": "19269c96e3e0770955398f6b0a69248bd57719b059dbdd7465e6f402b8af3e0c",
+        "productionBuild": "Exact candidate05 complete normal Windows Release production and reference outputs reused; only candidate06 nettest rebuilt.",
+        "reusedQ3Recording": "Actual candidate05 cohort/archive, verified unchanged; new candidate06 replay fixture against identical production binary."
+      }
+    },
+    "remainingWork": [
+      "Dedicated slide entry/glide/exit presentation",
+      "Procedural crouch footwork and pelvis weight shifts",
+      "Optional HUD movement state/speed and native slide audio feedback"
+    ]
+  },
+  "priorEvidenceArchiveSha256": "23b248e625512b4196707860ad934e677badae87e855aba1a012fb8d92c176bd"
+}

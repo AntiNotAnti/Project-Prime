@@ -35,8 +35,8 @@ internal static class Quake3AdvancedRulesTests
     private static void NumericalContract()
     {
         Check(Quake3MovementProfileV1.ProfileVersion == 1 && Quake3MovementProfileV2.ProfileVersion == 2
-            && MovementModelRules.ProfileVersion(MovementModel.Quake3) == 3,
-            "current Q3 rule selects profile three while historical profiles one and two remain immutable");
+            && MovementModelRules.ProfileVersion(MovementModel.Quake3) == 4,
+            "current Q3 rule selects profile four while historical profiles one and two remain immutable");
         Check(Quake3MovementProfileV2.RocketImpulsePerDamage == .025f
             && Quake3MovementProfileV2.MaximumRocketImpulse == 1.2f
             && Quake3MovementProfileV2.RocketBodyAimHeight == .5f,

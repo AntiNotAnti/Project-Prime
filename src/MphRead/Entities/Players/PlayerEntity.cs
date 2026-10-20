@@ -651,6 +651,7 @@ namespace MphRead.Entities
             ModResetSpawnProtectionReplication();
             ModResetMovementValidation();
             ModResetTraversalStance();
+            ModResetGroundTravel();
             ModResetWallClingForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
@@ -735,6 +736,7 @@ namespace MphRead.Entities
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
             ModResetTraversalStance();
+            ModResetGroundTravel();
             _modFormStartedFrame = 0;
             _scene.MatchEvents.Spawn(_scene, this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
@@ -998,6 +1000,7 @@ namespace MphRead.Entities
             ModResetSpawnProtectionReplication();
             ModResetMovementValidation();
             ModResetTraversalStance();
+            ModResetGroundTravel();
             if (IsBot && _scene.GameState.SinglePlayer)
             {
                 _spawnInvulnTimer = 0;

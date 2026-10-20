@@ -276,6 +276,8 @@ internal static class MomentumOnlineSceneTests
                     Require(sample.Slot == localSlot && sample.SimulationFrame == frame, "diagnostic names actual local slot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "online horizontal adapter preserves native Y bits");
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    if (sample.GroundSupport.HasValue)
+                        incoming = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
                     var result = expected switch
                     {
                         MovementModel.Traversal => TraversalMovementProfileV4.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),

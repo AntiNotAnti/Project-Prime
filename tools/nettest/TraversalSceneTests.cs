@@ -259,6 +259,8 @@ internal static class TraversalSceneTests
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y)
                         == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "horizontal solver preserves native Y bits");
                     Vector3 inputSpeed = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    if (sample.GroundSupport.HasValue)
+                        inputSpeed = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
                     Vector3 expected = model == MovementModel.Traversal
                         ? TraversalMovementProfileV4.Step(inputSpeed, sample.Input, sample.Crouched, sample.Sliding).Velocity
                         : Quake3MovementProfileV3.Step(inputSpeed, sample.Input).Velocity;
