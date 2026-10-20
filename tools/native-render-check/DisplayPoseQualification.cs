@@ -17,6 +17,7 @@ using MphRead.Mods.Render;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Windowing.Common;
 
 // Opt-in fixture in the existing native-render-check window. RenderWindow owns
 // every FrameTiming.Advance, simulation step, draw and swap. This partial only
@@ -27,6 +28,14 @@ sealed partial class CheckWindow
     private readonly bool _poseCheck;
     private readonly bool _posePixels;
     private readonly string _poseScenario;
+    private readonly string _poseFocusControl;
+    private bool _poseFocusInjected, _poseInjectingFocus;
+    private readonly List<object> _poseFocusEvents = new();
+    private void ObservePoseFocus(bool focused, string source) => _poseFocusEvents.Add(new
+    {
+        focused, source, outputFrame = _poseOutput, sceneFrame = Scene?.FrameCount,
+        wallSeconds = _wall.Elapsed.TotalSeconds
+    });
     private bool _poseGunPixelsVerified, _poseChargePixelsVerified;
     private readonly List<object> _poseSchedule = new(), _poseSteps = new(), _posePictures = new(), _poseFences = new(), _poseInputs = new(), _poseDrawDiagnostics = new();
     private readonly HashSet<int> _poseCaptured = new();
@@ -129,6 +138,25 @@ sealed partial class CheckWindow
         // observed separately; these captures do not qualify OS focus behavior.
         GamepadContexts.Focused = true;
         int next = checked((int)Scene.FrameCount + 1);
+        if (next == 245 && !_poseFocusInjected && _poseFocusControl != "none")
+        {
+            _poseFocusInjected = true;
+            foreach (bool focused in new[] { false, true })
+            {
+                if (_poseFocusControl == "legacy")
+                {
+                    ObservePoseFocus(focused, "injected-legacy-base");
+                    base.OnFocusedChanged(new FocusedChangedEventArgs(focused));
+                }
+                else
+                {
+                    // Use the ordinary callback, labeling the injected observation.
+                    _poseInjectingFocus = true;
+                    try { OnFocusedChanged(new FocusedChangedEventArgs(focused)); }
+                    finally { _poseInjectingFocus = false; }
+                }
+            }
+        }
         if (next == 1390 && !_poseReset)
         {
             _poseReset = true; FrameTiming.Reset();
@@ -279,6 +307,12 @@ sealed partial class CheckWindow
                 _poseScopeMin = Math.Min(_poseScopeMin, Scene.Players.Main.CameraInfo.Fov);
                 _poseScopeMax = Math.Max(_poseScopeMax, Scene.Players.Main.CameraInfo.Fov);
             }
+            // Tick 361 arms the diagnostic weapon and enters held fire. Permit
+            // that one admission boundary; every subsequent charge tick must
+            // consume the script exactly, including its release at tick 460.
+            if (tick is >= 362 and <= 480)
+                PoseRequire(Scene.Players.Main.Controls.Shoot.IsDown == (tick < 460),
+                    "main charge input was suppressed or changed at tick " + tick);
             string consumed = InputWitness();
             _poseInputs.Add(new { tick, preparedInput = _poseInput, consumedInput = consumed });
             _poseSteps.Add(new { tick, phase = DisplayPosePlan.Phase(tick), canonicalProjection = projection,
@@ -304,7 +338,7 @@ sealed partial class CheckWindow
                 "native completed particle samples did not exercise the requested presentation policy");
             PoseRequire(_poseBeamDraws > 0 && (_cap == 60 || _poseBeamSamples > 0),
                 "native beam drawings did not exercise the requested presentation policy");
-            Complete = true; Close();
+            Complete = _poseFocusControl != "legacy"; Close();
         }
     }
     private void DrawPoseRepeated(string label)
@@ -451,6 +485,9 @@ sealed partial class CheckWindow
         framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y }, renderSize = new[] { Scene.RenderSize.X, Scene.RenderSize.Y },
         responsiveCamera = Features.ResponsiveAimCamera, fixedWeapon = Features.FixedWeapon,
         syntheticInput = true, physicalControllerRejected = true, osFocusAcceptance = "NOT_CLAIMED",
+        focusControl = new { mode = _poseFocusControl, injectionTick = 245,
+            injected = _poseFocusInjected, qualificationEligible = _poseFocusControl != "legacy",
+            events = _poseFocusEvents },
         canonicalWitness = "unchanged production ReplayStateHash/schema4 + Scene.ReplayPresentationHash only",
         cameraControlAcceptance = "STRICT_ENTRY_EXIT_CANONICAL_REQUIRED",
         pixelControlAcceptance = _posePixels ? "ISOLATED_NATIVE_GUN_AND_CHARGE_REQUIRED" : "NOT_REQUESTED",
