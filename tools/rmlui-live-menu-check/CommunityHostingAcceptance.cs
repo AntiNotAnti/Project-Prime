@@ -65,9 +65,8 @@ internal static class CommunityHostingAcceptance
             && services.CreatedRequest.Format == MatchFormat.Auto
             && !services.CreatedRequest.Dedicated, "immutable root and complete target reach backend unchanged");
         Check(!controller.Dispatch(RmlUiIntentKind.PlayCreate)
-            && !controller.Dispatch(RmlUiIntentKind.PlayCancel)
             && !controller.OpenCreateLobbyForInstalled(target)
-            && services.CreateCalls == 1, "committed allocation blocks duplicate submit, cancel and replacement");
+            && services.CreateCalls == 1, "pending allocation blocks duplicate submit and target replacement");
         services.CreatePending.SetResult(new(false, default, "SYNTHETIC ALLOCATION REFUSED"));
         Await(controller, () => !controller.Creating && !controller.Joining);
         Check(Flag(controller, "play_create_mode") && Text(controller, "play_create_map") == target.Identity.RoomKey,

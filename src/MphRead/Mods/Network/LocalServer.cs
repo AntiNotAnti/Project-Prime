@@ -40,6 +40,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public static class LocalServer
     {
+        internal static readonly object StartLifecycleGate = new();
         /// <summary>Where a downloaded server package is unpacked.</summary>
         public static string Directory =>
             Path.Combine(LauncherPrefs.Directory, "server");
@@ -69,9 +70,12 @@ namespace MphRead.Mods.Network
         /// </summary>
         internal static Process? DetachRunning()
         {
-            Process? process = Running;
-            Running = null;
-            return process;
+            lock(StartLifecycleGate)
+            {
+                Process? process = Running;
+                Running = null;
+                return process;
+            }
         }
 
         /// <summary>
@@ -293,6 +297,26 @@ namespace MphRead.Mods.Network
         }
 
         public static int Start(string serverName,
+            IReadOnlyList<(string RoomKey, GameMode Mode)> rotation,
+            int maxPlayers, float timeLimit, int pointGoal,
+            string masterHost, int masterPort, bool listed,
+            CancellationToken cancel = default, bool lobby = false,
+            int? requestedPort = null, Guid? ownerToken = null,
+            MatchFormat format = MatchFormat.Auto, bool requireReady = false,
+            bool allowJoinInProgress = true, bool friendlyFire = false,
+            bool shadowFreeze = false, bool affinityWeapons = false,
+            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null)
+        {
+            lock (StartLifecycleGate)
+            {
+                if (cancel.IsCancellationRequested) { LastError="server startup was cancelled"; return -1; }
+                return StartCore(serverName,rotation,maxPlayers,timeLimit,pointGoal,masterHost,masterPort,listed,
+                    cancel,lobby,requestedPort,ownerToken,format,requireReady,allowJoinInProgress,friendlyFire,
+                    shadowFreeze,affinityWeapons,spawnProtection,waitUntilReady,requiredMap,hostedMaps);
+            }
+        }
+
+        private static int StartCore(string serverName,
             IReadOnlyList<(string RoomKey, GameMode Mode)> rotation,
             int maxPlayers, float timeLimit, int pointGoal,
             string masterHost, int masterPort, bool listed,
@@ -655,23 +679,26 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Stop()
         {
-            Process? process = Running;
-            Running = null;
-            if (process == null)
+            lock(StartLifecycleGate)
             {
-                return;
-            }
-            try
-            {
-                if (!process.HasExited)
+                Process? process = Running;
+                Running = null;
+                if (process == null)
                 {
-                    process.Kill(entireProcessTree: true);
+                    return;
                 }
-                process.Dispose();
-            }
-            catch (Exception)
-            {
-                // Already gone, or not ours to kill.
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                    process.Dispose();
+                }
+                catch (Exception)
+                {
+                    // Already gone, or not ours to kill.
+                }
             }
         }
 

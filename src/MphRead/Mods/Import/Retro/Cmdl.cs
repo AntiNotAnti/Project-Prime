@@ -305,8 +305,29 @@ namespace MphRead.Mods.Import.Retro
             if (skinId is uint sk)
             {
                 model.Skin = Cskr.Load(res(sk));
+                ResolveSkinnedPositionPadding(model,M,sec[si]);
             }
             return model;
+        }
+
+        // Attribute sections are padded to32 bytes. CSKR declares the real
+        // skinned position extent; a complete zero alignment tail is not an
+        // extra vertex. Resolve only a proven, unreferenced tail. Every real
+        // position, corner, bone and source influence remains unchanged.
+        private static void ResolveSkinnedPositionPadding(Cmdl model,byte[] source,(int Start,int End) section)
+        {
+            if(model.Skin is not {Count:>0} skin || skin.Count>Cskr.MaxVertices || skin.Count>=model.PositionCount
+                || model.Triangles.Length==0 || model.Triangles.Length!=3L*model.TriangleCount
+                || section.Start<0 || section.End<section.Start || section.End>source.Length)return;
+            int bytes=checked(skin.Count*3*sizeof(float));
+            int length=section.End-section.Start;
+            int padding=length-bytes;
+            if(padding is <1 or >31 || length!=((bytes+31)/32)*32
+                || model.Positions.Length!=length/(3*sizeof(float))*3
+                || source.AsSpan(section.Start+bytes,padding).IndexOfAnyExcept((byte)0)>=0)return;
+            foreach(float value in model.Positions.AsSpan(skin.Count*3))if(BitConverter.SingleToInt32Bits(value)!=0)return;
+            foreach(var corner in model.Triangles)if((uint)corner.P>=skin.Count)return;
+            Array.Resize(ref model.Positions,skin.Count*3);
         }
 
         static float[] Floats(byte[] b, (int Start, int End) s, int per)

@@ -29,6 +29,37 @@ internal static class RetroCharacterMeshFixtureTests
         Check(Be.U32(new byte[]{0,0,0,2}, 0) == 2, "big endian resource IDs");
         Expect<InvalidDataException>(() => Be.Slice(new byte[4], -1, 2), "negative resource offset");
         Expect<InvalidDataException>(() => Cmdl.Load(_ => new byte[64], 0x10), "invalid CMDL");
+        PositionPadding();
+    }
+
+    private static void PositionPadding()
+    {
+        var resolve=typeof(Cmdl).GetMethod("ResolveSkinnedPositionPadding",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static)!;
+        Cmdl Model(int vertices=5) => new()
+        {
+            Positions=Enumerable.Range(0,vertices*3).Select(v=>v<12 ? (float)v : 0f).ToArray(),
+            Skin=Enumerable.Range(0,4).Select(v=>new[]{(Bone:(uint)(10+v),Weight:1f)}).ToList(),
+            Triangles=new[]{new Cmdl.Corner{P=0},new Cmdl.Corner{P=1},new Cmdl.Corner{P=3}},TriangleMaterial=new[]{0}
+        };
+        void Apply(Cmdl model,byte[] bytes,int end) => resolve.Invoke(null,new object[]{model,bytes,(0,end)});
+        var good=Model(); var corners=good.Triangles;var skin=good.Skin;var original=good.Positions.ToArray();
+        Apply(good,new byte[64],64);
+        Check(good.PositionCount==4 && good.Positions.SequenceEqual(original.Take(12)) && ReferenceEquals(corners,good.Triangles)
+            && ReferenceEquals(skin,good.Skin) && good.Skin!.All(g=>g.Single().Weight==1f),
+            "exact zero alignment tail removes no referenced geometry or source influences");
+        var referenced=Model();referenced.Triangles[2].P=4;Apply(referenced,new byte[64],64);
+        Check(referenced.PositionCount==5,"referenced unweighted position remains a fail-closed mismatch");
+        var nonzero=Model();var bad=new byte[64];bad[63]=1;Apply(nonzero,bad,64);
+        Check(nonzero.PositionCount==5,"nonzero attribute tail cannot be discarded");
+        var oversized=Model(8);Apply(oversized,new byte[96],96);
+        Check(oversized.PositionCount==8,"oversized tail cannot be treated as alignment");
+        var unaligned=Model();Apply(unaligned,new byte[60],60);
+        Check(unaligned.PositionCount==5,"unaligned section cannot be treated as padding");
+        var missing=Model();missing.Skin!.RemoveAt(3);Apply(missing,new byte[64],64);
+        Check(missing.PositionCount==5,"missing real CSKR extent cannot be replaced with guessed influences");
+        var exact=Model(4);var exactPositions=exact.Positions;Apply(exact,new byte[64],64);
+        Check(ReferenceEquals(exact.Positions,exactPositions),"already exact historical model positions stay byte-identical");
+        Console.WriteLine("CMDL PADDING PASS: bounded zero alignment, real corner coverage and exact influence preservation");
     }
 
     private static void Set(byte[] bytes, int at, uint value) =>

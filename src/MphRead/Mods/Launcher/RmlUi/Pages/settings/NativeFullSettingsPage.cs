@@ -228,7 +228,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         Bool("visible:native_settings_files",_controller.Category==5);
         Bool("visible:native_settings_import_arenas",_controller.Category==5&&_allowGameFiles);
         Bool("visible:native_settings_character_previews",_controller.Category==5&&_allowGameFiles);
-        Text("native_settings_character_selected","PREVIEW: "+_controller.CharacterPreviewId);
+        Text("native_settings_character_selected","PREVIEW: "+_controller.CharacterPreviewLabel);
         Bool("visible:native_settings_cancel_import",_controller.ImportingArenas);
         Bool("disabled:native_settings_files",!_allowGameFiles);
         Bool("visible:native_settings_video",_controller.ConfirmingVideo);

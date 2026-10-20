@@ -982,9 +982,8 @@ Check(controller.Dispatch(RmlUiIntentKind.PlayToggleHost)
 Check(controller.Dispatch(RmlUiIntentKind.PlayCreate, playerName: "Pilot", lobbyName: "Test Lobby")
     && controller.Creating && services.CreateCalls == 1,
     "native create uses one explicit authoritative allocation");
-Check(!controller.Dispatch(RmlUiIntentKind.PlayCreate, playerName: "Pilot", lobbyName: "Duplicate")
-    && !controller.Dispatch(RmlUiIntentKind.PlayCancel),
-    "pending host allocation cannot double-start or disappear under a cancelled UI");
+Check(!controller.Dispatch(RmlUiIntentKind.PlayCreate, playerName: "Pilot", lobbyName: "Duplicate"),
+    "pending host allocation cannot double-start");
 Check(services.CreatedRequest.Name == "Test Lobby"
     && services.CreatedRequest.RoomKey == "MP1 SANCTORUS"
     && services.CreatedRequest.Dedicated,
@@ -1148,6 +1147,7 @@ PartyConnectionAcceptance.Run();
 SocialConnectionAcceptance.Run();
 PartyQueueAcceptance.Run();
 RandomMatchAcceptance.Run();
+CreatedLobbyCompletionAcceptance.Run();
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices
@@ -1166,6 +1166,10 @@ sealed class Stub : IRmlUiMenuServices
     public readonly System.Collections.Generic.List<(NativePartyQueueSnapshot Snapshot, NativePartyQueueCommand Command)> PartyQueueCommands = new();
     public TaskCompletionSource<RmlUiJoinResult> CreatePending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public LobbyCreationRequest CreatedRequest;
+    public CancellationToken CreateToken;
+    public bool CreatedMayAccept = true;
+    public int CreatedNotes, CreatedDiscards, CreatedCancellations;
+    public readonly System.Collections.Generic.List<string> CreateEvents = new();
     public string[] BuiltInMaps = { "MP1 SANCTORUS" };
     public string[] CommunityMaps = Array.Empty<string>();
     public RmlUiHunterDraft? HunterDraft;
@@ -1272,12 +1276,17 @@ sealed class Stub : IRmlUiMenuServices
             CanAccept = false, CanDecline = false };
         return true;
     }
-    public Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken _)
+    public Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken token)
     {
         CreatedRequest = request;
+        CreateToken = token;
         CreateCalls++;
         return CreatePending.Task;
     }
+    public bool CanAcceptCreatedLobby(LaunchPlan plan) { CreateEvents.Add("validate"); return CreatedMayAccept; }
+    public void NoteCreatedLobby(LaunchPlan plan) { CreatedNotes++; CreateEvents.Add("note"); }
+    public void DiscardCreatedLobby(LaunchPlan plan) { CreatedDiscards++; CreateEvents.Add("discard"); }
+    public void CancelCreatedLobby() { CreatedCancellations++; }
     public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
     {
         OfflineValidations++;
@@ -1336,7 +1345,7 @@ sealed class Stub : IRmlUiMenuServices
         OfflineRulesSaves++;
         return true;
     }
-    public bool AcceptJoin(LaunchPlan _) { Accepted++; PartyEvents.Add("accept"); return AcceptJoinResult; }
+    public bool AcceptJoin(LaunchPlan _) { Accepted++; PartyEvents.Add("accept"); CreateEvents.Add("accept"); return AcceptJoinResult; }
     public int LegacyCreateCalls;
     public bool OpenCreateLobby() { LegacyCreateCalls++; return true; }
     public bool NavigateTo(RmlUiRouteArgument route)

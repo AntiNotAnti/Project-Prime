@@ -20,7 +20,7 @@ public static class ExternalCharacterCatalog
         {
             new ExternalCharacterDefinition("darksamus", "DARK SAMUS",
                 Hunter.Samus, false,
-                Array.AsReadOnly(new[] { "MP2DarkSamus", "MP3DarkSamus" })),
+                Array.AsReadOnly(new[] { "MP2DarkSamus", "MP3DarkSamus", "MP2DarkSamusFinal" })),
             new ExternalCharacterDefinition("trooper", "TROOPER",
                 Hunter.Weavel, true,
                 Array.AsReadOnly(new[]
