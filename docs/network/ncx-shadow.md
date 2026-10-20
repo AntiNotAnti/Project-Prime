@@ -69,6 +69,48 @@ the live player to alt form before the accepted native drain, and requires verif
 source/geometry, real native payment, and fast-path fallback. Rewound collision
 form cannot hide an unsupported current actor state.
 
-Acceptance is in progress. Raw runs, failed attempts and source/binary manifests
-are retained under `artifacts/ncx/NCX-03/`. No family is promoted to early claim
-settlement by this slice.
+Scoped shadow acceptance completed on source
+`75c32ac79794acc29534780888c64ce468125ff6`, integrated with main
+`017373d45fd7adbf59c7703b373e65cc25ce464d`. The committed
+[`ncx-shadow.json`](../../tools/nettest/baselines/ncx-shadow.json) records exact
+source, input closure, assemblies and raw artifact hashes. The Release rebuild
+has zero warnings/errors; 30 focused routes pass across Off/Shadow, including
+receipt, arbitration, continuous, source, native witness and actual asset controls.
+The 95 Python checks pass. The 46 passing native fidelity hashes remain identical
+to NCX-01, with the same retained one-unit missile splash divergence; custom
+rewind checks pass 156 assertions in each mode. Goldens were not regenerated.
+
+Ten controlled asset cases run twice, each execution comparing internal
+Off/Shadow arms with exact health, payments, scores, semantic events, both RNG
+words and canonical replay metadata/bytes. Four controls positively predict native
+damage; one predicts a native spawn-immunity block; five require fallback.
+Independent capture audits report eight PASS and twelve INCOMPLETE across those
+two executions, with no FAIL. Reject-only and unsupported-only captures deliberately
+do not become positive eligible certifications. This is ten controls, not twenty
+distinct families. It does not qualify fresh claim settlement or close a
+cross-shooter causal frontier.
+
+The final-source eight-player Power Beam Volley campaign uses actual loopback
+UDP with configured 400 ms RTT, 80 ms jitter, 5% loss, 3% reorder and 1% duplicate
+faults. Campaign, bounded drain, receipt accounting and scoped shadow audit pass:
+131 exact already-paid comparisons, zero unexplained disagreements, zero
+predicted double payments, zero missing eligible comparisons and zero overflow.
+Earlier source08 LAN/impaired/eight-player captures retain 262 additional paid
+comparisons with passing scoped payment audits; those runs remain attributed to
+their original source and assembly. These are immutable receipt comparisons,
+not newly fast-paid hits or geographic, pixel, CPU or superiority evidence.
+
+Failures remain visible. One source08 impaired campaign failed its post-drain
+graceful-close handshake despite passing payment and drain audits; the matched
+same-binary Off control passed, so causality is undetermined and NCX-09 remains
+open. A source09 impaired capture had no hits/claims and remains INCOMPLETE
+(raw campaign FAIL); a subsequent attempt exhausted disk during staging before
+any game processes. Neither is counted as a positive qualification. Original
+N13 settlement/performance, physical platform and release gates remain incomplete.
+Raw runs and failed attempts are retained under `artifacts/ncx/NCX-03/`.
+
+This slice enables no early claim settlement. NCX-04 may promote only exact
+already-paid receipts proven here; fresh claims and unsupported contexts retain
+legacy handling. The existing paid branch already answers in the same Receive
+call, so a narrower receipt route can reduce validation work but supplies no
+new grace-delay or RTT improvement claim.
