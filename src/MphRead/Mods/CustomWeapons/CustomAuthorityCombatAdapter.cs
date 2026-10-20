@@ -150,6 +150,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if (next.Kind==CustomWeaponActionKind.Fire && !_delivery.HasContactReservation(next)) return false;
             if (life.Sources.TryGet(owner,next.SourceFrame,Now,out var sample)
                 && unchecked((int)(Now-sample.ObservedWorldFrame))<=0) return false;
+            if(next.Kind==CustomWeaponActionKind.Fire&&!_delivery.TryPrepareAudience(next))return false;
         }
         if (!life.Journal.TryProcessNext(Now,this,this,out receipt)) return false;
         if (_delivery?.Publish(receipt)==false)
@@ -212,6 +213,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         var owner = launch.Source.Action.Owner;
         if (!IsEligible || _emittingEquip != null || !TradeAllowed(owner,launch.Source.TargetWorldFrame)
             || _delivery!=null && !_delivery.HasContactReservation(launch.Source.Action)
+            || _delivery!=null && !_delivery.HasPreparedAudience(launch.Source.Action)
             || Find(owner) is not { } life || !ReferenceEquals(_current[owner.Slot],life)
             || _slots[owner.Slot] is not { } slot || !CurrentOwner(slot.Player,out var current) || current != owner
             || _sourceAdmission.Inspect(launch.Source.Action,out var checkedSource) != CustomSourceDecision.Verified
@@ -240,6 +242,8 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
                 }
                 NetUnlagged.EndShot(slot.Player);
                 if (!life.Payments.CommitEmitted(lease)) throw new InvalidOperationException("Custom emission became uncertain.");
+                if(_delivery?.PublishLaunch(new(launch.Source,Now,launch.Source.Body+Vector3.UnitY*.4f,aim))==false)
+                    throw new InvalidOperationException("Prepared custom launch audience disappeared.");
                 AcceptedEmissions++; return CustomEmissionDisposition.Spawned;
             }
             finally

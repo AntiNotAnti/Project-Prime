@@ -10,35 +10,39 @@ public sealed partial class DedicatedServer
     internal bool DeveloperCustomWeaponReadiness { get; set; }
     // Separate explicit developer choice: capability alone never activates combat.
     internal bool DeveloperCustomWeaponCombat { get; set; }
-    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary,CustomActionPeer? Combat);
+    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary,CustomActionPeer? Combat,CustomReplicaMailbox? Replica);
     private CustomReadyEntry?[]? _customReadyEntries;
-    private bool CustomNativeReady(Peer peer)
+    private CustomReplicaAudience? _customAudience;
+    private MatchStartIdentity _customAudienceStart;
+    private bool CustomNativeRecipientReady(Peer peer)
         => (uint)peer.SlotIndex < 8 && peer.SceneLoaded && peer.MatchReady && peer.AdmissionReady
-            && !peer.Spectating && peer.BootstrapLength != 0 && peer.BootstrapIdentity.Start == CurrentStartIdentity
+            && peer.BootstrapLength != 0 && peer.BootstrapIdentity.Start == CurrentStartIdentity
             && peer.BootstrapIdentity.SlotGeneration == _slotGenerations[peer.SlotIndex];
+    private bool CustomNativeReady(Peer peer)=>!peer.Spectating&&CustomNativeRecipientReady(peer);
     private void PumpCustomWeaponReadiness(double now)
     {
         if (!DeveloperCustomWeaponReadiness || _transport == null)
         {
-            if (_customReadyEntries != null)
-                for (int slot=0; slot<8; slot++) { InvalidateCustomEntry(_customReadyEntries[slot]); _customReadyEntries[slot] = null; }
+            ReleaseCustomWeaponReadiness();
             return;
         }
         _customReadyEntries ??= new CustomReadyEntry?[8];
         byte seen = 0;
         foreach (var peer in _peers)
         {
-            if (!CustomNativeReady(peer)) continue;
+            if (!CustomNativeRecipientReady(peer)) continue;
             ulong connection = _transport.ConnectionStats(peer.EndPoint)?.ConnectionId ?? 0;
             if (connection == 0) continue;
             int slot = peer.SlotIndex; seen |= (byte)(1 << slot);
             var entry = _customReadyEntries[slot];
-            if (entry?.Peer != peer || entry.State.ConnectionId != connection || entry.State.Wire.Bootstrap != peer.BootstrapIdentity)
+            bool source=DeveloperCustomWeaponCombat&&!peer.Spectating;
+            if (entry?.Peer != peer || entry.State.ConnectionId != connection || entry.State.Wire.Bootstrap != peer.BootstrapIdentity
+                || (entry.Boundary!=null)!=source || (entry.Replica!=null)!=DeveloperCustomWeaponCombat)
             {
                 InvalidateCustomEntry(entry);
                 var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now);
-                entry = new(peer,state,DeveloperCustomWeaponCombat ? new(state) : null,
-                    DeveloperCustomWeaponCombat ? new(state.Wire) : null);
+                entry = new(peer,state,source ? new(state) : null,source ? new(state.Wire) : null,
+                    DeveloperCustomWeaponCombat ? new(state.Wire,connection,NetSession.Clock) : null);
                 _customReadyEntries[slot] = entry;
             }
             if (entry.State.Due(now)) _transport.TrySendSemantic(peer.EndPoint,PacketType.CustomWeaponManifest,entry.State.Wire.ManifestBytes);
@@ -49,9 +53,11 @@ public sealed partial class DedicatedServer
     }
     private void ReleaseCustomWeaponReadiness()
     {
-        if (_customReadyEntries == null) return;
-        foreach (var entry in _customReadyEntries) InvalidateCustomEntry(entry);
+        if (_customReadyEntries != null)foreach (var entry in _customReadyEntries) InvalidateCustomEntry(entry);
         _customReadyEntries = null;
+        _customAudience?.Close();_customAudience=null;_customAudienceStart=default;
+        Array.Clear(_customReplicaStateOwners);Array.Clear(_customReplicaStateRevisions);Array.Clear(_customReplicaStateDue);
+        Array.Clear(_customReplicaSlots);Array.Clear(_customReplicaFlights);
     }
     private void RetireCustomWeaponReadiness(int slot)
     {
@@ -62,7 +68,7 @@ public sealed partial class DedicatedServer
     {
         if (!DeveloperCustomWeaponReadiness || _transport == null || _customReadyEntries == null) return;
         var peer = Find(packet.Sender);
-        if (peer == null || !CustomNativeReady(peer) || _customReadyEntries[peer.SlotIndex] is not { } entry
+        if (peer == null || !CustomNativeRecipientReady(peer) || _customReadyEntries[peer.SlotIndex] is not { } entry
             || entry.Peer != peer || entry.State.Wire.Bootstrap != peer.BootstrapIdentity
             || packet.ConnectionId == 0 || packet.ConnectionId != entry.State.ConnectionId
             || _transport.ConnectionStats(peer.EndPoint)?.ConnectionId != packet.ConnectionId) return;
@@ -98,6 +104,16 @@ public sealed partial class DedicatedServer
             || _transport?.ConnectionStats(entry.Peer.EndPoint)?.ConnectionId != entry.State.ConnectionId) return null;
         return entry;
     }
+    private CustomReadyEntry? CurrentCustomRecipientEntry(Peer peer,Scene scene)
+    {
+        if(!DeveloperCustomWeaponCombat||!DeveloperCustomWeaponReadiness||!_running||!Simulating
+            ||_sim?.EvidenceScene!=scene||scene.CustomCombat?.IsEligible!=true||!CustomNativeRecipientReady(peer)
+            ||_customReadyEntries?[peer.SlotIndex] is not {Replica:not null} entry||entry.Peer!=peer
+            ||Find(peer.EndPoint)!=peer||entry.State.Evidence is not {} evidence
+            ||evidence.Manifest!=scene.CustomCombat.Manifest.Digest||entry.State.Wire.Bootstrap!=peer.BootstrapIdentity
+            ||_transport?.ConnectionStats(peer.EndPoint)?.ConnectionId!=entry.State.ConnectionId)return null;
+        return entry;
+    }
     private sealed class LiveCustomSourceReadiness(DedicatedServer server,Scene scene) : ICustomSourceBoundaryReadiness
     {
         public bool TryGet(WeaponOwnerContext owner,out CustomSourceReadyContext context)
@@ -113,7 +129,8 @@ public sealed partial class DedicatedServer
     }
     private void NoteCustomCurrentInput(ReceivedPacket packet,Peer peer,in IntentPacket intent)
     {
-        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { } scene) return;
+        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { } scene ||peer.Spectating
+            ||intent.MatchId==0||intent.AuthorityEpoch==0||intent.SlotGeneration==0||intent.LifeId==0) return;
         var owner = new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)peer.SlotIndex,intent.SlotGeneration,intent.LifeId);
         if (CurrentCustomSourceEntry(owner,scene) is not { } entry || entry.Peer != peer
             || packet.ConnectionId == 0 || packet.ConnectionId != entry.State.ConnectionId) return;
@@ -125,7 +142,8 @@ public sealed partial class DedicatedServer
         if (!DeveloperCustomWeaponCombat) return;
         if (!DeveloperCustomWeaponReadiness)
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
-        scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene));
+        var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene));
+        _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
     }
 }
 
@@ -145,12 +163,12 @@ public static partial class NetSession
         if (!DeveloperCustomWeaponReadiness || Role != NetRole.Client || _playback || IsAuthority
             || LocalSlot is < 0 or >= 8 || !WorldAdmissionConfirmed || ConfirmedWorldBootstrap is not { } bootstrap
             || bootstrap.SlotGeneration != NetPlayerLifecycle.Generation(LocalSlot))
-        { _customReadiness = null; return null; }
+        { _customReadiness = null; ResetCustomReplica(); return null; }
         ulong connection = _hostEndPoint == null ? 0 : _transport?.ConnectionStats(_hostEndPoint)?.ConnectionId ?? 0;
-        if (connection == 0) { _customReadiness = null; return null; }
+        if (connection == 0) { _customReadiness = null; ResetCustomReplica(); return null; }
         if (_customReadiness?.Wire.Bootstrap != bootstrap || _customReadiness.Wire.Slot != LocalSlot
             || _customReadinessConnection != connection)
-        { _customReadiness = new(bootstrap,(byte)LocalSlot,now); _customReadinessConnection = connection; }
+        { ResetCustomReplica(); _customReadiness = new(bootstrap,(byte)LocalSlot,now); _customReadinessConnection = connection; }
         return _customReadiness;
     }
     private static void HandleCustomReadiness(ReceivedPacket packet,double now)

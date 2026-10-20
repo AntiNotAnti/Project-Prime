@@ -22,12 +22,12 @@ public static partial class NetSession
     }
     internal static bool SubmitCustomWeaponAction(in CustomWeaponAction action)
     {
-        if (!action.IsValid || action.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,action.Owner.Generation,action.Life)) return false;
+        if (!CustomWeaponReplicaReady || !action.IsValid || action.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,action.Owner.Generation,action.Life)) return false;
         return CurrentCustomCombat()?.Submit(action,Clock)==true;
     }
     internal static bool SubmitCustomWeaponControl(in CustomControlRequest request)
     {
-        if (!request.IsValid || request.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,request.Owner.Generation,request.Life)) return false;
+        if (!CustomWeaponReplicaReady || !request.IsValid || request.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,request.Owner.Generation,request.Life)) return false;
         return CurrentCustomCombat()?.Submit(request,Clock)==true;
     }
     private static void HandleCustomCombatResult(ReceivedPacket packet)
@@ -72,7 +72,7 @@ public static partial class NetSession
     internal static bool TryEncodeCustomWeaponInput(in IntentPacket intent,System.ReadOnlySpan<byte> native,out ReadOnlyMemory<byte> bytes)
     {
         bytes=default;
-        if (_transport==null || _hostEndPoint==null || CurrentCustomCombat() is not { } client
+        if (!CustomWeaponReplicaReady || _transport==null || _hostEndPoint==null || CurrentCustomCombat() is not { } client
             || LocalSlot is <0 or >=8 || intent.MatchId==0 || intent.AuthorityEpoch==0 || intent.SlotGeneration==0 || intent.LifeId==0) return false;
         var owner=new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)LocalSlot,intent.SlotGeneration,intent.LifeId);
         if (!client.TryInputControl(owner,Clock,out var control))

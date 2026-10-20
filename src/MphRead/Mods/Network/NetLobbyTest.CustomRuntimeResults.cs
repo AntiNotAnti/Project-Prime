@@ -48,6 +48,25 @@ public static partial class NetLobbyTest
             ushort damage=NetDamage.Sequence(slot);
             var action=new CustomWeaponAction(bootstrap,manifest.Digest,(byte)slot,1,new(10),1,100,0,0,
                 CustomWeaponActionKind.Equip,0,Vector3.Zero,Vector3.Zero);
+            Check(!NetSession.CustomWeaponReplicaReady && !NetSession.SubmitCustomWeaponAction(action),
+                "private initial state alone cannot publish custom actions before durable public baseline commitment");
+            // Explicit synthetic PUBLIC authority table sent by the actual
+            // admitted server socket. This proves client consumption, not a
+            // server engine capture or source-admission oracle.
+            var publicWire=new CustomReadinessWire(bootstrap,(byte)slot);
+            var publicSlots=new CustomReplicaSlot[8];var publicFlights=new CustomReplicaFlight[64];
+            for(byte i=0;i<8;i++)publicSlots[i]=new(i,false,0,0,false,false,default,0,0,default);
+            publicSlots[slot]=new((byte)slot,true,owner.Generation,1,false,true,default,0,100,snapshot);
+            var publicPage=new CustomReplicaPage(1,0,bootstrap.AuthorityFrame+1,0,0);
+            byte[] publicBaseline=new byte[publicPage.Length];
+            Check(CustomReplicaCodec.TryWritePage(publicWire,publicPage,publicSlots,publicFlights,publicBaseline,out _)
+                && transport.TrySendSemantic(address,PacketType.CustomWeaponReplicaPage,publicBaseline),
+                "explicit synthetic public baseline enters the authenticated actual authority UDP transport");
+            Until(()=>NetSession.CustomWeaponReplicaReady,"actual NetSession production consumer durably commits public baseline before publishing");
+            var copiedPublic=new CustomReplicaSlot[8];var copiedFlights=new CustomReplicaFlight[64];
+            Check(NetSession.TryCopyCustomReplicaBaseline(copiedPublic,copiedFlights,out var copiedCapture)
+                &&copiedCapture.World==publicPage.World&&copiedPublic[slot].State==snapshot,
+                "runtime exposes original committed public baseline through bounded value copy");
             Check(NetSession.SubmitCustomWeaponAction(action),"actual client publisher retains one contiguous full-identity action");
             Check(!NetSession.SubmitCustomWeaponAction(action with { Sequence=3 }),"actual client publisher rejects a skipped action sequence");
             var pendingClock=System.Diagnostics.Stopwatch.StartNew();
@@ -79,6 +98,61 @@ public static partial class NetLobbyTest
             Until(()=>oldClock.ElapsedMilliseconds>=100,"old state passes actual runtime revision fence");
             Check(NetSession.CustomWeaponPresentationState==projected && NetSession.CustomWeaponReadinessConfirmed,
                 "older state cannot roll back current magazine/equip projection");
+            var publicAction=new CustomWeaponAction(bootstrap,manifest.Digest,(byte)slot,1,new(10),80,100,
+                bootstrap.AuthorityFrame+2,0,CustomWeaponActionKind.Fire,1,new(0,.5f,0),Vector3.UnitZ);
+            var publicSource=new CustomSourceCertificate(publicAction,bootstrap.AuthorityFrame+2,bootstrap.AuthorityFrame+2,0,
+                Vector3.Zero,Vector3.UnitZ,true,false,false);
+            var publicLaunch=new CustomReplicaEvent(CustomReplicaKind.Launch,1,bootstrap.AuthorityFrame+2,
+                new(publicSource,bootstrap.AuthorityFrame+2,new(0,.4f,0),Vector3.UnitZ),default);
+            var publicOutcome=new CustomContactOutcome(new(new(CustomActionIdentity.For(publicAction),
+                new((byte)slot,owner.Generation,1),1,CustomImpactChannel.Body),Vector3.UnitZ,false),
+                bootstrap.AuthorityFrame+3,new(100,35,0,0,9));
+            var publicContact=new CustomReplicaEvent(CustomReplicaKind.Contact,2,bootstrap.AuthorityFrame+3,default,
+                new(bootstrap,2,publicOutcome));
+            byte[] launchPacket=new byte[1024],contactPacket=new byte[1024];
+            int launchLength=0,contactLength=0;
+            Check(CustomReplicaCodec.TryWriteEvent(publicWire,publicLaunch,launchPacket,out launchLength)
+                &&CustomReplicaCodec.TryWriteEvent(publicWire,publicContact,contactPacket,out contactLength),
+                "synthetic public launch/contact retain exact source and victim identities without a health command");
+            // Deliberately invoke the queued-packet adapter boundary directly.
+            // This is handler identity fencing, not a claim of UDP authentication.
+            var publicConsumer=(CustomReplicaConsumer)typeof(NetSession).GetField("_customReplicaConsumer",BindingFlags.Static|BindingFlags.NonPublic)!.GetValue(null)!;
+            var handleReplica=typeof(NetSession).GetMethod("HandleCustomReplica",BindingFlags.Static|BindingFlags.NonPublic)!;
+            byte[] queued=new byte[launchLength+1];queued[0]=(byte)PacketType.CustomWeaponReplicaEvent;
+            launchPacket.AsSpan(0,launchLength).CopyTo(queued.AsSpan(1));
+            ulong connection=transport.ConnectionStats(address)!.Value.ConnectionId;
+            var host=new IPEndPoint(IPAddress.Loopback,rig.Server.BoundPort);
+            handleReplica.Invoke(null,new object[] {new ReceivedPacket(host,queued,queued.Length,connectionId:0)});
+            handleReplica.Invoke(null,new object[] {new ReceivedPacket(host,queued,queued.Length,connectionId:connection==1?2:connection^1)});
+            Check(publicConsumer.DeliveredEvents==0&&publicConsumer.PendingFacts==0&&NetSession.CustomWeaponReplicaReady,
+                "queued zero/old connection packets from same endpoint are refused before production consumer mutation (direct adapter invocation)");
+            var nativeHealthBefore=NetSession.RemoteStates[slot].Health;
+            Check(transport.TrySendSemantic(address,PacketType.CustomWeaponReplicaEvent,launchPacket.AsSpan(0,launchLength))
+                &&transport.TrySendSemantic(address,PacketType.CustomWeaponReplicaEvent,contactPacket.AsSpan(0,contactLength)),
+                "synthetic public semantic facts traverse authenticated actual host transport");
+            Until(()=>publicConsumer.PendingFacts==2,"actual client durably queues independent public launch/contact before application drain");
+            Check(NetSession.RemoteStates[slot].Health==nativeHealthBefore&&NetDamage.Sequence(slot)==damage
+                &&NetSession.CustomWeaponPresentationState==projected,
+                "received public contact health values cannot mutate native HP/damage counter or private inventory projection");
+            var publicCurrent=publicSlots[slot];publicSlots[slot]=publicCurrent with {Selected=new(10),SettledSequence=80,
+                State=after with {Magazine=3,LastAcceptedShotId=80}};
+            byte[] publicState=new byte[1024];
+            Check(CustomReplicaCodec.TryWriteState(publicWire,bootstrap.AuthorityFrame+3,publicSlots,publicState,out int publicLength,1)
+                &&transport.TrySendSemantic(address,PacketType.CustomWeaponReplicaEvent,publicState.AsSpan(0,publicLength)),
+                "independent canonical public state table enters real client handler");
+            Until(()=>NetSession.TryCopyCustomReplicaState(copiedPublic,out _)&&copiedPublic[slot].State.Magazine==3,
+                "runtime public table advances independently of private owner state");
+            Check(transport.TrySendSemantic(address,PacketType.CustomWeaponReplicaPage,publicBaseline),
+                "original public baseline retries after state and durable contact");
+            var publicRetry=System.Diagnostics.Stopwatch.StartNew();Until(()=>publicRetry.ElapsedMilliseconds>=100,
+                "duplicate public baseline traverses actual production client adapter");
+            Check(NetSession.TryCopyCustomReplicaState(copiedPublic,out uint publicWorld)&&publicWorld==bootstrap.AuthorityFrame+3
+                &&copiedPublic[slot].State.Magazine==3&&publicConsumer.PendingFacts==2
+                &&NetSession.CustomWeaponPresentationState==projected&&NetSession.RemoteStates[slot].Health==nativeHealthBefore,
+                "late baseline cannot restore old public resources, erase queued contact or roll back private/native state");
+            Check(NetSession.TryTakeCustomReplicaFact(out var drainedLaunch)&&drainedLaunch==publicLaunch
+                &&NetSession.TryTakeCustomReplicaFact(out var drainedContact)&&drainedContact==publicContact
+                &&!NetSession.TryTakeCustomReplicaFact(out _),"actual runtime drains durable public launch/contact exactly once in FIFO order");
             native.LifeId=2;
             Check(NetPlayerLifecycle.AcceptState(native,bootstrap.AuthorityFrame+3),"synthetic genuine next native life precedes control publisher reset");
             var nextOwner=new WeaponOwnerContext(owner.MatchId,owner.AuthorityEpoch,owner.Slot,owner.Generation,2);
@@ -175,10 +249,12 @@ public static partial class NetLobbyTest
                 && !NetSession.SubmitCustomWeaponAction(action with { Sequence=2 }),
                 "custom cache refusal preserves native admission/health and blocks new custom requests");
             NetSession.Stop();
+            Check(publicConsumer.Closed&&!NetSession.CustomWeaponReplicaReady&&!NetSession.TryTakeCustomReplicaFact(out _),
+                "full client stop eagerly closes held public consumer and exposes no queued old-incarnation facts");
             Check(NetSession.LastCustomWeaponReceipt==null && NetSession.LastCustomControlDenied==null && NetSession.CustomWeaponPresentationState==null,
                 "full client stop releases custom result and projection owners");
             Console.WriteLine($"PASS {_checks} actual NetSession custom result/publisher UDP checks.");
-            Console.WriteLine("SCOPE: actual client transport/readiness/result handlers, action publishing, application-vs-transport acceptance, dedupe/revision/poison and native health isolation. Native lifecycle/bootstrap and authority result facts are synthetic; real combat is exercised separately by --custom-action-udp.");
+            Console.WriteLine("SCOPE: actual client transport/readiness/result handlers, action publishing, application-vs-transport acceptance, dedupe/revision/poison and native health isolation. Native lifecycle/bootstrap, public baseline/events and authority result facts are synthetic; queued connection refusal also uses explicit adapter invocation; real combat is exercised separately by --custom-action-udp.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine("CUSTOM RUNTIME UDP FAIL "+ex); return 1; }

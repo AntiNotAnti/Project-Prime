@@ -161,6 +161,13 @@ internal sealed class CustomReplicaMailbox
             ||entry.Contact!=null||entry.LaunchReady){Close();return false;}
         Free(entry);return true;
     }
+    internal bool FinalizeCanonicalReceipt(in CustomActionReceipt receipt)
+    {
+        if(!CustomCombatResults.Valid(new CustomReceiptMessage(1,receipt),_wire.Manifest,_wire.Definition))
+        {Close();return false;}
+        return FinalizeReceipt(receipt);
+    }
+    internal bool HasBaseline=>_hasBaseline;
     private void Free(Entry entry)
     {
         if(entry.NeedsLaunch&&entry.LaunchToken==0)_owed--;
