@@ -109,23 +109,33 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void CheckCosmeticPreviewModes()
         {
+            // Cosmetics and their preview controls moved to Hunters. Keep the
+            // license's Hunter illustration, but never expose cosmetic edits
+            // or resurrect the old per-License customization screen.
             var license = new LicenseWorkspace(loadProfile: false);
             var window = new Window { Width = 1280, Height = 720, Content = license, ShowInTaskbar = false,
                 Position = new PixelPoint(-4000, -4000), WindowStartupLocation = WindowStartupLocation.Manual };
             try
             {
                 window.Show(); Drain(window);
-                var customize = ControllerNav.Find(license, "hunter-license.customization")!;
-                customize.Focus(); FocusNavigator.Key(customize, Key.Enter); Drain(window);
+                Check(ControllerNav.Find(license, "hunter-license.customization") == null,
+                    "License has no customization navigation");
+                Check(ControllerNav.Find(license, "cosmetics.preview-mode") == null,
+                    "License has no cosmetic preview selector");
+                var stand = license.GetVisualDescendants().OfType<HunterStand>().Single();
+                Check(stand.Cosmetics == null,
+                    "License portrait never stages a cosmetic equip");
+                // Preview modes are still an engine-owned HunterStand feature,
+                // exercised without reintroducing a License edit control.
                 foreach (int mode in new[] { 1, 2, 0, 2, 1 })
                 {
-                    ((ChoiceRow)ControllerNav.Find(license, "cosmetics.preview-mode")!).Index = mode;
+                    stand.PreviewMode = (SkinContext)mode;
                     Drain(window);
-                    var stand = license.GetVisualDescendants().OfType<HunterStand>().Single();
-                    Check((int)stand.PreviewMode == mode, "license selects preview model " + mode);
-                    window.Content = null; Drain(window); window.Content = license; Drain(window);
-                    Check(((ChoiceRow)ControllerNav.Find(license, "cosmetics.preview-mode")!).Index == mode,
-                        "license retains preview mode after re-entry " + mode);
+                    Check((int)stand.PreviewMode == mode, "Hunter model preview mode " + mode);
+                    window.Content = null; Drain(window);
+                    window.Content = license; Drain(window);
+                    Check((int)stand.PreviewMode == mode,
+                        "Hunter model preview retains mode across re-entry " + mode);
                 }
             }
             finally { window.Close(); }
