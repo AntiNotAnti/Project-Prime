@@ -48,6 +48,8 @@ internal static class NativeCharacterPreviewAcceptance
                     && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
                     "complete verified synthetic v6 bundle reports body-v5 and ball-v3 Ready with explicit source-program preview and gameplay qualification limits");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
+                Check(spec.Version == 6 && spec.RequiredComponents.Length == 20,
+                    "normal source authoring recipe-v6 independently requires all twenty components");
                 foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance")})
                 {
                     var installed = LocalImportBundle.Inspect(root, source.Id, spec);
@@ -72,7 +74,8 @@ internal static class NativeCharacterPreviewAcceptance
                 const string normal="darksamus-echoes";
                 while(manifestOwner.CharacterPreviewId!=normal)manifestOwner.CycleCharacterPreview();
                 var spec=RetroCharacterPreviewExporter.BundleSpec(normal);
-                foreach (var component in new[] { ("characters.json", "source-preview-manifest v2"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1") })
+                foreach (var component in new[] { ("characters.json", "source-preview-manifest v2"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1"),
+                    ("darksamus-echoes.materials.bin", "source-materials v1") })
                 {
                 var installed=LocalImportBundle.Inspect(root,normal,spec);
                 File.Delete(installed.Files.Single(file=>Path.GetFileName(file)==component.Item1));
@@ -208,17 +211,16 @@ internal static class NativeCharacterPreviewAcceptance
                 "Settings with game-file access disabled cannot route preview action245");
             controller.RequestCharacterSourcePreview();Check(!restricted.TryTakeCharacterSourcePreview(out _),"game-file restriction fences even a direct pending controller request");
         }
-        // Actual worker paths need no commercial data: canonical normal is absent,
-        // and Trooper still has no supported runtime source profile. Keep this
-        // refusal aligned with the qualified body source-program family.
-        const string unsupportedProfile = "support normal and Overcharged Echoes";
-        foreach(string id in new[]{"darksamus-echoes","trooper-power"})
+        // Actual worker paths need no commercial data: both supported Echoes
+        // generations are absent, and Trooper has no supported body source program.
+        const string unsupportedProfile = "Body source programs currently support normal and Overcharged Echoes";
+        foreach(string id in new[]{"darksamus-echoes","darksamus-overcharged-echoes","trooper-power"})
         {
             using var preview=new NativeCharacterSourcePreviewPage(host,pages,id,asModal:false);preview.Open();
             Task task=(Task)Get(preview,"_load")!;Await(task);preview.Tick();
             string status=(string)Get(preview,"_status")!;
             Check(preview.Request==null&&Get(preview,"_selection")==null
-                &&status.Contains(id=="darksamus-echoes"?"Update the selected source bundle":unsupportedProfile,StringComparison.Ordinal),
+                &&status.Contains(id=="trooper-power"?unsupportedProfile:"Update the selected source bundle",StringComparison.Ordinal),
                 "missing/unsupported source returns bounded error with no render request: "+id);
             Check(preview.Handle(new(RmlUiIntentKind.HunterCancel,0,preview.Document,1))&&preview.Closed,"Back remains usable after source load refusal: "+id);
         }

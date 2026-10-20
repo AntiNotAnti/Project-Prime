@@ -585,6 +585,7 @@ namespace MphRead.Entities
             _models.Add(_altIceModel);
             _models.Add(_doubleDmgModel);
             _models.Add(_octolithSimpleModel);
+            ScoutDroneInitialize();
             _trailModel = _scene.GetModelInstance("trail");
             Material material = _trailModel.Model.Materials[0];
             _trailBindingId1 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
@@ -653,6 +654,7 @@ namespace MphRead.Entities
             ModResetTraversalStance();
             ModResetGroundTravel();
             ModResetWallClingForLife();
+            ScoutDroneResetForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
             _walkSfxIndex = 0;
@@ -753,6 +755,7 @@ namespace MphRead.Entities
                 Mods.RespawnChoice.ApplyOnSpawn(this);
             }
             ModResetWallClingForLife();
+            ScoutDroneResetForLife();
             LoadFlags |= LoadFlags.Spawned;
             if (IsMainPlayer)
             {
@@ -1273,6 +1276,8 @@ namespace MphRead.Entities
             ModCancelTraversalSlide(); _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
             ModResetWallClingForLife();
+            ScoutDroneMerge();
+            ScoutDroneRetireFlights();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
             if (_modCrouched && ModCanStand()) _modCrouched = false;
@@ -2401,6 +2406,7 @@ namespace MphRead.Entities
                 else
                 {
                     _health = 0;
+                    ScoutDroneResetForLife();
                 }
                 UpdateZoom(false);
                 // the game stops the boost charge SFX here, but that SFX is empty
@@ -2599,6 +2605,10 @@ namespace MphRead.Entities
                             else if (fromHalfturret)
                             {
                                 killedBy = _altAttackNames[(int)attacker.Hunter];
+                            }
+                            else if (beam != null && attacker.ModScoutDroneOwnsBeam(beam))
+                            {
+                                killedBy = "SENTRY DRONE"; // local label; native Power Beam stats remain unchanged
                             }
                             else if (beam?.ModCustomDefinition is { } customWeapon)
                             {

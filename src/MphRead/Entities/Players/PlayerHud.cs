@@ -1685,7 +1685,8 @@ namespace MphRead.Entities
                         {
                             if (IsAltForm || IsMorphing || IsUnmorphing)
                             {
-                                DrawBoostBombs();
+                                if (ScoutDroneEnabled && IsAltForm) DrawScoutDroneHud();
+                                else DrawBoostBombs();
                             }
                             else if (!ScanVisor)
                             {

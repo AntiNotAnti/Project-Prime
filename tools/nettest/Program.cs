@@ -49,6 +49,8 @@ namespace MphRead.NetTest
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
                     + "  --offline-character-gameplay       Test captured offline practice selection and replay exclusion.\n"
                     + "  --character-wall-cling             Test local rule ownership and synthetic wall collisions.\n"
+                    + "  --scout-drone-gl <assets> <json> Test actual native fallback actor/HUD/GL rendering.\n"
+                    + "  --scout-drone-scene <assets> <json> Test actual offline Scout Drone primary practice.\n"
                     + "  --character-wall-cling-scene <assets> <json> Test actual offline native arena traversal.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
@@ -179,6 +181,18 @@ namespace MphRead.NetTest
             }
             if (args.Length == 1 && args[0] == "--offline-character-gameplay")
                 return OfflineCharacterGameplayTests.Run();
+            if (args.Length > 0 && args[0] == "--scout-drone-gl")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --scout-drone-gl <AMHE1 filesystem> <fresh metadata.json>"); return 1; }
+                return ScoutDroneGlTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
+            if (args.Length > 0 && args[0] == "--scout-drone-scene")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --scout-drone-scene <AMHE1 filesystem> <fresh result.json>"); return 1; }
+                return ScoutDroneSceneTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
             if (args.Length > 0 && args[0] == "--character-wall-cling-scene")
             {
                 if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))

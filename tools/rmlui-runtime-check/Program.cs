@@ -109,6 +109,21 @@ foreach (var choice in new[] {
     Require(RmlUiIntentRegistry.TryParseLegacy(choice.Item1, new(1, 1), 1, out var ruleChoice)
         && ruleChoice.Kind == choice.Item2 && ruleChoice.Argument == choice.Item3,
         "Third Person and Movement action indices remain explicit and stable: " + choice.Item1);
+// Mechanics continues to reuse literal choice16: the third local draft state
+// is not a new native action or an expansion of the intent ABI.
+var mechanicsDocument = new RmlUiDocumentToken(73, 19);
+foreach (int choice in new[] { 13, 14, 15, 16 })
+{
+    var packet = new RmlUiNativeIntent { Size = RmlUiIntentRegistry.NativeIntentSize,
+        Version = RmlUiIntentRegistry.ProtocolVersion, Kind = 140, Argument = choice,
+        Generation = 73, DocumentId = 19, Sequence = 7 };
+    Require(RmlUiIntentRegistry.TryDecode(packet, out var decodedMechanics)
+        && decodedMechanics == new RmlUiIntent(RmlUiIntentKind.OfflineChoice, choice, mechanicsDocument, 7),
+        "training13–15 and shared mechanics16 keep their exact native wire identity");
+}
+Require(!RmlUiIntentRegistry.TryParseLegacy("offline:choice:17", mechanicsDocument, 8, out _)
+    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoice, 17),
+    "three mechanics states cannot expand the fixed 17-choice native intent family");
 string[] studioBuildActions =
 {
     "build-validate", "build-runtime", "build-package", "build-play-camera",

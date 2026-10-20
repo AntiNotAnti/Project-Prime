@@ -19,8 +19,10 @@ public partial class PlayerEntity
     {
         get
         {
+            if (_scene.ForegroundLease.ThreadId != Environment.CurrentManagedThreadId)
+                return CharacterGameplayRules.Native;
             if (_modCharacterGameplayBound && _modCharacterGameplay.Variant != CharacterGameplayVariant.Native
-                && !ModWallClingEnabled) ModRetireCharacterGameplay();
+                && !ModCharacterGameplayEnabled) ModRetireCharacterGameplay();
             return _modCharacterGameplay;
         }
     }
@@ -50,9 +52,11 @@ public partial class PlayerEntity
         return true;
     }
 
-    private bool ModWallClingEnabled => !_modCharacterGameplayRetired
+    private bool ModWallClingEnabled => ModCharacterGameplayEnabled;
+
+    private bool ModCharacterGameplayEnabled => !_modCharacterGameplayRetired
         && _modCharacterGameplayBound
-        && _modCharacterGameplay == CharacterGameplayRules.TrooperV1
+        && _modCharacterGameplay.Variant is CharacterGameplayVariant.TrooperV1 or CharacterGameplayVariant.TrooperDroneV1
         && _modCharacterGameplay.IsValidFor(Hunter)
         && Hunter == _modCharacterGameplayHunter
         && _modCharacterGameplayScene == _scene.LifetimeGeneration
@@ -69,6 +73,7 @@ public partial class PlayerEntity
         _modCharacterGameplayRetired = true;
         _modCharacterGameplay = CharacterGameplayRules.Native;
         WallClingInit();
+        ScoutDroneRetire();
     }
 
     private bool WallClingMovementBlocked => Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck)

@@ -74,8 +74,19 @@ internal static class OfflineCharacterGameplayTests
                 && draft.Current.Hunter == Hunter.Weavel && draft.Current.Mode == GameMode.Battle && draft.Current.Bots == 0 && draft.Valid,
                 "literal choice16 explicitly selects a valid Weavel Battle with no bots");
             RmlUiOfflineRequest captured = draft.Current;
+            Check(draft.Change(16) && draft.Current.Character == OfflineCharacterMode.TrooperScoutDronePractice
+                && draft.Current.Hunter == Hunter.Weavel && draft.Current.Mode == GameMode.Battle && draft.Current.Bots == 0 && draft.Valid,
+                "second choice16 selects explicit Scout Drone practice without changing its required actor/match");
+            RmlUiOfflineRequest capturedDrone = draft.Current;
+            Check(draft.CharacterName == "TROOPER SCOUT DRONE" && draft.CharacterNotice.Contains("Native fallback models", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("No laser, blaster or replays", StringComparison.Ordinal),
+                "drone draft explicitly names native fallbacks and excluded abilities");
             Check(draft.Change(16) && draft.Current.Character == OfflineCharacterMode.Native && draft.CharacterNotice == "",
-                "choice16 cycles back to Native without a persistent gameplay preference");
+                "third choice16 cycles back to Native without a persistent gameplay preference");
+            Check(captured.Character == OfflineCharacterMode.TrooperWallClingPractice
+                && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice
+                && new RmlUiOfflineDraft(new[] { "synthetic-arena" }, Hunter.Weavel, 0, 0, 0).Current.Character == OfflineCharacterMode.Native,
+                "captured wall/drone requests are detached and a fresh draft never inherits mechanics");
             var practice = OfflineLaunch.Preview(settings, captured.RoomKey, captured.Mode, captured.Hunter,
                 captured.Suit, captured.Bots, captured.BotLevel, captured.Character);
             Check(practice.OfflineCharacter == OfflineCharacterMode.TrooperWallClingPractice && practice.IsPlaytest
@@ -83,6 +94,17 @@ internal static class OfflineCharacterGameplayTests
                 "detached captured request carries explicit mechanics through the shared pure plan builder");
             Check(OfflineCharacterGameplay.TryAdmit(practice, out string reason) && reason == "",
                 "the supported explicit offline plan is admitted");
+            var drone = OfflineLaunch.Preview(settings, capturedDrone.RoomKey, capturedDrone.Mode, capturedDrone.Hunter,
+                capturedDrone.Suit, capturedDrone.Bots, capturedDrone.BotLevel, capturedDrone.Character);
+            Check(drone.OfflineCharacter == OfflineCharacterMode.TrooperScoutDronePractice && drone.IsPlaytest
+                && drone.Hunter == Hunter.Weavel && drone.Mode == GameMode.Battle && drone.Bots == 0,
+                "captured drone request carries its distinct explicit mechanics through pure plan creation");
+            Check(OfflineCharacterGameplay.TryAdmit(drone, out var droneReason) && droneReason == ""
+                && CharacterGameplayRules.TrooperDroneV1.IsValidFor(Hunter.Weavel)
+                && !CharacterGameplayRules.TrooperDroneV1.IsValidFor(Hunter.Samus)
+                && CharacterGameplayRules.TrooperDroneV1 != CharacterGameplayRules.TrooperV1,
+                "drone policy is admitted with a distinct finite Weavel-only gameplay rule");
+            Check(!OfflineRematch.TryPlan(drone, "another-synthetic-arena", out _), "drone practice is excluded from ordinary rematch");
             Check(!OfflineRematch.TryPlan(practice, "another-synthetic-arena", out _), "private practice playtest cannot enter ordinary results rematch");
             Check(OfflineRematch.TryPlan(ordinary, "another-synthetic-arena", out var rematch)
                 && rematch.OfflineCharacter == OfflineCharacterMode.Native && !rematch.IsPlaytest,
@@ -93,12 +115,32 @@ internal static class OfflineCharacterGameplayTests
                 captured with { Mode = GameMode.BattleTeams }, captured with { Bots = 1 },
                 captured with { Bots = -1 }, captured with { Suit = 4 } })
                 Check(!bad.ValidateForm(new[] { "synthetic-arena" }), "invalid explicit practice form refused before launch");
+            foreach (var bad in new[] {
+                capturedDrone with { Character = (OfflineCharacterMode)(-1) }, capturedDrone with { Character = (OfflineCharacterMode)77 },
+                capturedDrone with { Hunter = Hunter.Samus }, capturedDrone with { Mode = GameMode.BattleTeams },
+                capturedDrone with { Bots = 1 }, capturedDrone with { Bots = -1 }, capturedDrone with { Suit = 4 } })
+                Check(!bad.ValidateForm(new[] { "synthetic-arena" }), "invalid drone form refuses before launch");
+            Check(!capturedDrone.ValidateForm(new[] { "other-arena" }), "drone capture also requires a listed room");
             Check(!captured.ValidateForm(new[] { "other-arena" }), "captured practice still requires a listed room");
             foreach (int changed in new[] { 1, 3, 5 })
             {
                 var editable = new RmlUiOfflineDraft(new[] { "synthetic-arena" }, Hunter.Samus, 0, 3, 1);
                 editable.Change(16); Check(editable.Change(changed) && !editable.Valid,
                     "editing mode/bots/hunter cannot leave an invalid practice draft launchable: " + changed);
+                Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.TrooperScoutDronePractice
+                    && editable.Current.Hunter == Hunter.Weavel && editable.Current.Mode == GameMode.Battle
+                    && editable.Current.Bots == 0 && editable.Valid,
+                    "explicit drone selection captures its required valid Weavel/Battle/zero-bot configuration");
+                Check(editable.Change(changed) && !editable.Valid,
+                    "independently editing mode/bots/hunter cannot leave drone practice launchable: " + changed);
+                var editedDrone = editable.Current;
+                Check(Refused(() => OfflineLaunch.Preview(settings, editedDrone.RoomKey, editedDrone.Mode, editedDrone.Hunter,
+                    editedDrone.Suit, editedDrone.Bots, editedDrone.BotLevel, editedDrone.Character)),
+                    "pure plan creation refuses an independently edited invalid drone draft");
+                var forgedDrone = drone with { Hunter = editedDrone.Hunter, Mode = editedDrone.Mode, Bots = editedDrone.Bots,
+                    MatchRules = drone.MatchRules with { Mode = editedDrone.Mode } };
+                Check(!OfflineMatchPreflight.TryAdmit(forgedDrone, out var editedReason) && !string.IsNullOrWhiteSpace(editedReason),
+                    "actual preflight independently refuses the same edited drone facts");
                 Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.Native && editable.Valid,
                     "the same ordinary draft edits remain usable after returning to Native");
             }
@@ -117,7 +159,8 @@ internal static class OfflineCharacterGameplayTests
                 practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Momentum } },
                 practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Quake3 } }
             };
-            foreach (var bad in refusedPlans)
+            foreach (var bad in refusedPlans.Concat(refusedPlans.Select(p => p.OfflineCharacter == OfflineCharacterMode.TrooperWallClingPractice
+                ? p with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice } : p)))
             {
                 Check(!OfflineCharacterGameplay.TryAdmit(bad, out var policyReason) && !string.IsNullOrWhiteSpace(policyReason),
                     "forged unsupported plan fails the shared character policy");
@@ -129,8 +172,9 @@ internal static class OfflineCharacterGameplayTests
                 new MenuSettings { MovementModel = "Native", LowTier = "on" },
                 new MenuSettings { MovementModel = "Momentum" }, new MenuSettings { MovementModel = "Quake3" },
                 new MenuSettings { MovementModel = "Native", RiftlineM7Available = true } })
-                Check(Refused(() => OfflineLaunch.Preview(conflict, "synthetic-arena", GameMode.Battle, Hunter.Weavel, 0, 0, 0,
-                    OfflineCharacterMode.TrooperWallClingPractice)), "active conflicting saved rule refuses pure preview before persistence");
+                foreach (var mechanics in new[] { OfflineCharacterMode.TrooperWallClingPractice, OfflineCharacterMode.TrooperScoutDronePractice })
+                    Check(Refused(() => OfflineLaunch.Preview(conflict, "synthetic-arena", GameMode.Battle, Hunter.Weavel, 0, 0, 0,
+                        mechanics)), "active conflicting saved rule refuses either pure practice preview before persistence");
             // The old EnhancedHunters string is an ignored compatibility field;
             // it must not activate a retired gameplay rule through this feature.
             var compatibility = new MenuSettings { MovementModel = "Native", EnhancedHunters = "on" };
@@ -139,7 +183,11 @@ internal static class OfflineCharacterGameplayTests
             Check(!ignored.MatchRules.EnhancedHunters && OfflineCharacterGameplay.TryAdmit(ignored, out _),
                 "ignored legacy Enhanced setting stays inactive rather than acquiring new gameplay authority");
 
-            Intents(); ReplayFence(practice);
+            var ignoredDrone = OfflineLaunch.Preview(compatibility, "synthetic-arena", GameMode.Battle, Hunter.Weavel, 0, 0, 0,
+                OfflineCharacterMode.TrooperScoutDronePractice);
+            Check(!ignoredDrone.MatchRules.EnhancedHunters && OfflineCharacterGameplay.TryAdmit(ignoredDrone, out _),
+                "drone preview also keeps the retired Enhanced compatibility setting inactive");
+            Intents(); ReplayFence(practice); ReplayFence(drone);
             Check(JsonSerializer.Serialize(settings) == settingsBefore && settings.RoomKey == "previous-room",
                 "preview and refused plans leave the caller settings snapshot unchanged");
             Check((LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.Bots, LauncherPrefs.BotLevel,
