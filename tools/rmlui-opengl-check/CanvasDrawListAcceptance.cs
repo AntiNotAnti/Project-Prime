@@ -19,7 +19,7 @@ internal static class CanvasDrawListAcceptance
         File.WriteAllText(path,"""
             <rml><head><title>Invented CPU draw list fixture</title><style>
             body { margin:0px; font-family:Rajdhani; }
-            #clip { position:absolute; left:37px; top:29px; width:320px; height:240px; overflow:hidden; }
+            div#clip { position:absolute; left:37px; top:29px; width:320px; height:240px; overflow:hidden; }
             prime-canvas { display:block; position:absolute; left:0px; top:0px; width:320px; height:240px; }
             </style></head><body><div id="clip"><prime-canvas id="canvas"></prime-canvas></div></body></rml>
             """);
