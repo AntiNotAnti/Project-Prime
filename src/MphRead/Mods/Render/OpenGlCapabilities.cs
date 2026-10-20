@@ -60,12 +60,24 @@ internal static class OpenGlOptimizationPolicy
 {
     internal static bool Select(bool supported, bool forcedLegacy, string? experiment, bool validatedDefault = false)
         => supported && !forcedLegacy && (experiment == "1" || experiment != "0" && validatedDefault);
+    // A single Android-specific enrollment controls both existing and newly
+    // introduced OpenGL optimization gates. Individual PROJECT_PRIME_GL_* = 0
+    // overrides remain authoritative; force-legacy always wins.
+    // Snapshot once: consulting process environment in every GL draw is itself
+    // expensive. Changing the opt-in requires an app restart.
+#if ANDROID && PROJECTPRIME_ANDROID_PERF_OPT_IN
+    internal static readonly bool AndroidPerformanceOptedIn =
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_ANDROID_PERF_OPT_IN") != "0";
+#else
+    internal static readonly bool AndroidPerformanceOptedIn = false;
+#endif
     internal static bool DefaultEnabled(string name) => name is "VAO" or "DYNAMIC_STREAM"
         or "UNIFORM_REVISIONS" or "STATIC_CACHE" or "SHADOW_FAST" or "HUD_SAMPLERS" or "DEPTH_BATCH"
         or "ATLAS_EVICTION" or "HUD_DISCARD" or "DEPTH_SHADER" or "GLES_UNIFORMS" or "HUD_GLYPHS" or "HUD_SPRITES" or "DEPTH_PREP" or "PROCEDURAL_BATCH" or "ROOM_CACHE" or "DEPTH_KEEP" or "SHADER_VARIANTS" or "ROOM_GROUPS" or "PLAIN_SHADER" or "SHADOW_PREP" or "ROOM_IDENTITY" or "MESH_OBJECT" or "UNLIT_SHADER" or "SHADOW_GROUPS";
     internal static bool Enabled(string name, bool supported = true, bool forcedLegacy = false)
         => Select(supported, ForceLegacy || forcedLegacy,
-            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_" + name), DefaultEnabled(name));
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_" + name),
+            DefaultEnabled(name) || AndroidPerformanceOptedIn);
     internal static bool Requested(string name) => Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_" + name) == "1";
     internal static bool ForceLegacy => Requested("FORCE_LEGACY") || Array.Exists(Environment.GetCommandLineArgs(), a => a.Equals("-gllegacy", StringComparison.OrdinalIgnoreCase));
 }
