@@ -6590,6 +6590,12 @@ namespace MphRead
         /// no sprite asset of its own. Same fade_color flat-fill trick as
         /// <see cref="DrawCustomCrosshair"/>.
         /// </summary>
+        // The same profile/aspect transform as flat HUD drawing, in pixels for
+        // absolute gameplay input. Text/icon scale does not resize a flat box.
+        internal Mods.Render.Hud.HudSpriteBounds GetHudFlatBoxBounds(float left,float top,float right,float bottom)
+            =>Mods.Render.Hud.HudSpriteBounds.Resolve(left/256f,top/192f,right-left,bottom-top,
+                center:false,mode:2,scale:1,Size.X,Size.Y,_profileHudScale,_profileHudX,_profileHudY,_hudDrawScale);
+
         public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
         {
             if (_profileHudAlpha <= 0) return;

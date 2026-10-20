@@ -791,6 +791,7 @@ namespace MphRead.Entities
                 // The drag has no state worth keeping between two holds: the
                 // next one starts from the weapon in the player's hands.
                 Mods.Input.WeaponWheel.Close();
+                ModClearCustomWheel();
             }
             if (ScanVisor)
             {
@@ -974,6 +975,7 @@ namespace MphRead.Entities
 
         private void UpdateWeaponSelect()
         {
+            if (ModUpdateCustomWheel()) return;
             int selection = Mods.Input.GamepadInput.WheelHeld ? ModControllerWeaponSelection()
                 : OperatingSystem.IsAndroid() && Mods.Input.TouchSettings.DirectWeaponSelection
                 ? UpdateWeaponTouchTargets()
@@ -1635,11 +1637,15 @@ namespace MphRead.Entities
             }
             else if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen))
             {
-                float wheelScale = ModPlaceWeaponSelect();
-                for (int i = 0; i < 6; i++)
+                if (_customWheel != null || _customWheelCancelled) ModDrawCustomWheel();
+                else
                 {
-                    _scene.DrawHudObject(_selectBoxInsts[i], mode: 1, scale: wheelScale);
-                    _scene.DrawHudObject(_weaponSelectInsts[i], mode: 1, scale: wheelScale);
+                    float wheelScale = ModPlaceWeaponSelect();
+                    for (int i = 0; i < 6; i++)
+                    {
+                        _scene.DrawHudObject(_selectBoxInsts[i], mode: 1, scale: wheelScale);
+                        _scene.DrawHudObject(_weaponSelectInsts[i], mode: 1, scale: wheelScale);
+                    }
                 }
             }
             else if (ShowScoreboard)

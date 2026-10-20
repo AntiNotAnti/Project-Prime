@@ -379,6 +379,13 @@ namespace MphRead.Entities
         private bool EndWeaponMenu()
         {
             bool selected = false;
+            if (ModEndCustomWheel(out bool customSelected))
+            {
+                Flags1 &= ~PlayerFlags1.NoAimInput;
+                Flags1 &= ~PlayerFlags1.WeaponMenuOpen;
+                if (!_scene.Services.IsReplica) Mods.Input.WeaponWheel.Close();
+                return customSelected;
+            }
             if (WeaponSelection != BeamType.None)
             {
                 if (WeaponSelection != CurrentWeapon)

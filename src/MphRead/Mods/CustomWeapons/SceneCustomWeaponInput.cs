@@ -50,6 +50,18 @@ public partial class Scene
             ||message.Bootstrap!=projection.Bootstrap||message.Manifest!=projection.Manifest)return false;
         state=message.State;return true;
     }
+    internal bool TryCustomSelectionFrame(PlayerEntity player,out CustomInputProjection projection,
+        out WeaponStateSnapshot state,out bool selected)
+    {
+        projection=default;state=default;selected=false;
+        if(player.IsBot||Services.IsReplica||DemoPlayback.IsActive||NetSession.IsAuthority||player.Health<=0
+            ||player.IsAltForm||player.IsMorphing||player.IsUnmorphing||Mods.SpectatorMode.IsSpectating)return false;
+        var current=!NetSession.Active?OfflineWeapons?.InputProjection(player)
+            :player.SlotIndex==NetSession.LocalSlot?NetSession.CustomWeaponInputProjection:null;
+        if(current is not {} value||!TryCustomCycleState(player,value,out state))return false;
+        projection=value;selected=ReferenceEquals(player,_customInputPlayer)&&_customInput?.Available==true
+            ?_customInput.Selected:value.Selected;return true;
+    }
     internal void SampleCustomWeaponInput(bool allowed)
     {
         // Public local input never takes over a server, bot or private replica.
@@ -62,17 +74,18 @@ public partial class Scene
             ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed
             ||controls.Battlehammer.IsPressed||controls.Imperialist.IsPressed||controls.Judicator.IsPressed
             ||controls.Magmaul.IsPressed||controls.ShockCoil.IsPressed||controls.OmegaCannon.IsPressed
-            ||controls.AffinitySlot.IsPressed
-            ||player.ModNativeWheelReleaseIntent;
+            ||controls.AffinitySlot.IsPressed;
         if(!NetSession.Active)OfflineWeapons?.ApplyPickupAutoSelection(player,
             allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay,
-            native||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed||controls.CustomWeapon.IsPressed);
+            native||player.ModNativeWheelReleaseIntent||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed||controls.CustomWeapon.IsPressed);
         var projection=NetSession.Active?NetSession.CustomWeaponInputProjection:OfflineWeapons?.InputProjection(player);
         if(!NetSession.Active&&projection==null)
         {
             // Offline absence is a definite empty life, not an unacknowledged
             // online selection. A dead owner's uncertainty cannot block the
             // native weapon after an empty respawn.
+            player.ModCancelCustomWheelHold();
+            player.ModResolveCustomWheelRelease(false,false,out _);
             ReleaseCustomWeaponInput();player.ModSynchronizeCustomNativeSuppression();return;
         }
         if(projection==null&&_customInput==null)return;
@@ -92,6 +105,9 @@ public partial class Scene
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
         bool custom=controls.CustomWeapon.IsPressed;
         bool cycle=controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed;
+        bool wheelHandled=player.ModResolveCustomWheelRelease(native||custom||cycle,inputAllowed,out var wheel);
+        if(!wheelHandled)native|=player.ModNativeWheelReleaseIntent;
+        else if(wheel is {} choice){native|=!choice.Custom;custom|=choice.Custom;}
         if(cycle&&!native&&!custom&&inputAllowed&&projection is {} cycleOwner
             &&!player.ModCustomCycleMenuDown
             &&TryCustomCycleState(player,cycleOwner,out var cycleState))
