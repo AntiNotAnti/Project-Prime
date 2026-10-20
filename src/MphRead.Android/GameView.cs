@@ -1878,6 +1878,11 @@ namespace MphRead.Droid
                 _input.Apply(controls.ShockCoil, _controls.IsHeld(TouchAction.ShockCoil));
                 _input.Apply(controls.OmegaCannon, _controls.IsHeld(TouchAction.OmegaCannon));
 
+                // The shared custom controller owns readiness and selection legality.
+                _input.Apply(controls.CustomWeapon, _controls.IsHeld(TouchAction.CustomWeapon));
+                _input.Apply(controls.CustomReload, _controls.IsHeld(TouchAction.CustomReload));
+                _input.Apply(controls.CustomOptic, _controls.IsHeld(TouchAction.CustomOptic));
+
                 // MSSL swaps to the Missile and back to the Power Beam, since
                 // neither is on the wheel and a thumb has no number row. The
                 // press decides which of the two binds to hold for the frame;

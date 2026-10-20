@@ -471,10 +471,14 @@ namespace MphRead.Mods.Input
             // the gun and the alt form's attack to the same one), and JUMP is
             // also the ball's boost.
             ApplyBindings(controls);
-            if (Actions.WasPressed(PadAction.LastWeapon) && player.PreviousWeapon != player.CurrentWeapon)
+            if (Actions.WasPressed(PadAction.LastWeapon))
             {
-                var last = GamepadActions.WeaponBind(controls, player.PreviousWeapon);
-                if (last is not null) Hold(last, true, true);
+                player.ModNoteNativeSelectionIntent();
+                if (player.PreviousWeapon != player.CurrentWeapon)
+                {
+                    var last = GamepadActions.WeaponBind(controls, player.PreviousWeapon);
+                    if (last is not null) Hold(last, true, true);
+                }
             }
 
             // And say that somebody is playing. The binds above are ored on
@@ -504,6 +508,8 @@ namespace MphRead.Mods.Input
             Bind(controls.Imperialist, PadAction.Imperialist); Bind(controls.Judicator, PadAction.Judicator);
             Bind(controls.Magmaul, PadAction.Magmaul); Bind(controls.ShockCoil, PadAction.ShockCoil);
             Bind(controls.OmegaCannon, PadAction.OmegaCannon); Bind(controls.AffinitySlot, PadAction.AffinitySlot);
+            Bind(controls.CustomWeapon, PadAction.CustomWeapon); Bind(controls.CustomReload, PadAction.CustomReload);
+            Bind(controls.CustomOptic, PadAction.CustomOptic);
         }
 
         private static void Hold(Keybind bind, bool down)

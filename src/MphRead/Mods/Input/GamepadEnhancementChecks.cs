@@ -110,8 +110,83 @@ namespace MphRead.Mods.Input
             Check(ReferenceEquals(GamepadActions.WeaponBind(defaults, BeamType.Imperialist), defaults.Imperialist)
                 && GamepadActions.WeaponBind(defaults, BeamType.None) is null, "last weapon resolves an existing weapon action and rejects invalid values");
             GamepadManager.RemoveDevice("enhancement-check");
-            CheckCalibration(); CheckMapping(); CheckProfiles();
+            CheckCustomWeaponBindings(); CheckCalibration(); CheckMapping(); CheckProfiles();
             GamepadOptions.Reset(); PadBindings.Reset();
+        }
+        private static void CheckCustomWeaponBindings()
+        {
+            string[] savedActions = { "Shoot", "Zoom", "Jump", "Morph", "Scan", "ScanVisor", "Scoreboard",
+                "NextWeapon", "PrevWeapon", "Missile", "PowerBeam", "Menu", "Chat", "WeaponWheel",
+                "VoltDriver", "Battlehammer", "Imperialist", "Judicator", "Magmaul", "ShockCoil", "OmegaCannon",
+                "AffinitySlot", "LastWeapon", "ReplayPlayPause", "ReplayStep", "ReplaySeekBack", "ReplaySeekForward",
+                "ReplaySlower", "ReplayFaster", "ReplayPrevPlayer", "ReplayNextPlayer", "ReplayCameraMode", "SaveClip", "Crouch" };
+            Check(savedActions.Select((name,index)=>(int)Enum.Parse<PadAction>(name)==index).All(value=>value),
+                "every persisted native/replay/save-clip controller action retains its original numeric ID");
+            Check((int)PadAction.CustomWeapon==34 && (int)PadAction.CustomReload==35 && (int)PadAction.CustomOptic==36,
+                "custom gameplay actions append after Crouch without reusing a persisted action ID");
+            var custom = new[] { PadAction.CustomWeapon, PadAction.CustomReload, PadAction.CustomOptic };
+            var state = new PadBindingState();
+            foreach (var action in custom)
+                Check(state.Get(action)==GamepadButtons.None && state.Default(action)==GamepadButtons.None
+                    && state.Slot(action,0)==GamepadButtons.None && state.Slot(action,1)==GamepadButtons.None
+                    && state.GameplayActions.Contains(action) && !state.ReplayActions.Contains(action)
+                    && state.Actions.Count(a=>a==action)==1,
+                    action + " is an opt-in unbound gameplay row and cannot steal an existing controller binding");
+            Check(state.TryLoad("pad_16","X") && state.Get(PadAction.Imperialist)==GamepadButtons.X
+                && custom.All(action=>state.Get(action)==GamepadButtons.None),
+                "legacy numeric native action setting still targets Imperialist and leaves new controls unbound");
+            state.SetSlot(PadAction.CustomWeapon,0,GamepadButtons.A,GamepadButtons.LeftBumper);
+            state.SetSlot(PadAction.CustomReload,1,GamepadButtons.X,GamepadButtons.RightBumper);
+            state.SetSlot(PadAction.CustomOptic,0,GamepadButtons.RightThumb);
+            var lines = new System.Collections.Generic.List<string>(); state.Write(lines);
+            var restored = new PadBindingState();
+            foreach (var line in lines)
+            {
+                int split = line.IndexOf('='); restored.TryLoad(line[..split],line[(split+1)..]);
+            }
+            restored.LoadSlots(lines);
+            Check(custom.All(action=>restored.Get(action)==state.Get(action)
+                && Enumerable.Range(0,2).All(slot=>restored.Slot(action,slot)==state.Slot(action,slot)
+                    && restored.Modifier(action,slot)==state.Modifier(action,slot))),
+                "custom primary/secondary/chord settings survive actual controller settings serialization");
+            foreach (var action in custom)
+            {
+                var buttons = state.Slot(action,action==PadAction.CustomReload?1:0)
+                    | state.Modifier(action,action==PadAction.CustomReload?1:0);
+                ulong bit = 1UL << (int)action;
+                Check((state.Evaluate(buttons)&bit)!=0 && (state.Evaluate(buttons,replayContext:true)&bit)==0,
+                    action + " resolves in gameplay and cannot leak into replay actions");
+            }
+            Check(state.Name(PadAction.CustomWeapon)=="Custom weapon"
+                && state.Name(PadAction.CustomReload)=="Reload custom weapon"
+                && state.Name(PadAction.CustomOptic)=="Cycle custom optic",
+                "custom controller settings provide explicit action labels");
+            var previousContext=GamepadContexts.Current; bool previousFocus=GamepadContexts.Focused;
+            try
+            {
+                GamepadContexts.Current=GamepadContext.Gameplay; GamepadContexts.Focused=true;
+                foreach (var action in custom)
+                {
+                    PadBindings.Reset(); PadBindings.SetSlot(action,0,GamepadButtons.X,GamepadButtons.RightBumper);
+                    GamepadManager.UpdateDevice("custom-binding-check",new GamepadState(),true);
+                    GamepadManager.SelectDevice("custom-binding-check"); GamepadInput.BeginFrame();
+                    GamepadManager.UpdateDevice("custom-binding-check",new GamepadState {Buttons=GamepadButtons.X|GamepadButtons.RightBumper},true);
+                    GamepadInput.BeginFrame();
+                    var controls=PlayerControls.GetDefault(); GamepadInput.ApplyBindings(controls);
+                    var bind=(Keybind)typeof(PlayerControls).GetProperty(action.ToString())!.GetValue(controls)!;
+                    Check(bind.IsDown && bind.IsPressed && !controls.Scan.IsDown && !controls.NextWeapon.IsDown,
+                        action + " chord reaches its actual custom keybind without native component actions");
+                    GamepadInput.BeginFrame(); var held=PlayerControls.GetDefault(); GamepadInput.ApplyBindings(held);
+                    var heldBind=(Keybind)typeof(PlayerControls).GetProperty(action.ToString())!.GetValue(held)!;
+                    Check(heldBind.IsDown && !heldBind.IsPressed,
+                        action + " held controller input keeps state without repeating a custom control edge");
+                }
+            }
+            finally
+            {
+                GamepadManager.RemoveDevice("custom-binding-check"); PadBindings.Reset();
+                GamepadContexts.Current=previousContext; GamepadContexts.Focused=previousFocus;
+            }
         }
         private static void CheckCalibration()
         {

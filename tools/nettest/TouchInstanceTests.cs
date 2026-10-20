@@ -42,6 +42,7 @@ internal static class TouchInstanceTests
         {
             TouchSettings.Reset();
             _checks = 0;
+            CustomControls();
             Codec();
             LegacyAndDraft();
             foreach (var c in TouchSettings.Order) TouchSettings.SetEnabled(c.Control, false);
@@ -58,6 +59,38 @@ internal static class TouchInstanceTests
             TouchSettings.ButtonsVisible = visible; TouchSettings.ButtonScale = scale;
             TouchSettings.StickScale = stick; TouchSettings.OverlayOpacity = opacity;
         }
+    }
+    private static void CustomControls()
+    {
+        string[] legacy = { "Shoot", "Jump", "Morph", "ScanVisor", "Scan", "Missile", "WeaponMenu", "Zoom",
+            "Pause", "Scoreboard", "Chat", "Clip", "PowerBeam", "MissileSelect", "VoltDriver", "Battlehammer",
+            "Imperialist", "Judicator", "Magmaul", "ShockCoil", "OmegaCannon" };
+        for (int id = 0; id < legacy.Length; id++)
+            Check((int)Enum.Parse<TouchControl>(legacy[id]) == id
+                && (int)Enum.Parse<TouchAction>(legacy[id]) == id, "preserve existing layout action ID " + legacy[id]);
+        foreach (var control in new[] { TouchControl.CustomWeapon, TouchControl.CustomReload, TouchControl.CustomOptic })
+        {
+            var action = (TouchAction)control;
+            var hidden = Controls();
+            Check(!TouchSettings.IsEnabled(control) && !hidden.Buttons.Single(b => b.Action == action).Visible,
+                "custom primary starts hidden without occupying native touch targets: " + control);
+            Check(!TouchSettings.IsDirectWeapon(control), "custom action does not enter native weapon selection: " + control);
+            Check(TouchSettings.Order.Any(row => row.Control == control)
+                && TouchSettings.ShortLabel(control) != control.ToString(), "custom action has editable layout metadata: " + control);
+            TouchSettings.SetEnabled(control, true);
+            var enabled = Controls(); var button = enabled.Buttons.Single(b => b.Action == action);
+            Check(button.Visible, "explicit individual opt-in reveals custom primary: " + control);
+            enabled.PointerDown(21, button.CentreX, button.CentreY);
+            Check(enabled.IsHeld(action), "custom primary owns its pointer: " + control);
+            enabled.PointerUp(21);
+            Check(!enabled.IsHeld(action), "custom primary releases its pointer: " + control);
+            enabled.SetSpectator(true, false);
+            Check(!button.Visible, "custom gameplay button is hidden while spectating: " + control);
+            enabled.SetSpectator(false, false); enabled.SetEndScreen(true);
+            Check(!button.Visible, "custom gameplay button is hidden on results: " + control);
+            TouchSettings.SetEnabled(control, false);
+        }
+        TouchSettings.Reset();
     }
     private static void Codec()
     {

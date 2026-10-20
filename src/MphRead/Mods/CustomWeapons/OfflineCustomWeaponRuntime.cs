@@ -10,13 +10,17 @@ namespace MphRead.Mods.CustomWeapons;
 /// prediction, replay reconstruction or publication is enabled by this prototype.</summary>
 internal sealed class OfflineCustomWeaponRuntime : IDisposable
 {
+    private readonly record struct LocalInput(uint Sequence,CustomWeaponActionKind Kind,byte Optic,uint Tick,WeaponOwnerContext Owner);
     private sealed class Slot
     {
         internal required PlayerEntity Player;
         internal required EquipInfo Equip;
         internal required WeaponRuntimeState State;
         internal ushort Life = 1;
-        internal bool Alive = true, Emitting;
+        internal bool Alive = true, Emitting, Selected=true;
+        internal uint InputSequence,SettledInputSequence,SelectionDenied,OpticDenied;
+        internal readonly LocalInput[] Inputs=new LocalInput[16];
+        internal int InputCount;
     }
     private readonly Scene _scene;
     private readonly WeaponRegistry _registry;
@@ -70,7 +74,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         bool alive = slot.Player.Health > 0 && !slot.Player.Flags2.TestFlag(PlayerFlags2.Spectating);
         if (!alive)
         {
-            if (slot.Alive) { slot.State.Invalidate(WeaponCancellation.Death); RetireBeams(slot); }
+            if (slot.Alive) { ExpireInputs(slot);slot.State.Invalidate(WeaponCancellation.Death); RetireBeams(slot); }
             slot.Alive = false; return;
         }
         if (!slot.Alive)
@@ -80,18 +84,81 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
             if (!inventory.BindLife(new(1,1,(byte)slot.Player.SlotIndex,1,slot.Life),Tick)
                 || !inventory.Grant(_definition.Identity,Tick)) return;
             inventory.TryGetState(_definition.Identity,out var state); slot.State = state!; slot.Alive = true;
+            slot.Selected=false;slot.InputSequence=slot.SettledInputSequence=slot.SelectionDenied=slot.OpticDenied=0;
+            slot.InputCount=0;Array.Clear(slot.Inputs);
         }
         bool biped = !slot.Player.IsAltForm && !slot.Player.IsMorphing && !slot.Player.IsUnmorphing;
-        slot.State.SetEquipped(Tick,biped);
+        bool usable=biped&&slot.Player.ModTryCaptureCustomPrecombatFacts(slot.Player.ModGunVector,out var facts)&&facts.CanUseWeapon;
+        slot.State.SetEquipped(Tick,usable&&slot.Selected);
         slot.State.Advance(Tick);
     }
     internal void Step()
     {
         if (_disposed) return;
         if (!IsEligible) { Dispose(); return; }
-        foreach (var slot in _slots) if (slot != null) Observe(slot);
+        foreach (var slot in _slots) if (slot != null)
+        {
+            // A source that never reached its post-aim biped phase cannot fire
+            // later after thaw/respawn. No delayed retry crosses input steps.
+            ExpireInputs(slot);Observe(slot);
+        }
     }
     internal WeaponRuntimeState? State(PlayerEntity player) => Resolve(player)?.State;
+    internal CustomInputProjection? InputProjection(PlayerEntity player)
+        =>Resolve(player) is {} slot?new(slot.State.Owner,slot.Selected,(byte)slot.State.Snapshot().Optic,
+            slot.SettledInputSequence,slot.SelectionDenied,slot.OpticDenied):null;
+    internal bool SubmitInput(PlayerEntity player,CustomWeaponActionKind kind,byte optic,out uint sequence)
+    {
+        sequence=0;var slot=Resolve(player);
+        if(slot==null||slot.InputSequence==uint.MaxValue||slot.InputCount==slot.Inputs.Length
+            ||(byte)kind<(byte)CustomWeaponActionKind.Fire||(byte)kind>(byte)CustomWeaponActionKind.Unequip)return false;
+        sequence=++slot.InputSequence;
+        slot.Inputs[slot.InputCount++]=new(sequence,kind,optic,Tick,slot.State.Owner);
+        return true;
+    }
+    private static void CompleteResult(Slot slot,in LocalInput input,WeaponActionResult result)
+    {
+        slot.SettledInputSequence=input.Sequence;
+        if(result==WeaponActionResult.Accepted)return;
+        if(input.Kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip)slot.SelectionDenied=input.Sequence;
+        if(input.Kind is CustomWeaponActionKind.Reload or CustomWeaponActionKind.Optic)slot.OpticDenied=input.Sequence;
+    }
+    private static void ExpireInputs(Slot slot)
+    {
+        for(int i=0;i<slot.InputCount;i++)CompleteResult(slot,slot.Inputs[i],WeaponActionResult.InvalidLife);
+        slot.InputCount=0;Array.Clear(slot.Inputs);
+    }
+    internal void CompleteInput(PlayerEntity player)
+    {
+        if(!IsEligible||player.OwningScene!=_scene||(uint)player.SlotIndex>=8
+            ||_slots[player.SlotIndex] is not {} slot||slot.Player!=player||slot.InputCount==0)return;
+        Observe(slot);
+        if(!slot.Alive||slot.InputCount==0)return;
+        int count=slot.InputCount;slot.InputCount=0;
+        for(int i=0;i<count;i++)
+        {
+            var input=slot.Inputs[i];slot.Inputs[i]=default;
+            bool usable=input.Tick==Tick&&input.Owner==slot.State.Owner
+                &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
+            WeaponActionResult result;
+            switch(input.Kind)
+            {
+                case CustomWeaponActionKind.Equip:
+                    result=usable?slot.State.SetEquipped(Tick,true):WeaponActionResult.InvalidLife;
+                    if(result==WeaponActionResult.Accepted)slot.Selected=true;break;
+                case CustomWeaponActionKind.Unequip:
+                    result=usable?slot.State.SetEquipped(Tick,false):WeaponActionResult.InvalidLife;
+                    if(result==WeaponActionResult.Accepted)slot.Selected=false;break;
+                case CustomWeaponActionKind.Fire:
+                    result=usable?Fire(player,input.Sequence,player.ModGunVector):WeaponActionResult.InvalidLife;break;
+                case CustomWeaponActionKind.Reload:
+                    result=usable?Reload(player,input.Sequence):WeaponActionResult.InvalidLife;break;
+                default:
+                    result=usable?Optic(player,input.Sequence,input.Optic):WeaponActionResult.InvalidLife;break;
+            }
+            CompleteResult(slot,input,result);
+        }
+    }
     internal WeaponActionResult Reload(PlayerEntity player,uint sequence)
         => Resolve(player)?.State.TryReload(Tick,sequence) ?? WeaponActionResult.InvalidLife;
     internal WeaponActionResult Optic(PlayerEntity player,uint sequence,int optic)

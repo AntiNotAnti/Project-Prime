@@ -64,7 +64,10 @@ namespace MphRead.Droid
         Judicator,
         Magmaul,
         ShockCoil,
-        OmegaCannon
+        OmegaCannon,
+        CustomWeapon,
+        CustomReload,
+        CustomOptic
     }
 
     internal sealed class TouchButton
@@ -177,7 +180,11 @@ namespace MphRead.Droid
             new TouchButton(TouchAction.Judicator, "JUD") { Visible = false },
             new TouchButton(TouchAction.Magmaul, "MAG") { Visible = false },
             new TouchButton(TouchAction.ShockCoil, "COIL") { Visible = false },
-            new TouchButton(TouchAction.OmegaCannon, "OMEGA") { Visible = false }
+            new TouchButton(TouchAction.OmegaCannon, "OMEGA") { Visible = false },
+            // Custom actions remain opt-in layout choices, independent of the native wheel.
+            new TouchButton(TouchAction.CustomWeapon, "CUSTOM") { Visible = false },
+            new TouchButton(TouchAction.CustomReload, "RELOAD") { Visible = false },
+            new TouchButton(TouchAction.CustomOptic, "OPTIC") { Visible = false }
         };
 
         public TouchControls() { _buttonSnapshot = _buttons.ToArray(); }
@@ -753,6 +760,9 @@ namespace MphRead.Droid
                 TouchAction.Magmaul => TouchControl.Magmaul,
                 TouchAction.ShockCoil => TouchControl.ShockCoil,
                 TouchAction.OmegaCannon => TouchControl.OmegaCannon,
+                TouchAction.CustomWeapon => TouchControl.CustomWeapon,
+                TouchAction.CustomReload => TouchControl.CustomReload,
+                TouchAction.CustomOptic => TouchControl.CustomOptic,
                 _ => TouchControl.Chat
             };
         }

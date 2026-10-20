@@ -107,7 +107,7 @@ public static class NetShotInputHistory
             || player.SlotIndex != NetSession.LocalSlot || (uint)player.CurrentWeapon > 8) return;
         Sender.Record(ShotKey.For(player.SlotIndex, 0), NetSession.NetFrame,
             ShotInputHistory.Sample((byte)player.CurrentWeapon, player.Controls.Shoot.IsDown,
-                player.Controls.Zoom.IsDown, eligible));
+                player.Controls.Zoom.IsDown, eligible&&!player.ModCustomOwnsBipedControls));
     }
 
     public static void Fill(uint frame, in ShotKey life, ref IntentPacket intent)

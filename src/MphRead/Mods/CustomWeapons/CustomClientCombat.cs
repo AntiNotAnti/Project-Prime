@@ -22,11 +22,35 @@ internal sealed class CustomClientCombat
     private uint _submitted;
     private double _time;
     private byte _mode;
+    private uint _selectionFactSequence,_opticFactSequence,_selectionDenied,_opticDenied;
+    private bool _selectionFact;
+    private byte _opticFact;
     internal bool Invalidated { get; private set; }
     internal CustomStateMessage? State { get; private set; }
     internal CustomReceiptMessage? LastReceipt { get; private set; }
     internal CustomContactMessage? LastContact { get; private set; }
     internal CustomControlDenied? LastControlDenied { get; private set; }
+    internal CustomInputProjection? InputProjection=>State is {} state
+        ?new(state.State.Owner,
+            _selectionFactSequence>state.SettledSequence?_selectionFact:state.Selected==state.Weapon,
+            _opticFactSequence>state.SettledSequence?_opticFact:(byte)state.State.Optic,
+            state.SettledSequence,_selectionDenied,_opticDenied,state.Bootstrap,state.Manifest):null;
+    private void NoteControlResult(CustomWeaponActionKind kind,uint sequence,bool accepted,WeaponStateSnapshot? after=null)
+    {
+        if(kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip)
+        {
+            if(accepted&&sequence>_selectionFactSequence)
+            {_selectionFactSequence=sequence;_selectionFact=kind==CustomWeaponActionKind.Equip;}
+            if(!accepted&&sequence>_selectionDenied)_selectionDenied=sequence;
+        }
+        if(kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip or CustomWeaponActionKind.Optic or CustomWeaponActionKind.Reload)
+        {
+            if(accepted&&after is {} state&&sequence>_opticFactSequence)
+            {_opticFactSequence=sequence;_opticFact=(byte)state.Optic;}
+            if(!accepted&&(kind is CustomWeaponActionKind.Optic or CustomWeaponActionKind.Reload)
+                &&sequence>_opticDenied)_opticDenied=sequence;
+        }
+    }
     internal readonly byte[] InputBytes=new byte[CustomInputCarrier.MaxPayload];
     internal CustomClientCombat(CustomReadinessWire wire) => _wire=wire;
     private bool Time(double now)
@@ -63,6 +87,8 @@ internal sealed class CustomClientCombat
             {
                 _submittedOwner=state.State.Owner; _submitted=state.SettledSequence;
                 _mode=0;
+                _selectionFactSequence=_opticFactSequence=_selectionDenied=_opticDenied=0;
+                _selectionFact=false;_opticFact=0;
                 if (LastReceipt?.Receipt.Action.Owner!=state.State.Owner) LastReceipt=null;
                 if (LastControlDenied?.Request.Owner!=state.State.Owner) LastControlDenied=null;
                 // A new canonical life retires old local intent/prediction;
@@ -87,6 +113,9 @@ internal sealed class CustomClientCombat
             bool first=First(message.Token,type,bytes,out bool conflict);
             if (conflict) { Invalidated=true; return false; }
             ack=message.Ack;
+            if(first&&State?.State.Owner==action.Owner)
+                NoteControlResult(action.Kind,action.Sequence,message.Receipt.Disposition==CustomJournalDisposition.Accepted
+                    &&message.Receipt.Result==WeaponActionResult.Accepted,message.Receipt.After);
             if (first && (State==null || State.Value.State.Owner==action.Owner)
                 && (LastReceipt is not { } prior || prior.Receipt.Action.Owner!=action.Owner
                 || prior.Receipt.Action.Sequence<action.Sequence)) LastReceipt=message;
@@ -106,6 +135,8 @@ internal sealed class CustomClientCombat
             bool first=First(denied.Token,type,bytes,out bool conflict);
             if (conflict) { Invalidated=true; return false; }
             ack=denied.Ack;
+            if(first&&State?.State.Owner==denied.Request.Owner)
+                NoteControlResult(denied.Request.Kind,denied.Request.Sequence,false);
             if (first && (State==null || State.Value.State.Owner==denied.Request.Owner)
                 && (LastControlDenied is not { } old || old.Request.Owner!=denied.Request.Owner || old.Request.Sequence<denied.Request.Sequence))
                 LastControlDenied=denied;
