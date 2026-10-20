@@ -181,6 +181,28 @@ internal sealed partial class NativeFullSettingsController : IDisposable
                 value=>{if(value=="default")TouchSettings.ResetLayout(c);else{var n=value.Split(',').Select(v=>float.Parse(v,CultureInfo.InvariantCulture)).ToArray();TouchSettings.SetLayout(c,n[0],n[1],n[2]);}},
                 value=>value=="default"||ValidTuple(value,new[]{0d,0,TouchSettings.MinIndividualScale},new[]{1d,1,TouchSettings.MaxIndividualScale})?null:"Enter x,y,size (x/y 0–1, size 0.4–2), or default."));
         }
+        for (int extra = 0; extra < TouchSettings.MaximumExtraInstances; extra++)
+        {
+            int id = TouchSettings.FirstExtraInstanceId + extra;
+            string label = "Extra " + (extra + 1);
+            TouchButtonInstance? Existing() => TouchSettings.ExtraInstances.FirstOrDefault(x => x.Id == id) is var x && x.Id == id ? x : null;
+            void Publish(TouchButtonInstance? value)
+            {
+                var instances = TouchSettings.CopyInstances().Where(x => x.Id != id).ToList();
+                if (value.HasValue) instances.Add(value.Value);
+                TouchSettings.ReplaceInstances(instances);
+            }
+            Rows.Add(new("Controls", "Touch buttons", label + " action", () => Existing()?.Action.ToString() ?? "none",
+                value => { if (value == "none") Publish(null); else Publish((Existing() ?? new(id,TouchControl.Shoot,true,.5f,.5f,1)) with { Action = Enum.Parse<TouchControl>(value) }); },
+                value => value == "none" || Enum.TryParse<TouchControl>(value, out var a) && Enum.IsDefined(a) ? null : "Choose an action or none to delete.",
+                new[] { "none" }.Concat(Enum.GetNames<TouchControl>()).ToArray()));
+            Rows.Add(new("Controls", "Touch buttons", label + " enabled", () => (Existing()?.Enabled ?? true).ToString(),
+                value => { if (Existing() is { } instance) Publish(instance with { Enabled = bool.Parse(value) }); },
+                value => bool.TryParse(value,out _) ? null : "Choose true or false.", new[] { "false", "true" }));
+            Rows.Add(new("Controls", "Touch layout", label + " position / size", () => Existing() is { } b ? FormattableString.Invariant($"{b.X},{b.Y},{b.Scale}") : "default",
+                value => { if (Existing() is not { } b) return; var n = value == "default" ? new[] { .5f,.5f,1f } : value.Split(',').Select(v => float.Parse(v,CultureInfo.InvariantCulture)).ToArray(); Publish(b with { X=n[0],Y=n[1],Scale=n[2] }); },
+                value => value == "default" || ValidTuple(value,new[] {0d,0,TouchSettings.MinIndividualScale},new[] {1d,1,TouchSettings.MaxIndividualScale}) ? null : "Enter x,y,size or default."));
+        }
         AddControllerCalibrationRows();
         AddPrimitive(typeof(PointerInput),"Controls","Stylus",new[]{"StylusMode","GuardJumps"});
         Rows.Add(new("Controls","Stylus guide","Guide position / width",()=>FormattableString.Invariant($"{StylusZone.Left},{StylusZone.Top},{StylusZone.Width}"),

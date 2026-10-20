@@ -411,7 +411,6 @@ namespace MphRead.Droid
             private bool _replayPausedShown;
             private bool _missileWasHeld;
             private bool _chatWasHeld;
-            private bool _clipWasHeld;
             private bool _keyboardShown;
             private PlayerEntity? _touchPlayer;
             private ushort _touchLife;
@@ -1712,14 +1711,13 @@ namespace MphRead.Droid
             /// <summary>One touch press saves the rolling instant-replay buffer.</summary>
             private void HandleClip()
             {
-                bool clip = _controls.IsHeld(TouchAction.Clip);
-                if (clip && !_clipWasHeld
+                bool clip = _controls.TakeClipPress();
+                if (clip
                     && MphRead.Mods.Network.DemoClip.Active
                     && !MphRead.Mods.Chat.ChatBox.Composing)
                 {
                     MphRead.Mods.Network.DemoClip.SaveWithFeedback();
                 }
-                _clipWasHeld = clip;
             }
 
             private void CollectInput(PlayerEntity main)

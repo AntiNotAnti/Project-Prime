@@ -2485,6 +2485,22 @@ namespace MphRead.Mods.Launcher.Gui
             };
             resetRow.Children.Add(resetLayout);
             page.Children.Add(resetRow);
+            var extraRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            void ExtraButton(string label, Action action)
+            {
+                var button = new HubNavButton(label, compact: true, accent: HubTheme.Warm);
+                button.Click += (_, _) => { action(); SyncEditorInspector(); };
+                extraRow.Children.Add(button);
+            }
+            ExtraButton("DUPLICATE", () => _touchEditor.DuplicateSelected());
+            ExtraButton("NEXT EXTRA", () => _touchEditor.SelectNextInstance());
+            ExtraButton("DELETE EXTRA", () => _touchEditor.DeleteSelectedInstance());
+            ExtraButton("ENABLE EXTRA", () => _touchEditor.ToggleSelectedInstance());
+            page.Children.Add(extraRow);
+            var extraAction = Add(page, new ChoiceRow("Extra button action", labels, 0));
+            extraAction.Changed += (_, _) => _touchEditor.ReassignSelected(
+                Mods.Input.TouchSettings.Order[Math.Clamp(extraAction.Index, 0, labels.Length - 1)].Control);
+            Explain(page, "Duplicate adds an independent button (up to 11 extras). Tap it or use Next extra, then change its action, position, size or enabled state. Apply saves; Cancel discards the draft.");
 
             Heading(page, "Buttons");
             Explain(page, "Disable controls you never touch to free that area for aiming. "
@@ -3031,6 +3047,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_touchEditor != null)
                 {
                     Mods.Input.TouchSettings.ReplaceLayout(_touchEditor.CopyLayout());
+                Mods.Input.TouchSettings.ReplaceInstances(_touchEditor.CopyInstances());
                 }
             }
             InputSettings.Save();

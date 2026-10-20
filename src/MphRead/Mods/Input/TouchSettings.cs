@@ -77,7 +77,7 @@ namespace MphRead.Mods.Input
     /// configuration. Positions are stored as normalized screen coordinates so
     /// a layout survives rotation, resolution changes and different phone sizes.
     /// </summary>
-    public static class TouchSettings
+    public static partial class TouchSettings
     {
         public const float MinButtonScale = 0.50f;
         public const float MaxButtonScale = 1.75f;
@@ -108,19 +108,19 @@ namespace MphRead.Mods.Input
         public static float ButtonScale
         {
             get => _buttonScale;
-            set => _buttonScale = Math.Clamp(value, MinButtonScale, MaxButtonScale);
+            set => _buttonScale = Math.Clamp(float.IsFinite(value) ? value : 1f, MinButtonScale, MaxButtonScale);
         }
 
         public static float StickScale
         {
             get => _stickScale;
-            set => _stickScale = Math.Clamp(value, MinStickScale, MaxStickScale);
+            set => _stickScale = Math.Clamp(float.IsFinite(value) ? value : 1f, MinStickScale, MaxStickScale);
         }
 
         public static float OverlayOpacity
         {
             get => _overlayOpacity;
-            set => _overlayOpacity = Math.Clamp(value, MinOverlayOpacity, MaxOverlayOpacity);
+            set => _overlayOpacity = Math.Clamp(float.IsFinite(value) ? value : 1f, MinOverlayOpacity, MaxOverlayOpacity);
         }
 
         /// <summary>The order used by settings and the touch-layout editor.</summary>
@@ -267,6 +267,11 @@ namespace MphRead.Mods.Input
 
         public static void SetLayout(TouchControl control, float x, float y, float scale)
         {
+            if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(scale))
+            {
+                ResetLayout(control);
+                return;
+            }
             _layout[control] = new TouchButtonLayout(
                 Math.Clamp(x, 0f, 1f),
                 Math.Clamp(y, 0f, 1f),
@@ -405,6 +410,7 @@ namespace MphRead.Mods.Input
                 _hidden.Add(control);
             }
             _layout.Clear();
+            ReplaceInstances(Array.Empty<TouchButtonInstance>());
         }
 
         public static string SettingKey(TouchControl control)
@@ -424,6 +430,11 @@ namespace MphRead.Mods.Input
 
         public static bool ReadSetting(string key, string value)
         {
+            if (key == InstancesSettingKey)
+            {
+                ReplaceInstances(TryParseInstances(value, out var instances) ? instances : Array.Empty<TouchButtonInstance>());
+                return true;
+            }
             if (key == "touch_direct_weapon_selection")
             {
                 DirectWeaponSelection = Boolean.TryParse(value, out bool direct) && direct;
@@ -508,6 +519,7 @@ namespace MphRead.Mods.Input
 
         public static void WriteSettings(List<string> lines)
         {
+            if (_instancesEdited) lines.Add(InstancesSettingKey + "=" + SerializeInstances(_instances));
             lines.Add($"touch_mode={Mode}");
             lines.Add($"touch_direct_weapon_selection={DirectWeaponSelection.ToString().ToLowerInvariant()}");
             lines.Add($"{ButtonsSettingKey}={ButtonsVisible.ToString().ToLowerInvariant()}");
