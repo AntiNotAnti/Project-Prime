@@ -3,7 +3,7 @@ using MphRead.Mods.Movement;
 
 namespace MphRead.Mods.CustomWeapons;
 
-/// <summary>Shared admission policy when the Riftline M7 loadout is requested.
+/// <summary>Shared admission policy when Riftline M7 availability is requested.
 /// Native-only matches do not need this additional policy.</summary>
 public static class CustomWeaponMatchPolicy
 {

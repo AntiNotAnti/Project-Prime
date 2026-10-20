@@ -43,8 +43,25 @@ public partial class Scene
         int slot=NetSession.Active?NetSession.LocalSlot:0;
         if((uint)slot>=Players.Items.Count)return;
         var player=Players.Items[slot];if(player.IsBot)return;
+        var controls=player.Controls;
+        bool native=player.ModTakeNativeSelectionIntent()
+            ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed
+            ||controls.Battlehammer.IsPressed||controls.Imperialist.IsPressed||controls.Judicator.IsPressed
+            ||controls.Magmaul.IsPressed||controls.ShockCoil.IsPressed||controls.OmegaCannon.IsPressed
+            ||controls.AffinitySlot.IsPressed||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed
+            ||player.ModNativeWheelReleaseIntent;
+        if(!NetSession.Active)OfflineWeapons?.ApplyPickupAutoSelection(player,
+            allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay,
+            native||controls.CustomWeapon.IsPressed);
         var projection=NetSession.Active?NetSession.CustomWeaponInputProjection:OfflineWeapons?.InputProjection(player);
-        if(projection==null&&_customInput==null){player.ModTakeNativeSelectionIntent();return;}
+        if(!NetSession.Active&&projection==null)
+        {
+            // Offline absence is a definite empty life, not an unacknowledged
+            // online selection. A dead owner's uncertainty cannot block the
+            // native weapon after an empty respawn.
+            ReleaseCustomWeaponInput();player.ModSynchronizeCustomNativeSuppression();return;
+        }
+        if(projection==null&&_customInput==null)return;
         if(!ReferenceEquals(_customInputPlayer,player))
         {
             _customInput=new();_customInputPlayer=player;_customInputSink=new(this,player);_customInputLife=default;
@@ -56,13 +73,6 @@ public partial class Scene
         }
         _customInput!.Synchronize(projection);
         _customFeedback??=new();_customFeedback.Synchronize(projection);
-        var controls=player.Controls;
-        bool native=player.ModTakeNativeSelectionIntent()
-            ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed
-            ||controls.Battlehammer.IsPressed||controls.Imperialist.IsPressed||controls.Judicator.IsPressed
-            ||controls.Magmaul.IsPressed||controls.ShockCoil.IsPressed||controls.OmegaCannon.IsPressed
-            ||controls.AffinitySlot.IsPressed||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed
-            ||player.ModNativeWheelReleaseIntent;
         bool inputAllowed=allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay
             &&player.Health>0&&!player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;

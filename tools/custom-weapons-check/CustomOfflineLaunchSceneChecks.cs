@@ -71,9 +71,9 @@ internal static class CustomOfflineLaunchSceneChecks
             for(int i=0;i<600&&!human.LoadFlags.TestFlag(LoadFlags.Spawned);i++)scene.OnSimulationFrame();
             Key(window.KeyboardState,Keys.Enter,false);scene.CameraSequences.Current?.End();
             for(int i=0;i<180;i++)scene.OnSimulationFrame();
-            Check(human.Health>0&&runtime.State(human)?.Snapshot() is {Magazine:4,Reserve:16,Phase:CustomWeaponPhase.Unequipped}
-                &&runtime.InputProjection(human) is {Selected:false}&&runtime.AcceptedShots==0,
-                "launcher-attached availability automatically grants exact4/16 native-selected inventory on real fixed steps");
+            Check(human.Health>0&&runtime.State(human)==null&&runtime.InputProjection(human)==null
+                &&runtime.Pickups is {Revision:0,PendingOutcomes:0}&&runtime.Pickups.Layout.Count==1&&runtime.AcceptedShots==0,
+                "launcher-attached public pickup world leaves real spawned life empty with native selected");
             window.EndScene();
             Check(!window.HasScene&&!runtime.IsEligible&&scene.OfflineWeapons==null&&scene.CustomWeapons==null,
                 "ending actual window scene releases launcher-attached runtime and registry");

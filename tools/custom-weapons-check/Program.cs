@@ -4,7 +4,9 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 3 && args[0] == "--pickup-gl") return StockPickupGlChecks.Run(args[1],args[2]);
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
+if (args.Length == 3 && args[0] == "--stock-pickup-scene") return StockPickupSceneChecks.Run(args[1],args[2]);
 if (args.Length is 2 or 3 && args[0] == "--scope-gl") return CustomScopeSceneChecks.Run(args[1],gl:true,output:args.Length==3?args[2]:null);
 if (args.Length == 2 && args[0] == "--scope-scene") return CustomScopeSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--offline-launch-scene") return CustomOfflineLaunchSceneChecks.Run(args[1]);
@@ -215,6 +217,7 @@ ReplicaAudienceChecks.Run(Check);
 CustomReplayBoundaryChecks.Run(Check);
 CustomMatchPolicyChecks.Run(Check);
 CustomOfflineAvailabilityChecks.Run(Check);
+StockPickupChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;
