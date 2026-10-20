@@ -10,6 +10,8 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-textures")
+        return RetroTextureOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-bundle")
     {
         LocalImportBundleTests.VerifyRealEchoesSource(args[1]);
@@ -133,7 +135,7 @@ try
     }
     if (args.Length != 0)
     {
-        Console.Error.WriteLine("Usage: external-import-check [--probe|--probe-bundle <local.iso|local.gcm|local.rvz>] (GameCube RVZ: None or Zstandard)");
+        Console.Error.WriteLine("Usage: external-import-check [--probe|--probe-bundle|--probe-textures <local.iso|local.gcm|local.rvz>] (GameCube RVZ: None or Zstandard; --probe-textures emits metadata only)");
         return 2;
     }
     SelfTest();
@@ -154,6 +156,7 @@ try
     EchoesFloorPlacementFixtureTests.Run();
     EchoesOfflineGateFixtureTests.Run();
     RetroCharacterMeshFixtureTests.Run();
+    RetroTextureSourceTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }
