@@ -3,7 +3,7 @@
 Status: implementation inventory only; not an enabled content port. This document and
 `second-hunt-manifest.json` are source-code review artifacts, not extracted Nintendo data.
 
-## Source pin
+## Historical PORT source pin
 
 - Source: [Second Hunt](https://github.com/BountyHunterKanden/SecondHunt/tree/c16a907b3658c2fd4079e394a73711596a85caee)
   at `c16a907b3658c2fd4079e394a73711596a85caee` (do **not** assume later upstream commits are compatible).
@@ -15,7 +15,14 @@ Status: implementation inventory only; not an enabled content port. This documen
   generated body/model/collision archives, or disc keys. Generated game material
   must stay on the importing user's machine.
 
-## Exactly what the source offers
+The separately frozen October 19 integration review compares that historical pin
+through `41452f2d053fcfa679e33c00a73d120a53f59e61` against Project Prime
+`5bc952147ce45f87d777ff0de4b2927f0c27ef9e`. See the
+[SH-00 source/owner/gate ledger](second-hunt-integration-audit-2026-10-19.md).
+The manifest preserves original PORT provenance and records this newer audit in
+`integrationAudit`; it does not promote newer source recipes into supported imports.
+
+## Exactly what the historical source offers
 
 Playable identities: `darksamus` (Samus-equivalent simulation and separate
 Echoes/Corruption native visual rigs) and `trooper` (Weavel-derived but NEW
@@ -44,8 +51,10 @@ Useful upstream references at the pinned SHA:
 1. Existing `Hunter` numeric IDs, original hunter balance, and vanilla
    character behavior are unchanged. Introduce a separate stable character ID
    in match setup and a locally resolved cosmetic ID; no enum renumbering.
-2. The dedicated server owns legal movement, hit detection, drone/projectile
-   spawn, damage, destructible geometry and pickup mutation. Never adopt the
+2. Movement remains owner-reported through `IntentPacket.Position`; the dedicated
+   server validates lifecycle/order and owns combat, health, score and world state.
+   New drone/projectile, destructible and pickup outcomes require server validation.
+   Never adopt the
    upstream peer/relay networking as Project Prime authoritative networking.
 3. Imported skins are strictly draw-only and cannot change hurtboxes or physics.
    Clients missing a skin render a locally generated native MPH look-alike;

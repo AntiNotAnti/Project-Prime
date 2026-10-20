@@ -153,5 +153,161 @@
         "grates"
       ]
     }
-  ]
+  ],
+  "integrationAudit": {
+    "date": "2026-10-19",
+    "status": "source-audit-only",
+    "sourceCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
+    "previousSourceCommit": "c16a907b3658c2fd4079e394a73711596a85caee",
+    "targetBaseline": "5bc952147ce45f87d777ff0de4b2927f0c27ef9e",
+    "sourceDelta": "second-hunt-delta-2026-10-19.json",
+    "ledger": "second-hunt-integration-audit-2026-10-19.md",
+    "researchMemo": "second-hunt-sh09-feasibility-2026-10-19.md",
+    "provenancePolicy": "provenance and content arrays describe the original PORT inventory; this audit does not claim later recipes are imported or playable.",
+    "openPullRequests": {
+      "count": 0,
+      "evidence": "Coordinator queried open PRs before starting at targetBaseline; refresh before each later slice."
+    },
+    "wire": {
+      "protocol": 61,
+      "modifierStorage": "uint",
+      "modifierBytes": 4,
+      "momentumBit": 15,
+      "quake3Bit": 16,
+      "capabilityPacketIds": {
+        "CustomWeaponManifest": 83,
+        "CustomWeaponReady": 84,
+        "CustomWeaponReadyConfirmed": 85
+      },
+      "capabilitiesEnableGameplay": false
+    },
+    "replay": {
+      "readableFormats": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "ordinaryCaptureFormat": 3,
+      "checkpointClipFormat": 4,
+      "indexedFireContinuationFormat": 5,
+      "timedShotCertificateFormat": 6,
+      "defaultMetadataFormat": 3,
+      "timedShotsAreOptIn": true
+    },
+    "frozenSourceFiles": [
+      {
+        "path": "src/MphRead/Mods/Network/NetProtocol.cs",
+        "role": "contract",
+        "sha256": "ff41d806e344b9326bf71e715c4de704213cfb03ed52b52bf62c1b789c22d9ed"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/MatchDefinition.cs",
+        "role": "contract",
+        "sha256": "306b602e0a7376c53dd58549f05b5a78c5360503bb2c1426c71fc54c9d62ce84"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/DemoFile.cs",
+        "role": "contract",
+        "sha256": "57cf258fe3614cb797c28c45d699fc3870adcee7996c980e8ff2666f73b52dad"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayFormatV3.cs",
+        "role": "contract",
+        "sha256": "c76845063db5a4f3de09abdb8c1cedd9ab7fe3981e37e5ea90058bc52b1c439d"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayCapture.cs",
+        "role": "contract",
+        "sha256": "16e6f77c11085ab386d5b439d95a37ff8962e9fd2104d7d567a3257bc16421a2"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayTimelineArchive.cs",
+        "role": "contract",
+        "sha256": "e19b4c1982187c0b89f11efdd0bb3107dc750eddfc271f74c6582a3a339576c6"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs",
+        "role": "contract",
+        "sha256": "eabc88765dd25a0cc527cf8e210e1d0ccfde821d79b5772642250598a271d010"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayFormatCheck.cs",
+        "role": "fixture",
+        "sha256": "7b177f18fdb08fb576e4671677b6b174702a686240382572d52388ccc20f7d59"
+      },
+      {
+        "path": "src/MphRead/Mods/Input/NativeTouchChecks.cs",
+        "role": "fixture",
+        "sha256": "bc4be7465f25f6fc7aa2835331f4a608d38614a42459f682cedb357bcccd3018"
+      },
+      {
+        "path": "src/MphRead/Mods/Input/PointerCheck.cs",
+        "role": "fixture",
+        "sha256": "23d994fdb2d38739ef74a881119a49276195f753b1a7217bd7c5e7873e8b2093"
+      },
+      {
+        "path": "tools/nettest/NetArchitectureTests.cs",
+        "role": "fixture",
+        "sha256": "20bd5f7af2bc06f7a4336ead9edd5c29ac2ef1e10a33e7612784137b1648695e"
+      },
+      {
+        "path": "tools/nettest/TimedShotReplayTests.cs",
+        "role": "fixture",
+        "sha256": "20afe094c83855e34ec551c631e1ea40f1b8ea2b49757a4c9130a97851cc3fed"
+      },
+      {
+        "path": "tools/nettest/TimedShotReplaySceneTests.cs",
+        "role": "fixture",
+        "sha256": "f039039da902de7c310a708ee5ccb2166eb544d7b9e9c2e3c727b31ec31b0e9b"
+      },
+      {
+        "path": "tools/nettest/Quake3ReplayCompatibilityTests.cs",
+        "role": "fixture",
+        "sha256": "d24188e78475312612f2f2329dca1a9f3c6bef8bab471f5209b39ebea5ba385b"
+      },
+      {
+        "path": "tools/nettest/NativeTouchCheckpointTests.cs",
+        "role": "fixture",
+        "sha256": "f551f8d7655940dc64ff7be6d3eaa804f3d7849244ec859c5921ff208fedfa33"
+      },
+      {
+        "path": "tools/external-import-check/EchoesOfflineGateFixtureTests.cs",
+        "role": "fixture",
+        "sha256": "aed705e0768ad156e1edd19ad19b2de41a54d7bcba93167612c1888ac85e4b38"
+      },
+      {
+        "path": "tools/external-import-check/EchoesCannonFixtureTests.cs",
+        "role": "fixture",
+        "sha256": "bb1a4356ac5f3ab3410261500592e0eacb2d5a41d6d4cd3e046e974a1aba063e"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/Characters/CharacterModelAssetCheck.cs",
+        "role": "fixture",
+        "sha256": "7ae843deeca23508c5f83a421fc74be193572e6fa1289612b29e04bff416d2ad"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/FrameTimingCheck.cs",
+        "role": "fixture",
+        "sha256": "47dfc5f9077b9f5fc2876b5920da2c2c534f67295b4b7ccc1d2125bfb52b13de"
+      },
+      {
+        "path": "tools/nettest/CampaignMovieLifetimeTests.cs",
+        "role": "fixture",
+        "sha256": "add9d5864f7248df2e0da6e2877b39fd5921ef71e317bc7b6c60d8fb273a0243"
+      },
+      {
+        "path": "tools/rmlui-party-check/PartyTravelAcceptance.cs",
+        "role": "fixture",
+        "sha256": "efb7711848acede6d673599cbb72a4a5c4ec0fa4efd0b4aa4c8157fd1fc409bd"
+      }
+    ],
+    "measurements": {
+      "sameHardwareFrameTimeBaseline": "not-captured",
+      "physicalAndroidTouchBaseline": "not-captured",
+      "releaseQualified": false
+    }
+  }
 }

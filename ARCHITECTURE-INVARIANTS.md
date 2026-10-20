@@ -112,7 +112,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Replay and clips
 
-- Replay readers preserve formats v1–v5. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation, and every replay is validated before playback.
+- Replay readers preserve formats v1–v6. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation. Opt-in timed-shot certificate capture uses v6; ordinary capture remains v3 and checkpoint clips remain v4 unless their recorded capability requires a later format. Every replay is validated before playback.
 - Authoritative dedicated servers record canonical replays when enabled.
 - Client replay recording, rolling clip capture, Replay Studio, checkpoints, highlight derivation and deterministic frame export all exist. Do not describe replay/clip recording as a future feature.
 - Replay playback must not open a live gameplay socket or mutate the recorded session through reconnect/authority control packets.
