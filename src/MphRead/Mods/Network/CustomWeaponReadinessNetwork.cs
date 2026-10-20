@@ -154,7 +154,8 @@ public sealed partial class DedicatedServer
         if (!CustomWeaponCombatEnabled) return;
         if (!CustomWeaponReadinessEnabled)
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
-        var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene));
+        var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene),
+            pickupOnly:PublicCustomWeaponMatch);
         _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
     }
 }

@@ -59,8 +59,9 @@ public sealed partial class DedicatedServer
     // canonical state, a newly joining peer must not strand its result nonce.
     // Reserve bounded results and terminally deny controls while execution waits.
     private bool CustomCanReceiveAction(Scene scene,CustomActionPeer combat)
-        => CustomRoomReady(scene) || PublicCustomWeaponMatch && combat.State is { } published
-            && NetPlayerLifecycle.Matches(published.State.Owner.Slot,published.State.Owner.Generation,published.State.Owner.Life);
+        => combat.State is {HasWeapon:true} published
+            && NetPlayerLifecycle.Matches(published.State.Owner.Slot,published.State.Owner.Generation,published.State.Owner.Life)
+            && (CustomRoomReady(scene)||PublicCustomWeaponMatch);
     private sealed class LiveCustomCombatDelivery(DedicatedServer server,Scene scene) : ICustomCombatDelivery
     {
         public bool HasActionReservation(in CustomWeaponAction action)
@@ -154,9 +155,9 @@ public sealed partial class DedicatedServer
                         WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null));
             combat.Outbox.AdvanceFlights(NetSession.NetFrame);
             var player=scene.Players.Items[slot];
-            if (!root.TryState(player,out var snapshot) || !root.TryStateMetadata(player,out var selected,out var settled,out var committed)) continue;
+            if (!root.TryPrivateState(player,out var snapshot,out bool hasWeapon) || !root.TryStateMetadata(player,out var selected,out var settled,out var committed)) continue;
             if (combat.State is { } old && old.State==snapshot && old.Selected==selected
-                && old.SettledSequence==settled && old.CommittedSource==committed) continue;
+                && old.SettledSequence==settled && old.CommittedSource==committed && old.HasWeapon==hasWeapon) continue;
             // Public controls cannot start their result deadline while another
             // recipient is still preparing its durable baseline. Baseline
             // assembly and native source ingress stay independent of this state.
@@ -164,7 +165,7 @@ public sealed partial class DedicatedServer
             uint revision=combat.State?.Revision ?? 0;
             if (revision==uint.MaxValue) { InvalidateCustomEntry(entry); continue; }
             var state=new CustomStateMessage(entry.State.Wire.Bootstrap,root.Manifest.Digest,new(10),NetSession.NetFrame,
-                revision+1,settled,selected,committed,snapshot);
+                revision+1,settled,selected,committed,snapshot,hasWeapon);
             CustomCombatResults.Write(state,combat.StateBytes,entry.State.Wire.Manifest,entry.State.Wire.Definition); combat.State=state;
         }
     }

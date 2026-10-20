@@ -67,7 +67,7 @@ internal sealed class CustomClientCombat
         ?new(state.State.Owner,
             _selectionFactSequence>state.SettledSequence?_selectionFact:state.Selected==state.Weapon,
             _opticFactSequence>state.SettledSequence?_opticFact:(byte)state.State.Optic,
-            state.SettledSequence,_selectionDenied,_opticDenied,state.Bootstrap,state.Manifest):null;
+            state.SettledSequence,_selectionDenied,_opticDenied,state.Bootstrap,state.Manifest,state.HasWeapon):null;
     private void NoteControlResult(CustomWeaponActionKind kind,uint sequence,bool accepted,WeaponStateSnapshot? after=null)
     {
         if(kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip)
@@ -130,6 +130,12 @@ internal sealed class CustomClientCombat
                 Array.Clear(_pending);
             }
             else if (_submitted<state.SettledSequence) _submitted=state.SettledSequence;
+            if(!state.HasWeapon)
+            {
+                Array.Clear(_pending);_mode=0;_selectionFact=false;_opticFact=0;
+                _selectionFactSequence=_opticFactSequence=_selectionDenied=_opticDenied=0;
+                ClearPresentationResults();
+            }
             return true;
         }
         if (type==PacketType.CustomWeaponReceipt)
@@ -147,7 +153,7 @@ internal sealed class CustomClientCombat
             bool first=First(message.Token,type,bytes,out bool conflict);
             if (conflict) { Invalidated=true; return false; }
             ack=message.Ack;
-            if(first&&State?.State.Owner==action.Owner)
+            if(first&&State is {HasWeapon:true} owned&&owned.State.Owner==action.Owner)
             {
                 bool accepted=message.Receipt.Disposition==CustomJournalDisposition.Accepted
                     &&message.Receipt.Result==WeaponActionResult.Accepted;
@@ -173,7 +179,7 @@ internal sealed class CustomClientCombat
             bool first=First(denied.Token,type,bytes,out bool conflict);
             if (conflict) { Invalidated=true; return false; }
             ack=denied.Ack;
-            if(first&&State?.State.Owner==denied.Request.Owner)
+            if(first&&State is {HasWeapon:true} owned&&owned.State.Owner==denied.Request.Owner)
             {
                 NoteControlResult(denied.Request.Kind,denied.Request.Sequence,false);
                 var request=denied.Request;
@@ -196,7 +202,7 @@ internal sealed class CustomClientCombat
     }
     internal bool Submit(in CustomWeaponAction action,double now)
     {
-        if (Invalidated || _mode==2 || !Time(now) || !action.IsValid || State is not { } state
+        if (Invalidated || _mode==2 || !Time(now) || !action.IsValid || State is not {HasWeapon:true} state
             || action.Weapon!=state.Weapon
             || !Recipient(action.Bootstrap,action.Manifest,action.Slot) || action.Owner!=state.State.Owner
             || action.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
@@ -215,7 +221,7 @@ internal sealed class CustomClientCombat
     internal bool TrySubmitControl(CustomWeaponActionKind kind,byte optic,double now,out CustomControlRequest request)
     {
         request=default;
-        if (State is not { } state || _submitted==uint.MaxValue) return false;
+        if (State is not {HasWeapon:true} state || _submitted==uint.MaxValue) return false;
         var candidate=new CustomControlRequest(state.Bootstrap,state.Manifest,state.State.Owner.Slot,state.State.Owner.Life,
             state.Weapon,_submitted+1,kind,optic);
         if (!Submit(candidate,now)) return false;
@@ -223,7 +229,7 @@ internal sealed class CustomClientCombat
     }
     internal bool Submit(in CustomControlRequest request,double now)
     {
-        if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not { } state
+        if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not {HasWeapon:true} state
             || request.Weapon!=state.Weapon
             || !Recipient(request.Bootstrap,request.Manifest,request.Slot) || request.Owner!=state.State.Owner
             || request.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;

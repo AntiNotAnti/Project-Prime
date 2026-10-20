@@ -11,7 +11,7 @@ internal static class ResultTransportChecks
     // mechanics JSON, uuid.bytes and hashlib; no production writer derived them.
     private const string ReceiptHex = "01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d000000e8030000be0000008001010000803f00002040000040400000000000000000000080bf8877665544332211c900000000000207c8000000be000000800000803f00000040000040400000000000000000000080bf01e8030000020410000100000000000000000000000000000000e8030000030310000133040000000000000d000000e8030000";
     private const string ContactHex = "01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d000000cd000000043412785601010000a0bf000020400000704001960000001e001e00bc9a1122334455667788";
-    private const string StateHex = "01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a00c9000000403020100d0000000a00e8030000e9030000030310000133040000000000000d000000e8030000";
+    private const string StateHex = "01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a00c9000000403020100d0000000a00e8030000e9030000030310000133040000000000000d000000e803000001";
     private const string AckHex = "01341208070605040302014433221188776655aa996400000080706050c0b0a090a0bc00be2884eb5b4f188f6453cc452060ccf920e26af610f419d0352709b6e903ccbb0a000d000000018877665544332211";
     private sealed class Fixture
     {
@@ -83,7 +83,7 @@ internal static class ResultTransportChecks
     }
     private static void Golden(Fixture f,Action<bool,string> check)
     {
-        check(CustomReceiptMessage.Size == 209 && CustomContactMessage.Size == 116 && CustomStateMessage.Size == 113
+        check(CustomReceiptMessage.Size == 209 && CustomContactMessage.Size == 116 && CustomStateMessage.Size == 114
             && CustomResultAck.Size == 83 && CustomCombatResults.SnapshotSize == 25,"reviewed result wire widths are fixed and independently accounted");
         check(Encode(f.Receipt,f).AsSpan().SequenceEqual(Convert.FromHexString(ReceiptHex))
             && Encode(f.Contact,f).AsSpan().SequenceEqual(Convert.FromHexString(ContactHex))
@@ -136,7 +136,7 @@ internal static class ResultTransportChecks
         }
         Reject(()=>CustomCombatResults.Write(f.Receipt,new byte[208],f.Manifest,f.Definition),check,"short receipt write rejects");
         Reject(()=>CustomCombatResults.Write(f.Contact,new byte[115],f.Manifest,f.Definition),check,"short contact write rejects");
-        Reject(()=>CustomCombatResults.Write(f.State,new byte[112],f.Manifest,f.Definition),check,"short state write rejects");
+        Reject(()=>CustomCombatResults.Write(f.State,new byte[113],f.Manifest,f.Definition),check,"short state write rejects");
         Reject(()=>f.Receipt.Ack.Write(new byte[82]),check,"short acknowledgement write rejects");
     }
     private static void MasksAndEnums(Fixture f,Action<bool,string> check)

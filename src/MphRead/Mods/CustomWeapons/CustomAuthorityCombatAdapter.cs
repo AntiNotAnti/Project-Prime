@@ -38,6 +38,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     private readonly ICustomSourceAdmission _sourceAdmission;
     private readonly ICustomSourceBoundaryReadiness? _sourceBoundary;
     private readonly ICustomCombatDelivery? _delivery;
+    private readonly bool _pickupOnly;
     private readonly Slot?[] _slots = new Slot[8];
     // Pool/flight retirement must not reset an occupant's source clock or the
     // once-per-life loadout grant fence (e.g. spectate/rejoin in the same life).
@@ -64,10 +65,10 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         && CustomWeaponMatchPolicy.TryAdmit(_scene,out _);
     private uint Now => NetSession.NetFrame;
     internal CustomAuthorityCombatAdapter(Scene scene, bool developerOptIn, ICustomSourceAdmission sourceAdmission)
-        : this(scene,developerOptIn,sourceAdmission,null,null) { }
-    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null)
-        : this(scene,developerOptIn,null,readiness,delivery) { }
-    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness,ICustomCombatDelivery? delivery)
+        : this(scene,developerOptIn,sourceAdmission,null,null,false) { }
+    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false)
+        : this(scene,developerOptIn,null,readiness,delivery,pickupOnly) { }
+    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness,ICustomCombatDelivery? delivery,bool pickupOnly)
     {
         if (sourceAdmission == null && readiness == null) throw new ArgumentNullException(nameof(sourceAdmission));
         _scene = scene; _match = NetSession.CurrentMatchId; _epoch = NetSession.AuthorityEpoch;
@@ -78,7 +79,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         Definition = RiftlineM7.Create(); Manifest = new(new[] { Definition });
         _registry = scene.FreezeCustomWeaponRegistry(new[] { Definition });
         _sourceBoundary = readiness as ICustomSourceBoundaryReadiness;
-        _delivery=delivery;
+        _delivery=delivery;_pickupOnly=pickupOnly;
         _sourceAdmission = sourceAdmission ?? new CustomEngineSourceAdmission(this,readiness!);
     }
     private bool CurrentOwner(PlayerEntity player,out WeaponOwnerContext owner)
@@ -123,7 +124,8 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         if (slot.Player != player || slot.Generation != owner.Generation) return false;
         var payments = new CustomLaunchPayments(owner,Manifest,_registry,Now);
         CustomSourceActionJournal journal;
-        try { journal = new(owner,slot.Clock,Manifest,_registry,new[] { new WeaponRuntimeId(10) },verifiedBirthSource,Now,canUseWeapon); }
+        try { journal = new(owner,slot.Clock,Manifest,_registry,
+            _pickupOnly?Array.Empty<WeaponRuntimeId>():new[] { new WeaponRuntimeId(10) },verifiedBirthSource,Now,canUseWeapon); }
         catch (ArgumentException) { payments.Dispose(); return false; }
         var life = new Life { Owner = owner,Payments = payments,Journal = journal,
             Sources = new(owner,slot.Clock,verifiedBirthSource,Now) };
@@ -201,6 +203,16 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         snapshot = default;
         return CurrentOwner(player,out var owner) && _current[owner.Slot] is { Journal: not null } life
             && life.Owner == owner && life.Journal.TryPreview(new(10),out snapshot);
+    }
+    // Empty life is a canonical private fact, distinct from lost readiness.
+    // This read never binds a life, grants resources or advances its journal.
+    internal bool TryPrivateState(PlayerEntity player,out WeaponStateSnapshot snapshot,out bool hasWeapon)
+    {
+        snapshot=default;hasWeapon=false;
+        if(!CurrentOwner(player,out var owner)||_current[owner.Slot] is not {Journal:not null} life||life.Owner!=owner)return false;
+        hasWeapon=life.Journal.TryPreview(new(10),out snapshot);
+        if(!hasWeapon)snapshot=CustomStateMessage.EmptySnapshot(owner,Definition,life.Journal.CommittedSourceFrame);
+        return true;
     }
     CustomSourceDecision ICustomSourceAdmission.Inspect(in CustomWeaponAction action,out CustomSourceCertificate source)
     {
