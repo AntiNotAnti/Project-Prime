@@ -49,7 +49,8 @@ public sealed class NetPacketQueue
         // counters even while cosmetic/replay facts fill the background lane.
         PacketType.PostMatchReport => NetPacketPriority.Critical,
         PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
-            or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
+            or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
+            or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
