@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "BepuPhysics": {
+        "type": "Direct",
+        "requested": "[2.5.0-beta.33, 2.5.0-beta.33]",
+        "resolved": "2.5.0-beta.33",
+        "contentHash": "KYcIpghxBW7xQ5P8EJTcOIRaiufh6xFvYvKu8p/aGRe6QCGZYES39UQwF4KHdWYCBJ17bh0jsUAKhzGxqEgNDg==",
+        "dependencies": {
+          "BepuUtilities": "2.5.0-beta.33"
+        }
+      },
+      "BepuUtilities": {
+        "type": "Direct",
+        "requested": "[2.5.0-beta.33, 2.5.0-beta.33]",
+        "resolved": "2.5.0-beta.33",
+        "contentHash": "wSKnyD2UtTmg9v9Kf7gKCnBPVU3uvP4bdbgItmbYXCSacvf7g3lWTZQJadpn0lDs5js4w9p15gsGPPuSfV4zgg=="
+      }
+    }
+  }
+}
