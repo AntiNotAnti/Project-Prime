@@ -2460,6 +2460,7 @@ namespace MphRead
                 return;
             }
             OfflineWeapons?.Step();
+            CustomCombat?.Advance();
             // Pointer/button debouncing must advance on the same fixed clock that
             // consumes gameplay input. RenderWindow can draw 120/144/240 pictures
             // per second, but those extra pictures must never make a stylus release
@@ -8889,6 +8890,9 @@ localCenter *= _profileHudScale;
         /// </summary>
         public void EndScene()
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.StopCapture("scene-ended");
+#endif
             if (_scene == null)
             {
                 return;
@@ -9002,6 +9006,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnUnload()
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.StopCapture("window-unloaded");
+#endif
             // GLFW invokes OnClosing inside its native event callback. Native
             // audio teardown can wait for callbacks of its own, so perform it
             // after the event loop returns, before the window is destroyed.
@@ -9183,6 +9190,10 @@ localCenter *= _profileHudScale;
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeginNativePresentation(this);
 #endif
+#if !MPHREAD_SERVER && !ANDROID
+            if (_scene == null || !IsFocused || WindowState == WindowState.Minimized)
+                Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
             Mods.Network.DemoRecorder.PollSaves();
             ApplyFrameRateSettings();
             if (Mods.Network.NetLaunch.TickTerminalLobby(this))
@@ -9239,6 +9250,9 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginFrame(Scene, IsFocused && WindowState != WindowState.Minimized);
+#endif
             ulong latencyFrame = Mods.Render.LowLatencyController.BeginFrame();
             Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
 
@@ -9279,11 +9293,17 @@ localCenter *= _profileHudScale;
             // The DS bottom screen, if the player has marked one out. The
             // window's shape goes with it: the zone is given as a fraction of
             // the width and has to come out the DS's shape on screen.
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginInputPoll();
+#endif
             var pointer = Mods.Input.WindowsPenInput.Read(MouseState, ClientSize.X, ClientSize.Y,
                 out bool independentPrimary);
             Mods.Input.PointerDevice.Update(pointer, ClientSize.X, ClientSize.Y, independentPrimary,
                 acceptsInput: IsFocused && Scene.HardwareInputReady && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
                     && !GameState.MenuPause && !GameState.DialogPause && !Mods.EndScreen.Available);
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.EndInputPoll();
+#endif
             if (Mods.Input.StylusZone.Placing)
             {
                 Mods.Input.StylusZone.PlacementDrag(pointerX, pointerY);
@@ -9319,10 +9339,16 @@ localCenter *= _profileHudScale;
                     latencyFrame, Mods.Render.LowLatencyMarker.InputSample);
                 Mods.Render.LowLatencyController.Mark(
                     latencyFrame, Mods.Render.LowLatencyMarker.SimulationStart);
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.BeginSimulation(steps);
+#endif
                 for (int i = 0; i < steps; i++)
                 {
                     Scene.OnSimulationFrame();
                 }
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.EndSimulation();
+#endif
                 Mods.Render.LowLatencyController.Mark(
                     latencyFrame, Mods.Render.LowLatencyMarker.SimulationEnd);
             }
@@ -9352,6 +9378,9 @@ localCenter *= _profileHudScale;
             }
             if (Mods.Network.ReplayController.IsSeeking)
             {
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
                 Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
@@ -9385,8 +9414,14 @@ localCenter *= _profileHudScale;
                 && Mods.Render.FrameTiming.HighRefreshPresentation
                 && gameplayOwnsPresentationAim)
             {
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.BeginInputPoll();
+#endif
                 Mods.Input.GamepadDesktop.PollAimOnly();
                 Mods.Input.GamepadInput.CapturePresentationSample();
+#if !MPHREAD_SERVER && !ANDROID
+                Mods.Render.OpenGlFrameProfiler.EndInputPoll();
+#endif
             }
 
             Mods.Render.LowLatencyController.Mark(
@@ -9413,6 +9448,8 @@ localCenter *= _profileHudScale;
             // it cover the same rectangle. Nothing is drawn when no screen is
             // up.
 #if MPHREAD_SHELL
+            using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Ui))
+            {
             Mods.Render.UiOverlay.Draw(PixelSize.X, PixelSize.Y);
             // The real hunter, over the screens, when a screen is asking for
             // one during a match -- which is the results panel. Under the
@@ -9424,6 +9461,7 @@ localCenter *= _profileHudScale;
 #endif
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
+            }
 #endif
 #if !MPHREAD_SERVER && !ANDROID
             Mods.Render.OpenGlFrameProfiler.EndRender();
@@ -9493,6 +9531,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnResize(ResizeEventArgs e)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeViewportChanged();
 #endif
@@ -9551,6 +9592,9 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeViewportChanged();
 #endif
@@ -9588,6 +9632,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.CancelFrame();
+#endif
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeFocusChanged(e.IsFocused);
 #endif
