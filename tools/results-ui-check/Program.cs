@@ -41,7 +41,10 @@ void Check(bool ok, string name)
     Console.WriteLine("RESULTS PASS " + name);
 }
 Check(!EndScreen.CharacterChangeEnabled && EndScreen.Available, "results lifecycle remains active");
-Check(!EndScreen.PanelAvailable, "no post-match popup during cinematic or scoreboard");
+Check(!EndScreen.PanelAvailable, "no popup during native cinematic");
+GameState.MatchState = MatchState.Ending;
+Check(EndScreen.Available && !EndScreen.PanelAvailable, "scoreboard phase remains active without popup");
+GameState.MatchState = MatchState.GameOver;
 Check(!EndScreen.HandleKeyDown(Keys.Left) && !EndScreen.HandleKeyDown(Keys.Right), "results arrows cannot select Hunter");
 // Also characterizes the former no-op API when run against the pristine baseline.
 typeof(EndScreen).GetMethod("Pick")?.Invoke(null, new object[] { Hunter.Kanden, 3 });
