@@ -1321,6 +1321,9 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _document.EditObjects("Edit multiple objects",ids,d=>
                     {
+                        if (material is {SelectedIndex:>0})
+                            foreach (var mesh in d.Geometry.OfType<MapMesh>().Where(mesh => ids.Contains(mesh.Id)))
+                                MapMeshEditing.RequireEditableSourceChannels(mesh);
                         foreach(MapObject item in MapObjects.All(d).Where(o=>ids.Contains(o.Id)))
                         {
                             if(item.Value is MapGeometry g)
@@ -1375,11 +1378,11 @@ namespace MphRead.Mods.Launcher.Gui
                     Vec("Size",g.Transform.Scale,(o,v)=>((MapGeometry)o).Transform.Scale=v);
                     var rotation=new OpenTK.Mathematics.Quaternion(g.Transform.Rotation[0],g.Transform.Rotation[1],g.Transform.Rotation[2],g.Transform.Rotation[3]).ToEulerAngles()* (180/MathF.PI);
                     Vec("Rotation X, Y, Z (degrees)",new[]{rotation.X,rotation.Y,rotation.Z},(o,v)=>{var q=OpenTK.Mathematics.Quaternion.FromEulerAngles(new OpenTK.Mathematics.Vector3(v[0],v[1],v[2])*(MathF.PI/180));((MapGeometry)o).Transform.Rotation=new[]{q.X,q.Y,q.Z,q.W};});
-                    Material(g.Material,(o,index)=>((MapGeometry)o).Material=index);
+                    Material(g.Material,(o,index)=>{var geometry=(MapGeometry)o;if(geometry.Material!=index)MapMeshEditing.RequireEditableSourceChannels(geometry);geometry.Material=index;});
                     Field("Shade",g.Shade,(o,s)=>((MapGeometry)o).Shade=Number(s));
                     Field("Terrain",g.Terrain,(o,s)=>((MapGeometry)o).Terrain=s);
-                    Vec("UV scale",g.Uv.Scale,(o,v)=>((MapGeometry)o).Uv.Scale=v);Vec("UV offset",g.Uv.Offset,(o,v)=>((MapGeometry)o).Uv.Offset=v);
-                    Field("UV rotation",g.Uv.Rotation,(o,s)=>((MapGeometry)o).Uv.Rotation=Number(s));
+                    Vec("UV scale",g.Uv.Scale,(o,v)=>{var geometry=(MapGeometry)o;if(!geometry.Uv.Scale.SequenceEqual(v))MapMeshEditing.RequireEditableSourceChannels(geometry);geometry.Uv.Scale=v;});Vec("UV offset",g.Uv.Offset,(o,v)=>{var geometry=(MapGeometry)o;if(!geometry.Uv.Offset.SequenceEqual(v))MapMeshEditing.RequireEditableSourceChannels(geometry);geometry.Uv.Offset=v;});
+                    Field("UV rotation",g.Uv.Rotation,(o,s)=>{var geometry=(MapGeometry)o;float uvRotation=Number(s);if(geometry.Uv.Rotation!=uvRotation)MapMeshEditing.RequireEditableSourceChannels(geometry);geometry.Uv.Rotation=uvRotation;});
                     foreach(var pair in new[]{("Collision",g.Solid),("Damaging",g.Damaging),("Hidden",g.Hidden),("Locked",g.Locked)})
                     {var check=new CheckBox {Content=pair.Item1,IsChecked=pair.Item2};_inspector.Children.Add(check);edits.Add(o=>{var geometry=(MapGeometry)o;switch(pair.Item1){case "Collision":geometry.Solid=check.IsChecked==true;break;case "Damaging":geometry.Damaging=check.IsChecked==true;break;case "Hidden":geometry.Hidden=check.IsChecked==true;break;case "Locked":geometry.Locked=check.IsChecked==true;break;}});}
                     if(g is MapMesh collisionMesh)
@@ -2027,6 +2030,9 @@ namespace MphRead.Mods.Launcher.Gui
                         {
                             if(target.Source)throw new InvalidOperationException("Authored geometry must target an authored material.");
                             int source=hit.Material;
+                            if (source != target.Index)
+                                foreach (var mesh in d.Geometry.OfType<MapMesh>().Where(mesh => mesh.Material == source || mesh.FaceMaterials.Contains(source)))
+                                    MapMeshEditing.RequireEditableSourceChannels(mesh);
                             foreach(MapGeometry geometry in d.Geometry)
                             {
                                 if(geometry.Material==source)geometry.Material=target.Index;
@@ -2129,8 +2135,12 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     if(replacementTarget.SelectedItem is not MaterialTarget target || target.Source)
                     { _status.Text="Choose an authored replacement material above."; return; }
-                    _document.Edit("Replace material usages",d=>MapMaterialEditing.Replace(d,index,target.Index),MapChangeDomain.Geometry|MapChangeDomain.Material|MapChangeDomain.Import);
-                    MaterialInspector();
+                    try
+                    {
+                        _document.Edit("Replace material usages",d=>MapMaterialEditing.Replace(d,index,target.Index),MapChangeDomain.Geometry|MapChangeDomain.Material|MapChangeDomain.Import);
+                        MaterialInspector();
+                    }
+                    catch (Exception ex) { Failure(ex); }
                 });
                 AddButton(panel,"Delete if unused",()=>
                 {
@@ -2144,29 +2154,34 @@ namespace MphRead.Mods.Launcher.Gui
                 });
                 AddButton(panel,"Assign to selection",()=>
                 {
-                    if(_document.Selection.Count==0){_status.Text="Select authored geometry first.";return;}
-                    var ids=_document.Selection.ToHashSet();
-                    if (_viewport is { ElementMode: "Face" } viewport && viewport.SelectedFaceIndices.Count > 0)
+                    try
                     {
-                        int[] faces = viewport.SelectedFaceIndices.ToArray();
-                        Guid objectId = viewport.SelectedFaceObjectId;
-                        _document.EditObjects("Assign face material", new[] { objectId }, d =>
+                        if(_document.Selection.Count==0){_status.Text="Select authored geometry first.";return;}
+                        var ids=_document.Selection.ToHashSet();
+                        if (_viewport is { ElementMode: "Face" } viewport && viewport.SelectedFaceIndices.Count > 0)
                         {
-                            if (MapObjects.Find(d, objectId)?.Value is MapMesh target)
-                                MapMeshEditing.AssignMaterial(target, faces, index);
-                        });
-                        return;
-                    }
-                    _document.EditObjects("Assign material",ids,d=>
-                    {
-                        foreach(var g in d.Geometry)
-                        {
-                            g.Material=index;
-                            if(g is MapMesh mesh)
-                                for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=index;
+                            int[] faces = viewport.SelectedFaceIndices.ToArray();
+                            Guid objectId = viewport.SelectedFaceObjectId;
+                            _document.EditObjects("Assign face material", new[] { objectId }, d =>
+                            {
+                                if (MapObjects.Find(d, objectId)?.Value is MapMesh target)
+                                    MapMeshEditing.AssignMaterial(target, faces, index);
+                            });
+                            return;
                         }
-                        foreach(var b in d.Brushes)b.Material=index;
-                    });
+                        _document.EditObjects("Assign material",ids,d=>
+                        {
+                            foreach (var mesh in d.Geometry.OfType<MapMesh>()) MapMeshEditing.RequireEditableSourceChannels(mesh);
+                            foreach(var g in d.Geometry)
+                            {
+                                g.Material=index;
+                                if(g is MapMesh mesh)
+                                    for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=index;
+                            }
+                            foreach(var b in d.Brushes)b.Material=index;
+                        });
+                    }
+                    catch (Exception ex) { Failure(ex); }
                 });
                 AddButton(panel,favorite?"Unfavorite":"Favorite",()=>
                 {

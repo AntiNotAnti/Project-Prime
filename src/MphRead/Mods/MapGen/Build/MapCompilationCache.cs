@@ -67,7 +67,8 @@ internal sealed class MapCompilationCache
                 entry.Counted = true;
                 entry.Bytes = 4096 + definition.Serialize().Length * 4L
                     + (result.Map?.Entities.Count ?? 0) * 4096L
-                    + (result.Map?.Faces.Concat(result.Map.Solid).Sum(f => 256L + f.Points.Length * 64L) ?? 0);
+                    + (result.Map?.Faces.Concat(result.Map.Solid).Sum(f => 256L + f.Points.Length * 64L
+                        + (f.SourceUv is { } source ? 160L + (source.Base.Count + (long)source.Lightmap.Count) * 8L : 0)) ?? 0);
                 _bytes += entry.Bytes;
             }
             while (_entries.Count > MaximumEntries || _bytes > MaximumBytes)

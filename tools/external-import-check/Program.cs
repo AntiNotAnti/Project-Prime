@@ -10,6 +10,8 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-world-companions")
+        return MapSourceGeometryOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-world-coordinates")
         return EchoesSourceCoordinateOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-texture-banks")
@@ -165,6 +167,7 @@ try
     EchoesSourceTextureBankTests.Run();
     SourceBankMaterialSnapshotTests.Run();
     RetroMaterialBoundsTests.Run();
+    MapSourceGeometryTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }

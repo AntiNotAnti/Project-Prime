@@ -29,6 +29,9 @@ namespace MphRead.Mods.MapGen
             Directory.CreateDirectory(archiveDir);
             Directory.CreateDirectory(entityDir);
             byte[] model; int vertices;
+            var sourceGeometry = outputs.SourceGeometry == null ? null : new List<MapSourceGeometry.Input>();
+            if ((sourceGeometry != null) != map.Faces.Any(face => face.SourceUv != null))
+                throw new MapAuthoringException("FP-MAP-SOURCE-UV", "Declared and compiled source-coordinate presence do not match.");
             var flipbooks = new Dictionary<string, MapFlipbookBinding>(StringComparer.Ordinal);
             IReadOnlyList<MapMaterial> animationMaterials = def.Materials;
             lock (MapCompiler.ContentReadLock)
@@ -38,7 +41,7 @@ namespace MphRead.Mods.MapGen
                 MapTexturePack? sourcePack = def.Import?.LoadTexturePack();
                 if (sourcePack != null)
                     animationMaterials = Q3ShaderNativePlan.ForImport(def, sourcePack);
-                (model, vertices) = BuildModel(map, flipbooks, sourcePack, animationMaterials);
+                (model, vertices) = BuildModelCore(map, flipbooks, sourcePack, animationMaterials, sourceGeometry);
             }
             cancellation.ThrowIfCancellationRequested();
             byte[] animation = MapUvAnimation.Build(animationMaterials, flipbooks);
@@ -47,6 +50,11 @@ namespace MphRead.Mods.MapGen
             MapRuntimePartitioner.AssignEntityNodes(map.Entities,runtimePlan);
             byte[] entities = Repack.PackEntities(map.Entities);
             (byte[] nodes, int nodeCount, int edges) = MapNodePacker.Pack(map.Solid,MapNodePacker.EffectiveLinks(def),cancellation);
+            MapBuildFingerprint fingerprint = MapBuildFingerprint.Create(map.SourceDefinition ?? def);
+            if (sourceGeometry != null && MapBuildFingerprint.HashText(def.Serialize()) != fingerprint.RecipeHash)
+                throw new MapAuthoringException("FP-MAP-SOURCE-UV", "Source map definition changed after compilation; compile the updated recipe before publishing.");
+            byte[]? sourceBytes = sourceGeometry == null ? null
+                : MapSourceGeometry.Encode(def.MapId, fingerprint.RecipeHash, model, sourceGeometry);
             // Build every byte before replacing any output. The manifest is the
             // commit marker: an interrupted publication is rebuilt next launch.
             cancellation.ThrowIfCancellationRequested();
@@ -56,7 +64,8 @@ namespace MphRead.Mods.MapGen
             AtomicFile.Write(outputs.Collision, collision);
             AtomicFile.Write(outputs.Entities, entities);
             AtomicFile.Write(outputs.Nodes, nodes);
-            MapBuildManifest.Write(map.SourceDefinition ?? def, outputs);
+            if (sourceBytes != null) AtomicFile.Write(outputs.SourceGeometry!, sourceBytes);
+            MapBuildManifest.Write(map.SourceDefinition ?? def, outputs, fingerprint);
             if (verbose)
             {
                 Console.WriteLine($"{def.Name}: {map.Faces.Count} polygons ({vertices} vertices), "
@@ -120,11 +129,17 @@ namespace MphRead.Mods.MapGen
         private static (byte[], int) BuildModel(BuiltMap map,
             Dictionary<string, MapFlipbookBinding> flipbooks,
             MapTexturePack? own, IReadOnlyList<MapMaterial> animationMaterials)
+            => BuildModelCore(map, flipbooks, own, animationMaterials, null);
+
+        private static (byte[], int) BuildModelCore(BuiltMap map,
+            Dictionary<string, MapFlipbookBinding> flipbooks,
+            MapTexturePack? own, IReadOnlyList<MapMaterial> animationMaterials,
+            List<MapSourceGeometry.Input>? sourceGeometry)
         {
             MapDefinition def = map.Definition;
             ValidateProceduralMaterials(def);
             if (own != null)
-                return BuildModel(map, own, flipbooks, animationMaterials);
+                return BuildModel(map, own, flipbooks, animationMaterials, sourceGeometry);
             Model? source = def.Materials.Any(m=>m.Texture==null && !m.ProceduralWhite) ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             // copy only the textures the map asks for, remapping the IDs as we
@@ -193,7 +208,7 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("A map needs at least one material.");
             }
-            return Assemble(map, def, materials, textures, palettes);
+            return Assemble(map, def, materials, textures, palettes, sourceGeometry);
         }
 
         private static void ValidateProceduralMaterials(MapDefinition definition)
@@ -268,7 +283,8 @@ namespace MphRead.Mods.MapGen
         /// part that does not care where the textures came from.
         /// </summary>
         private static (byte[], int) Assemble(BuiltMap map, MapDefinition def, List<Material> materials,
-            List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes)
+            List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes,
+            List<MapSourceGeometry.Input>? sourceGeometry)
         {
             float scale = MathF.Pow(2, def.ScaleFactor);
             var renders = new List<IReadOnlyList<RenderInstruction>>();
@@ -291,9 +307,14 @@ namespace MphRead.Mods.MapGen
                     {
                         if(renders.Count>=UInt16.MaxValue)
                             throw new MapAuthoringException("FP-MAP-003","Render display-list budget exceeded; increase spatial partition size or simplify geometry.");
+                        bool hasSource = sourceGeometry != null && batch.Any(face => face.SourceUv != null);
+                        if (hasSource && batch.Any(face => face.SourceUv == null))
+                            throw new MapAuthoringException("FP-MAP-SOURCE-UV", "A display list cannot mix source and ordinary coordinates.");
+                        var emitted = hasSource && sourceGeometry != null ? new List<Import.EchoesSourceCoordinates>() : null;
                         var instructions=new List<RenderInstruction>();
-                        vertexCount+=EmitPrimitives(instructions,batch.Where(f=>f.Points.Length==3),0,scale);
-                        vertexCount+=EmitPrimitives(instructions,batch.Where(f=>f.Points.Length==4),1,scale);
+                        vertexCount+=EmitPrimitives(instructions,batch.Where(f=>f.Points.Length==3),0,scale,emitted);
+                        vertexCount+=EmitPrimitives(instructions,batch.Where(f=>f.Points.Length==4),1,scale,emitted);
+                        if (emitted != null) sourceGeometry!.Add(new(renders.Count, materialGroup.Key, emitted));
                         while(instructions.Count%4!=0)instructions.Add(new RenderInstruction(InstructionCode.NOP));
                         meshes.Add(RawStructs.MakeMesh(materialGroup.Key,renders.Count));
                         renders.Add(instructions);
@@ -404,7 +425,7 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         private static (byte[], int) BuildModel(BuiltMap map, MapTexturePack pack,
             Dictionary<string, MapFlipbookBinding> flipbooks,
-            IReadOnlyList<MapMaterial> animationMaterials)
+            IReadOnlyList<MapMaterial> animationMaterials, List<MapSourceGeometry.Input>? sourceGeometry)
         {
             MapDefinition def = map.Definition;
             ValidateProceduralMaterials(def);
@@ -496,7 +517,7 @@ namespace MphRead.Mods.MapGen
             {
                 throw new ProgramException("The texture pack is empty.");
             }
-            return Assemble(map, def, materials, textures, palettes);
+            return Assemble(map, def, materials, textures, palettes, sourceGeometry);
         }
 
         /// <summary>Splits a polygon with more than four sides into a triangle fan.</summary>
@@ -507,12 +528,15 @@ namespace MphRead.Mods.MapGen
                 yield return new BuiltFace(
                     new[] { face.Points[0], face.Points[i], face.Points[i + 1] },
                     new[] { face.Texcoords[0], face.Texcoords[i], face.Texcoords[i + 1] },
-                    face.Normal, face.Material, face.Shade);
+                    face.Normal, face.Material, face.Shade)
+                { SourceUv = face.SourceUv is { } source ? new MapSourceUvSnapshot(source.Contract,
+                    new[] { source.Base[0], source.Base[i], source.Base[i + 1] },
+                    new[] { source.Lightmap[0], source.Lightmap[i], source.Lightmap[i + 1] }) : null };
             }
         }
 
         private static int EmitPrimitives(List<RenderInstruction> instructions, IEnumerable<BuiltFace> faces,
-            uint primitiveType, float scale)
+            uint primitiveType, float scale, List<Import.EchoesSourceCoordinates>? emitted)
         {
             List<BuiltFace> list = faces.ToList();
             if (list.Count == 0)
@@ -530,6 +554,15 @@ namespace MphRead.Mods.MapGen
                     instructions.Add(new RenderInstruction(InstructionCode.TEXCOORD,
                         PackTexcoord(face.Texcoords[i].X, face.Texcoords[i].Y)));
                     instructions.Add(PackVertex(face.Points[i], scale));
+                    if (emitted != null)
+                    {
+                        var pair = face.SourceUv!;
+                        if (pair.Contract != Import.EchoesWorldGeometrySource.CoordinateContract
+                            || pair.Base.Count != face.Points.Length || pair.Lightmap.Count != face.Points.Length
+                            || face.Texcoords[i] != Vector2.Zero)
+                            throw new MapAuthoringException("FP-MAP-SOURCE-UV", "Built source geometry lost its paired coordinates or neutral native fallback.");
+                        emitted.Add(new(pair.Base[i].X, pair.Base[i].Y, pair.Lightmap[i].X, pair.Lightmap[i].Y));
+                    }
                     vertexCount++;
                 }
             }

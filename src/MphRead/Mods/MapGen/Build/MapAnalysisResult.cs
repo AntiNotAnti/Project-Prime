@@ -8,8 +8,14 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.MapGen;
 
+public sealed record MapPreviewSourceUv(string Contract, ImmutableArray<Vector2> Base,
+    ImmutableArray<Vector2> Lightmap)
+{
+    public static MapPreviewSourceUv? FromSnapshot(MapSourceUvSnapshot? source) => source == null ? null
+        : new(source.Contract, source.Base.ToImmutableArray(), source.Lightmap.ToImmutableArray());
+}
 public sealed record MapPreviewFace(ImmutableArray<Vector3> Points, float Shade, int Material,
-    int SourceMaterial = -1, ImmutableArray<Vector2> Texcoords = default);
+    int SourceMaterial = -1, ImmutableArray<Vector2> Texcoords = default, MapPreviewSourceUv? SourceUv = null);
 public sealed record MapCollisionRepairPreview(MapCollisionRepairKind Kind, float Confidence,
     string Detail, ImmutableArray<Vector3> Points);
 public sealed record MapCollisionHealthSnapshot(int InputFaces,int OutputFaces,int CanonicalizedFaces,
@@ -39,9 +45,9 @@ public sealed class MapAnalysisResult
         var validation = new MapValidationResult();
         validation.Diagnostics.AddRange(compilation.Validation.Diagnostics);
         validation.Budgets.AddRange(compilation.Validation.Budgets);
-        Faces = compilation.Map?.Faces.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray()))
+        Faces = compilation.Map?.Faces.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray(), MapPreviewSourceUv.FromSnapshot(f.SourceUv)))
             .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
-        CollisionFaces = compilation.Map?.Solid.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray()))
+        CollisionFaces = compilation.Map?.Solid.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray(), MapPreviewSourceUv.FromSnapshot(f.SourceUv)))
             .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
         ImportedFaceCount = compilation.Map?.ImportedFaceCount ?? 0;
         ImportedCollisionFaceCount = compilation.Map?.ImportedCollisionFaceCount ?? 0;

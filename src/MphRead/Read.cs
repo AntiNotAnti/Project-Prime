@@ -167,7 +167,7 @@ namespace MphRead
                 new RecolorMetadata("default", meta.ModelPath, meta.TexturePath ?? meta.ModelPath)
             };
             Model model = ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, animationShare: null, recolors,
-                firstHunt: meta.FirstHunt || meta.Hybrid, decodeTextures: decodeTextures);
+                firstHunt: meta.FirstHunt || meta.Hybrid, decodeTextures: decodeTextures, sourceGeometry: meta.SourceGeometry);
             model.MaterialAssetScope = Mods.Render.Materials.MaterialAssetKey.RoomScope(meta);
             model.SourceBankMaterials = meta.SourceBankMaterials;
             model.AuthoredMaterialScopes = Mods.Render.Materials.MaterialAssetKey.AuthoredScopes(meta.MaterialMapId, meta.AuthoredMaterials, model.Materials);
@@ -244,11 +244,13 @@ namespace MphRead
         }
 
         private static Model ReadModel(string name, string modelPath, string? animationPath, string? animationShare,
-            IReadOnlyList<RecolorMetadata> recolorMeta, bool firstHunt, bool decodeTextures = false)
+            IReadOnlyList<RecolorMetadata> recolorMeta, bool firstHunt, bool decodeTextures = false,
+            Mods.MapGen.MapSourceGeometryReadSpec? sourceGeometry = null)
         {
             string root = firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             string path = Paths.Combine(root, modelPath);
             ReadOnlySpan<byte> initialBytes = ReadBytes(path, firstHunt);
+            var sourceSnapshot = sourceGeometry?.Load(root, initialBytes);
             Header header = ReadStruct<Header>(initialBytes[0..Sizes.Header]);
             IReadOnlyList<RawNode> nodes = DoOffsets<RawNode>(initialBytes, header.NodeOffset, header.NodeCount);
             IReadOnlyList<RawMesh> meshes = DoOffsets<RawMesh>(initialBytes, header.MeshOffset, header.MeshCount);
@@ -547,7 +549,8 @@ namespace MphRead
             // NodePosScales is never set, and it would only be used if an entry in posCounts is greater than 1, which also never happens
             IReadOnlyList<Fixed> posScales = DoOffsets<Fixed>(initialBytes, header.NodePosScales, maxIndex + 1);
             return new Model(name, firstHunt, header, nodes, meshes, materials, dlists, instructions, animations,
-                textureMatrices, recolors, nodeWeights, nodePos, nodeInitPos, posCounts, posScales);
+                textureMatrices, recolors, nodeWeights, nodePos, nodeInitPos, posCounts, posScales)
+                { SourceGeometry = sourceSnapshot };
         }
 
         private static AnimationResults LoadAnimation(string model, string? path, IReadOnlyList<RawNode> nodes, bool firstHunt)
@@ -1180,35 +1183,38 @@ namespace MphRead
 
         private static void Nop() { }
 
-        private static IReadOnlyList<RenderInstruction> DoRenderInstructions(ReadOnlySpan<byte> bytes, DisplayList dlist)
+        internal delegate void RenderInstructionVisitor(InstructionCode code, ReadOnlySpan<uint> arguments);
+
+        // The shared decoder proves every argument lies within this display list,
+        // including callers that validate static source geometry in headless mode.
+        internal static void VisitRenderInstructions(ReadOnlySpan<byte> bytes, DisplayList dlist,
+            RenderInstructionVisitor visit)
         {
-            if (dlist.Size % 4 != 0)
-            {
-                throw new ProgramException($"Dlist size {dlist.Size} not divisible by 4.");
-            }
-            var list = new List<RenderInstruction>();
+            if (dlist.Size % 4 != 0 || dlist.Offset > bytes.Length
+                || dlist.Size > (long)bytes.Length - dlist.Offset)
+                throw new ProgramException("Display-list extent is invalid.");
             int pointer = (int)dlist.Offset;
             int endPointer = pointer + (int)dlist.Size;
-            if (endPointer >= bytes.Length)
-            {
-                throw new ProgramException($"End pointer {endPointer} too large for dlist size {bytes.Length}.");
-            }
             while (pointer < endPointer)
             {
-                uint packedInstructions = SpanReadUint(bytes, ref pointer);
-                for (int i = 0; i < 4; i++)
+                uint packed = SpanReadUint(bytes, ref pointer);
+                for (int i = 0; i < 4; i++, packed >>= 8)
                 {
-                    var instruction = (InstructionCode)(((packedInstructions & 0xFF) << 2) + 0x400);
-                    int arity = RenderInstruction.GetArity(instruction);
-                    var arguments = new List<uint>(arity);
-                    for (int j = 0; j < arity; j++)
-                    {
-                        arguments.Add(SpanReadUint(bytes, ref pointer));
-                    }
-                    list.Add(new RenderInstruction(instruction, arguments.ToArray()));
-                    packedInstructions >>= 8;
+                    var code = (InstructionCode)(((packed & 0xFF) << 2) + 0x400);
+                    int arity = RenderInstruction.GetArity(code);
+                    if (arity < 0 || (long)arity * 4 > endPointer - pointer)
+                        throw new ProgramException("Display-list arguments exceed their own list.");
+                    visit(code, MemoryMarshal.Cast<byte, uint>(bytes.Slice(pointer, arity * 4)));
+                    pointer += arity * 4;
                 }
             }
+        }
+
+        private static IReadOnlyList<RenderInstruction> DoRenderInstructions(ReadOnlySpan<byte> bytes, DisplayList dlist)
+        {
+            var list = new List<RenderInstruction>();
+            VisitRenderInstructions(bytes, dlist, (code, arguments) =>
+                list.Add(new RenderInstruction(code, arguments.ToArray())));
             return list;
         }
 

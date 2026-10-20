@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using MphRead.Editor;
 using OpenTK.Mathematics;
 
@@ -37,6 +39,21 @@ namespace MphRead.Mods.MapGen
         }
     }
 
+    public sealed class MapSourceUvSnapshot
+    {
+        public string Contract { get; }
+        public IReadOnlyList<Vector2> Base { get; }
+        public IReadOnlyList<Vector2> Lightmap { get; }
+
+        public MapSourceUvSnapshot(string contract, IReadOnlyList<Vector2> baseCoordinates,
+            IReadOnlyList<Vector2> lightmapCoordinates)
+        {
+            Contract = contract;
+            Base = Array.AsReadOnly(baseCoordinates.ToArray());
+            Lightmap = Array.AsReadOnly(lightmapCoordinates.ToArray());
+        }
+    }
+
     /// <summary>
     /// One convex polygon. Texture coordinates are in texels, which is what
     /// the hardware wants; the caller decides whether they come from a
@@ -55,6 +72,7 @@ namespace MphRead.Mods.MapGen
         /// Null keeps the historical authored/imported-map Shade behavior.
         /// </summary>
         public Vector3? VertexColor { get; set; }
+        public MapSourceUvSnapshot? SourceUv { get; set; }
         public bool Damaging { get; set; }
         public Terrain Terrain { get; set; } = Terrain.Metal;
 

@@ -49,7 +49,8 @@ namespace MphRead.Mods.Launcher.Gui
             int material = modifiers.HasFlag(KeyModifiers.Alt) ? mesh.Material : ActivePaintMaterial;
             if (material < 0 || material >= Document.Project.Definition.Materials.Count || !_painted.Add((hit.FaceIndex, material))) return;
             int[] faces = modifiers.HasFlag(KeyModifiers.Shift) ? MapMeshEditing.ConnectedFaces(mesh, hit.FaceIndex) : new[] { hit.FaceIndex };
-            Document.PaintFaces(hit.ObjectId, faces, material, _paintStroke);
+            try { Document.PaintFaces(hit.ObjectId, faces, material, _paintStroke); }
+            catch (InvalidOperationException ex) { ModelingError?.Invoke(ex.Message); }
         }
         public bool UvChecker { get; set; }
         public MapSubSelection SubSelection { get; } = new();

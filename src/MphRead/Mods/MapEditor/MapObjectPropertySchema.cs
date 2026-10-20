@@ -44,6 +44,8 @@ public static class MapObjectPropertySchema
         }
         object original = MapObjects.Find(document.Project.Definition, id)!.Value;
         bool Has(string prefix) => changed.Any(key => key.StartsWith(prefix + ".", StringComparison.Ordinal));
+        if (original is MapMesh sourceMesh && (changed.Contains("material") || Has("uvScale") || Has("uvOffset") || changed.Contains("uvRotation")))
+            MapMeshEditing.RequireEditableSourceChannels(sourceMesh);
         float[] Vector(string prefix, int count = 3) => Enumerable.Range(0, count)
             .Select(i => (float)values[prefix + "." + "xyz"[i]]).ToArray();
         if (original is MapBrush && (Has("minimum") || Has("maximum")))

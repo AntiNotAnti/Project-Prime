@@ -206,6 +206,24 @@ namespace MphRead.Mods.MapGen
                 if (b.Terrain != null && (!Enum.TryParse<Terrain>(b.Terrain, true, out var terrain) || !Enum.IsDefined(terrain)))
                     r.Error("FP-MAP-013", "Unknown collision terrain.", b.Id);
             }
+            bool hasSourceGeometry = d.HasSourceGeometry;
+            if (hasSourceGeometry)
+            {
+                if (d.MapId == Guid.Empty || d.Import != null || d.NativeRoom != null || d.ModelSources?.Count > 0)
+                    r.Error("FP-MAP-SOURCE-UV", "Source UV transport requires a persistent map ID and authored geometry without Q3, native-room or model-source mixing.");
+                if (!d.Geometry.OfType<MapMesh>().Any(m => m.SourceUvFaces?.Any(f => f != null) == true))
+                    r.Error("FP-MAP-SOURCE-UV", "A declared source UV component must contain source coordinates.");
+                long sourceCorners = 0;
+                foreach (var mesh in d.Geometry.OfType<MapMesh>().Where(m => m.SourceUvFaces != null))
+                    for (int i = 0; i < Math.Min(mesh.SourceUvFaces!.Count, mesh.Faces?.Count ?? 0); i++)
+                        if (mesh.SourceUvFaces[i] != null && mesh.Faces![i] is { Length: >= 3 } face)
+                            sourceCorners += face.Length <= 4 ? face.Length : 3L * (face.Length - 2);
+                if (sourceCorners > MapSourceGeometry.MaxCorners)
+                { r.Error("FP-MAP-SOURCE-UV", "Source-coordinate emission exceeds its aggregate corner budget."); return r; }
+            }
+            var sourceCoverage = hasSourceGeometry ? new Dictionary<int, int>() : null;
+            if (sourceCoverage != null)
+                foreach (var brush in d.Brushes.Where(b => b != null)) sourceCoverage[brush.Material] = 1;
             bool safeBrushes = d.Brushes.All(b => b != null && Vector(b.Min) && Vector(b.Max));
             var solids=new List<IReadOnlyList<BuiltFace>>();
             foreach (var geometry in d.Geometry)
@@ -234,12 +252,26 @@ namespace MphRead.Mods.MapGen
                 try
                 {
                     var faces=GeometryCompiler.Compile(geometry, d.Materials[geometry.Material].TexScale);if(geometry.Solid)solids.Add(faces);
+                    if (sourceCoverage != null && geometry is not MapMesh { CollisionOnly: true })
+                        foreach (var face in faces)
+                        {
+                            sourceCoverage[face.Material] = sourceCoverage.GetValueOrDefault(face.Material)
+                                | (face.SourceUv == null ? 1 : 2);
+                            if (face.SourceUv != null && face.Material >= 0 && face.Material < d.Materials.Count
+                                && d.Materials[face.Material] is { } material
+                                && (!material.ProceduralWhite || material.Texture != null || material.AlbedoBank != null
+                                    || material.Albedo != null || material.Normal != null || material.SpecularRoughness != null
+                                    || material.Emissive != null || material.Animation != null))
+                                r.Error("FP-MAP-SOURCE-UV", "Source UV transport requires an unanimated procedural-white fallback without active texture channels.", geometry.Id);
+                        }
                     float bound=8*MathF.Pow(2,Math.Clamp(d.ScaleFactor,0,16));
                     if(faces.SelectMany(f=>f.Points).Any(p=>!float.IsFinite(p.LengthSquared)||Enumerable.Range(0,3).Any(i=>p[i]<-bound||p[i]>=bound||Math.Abs(p[i])>=524288)))
                         r.Error("FP-MAP-004","Geometry exceeds fixed-point range; increase scale factor or reduce extent.",geometry.Id);
                 }
                 catch (MapAuthoringException ex) { r.Error(ex.Code, ex.Message, geometry.Id); }
             }
+            if (sourceCoverage?.Values.Any(coverage => coverage == 3) == true)
+                r.Error("FP-MAP-SOURCE-UV", "A compiled material cannot mix source-coordinate faces with ordinary faces.");
             if (d.Spawns.Count == 0 && d.Import?.KeepSpawns != true) r.Error("FP-MAP-014", "At least one player spawn is required.");
             foreach (var s in d.Spawns)
             {

@@ -60,7 +60,7 @@ public static class MapStudioModelingCommands
     }
     public static void AssignFaces(MapDocument document,Guid id,IEnumerable<int> selected,int material)
     {
-        var mesh=Mesh(document,id);var faces=Faces(mesh,selected);
+        var mesh=Mesh(document,id);MapMeshEditing.RequireEditableSourceChannels(mesh);var faces=Faces(mesh,selected);
         if(material<0||material>=document.Project.Definition.Materials.Count)throw new ArgumentOutOfRangeException(nameof(material));
         document.EditObjects("Assign selected face material",new[]{id},scratch=>{
             var target=(MapMesh)MapObjects.Find(scratch,id)!.Value;
@@ -75,7 +75,7 @@ public static class MapStudioModelingCommands
     }
     public static void EditUv(MapDocument document,Guid id,IEnumerable<int> selected,MapStudioUvOperation operation,MapStudioUvValues values,float[][]? clipboard=null)
     {
-        var mesh=Mesh(document,id);var faces=Faces(mesh,selected);float texScale=TexScale(document,mesh);
+        var mesh=Mesh(document,id);MapMeshEditing.RequireEditableSourceChannels(mesh);var faces=Faces(mesh,selected);float texScale=TexScale(document,mesh);
         if(!Enum.IsDefined(operation)||!float.IsFinite(values.ScaleU)||!float.IsFinite(values.ScaleV)||Math.Abs(values.ScaleU)>1000||Math.Abs(values.ScaleV)>1000
             ||Math.Abs(values.ScaleU)<.001f||Math.Abs(values.ScaleV)<.001f||!float.IsFinite(values.OffsetU)||!float.IsFinite(values.OffsetV)
             ||Math.Abs(values.OffsetU)>1000000||Math.Abs(values.OffsetV)>1000000||!float.IsFinite(values.Angle)||Math.Abs(values.Angle)>3600

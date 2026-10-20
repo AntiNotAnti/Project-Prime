@@ -157,6 +157,7 @@ internal sealed partial class MapStudioScreen
             try
             {
                 if (_document != document || document.CurrentStateId != state) throw new IOException("The project changed. Preview the model again before applying.");
+                ModelReimport.RequireWritableSourceMeshes(document.Project.Definition, result, previous);
                 string? root=document.Project.Definition.BaseDirectory;
                 if(String.IsNullOrWhiteSpace(root)&&document.FilePath!=null)
                     root=Path.GetDirectoryName(Path.GetFullPath(document.FilePath));

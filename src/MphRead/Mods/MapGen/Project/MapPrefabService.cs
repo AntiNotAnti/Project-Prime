@@ -13,6 +13,8 @@ public static class MapPrefabService
 
     public static void Save(MapDefinition source, ISet<Guid> selected, string path)
     {
+        if (source.HasSourceGeometry)
+            throw new InvalidOperationException("Private source geometry cannot be exported as reusable prefabs.");
         if (source.Materials.Any(m => m?.AlbedoBank != null))
             throw new InvalidOperationException("Private source bank materials cannot be exported as reusable prefabs.");
         if (selected.Count == 0) throw new InvalidOperationException("Select at least one object to save a prefab.");
@@ -76,6 +78,8 @@ public static class MapPrefabService
         float[]? offset = null)
     {
         var prefab = MapDefinition.Load(prefabPath);
+        if (prefab.HasSourceGeometry)
+            throw new InvalidOperationException("Private source geometry cannot be inserted from a prefab.");
         if (prefab.Materials.Any(m => m?.AlbedoBank != null))
             throw new InvalidOperationException("Private source bank materials cannot be inserted from a prefab.");
         var generated = new List<string>();

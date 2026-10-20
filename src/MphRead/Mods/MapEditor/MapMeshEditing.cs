@@ -9,6 +9,12 @@ namespace MphRead.Mods.MapEditor;
 
 public static partial class MapMeshEditing
 {
+    internal static void RequireEditableSourceChannels(MapGeometry geometry)
+    {
+        if (geometry is MapMesh { SourceUvFaces: not null })
+            throw new InvalidOperationException("Source-coordinate mesh topology, UVs and material bindings are read-only.");
+    }
+
     public static int[] ConnectedFaces(MapMesh mesh, int face)
     {
         return new MapMeshTopology(mesh).ConnectedFaces(face);
@@ -16,6 +22,7 @@ public static partial class MapMeshEditing
 
     public static void AssignMaterial(MapMesh mesh, IEnumerable<int> faces, int material)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected = faces.Distinct().ToArray();
         if (material < 0 || selected.Any(i => i < 0 || i >= mesh.Faces.Count)) throw new ArgumentOutOfRangeException(nameof(faces));
         foreach (int face in selected) SetMaterial(mesh, face, material);
@@ -23,6 +30,7 @@ public static partial class MapMeshEditing
 
     public static void TransformUv(MapMesh mesh, IEnumerable<int> faces, Vector2 scale, Vector2 offset, float degrees, float texScale)
     {
+        RequireEditableSourceChannels(mesh);
         if (!float.IsFinite(scale.X) || !float.IsFinite(scale.Y) || !float.IsFinite(offset.X) || !float.IsFinite(offset.Y) || !float.IsFinite(degrees))
             throw new ArgumentException("UV values must be finite.");
         int[] selected = faces.Distinct().ToArray();
@@ -40,6 +48,7 @@ public static partial class MapMeshEditing
 
     public static void FitUv(MapMesh mesh, IEnumerable<int> faces, float texScale, float width = 64, float height = 64)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected = faces.Distinct().ToArray();
         TransformUv(mesh, selected, Vector2.One, Vector2.Zero, 0, texScale);
         foreach (int face in selected)
@@ -52,6 +61,7 @@ public static partial class MapMeshEditing
     }
     public static void MatchTexelDensity(MapMesh mesh, IEnumerable<int> faces, float density, float texScale)
     {
+        RequireEditableSourceChannels(mesh);
         if (!float.IsFinite(density) || density <= 0) throw new ArgumentException("Texel density must be positive and finite.");
         int[] selected = faces.Distinct().ToArray();
         var compiled = GeometryCompiler.Compile(mesh, texScale);
@@ -72,6 +82,7 @@ public static partial class MapMeshEditing
 
     public static MapMesh Convert(MapGeometry geometry,float texScale)
     {
+        RequireEditableSourceChannels(geometry);
         var faces=GeometryCompiler.Compile(geometry,texScale);
         var vertices=new List<float[]>();
         var map=new Dictionary<(int,int,int),int>();
@@ -140,6 +151,7 @@ public static partial class MapMeshEditing
 
     public static void FlipFace(MapMesh mesh,int face)
     {
+        RequireEditableSourceChannels(mesh);
         RequireFace(mesh,face);EnsureChannels(mesh);
         Array.Reverse(mesh.Faces[face]);
         if(mesh.FaceTexcoords[face] is {} uv)Array.Reverse(uv);
@@ -147,6 +159,7 @@ public static partial class MapMeshEditing
 
     public static void DeleteFace(MapMesh mesh,int face)
     {
+        RequireEditableSourceChannels(mesh);
         RequireFace(mesh,face);EnsureChannels(mesh);
         RemoveFaces(mesh,new[]{face});
         Compact(mesh);
@@ -154,6 +167,7 @@ public static partial class MapMeshEditing
 
     public static int SubdivideFace(MapMesh mesh,int face)
     {
+        RequireEditableSourceChannels(mesh);
         RequireFace(mesh,face);EnsureChannels(mesh);
         int[] source=(int[])mesh.Faces[face].Clone();
         int material=Material(mesh,face);
@@ -177,6 +191,7 @@ public static partial class MapMeshEditing
 
     public static int ExtrudeFace(MapMesh mesh,int face,float distance)
     {
+        RequireEditableSourceChannels(mesh);
         RequireFace(mesh,face);EnsureChannels(mesh);
         if(!float.IsFinite(distance)||MathF.Abs(distance)<.0001f)throw new ArgumentOutOfRangeException(nameof(distance));
         int[] source=(int[])mesh.Faces[face].Clone();
@@ -202,6 +217,7 @@ public static partial class MapMeshEditing
 
     public static int InsetFace(MapMesh mesh,int face,float ratio)
     {
+        RequireEditableSourceChannels(mesh);
         RequireFace(mesh,face);EnsureChannels(mesh);
         if(!float.IsFinite(ratio)||ratio<=0||ratio>=.95f)throw new ArgumentOutOfRangeException(nameof(ratio));
         int[] source=(int[])mesh.Faces[face].Clone();
@@ -235,12 +251,14 @@ public static partial class MapMeshEditing
 
     public static int BevelFace(MapMesh mesh,int face,float inset,float distance)
     {
+        RequireEditableSourceChannels(mesh);
         int inner=InsetFace(mesh,face,inset);
         return ExtrudeFace(mesh,inner,distance);
     }
 
     public static int Weld(MapMesh mesh,float tolerance=.001f)
     {
+        RequireEditableSourceChannels(mesh);
         if(!float.IsFinite(tolerance)||tolerance<=0)throw new ArgumentOutOfRangeException(nameof(tolerance));
         var replacement=new int[mesh.Vertices.Count];
         var kept=new List<float[]>();

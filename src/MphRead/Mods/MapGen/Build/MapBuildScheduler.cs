@@ -215,7 +215,7 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         {
             if (!outputs.Complete || !File.Exists(path)) return null;
             var manifest = JsonSerializer.Deserialize<CacheManifest>(File.ReadAllText(path));
-            if (manifest?.Fingerprint != key || manifest.Hashes?.Length != 5 || manifest.Diagnostics == null || manifest.Budgets == null) return null;
+            if (manifest?.Fingerprint != key || manifest.Hashes?.Length != outputs.Files.Count() || manifest.Diagnostics == null || manifest.Budgets == null) return null;
             return manifest.Hashes.SequenceEqual(outputs.Files.Select(MapBuildFingerprint.HashFile)) ? manifest : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
@@ -254,21 +254,25 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         var fingerprint = MapBuildFingerprint.Create(definition);
         if (fingerprint.ContentKey != result.Fingerprint)
             throw new IOException("Map inputs changed after the build. Build again before installing.");
+        var destination = MapOutputSet.Create(definition, archive, entities, nodes);
+        string[] sourceFiles = result.Outputs.Files.ToArray(), destinationFiles = destination.Files.ToArray();
+        if (sourceFiles.Length != destinationFiles.Length
+            || (result.Outputs.SourceGeometry != null) != (destination.SourceGeometry != null))
+            throw new InvalidDataException("Cached and destination map output contracts do not match.");
         if (ReadCache(Path.Combine(Path.GetDirectoryName(result.Outputs.Model)!, "cache.json"), result.Fingerprint, result.Outputs) == null)
             throw new IOException("Cached map outputs failed integrity validation. Build again.");
-        var destination = MapOutputSet.Create(definition, archive, entities, nodes);
         Directory.CreateDirectory(Path.GetDirectoryName(destination.Manifest)!);
         using var lease = AcquireLease(destination.Manifest + ".lock");
         // The exact same map may be selected again after returning to the
         // lobby or opening a historical replay. If the published runtime set
         // still matches its verified build manifest, leave every binary and
-        // timestamp untouched. This prevents needless five-file rewrites.
+        // timestamp untouched. This prevents needless output rewrites.
         if (MapBuildManifest.IsCurrent(definition, destination)) return;
         if (File.Exists(destination.Manifest)) File.Delete(destination.Manifest);
         // Compilation cache outputs are already integrity-checked by ReadCache.
         // Stream each file into destination-volume atomic staging, rather than
         // materializing every mesh/node archive in one managed byte array.
-        foreach (var pair in result.Outputs.Files.Zip(destination.Files))
+        foreach (var pair in sourceFiles.Zip(destinationFiles))
             AtomicFile.Copy(pair.First, pair.Second);
         MapBuildManifest.Write(definition, destination, fingerprint);
     }
