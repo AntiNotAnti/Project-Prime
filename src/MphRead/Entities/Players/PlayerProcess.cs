@@ -1128,7 +1128,7 @@ namespace MphRead.Entities
                     Flags2 |= PlayerFlags2.HideModel;
                 }
             }
-            if (!EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
+            if (!ModStepCustomScopeFov() && !EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
             {
                 // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
                 // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.

@@ -2602,6 +2602,7 @@ namespace MphRead
                     ModCommitLateAim();
                     if(!Mods.Network.NetSession.Active)SampleCustomWeaponInput(!noPlayerInput);
                     Mods.Network.NetHooks.AfterInput(this);
+                    UpdateCustomWeaponPresentation();
                     sourceControlsCompleted = true;
                 }
                 finally { CustomCombat?.CompleteSourceInputPhase(capture: sourceControlsCompleted); }
@@ -2631,6 +2632,8 @@ namespace MphRead
                 // here is counted in frames. Mods.Network.NetHitClaims.
                 Mods.Network.NetHitClaims.Tick();
                 Mods.Network.NetHooks.AfterSimulation();
+                StepCustomWeaponFeedback();
+                UpdateCustomWeaponPresentation();
                 SemanticPublisher.Publish(this);
                 SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);

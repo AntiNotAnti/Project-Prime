@@ -40,6 +40,7 @@ public partial class Scene
     }
     private void ReleaseCustomWeaponRegistry()
     {
+        ReleaseCustomWeaponPresentation();
         ReleaseCustomWeaponInput();
         OfflineWeapons?.Dispose(); OfflineWeapons = null;
         CustomCombat?.Dispose(); CustomCombat = null;

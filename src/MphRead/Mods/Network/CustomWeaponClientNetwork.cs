@@ -8,6 +8,8 @@ public static partial class NetSession
 {
     private static CustomClientCombat? _customCombatClient;
     private static CustomReadinessWire? _customCombatWire;
+    internal static WeaponDigest CustomWeaponPresentationManifest=>CustomWeaponReplicaReady?_customReadiness!.Wire.Manifest.Digest:default;
+    internal static WeaponMechanics? CustomWeaponPresentationMechanics=>CustomWeaponReplicaReady?_customReadiness?.Wire.Definition.Mechanics:null;
     internal static CustomStateMessage? CustomWeaponPresentationState => CustomWeaponReadinessConfirmed ? _customCombatClient?.State:null;
     internal static CustomReceiptMessage? LastCustomWeaponReceipt => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastReceipt:null;
     internal static CustomContactMessage? LastCustomWeaponContact => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastContact:null;
@@ -16,6 +18,9 @@ public static partial class NetSession
         &&CurrentCustomCombat() is {} client&&client.InputProjection is {} projection
         &&projection.Owner.Slot==LocalSlot&&NetPlayerLifecycle.Matches(LocalSlot,projection.Owner.Generation,projection.Owner.Life)
         ?projection:null;
+    internal static bool TakeCustomPresentationOverflowed()=>CurrentCustomCombat()?.TakePresentationOverflowed()==true;
+    internal static bool TryTakeCustomPresentationResult(out CustomPresentationResult result)
+    {result=default;return CurrentCustomCombat()?.TryTakePresentationResult(out result)==true;}
     private static CustomClientCombat? CurrentCustomCombat()
     {
         if (!CustomWeaponReadinessConfirmed || _customReadiness is not { } ready)

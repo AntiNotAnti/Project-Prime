@@ -512,7 +512,7 @@ namespace MphRead.Entities
         private void UpdateAimFacing()
         {
             RepairAimBasis();
-            if (Features.FixedAimCamera)
+            if (Features.FixedAimCamera || ModCustomScopeActive)
             {
                 // Static/Quake presentation welds the camera to raw aim. A
                 // fixed reticle animation alone must not do that: Pro HUD also
@@ -549,6 +549,7 @@ namespace MphRead.Entities
 
         private float AimScopeBlend()
         {
+            if (_customScopeTransition) return ModCustomScopeBlend;
             float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
             if (normalFov <= 0 || EquipInfo.Weapon == null)
             {
@@ -566,6 +567,7 @@ namespace MphRead.Entities
         private float AimZoomScale()
         {
             float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            if (_customScopeTransition) return Mods.CustomWeapons.CustomScopeMath.AimScale(normalFov, CameraInfo.Fov);
             return normalFov > 0 && AimScopeBlend() > 0
                 ? Math.Clamp(CameraInfo.Fov / normalFov, .05f, 1) : 1;
         }
@@ -586,7 +588,7 @@ namespace MphRead.Entities
             {
                 amount *= -1;
             }
-            if (applyInputSettings) amount *= AimZoomScale();
+            if (applyInputSettings) amount *= AimZoomScale() * ModCustomScopeSensitivity;
             // unimpl-controls: these calculations are different when exact aim is not set
             float prevAim = _aimY;
             _aimY += amount;
@@ -627,7 +629,7 @@ namespace MphRead.Entities
             {
                 amount *= -1;
             }
-            if (applyInputSettings) amount *= AimZoomScale();
+            if (applyInputSettings) amount *= AimZoomScale() * ModCustomScopeSensitivity;
             // unimpl-controls: these calculations are different when exact aim is not set
             float sin;
             float cos;

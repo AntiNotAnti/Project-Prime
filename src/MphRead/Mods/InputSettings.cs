@@ -67,6 +67,30 @@ namespace MphRead.Mods
         public static float MouseAimSensitivity(bool imperialistZoomed)
             => MouseSensitivity * (imperialistZoomed ? ImperialistZoomSensitivity : 1f);
 
+        /// <summary>Hold custom scope while Zoom is down; false uses toggle scope.</summary>
+        public static bool CustomScopeHold { get; set; } = false;
+
+        public const float MinCustomScopeSensitivity = 0.1f;
+        public const float MaxCustomScopeSensitivity = 3f;
+        private static float _customScope25Sensitivity = 1f;
+        private static float _customScope4Sensitivity = 1f;
+
+        /// <summary>Additional 2.5x custom scope aim multiplier for all local aim devices.</summary>
+        public static float CustomScope25Sensitivity
+        {
+            get => _customScope25Sensitivity;
+            set => _customScope25Sensitivity = Single.IsFinite(value)
+                ? Math.Clamp(value, MinCustomScopeSensitivity, MaxCustomScopeSensitivity) : 1f;
+        }
+
+        /// <summary>Additional 4x custom scope aim multiplier for all local aim devices.</summary>
+        public static float CustomScope4Sensitivity
+        {
+            get => _customScope4Sensitivity;
+            set => _customScope4Sensitivity = Single.IsFinite(value)
+                ? Math.Clamp(value, MinCustomScopeSensitivity, MaxCustomScopeSensitivity) : 1f;
+        }
+
         public const float MinImperialistZoomAmount = 0.25f;
         public const float MaxImperialistZoomAmount = 2f;
         private static float _imperialistZoomAmount = 1f;
@@ -539,6 +563,23 @@ namespace MphRead.Mods
                         }
                         continue;
                     }
+                    if (key == "custom_scope_hold")
+                    {
+                        if (Boolean.TryParse(value, out bool hold)) CustomScopeHold = hold;
+                        continue;
+                    }
+                    if (key == "custom_scope_25_sensitivity")
+                    {
+                        if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
+                            CustomScope25Sensitivity = parsed;
+                        continue;
+                    }
+                    if (key == "custom_scope_4_sensitivity")
+                    {
+                        if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed))
+                            CustomScope4Sensitivity = parsed;
+                        continue;
+                    }
                     if (key == "invert_y" && Boolean.TryParse(value, out bool invertY))
                     {
                         InvertMouseY = invertY;
@@ -848,6 +889,9 @@ namespace MphRead.Mods
                     $"sensitivity={MouseSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_sensitivity={ImperialistZoomSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_amount={ImperialistZoomAmount.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"custom_scope_hold={CustomScopeHold.ToString().ToLowerInvariant()}",
+                    $"custom_scope_25_sensitivity={CustomScope25Sensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"custom_scope_4_sensitivity={CustomScope4Sensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"invert_y={InvertMouseY.ToString().ToLowerInvariant()}",
                     $"invert_x={InvertMouseX.ToString().ToLowerInvariant()}",
                     $"mouse_movement_boost={MouseMovementBoost.ToString().ToLowerInvariant()}",
@@ -944,6 +988,9 @@ namespace MphRead.Mods
             MouseSensitivity = 1;
             ImperialistZoomSensitivity = 1;
             ImperialistZoomAmount = 1;
+            CustomScopeHold = false;
+            CustomScope25Sensitivity = 1;
+            CustomScope4Sensitivity = 1;
             InvertMouseY = false;
             InvertMouseX = false;
             MouseMovementBoost = true;

@@ -262,6 +262,9 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _sensitivity = null!;
         private SliderRow _imperialistZoomSensitivity = null!;
         private SliderRow _imperialistZoomAmount = null!;
+        private ToggleRow _customScopeHold = null!;
+        private SliderRow _customScope25Sensitivity = null!;
+        private SliderRow _customScope4Sensitivity = null!;
         private SliderRow _altSwipeSensitivity = null!;
         private ToggleRow _invertY = null!;
         private ToggleRow _invertX = null!;
@@ -1989,6 +1992,21 @@ namespace MphRead.Mods.Launcher.Gui
                 + "and higher values zoom more.");
             _invertY = Add(page, new ToggleRow("Invert vertical aim", InputSettings.InvertMouseY));
             _invertX = Add(page, new ToggleRow("Invert horizontal aim", InputSettings.InvertMouseX));
+            Heading(page, "Custom scope — all aim devices");
+            _customScopeHold = Add(page, new ToggleRow("Hold scope", InputSettings.CustomScopeHold));
+            _customScope25Sensitivity = Add(page, new SliderRow("2.5x sensitivity",
+                SensitivityToSlider(InputSettings.CustomScope25Sensitivity),
+                v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
+                min: (int)(InputSettings.MinCustomScopeSensitivity * 100),
+                max: (int)(InputSettings.MaxCustomScopeSensitivity * 100), keyStep: 1));
+            _customScope4Sensitivity = Add(page, new SliderRow("4x sensitivity",
+                SensitivityToSlider(InputSettings.CustomScope4Sensitivity),
+                v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
+                min: (int)(InputSettings.MinCustomScopeSensitivity * 100),
+                max: (int)(InputSettings.MaxCustomScopeSensitivity * 100), keyStep: 1));
+            Explain(page, "Custom scope settings apply to all aim devices: mouse, controller, touch and keyboard aim. "
+                + "Hold keeps the scope active while Zoom is held; turn it off to toggle with each press. "
+                + "Each sensitivity multiplier adjusts its optic after normal scope scaling; 1.00x preserves that feel.");
             if (OperatingSystem.IsAndroid())
             {
                 Heading(page, "Touch gestures");
@@ -2176,6 +2194,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
                 _imperialistZoomSensitivity.Value = SensitivityToSlider(InputSettings.ImperialistZoomSensitivity);
                 _imperialistZoomAmount.Value = (int)MathF.Round(InputSettings.ImperialistZoomAmount * 100);
+                _customScopeHold.On = InputSettings.CustomScopeHold;
+                _customScope25Sensitivity.Value = SensitivityToSlider(InputSettings.CustomScope25Sensitivity);
+                _customScope4Sensitivity.Value = SensitivityToSlider(InputSettings.CustomScope4Sensitivity);
                 _altSwipeSensitivity.Value = (int)MathF.Round(InputSettings.AltSwipeSensitivity * 100);
                 _invertY.On = InputSettings.InvertMouseY;
                 _invertX.On = InputSettings.InvertMouseX;
@@ -3018,6 +3039,9 @@ namespace MphRead.Mods.Launcher.Gui
             InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
             InputSettings.ImperialistZoomSensitivity = SliderToSensitivity(_imperialistZoomSensitivity.Value);
             InputSettings.ImperialistZoomAmount = _imperialistZoomAmount.Value / 100f;
+            InputSettings.CustomScopeHold = _customScopeHold.On;
+            InputSettings.CustomScope25Sensitivity = SliderToSensitivity(_customScope25Sensitivity.Value);
+            InputSettings.CustomScope4Sensitivity = SliderToSensitivity(_customScope4Sensitivity.Value);
             InputSettings.AltSwipeSensitivity = _altSwipeSensitivity.Value / 100f;
             InputSettings.InvertMouseY = _invertY.On;
             InputSettings.InvertMouseX = _invertX.On;

@@ -116,6 +116,7 @@ namespace MphRead.Entities
 
         private void DrawProAmmo()
         {
+            if (ModDrawCustomAmmo(classic:false)) return;
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
                 return;

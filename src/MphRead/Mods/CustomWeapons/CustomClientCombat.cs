@@ -16,6 +16,39 @@ internal sealed class CustomClientCombat
     }
     private readonly Seen[] _seen=new Seen[128];
     private readonly Pending?[] _pending=new Pending?[16];
+    private readonly CustomPresentationResult[] _presentationResults=new CustomPresentationResult[64];
+    private readonly (uint Sequence,byte Kinds)[] _presentationSeen=new (uint,byte)[64];
+    private int _presentationHead,_presentationCount;
+    private uint _presentationHighest;
+    internal bool PresentationResultsOverflowed { get; private set; }
+    internal bool TakePresentationOverflowed()
+    {bool overflowed=PresentationResultsOverflowed;PresentationResultsOverflowed=false;return overflowed;}
+    internal bool TryTakePresentationResult(out CustomPresentationResult result)
+    {
+        result=default;if(_presentationCount==0)return false;
+        result=_presentationResults[_presentationHead];_presentationResults[_presentationHead]=default;
+        _presentationHead=(_presentationHead+1)%64;_presentationCount--;return true;
+    }
+    private void QueuePresentationResult(in CustomPresentationResult result)
+    {
+        // The wire pins bootstrap/manifest and the caller pins current owner.
+        // A bounded sequence window also prevents ancient replays from cueing
+        // again after their FIFO entry and transport token have been retired.
+        if(_presentationHighest>=64&&result.Sequence<=_presentationHighest-64)return;
+        int index=(int)(result.Sequence%64);byte kind=(byte)(1<<(int)result.Kind);
+        ref var seen=ref _presentationSeen[index];
+        if(seen.Sequence!=result.Sequence)seen=(result.Sequence,0);
+        if((seen.Kinds&kind)!=0)return;
+        seen.Kinds|=kind;if(result.Sequence>_presentationHighest)_presentationHighest=result.Sequence;
+        if(_presentationCount==64)
+        {_presentationResults[_presentationHead]=default;_presentationHead=(_presentationHead+1)%64;_presentationCount--;PresentationResultsOverflowed=true;}
+        _presentationResults[(_presentationHead+_presentationCount)%64]=result;_presentationCount++;
+    }
+    private void ClearPresentationResults()
+    {
+        Array.Clear(_presentationResults);Array.Clear(_presentationSeen);
+        _presentationHead=_presentationCount=0;_presentationHighest=0;PresentationResultsOverflowed=false;
+    }
     private readonly CustomReadinessWire _wire;
     private ulong _highest;
     private WeaponOwnerContext _submittedOwner;
@@ -89,6 +122,7 @@ internal sealed class CustomClientCombat
                 _mode=0;
                 _selectionFactSequence=_opticFactSequence=_selectionDenied=_opticDenied=0;
                 _selectionFact=false;_opticFact=0;
+                ClearPresentationResults();
                 if (LastReceipt?.Receipt.Action.Owner!=state.State.Owner) LastReceipt=null;
                 if (LastControlDenied?.Request.Owner!=state.State.Owner) LastControlDenied=null;
                 // A new canonical life retires old local intent/prediction;
@@ -114,8 +148,12 @@ internal sealed class CustomClientCombat
             if (conflict) { Invalidated=true; return false; }
             ack=message.Ack;
             if(first&&State?.State.Owner==action.Owner)
-                NoteControlResult(action.Kind,action.Sequence,message.Receipt.Disposition==CustomJournalDisposition.Accepted
-                    &&message.Receipt.Result==WeaponActionResult.Accepted,message.Receipt.After);
+            {
+                bool accepted=message.Receipt.Disposition==CustomJournalDisposition.Accepted
+                    &&message.Receipt.Result==WeaponActionResult.Accepted;
+                NoteControlResult(action.Kind,action.Sequence,accepted,message.Receipt.After);
+                QueuePresentationResult(new(action.Bootstrap,action.Manifest,action.Owner,action.Sequence,action.Kind,message.Receipt.Result,accepted));
+            }
             if (first && (State==null || State.Value.State.Owner==action.Owner)
                 && (LastReceipt is not { } prior || prior.Receipt.Action.Owner!=action.Owner
                 || prior.Receipt.Action.Sequence<action.Sequence)) LastReceipt=message;
@@ -136,7 +174,11 @@ internal sealed class CustomClientCombat
             if (conflict) { Invalidated=true; return false; }
             ack=denied.Ack;
             if(first&&State?.State.Owner==denied.Request.Owner)
+            {
                 NoteControlResult(denied.Request.Kind,denied.Request.Sequence,false);
+                var request=denied.Request;
+                QueuePresentationResult(new(request.Bootstrap,request.Manifest,request.Owner,request.Sequence,request.Kind,WeaponActionResult.InvalidLife,false));
+            }
             if (first && (State==null || State.Value.State.Owner==denied.Request.Owner)
                 && (LastControlDenied is not { } old || old.Request.Owner!=denied.Request.Owner || old.Request.Sequence<denied.Request.Sequence))
                 LastControlDenied=denied;

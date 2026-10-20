@@ -1690,7 +1690,7 @@ namespace MphRead.Entities
                                     _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
                                     _weaponIconInst.PositionY = (_hudObjects.WeaponIconPosY + _objShiftY) / 192f;
                                     _weaponIconInst.Alpha = Features.HudOpacity;
-                                    _scene.DrawHudObject(_weaponIconInst);
+                                    if (!_scene.CustomWeaponHud(this).Visible) _scene.DrawHudObject(_weaponIconInst);
                                 }
                                 // Crosshair size is a separate aiming preference,
                                 // not part of the helmet/readout scale.
@@ -1709,7 +1709,11 @@ namespace MphRead.Entities
                                     _targetCircleInst.PositionY = reticleY;
                                     var crosshairRuntime=HudProfiles.Runtime.CrosshairFor((int)CurrentWeapon,_hudZoom);
                                     bool nativeProfile=HudProfiles.Runtime.Mode==HudMode.Custom && crosshairRuntime.Native;
-                                    if (Features.CustomCrosshair && !nativeProfile)
+                                    if (_scene.CustomWeaponHud(this).Visible)
+                                    {
+                                        ModDrawCustomReticle(reticleX,reticleY);
+                                    }
+                                    else if (Features.CustomCrosshair && !nativeProfile)
                                     {
                                         if (HudElementVisible(0)) _scene.DrawCustomCrosshair(GetCrosshairColor(), reticleX, reticleY, (int)CurrentWeapon, _hudZoom);
                                     }
@@ -2249,6 +2253,7 @@ namespace MphRead.Entities
 
         private void DrawAmmoBar()
         {
+            if (ModDrawCustomAmmo(classic:true)) return;
             WeaponInfo info = EquipInfo.Weapon;
             if (info.AmmoCost == 0 || !_ammoBarMeter.BarInst.Enabled)
             {
@@ -2358,7 +2363,10 @@ namespace MphRead.Entities
                 _weaponIconInst.PositionX=2*HudAspectFix/256;
                 _weaponIconInst.PositionY=46/192f;
                 _weaponIconInst.Alpha=Features.HudOpacity;
-                _scene.DrawHudObject(_weaponIconInst,mode:1); return;
+                if (_scene.CustomWeaponHud(this).Visible)
+                    DrawText2D(2*HudAspectFix,46,Align.Left,0,"M7",alpha:Features.HudOpacity,scale:.6f);
+                else _scene.DrawHudObject(_weaponIconInst,mode:1);
+                return;
             }
             // Below the score block in the top-left corner, and short enough
             // that all nine weapons still fit above the bottom edge.
@@ -2427,7 +2435,7 @@ namespace MphRead.Entities
                     continue;
                 }
                 ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
-                bool equipped = beam == CurrentWeapon;
+                bool equipped = beam == CurrentWeapon && !_scene.CustomWeaponHud(this).Visible;
                 WeaponInfo info = ModDisplayWeaponInfo(beam, _scene.WeaponRules[i]);
                 // The colour this weapon is known by. See _weaponListColors:
                 // deliberately not the game's own beam colour, which is the
@@ -2535,6 +2543,15 @@ namespace MphRead.Entities
                     alpha: Features.HudOpacity, scale: 0.42f * scale);
                 if (custom && style.Horizontal) panelX += panelWidth + style.Spacing * aspectFix;
                 else y += rowHeight + (custom ? style.Spacing : 0);
+            }
+            var customWeapon=_scene.CustomWeaponHud(this);
+            if(customWeapon.Ready)
+            {
+                _scene.DrawHudFlatBox(panelX,y,panelX+panelWidth,y+rowHeight-1,
+                    new Vector4(.1f,.25f,.3f,(customWeapon.Visible?.72f:.42f)*Features.HudOpacity));
+                DrawText2D(panelX+2*aspectFix,y+1,Align.Left,0,"M7",alpha:Features.HudOpacity,scale:.42f*scale);
+                if((!custom||style.ShowAmmo)&&customWeapon.State.Magazine.TryFormat(ammoTextBuffer,out int count))
+                    DrawText2D(panelX+panelWidth-2*aspectFix,y+1,Align.Right,0,ammoTextBuffer[..count],alpha:Features.HudOpacity,scale:.42f*scale);
             }
         }
 

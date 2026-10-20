@@ -12,9 +12,14 @@ public partial class Scene
         public bool Submit(CustomWeaponActionKind kind,byte optic,out uint sequence)
         {
             sequence=0;
-            if(!NetSession.Active)return scene.OfflineWeapons?.SubmitInput(player,kind,optic,out sequence)==true;
+            if(!NetSession.Active)
+            {
+                bool submitted=scene.OfflineWeapons?.SubmitInput(player,kind,optic,out sequence)==true;
+                if(submitted)scene._customFeedback?.Submitted(kind,sequence);
+                return submitted;
+            }
             if(!NetSession.TrySubmitCustomWeaponControl(kind,optic,out var request))return false;
-            sequence=request.Sequence;return true;
+            sequence=request.Sequence;scene._customFeedback?.Submitted(kind,sequence);return true;
         }
     }
     private CustomWeaponInputController? _customInput;
@@ -50,6 +55,7 @@ public partial class Scene
             if(life!=_customInputLife){_customInput!.Reset();_customInputLife=life;}
         }
         _customInput!.Synchronize(projection);
+        _customFeedback??=new();_customFeedback.Synchronize(projection);
         var controls=player.Controls;
         bool native=player.ModTakeNativeSelectionIntent()
             ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed
@@ -61,7 +67,7 @@ public partial class Scene
             &&player.Health>0&&!player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
         _customInput.Sample(new(inputAllowed,controls.CustomWeapon.IsPressed,native,controls.Shoot.IsPressed,
-            controls.CustomReload.IsPressed,controls.Zoom.IsPressed,controls.Zoom.IsDown,controls.CustomOptic.IsPressed),_customInputSink!);
+            controls.CustomReload.IsPressed,controls.Zoom.IsPressed,controls.Zoom.IsDown,controls.CustomOptic.IsPressed,Mods.InputSettings.CustomScopeHold),_customInputSink!);
         player.ModSynchronizeCustomNativeSuppression();
     }
 }

@@ -21,10 +21,16 @@ public partial class PlayerEntity
             HudVisibility.Multiplayer => _scene.GameState.Multiplayer,
             HudVisibility.Spectator => Mods.SpectatorMode.IsSpectating,
             HudVisibility.Damaged => ModHudHealthVisible && ProHealthFraction() < 1,
-            HudVisibility.AmmoNotFull => EquipInfo.Weapon.AmmoCost > 0 && ProAmmoFraction() < 1,
+            HudVisibility.AmmoNotFull => ModAmmoNotFullForHud(),
             HudVisibility.Objective => _scene.GameState.Mode is GameMode.Bounty or GameMode.BountyTeams or GameMode.Capture or GameMode.Defender or GameMode.DefenderTeams or GameMode.Nodes or GameMode.NodesTeams,
             _ => true
         };
+    }
+    private bool ModAmmoNotFullForHud()
+    {
+        var custom=_scene.CustomWeaponHud(this);
+        return custom.Visible?!custom.Ready||custom.State.Magazine<custom.MagazineCapacity
+            :EquipInfo.Weapon.AmmoCost>0&&ProAmmoFraction()<1;
     }
     private Scene.HudLayoutScope UseHudLayout(int index, float x, float y)
         => _scene.PushHudElement(index,x,y,HudElementVisible(index));
