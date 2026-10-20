@@ -509,6 +509,8 @@ The original MphRead work also builds upon research, libraries, tools, and contr
 * [OpenAL Soft](https://github.com/kcat/openal-soft)
 * [SoundFlow](https://github.com/LSXPrime/SoundFlow)
 
+Desktop Settings → Display → Campaign ending includes an optional **Original campaign credits** setting. It defaults off and currently supports the AMHE1 English cartridge profile. Unsupported or unavailable presentation data keeps the mission receipt. See the [implementation and verification limits](docs/porting/second-hunt-original-credits-2026-10-20.md).
+
 You can also view runtime credit information with:
 
 ```bash
