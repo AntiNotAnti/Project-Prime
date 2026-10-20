@@ -1379,6 +1379,22 @@ public sealed class RmlUiMenuController : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Re-arm the existing bot match setup only after the shell has retired
+    /// the launched offline scene. Keep the selected arena, rules and Hunter
+    /// rather than forcing the player through Play to create a new draft.
+    /// </summary>
+    public bool OfflineSessionClosed()
+    {
+        Owner();
+        if (_offline == null || !_offlineLaunched || _joining || _creating || _busy
+            || _services.Lobby().Active) return false;
+        _offlineLaunched = false;
+        _offline.RefreshArenas(_services.OfflineArenaKeys());
+        Status("BOT MATCH ENDED // READY TO LAUNCH AGAIN");
+        return true;
+    }
+
     public bool TrainingSessionClosed()
     {
         Owner();
