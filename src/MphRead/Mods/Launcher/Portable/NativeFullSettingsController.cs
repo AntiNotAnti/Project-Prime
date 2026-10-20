@@ -188,7 +188,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             value=>ValidTuple(value,new[]{0d,0,.1},new[]{.9,.9,1d})?null:"Enter left,top,width (normalized screen coordinates)."));
         Rows.Add(new("Controls","Stylus guide","Enabled",()=>StylusZone.Wanted.ToString(),v=>StylusZone.Enabled=bool.Parse(v),v=>bool.TryParse(v,out _)?null:"Choose On or Off.",new[]{"false","true"}));
         AddPrimitive(typeof(StylusZone),"Controls","Stylus guide",new[]{"NativeUi","NativeUiOpacity","CursorOpacity","OutlineOpacity","ButtonOpacity","GuideColor"});
-        AddPrimitive(typeof(TouchSettings),"Controls","Touch overlay",new[]{"ButtonsVisible","ButtonScale","StickScale","OverlayOpacity"});
+        AddPrimitive(typeof(TouchSettings),"Controls","Touch overlay",new[]{"Mode","DirectWeaponSelection","ButtonsVisible","ButtonScale","StickScale","OverlayOpacity"});
         Add(typeof(Network.DemoClip),null,"Replays","Clips","Seconds","PostRollSeconds");
         Add(typeof(LauncherPrefs),null,"Replays","Storage","ReplayStorageLimitGb","ReplayAutoPrune","ReplayDeleteClips");
         Add(typeof(LauncherPrefs),null,"Replays","Playback","SpectatorNameTags","KillCamEnabled","KillCamCamera","FinalKillCamEnabled");
