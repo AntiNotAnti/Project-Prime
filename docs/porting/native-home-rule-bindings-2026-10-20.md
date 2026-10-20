@@ -13,7 +13,7 @@ unchanged. This slice includes concurrent CW-05h PR839 in its frozen build.
 Entering lobby mode internally closes its rules and changes other model
 booleans. The native cache previously remembered the old requested values, so
 it suppressed the next rules-open update. Native Home model setters now
-invalidate their dependent native cache entries. The managed Host has its own
+invalidate cached native boolean requests. The managed Host has its own
 cache: after accepted Home mode publication it invalidates exactly the derived
 Home fields, allowing the following snapshot fields to restore their values.
 Unrelated document/text/DOM binding caches retain their existing behavior.
