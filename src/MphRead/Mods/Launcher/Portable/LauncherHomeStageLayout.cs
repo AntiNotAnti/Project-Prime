@@ -17,7 +17,7 @@ internal readonly record struct LauncherHomeStageLayout(
         float gutter = Math.Min(.012f, (right - left) * .06f);
         // Leave vertical breathing room for the far party platform above the
         // local silhouette while retaining a uniformly scaled model viewport.
-        float scale = Math.Min(.80f, (right - left - 2 * gutter) / .50f);
+        float scale = Math.Min(.90f, (right - left - 2 * gutter) / .50f);
         float floor = Math.Min(profile.HunterBottom, bottom - .015f);
         // Keep the local model below the header. The rear pedestal belongs to
         // the floor depth rows, rather than the empty band above the model.

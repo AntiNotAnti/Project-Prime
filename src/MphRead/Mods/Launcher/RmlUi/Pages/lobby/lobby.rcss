@@ -120,3 +120,9 @@
 body.touch-targets .lobby_roster_row { min-height:52dp; }
 body.touch-targets #lobby_chat_panel { height:148dp; }
 body.touch-targets .lobby_chat_compose, body.touch-targets #lobby_chat_input, body.touch-targets #lobby_chat_send { height:48dp; }
+/* On very short surfaces the roster header and chat can exceed the available
+   column height. Scroll the whole column rather than shrinking rows to zero. */
+@media (max-height:440dp) {
+    #lobby_right_panels { overflow-y:auto; overflow-x:hidden; }
+    #lobby_roster_panel { flex:0 0 auto; overflow-y:visible; }
+}
