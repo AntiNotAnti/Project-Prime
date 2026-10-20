@@ -12,7 +12,7 @@ import json
 import math
 from pathlib import Path
 
-from build_glb import CHARACTERS, check_sidecars, load_inputs
+from build_glb import CHARACTERS, check_sidecars, load_inputs, source_stem
 
 MAX_PALETTE = 32  # Existing CharacterWeightedModelLoader.MaximumJoints.
 MAX_VERTICES = 200_000
@@ -37,14 +37,13 @@ def _vector(value, size, label):
 
 
 def build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, motions,
-               *, palette_limit=MAX_PALETTE):
+               *, palette_limit=MAX_PALETTE, part="body"):
     """Stable contiguous triangle batching; complexity is linear in corners.
 
     Ancestors need not occupy shader slots: evaluate the complete source rig
     first, then gather each batch's global skin matrices using source bone IDs.
     """
-    if character not in CHARACTERS:
-        raise ValueError("Unknown local source character")
+    source_stem(character, part)
     _integer(palette_limit, 1, MAX_PALETTE, "draw palette limit")
     if not 3 <= len(vertices) <= MAX_VERTICES or not 1 <= len(faces) <= MAX_FACES:
         raise ValueError("Source palette geometry exceeds its bounded budget")
@@ -53,7 +52,7 @@ def build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, mot
     if len(face_uvs) != len(faces):
         raise ValueError("Source face/UV inventory differs")
     try:
-        check_sidecars(character, skeleton, weights, motions, len(vertices))
+        check_sidecars(character, skeleton, weights, motions, len(vertices), part=part)
     except (TypeError, AttributeError, KeyError, RecursionError) as error:
         raise ValueError("Malformed source rig/weight inventory") from error
     for bone in skeleton["Bones"]:
@@ -130,7 +129,7 @@ def build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, mot
         pending.append(face_id)
         used.update(triangle)
     flush()
-    return {"format": 1, "kind": "private-source-rig-palette-preflight", "character": character,
+    plan = {"format": 1, "kind": "private-source-rig-palette-preflight", "character": character,
         "paletteLimit": palette_limit, "sourceRig": copy.deepcopy(skeleton),
         "sourceMotionInventory": copy.deepcopy(motions),
         "sourceVertexCount": len(vertices), "sourceTriangleCount": len(faces),
@@ -140,12 +139,17 @@ def build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, mot
         "acceptance": {"runtimeInstall": False, "sourceRigPlayback": False, "fullClipCoverage": False,
             "firstPerson": False, "alternateForm": False, "gameplay": False, "network": False,
             "deviceVisual": False}}
+    if part == "ball":
+        plan["kind"] = "private-source-part-rig-palette-preflight"
+        plan["sourcePart"] = part
+    return plan
 
 
-def _stamps(root, character):
+def _stamps(root, character, *, part="body"):
+    stem = source_stem(character, part)
     result = {}
     for suffix in SUFFIXES:
-        path = root / (character + suffix)
+        path = root / (stem + suffix)
         if root.is_symlink() or path.is_symlink() or not path.is_file():
             raise ValueError("Local palette input must be a regular private file")
         maximum = 256*1024*1024 if suffix == ".obj" else 32*1024*1024
@@ -155,19 +159,18 @@ def _stamps(root, character):
         with path.open("rb") as source:
             for block in iter(lambda: source.read(1024*1024), b""):
                 digest.update(block)
-        result[character+suffix] = digest.hexdigest()
+        result[stem+suffix] = digest.hexdigest()
     return result
 
 
-def write_private_plan(root: Path, character: str, output: Path):
-    if character not in CHARACTERS:
-        raise ValueError("Unknown local source character")
+def write_private_plan(root: Path, character: str, output: Path, *, part="body"):
+    source_stem(character, part)
     if output.is_symlink() or output.exists() or not output.resolve().is_relative_to(root.resolve()):
         raise ValueError("Private palette output must be a new contained regular path")
-    before = _stamps(root, character)
-    vertices, uvs, faces, face_uvs, skeleton, weights, motions = load_inputs(root, character)
-    plan = build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, motions)
-    if before != _stamps(root, character):
+    before = _stamps(root, character, part=part)
+    vertices, uvs, faces, face_uvs, skeleton, weights, motions = load_inputs(root, character, part=part)
+    plan = build_plan(character, vertices, uvs, faces, face_uvs, skeleton, weights, motions, part=part)
+    if before != _stamps(root, character, part=part):
         raise ValueError("Private source changed during palette planning")
     plan["sourceSha256"] = before
     encoded = json.dumps(plan, ensure_ascii=True, allow_nan=False, separators=(",", ":")) + "\n"

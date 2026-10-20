@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MphRead.Mods.Import.Retro;
 namespace MphRead.Mods.Import;
 
@@ -25,17 +26,20 @@ public static class RetroAnimationGraphProof
   string SourceSnapshotFile,int SourceAncsBytes,string SourceAncsSha256,uint Cmdl,uint Cskr,uint Cinf,
   int AnimSetVersion,int AnimSetOffset,int AnimSetLength,Root[] Roots,Node[] Nodes,TransitionNode[] TransitionNodes,
   FullTransition[] FullTransitions,int DefaultTransition,HalfTransition[] HalfTransitions,ResourceReference[] Resources,
-  bool UninterpretedSetBytesPreservedInSnapshot,bool NamedGraphSemanticsAccepted);
+  bool UninterpretedSetBytesPreservedInSnapshot,bool NamedGraphSemanticsAccepted,
+  [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SourcePart=null);
  public sealed record Capture(byte[] SourceSnapshot,byte[] Descriptor,Document Metadata);
  public enum Availability { Present, NoAnimationSet }
  public sealed record CaptureResult(Availability Status,Capture? Graph);
  private static readonly JsonSerializerOptions Json=new(){PropertyNamingPolicy=JsonNamingPolicy.CamelCase,MaxDepth=16};
  private static void Require(bool c,string why){if(!c)throw new InvalidDataException(why);}
  public static string Sha(byte[] bytes)=>Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
- public static Capture FromSource(byte[] source,string gameId,uint resource,string characterId,string characterName,RetroCharacterRefs refs)
-  =>CaptureOptional(source,gameId,resource,characterId,characterName,refs).Graph??throw new InvalidDataException("ANCS graph set absent; graph proof requires a Set");
- public static CaptureResult CaptureOptional(byte[] source,string gameId,uint resource,string characterId,string characterName,RetroCharacterRefs refs)
+ public static Capture FromSource(byte[] source,string gameId,uint resource,string characterId,string characterName,RetroCharacterRefs refs,string? sourcePart=null)
+  =>CaptureOptional(source,gameId,resource,characterId,characterName,refs,sourcePart).Graph??throw new InvalidDataException("ANCS graph set absent; graph proof requires a Set");
+ public static CaptureResult CaptureOptional(byte[] source,string gameId,uint resource,string characterId,string characterName,RetroCharacterRefs refs,string? sourcePart=null)
  {
+  Require(sourcePart is null or "body" or "ball","Explicit supported source artifact part");
+  sourcePart=sourcePart=="ball"?"ball":null;
   ArgumentNullException.ThrowIfNull(source);ArgumentNullException.ThrowIfNull(gameId);ArgumentNullException.ThrowIfNull(characterId);ArgumentNullException.ThrowIfNull(characterName);Require(source.Length is >=8 and <=RetroAnimationIndex.MaxAncsBytes,"Bounded ANCS source snapshot");
   Require(gameId.Length is >0 and <=16&&characterId.Length is >0 and <=64&&characterId.All(c=>char.IsAsciiLetterOrDigit(c)||c=='-')
    &&characterName.Length is >0 and <=128,"Explicit bounded source identity");
@@ -95,9 +99,10 @@ public static class RetroAnimationGraphProof
   var full=set.Transitions.Select(t=>{Range(t.SourceOffset,t.SourceLength);Require(U32(t.SourceOffset)==t.Id&&U32(t.SourceOffset+4)==t.AnimA&&U32(t.SourceOffset+8)==t.AnimB&&t.Meta.SourceOffset==t.SourceOffset+12&&t.SourceLength==12+t.Meta.SourceLength,"Exact full transition lookup source fields");return new FullTransition(t.Id,t.AnimA,t.AnimB,Trans(t.Meta),t.SourceOffset,t.SourceLength);}).ToArray();
   Require(set.DefaultTransition!=null,"Explicit source default transition");int defaultTransition=Trans(set.DefaultTransition!);
   var half=set.HalfTransitions.Select(t=>{Range(t.SourceOffset,t.SourceLength);Require(U32(t.SourceOffset)==t.Anim&&t.Meta.SourceOffset==t.SourceOffset+4&&t.SourceLength==4+t.Meta.SourceLength,"Exact half transition lookup source fields");return new HalfTransition(t.Anim,Trans(t.Meta),t.SourceOffset,t.SourceLength);}).ToArray();
-  var doc=new Document(1,gameId,resource,characterId,characterName,characterId+".ancs.bin",snapshot.Length,Sha(snapshot),refs.Cmdl,refs.Cskr,refs.Cinf,
+  string artifactStem=characterId+(sourcePart==null?"":".ball");
+  var doc=new Document(1,gameId,resource,characterId,characterName,artifactStem+".ancs.bin",snapshot.Length,Sha(snapshot),refs.Cmdl,refs.Cskr,refs.Cinf,
    set.Version,set.SourceOffset,set.SourceLength,roots,nodes.Select(n=>n??throw new InvalidDataException("Incomplete graph node")).ToArray(),transitions.ToArray(),full,defaultTransition,half,
-   set.Resources.Select(r=>new ResourceReference(r.Anim,r.Evnt)).ToArray(),true,false);
+   set.Resources.Select(r=>new ResourceReference(r.Anim,r.Evnt)).ToArray(),true,false,sourcePart);
   return new(Availability.Present,new(snapshot,Serialize(doc),doc));
  }
  public static Document Verify(byte[] descriptor,byte[] source)
@@ -111,7 +116,8 @@ public static class RetroAnimationGraphProof
   ArgumentNullException.ThrowIfNull(descriptor);ArgumentNullException.ThrowIfNull(source);
   Require(descriptor.Length is >0 and <=MaximumProofBytes,"Bounded graph descriptor");using var json=JsonDocument.Parse(descriptor,new JsonDocumentOptions{MaxDepth=16});var r=json.RootElement;
   var expected=FromSource(source,r.GetProperty("sourceGameId").GetString()!,r.GetProperty("sourceAncsId").GetUInt32(),r.GetProperty("sourceCharacterId").GetString()!,r.GetProperty("sourceCharacterName").GetString()!,
-   new RetroCharacterRefs(r.GetProperty("cmdl").GetUInt32(),r.GetProperty("cskr").GetUInt32(),r.GetProperty("cinf").GetUInt32()));
+   new RetroCharacterRefs(r.GetProperty("cmdl").GetUInt32(),r.GetProperty("cskr").GetUInt32(),r.GetProperty("cinf").GetUInt32()),
+   r.TryGetProperty("sourcePart",out var part)?part.GetString():null);
   Require(descriptor.SequenceEqual(expected.Descriptor),"Graph descriptor must reproduce exactly from the bound raw source snapshot");return expected.Metadata;
  }
  private static byte[] Serialize(Document value)

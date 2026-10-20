@@ -82,7 +82,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     {
         if(_disposed||Closed||Busy)return;
         string id=CharacterPreviewId;
-        Start(()=> { var result=Import.LocalImportBundle.Inspect(Import.RetroCharacterPreviewExporter.DefaultRoot,id,Import.RetroCharacterPreviewExporter.BundleSpec(id)); return id+": "+result.State+". "+result.Message+". Authoring preview only."; });
+        Start(()=> { var result=Import.LocalImportBundle.Inspect(Import.RetroCharacterPreviewExporter.DefaultRoot,id,Import.RetroCharacterPreviewExporter.BundleSpec(id)); return Import.RetroCharacterPreviewExporter.DescribeInspection(id,result); });
     }
     internal void RequestRemoveCharacterPreview()
     {

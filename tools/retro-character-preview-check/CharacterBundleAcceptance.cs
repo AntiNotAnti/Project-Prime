@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using MphRead.Mods.Import;
 
 // Metadata contracts run without source media. The explicit owned-source probe
@@ -11,10 +12,38 @@ internal static class CharacterBundleAcceptance
         foreach (var spec in specs)
         {
             var again = RetroCharacterPreviewExporter.BundleSpec(spec.Id);
-            Check(spec.Version == 1 && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
+            bool echoes=spec.Id.EndsWith("-echoes",StringComparison.Ordinal);
+            Check(spec.Version == (echoes?2:1) && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
                 "canonical version and digest contract " + spec.Id);
-            Check(spec.RequiredComponents.SequenceEqual(new[] { spec.Id + ".obj", spec.Id + ".skeleton.json", spec.Id + ".weights.json", spec.Id + ".motions.json" }),
-                "body, skeleton, weights and motions required together " + spec.Id);
+            string[] body={spec.Id+".obj",spec.Id+".skeleton.json",spec.Id+".weights.json",spec.Id+".motions.json"};
+            string[] required=echoes?body.Concat(body.Select(f=>spec.Id+".ball"+f[spec.Id.Length..])).Append(spec.Id+".parts.json").ToArray():body;
+            Check(spec.RequiredComponents.SequenceEqual(required),
+                "complete required body/ball inventory in one appearance contract " + spec.Id);
+            var parts=RetroCharacterPreviewExporter.PartsFor(spec.Id);
+            Check(parts.Select(p=>p.Id).SequenceEqual(echoes?new[]{"body","ball"}:new[]{"body"})
+                &&parts.All(p=>p.Version==1)&&RetroCharacterPreviewExporter.PartStem(spec.Id,"body")==spec.Id,
+                "canonical versioned authoring parts retain body namespace " + spec.Id);
+            Check(!ReferenceEquals(parts,RetroCharacterPreviewExporter.PartsFor(spec.Id)),"part inventory detached between calls "+spec.Id);
+            Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.SourcePart>)parts)[0]=new("tampered",0,"",99),
+                "caller cannot replace source part metadata");
+            Check(RetroCharacterPreviewExporter.PartsFor(spec.Id)[0].Id=="body","part metadata remains intact "+spec.Id);
+            if(echoes)
+                Check(parts[1].Ancs==0x654a3f97&&parts[1].NativeName=="Dark_Samus_MorphBall"
+                    &&RetroCharacterPreviewExporter.PartStem(spec.Id,"ball")==spec.Id+".ball",
+                    "related ball namespace keeps canonical appearance prefix "+spec.Id);
+            else
+            {
+                string legacyHash=spec.Id switch
+                {
+                    "trooper-power"=>"cf04e8f85575877e15be49960c9190a9d428723846ffb4353bd91ab97ffc41d8",
+                    "trooper-ice"=>"15a2e0fe73eb6983ef8baa88131576c7632e33dbaa13e266063c3511ab43b546",
+                    "trooper-wave"=>"b2131444ade0323c04795ad3a2b6637b552b36ba584d32fb5ed08b92e411d204",
+                    "trooper-plasma"=>"9ebb847f18b5c3930a7ceeb8ce46bed433cacdbef51f778f4a3979a13eb9add5",
+                    _=>throw new InvalidOperationException("Unexpected legacy source")
+                };
+                Check(spec.RecipeHash==legacyHash,"Prime body v1 recipe hash remains byte-compatible "+spec.Id);
+                Expect<InvalidDataException>(()=>RetroCharacterPreviewExporter.PartStem(spec.Id,"ball"),"unqualified Trooper ball refused");
+            }
             Check(spec.RecipeHash == again.RecipeHash && spec.SourceFingerprint == again.SourceFingerprint && spec.RequiredComponents.SequenceEqual(again.RequiredComponents),
                 "recipe stable across calls " + spec.Id);
             spec.RequiredComponents[0] = "tampered.obj";
@@ -31,8 +60,18 @@ internal static class CharacterBundleAcceptance
         Check(RetroCharacterPreviewExporter.Sources.Single(s=>s.Id==overcharged.Id).NativeName=="Battle_3"
             && RetroCharacterPreviewExporter.Sources.Single(s=>s.Id==normal.Id).NativeName=="Dark_Samus",
             "Overcharged source name cannot silently alias the normal body");
+        Check(RetroCharacterPreviewExporter.PartsFor(normal.Id)[1]==RetroCharacterPreviewExporter.PartsFor(overcharged.Id)[1]
+            &&RetroCharacterPreviewExporter.PartStem(normal.Id,"ball")!=RetroCharacterPreviewExporter.PartStem(overcharged.Id,"ball"),
+            "same verified alternate source has distinct normal/Overcharged artifact namespaces");
+        foreach(string? part in new string?[]{null,"","Body","BALL","weapon","../ball","ball.obj","body "})
+            Expect<InvalidDataException>(()=>RetroCharacterPreviewExporter.PartStem(normal.Id,part!),"noncanonical part refused");
         foreach (string? id in new string?[] { null, "", "DARKSAMUS-ECHOES", "darksamus", "../darksamus-echoes", "trooper-power.obj", "trooper-power " })
+        {
             Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.BundleSpec(id!), "unknown/noncanonical identity refused");
+            Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.PartsFor(id!), "unknown part-owner identity refused");
+            Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.PartStem(id!,"body"), "unknown artifact-owner identity refused");
+        }
+        InspectPartsContract();
         string root = Path.Combine(Path.GetTempPath(), "prime-character-contract-" + Guid.NewGuid().ToString("N"));
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Expect<OperationCanceledException>(() => RetroCharacterPreviewExporter.ExportFromOwnedGame("missing-owned-source.iso", root, cancellation.Token), "pre-cancel precedes source read/output");
@@ -67,9 +106,10 @@ internal static class CharacterBundleAcceptance
                     string snapshot = Path.Combine(folder, id + ".ancs.bin");
                     Check(inspected.Files.Contains(snapshot), "graph retains raw ANCS snapshot " + id);
                     var proof = RetroAnimationGraphProof.Verify(File.ReadAllBytes(graph), File.ReadAllBytes(snapshot));
-                    Check(proof.SourceCharacterId == id && !proof.NamedGraphSemanticsAccepted && proof.UninterpretedSetBytesPreservedInSnapshot,
+                    Check(proof.SourceCharacterId == id && proof.SourcePart==null && !proof.NamedGraphSemanticsAccepted && proof.UninterpretedSetBytesPreservedInSnapshot,
                         "exact raw graph proof retained without named-semantic claim " + id);
                 }
+                if(spec.Version==2) ValidateOwnedParts(id,folder,spec,inspected);
             }
             if(ids.Contains("darksamus-echoes") && ids.Contains("darksamus-overcharged-echoes"))
             {
@@ -80,7 +120,52 @@ internal static class CharacterBundleAcceptance
                     return skeleton.RootElement.GetProperty("Refs").GetProperty("Cmdl").GetUInt32();
                 }
                 Check(Body("darksamus-echoes")!=Body("darksamus-overcharged-echoes"),"actual Overcharged source model differs from the normal body");
+                var normalParts=ReadParts(Path.GetDirectoryName(files.Single(f=>Path.GetFileNameWithoutExtension(f)=="darksamus-echoes"))!,"darksamus-echoes");
+                var chargedParts=ReadParts(Path.GetDirectoryName(files.Single(f=>Path.GetFileNameWithoutExtension(f)=="darksamus-overcharged-echoes"))!,"darksamus-overcharged-echoes");
+                Check(normalParts.Parts.Single(p=>p.Id=="ball").Refs==chargedParts.Parts.Single(p=>p.Id=="ball").Refs
+                    &&normalParts.Parts.Single(p=>p.Id=="body").Refs!=chargedParts.Parts.Single(p=>p.Id=="body").Refs,
+                    "normal and Overcharged have different source bodies and the same exact source ball refs");
             }
+            foreach(string id in ids.Where(id=>RetroCharacterPreviewExporter.BundleSpec(id).Version==2))
+            {
+                var spec=RetroCharacterPreviewExporter.BundleSpec(id);
+                var before=LocalImportBundle.Inspect(root,id,spec);
+                string folder=Path.GetDirectoryName(before.Files.Single(f=>Path.GetFileName(f)==id+".obj"))!;
+                string missing=Path.Combine(folder,id+".ball.obj");
+                var survivors=before.Files.Where(f=>f!=missing).ToDictionary(f=>f,f=>Convert.ToHexStringLower(HashFile(f)));
+                string[] bodyNames={id+".obj",id+".skeleton.json",id+".weights.json",id+".motions.json"};
+                var bodyHashes=bodyNames.ToDictionary(n=>n,n=>Convert.ToHexStringLower(HashFile(Path.Combine(folder,n))));
+                File.Delete(missing);
+                var incomplete=LocalImportBundle.Inspect(root,id,spec);
+                Check(incomplete.State==ImportBundleState.Incomplete,
+                    "missing required ball file makes complete appearance Incomplete "+id);
+                var partStatus=RetroCharacterPreviewExporter.InspectParts(id,incomplete);
+                var bodyStatus=partStatus.Single(p=>p.Id=="body");var ballStatus=partStatus.Single(p=>p.Id=="ball");
+                Check(bodyStatus.State==ImportBundleState.Ready&&bodyStatus.Components.All(c=>c.State==ImportBundleState.Ready)
+                    &&ballStatus.State==ImportBundleState.Incomplete
+                    &&ballStatus.Components.Single(c=>c.Role=="geometry").State==ImportBundleState.Incomplete
+                    &&ballStatus.Components.Where(c=>c.Role!="geometry").All(c=>c.State==ImportBundleState.Ready),
+                    "missing ball OBJ leaves real body and other three ball components Ready "+id);
+                string description=RetroCharacterPreviewExporter.DescribeInspection(id,incomplete);
+                Check(description.Contains("body v1: Ready",StringComparison.Ordinal)
+                    &&description.Contains("ball v1: Incomplete (geometry v1 Incomplete)",StringComparison.Ordinal)
+                    &&description.Contains("Authoring only",StringComparison.Ordinal),
+                    "owned inspection identifies failed ball geometry version without hiding usable body authoring parts "+id);
+                var repairedFiles=RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id});
+                var repaired=LocalImportBundle.Inspect(root,id,spec);
+                string repairedFolder=Path.GetDirectoryName(repairedFiles.Single())!;
+                Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Version==2
+                    &&repaired.Receipt.Generation!=before.Receipt!.Generation&&repaired.Files.Count==13,
+                    "update repairs whole body/ball appearance into a fresh complete v2 generation "+id);
+                Check(Directory.Exists(folder)&&!File.Exists(missing)
+                    &&survivors.All(p=>File.Exists(p.Key)&&Convert.ToHexStringLower(HashFile(p.Key))==p.Value),
+                    "repair retains old generation and every surviving old file without overwrite "+id);
+                Check(bodyHashes.All(p=>Convert.ToHexStringLower(HashFile(Path.Combine(repairedFolder,p.Key)))==p.Value),
+                    "repair preserves original body geometry rig weights and motions bytes "+id);
+                ValidateOwnedParts(id,repairedFolder,spec,repaired);
+            }
+            files=ids.Select(id=>LocalImportBundle.Inspect(root,id,RetroCharacterPreviewExporter.BundleSpec(id)).Files
+                .Single(f=>Path.GetFileName(f)==id+".obj")).ToArray();
             var original = Snapshot(root);
             Check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source, root).SequenceEqual(files), "repeat import reuses immutable generation paths");
             Check(Same(original, Snapshot(root)), "repeat import preserves receipt and generation bytes");
@@ -124,6 +209,117 @@ internal static class CharacterBundleAcceptance
             Check(!Directory.Exists(root), "all derived probe data cleaned");
             Console.WriteLine("Probe cleanup: all derived temporary data removed");
         }
+    }
+    private static void InspectPartsContract()
+    {
+        const string id="darksamus-echoes";
+        var spec=RetroCharacterPreviewExporter.BundleSpec(id);
+        var states=spec.RequiredComponents.Select(file=>new ImportBundleComponentInspection(file,ImportBundleState.Ready,"verified fixture")).ToList();
+        var ready=new ImportBundleInspection(ImportBundleState.Ready,"synthetic complete",null,Array.Empty<string>(),states);
+        var parts=RetroCharacterPreviewExporter.InspectParts(id,ready);
+        Check(parts.Select(p=>p.Id).SequenceEqual(new[]{"body","ball"})&&parts.All(p=>p.Version==1&&p.State==ImportBundleState.Ready
+            &&p.Components.Select(c=>c.Role).SequenceEqual(new[]{"geometry","rig","weights","motion-samples"})
+            &&p.Components.All(c=>c.Version==1&&c.State==ImportBundleState.Ready)),
+            "inspection exposes exact logical part and required role versions from verified component states");
+        Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.AuthoringPartStatus>)parts)[0]=parts[1],
+            "part inspection snapshot rejects caller replacement");
+        Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.AuthoringComponentStatus>)parts[0].Components)[0]
+            =new("tampered",99,ImportBundleState.Failed),"component inspection snapshot rejects caller replacement");
+        states[0]=states[0] with { State=ImportBundleState.Failed };
+        var changed=RetroCharacterPreviewExporter.InspectParts(id,ready);
+        Check(parts[0].State==ImportBundleState.Ready&&parts[0].Components[0].State==ImportBundleState.Ready
+            &&changed[0].State==ImportBundleState.Failed&&changed[0].Components[0].State==ImportBundleState.Failed,
+            "published part and component states are detached from later source inventory edits");
+        states[0]=states[0] with { State=ImportBundleState.Ready };
+        states[^1]=states[^1] with { State=ImportBundleState.Incomplete };
+        var missingIndex=ready with { State=ImportBundleState.Incomplete,Message="parts index missing" };
+        Check(RetroCharacterPreviewExporter.InspectParts(id,missingIndex).All(p=>p.State==ImportBundleState.Ready),
+            "missing shared parts index keeps both independently verified four-component authoring parts Ready");
+        string indexDescription=RetroCharacterPreviewExporter.DescribeInspection(id,missingIndex);
+        Check(indexDescription.Contains(id+": Incomplete.",StringComparison.Ordinal)
+            &&indexDescription.Contains("body v1: Ready; ball v1: Ready",StringComparison.Ordinal),
+            "description preserves global incomplete state while identifying verified logical parts");
+        states[^1]=states[^1] with { State=ImportBundleState.Ready };
+        states.Add(new(id+".ball.ancs-graph.json",ImportBundleState.Failed,"optional proof corrupt"));
+        var optionalBad=ready with { State=ImportBundleState.Failed,Message="optional proof corrupt" };
+        Check(RetroCharacterPreviewExporter.InspectParts(id,optionalBad).All(p=>p.State==ImportBundleState.Ready)
+            &&RetroCharacterPreviewExporter.DescribeInspection(id,optionalBad).Contains(id+": Failed.",StringComparison.Ordinal),
+            "optional proof integrity failure cannot claim global readiness or erase verified required part states");
+        var legacyReceipt=new ImportBundleReceipt(1,id,1,new string('a',64),spec.SourceFingerprint,new string('b',64),
+            spec.RequiredComponents.Take(4).ToArray(),Array.Empty<ImportBundleComponent>());
+        var outdated=new ImportBundleInspection(ImportBundleState.Outdated,"legacy body recipe",legacyReceipt,Array.Empty<string>());
+        var legacyParts=RetroCharacterPreviewExporter.InspectParts(id,outdated);
+        Check(legacyParts.All(p=>p.State==ImportBundleState.Outdated&&p.Components.All(c=>c.State==ImportBundleState.Outdated))
+            &&!RetroCharacterPreviewExporter.DescribeInspection(id,outdated).Contains(": Ready",StringComparison.Ordinal),
+            "old v1 receipt without verified current component states never claims current body or ball Ready");
+        Check(RetroCharacterPreviewExporter.InspectParts(id,ready with { ComponentStates=null })
+            .All(p=>p.State==ImportBundleState.Incomplete&&p.Components.All(c=>c.State==ImportBundleState.Incomplete)),
+            "aggregate Ready without component verification fails closed for logical authoring readiness");
+    }
+    private static RetroCharacterPreviewExporter.AuthoringPartsIndex ReadParts(string folder,string id)
+        =>JsonSerializer.Deserialize<RetroCharacterPreviewExporter.AuthoringPartsIndex>(File.ReadAllBytes(Path.Combine(folder,id+".parts.json")))
+            ??throw new InvalidDataException("Missing authoring parts index");
+    private static void ValidateOwnedParts(string id,string folder,ImportBundleSpec spec,ImportBundleInspection inspected)
+    {
+        Check(spec.RequiredComponents.Length==9&&inspected.Files.Count==13&&inspected.Receipt!.Components.Length==13
+            &&inspected.Files.All(f=>Path.GetDirectoryName(f)==folder),"nine required body/ball components plus four graph files share one generation "+id);
+        Check(RetroCharacterPreviewExporter.InspectParts(id,inspected).All(p=>p.State==ImportBundleState.Ready
+            &&p.Components.Count==4&&p.Components.All(c=>c.State==ImportBundleState.Ready&&c.Version==1)),
+            "actual verified body and ball report all four versioned authoring components Ready "+id);
+        var index=ReadParts(folder,id);
+        Check(index.Schema==1&&index.CharacterId==id&&index.SourceGameId=="G2ME01"&&index.BundleVersion==2&&!index.RuntimeInstall
+            &&index.Parts.Select(p=>p.Id).SequenceEqual(new[]{"body","ball"})
+            &&index.UnqualifiedParts.SequenceEqual(new[]{"source-materials","first-person","runtime-animation-and-morph"}),
+            "parts index binds original appearance and explicit unqualified runtime work "+id);
+        foreach(var part in index.Parts)
+        {
+            string stem=RetroCharacterPreviewExporter.PartStem(id,part.Id);
+            Check(part.Version==1&&part.RequiredComponents.All(c=>c.Version==1)
+                &&part.RequiredComponents.Select(c=>c.Role).SequenceEqual(new[]{"geometry","rig","weights","motion-samples"})
+                &&part.RequiredComponents.Select(c=>c.File).SequenceEqual(new[]{stem+".obj",stem+".skeleton.json",stem+".weights.json",stem+".motions.json"})
+                &&part.OptionalComponents.SequenceEqual(new[]{stem+".ancs-graph.json",stem+".ancs.bin"})
+                &&part.RequiredComponents.Select(c=>c.File).Concat(part.OptionalComponents).All(n=>inspected.Files.Contains(Path.Combine(folder,n))),
+                "part component versions exact body/ball filenames and optional raw graph siblings "+id+"/"+part.Id);
+        }
+        var ball=index.Parts.Single(p=>p.Id=="ball");
+        var exactRefs=new RetroCharacterRefs(0x2f2c1e6f,0x4403b1b9,0xc7dbc44a);
+        Check(ball.Ancs==0x654a3f97&&ball.NativeName=="Dark_Samus_MorphBall"&&ball.Refs==exactRefs,
+            "parts index keeps exact qualified alternate source refs "+id);
+        using(var skeleton=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,id+".ball.skeleton.json"))))
+        {
+            var value=skeleton.RootElement;var refs=value.GetProperty("Refs");
+            Check(value.GetProperty("Id").GetString()==id&&value.GetProperty("SourcePart").GetString()=="ball"
+                &&value.GetProperty("SourceCharacter").GetString()==ball.NativeName
+                &&value.GetProperty("BoneCount").GetInt32()==2&&value.GetProperty("Bones").GetArrayLength()==2
+                &&refs.GetProperty("Cmdl").GetUInt32()==exactRefs.Cmdl&&refs.GetProperty("Cskr").GetUInt32()==exactRefs.Cskr
+                &&refs.GetProperty("Cinf").GetUInt32()==exactRefs.Cinf,
+                "ball skeleton binds canonical appearance own two bones and exact model rig refs "+id);
+        }
+        using(var weights=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,id+".ball.weights.json"))))
+            Check(weights.RootElement.GetProperty("vertexCount").GetInt32()==1553
+                &&weights.RootElement.GetProperty("vertexGroupIds").GetArrayLength()==1553,
+                "ball skin retains all 1553 source positions "+id);
+        string[] triangles=File.ReadLines(Path.Combine(folder,id+".ball.obj")).Where(line=>line.StartsWith("f ",StringComparison.Ordinal)).ToArray();
+        Check(triangles.Length==2220&&triangles.All(line=>line.Split(' ',StringSplitOptions.RemoveEmptyEntries).Length==4),
+            "ball OBJ retains 2220 actual source triangles "+id);
+        using(var motion=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,id+".ball.motions.json"))))
+        {
+            var value=motion.RootElement;var clips=value.GetProperty("Clips").EnumerateArray().ToArray();
+            Check(value.GetProperty("TotalClips").GetInt32()==2&&value.GetProperty("SampledClips").GetInt32()==2&&clips.Length==2
+                &&clips.All(c=>c.GetProperty("Status").GetString()=="sparse-source-pose-preview"
+                    &&c.GetProperty("Samples").GetArrayLength()==5
+                    &&c.GetProperty("Samples").EnumerateArray().All(p=>p.GetProperty("Bones").EnumerateArray()
+                        .All(b=>b.EnumerateObject().All(property=>!property.Name.Contains("scale",StringComparison.OrdinalIgnoreCase)))))
+                &&value.GetProperty("SourceGraphProof").GetProperty("SourceSnapshotFile").GetString()==id+".ball.ancs.bin",
+                "ball keeps its own two sparse sampled clips raw proof reference and no invented scale channel "+id);
+        }
+        var proof=RetroAnimationGraphProof.Verify(File.ReadAllBytes(Path.Combine(folder,id+".ball.ancs-graph.json")),
+            File.ReadAllBytes(Path.Combine(folder,id+".ball.ancs.bin")));
+        Check(proof.SourcePart=="ball"&&proof.SourceCharacterId==id&&proof.SourceCharacterName==ball.NativeName
+            &&proof.SourceAncsId==ball.Ancs&&proof.SourceSnapshotFile==id+".ball.ancs.bin"
+            &&new RetroCharacterRefs(proof.Cmdl,proof.Cskr,proof.Cinf)==exactRefs
+            &&!proof.NamedGraphSemanticsAccepted&&proof.UninterpretedSetBytesPreservedInSnapshot,
+            "ball graph verifies exact canonical part source snapshot and model refs without runtime claim "+id);
     }
     private sealed class SynchronousProgress(Action<ImportPublishStage> report) : IProgress<ImportPublishStage>
     { public void Report(ImportPublishStage value) => report(value); }

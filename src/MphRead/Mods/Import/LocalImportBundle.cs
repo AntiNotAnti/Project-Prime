@@ -17,7 +17,9 @@ public sealed record ImportBundleComponent(string Id, long Length, string Sha256
 public sealed record ImportBundleReceipt(int Schema, string Id, int Version, string RecipeHash,
     string SourceFingerprint, string Generation, string[] RequiredComponents, ImportBundleComponent[] Components);
 public sealed record ImportBundleInspection(ImportBundleState State, string Message,
-    ImportBundleReceipt? Receipt, IReadOnlyList<string> Files);
+    ImportBundleReceipt? Receipt, IReadOnlyList<string> Files,
+    IReadOnlyList<ImportBundleComponentInspection>? ComponentStates = null);
+public sealed record ImportBundleComponentInspection(string Id, ImportBundleState State, string Message);
 
 /// <summary>
 /// Private local imports are immutable generations. Only the small current
@@ -147,8 +149,17 @@ public static partial class LocalImportBundle
             if (required != null && (receipt.Version != required.Version || receipt.RecipeHash != required.RecipeHash))
                 return new(ImportBundleState.Outdated, "Local import recipe has changed; reimport from your source", receipt, Array.Empty<string>());
             var files = new List<string>();
+            var componentStates = new List<ImportBundleComponentInspection>();
             var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             long total = 0;
+            ImportBundleState state = ImportBundleState.Ready;
+            string message = "All local components verified";
+            void Failure(string id, ImportBundleState failure, string detail)
+            {
+                componentStates.Add(new(id, failure, detail));
+                if (state == ImportBundleState.Ready || failure == ImportBundleState.Failed)
+                { state = failure; message = detail; }
+            }
             foreach (var component in receipt.Components)
             {
                 if (component == null || !ComponentId(component.Id) || !ids.Add(component.Id)
@@ -157,15 +168,25 @@ public static partial class LocalImportBundle
                     throw new InvalidDataException("Invalid private component inventory.");
                 string path = Path.Combine(folder, receipt.Generation, component.Id);
                 CheckPath(path, root);
-                if (!File.Exists(path)) return new(ImportBundleState.Incomplete, "Missing local component: " + component.Id, receipt, Array.Empty<string>());
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                if (stream.Length != component.Length || Convert.ToHexStringLower(SHA256.HashData(stream)) != component.Sha256)
-                    throw new InvalidDataException("Local component integrity failed: " + component.Id);
-                files.Add(path);
+                if (!File.Exists(path))
+                { Failure(component.Id, ImportBundleState.Incomplete, "Missing local component: " + component.Id); continue; }
+                try
+                {
+                    using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    if (stream.Length != component.Length || Convert.ToHexStringLower(SHA256.HashData(stream)) != component.Sha256)
+                    { Failure(component.Id, ImportBundleState.Failed, "Local component integrity failed: " + component.Id); continue; }
+                    files.Add(path);
+                    componentStates.Add(new(component.Id, ImportBundleState.Ready, "Local component verified"));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { Failure(component.Id, ImportBundleState.Failed, ex.Message); }
             }
-            if (receipt.RequiredComponents.Concat(required?.RequiredComponents ?? Array.Empty<string>()).Any(name => !ids.Contains(name)))
-                return new(ImportBundleState.Incomplete, "Required local bundle component is missing", receipt, Array.Empty<string>());
-            return new(ImportBundleState.Ready, "All local components verified", receipt, files.AsReadOnly());
+            foreach (string missing in receipt.RequiredComponents.Concat(required?.RequiredComponents ?? Array.Empty<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase).Where(name => !ids.Contains(name)))
+                Failure(missing, ImportBundleState.Incomplete, "Required local bundle component is missing: " + missing);
+            return new(state, message, state == ImportBundleState.Failed ? null : receipt,
+                state == ImportBundleState.Ready ? files.AsReadOnly() : Array.Empty<string>(),
+                componentStates.AsReadOnly());
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or ArgumentException)
         { return new(ImportBundleState.Failed, ex.Message, null, Array.Empty<string>()); }
@@ -249,6 +270,16 @@ public static partial class LocalImportBundle
             throw new InvalidDataException("Private bundle exceeds its budget.");
         var components = bytes.Select(p => new ImportBundleComponent(p.Key, p.Value.LongLength, Digest(p.Value))).ToArray();
         string generation = Digest(JsonSerializer.SerializeToUtf8Bytes(new { spec, components }));
+        // A prior repair may have used a fresh generation because the original
+        // content-addressed directory was damaged. Reuse that verified current
+        // generation for identical bytes rather than repeatedly encountering
+        // the retained damaged directory and allocating another repair copy.
+        // Staging, destination verification and cancellation boundaries below
+        // still run; this never trusts a receipt without inspecting its files.
+        if (old.State == ImportBundleState.Ready && old.Receipt is { } current
+            && current.Components.SequenceEqual(components)
+            && current.RequiredComponents.SequenceEqual(bytes.Keys))
+            generation = current.Generation;
         var receipt = new ImportBundleReceipt(1, spec.Id, spec.Version, spec.RecipeHash, spec.SourceFingerprint, generation, bytes.Keys.ToArray(), components);
         byte[] pointerBytes = JsonSerializer.SerializeToUtf8Bytes(receipt);
         if (pointerBytes.Length > MaxReceiptBytes) throw new InvalidDataException("Private receipt exceeds its budget.");

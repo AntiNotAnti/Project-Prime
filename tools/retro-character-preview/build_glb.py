@@ -21,6 +21,7 @@ import sys
 
 CHARACTERS = {
     "darksamus-echoes",
+    "darksamus-overcharged-echoes",
     "trooper-power",
     "trooper-ice",
     "trooper-wave",
@@ -32,6 +33,17 @@ MAX_BONES = 1024
 MAX_GROUPS = 65536
 
 
+def source_stem(character: str, part: str = "body"):
+    """Resolve a known appearance/part pair, never a caller-provided path."""
+    if character not in CHARACTERS:
+        raise ValueError("Unknown local Retro character identifier")
+    if part not in ("body", "ball"):
+        raise ValueError("Unknown local Retro source part")
+    if part == "ball" and character not in {"darksamus-echoes", "darksamus-overcharged-echoes"}:
+        raise ValueError("Ball source part is available only for Dark Samus appearances")
+    return character if part == "body" else character + ".ball"
+
+
 def finite(values, size):
     return (
         isinstance(values, list) and len(values) == size
@@ -39,10 +51,9 @@ def finite(values, size):
     )
 
 
-def load_inputs(root: Path, character: str):
-    if character not in CHARACTERS:
-        raise ValueError("Unknown local Retro character identifier")
-    paths = [root / (character + suffix) for suffix in (
+def load_inputs(root: Path, character: str, *, part: str = "body"):
+    stem = source_stem(character, part)
+    paths = [root / (stem + suffix) for suffix in (
         ".obj", ".skeleton.json", ".weights.json", ".motions.json"
     )]
     if root.is_symlink() or any(p.is_symlink() for p in paths):
@@ -61,7 +72,7 @@ def load_inputs(root: Path, character: str):
     with motions_path.open(encoding="utf-8") as f:
         motions = json.load(f)
     vertices, uvs, faces, face_uvs = read_obj(obj)
-    check_sidecars(character, skeleton, weights, motions, len(vertices))
+    check_sidecars(character, skeleton, weights, motions, len(vertices), part=part)
     return vertices, uvs, faces, face_uvs, skeleton, weights, motions
 
 
@@ -114,9 +125,29 @@ def read_obj(path: Path):
     return vertices, uvs, faces, face_uvs
 
 
-def check_sidecars(character, skeleton, weights, motions, vertex_count):
+def _known_echoes_cinf_root(character, part, skeleton, bone):
+    """Retain the witnessed native root sentinel, without repairing parent IDs."""
+    if (skeleton.get("SourceGameId") != "G2ME01" or bone.get("Id") != 0
+            or bone.get("Name") != "root" or bone.get("Parent") != 0x61):
+        return False
+    if character not in {"darksamus-echoes", "darksamus-overcharged-echoes"}:
+        return False
+    if part == "ball":
+        native_name, cinf = "Dark_Samus_MorphBall", 0xC7DBC44A
+    else:
+        native_name = "Dark_Samus" if character == "darksamus-echoes" else "Battle_3"
+        cinf = 0x4ABC8A50
+    refs = skeleton.get("Refs")
+    return (skeleton.get("SourceCharacter") == native_name and isinstance(refs, dict)
+            and type(refs.get("Cinf")) is int and refs["Cinf"] == cinf)
+
+
+def check_sidecars(character, skeleton, weights, motions, vertex_count, *, part="body"):
+    source_stem(character, part)
     if skeleton.get("Id") != character or not isinstance(skeleton.get("Bones"), list):
         raise ValueError("Skeleton does not match its source character")
+    if skeleton.get("SourcePart", "body") != part:
+        raise ValueError("Skeleton does not match its source part")
     bones = skeleton["Bones"]
     if not 1 <= len(bones) <= MAX_BONES:
         raise ValueError("Invalid CINF source bone count")
@@ -130,7 +161,8 @@ def check_sidecars(character, skeleton, weights, motions, vertex_count):
         parent = b.get("Parent")
         if not isinstance(parent, int):
             raise ValueError("Invalid source CINF parent ID")
-        if parent != 0xFFFFFFFF and parent not in known:
+        if (parent != 0xFFFFFFFF and parent not in known
+                and not _known_echoes_cinf_root(character, part, skeleton, b)):
             raise ValueError("Missing CINF source bone parent")
         if parent == bone_id:
             raise ValueError("CINF bone cannot parent itself")
@@ -187,7 +219,9 @@ def check_sidecars(character, skeleton, weights, motions, vertex_count):
     return len(bones), len(groups), len(motions["Clips"])
 
 
-def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, output, motion_clips=None):
+def build_blender(vertices, uvs, faces, face_uvs, skeleton, weights, character, output, motion_clips=None,
+                  *, part="body"):
+    character = source_stem(character, part)
     try:
         import bpy
     except ImportError as exc:
@@ -287,6 +321,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--character", choices=sorted(CHARACTERS), required=True)
+    parser.add_argument("--part", choices=("body", "ball"), default="body",
+                        help="Source authoring part; ball is limited to the two Dark Samus appearances")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--validate", action="store_true")
     parser.add_argument("--palette-plan", type=Path, help="With --validate, write a private <=32-joint draw preflight; no GLB/runtime acceptance")
@@ -294,18 +330,19 @@ def main():
                         help="Bake five-pose source-local diagnostic animation clips; never a gameplay rig")
     parser.add_argument("--clip", help="Limit source-motion preview to an exact sampled primitive name")
     args = parser.parse_args(userargs)
+    stem = source_stem(args.character, args.part)
     if args.palette_plan:
         if not args.validate or args.animate_source or args.clip:
             parser.error("--palette-plan requires --validate and cannot claim source-motion baking")
         from source_palette import write_private_plan
-        plan = write_private_plan(args.root, args.character, args.palette_plan)
+        plan = write_private_plan(args.root, args.character, args.palette_plan, part=args.part)
         print("Private source-rig palette preflight:", len(plan["sourceRig"]["Bones"]),
               "source bones,", len(plan["batches"]), "bounded draw batches; runtime acceptance false")
         return
     if args.clip and not args.animate_source:
         parser.error("--clip requires --animate-source")
     vertices, uvs, faces, face_uvs, skeleton, weights, motions = load_inputs(
-        args.root, args.character
+        args.root, args.character, part=args.part
     )
     clips = None
     if args.animate_source:
@@ -313,17 +350,17 @@ def main():
         clips = validate_motion_inventory(skeleton, motions, args.clip)
         print("Validated", len(clips), "safe sparse source-motion diagnostic clips")
     print(
-        "Validated local source: ", args.character,
+        "Validated local source: ", stem,
         "vertices", len(vertices), "triangles", len(faces),
         "bones", len(skeleton["Bones"]), "motions indexed", len(motions["Clips"])
     )
     if not args.validate:
         suffix = ".source-motion.preview.glb" if args.animate_source else ".preview.glb"
-        target = args.output or (args.root / (args.character + suffix))
+        target = args.output or (args.root / (stem + suffix))
         if target.is_symlink():
             raise ValueError("The preview output cannot be a symbolic link")
         build_blender(vertices, uvs, faces, face_uvs, skeleton, weights,
-                      args.character, target, motion_clips=clips)
+                      args.character, target, motion_clips=clips, part=args.part)
 
 
 if __name__ == "__main__":
