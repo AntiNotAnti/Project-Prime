@@ -248,6 +248,9 @@ namespace MphRead.Droid
         // chosen, so picking a weapon needed a second finger and standing
         // still. Only the position is kept: the wheel reads where the finger
         // is, never how far it moved, so this contributes nothing to the aim.
+        private int _wheelSelectionPointer = -1;
+        private bool _wheelSelectionMade;
+        private float _wheelSelectionX, _wheelSelectionY;
         private int _wheelPointer = -1;
         private float _wheelX;
         private float _wheelY;
@@ -755,6 +758,7 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                _mode = TouchSettings.Mode;
                 ReleaseEverything();
                 // Position/scale/opacity settings may have changed while the
                 // settings UI covered the game. Re-resolve geometry even when
@@ -790,7 +794,35 @@ namespace MphRead.Droid
         }
 
         /// <summary>Called with the lock held.</summary>
-        private bool HiddenLocked => _padDriving && !_forceVisible;
+        private TouchMode _mode = TouchSettings.Mode;
+        private bool HiddenLocked => !_forceVisible && (_mode is TouchMode.AimOnly or TouchMode.Off
+            || _mode == TouchMode.Auto && _padDriving);
+        private bool AimOnlyLocked => !_forceVisible && _mode == TouchMode.AimOnly;
+        private bool InputBlockedLocked => !_forceVisible && (_mode == TouchMode.Off
+            || _mode == TouchMode.Auto && _padDriving);
+
+        /// <summary>One controller snapshot on the simulation owner. Meaningful
+        /// activity latches Auto until disconnect; resting stick noise cannot
+        /// take the touchscreen or repeatedly reveal/hide its buttons.</summary>
+        public void UpdateController(GamepadState state)
+        {
+            bool before, after;
+            lock (_lock)
+            {
+                before = HiddenLocked;
+                bool wasBlocked = InputBlockedLocked;
+                bool active = state.Connected && (state.Buttons != 0
+                    || MathF.Abs(state.LeftX) > .25f || MathF.Abs(state.LeftY) > .25f
+                    || MathF.Abs(state.RightX) > .25f || MathF.Abs(state.RightY) > .25f
+                    || state.LeftTrigger > .25f || state.RightTrigger > .25f);
+                bool modeChanged = _mode != TouchSettings.Mode;
+                _mode = TouchSettings.Mode;
+                _padDriving = state.Connected && (_padDriving || active);
+                after = HiddenLocked;
+                if (modeChanged || wasBlocked != InputBlockedLocked) ReleaseEverything();
+            }
+            Settle(before, after);
+        }
 
         /// <summary>
         /// Keep the controls on screen whatever the pad is doing.
@@ -823,6 +855,7 @@ namespace MphRead.Droid
                 lock (_lock)
                 {
                     before = HiddenLocked;
+                    if (_forceVisible != value) ReleaseEverything();
                     _forceVisible = value;
                     after = HiddenLocked;
                 }
@@ -830,44 +863,13 @@ namespace MphRead.Droid
             }
         }
 
-        /// <summary>
-        /// A pad button or stick moved: put the controls away.
-        ///
-        /// There is no setting behind this and there was one -- "use a
-        /// connected gamepad". Being *connected* was never the question a
-        /// player was asking: a pad paired with the phone for something else
-        /// is still paired while they play with their thumbs, so hiding on
-        /// connection would take the controls away from someone who never
-        /// picked the pad up. What is being watched here is the pad actually
-        /// being used, and the answer is reversed by the next finger on the
-        /// glass.
-        /// </summary>
+        /// <summary>Re-evaluate the canonical controller snapshot after an event.</summary>
         public void NotePadActivity()
         {
-            bool before;
-            bool after;
-            lock (_lock)
-            {
-                before = HiddenLocked;
-                _padDriving = true;
-                after = HiddenLocked;
-            }
-            Settle(before, after);
+            UpdateController(GamepadManager.ActiveState);
         }
 
-        /// <summary>
-        /// Repaint when the controls appeared or went away.
-        ///
-        /// It used to let go of everything held on the way out, and that was
-        /// the right answer to the wrong question: a thumb resting on FIRE as
-        /// the player picked the pad up would have been held down for ever,
-        /// *because the finger's release landed on a control that had stopped
-        /// listening*. It does not stop listening any more -- hiding the
-        /// layout hides the layout -- so the release arrives and does its job,
-        /// and cancelling here would instead cut off a player who is
-        /// deliberately holding a button with one hand and a stick with the
-        /// other.
-        /// </summary>
+        /// <summary>Notify the overlay only when visibility changes.</summary>
         private void Settle(bool wasHidden, bool isHidden)
         {
             if (wasHidden == isHidden)
@@ -892,7 +894,7 @@ namespace MphRead.Droid
 
         private void LayoutLocked(float width, float height, float density)
         {
-            if (Width != width || Height != height) ReleaseEverything();
+            if (Width != width || Height != height || Density != density) ReleaseEverything();
             RefreshInstancesLocked();
             Width = width;
             Height = height;
@@ -1100,6 +1102,7 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                if (AimOnlyLocked) return (false, 0, 0);
                 float x = 0, y = 0;
                 bool down = false;
                 if (_aimPointer != -1)
@@ -1141,7 +1144,9 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
-                if (_aimDown)
+                if (TouchSettings.DirectWeaponSelection && _wheelSelectionMade)
+                    return (true, _wheelSelectionX, _wheelSelectionY);
+                if (!TouchSettings.DirectWeaponSelection && _aimDown)
                 {
                     return (true, _aimAbsX, _aimAbsY);
                 }
@@ -1170,6 +1175,7 @@ namespace MphRead.Droid
             {
                 lock (_lock)
                 {
+                    if (AimOnlyLocked) return (false, 0, 0);
                     float deadZone = AltMoveDeadzoneDp * Density;
                     float fullScale = AltMoveFullScaleDp * Density;
                     float dx;
@@ -1209,6 +1215,7 @@ namespace MphRead.Droid
             {
                 lock (_lock)
                 {
+                    if (AimOnlyLocked) return (false, 0, 0);
                     // A release can arrive between the last move and the next
                     // simulation step. Keep that pending motion eligible for
                     // roll until TakeAimDelta consumes the same sample for aim.
@@ -1229,29 +1236,20 @@ namespace MphRead.Droid
 
         public void PointerDown(int pointerId, float x, float y)
         {
-            bool revealed = false;
+            if (!Single.IsFinite(x) || !Single.IsFinite(y)) return;
             lock (_lock)
             {
-                revealed = HiddenLocked;
-                // A finger on the glass is the player choosing the
-                // touchscreen again, whether or not the controls had gone.
-                _padDriving = false;
-                // And it does what it landed on, drawn or not. The controls
-                // used to swallow this one -- the reasoning being that a
-                // thumb reaching for a screen it had stopped looking at
-                // lands in FIRE's half -- but that is a rule about a player
-                // who has *put the pad down*, and the pad and the glass are
-                // routinely both in use at once: a stick in the left hand and
-                // a thumb on FIRE, or a pad for movement and the screen for
-                // the weapon wheel, which is the one thing a pad cannot reach
-                // at all. Swallowing the touch made those cost a press every
-                // time the pad had been moved since. Hiding the layout is
-                // still right; disabling the surface under it was not.
+                if (InputBlockedLocked) return;
+                if (AimOnlyLocked)
+                {
+                    if (_aimPointer != -1) return;
+                    _aimPointer = pointerId;
+                    _aimLastX = _aimAbsX = x;
+                    _aimLastY = _aimAbsY = y;
+                    _aimDown = true;
+                    return;
+                }
                 PointerDownLocked(pointerId, x, y);
-            }
-            if (revealed)
-            {
-                Invalidated?.Invoke();
             }
         }
 
@@ -1266,6 +1264,17 @@ namespace MphRead.Droid
                 // it is a button on the HUD, and a press and a release in the
                 // same place is the whole gesture.
                 NoteTapLocked(x, y);
+                return;
+            }
+            if (TouchSettings.DirectWeaponSelection && _wheelPointer != -1)
+            {
+                if (_wheelSelectionPointer == -1)
+                {
+                    _wheelSelectionPointer = pointerId;
+                    _wheelSelectionMade = true;
+                    _wheelSelectionX = x;
+                    _wheelSelectionY = y;
+                }
                 return;
             }
             foreach (TouchButton button in _buttons)
@@ -1293,6 +1302,8 @@ namespace MphRead.Droid
                     }
                     else if (button.Action == TouchAction.WeaponMenu)
                     {
+                        _wheelSelectionPointer = -1;
+                        _wheelSelectionMade = false;
                         _wheelPointer = pointerId;
                         _wheelX = x;
                         _wheelY = y;
@@ -1437,8 +1448,16 @@ namespace MphRead.Droid
         public bool PointerMove(int pointerId, float x, float y,
             long eventTime, long presentAt)
         {
+            if (!Single.IsFinite(x) || !Single.IsFinite(y)) return false;
             lock (_lock)
             {
+                if (InputBlockedLocked) return false;
+                if (pointerId == _wheelSelectionPointer)
+                {
+                    _wheelSelectionX = x;
+                    _wheelSelectionY = y;
+                    return false;
+                }
                 if (pointerId == _stickPointer)
                 {
                     float dx = x - StickX;
@@ -1488,7 +1507,7 @@ namespace MphRead.Droid
                 }
                 if (pointerId == _aimPointer)
                 {
-                    CheckSwipeBoost(_aimSwipe, x, y, eventTime);
+                    if (!AimOnlyLocked) CheckSwipeBoost(_aimSwipe, x, y, eventTime);
                     if (!_tapMoved)
                     {
                         float tapDx = x - _tapDownX;
@@ -1561,6 +1580,11 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                if (pointerId == _wheelSelectionPointer)
+                {
+                    _wheelSelectionPointer = -1;
+                    return;
+                }
                 if (pointerId == _stickPointer)
                 {
                     _stickPointer = -1;
@@ -1574,7 +1598,7 @@ namespace MphRead.Droid
                     _aimDown = false;
                     _aimSwipe.Reset();
                     long up = Environment.TickCount64;
-                    if (!_tapMoved && up - _tapDownTime <= TapMaxMs)
+                    if (!AimOnlyLocked && !_tapMoved && up - _tapDownTime <= TapMaxMs)
                     {
                         float spread = DoubleTapSpreadDp * Density;
                         float sinceX = _tapDownX - _lastTapX;
@@ -1628,6 +1652,9 @@ namespace MphRead.Droid
                 _aimDown = false;
                 _fireAimPointer = -1;
                 _wheelPointer = -1;
+                _wheelSelectionPointer = -1;
+                _wheelSelectionMade = false;
+                _tapPending = false;
                 _swipeBoostPending = false;
                 _doubleTapJumpPending = false;
                 _lastTapTime = 0;

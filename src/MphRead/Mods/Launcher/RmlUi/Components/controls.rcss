@@ -135,3 +135,15 @@ scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 
 scrollbarcorner { width: 16dp; height: 16dp; background-color: #07131e; }
 scrollbarvertical sliderbar:hover, scrollbarvertical sliderbar:active,
 scrollbarhorizontal sliderbar:hover, scrollbarhorizontal sliderbar:active { background-color: #72c7ff; }
+
+/* Shared compact collection primitives. RmlUi 6.3 uses flex, not CSS Grid or
+   custom properties. Keep the spacing scale literal and shared at this layer. */
+.collection_columns { display:flex; align-items:flex-start; min-width:0; }
+.collection_list { display:flex; flex-wrap:wrap; min-width:0; }
+.collection_list > button { min-width:0; white-space:normal; word-break:break-word; }
+.action_bar { display:flex; flex-wrap:wrap; flex-shrink:0; padding-top:8dp; }
+.action_bar > button { margin:0 8dp 4dp 0; }
+/* Scrollbar tracks reserve a stable width; the thumb alone changes on hover. */
+scrollbarvertical, scrollbarvertical slidertrack, scrollbarvertical sliderbar { width:12dp; }
+scrollbarhorizontal, scrollbarhorizontal slidertrack, scrollbarhorizontal sliderbar { height:12dp; }
+scrollbarcorner { width:12dp; height:12dp; }

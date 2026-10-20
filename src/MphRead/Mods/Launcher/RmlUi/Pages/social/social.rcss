@@ -27,7 +27,7 @@
 .social_status { margin: 14dp 0 10dp; padding: 12dp; border-left: 3dp #72c7ff; background-color: rgba(15, 41, 63, 85%); }
 .social_error { margin-bottom: 12dp; padding: 12dp; color: #ffb7bf; border: 1dp rgba(255, 120, 138, 60%); background-color: rgba(64, 17, 31, 80%); }
 .social_commands .social_danger { border-color: rgba(255, 120, 138, 65%); color: #ffcad0; }
-#social_confirmation { position: absolute; width: 520dp; max-width: 92%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+#social_confirmation { position: absolute; width: 520dp; max-width: 92%; max-height: 92vh; overflow-y: auto; overflow-x: hidden; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 @media (max-width: 850dp) {
     #social_page { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 12dp; }
     .social_columns { display: block; }
@@ -38,3 +38,19 @@
 }
 
 #social_page h1, #social_page h2, #social_page p, #social_confirmation h2, #social_confirmation p { display: block; }
+
+/* Compact lists and wrapping actions use the page's single scroll viewport. */
+#social_page { left:2%; right:2%; top:12dp; bottom:12dp; padding:12dp 16dp; overflow-x:hidden; }
+#social_page h1 { margin:4dp 0 8dp; font-size:26dp; line-height:28dp; }
+#social_page h2 { margin-bottom:8dp; }
+#social_page p { margin:4dp 0 8dp; line-height:19dp; }
+.social_header { flex-wrap:wrap; }
+.social_tabs { margin:8dp 0; }
+.social_panel { min-width:0; padding:12dp; }
+.social_details { min-width:0; }
+.social_row { min-height:44dp; padding:6dp 8dp; margin-bottom:4dp; white-space:normal; word-break:break-word; }
+.social_row b { font-size:15dp; line-height:18dp; }
+.social_row span { font-size:12dp; line-height:16dp; }
+.social_tabs button, .social_searches button, .social_commands button, .social_paging button { min-height:36dp; padding:6dp 10dp; margin:0 8dp 4dp 0; white-space:normal; }
+.social_status, .social_error { margin:8dp 0; padding:8dp; }
+.social_party_status, .social_privacy { margin-top:8dp; }
