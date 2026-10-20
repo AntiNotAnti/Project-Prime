@@ -93,9 +93,10 @@ public sealed class BepuCorpseBackend : CorpseBackend
             var spring = new SpringSettings(15, 1);
             sim.Solver.Add(slot.Bodies[p.Parent], slot.Bodies[i], new BallSocket
             { LocalOffsetA = Vector3.Transform(joint - a.Position, inverseA), LocalOffsetB = Vector3.Transform(joint - b.Position, inverseB), SpringSettings = spring });
-            // Start both joint frames aligned in world space; anatomical part
-            // rest orientations may differ. Local Z is the common twist axis.
-            var worldBasis = spawn.Origin.Orientation;
+            // Both connected frames coincide at capture. Each fitted part may
+            // supply its own common rest-space twist axis; this is still a
+            // symmetric cone/twist limit, not an anatomical hinge model.
+            var worldBasis = Quaternion.Normalize(spawn.Origin.Orientation * p.JointBasis);
             var localA = Quaternion.Normalize(inverseA * worldBasis); var localB = Quaternion.Normalize(inverseB * worldBasis);
             sim.Solver.Add(slot.Bodies[p.Parent], slot.Bodies[i], new SwingLimit
             { AxisLocalA = Vector3.Transform(Vector3.UnitZ, localA), AxisLocalB = Vector3.Transform(Vector3.UnitZ, localB), MaximumSwingAngle = p.Swing, SpringSettings = spring });

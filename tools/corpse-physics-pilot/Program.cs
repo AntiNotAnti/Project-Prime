@@ -10,6 +10,7 @@ PilotContractChecks.Run((pass, message) => { checks++; if (!pass) throw new Inva
 AffineBindingChecks.Run((pass, message) => { checks++; if (!pass) throw new InvalidOperationException(message); });
 HumanoidMapChecks.Run((pass, message) => { checks++; if (!pass) throw new InvalidOperationException(message); });
 StaticMeshChecks.Run((pass, message) => { checks++; if (!pass) throw new InvalidOperationException(message); });
+HumanoidFitChecks.Run((pass, message) => { checks++; if (!pass) throw new InvalidOperationException(message); });
 Console.WriteLine($"PASS {checks} standalone contracts");
 PilotBenchmarks.Run(output);
 Console.WriteLine($"PASS benchmarks: {output}");
