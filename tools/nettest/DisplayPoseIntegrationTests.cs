@@ -229,6 +229,59 @@ internal static class DisplayPoseIntegrationTests
             Check(localBody == local.Position && Near(remoteBody, .5f)
                 && remoteFacing == Vector3.UnitZ,
                 "Draw-used actor selector shares the offline body/alt/shadow pose while local first-person stays current");
+
+            // The same real local actor is visible in the host-enabled third-
+            // person match. The 60Hz body used to jump ahead of its interpolated
+            // camera during fast movement. Exercise the actual Draw selector,
+            // not a stand-in lerp: it must consume the same captured 60Hz pose
+            // as other entities while first-person keeps its immediate policy.
+            typeof(Scene).GetProperty(nameof(Scene.ModThirdPersonCameraActive),
+                BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(scene, true);
+            Matrix4 originalWorld = local.Transform;
+            // Simulate the very same 60Hz movement snapshots in the camera's
+            // existing display history. Body-minus-camera should stay constant
+            // for all repeated draw calls, even across a fast one-unit step.
+            local.CameraInfo.Position = Vector3.UnitY;
+            local.CameraInfo.ModResetDrawState();
+            local.CameraInfo.Position = Vector3.UnitX + Vector3.UnitY;
+            local.CameraInfo.ModCaptureDrawState();
+            for (int i = 0; i < 4; i++)
+            {
+                local.ModGetDrawActorPose(out Vector3 smoothBody,
+                    out Vector3 smoothFacing);
+                Vector3 smoothEye = local.CameraInfo.ModGetDrawPosition(
+                    FrameTiming.PresentationAlpha, fenceLiveClock: true);
+                Check(Near(smoothBody, .5f) && smoothFacing == Vector3.UnitZ
+                    && (smoothEye - smoothBody - Vector3.UnitY).LengthSquared < 0.0000001f
+                    && local.Position == Vector3.UnitX && local.Transform == originalWorld,
+                    "120Hz high-speed local biped/shadow and camera share one draw phase without simulation writes");
+            }
+            FrameTiming.FrameRateCap = 240;
+            local.ModGetDrawActorPose(out Vector3 at240, out _);
+            Vector3 camera240 = local.CameraInfo.ModGetDrawPosition(
+                FrameTiming.PresentationAlpha, fenceLiveClock: true);
+            Check(Near(at240, .5f)
+                && (camera240 - at240 - Vector3.UnitY).LengthSquared < 0.0000001f,
+                "240Hz third-person local body and camera stay phase-locked");
+            FrameTiming.FrameRateCap = 60;
+            local.ModGetDrawActorPose(out Vector3 at60, out _);
+            Check(at60 == local.Position,
+                "60Hz third-person local body stays immediate without added latency");
+            FrameTiming.FrameRateCap = 120;
+            PlayerFlags1 liveFlags = local.Flags1;
+            Flags.SetValue(local, liveFlags | PlayerFlags1.Morphing);
+            local.ModGetDrawActorPose(out Vector3 morphBody, out _);
+            Check(morphBody == local.Position, "morph never smears local biped history into alt form");
+            Flags.SetValue(local, liveFlags);
+            local.ModResetDrawState();
+            local.ModGetDrawActorPose(out Vector3 freshLife, out _);
+            Check(freshLife == local.Position, "spawn reset fences stale third-person body history");
+            scene.ModResetThirdPersonSpawnCamera(local);
+            local.ModGetDrawActorPose(out Vector3 restoredFirst, out _);
+            Check(restoredFirst == local.Position
+                && !scene.ModThirdPersonCameraActive,
+                "third-person spawn reset returns to canonical until next eligible draw");
             FrameTiming.FrameRateCap = 60;
             remote.ModGetDrawActorPose(out Vector3 sixtyBody, out Vector3 sixtyFacing);
             Check(sixtyBody == remote.Position && sixtyFacing == remote.FacingVector,

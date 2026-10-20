@@ -30,6 +30,10 @@ namespace MphRead.Entities
 
         private static readonly bool HunterAnimationBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
+        // Draw-only rollback for the local third-person body. First-person
+        // input and the 60 Hz authoritative gameplay pose remain immediate.
+        private static readonly bool ThirdPersonBodyBlendEnabled =
+            AnimationRollout.Enabled("PROJECT_PRIME_THIRD_PERSON_BODY_BLEND");
 
         // 15 frames at 60 FPS gives a readable 2 Hz white flash without turning the
         // three-second protection window into a high-frequency strobe.
@@ -44,6 +48,27 @@ namespace MphRead.Entities
         {
             position = Position;
             facing = _facingVector;
+            // Third-person exposes the local biped. Its world draw must
+            // consume the same completed-history fractional clock as the
+            // camera, instead of 60 Hz simulation jumps. Do not modify
+            // the local first-person or authoritative movement paths.
+            if (ThirdPersonBodyBlendEnabled && IsMainPlayer
+                && _scene.ModThirdPersonCameraActive && !_scene.Services.IsReplica
+                && FrameTiming.Active && FrameTiming.HighRefreshPresentation
+                && CameraType == CameraType.First
+                && !IsAltForm && !IsMorphing && !IsUnmorphing
+                && ModTrySampleCapturedDrawTransform(out Matrix4 thirdPersonBody,
+                    out _))
+            {
+                position = thirdPersonBody.Row3.Xyz;
+                Vector3 interpolatedFacing = thirdPersonBody.Row2.Xyz;
+                if (float.IsFinite(interpolatedFacing.X)
+                    && float.IsFinite(interpolatedFacing.Y)
+                    && float.IsFinite(interpolatedFacing.Z)
+                    && interpolatedFacing.LengthSquared > 0.000001f)
+                    facing = interpolatedFacing.Normalized();
+                return;
+            }
             if (!InterpolateDrawTransform) return;
             if (!_scene.Services.IsReplica && (!FrameTiming.Active || !FrameTiming.HighRefreshPresentation)) return;
             Matrix4 pose = ReplayDrawTransform;
@@ -107,6 +132,16 @@ namespace MphRead.Entities
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation;
             bool ordinaryOfflineActor = ordinaryOfflinePresentation
                 && (drawPosition != Position || drawFacing != _facingVector);
+            // Only a locally visible 3P biped receives this sampled pose;
+            // the model, shadow and emitter must be canonical again after
+            // each draw. Smooth crouch's render-only pose shares this fence.
+            bool localThirdPersonActor = ThirdPersonBodyBlendEnabled
+                && IsMainPlayer && _scene.ModThirdPersonCameraActive
+                && !_scene.Services.IsReplica
+                && FrameTiming.Active && FrameTiming.HighRefreshPresentation
+                && (drawPosition != Position || drawFacing != _facingVector
+                    || ModCrouchVisualAmount != (ModCrouched ? 1f : 0f));
+            bool isolateLocalOrOfflineActor = ordinaryOfflineActor || localThirdPersonActor;
             bool forceNetworkVisibility = ModForceNetworkVisibility(
                 _scene.Services.IsReplica, Mods.Network.NetSession.Active,
                 SlotIndex, Mods.Network.NetHooks.LocalSlot,
@@ -313,7 +348,7 @@ namespace MphRead.Entities
                     float crouchVisual = ModCrouchVisualAmount;
                     bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0);
                     float canonicalAngle = angle;
-                    Matrix4 canonicalBody = ordinaryOfflineActor || crouchInterpolated
+                    Matrix4 canonicalBody = isolateLocalOrOfflineActor || crouchInterpolated
                         ? ModBuildBipedDrawTransform(Position, _facingVector,
                             fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
@@ -336,7 +371,7 @@ namespace MphRead.Entities
                     // Node interpolation can remain fractional when float actor
                     // interpolation rounds exactly to the current world pose.
                     // These canonical owners must not inherit either sample.
-                    bool isolateBipedAnchors = ordinaryOfflineActor || crouchInterpolated
+                    bool isolateBipedAnchors = isolateLocalOrOfflineActor || crouchInterpolated
                         || (ordinaryOfflinePresentation && interpolatedPose);
                     try
                     {
@@ -369,6 +404,15 @@ namespace MphRead.Entities
                         PaletteOverride = null;
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
+                            // Capture the visible cannon tip before returning
+                            // to the canonical skeleton for combat and effect
+                            // simulation. This is picture-only, never a muzzle
+                            // source for projectile hit registration.
+                            Vector3 displayMuzzle = default;
+                            if (localThirdPersonActor)
+                                displayMuzzle = Matrix.Vec3MultMtx4(
+                                    Metadata.MuzzleOffests[(int)Hunter],
+                                    _shootNodes[lod]!.Animation);
                             if (isolateBipedAnchors)
                                 UpdateHunterBipedPresentation(model, spineNode, canonicalBody, canonicalAngle, null, null);
                             try
@@ -385,12 +429,14 @@ namespace MphRead.Entities
                                 && !Mods.Network.DemoPlayback.IsActive && !Mods.KillCam.Active
                                 && !Mods.SpectatorMode.IsSpectating && FrameTiming.Active
                                 && !_scene.HasPendingEffectSimulation;
+                            Vector3 effectDrawMuzzle = localThirdPersonActor
+                                && presentationOnlyMainEffect ? displayMuzzle : muzzlePos;
                             if (_chargeEffect != null)
                             {
                                 _chargeEffect.SetDrawEnabled(true);
                                 if (presentationOnlyMainEffect)
                                     _scene.SetPresentationEffectTransform(_chargeEffect,
-                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                        GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
                                     _chargeEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
                             }
@@ -399,7 +445,7 @@ namespace MphRead.Entities
                                 _muzzleEffect.SetDrawEnabled(true);
                                 if (presentationOnlyMainEffect)
                                     _scene.SetPresentationEffectTransform(_muzzleEffect,
-                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                        GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
                                     _muzzleEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
                             }
