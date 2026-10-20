@@ -31,8 +31,9 @@ internal readonly record struct CustomDamageResult(int BodyBefore, int BodyAfter
         && TurretBefore is >= 0 and <= ushort.MaxValue && TurretAfter >= 0 && TurretAfter <= TurretBefore
         && (BodyRemoved > 0 || TurretRemoved > 0 ? DamageEventId != 0 : DamageEventId == 0);
 }
+internal enum CustomContactDisposition : byte { Canonical, TradeDenied }
 internal readonly record struct CustomContactOutcome(CustomContact Contact, uint AuthorityFrame,
-    CustomDamageResult Health)
+    CustomDamageResult Health, CustomContactDisposition Disposition = CustomContactDisposition.Canonical)
 {
     internal bool Lethal => Health.BodyRemoved > 0 && Health.BodyAfter == 0;
 }
@@ -226,13 +227,16 @@ internal sealed class CustomLaunchPayments : IDisposable
         }
         return CustomContactDecision.Refused;
     }
-    internal bool CompleteContact(in ContactLease lease, in CustomDamageResult health, out CustomContactOutcome outcome)
+    internal bool CompleteContact(in ContactLease lease, in CustomDamageResult health, out CustomContactOutcome outcome,
+        CustomContactDisposition disposition = CustomContactDisposition.Canonical)
     {
         outcome = default;
         if (!Valid(lease)) return false;
-        if (!health.IsValid) { Abandon(lease); return false; }
+        if (!health.IsValid || disposition is not (CustomContactDisposition.Canonical or CustomContactDisposition.TradeDenied)
+            || disposition == CustomContactDisposition.TradeDenied && (health.BodyRemoved != 0 || health.TurretRemoved != 0))
+        { Abandon(lease); return false; }
         ref var entry = ref _entries[lease.Index];
-        outcome = new(entry.Contact,_frame,health); entry.Outcome = outcome;
+        outcome = new(entry.Contact,_frame,health,disposition); entry.Outcome = outcome;
         entry.Phase = Phase.Terminal; entry.RetainedSince = _frame; return true;
     }
     internal bool TryGetOutcome(in CustomPaymentKey key, out CustomContactOutcome outcome)
@@ -244,6 +248,18 @@ internal sealed class CustomLaunchPayments : IDisposable
             { outcome = entry.Outcome; return true; }
         return false;
     }
+    internal bool HasRetainedEntries
+    {
+        get { foreach (var entry in _entries) if (entry.Phase != Phase.Empty) return true; return false; }
+    }
+    internal bool OwnsFlight(CustomShotSource source, uint authorityFrame)
+    {
+        if (!Advance(authorityFrame)) return false;
+        foreach (var entry in _entries)
+            if (ReferenceEquals(entry.Source,source) && entry.Phase is Phase.Emitting or Phase.Flying) return true;
+        return false;
+    }
+    internal bool OwnsContact(in ContactLease lease) => Valid(lease);
     internal void RetireOccupant()
     { IsRetired = true; Array.Clear(_entries); }
     public void Dispose() => RetireOccupant();

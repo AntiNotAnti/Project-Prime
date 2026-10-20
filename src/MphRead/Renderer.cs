@@ -2460,6 +2460,7 @@ namespace MphRead
                 return;
             }
             OfflineWeapons?.Step();
+            CustomCombat?.Advance();
             // Pointer/button debouncing must advance on the same fixed clock that
             // consumes gameplay input. RenderWindow can draw 120/144/240 pictures
             // per second, but those extra pictures must never make a stylus release

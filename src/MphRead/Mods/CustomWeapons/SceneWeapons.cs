@@ -14,6 +14,12 @@ public partial class Scene
         if (OfflineWeapons != null) throw new InvalidOperationException("Developer rifle already enabled.");
         return OfflineWeapons = new(this,optIn);
     }
+    internal CustomAuthorityCombatAdapter? CustomCombat { get; private set; }
+    internal CustomAuthorityCombatAdapter EnableDeveloperCustomCombat(bool optIn, ICustomSourceAdmission sourceAdmission)
+    {
+        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        return CustomCombat = new(this,optIn,sourceAdmission);
+    }
     internal WeaponRegistry? CustomWeapons { get; private set; }
     internal WeaponRegistry FreezeCustomWeaponRegistry(IEnumerable<WeaponDefinition> definitions)
     {
@@ -24,6 +30,7 @@ public partial class Scene
     private void ReleaseCustomWeaponRegistry()
     {
         OfflineWeapons?.Dispose(); OfflineWeapons = null;
+        CustomCombat?.Dispose(); CustomCombat = null;
         CustomWeapons?.Dispose();
         CustomWeapons = null;
     }
