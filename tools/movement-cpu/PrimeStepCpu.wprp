@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0" Author="Project Prime test-only CPU accounting proposal">
+  <Profiles>
+    <SystemCollector Id="PrimeStepKernelCollector" Name="NT Kernel Logger">
+      <BufferSize Value="256" />
+      <Buffers Value="128" />
+    </SystemCollector>
+    <SystemProvider Id="PrimeStepKernelProvider">
+      <Keywords>
+        <Keyword Value="ProcessThread" Strict="true" />
+        <Keyword Value="CSwitch" Strict="true" />
+        <Keyword Value="DPC" Strict="true" />
+        <Keyword Value="Interrupt" Strict="true" />
+      </Keywords>
+    </SystemProvider>
+    <Profile Id="PrimeStepCpu.Verbose.File" Name="PrimeStepCpu" Description="Test-only scheduler CPU accounting; no sampled stacks or game content" LoggingMode="File" DetailLevel="Verbose">
+      <Collectors>
+        <SystemCollectorId Value="PrimeStepKernelCollector">
+          <SystemProviderId Value="PrimeStepKernelProvider" />
+        </SystemCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

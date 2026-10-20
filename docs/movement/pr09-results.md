@@ -212,6 +212,14 @@ checkpoint/seek and accepted-recording checks.
 
 ## Performance gate — FAIL
 
+The [PR-09f CPU-accounting slice](pr09f-results.md) adds opt-in raw Step spans,
+strict scheduler/interrupt accounting and 48 portable regression tests. Its
+first fixed experiment stops on an offline XML parser failure; all partial data
+remain retained. Bounded decoding and a separate capture/offline-analysis
+protocol address that instrumentation limit. The complete CPU experiment is
+pending; no earlier wall/cycle failure or 5% budget is waived. No further Mac
+simulation timing runs while the user's host is busy.
+
 The later [PR-09e collision-query slice](pr09e-results.md) preserves exact seeded
 workload and published snapshot bytes while removing duplicate static-face
 hashing. Its fixed 32-arm Windows experiment retains all failures: Proving Ground
