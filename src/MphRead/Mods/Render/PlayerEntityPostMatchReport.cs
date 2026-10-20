@@ -57,6 +57,7 @@ namespace MphRead.Entities
             {
                 DrawText2D(left + width / 2f, 82f, Align.Center, 0,
                     "SYNCING RESULTS...", _killFeedSpecial, scale: 0.43f);
+                ModDrawPostMatchIntroShutter();
                 return;
             }
 
@@ -154,8 +155,21 @@ namespace MphRead.Entities
                     objective.Length > 0 ? objective : $"DAMAGE TAKEN {state.MatchDamageTaken[slot]}   HS {state.HeadshotKills[slot]}   BEST {state.LongestKillStreak[slot]}",
                     _killFeedSpecial, scale: 0.29f);
             }
+            ModDrawPostMatchIntroShutter();
         }
 
+        /// <summary>Fade out of the final replay's quiet slate shutter into
+        /// the native results. This never prolongs the six-second scoreboard
+        /// or changes its authoritative statistics.</summary>
+        private void ModDrawPostMatchIntroShutter()
+        {
+            float elapsed = SceneGameState.MatchEndingSeconds - _scene.GameState.MatchTime;
+            float fade = Mods.Launcher.LauncherPrefs.ReduceMotion ? 0.08f : 0.17f;
+            float cover = 1f - Math.Clamp(elapsed / fade, 0f, 1f);
+            if (cover > 0)
+                _scene.DrawHudFlatBox(0, 0, 256, 192,
+                    new Vector4(0.025f, 0.045f, 0.075f, 0.92f * cover));
+        }
 
     }
 }
