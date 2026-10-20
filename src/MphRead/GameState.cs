@@ -728,18 +728,11 @@ namespace MphRead
                 {
                     if (!scene.Services.IsReplica) Mods.KillCam.EndFinal();
                     MatchState = MatchState.Ending;
-                    // Ten seconds of results, where the DS gave five.
-                    //
-                    // Five was long enough to read a scoreboard and nothing
-                    // else, and the screen now has something to do on it:
-                    // the next hunter, the next suit and the next map all
-                    // live here (see Mods.EndScreen), and a choice somebody
-                    // has to make in five seconds is a choice they make by
-                    // accident. DedicatedServer.EndSequenceSeconds is the
-                    // other half of this number -- the server holds its
-                    // intermission open for the whole sequence, and the two
-                    // have to be changed together or the map changes out
-                    // from under the screen.
+                    // Present the full native scoreboard after the winner camera
+                    // and eligible final kill replay. This intermission remains
+                    // synchronized with DedicatedServer.EndSequenceSeconds: lobby
+                    // servers return everyone together, while continuous servers
+                    // retain their existing rotation policy.
                     MatchTime = MatchEndingSeconds;
                     // todo: update license info, stop SFX
                 }
@@ -751,8 +744,10 @@ namespace MphRead
                 if (MatchTime == 0)
                 {
                     MatchTime = -1;
-                    if (Mods.Network.NetMatchEnd.ShouldLeaveAfterMatch && !PlayPickedMap())
+                    if (Mods.Network.NetMatchEnd.ShouldLeaveAfterMatch)
                     {
+                        // Offline matches return to the launcher/bot lobby.
+                        // Starting another match is an explicit lobby action.
                         scene.SetFade(FadeType.FadeOutBlack, 20 / 30f, overwrite: true, AfterFade.Exit);
                     }
                     // Connected, the match ending is not the session ending.
@@ -765,10 +760,6 @@ namespace MphRead
                 }
             }
         }
-
-        // Both graphical heads queue the next local match without returning
-        // control to the launcher. With no selection, repeat the current arena.
-        private bool PlayPickedMap() => Mods.Launcher.OfflineRematch.Continue();
 
         private void EnsureIntroCamSeq()
         {
