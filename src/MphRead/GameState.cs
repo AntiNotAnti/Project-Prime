@@ -61,12 +61,12 @@ namespace MphRead
         }
 
         /// <summary>
-        /// How long the results screen is left up, in seconds. Paired with
-        /// <c>Mods.Network.DedicatedServer.EndSequenceSeconds</c>, which has
-        /// to cover this and MatchFinalCameraSeconds before it.
+        /// The native scoreboard is visible for six seconds after the winner
+        /// camera and eligible final replay. The dedicated server reserves the
+        /// same whole sequence plus a small rotation/transition margin.
         /// </summary>
         public const float MatchFinalCameraSeconds = 5;
-        public const float MatchEndingSeconds = 10;
+        public const float MatchEndingSeconds = 6;
         public const float MatchKillcamSeconds = 5;
 
         // Value-only evidence of how an Adventure session exited. The ship
