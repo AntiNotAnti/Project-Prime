@@ -1073,22 +1073,27 @@ namespace MphRead.Mods.Network
             }
             var sim = new ServerSim();
             MatchDefinition entry = CurrentDefinition;
+            long authorityStart = System.Diagnostics.Stopwatch.GetTimestamp();
             // Join the lobby's in-flight prewarm before the authoritative scene
             // opens custom-map outputs. A fast START used to race the compiler,
             // duplicating work or observing files while they were being replaced.
-            if (!Mods.RoomPrewarm.JoinForLoad(entry.RoomKey))
+            bool prewarmed = Mods.RoomPrewarm.JoinForLoad(entry.RoomKey);
+            if (!prewarmed)
                 Mods.MapGen.CustomRooms.GenerateMissing(entry.RoomKey);
+            double prepareMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(authorityStart).TotalMilliseconds;
             if (Mods.MapGen.CustomRooms.WhyUnplayable(entry.RoomKey) is { } unplayable)
                 throw new ProgramException(unplayable);
             if (!Mods.Multiplayer.MapModeCapabilities.Supports(entry.RoomKey, entry.Mode,
                 LobbyRules.ResolveWorldProfile(entry, _maxPlayers), out string incompatible))
                 throw new ProgramException(incompatible);
+            long sceneStart = System.Diagnostics.Stopwatch.GetTimestamp();
             if (!sim.Start(entry.RoomKey, entry.Mode, _maxPlayers, SendSnapshot,
                 () => EndMatch(_now, "score"), BuildRoster(), BuildSessionState()))
             {
                 Log($"cannot run the match: the room \"{entry.RoomKey}\" would not load");
                 throw new ProgramException($"the server could not load \"{entry.RoomKey}\"");
             }
+            double sceneMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(sceneStart).TotalMilliseconds;
             _sim = sim;
             ConfigureCustomSourceCombat(sim.EvidenceScene!);
             // Spectator admission is known before world bootstrap. Apply it to
@@ -1118,6 +1123,9 @@ namespace MphRead.Mods.Network
             // NetHitClaims.
             NetHitClaims.CombatAckSink = SendVerdicts;
             SyncSimulationState(_now);
+            Log($"[server-load] room={entry.RoomKey} prewarm-ready={prewarmed} "
+                + $"source-wait-ms={prepareMilliseconds:0.0} world-create-ms={sceneMilliseconds:0.0} "
+                + $"total-ms={System.Diagnostics.Stopwatch.GetElapsedTime(authorityStart).TotalMilliseconds:0.0}");
         }
 
         /// <summary>
