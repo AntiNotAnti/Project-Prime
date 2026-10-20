@@ -93,27 +93,27 @@ objects or protected output files.
 
 ## Qualification
 
-Frozen source `e0bc67d709bec332b0cab6c4a681dd237b971cce` passed all25 serial
+Frozen source `e0bc67d709bec332b0cab6c4a681dd237b971cce` passed all 25 serial
 commands on the user-authorized Mac fallback. Two exact Git archives, each
-containing5914 tracked files, remained unchanged through the run. It includes
-concurrent PR822 and uses protocol67 with no wire change. Later concurrent
+containing 5,914 tracked files, remained unchanged through the run. It includes
+concurrent PR822 and uses protocol 67 with no wire change. Later concurrent
 custom-weapon changes are outside this frozen whole-binary proof.
 
 | Evidence | Result |
 | --- | --- |
 | Desktop / dedicated Release | Both pass, zero warnings/errors |
-| Android Release |119 AOT assemblies; signed arm64-v8a/x86_64 APK;25 existing XML-comment warnings, zero errors |
+| Android Release | 119 AOT assemblies; signed arm64-v8a/x86_64 APK; 25 existing XML-comment warnings, zero errors |
 | APK verification | v2/v3 signatures pass; ProjectPrime AOT present for both ABIs |
-| Source geometry |2126 synthetic checks, including final emission, tiny-triangle policy, stale generation, actual model adoption, immutable scene copy, cache corruption/missing repair and edit refusal |
-| Bounded codec | Impossible inventory refused after560 allocated bytes, without declared large arrays |
-| Existing source/material owners |101 coordinate,952 material-reader,191 TXTR,137 bank and128 bank-material checks pass |
-| Editor / shared material GPU |486 editor and58 material-tool checks pass; synthetic bank upload/readback/reload/quality/teardown regressions pass |
-| Other contracts |10642 pure custom-weapon checks; replay543/314/84/51 and campaign-map91 checks pass; character/source-rig and owned body/ball lifecycle pass |
+| Source geometry | 2,126 synthetic checks, including final emission, tiny-triangle policy, stale generation, actual model adoption, immutable scene copy, cache corruption/missing repair and edit refusal |
+| Bounded codec | Impossible inventory refused after 560 allocated bytes, without declared large arrays |
+| Existing source/material owners | 101 coordinate, 952 material-reader, 191 TXTR, 137 bank and 128 bank-material checks pass |
+| Editor / shared material GPU | 486 editor and 58 material-tool checks pass; synthetic bank upload/readback/reload/quality/teardown regressions pass |
+| Other contracts | 10,642 pure custom-weapon checks; replay 543/314/84/51 and campaign-map 91 checks pass; character/source-rig and owned body/ball lifecycle pass |
 | Independent legacy witness | Old qualified PR821 DLL and current DLL produce identical five file lengths/hashes, manifest, recipe and cache key |
 
 The owned transport probe compiles **all six** source arenas without filtering
-or repairing faces:68470 original triangles,347 used materials,260 candidate
-materials,54069 candidate triangles,835 companion entries and162207 transported
+or repairing faces: 68,470 original triangles, 347 used materials, 260 candidate
+materials, 54,069 candidate triangles, 835 companion entries and 162,207 transported
 corners. Per-material multisets match both original UV float bits and exact
 expected native packed-position/UV tuples. Unknown material families receive
 no companion channel. Source collision is not inferred: each probe has only
