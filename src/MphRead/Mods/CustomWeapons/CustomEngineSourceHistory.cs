@@ -14,7 +14,8 @@ internal readonly record struct CustomSourceInput(WeaponOwnerContext Owner,uint 
         && MathF.Abs(p.X) <= 1000000 && MathF.Abs(p.Y) <= 1000000 && MathF.Abs(p.Z) <= 1000000;
 }
 internal readonly record struct CustomEngineObservation(CustomSourceInput Input,uint ObservedWorldFrame,
-    Vector3 Body,Vector3 Aim,bool CanUseWeapon);
+    Vector3 Body,Vector3 Aim,bool CanUseWeapon,CustomSourceModifierEvidence Modifiers = default);
+internal enum CustomSourceObservationStatus : byte { Missing,Rejected,Available }
 internal enum CustomObservationResult : byte { Captured,Duplicate,Conflict,Unavailable,Invalid }
 
 /// <summary>Bounded first engine observation, keyed by complete life and exact
@@ -56,7 +57,7 @@ internal sealed class CustomEngineSourceHistory
             return CustomObservationResult.Invalid;
         _world = world;
         if (unchecked((int)(input.Frame-_frontier)) > 0) _frontier = input.Frame;
-        _entries[index] = new(new(input,world,facts?.Body ?? default,facts?.Aim ?? default,facts?.CanUseWeapon ?? false),facts.HasValue,false);
+        _entries[index] = new(new(input,world,facts?.Body ?? default,facts?.Aim ?? default,facts?.CanUseWeapon ?? false,facts?.Modifiers ?? default),facts.HasValue,false);
         return CustomObservationResult.Captured;
     }
     private static bool CustomSourceInputValidFacts(in CustomPrecombatFacts facts)
@@ -64,12 +65,17 @@ internal sealed class CustomEngineSourceHistory
             && MathF.Abs(facts.Body.X) <= 1000000 && MathF.Abs(facts.Body.Y) <= 1000000 && MathF.Abs(facts.Body.Z) <= 1000000
             && float.IsFinite(facts.Aim.LengthSquared) && MathF.Abs(facts.Aim.LengthSquared-1) <= .02f;
     internal bool TryGet(WeaponOwnerContext owner,uint source,uint now,out CustomEngineObservation observation)
+        => Read(owner,source,now,out observation) == CustomSourceObservationStatus.Available;
+    internal CustomSourceObservationStatus Read(WeaponOwnerContext owner,uint source,uint now,out CustomEngineObservation observation)
     {
         observation = default;
-        if (owner != _owner || _entries[source % Capacity] is not { Conflict: false,HasPose: true } entry
-            || entry.Observation.Input.Frame != source || unchecked((int)(now-entry.Observation.ObservedWorldFrame)) < 0
-            || unchecked(now-entry.Observation.ObservedWorldFrame) > CustomSourceActionJournal.MaxWorldAge) return false;
-        observation = entry.Observation; return true;
+        if (owner != _owner || unchecked((int)(source-_birth)) < 0) return CustomSourceObservationStatus.Rejected;
+        if (_entries[source % Capacity] is not { } entry || entry.Observation.Input.Frame != source)
+            return unchecked((int)(_frontier-source)) >= Capacity ? CustomSourceObservationStatus.Rejected : CustomSourceObservationStatus.Missing;
+        if (entry.Conflict || !entry.HasPose || unchecked((int)(now-entry.Observation.ObservedWorldFrame)) < 0
+            || unchecked(now-entry.Observation.ObservedWorldFrame) > CustomSourceActionJournal.MaxWorldAge)
+            return CustomSourceObservationStatus.Rejected;
+        observation = entry.Observation; return CustomSourceObservationStatus.Available;
     }
     internal void Clear() => Array.Clear(_entries);
 }

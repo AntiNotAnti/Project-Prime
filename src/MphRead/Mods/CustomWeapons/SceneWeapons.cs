@@ -20,6 +20,11 @@ public partial class Scene
         if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
         return CustomCombat = new(this,optIn,sourceAdmission);
     }
+    internal CustomAuthorityCombatAdapter EnableDeveloperEngineCustomCombat(bool optIn,ICustomSourceReadiness readiness)
+    {
+        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        return CustomCombat = new(this,optIn,readiness);
+    }
     internal WeaponRegistry? CustomWeapons { get; private set; }
     internal WeaponRegistry FreezeCustomWeaponRegistry(IEnumerable<WeaponDefinition> definitions)
     {

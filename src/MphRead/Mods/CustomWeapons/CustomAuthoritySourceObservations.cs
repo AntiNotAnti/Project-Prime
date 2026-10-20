@@ -32,6 +32,7 @@ internal sealed partial class CustomAuthorityCombatAdapter
             || _current[owner.Slot]?.Owner != owner) return;
         var input = new CustomSourceInput(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
             intent.Position,intent.Aim,(uint)intent.Buttons);
+        if (_sourceAdmission is CustomEngineSourceAdmission engine && !engine.CanCapture(owner)) return;
         if (input.IsValid) _acceptedInputs[owner.Slot] = new(player,input,placedBody,stableBiped,acceptedPose);
     }
     internal void CompleteSourceInputPhase(bool capture = true)
@@ -54,7 +55,9 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         if (token.AcceptedPose && token.Player.ModTryCaptureCustomPrecombatFacts(token.Input.ReportedAim,out var facts))
                         {
                             facts = facts with { Body = token.PlacedBody,CanUseWeapon = facts.CanUseWeapon
-                                && token.StableBiped && token.Player.Position == token.PlacedBody };
+                                && token.StableBiped && token.Player.Position == token.PlacedBody,
+                                Modifiers = CustomSourceModifierEvidence.Capture(owner,token.Input.Frame,Now,
+                                    _scene.GameState.PrimeHunter < 0,NetPowerUpLedger.Ledger) };
                             canUse = facts.CanUseWeapon;
                             result = life.Sources.Observe(token.Input,facts,Now);
                         }
@@ -82,6 +85,15 @@ internal sealed partial class CustomAuthorityCombatAdapter
     private void DiscardSourceInputPhase()
     {
         _inputPhase = false; _deferredNativeDrains = 0; Array.Clear(_acceptedInputs);
+    }
+    internal Scene SourceScene => _scene;
+    internal bool IsCurrentSourceOwner(WeaponOwnerContext owner)
+        => owner.IsValid && _slots[owner.Slot] is { } slot && CurrentOwner(slot.Player,out var current) && current == owner;
+    internal CustomSourceObservationStatus ReadSourceObservation(WeaponOwnerContext owner,uint source,out CustomEngineObservation observation)
+    {
+        observation = default;
+        return IsEligible && Find(owner) is { } life ? life.Sources.Read(owner,source,Now,out observation)
+            : CustomSourceObservationStatus.Rejected;
     }
     internal bool TryGetSourceObservation(WeaponOwnerContext owner,uint source,out CustomEngineObservation observation)
     {

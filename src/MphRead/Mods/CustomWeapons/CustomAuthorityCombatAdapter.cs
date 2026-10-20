@@ -59,16 +59,20 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         && !_scene.GameState.BalancedMode && !_scene.GameState.EnhancedHunters;
     private uint Now => NetSession.NetFrame;
     internal CustomAuthorityCombatAdapter(Scene scene, bool developerOptIn, ICustomSourceAdmission sourceAdmission)
+        : this(scene,developerOptIn,sourceAdmission,null) { }
+    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness)
+        : this(scene,developerOptIn,null,readiness) { }
+    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness)
     {
-        ArgumentNullException.ThrowIfNull(sourceAdmission);
+        if (sourceAdmission == null && readiness == null) throw new ArgumentNullException(nameof(sourceAdmission));
         _scene = scene; _match = NetSession.CurrentMatchId; _epoch = NetSession.AuthorityEpoch;
-        _sourceAdmission = sourceAdmission;
         if (!developerOptIn || _match == 0 || _epoch == 0 || !IsEligible)
             throw new InvalidOperationException("Explicit authority Battle developer fixture and trusted engine source oracle required.");
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy authority is unavailable.");
         Definition = RiftlineM7.Create(); Manifest = new(new[] { Definition });
         _registry = scene.FreezeCustomWeaponRegistry(new[] { Definition });
+        _sourceAdmission = sourceAdmission ?? new CustomEngineSourceAdmission(this,readiness!);
     }
     private bool CurrentOwner(PlayerEntity player,out WeaponOwnerContext owner)
     {
