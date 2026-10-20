@@ -93,9 +93,59 @@ objects or protected output files.
 
 ## Qualification
 
-Qualification results will be recorded after the frozen source run. Windows
-SSH remains unavailable because authentication is refused; the user-authorized
-Mac fallback is used. No physical Android/device acceptance is claimed.
+Frozen source `e0bc67d709bec332b0cab6c4a681dd237b971cce` passed all25 serial
+commands on the user-authorized Mac fallback. Two exact Git archives, each
+containing5914 tracked files, remained unchanged through the run. It includes
+concurrent PR822 and uses protocol67 with no wire change. Later concurrent
+custom-weapon changes are outside this frozen whole-binary proof.
+
+| Evidence | Result |
+| --- | --- |
+| Desktop / dedicated Release | Both pass, zero warnings/errors |
+| Android Release |119 AOT assemblies; signed arm64-v8a/x86_64 APK;25 existing XML-comment warnings, zero errors |
+| APK verification | v2/v3 signatures pass; ProjectPrime AOT present for both ABIs |
+| Source geometry |2126 synthetic checks, including final emission, tiny-triangle policy, stale generation, actual model adoption, immutable scene copy, cache corruption/missing repair and edit refusal |
+| Bounded codec | Impossible inventory refused after560 allocated bytes, without declared large arrays |
+| Existing source/material owners |101 coordinate,952 material-reader,191 TXTR,137 bank and128 bank-material checks pass |
+| Editor / shared material GPU |486 editor and58 material-tool checks pass; synthetic bank upload/readback/reload/quality/teardown regressions pass |
+| Other contracts |10642 pure custom-weapon checks; replay543/314/84/51 and campaign-map91 checks pass; character/source-rig and owned body/ball lifecycle pass |
+| Independent legacy witness | Old qualified PR821 DLL and current DLL produce identical five file lengths/hashes, manifest, recipe and cache key |
+
+The owned transport probe compiles **all six** source arenas without filtering
+or repairing faces:68470 original triangles,347 used materials,260 candidate
+materials,54069 candidate triangles,835 companion entries and162207 transported
+corners. Per-material multisets match both original UV float bits and exact
+expected native packed-position/UV tuples. Unknown material families receive
+no companion channel. Source collision is not inferred: each probe has only
+one explicitly invented collision scaffold, which is absent from source visual
+counts. All temporary derived payloads were removed.
+
+The first exploratory run passed four arenas and found four finite tiny
+triangles rejected by old authored thresholds. The narrow visual-only normal
+path fixes that admission defect; two original absolute-position Newell
+calculations cancelled to zero and one reversed direction. All four remain
+present even though existing native packing collapses them to coincident
+vertices. No full-float native-position or original-lighting claim is made.
+
+The RVZ SHA256 before/after is
+`ba8996256d005749dd6b7ff29ea30e5998451a3741ec87494a6217b01b703529`.
+The existing Apple material-editor sampler warning remains in the GPU log;
+all readback, binding and teardown assertions pass. These are existing material
+infrastructure checks, not a draw of the source UVs or complete source arenas.
+
+| Frozen binary | SHA256 |
+| --- | --- |
+| Desktop |`6c19c0f7edfd58eed95ce3f1b63cadba52c621ad56fc2aef022d919b6cd63433`|
+| Dedicated |`172d6c79d8728b3229b5f96fba1f353acf5e98e5674571b2db1601710df10a34`|
+| Signed APK |`c951c6150aa6eef5a1b6ff33ff18874352d9166274ca8c18c57fd24812c8824b`|
+
+Ignored receipts and source-integrity manifests live in
+`artifacts/sh-integration/geometry-e0bc67d70/`. Exploratory failures and their
+corrections are retained separately. Completed temporary build copies were
+removed after disk exhaustion; source receipts and the old compiler needed by
+the independent comparison were retained. Windows SSH authentication remains
+refused. No physical Android, Windows/Linux, full-game or source-rendering
+acceptance is claimed.
 
 ## Disabled, remaining and rollback
 
