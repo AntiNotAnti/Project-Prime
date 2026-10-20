@@ -33,7 +33,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.HudProperty => 8,
         RmlUiIntentKind.CampaignShipAction => 11,
         RmlUiIntentKind.CommunityTransferAction => 4,
-        RmlUiIntentKind.SocialAction => 54,
+        RmlUiIntentKind.SocialAction => 55,
         RmlUiIntentKind.NewsAction => 12,
         RmlUiIntentKind.CommunityTab => 5,
         RmlUiIntentKind.CommunitySort => 3,

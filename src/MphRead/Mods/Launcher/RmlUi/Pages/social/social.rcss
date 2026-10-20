@@ -1,56 +1,111 @@
-#social_page { position: absolute; left: 3%; right: 3%; top: 3%; bottom: 3%; padding: 18dp; overflow-y: auto; background-color: rgba(2, 9, 16, 93%); }
-#social_page h1 { margin: 6dp 0 10dp; font-size: 28dp; line-height: 32dp; color: #ffffff; }
-#social_page h2, #social_confirmation h2 { margin: 0 0 12dp; font-size: 20dp; line-height: 25dp; color: #e0f2ff; }
-#social_page p, #social_confirmation p { line-height: 22dp; color: #b2cadc; }
-.social_header { display: flex; align-items: center; justify-content: space-between; }
-#social_self_id { width: 250dp; height: 36dp; font-family: "JetBrains Mono"; font-size: 13dp; background-color: rgba(5, 25, 43, 85%); color: #b2cadc; border: 1dp #537f9d; padding: 7dp; }
+/* Operational workspace: bounded collection, visible selected-player commands,
+   and a stable footer independent of the eight result rows. */
+#social_page {
+    position: absolute; left: 2%; right: 2%; top: 12dp; bottom: 12dp;
+    display: flex; flex-direction: column; padding: 14dp; box-sizing: border-box;
+    background-color: rgba(2,9,16,94%);
+}
+.social_body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#social_page h1 { display: block; color: #fff; margin: 0; font-size: 27dp; line-height: 31dp; }
+#social_page h2, #social_confirmation h2 { display: block; margin: 0 0 8dp; color: #e0f2ff; font-size: 21dp; line-height: 25dp; }
+#social_page p, #social_confirmation p { display: block; margin: 4dp 0; color: #aac6db; font-size: 12dp; line-height: 17dp; word-break: break-word; }
+.social_header { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4dp; }
+#social_self_id, #party_self { font-family: "JetBrains Mono"; font-size: 12dp; color: #91b9d5; }
+#social_counts { flex-shrink: 0; color: #91cce9; }
 .social_tabs, .social_searches, .social_commands, .social_paging { display: flex; flex-wrap: wrap; align-items: center; }
-.social_tabs { margin: 12dp 0; }
-.social_tabs button, .social_searches button, .social_commands button, .social_paging button { min-height: 42dp; padding: 10dp 13dp; margin: 0 7dp 7dp 0; font-size: 13dp; font-weight: bold; color: #cdeaff; border: 1dp rgba(114, 199, 255, 35%); background-color: rgba(5, 31, 53, 92%); }
-.social_tabs button.selected { border-bottom: 3dp #55e18c; background-color: rgba(13, 58, 62, 90%); }
-.social_searches { margin-bottom: 14dp; }
-.social_searches input { flex: 1; min-width: 180dp; height: 40dp; margin: 0 8dp 7dp 0; padding: 8dp; color: #e0f2ff; background-color: rgba(1, 8, 16, 95%); border: 1dp #537f9d; font-family: "JetBrains Mono"; font-size: 12dp; }
-.social_columns { display: flex; align-items: stretch; }
-.social_panel { padding: 16dp; border: 1dp rgba(114, 199, 255, 27%); background-color: rgba(4, 19, 33, 94%); }
-.social_list { width: 46%; margin-right: 14dp; }
-.social_details { flex: 1; }
-.social_row { display: block; width: 100%; min-height: 54dp; padding: 10dp 12dp; margin-bottom: 8dp; text-align: left; color: #d5eaff; border: 1dp rgba(114, 199, 255, 25%); background-color: rgba(9, 35, 57, 88%); }
-.social_row b, .social_row span { display: block; }
-.social_row b { font-size: 16dp; line-height: 21dp; }
-.social_row span { font-size: 13dp; line-height: 18dp; color: #91b9d5; }
-.social_row.selected { border-left: 4dp #55e18c; background-color: rgba(13, 58, 62, 90%); }
-.social_row:hover, .social_row:focus, .social_tabs button:hover, .social_tabs button:focus, .social_commands button:hover, .social_commands button:focus, .social_searches button:hover, .social_searches button:focus, .social_paging button:hover, .social_paging button:focus { border-color: #72c7ff; color: #ffffff; }
-.social_searches input:focus, #social_self_id:focus { border-color: #72c7ff; }
-.social_paging span { flex: 1; font-size: 12dp; color: #91b9d5; }
+.social_tabs { flex-shrink: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; margin: 6dp 0; }
+.social_tabs button, .social_searches button, .social_commands button, .social_paging button {
+    min-height: 48dp; box-sizing: border-box; padding: 8dp 11dp; margin: 0 6dp 4dp 0;
+    color: #cdeaff; font-size: 14dp; line-height: 18dp; font-weight: bold;
+    border: 1dp rgba(114,199,255,35%); background-color: rgba(5,31,53,92%); white-space: normal;
+}
+.social_tabs button { flex-shrink: 0; white-space: nowrap; }
+.social_tabs button.selected { border-bottom: 3dp #55e18c; background-color: rgba(13,58,62,90%); }
+.social_searches { flex-shrink: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; margin-bottom: 6dp; }
+.social_searches input {
+    flex: 1; min-width: 140dp; height: 48dp; box-sizing: border-box; padding: 8dp;
+    margin: 0 6dp 4dp 0; color: #e0f2ff; background-color: rgba(1,8,16,95%);
+    border: 1dp #537f9d; font-size: 14dp;
+}
+.social_searches button { flex-shrink: 0; }
+#social_lookup_id { font-family: "JetBrains Mono"; }
+.social_columns { display: flex; flex: 1; min-height: 0; align-items: stretch; }
+.social_panel { box-sizing: border-box; padding: 12dp; min-width: 0; border: 1dp rgba(114,199,255,27%); background-color: rgba(4,19,33,94%); }
+.social_list { display: flex; flex-direction: column; width: 44%; min-height: 0; margin-right: 12dp; }
+.social_list_scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.social_details { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.social_row { display: block; width: 100%; min-height: 58dp; box-sizing: border-box; padding: 9dp 10dp; margin-bottom: 5dp; text-align: left; color: #d5eaff; border: 1dp rgba(114,199,255,25%); background-color: rgba(9,35,57,88%); white-space: normal; word-break: break-word; }
+.social_row b, .social_row span { display: block; pointer-events: none; }
+.social_row b { font-size: 16dp; line-height: 20dp; }
+.social_row span { font-size: 12dp; line-height: 17dp; color: #91b9d5; }
+.social_row.selected { border-left: 4dp #55e18c; background-color: rgba(13,58,62,90%); }
+.social_row:hover, .social_row:focus, .social_tabs button:hover, .social_tabs button:focus,
+.social_commands button:hover, .social_commands button:focus, .social_searches button:hover,
+.social_searches button:focus, .social_paging button:hover, .social_paging button:focus { border-color: #72c7ff; color: #fff; background-color: rgba(18,64,96,95%); }
+.social_searches input:focus { border-color: #72c7ff; }
+.social_paging { flex-shrink: 0; flex-wrap: nowrap; justify-content: space-between; padding-top: 6dp; }
+.social_paging button { margin-right: 0; padding: 8dp; }
+.social_paging span { flex: 1; text-align: center; font-size: 12dp; color: #91b9d5; }
 .social_notice { white-space: pre-wrap; word-break: break-word; }
-.social_party_status, .social_privacy { margin-top: 14dp; }
-.social_status { margin: 14dp 0 10dp; padding: 12dp; border-left: 3dp #72c7ff; background-color: rgba(15, 41, 63, 85%); }
-.social_error { margin-bottom: 12dp; padding: 12dp; color: #ffb7bf; border: 1dp rgba(255, 120, 138, 60%); background-color: rgba(64, 17, 31, 80%); }
-.social_commands .social_danger { border-color: rgba(255, 120, 138, 65%); color: #ffcad0; }
-#social_confirmation { position: absolute; width: 520dp; max-width: 92%; max-height: 92vh; overflow-y: auto; overflow-x: hidden; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-@media (max-width: 850dp) {
-    #social_page { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 12dp; }
-    .social_columns { display: block; }
-    .social_list, .social_details { width: 100%; margin: 0 0 12dp; }
-    .social_header { display: block; }
-    #social_page h1 { font-size: 25dp; line-height: 29dp; }
-    .social_panel { padding: 12dp; }
+.social_party_status { display: flex; flex-shrink: 0; align-items: center; flex-wrap: wrap; padding: 6dp 10dp; margin-top: 4dp; }
+#social_party_summary { flex: 1; }
+.social_party_status .social_commands button { margin-bottom: 0; }
+#social_session_notice { width: 100%; }
+.social_privacy { flex-shrink: 0; margin-top: 6dp; }
+.social_privacy .social_commands button { flex: 1; }
+.social_status, .social_error { flex-shrink: 0; padding: 6dp 8dp; font-size: 12dp; line-height: 17dp; }
+.social_status { border-left: 2dp #72c7ff; color: #b2d5ec; }
+.social_error { color: #ffb7bf; border-left: 2dp #ff788a; }
+.social_commands .social_danger { border-color: rgba(255,120,138,65%); color: #ffcad0; }
+.social_details .social_commands button { width: 48%; }
+#social_command_29, #social_command_28, #social_command_30, #social_command_33, #social_command_22,
+#party_command_34, #party_follow, #party_join_leader { background-color: rgba(16,71,102,96%); border-color: #78caff; color: #fff; }
+.social_footer { flex-shrink: 0; padding-top: 6dp; border-top: 1dp rgba(114,199,255,20%); }
+#social_back, #party_back { margin-left: auto; margin-right: 0; }
+.party_operations { flex-shrink: 0; margin-top: 6dp; border-left: 3dp #72c7ff; }
+.party_operations h2 { font-size: 16dp; line-height: 20dp; }
+.party_operations .social_commands { margin-top: 6dp; }
+.party_operations .social_commands button { flex: 1; min-width: 140dp; }
+#party_summary { color: #e0f2ff; font-weight: bold; }
+#party_travel, #party_reservation { color: #a8d9ee; }
+#social_confirmation { position: absolute; width: 520dp; max-width: 92%; max-height: 92vh; overflow-y: auto; overflow-x: hidden; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+@media (max-width: 900dp) {
+    #social_page { left: 8dp; right: 8dp; top: 8dp; bottom: 8dp; padding: 8dp; }
+    .social_panel { padding: 8dp; }
+    .social_list { width: 42%; margin-right: 8dp; }
+    .social_details .social_commands button { width: 100%; margin-right: 0; }
+    .social_header { flex-wrap: wrap; }
+    #social_page h1 { font-size: 23dp; line-height: 27dp; }
+    .social_footer button { padding-left: 8dp; padding-right: 8dp; }
+}
+@media (max-height: 600dp) {
+    #social_page { top: 6dp; bottom: 6dp; padding: 8dp; }
+    /* Compact pages keep a bounded workspace before secondary settings. */
+    .social_columns { flex: none; min-height: 190dp; height: 190dp; }
+    .social_header { margin-bottom: 0; }
+    .social_tabs { margin: 4dp 0; }
+    .social_party_status { padding-top: 4dp; padding-bottom: 4dp; }
+    .party_operations { padding: 8dp; }
+    .social_body { overflow-y: auto; overflow-x: hidden; }
+    .social_footer { background-color: rgba(2,9,16,98%); }
 }
 
-#social_page h1, #social_page h2, #social_page p, #social_confirmation h2, #social_confirmation p { display: block; }
-
-/* Compact lists and wrapping actions use the page's single scroll viewport. */
-#social_page { left:2%; right:2%; top:12dp; bottom:12dp; padding:12dp 16dp; overflow-x:hidden; }
-#social_page h1 { margin:4dp 0 8dp; font-size:26dp; line-height:28dp; }
-#social_page h2 { margin-bottom:8dp; }
-#social_page p { margin:4dp 0 8dp; line-height:19dp; }
-.social_header { flex-wrap:wrap; }
-.social_tabs { margin:8dp 0; }
-.social_panel { min-width:0; padding:12dp; }
-.social_details { min-width:0; }
-.social_row { min-height:44dp; padding:6dp 8dp; margin-bottom:4dp; white-space:normal; word-break:break-word; }
-.social_row b { font-size:15dp; line-height:18dp; }
-.social_row span { font-size:12dp; line-height:16dp; }
-.social_tabs button, .social_searches button, .social_commands button, .social_paging button { min-height:36dp; padding:6dp 10dp; margin:0 8dp 4dp 0; white-space:normal; }
-.social_status, .social_error { margin:8dp 0; padding:8dp; }
-.social_party_status, .social_privacy { margin-top:8dp; }
+/* Keep the Party overview to one compact strip; destination administration
+   lives beside member commands while Follow and Join remain immediately visible. */
+.party-page .party_operations { display:flex; align-items:center; padding:8dp 10dp; }
+.party_fact_copy { flex:1; min-width:0; }
+.party-page .party_operations > .social_commands { flex:0 0 auto; margin:0 0 0 12dp; }
+.party-page .party_operations > .social_commands button { min-width:120dp; }
+.party_tools { display:flex; flex-shrink:0; align-items:center; margin:6dp 0; }
+.party_tools > .social_tabs { flex:0 0 auto; margin:0 12dp 0 0; }
+.party_tools > .social_searches { flex:1; min-width:0; margin:0; }
+.party_secondary_ops { margin-top:12dp; padding-top:8dp; border-top:1dp #285274; }
+@media (max-width:900dp) {
+    .party_tools { display:block; }
+    .party_tools > .social_tabs { margin:0 0 4dp; }
+    .party-page .party_operations { flex-wrap:wrap; }
+    .party-page .party_operations > .social_commands { margin:4dp 0 0; width:100%; }
+}
+@media (max-width: 900dp) {
+    .party-page .party_operations .party_fact_copy { flex:0 0 auto; width:100%; }
+}

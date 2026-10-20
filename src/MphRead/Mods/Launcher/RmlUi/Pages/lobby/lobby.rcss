@@ -11,33 +11,33 @@
 .lobby_panel_title { margin-bottom:8dp; color:#ffffff; font-size:20dp; line-height:24dp; font-weight:bold; }
 .lobby_data_row { display:flex; flex-direction:column; width:48%; min-width:0; min-height:38dp; padding:4dp; border-bottom:1dp rgba(114,199,255,12%); }
 .lobby_data_wide { width:100%; }
-.lobby_data_row > span { display:block; color:#8eafc7; font-size:11dp; line-height:14dp; }
+.lobby_data_row > span { display:block; color:#8eafc7; font-size:12dp; line-height:14dp; }
 .lobby_data_row > b, .lobby_rule_value { display:block; min-width:0; color:#e9f6ff; font-size:14dp; line-height:18dp; font-weight:bold; white-space:normal; word-break:break-word; }
 .lobby_rule_value { width:100%; padding:0; text-align:left; background-color:transparent; border-bottom:1dp #426983; }
 .lobby_rule_value:hover, .lobby_rule_value:focus { color:#ffffff; background-color:#173e58; border-color:#78caff; }
-.lobby_field_status { display:flex; align-items:center; padding:8dp 4dp; color:#9ac9dc; font-size:11dp; line-height:14dp; }
+.lobby_field_status { display:flex; align-items:center; padding:8dp 4dp; color:#9ac9dc; font-size:12dp; line-height:14dp; }
 .lobby_field_dot { width:6dp; height:6dp; margin-right:8dp; border-radius:3dp; background-color:#55e18c; }
-.lobby_small_button { display:block; width:100%; min-height:32dp; margin-top:4dp; padding:6dp 8dp; color:#deefff; font-size:12dp; font-weight:bold; text-align:left; background-color:#12364b; border:1dp #426983; }
+.lobby_small_button { display:block; width:100%; min-height:32dp; margin-top:4dp; padding:6dp 8dp; color:#deefff; font-size:14dp; font-weight:bold; text-align:left; background-color:#12364b; border:1dp #426983; }
 .lobby_small_button:hover, .lobby_small_button:focus { border-color:#78caff; background-color:#1c4b68; }
 #lobby_map_preview { display:block; width:100%; min-height:0; margin-top:12dp; text-align:left; }
 #lobby_map_image { display:block; width:100%; height:104dp; }
-#lobby_map_preview_status { margin-top:4dp; color:#a0b9cb; font-size:11dp; line-height:14dp; white-space:normal; }
+#lobby_map_preview_status { margin-top:4dp; color:#a0b9cb; font-size:12dp; line-height:14dp; white-space:normal; }
 #lobby_map_preview:hover, #lobby_map_preview:focus { border-color:#78caff; background-color:#12364b; }
 #lobby_right_panels { position:absolute; right:24dp; top:16dp; bottom:76dp; width:21%; max-width:320dp; display:flex; flex-direction:column; }
 #lobby_roster_panel { flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
 .lobby_roster_header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; min-height:24dp; }
-.lobby_roster_header .eyebrow { margin:0; font-size:11dp; letter-spacing:0.5dp; }
+.lobby_roster_header .eyebrow { margin:0; font-size:12dp; letter-spacing:0.5dp; }
 .lobby_roster_count { color:#78caff; font-size:12dp; }
 .lobby_roster_social { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; width:100%; min-height:28dp; margin-bottom:4dp; padding:4dp 8dp; text-align:left; color:#cceaff; font-size:12dp; background-color:#12364b; border:1dp #426983; }
 .lobby_roster_social:hover, .lobby_roster_social:focus { background-color:#1c4b68; border-color:#78caff; }
 .lobby_roster_row { flex:0 0 auto; display:flex; align-items:center; min-height:38dp; padding:2dp; border-left:3dp #426983; border-bottom:1dp rgba(114,199,255,12%); background-color:rgba(11,35,53,80%); }
-.lobby_roster_index { flex-shrink:0; width:14dp; color:#8eafc7; text-align:center; font-size:11dp; }
+.lobby_roster_index { flex-shrink:0; width:14dp; color:#8eafc7; text-align:center; font-size:12dp; }
 .lobby_roster_copy { display:block; flex:1; min-width:0; padding:2dp 4dp; text-align:left; }
 .lobby_roster_copy b { display:block; color:#eaf6ff; font-size:14dp; line-height:16dp; overflow:hidden; white-space:nowrap; }
-.lobby_roster_hunter { display:block; color:#a0b9cb; font-size:11dp; line-height:14dp; }
+.lobby_roster_hunter { display:block; color:#a0b9cb; font-size:12dp; line-height:14dp; }
 .lobby_roster_meta { flex-shrink:0; max-width:38%; text-align:right; }
-.lobby_roster_state { display:block; color:#a0b9cb; font-size:10dp; line-height:12dp; }
-.lobby_team { display:block; margin-top:2dp; padding:2dp 4dp; color:#deefff; font-size:11dp; line-height:14dp; border:1dp #426983; background-color:#12364b; }
+.lobby_roster_state { display:block; color:#a0b9cb; font-size:12dp; line-height:14dp; }
+.lobby_team { display:block; margin-top:2dp; padding:1dp 4dp; color:#deefff; font-size:12dp; line-height:14dp; border:1dp #426983; background-color:#12364b; }
 .lobby_roster_copy:hover, .lobby_roster_copy:focus, .lobby_team:hover, .lobby_team:focus { background-color:#1c4b68; }
 .lobby_roster_row.ready { background-color:rgba(15,65,52,85%); border-left-color:#55e18c; }
 .lobby_roster_row.ready .lobby_roster_state { color:#8af0ad; }
@@ -45,20 +45,20 @@
 .lobby_roster_add_bot { display:block; flex:1; width:100%; min-height:32dp; padding:2dp 4dp; text-align:left; color:#d9efff; }
 .lobby_roster_add_bot b, .lobby_roster_add_bot span { display:block; pointer-events:none; }
 .lobby_roster_add_bot b { font-size:12dp; line-height:14dp; }
-.lobby_roster_add_bot span { color:#9ac9dc; font-size:11dp; line-height:14dp; }
+.lobby_roster_add_bot span { color:#9ac9dc; font-size:12dp; line-height:14dp; }
 .lobby_roster_add_bot:hover, .lobby_roster_add_bot:focus { background-color:#1c4b68; }
 .lobby_roster_row.empty .lobby_roster_copy, .lobby_roster_row.empty .lobby_roster_meta { display:none; }
 .lobby_team:disabled { opacity:1; background-color:transparent; border-color:transparent; }
 #lobby_chat_panel { display:flex; flex-direction:column; flex:0 0 auto; height:124dp; min-height:0; margin-top:12dp; }
-#lobby_chat_panel > .eyebrow { flex-shrink:0; margin-bottom:4dp; font-size:11dp; }
+#lobby_chat_panel > .eyebrow { flex-shrink:0; margin-bottom:4dp; font-size:12dp; }
 #lobby_chat_history { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; word-break:break-word; font-size:12dp; line-height:16dp; }
-#lobby_chat_status { flex-shrink:0; color:#ffd18b; font-size:11dp; line-height:14dp; }
+#lobby_chat_status { flex-shrink:0; color:#ffd18b; font-size:12dp; line-height:14dp; }
 .lobby_chat_compose { display:flex; flex-shrink:0; min-width:0; margin-top:4dp; height:32dp; }
 #lobby_chat_input { flex:1; min-width:0; width:auto; height:32dp; padding:6dp; color:#eaf6ff; background-color:#091e2e; border:1dp #426983; font-size:12dp; }
 #lobby_chat_send { flex-shrink:0; width:48dp; height:32dp; color:#deefff; font-size:12dp; background-color:#12364b; border:1dp #426983; }
 #lobby_chat_input:focus, #lobby_chat_send:hover, #lobby_chat_send:focus { border-color:#78caff; background-color:#1c4b68; }
 #lobby_brief { position:absolute; left:37%; right:37%; top:16dp; padding:8dp 12dp; background-color:rgba(3,13,23,78%); border-top:1dp #426983; border-bottom:1dp #426983; pointer-events:none; }
-.lobby_brief_header { display:flex; justify-content:space-between; color:#9ac9dc; font-size:11dp; line-height:14dp; }
+.lobby_brief_header { display:flex; justify-content:space-between; color:#9ac9dc; font-size:12dp; line-height:14dp; }
 .lobby_brief_count { color:#ffffff; }
 .lobby_brief_title { margin:4dp 0 8dp; color:#eaf6ff; font-size:14dp; line-height:18dp; font-weight:bold; }
 .lobby_brief_slots { display:flex; }
@@ -69,7 +69,7 @@
 .lobby_brief_detail { display:none; }
 .lobby_nameplate { position:absolute; width:128dp; min-height:32dp; margin-left:-64dp; padding:4dp; color:#d9efff; text-align:center; background-color:rgba(4,20,31,85%); border-top:2dp #426983; }
 .lobby_nameplate b { display:block; font-size:12dp; line-height:14dp; overflow:hidden; white-space:nowrap; }
-.lobby_nameplate span { display:block; color:#9ac9dc; font-size:10dp; line-height:12dp; }
+.lobby_nameplate span { display:block; color:#9ac9dc; font-size:12dp; line-height:14dp; }
 .lobby_nameplate.local { width:152dp; margin-left:-76dp; border-color:#d3efff; }
 .lobby_nameplate.ready { border-color:#55e18c; }
 .lobby_nameplate:hover, .lobby_nameplate:focus { background-color:#1c4b68; border-color:#78caff; }
@@ -99,7 +99,7 @@
     .lobby_nameplate { display:none; }
     #lobby_actions { left:26%; right:8dp; }
     #lobby_leave { left:12dp; min-width:80dp; }
-    .lobby_action { padding:6dp; margin-right:4dp; font-size:12dp; }
+    .lobby_action { padding:6dp; margin-right:4dp; font-size:14dp; }
 }
 @media (max-height:600dp) {
     #lobby_heading { display:none; }
@@ -114,8 +114,8 @@
     #lobby_left_panels { width:33%; left:8dp; }
     #lobby_right_panels { width:54%; right:8dp; }
     #lobby_actions { left:24%; right:8dp; height:48dp; }
-    #lobby_actions .lobby_action { font-size:11dp; padding:4dp; }
-    #lobby_leave { left:8dp; width:20%; min-width:0; font-size:11dp; }
+    #lobby_actions .lobby_action { font-size:14dp; padding:4dp; }
+    #lobby_leave { left:8dp; width:20%; min-width:0; font-size:14dp; }
 }
 body.touch-targets .lobby_roster_row { min-height:52dp; }
 body.touch-targets #lobby_chat_panel { height:148dp; }
