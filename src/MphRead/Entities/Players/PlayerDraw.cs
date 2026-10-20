@@ -401,6 +401,17 @@ namespace MphRead.Entities
                         PaletteOverride = null;
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
+                            // The local third-person cannon moves with the
+                            // interpolated Hunter body, not the 60Hz muzzle.
+                            // Sample its world-space muzzle BEFORE restoring
+                            // canonical nodes, then use this point for effects
+                            // on draw-only frames. All shot/emitter state keeps
+                            // reading the ordinary canonical muzzle afterwards.
+                            Vector3 displayMuzzle = default;
+                            if (localThirdPersonActor)
+                                displayMuzzle = Matrix.Vec3MultMtx4(
+                                    Metadata.MuzzleOffests[(int)Hunter],
+                                    _shootNodes[lod]!.Animation);
                             if (isolateBipedAnchors)
                                 UpdateHunterBipedPresentation(model, spineNode, canonicalBody, canonicalAngle, null, null);
                             try
@@ -417,12 +428,14 @@ namespace MphRead.Entities
                                 && !Mods.Network.DemoPlayback.IsActive && !Mods.KillCam.Active
                                 && !Mods.SpectatorMode.IsSpectating && FrameTiming.Active
                                 && !_scene.HasPendingEffectSimulation;
+                            Vector3 effectDrawMuzzle = localThirdPersonActor
+                                && presentationOnlyMainEffect ? displayMuzzle : muzzlePos;
                             if (_chargeEffect != null)
                             {
                                 _chargeEffect.SetDrawEnabled(true);
                                 if (presentationOnlyMainEffect)
                                     _scene.SetPresentationEffectTransform(_chargeEffect,
-                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                        GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
                                     _chargeEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
                             }
@@ -431,7 +444,7 @@ namespace MphRead.Entities
                                 _muzzleEffect.SetDrawEnabled(true);
                                 if (presentationOnlyMainEffect)
                                     _scene.SetPresentationEffectTransform(_muzzleEffect,
-                                        GetTransformMatrix(_gunVec2, _gunVec1, muzzlePos), viewModel: false);
+                                        GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
                                     _muzzleEffect.Transform(_gunVec2, _gunVec1, muzzlePos);
                             }
