@@ -7,10 +7,10 @@ public sealed partial class DedicatedServer
 {
     private void HandleCustomWeaponControl(ReceivedPacket packet,double now)
     {
-        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { CustomCombat:not null } scene
+        if (!CustomWeaponCombatEnabled || _sim?.EvidenceScene is not { CustomCombat:not null } scene
             || Find(packet.Sender) is not { } peer || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { Combat:not null,Boundary:not null } entry
             || entry.Peer!=peer || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId
-            || !entry.Combat.Admit(now) || !CustomRoomReady(scene)
+            || !entry.Combat.Admit(now) || !CustomCanReceiveAction(scene,entry.Combat)
             || !CustomControlRequest.TryRead(packet.Payload,out var request) || request.Slot!=peer.SlotIndex
             || request.Bootstrap!=peer.BootstrapIdentity || request.Manifest!=entry.State.Wire.Manifest.Digest
             || request.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)

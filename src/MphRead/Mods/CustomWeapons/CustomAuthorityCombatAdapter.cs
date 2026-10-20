@@ -149,7 +149,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if (next.Kind==CustomWeaponActionKind.Fire && !_delivery.HasContactReservation(next)) return false;
             if (life.Sources.TryGet(owner,next.SourceFrame,Now,out var sample)
                 && unchecked((int)(Now-sample.ObservedWorldFrame))<=0) return false;
-            if(next.Kind==CustomWeaponActionKind.Fire&&!_delivery.TryPrepareAudience(next))return false;
+            if(next.Kind==CustomWeaponActionKind.Fire&&_delivery.MayExecute(next)&&!_delivery.TryPrepareAudience(next))return false;
         }
         if (!life.Journal.TryProcessNext(Now,this,this,out receipt)) return false;
         if (_delivery?.Publish(receipt)==false)
@@ -205,7 +205,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     CustomSourceDecision ICustomSourceAdmission.Inspect(in CustomWeaponAction action,out CustomSourceCertificate source)
     {
         source = default;
-        if (!IsEligible) return CustomSourceDecision.Rejected;
+        if (!IsEligible || _delivery?.MayExecute(action)==false) return CustomSourceDecision.Rejected;
         var decision = _sourceAdmission.Inspect(action,out source);
         if (decision == CustomSourceDecision.Verified && action.Kind == CustomWeaponActionKind.Fire
             && !TradeAllowed(action.Owner,source.TargetWorldFrame)) return CustomSourceDecision.Rejected;

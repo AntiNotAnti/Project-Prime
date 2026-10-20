@@ -126,6 +126,7 @@ namespace MphRead.Mods.Network
         public const byte ReasonInMatch = 4;
         public const byte ReasonLoadTimeout = 5;
         public const byte ReasonServerBusy = 6;
+        public const byte ReasonCustomWeaponReadiness = 7;
 
         public byte Reason;
         public byte Players;
@@ -156,6 +157,7 @@ namespace MphRead.Mods.Network
                 ReasonInMatch => "This server does not allow joining a match in progress.",
                 ReasonLoadTimeout => "The match could not wait any longer for this client to finish loading.",
                 ReasonServerBusy => "The server could not start its authoritative world. Try again shortly.",
+                ReasonCustomWeaponReadiness => "Riftline M7 readiness failed or timed out. Rejoin with a compatible build.",
                 ReasonFull => $"{where} is full ({Players}/{MaxPlayers} players). "
                     + "Try again when somebody leaves.",
                 ReasonProtocol => $"Network protocol mismatch with {where}; this build uses protocol {NetConfig.ProtocolVersion}. "
@@ -464,7 +466,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68/69 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68/69/70 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -472,7 +474,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70)
                 status = Read(src);
             else
             {
@@ -487,7 +489,9 @@ namespace MphRead.Mods.Network
             return status.MaxPlayers is >= 1 and <= 8
                 && Movement.MovementModelRules.ValidRules((MatchModifierFlags)status.Match.RuleBits)
                 && Movement.MovementModelRules.ValidRules(status.Rules)
-                && (status.Protocol >= 68 || (((uint)status.Rules | status.Match.RuleBits) & 131072u) == 0);
+                && (status.Protocol >= 68 || (((uint)status.Rules | status.Match.RuleBits) & 131072u) == 0)
+                && (status.Protocol >= 70 || (((uint)status.Rules | status.Match.RuleBits)
+                    & (uint)MatchModifierFlags.RiftlineM7Available) == 0);
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -2603,7 +2607,9 @@ namespace MphRead.Mods.Network
         // Prior movement profiles, packet identities and canonical payload widths are retained.
         // Protocol 69 adds accepted crouch stance and Traversal profile v2.
         // Native payload widths and prior movement profile contracts are retained.
-        public const int ProtocolVersion = 69;
+        // Protocol 70 activates frozen Riftline M7 match availability and automatic readiness.
+        // Native payload widths and protocol-69 stance/profile thresholds remain unchanged.
+        public const int ProtocolVersion = 70;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

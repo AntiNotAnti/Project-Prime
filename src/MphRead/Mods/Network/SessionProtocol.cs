@@ -60,10 +60,10 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt64LittleEndian(dest[(LegacySize - 8)..], AuthorityEpoch);
         }
 
-        // Archived recordings retain the original match-definition checks. Only
-        // support for the retired Enhanced rule differs from live admission.
+        // Native archives may retain retired Enhanced rules. Custom manifests
+        // and action reconstruction are not supported until CW-12.
         public static bool TryReadArchived(ReadOnlySpan<byte> src, out SessionStatePacket state)
-            => TryRead(src, out state, allowRetiredEnhanced: true);
+            => TryRead(src, out state, allowRetiredEnhanced: true) && !state.Match.RiftlineM7Available;
 
         public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state,
             bool validateDefinition = true, bool allowRetiredEnhanced = false)
@@ -122,6 +122,7 @@ namespace MphRead.Mods.Network
                     OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
                     NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
                     BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode),
+                    RiftlineM7Available = modifiers.HasFlag(MatchModifierFlags.RiftlineM7Available),
                     ThirdPersonCamera = modifiers.HasFlag(MatchModifierFlags.ThirdPersonCamera),
                     MovementModel = Movement.MovementModelRules.FromRules(modifiers)
                 }.NormalizeLegacy()

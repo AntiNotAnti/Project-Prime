@@ -63,27 +63,27 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 69
+            Check(NetConfig.ProtocolVersion == 70
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1287 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 69 preserves Balanced ability semantics and exact FireEvent pose");
+                "protocol 70 preserves Balanced ability semantics and exact FireEvent pose");
             Check((byte)PacketType.TurretFireOutcome == 72
                 && NetReliableChannel.IsReliable(PacketType.TurretFireOutcome),
-                "protocol 69 retains reliable authority turret outcomes and prior intent and pose contracts");
+                "protocol 70 retains reliable authority turret outcomes and prior intent and pose contracts");
             Check((byte)PacketType.TimedGrant == 77 && (byte)PacketType.PartyReservationRequest == 80
                 && (byte)PacketType.PartyReservationState == 81 && (byte)PacketType.PartyReservationAction == 82
                 && (byte)PacketType.CustomWeaponManifest == 83 && (byte)PacketType.CustomWeaponReady == 84
                 && (byte)PacketType.CustomWeaponReadyConfirmed == 85,
-                "protocol 69 retains custom readiness IDs after the unchanged native registry");
+                "protocol 70 retains custom readiness IDs after the unchanged native registry");
             Check((byte)PacketType.CustomWeaponAction == 86 && (byte)PacketType.CustomWeaponReceipt == 87
                 && (byte)PacketType.CustomWeaponContact == 88 && (byte)PacketType.CustomWeaponResultAck == 89
                 && (byte)PacketType.CustomWeaponState == 90,
-                "protocol 69 retains separate custom action/result/state IDs without shifting any prior registry value");
+                "protocol 70 retains separate custom action/result/state IDs without shifting any prior registry value");
             Check((byte)PacketType.CustomWeaponControl == 91 && (byte)PacketType.CustomWeaponControlDenied == 92,
-                "protocol 69 retains distinct custom source-control IDs without shifting prior packets");
+                "protocol 70 retains distinct custom source-control IDs without shifting prior packets");
             foreach (var customControl in new[] { PacketType.CustomWeaponControl, PacketType.CustomWeaponControlDenied })
                 Check(NetReliableChannel.IsReliable(customControl) && !NetReliableChannel.IsCritical(customControl)
                     && NetPacketQueue.Priority(customControl) == NetPacketPriority.Background,
@@ -91,10 +91,10 @@ internal static class NetArchitectureTests
             Check((byte)PacketType.CustomWeaponInput == 93 && !NetReliableChannel.IsReliable(PacketType.CustomWeaponInput)
                 && NetPacketQueue.Priority(PacketType.CustomWeaponInput) == NetPacketPriority.Realtime
                 && NetWireTelemetry.Classify(PacketType.CustomWeaponInput) == NetTrafficKind.Intent,
-                "protocol 69 custom input wrapper is unreliable realtime intent traffic without moving prior IDs");
+                "protocol 70 custom input wrapper is unreliable realtime intent traffic without moving prior IDs");
             Check((byte)PacketType.CustomWeaponReplicaPage == 94 && (byte)PacketType.CustomWeaponReplicaEvent == 95
                 && (byte)PacketType.CustomWeaponReplicaAck == 96,
-                "protocol 69 retains distinct recipient replica identities after unchanged IDs0–93");
+                "protocol 70 retains distinct recipient replica identities after unchanged IDs0–93");
             foreach (var replica in new[] { PacketType.CustomWeaponReplicaPage, PacketType.CustomWeaponReplicaEvent, PacketType.CustomWeaponReplicaAck })
                 Check(NetReliableChannel.IsReliable(replica) && !NetReliableChannel.IsCritical(replica)
                     && NetPacketQueue.Priority(replica) == NetPacketPriority.Background

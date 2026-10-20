@@ -51,7 +51,7 @@ namespace MphRead.Mods.Network
         InstaGib = 64, LowTier = 128, NoImperialist = 256, OctolithAutoReset = 512,
         EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192, ThirdPersonCamera = 16384,
         MomentumMovement = 32768, Quake3Movement = 65536, TraversalMovement = 131072,
-        // Reserved until the public custom-loadout protocol is activated.
+        // Protocol70: frozen availability; selection stays a per-life action.
         RiftlineM7Available = 262144
     }
 
@@ -79,7 +79,7 @@ namespace MphRead.Mods.Network
         public bool NoImperialist { get; init; }
         public bool BalancedMode { get; init; }
         // Frozen availability; personal selection remains a per-life custom action.
-        // CW-05f reserves this contract; lobby/wire admission still refuses activation.
+        // Default false keeps ordinary matches on the native-only path.
         public bool RiftlineM7Available { get; init; }
         // Rendering-only choice, owned by the match host and shared with every client.
         public bool ThirdPersonCamera { get; init; }

@@ -30,11 +30,9 @@ namespace MphRead.Mods.Network
         public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
         {
             reason = "";
-            if (match.RiftlineM7Available)
-            {
-                reason = "Riftline M7 match availability is not enabled in this protocol.";
+            if (match.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
+                match.Mode, match.Rules, online: false, bots: 0, out reason))
                 return LobbyResultCode.InvalidConfiguration;
-            }
             if (!MatchModifierRules.Validate(match, out reason, allowRetiredEnhanced)) return LobbyResultCode.InvalidConfiguration;
             if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
                 || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
@@ -55,6 +53,10 @@ namespace MphRead.Mods.Network
         {
             var result = ValidateDefinition(match, out reason);
             if (result != LobbyResultCode.Ok) return result;
+            if (match.RiftlineM7Available)
+                for (int slot = 0; slot < roster.Count; slot++)
+                    if (roster.IsBot(slot))
+                    { reason = "Online Riftline M7 matches require human players without bots."; return LobbyResultCode.InvalidConfiguration; }
             TeamLayout layout = ResolveTeamLayout(match);
             int required = match.Mode == GameMode.OneInTheChamber || layout.TeamCount > 0
                 ? 2

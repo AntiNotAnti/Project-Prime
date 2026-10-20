@@ -42,7 +42,13 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 69, "current protocol train is 69");
+            Check(NetConfig.ProtocolVersion == 70, "current protocol train is 70");
+            var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
+            var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
+            var decodedRefusal=RefusedPacket.Read(refusalBytes);
+            Check(refusalBytes.AsSpan().SequenceEqual(new byte[]{7,2,8})&&decodedRefusal.Reason==7
+                &&decodedRefusal.Describe("fixture")=="Riftline M7 readiness failed or timed out. Rejoin with a compatible build.",
+                "custom readiness refusal preserves3-byte payload and explicit recovery message");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");
@@ -66,8 +72,8 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 69 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol69 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66 })
+            Check(bytes[3] == 70 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol70 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);

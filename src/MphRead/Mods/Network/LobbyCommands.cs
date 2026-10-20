@@ -56,7 +56,7 @@ namespace MphRead.Mods.Network
             FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
             HideOpponentHealth = true, DisablePowerups = !EnablePowerups, SpawnProtection = SpawnProtection,
             Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
-            BalancedMode = BalancedMode, MovementModel = MovementModel,
+            BalancedMode = BalancedMode, MovementModel = MovementModel, RiftlineM7Available = RiftlineM7Available,
             OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset
         }.NormalizeLegacy();
 
@@ -289,6 +289,8 @@ namespace MphRead.Mods.Network
                     var proposed = command.Configuration.Match;
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);
                     if (valid != LobbyResultCode.Ok) return valid;
+                    if (proposed.RiftlineM7Available && _bots.Count > 0)
+                    { reason = "Remove bots before enabling Riftline M7 availability."; return LobbyResultCode.InvalidConfiguration; }
                     string? room = ResolveRoomKey(proposed.RoomKey);
                     if (room == null) { reason = "The server does not have that map."; return LobbyResultCode.MapUnavailable; }
                     TeamLayout proposedLayout = LobbyRules.ResolveTeamLayout(proposed);
@@ -385,6 +387,8 @@ namespace MphRead.Mods.Network
         private bool BeginLobbyMatch(MatchDefinition match, double now, out string reason)
         {
             reason = "";
+            if (match.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
+                match.Mode, match.Rules, online: true, _bots.Count, out reason)) return false;
             if (match.MapIdentity.IsCustom)
             {
                 Peer? waiting = _peers.FirstOrDefault(p => p.PreparedMap != match.MapIdentity || p.MapAvailability != MapAvailabilityState.Ready);

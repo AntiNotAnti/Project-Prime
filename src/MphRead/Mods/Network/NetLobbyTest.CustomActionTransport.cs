@@ -112,17 +112,17 @@ public static partial class NetLobbyTest
         private int _setupRequest,_setupDone,_retiring,_mutationSerial,_mutationDone;
         private ActionFixtureMutation? _mutation;
         private bool _protect;
-        private readonly bool _impaired;
+        private readonly bool _impaired,_publicAvailability;
         private uint _firstSource,_secondSource;
         internal ActionWorldSnapshot Latest => Volatile.Read(ref _latest) ?? throw new InvalidOperationException("No engine snapshot.");
-        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false)
+        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false,bool publicAvailability=false)
         {
             ResetActionLag();
             if(tokenOwnerSecond&&ownerToken==Guid.Empty)throw new ArgumentException("Second-slot token owner fixture requires an actual owner token.");
-            Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:true,customCombat:true);
+            Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:!publicAvailability,customCombat:!publicAvailability,publicAvailability:publicAvailability);
             try
             {
-                _impaired=impaired;
+                _impaired=impaired; _publicAvailability=publicAvailability;
                 // Server faults are OFF. Each actual client holds outgoing and
                 // incoming datagrams 80 ms, adding 160 ms RTT only once.
                 if (impaired)
@@ -140,7 +140,10 @@ public static partial class NetLobbyTest
                 const BindingFlags hidden=BindingFlags.Instance|BindingFlags.NonPublic;
                 _sim=(ServerSim)typeof(DedicatedServer).GetField("_sim",hidden)!.GetValue(Rig.Server)!;
                 _scene=_sim.EvidenceScene!;
-                Check(_scene.CustomCombat is { IsEligible:true },"explicit developer engine combat is installed in actual dedicated scene");
+                Check(_scene.CustomCombat is { IsEligible:true },"explicit custom combat is installed in actual dedicated scene");
+                if(publicAvailability) Check(!Rig.Server.DeveloperCustomWeaponReadiness&&!Rig.Server.DeveloperCustomWeaponCombat
+                    &&!NetSession.DeveloperCustomWeaponReadiness&&First.State!.Value.Match.RiftlineM7Available,
+                    "public frozen match activates real engine combat with every developer capability flag off");
                 _sinkField=typeof(NetSession).GetField("_snapshotSink",BindingFlags.Static|BindingFlags.NonPublic)!;
                 _original=(SnapshotSink)_sinkField.GetValue(null)!;
                 _protect=protect; Volatile.Write(ref _setupRequest,1);
@@ -253,6 +256,7 @@ public static partial class NetLobbyTest
         internal void CompleteRoom()
         {
             SecondReady.Send(); Rig.Wait(()=>SecondReady.Confirmations>0,"last actual participant completes custom readiness");
+            if(_publicAvailability) Observe(First,++_firstSource,false);
             Observe(Second,_secondSource,false);
             Rig.Wait(()=>A.State.HasValue && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
                 && Rig.Server.TryGetCustomReplicaReady(First.Slot,out bool firstReady,out _) && firstReady
@@ -364,15 +368,15 @@ public static partial class NetLobbyTest
         NetLag.ConfigureSeed("1");
     }
 
-    public static int RunCustomActionTransport(string data)
+    public static int RunCustomActionTransport(string data,bool publicAvailability=false)
     {
         string directory=Directory.GetCurrentDirectory(); _checks=0;
         try
         {
             Directory.SetCurrentDirectory(Path.GetFullPath(data)); Paths.UpdatePaths(); Paths.ChooseMphPath(); Headless.Enter();
-            CustomActionUdpDamage(false,false); CustomActionUdpDamage(true,false); CustomActionUdpDamage(false,true);
-            CustomActionUdpCapacity(); CustomActionUdpOwnership(); CustomActionUdpRoomGate();
-            CustomActionUdpTrade(false); CustomActionUdpTrade(true); CustomActionUdpRespawnRetention(); CustomActionUdpImpaired();
+            CustomActionUdpDamage(false,false,publicAvailability); CustomActionUdpDamage(true,false,publicAvailability); CustomActionUdpDamage(false,true,publicAvailability);
+            CustomActionUdpCapacity(publicAvailability); CustomActionUdpOwnership(publicAvailability); CustomActionUdpRoomGate(publicAvailability);
+            CustomActionUdpTrade(false,publicAvailability); CustomActionUdpTrade(true,publicAvailability); CustomActionUdpRespawnRetention(publicAvailability); CustomActionUdpImpaired(publicAvailability);
             Console.WriteLine($"PASS {_checks} real UDP/engine custom action transport checks.");
             Console.WriteLine("SCOPE: actual dedicated engine, endpoint UDP readiness/input/action handlers, source-admitted equip/optic/fire, retained receipt/contact application ACKs, bounded backpressure, canonical health/trade, native respawn and one client-transport 160ms RTT/10% seeded datagram-loss run. Remote native scene-load acknowledgements and clear-lane/health/protection/death/respawn setup are explicit fixtures. No rendered client, bot/local parity or latency fairness is claimed.");
             return 0;
@@ -381,9 +385,10 @@ public static partial class NetLobbyTest
         finally { NetSession.Stop(); Directory.SetCurrentDirectory(directory); }
     }
 
-    private static void CustomActionUdpDamage(bool head,bool protect)
+    private static void CustomActionUdpDamage(bool head,bool protect,bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture(protect); f.Equip(f.First);
+        using var f=new ActionTransportFixture(protect,publicAvailability:publicAvailability); f.Equip(f.First);
+        if(publicAvailability) f.Rig.Server.RiftlineM7Available=false;
         var action=f.Press(f.First,3,head);
         f.A.DiscardReceipts=1;
         f.Send(f.First,action);
@@ -434,9 +439,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"real UDP action/contact processing has no simulation exceptions");
     }
 
-    private static void CustomActionUdpCapacity()
+    private static void CustomActionUdpCapacity(bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture();
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability);
         for (uint sequence=1;sequence<=16;sequence++)
         {
             var kind=sequence==1 ? CustomWeaponActionKind.Equip:CustomWeaponActionKind.Optic;
@@ -462,9 +467,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"outbox backpressure and recovery leave actual simulation healthy");
     }
 
-    private static void CustomActionUdpOwnership()
+    private static void CustomActionUdpOwnership(bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture();
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability);
         var equip=f.Action(f.First,1,CustomWeaponActionKind.Equip);
         f.Send(f.Second,equip);
         ObserveCustomReadiness(f.Rig,100,"different admitted UDP slot carries copied custom action");
@@ -492,9 +497,32 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"ownership and duplicate conflicts do not throw on simulation thread");
     }
 
-    private static void CustomActionUdpRoomGate()
+    private static void CustomActionUdpRoomGate(bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture(completeRoom:false);
+        using var f=new ActionTransportFixture(completeRoom:false,publicAvailability:publicAvailability);
+        if(publicAvailability)
+        {
+            Check(f.Latest.First is { HasState:true,State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
+                &&!f.Latest.Second.HasState&&!f.A.State.HasValue&&!f.B.State.HasValue,
+                "ready public actor binds source-owned unequipped inventory without publishing private resources before room readiness");
+            var ready=f.FirstReady.Ready!.Value;
+            var premature=new CustomControlRequest(ready.Bootstrap,ready.Manifest,(byte)f.First.Slot,
+                f.Latest.First.Owner.Life,new(10),1,CustomWeaponActionKind.Equip,0);
+            var bytes=new byte[CustomControlRequest.Size]; premature.Write(bytes);
+            f.First.Send(PacketType.CustomWeaponControl,bytes);
+            uint waiting=f.Latest.World;
+            f.WaitWorld(waiting+6,"public incomplete capability room continues native simulation without custom activation");
+            Check(f.Latest.First.State.Phase==CustomWeaponPhase.Unequipped&&!f.Latest.Second.HasState
+                &&!f.A.State.HasValue&&!f.B.State.HasValue&&f.A.Receipts.Count==0&&f.Latest.Contacts==0&&f.Latest.Payments==0
+                &&(!f.Rig.Server.TryGetCustomActionPending(f.First.Slot,out int pending)||pending==0),
+                "public partial readiness publishes no private projection and reserves no premature control deadline or action effects");
+            f.CompleteRoom();
+            Check(f.A.State is { State.Phase:CustomWeaponPhase.Unequipped }
+                &&f.B.State is { State.Phase:CustomWeaponPhase.Unequipped }&&f.Latest.StepFailures==0,
+                "public whole-room readiness publishes source-owned resources with native selection preserved");
+            f.Equip(f.First,freshSources:true);
+            return;
+        }
         Check(f.Latest.First.HasState && !f.Latest.Second.HasState,
             "one ready source owner cannot manufacture the other participant's inventory");
         var equip=f.Action(f.First,1,CustomWeaponActionKind.Equip); f.Send(f.First,equip);
@@ -509,9 +537,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"room capability gate leaves ordinary native simulation running");
     }
 
-    private static void CustomActionUdpTrade(bool earlierKill)
+    private static void CustomActionUdpTrade(bool earlierKill,bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture(); f.Equip(f.First); f.Equip(f.Second);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability); f.Equip(f.First); f.Equip(f.Second);
         f.SeedHealth(65,65);
         uint sharedAck=f.Latest.World;
         var first=f.Press(f.First,3,ack:sharedAck);
@@ -565,9 +593,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"actual UDP trade and earlier-kill denial complete without engine exceptions");
     }
 
-    private static void CustomActionUdpRespawnRetention()
+    private static void CustomActionUdpRespawnRetention(bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture(); f.Equip(f.First);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability); f.Equip(f.First);
         var fire=f.Press(f.First,3); var receipt=f.Settle(f.First,fire);
         f.Rig.Wait(()=>f.A.Contacts.ContainsKey(3) && f.Latest.Second.Health==135,
             "old firing life owns a genuine emitted UDP receipt and canonical contact before respawn");
@@ -600,9 +628,9 @@ public static partial class NetLobbyTest
             && f.Latest.StepFailures==0,"old-life ACK retirement leaves fresh inventory and simulation intact");
     }
 
-    private static void CustomActionUdpImpaired()
+    private static void CustomActionUdpImpaired(bool publicAvailability=false)
     {
-        using var f=new ActionTransportFixture(impaired:true);
+        using var f=new ActionTransportFixture(impaired:true,publicAvailability:publicAvailability);
         const BindingFlags hidden=BindingFlags.Instance|BindingFlags.NonPublic;
         var serverTransport=(NetTransport)typeof(DedicatedServer).GetField("_transport",hidden)!.GetValue(f.Rig.Server)!;
         Check(typeof(NetTransport).GetField("_lagWorker",hidden)!.GetValue(serverTransport)==null

@@ -985,6 +985,7 @@ namespace MphRead.NetTest
             if (args.Length > 1 && args[0] == "--custom-action-udp") return NetLobbyTest.RunCustomActionTransport(args[1]);
             if (args.Length > 1 && args[0] == "--custom-control-udp") return NetLobbyTest.RunCustomControlTransport(args[1]);
             if (args.Length > 1 && args[0] == "--custom-input-udp") return NetLobbyTest.RunCustomInputCarrier(args[1]);
+            if (args.Length > 1 && args[0] == "--custom-public-availability-udp") return NetLobbyTest.RunCustomPublicAvailability(args[1]);
             if (args.Length > 1 && args[0] == "--custom-native-fire-udp") return NetLobbyTest.RunCustomNativeFire(args[1]);
             if (args.Length > 1 && args[0] == "--custom-replica-udp") return NetLobbyTest.RunCustomReplicaTransport(args[1]);
             if (args.Length > 1 && args[0] == "--custom-acceptance-udp") return NetLobbyTest.RunCustomAuthorityAcceptance(args[1]);

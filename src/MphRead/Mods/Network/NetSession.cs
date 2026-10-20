@@ -1031,12 +1031,11 @@ namespace MphRead.Mods.Network
                     }
                     break;
                 case PacketType.Refused when Role == NetRole.Client:
-                    if (packet.Payload.Length >= 1 && (LocalSlot < 0 || packet.Payload[0] == RefusedPacket.ReasonKicked))
+                    if (packet.Payload.Length >= 1 && (LocalSlot < 0 || packet.Payload[0] is RefusedPacket.ReasonKicked or RefusedPacket.ReasonCustomWeaponReadiness))
                     {
-                        // Only while still waiting to be let in. A refusal
-                        // arriving mid-match would be a stale datagram from
-                        // the join, and acting on one of those would throw a
-                        // player out of a match they are already in.
+                        // Join refusals are stale once admitted. Owner kicks
+                        // and custom readiness failures explicitly retire an
+                        // already admitted endpoint on this authenticated link.
                         RefusedReason = RefusedPacket.Read(packet.Payload);
                         Refused = true;
                     }
@@ -1682,9 +1681,13 @@ namespace MphRead.Mods.Network
                 || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules(controlRules))
                     && (controlRules & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0)
             { LastError = "Unsupported or conflicting movement rules."; return; }
+            if ((controlRules & MatchModifierFlags.RiftlineM7Available) != 0
+                && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit((GameMode)state.Mode, controlRules, online: true, bots: 0, out string customReason))
+            { LastError = customReason; return; }
             if (ServerSession is { Phase: not SessionPhase.Lobby } session
                 && session.MatchId == state.MatchId && session.AuthorityEpoch == state.AuthorityEpoch
-                && Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits) != session.Match.MovementModel)
+                && (Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits) != session.Match.MovementModel
+                    || ((controlRules & MatchModifierFlags.RiftlineM7Available) != 0) != session.Match.RiftlineM7Available))
                 return;
             if (!_playback && state.EnhancedHunters)
             {
@@ -1695,10 +1698,13 @@ namespace MphRead.Mods.Network
             MatchStatePacket? previous = ServerMatch;
             // With no session baseline this is genuine match control, rather
             // than the provisional control synthesized from a mutable lobby.
-            if (ServerSession == null && previous is { } frozenControl
+            if ((ServerSession is not { Phase: SessionPhase.Lobby } provisional
+                    || provisional.MatchId != state.MatchId || provisional.AuthorityEpoch != state.AuthorityEpoch)
+                && previous is { } frozenControl
                 && frozenControl.MatchId == state.MatchId && frozenControl.AuthorityEpoch == state.AuthorityEpoch
-                && Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits)
-                    != Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits))
+                && (Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits)
+                    != Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits)
+                    || (((MatchModifierFlags)frozenControl.RuleBits ^ controlRules) & MatchModifierFlags.RiftlineM7Available) != 0))
                 return;
             if (previous.HasValue)
             {
