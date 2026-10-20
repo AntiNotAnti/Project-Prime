@@ -6,9 +6,11 @@ namespace MphRead.Mods.Network;
 public sealed partial class DedicatedServer
 {
     // Configure on the server owner before Run. No lobby/CLI/public mode enables
-    // this developer capability, and no combat runtime consumes it in this slice.
+    // this developer capability. Combat requires a separate explicit developer flag.
     internal bool DeveloperCustomWeaponReadiness { get; set; }
-    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State);
+    // Separate explicit developer choice: capability alone never activates combat.
+    internal bool DeveloperCustomWeaponCombat { get; set; }
+    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary);
     private CustomReadyEntry?[]? _customReadyEntries;
     private bool CustomNativeReady(Peer peer)
         => (uint)peer.SlotIndex < 8 && peer.SceneLoaded && peer.MatchReady && peer.AdmissionReady
@@ -34,7 +36,8 @@ public sealed partial class DedicatedServer
             if (entry?.Peer != peer || entry.State.ConnectionId != connection || entry.State.Wire.Bootstrap != peer.BootstrapIdentity)
             {
                 entry?.State.Invalidate();
-                entry = new(peer,new(peer.BootstrapIdentity,(byte)slot,connection,now));
+                var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now);
+                entry = new(peer,state,DeveloperCustomWeaponCombat ? new(state) : null);
                 _customReadyEntries[slot] = entry;
             }
             if (entry.State.Due(now)) _transport.TrySendSemantic(peer.EndPoint,PacketType.CustomWeaponManifest,entry.State.Wire.ManifestBytes);
@@ -67,17 +70,61 @@ public sealed partial class DedicatedServer
         uint world = NetSession.NetFrame;
         if (unchecked((int)(world-peer.BootstrapIdentity.AuthorityFrame)) < 0) world = peer.BootstrapIdentity.AuthorityFrame;
         var result = entry.State.Receive(packet.Payload,packet.ConnectionId,world,now);
+        if (result == CustomReadinessResult.Accepted) entry.Boundary?.ConfirmReadiness();
         if (result is CustomReadinessResult.Accepted or CustomReadinessResult.Duplicate)
             _transport.TrySendSemantic(peer.EndPoint,PacketType.CustomWeaponReadyConfirmed,entry.State.Wire.ReadyBytes);
     }
     // Atomic immutable diagnostic capability snapshot. This deliberately does
-    // not implement H's ICustomSourceReadiness: no source boundary is proven yet.
+    // not implement ICustomSourceReadiness. The live bridge below independently
+    // rechecks peer identity and requires an engine-consumed source boundary.
     internal bool TryGetCustomWeaponReady(int slot,out CustomPeerReadyEvidence evidence)
     {
         evidence = null!;
         if (!_running || !DeveloperCustomWeaponReadiness || (uint)slot >= 8 || _customReadyEntries?[slot] is not { } entry
             || entry.State.Evidence is not { } ready) return false;
         evidence = ready; return true;
+    }
+
+    private CustomReadyEntry? CurrentCustomSourceEntry(WeaponOwnerContext owner,Scene scene)
+    {
+        if (!DeveloperCustomWeaponCombat || !DeveloperCustomWeaponReadiness || !_running || !Simulating
+            || _sim?.EvidenceScene != scene || !owner.IsValid || owner.Slot >= 8
+            || owner.MatchId != _matchId || owner.AuthorityEpoch != _authorityEpoch
+            || !NetPlayerLifecycle.Matches(owner.Slot,owner.Generation,owner.Life)
+            || _customReadyEntries?[owner.Slot] is not { Boundary: not null } entry
+            || !CustomNativeReady(entry.Peer) || Find(entry.Peer.EndPoint) != entry.Peer
+            || entry.State.Wire.Bootstrap != entry.Peer.BootstrapIdentity
+            || _transport?.ConnectionStats(entry.Peer.EndPoint)?.ConnectionId != entry.State.ConnectionId) return null;
+        return entry;
+    }
+    private sealed class LiveCustomSourceReadiness(DedicatedServer server,Scene scene) : ICustomSourceBoundaryReadiness
+    {
+        public bool TryGet(WeaponOwnerContext owner,out CustomSourceReadyContext context)
+        {
+            context = default;
+            return server.CurrentCustomSourceEntry(owner,scene)?.Boundary?.TryGet(owner,out context) == true;
+        }
+        public bool TryOpen(in CustomSourceInput input,out CustomSourceReadyContext context)
+        {
+            context = default;
+            return server.CurrentCustomSourceEntry(input.Owner,scene)?.Boundary?.TryOpen(input,out context) == true;
+        }
+    }
+    private void NoteCustomCurrentInput(ReceivedPacket packet,Peer peer,in IntentPacket intent)
+    {
+        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { } scene) return;
+        var owner = new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)peer.SlotIndex,intent.SlotGeneration,intent.LifeId);
+        if (CurrentCustomSourceEntry(owner,scene) is not { } entry || entry.Peer != peer
+            || packet.ConnectionId == 0 || packet.ConnectionId != entry.State.ConnectionId) return;
+        entry.Boundary!.NoteAcceptedInput(new(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
+            intent.Position,intent.Aim,(uint)intent.Buttons));
+    }
+    private void ConfigureCustomSourceCombat(Scene scene)
+    {
+        if (!DeveloperCustomWeaponCombat) return;
+        if (!DeveloperCustomWeaponReadiness)
+            throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
+        scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene));
     }
 }
 

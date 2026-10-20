@@ -1094,13 +1094,14 @@ namespace MphRead.Mods.Network
             private readonly Thread _thread;
             private Exception? _error;
             private readonly bool _simulate;
-            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null, int maxPlayers = 8, double waitlistOfferSeconds = 15, double waitlistResumeSeconds = 10, bool allowJoinInProgress = true,bool customReadiness = false)
+            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null, int maxPlayers = 8, double waitlistOfferSeconds = 15, double waitlistResumeSeconds = 10, bool allowJoinInProgress = true,bool customReadiness = false,bool customCombat = false)
             {
                 _simulate = simulate;
                 Server = new DedicatedServer(0, maxPlayers, rotation ?? MapRotation.SingleMatch(room ?? Rooms()[0], GameMode.Battle, 0, 0))
                     { SessionPolicy = policy, OwnerToken = token, WaitlistOfferSeconds = waitlistOfferSeconds, WaitlistResumeGraceSeconds = waitlistResumeSeconds };
                 if (simulate) Server.ReplayPolicy = new ServerReplayPolicy(Enabled: false);
                 Server.DeveloperCustomWeaponReadiness = customReadiness;
+                Server.DeveloperCustomWeaponCombat = customCombat;
                 typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                     .SetValue(Server, !simulate);

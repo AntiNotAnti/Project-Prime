@@ -18,7 +18,7 @@ internal sealed class CustomSourceClock
         if (!owner.IsValid) throw new ArgumentException("Valid occupant required.", nameof(owner));
         _occupant = owner; _sourceAnchor = source; _worldAnchor = _worldFrontier = world;
     }
-    internal bool Observe(WeaponOwnerContext owner, uint source, uint world)
+    private bool CanObserve(WeaponOwnerContext owner,uint source,uint world)
     {
         if (!owner.IsValid || owner.MatchId != _occupant.MatchId || owner.AuthorityEpoch != _occupant.AuthorityEpoch
             || owner.Slot != _occupant.Slot || owner.Generation != _occupant.Generation
@@ -26,11 +26,18 @@ internal sealed class CustomSourceClock
         long sourceElapsed = unchecked((int)(source-_sourceAnchor));
         long worldElapsed = unchecked((int)(world-_worldAnchor));
         if (sourceElapsed < -128 || sourceElapsed > worldElapsed+32) return false;
+        return true;
+    }
+    internal bool Observe(WeaponOwnerContext owner, uint source, uint world)
+    {
+        if (!CanObserve(owner,source,world)) return false;
         _worldFrontier = world; return true;
     }
+    internal bool CanBindLife(WeaponOwnerContext owner,uint source,uint world)
+        => (!_hasBoundLife || unchecked((short)(owner.Life-_boundLife)) > 0) && CanObserve(owner,source,world);
     internal bool TryBindLife(WeaponOwnerContext owner, uint source, uint world)
     {
-        if (_hasBoundLife && unchecked((short)(owner.Life-_boundLife)) <= 0) return false;
+        if (!CanBindLife(owner,source,world)) return false;
         if (!Observe(owner,source,world)) return false;
         _boundLife = owner.Life; _hasBoundLife = true; return true;
     }

@@ -9,6 +9,7 @@ if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChe
 if (args.Length == 2 && args[0] == "--authority-scene") return CustomAuthoritySceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--engine-source-scene") return CustomAuthoritySceneChecks.Run(args[1],sourceOnly:true);
 if (args.Length == 2 && args[0] == "--engine-admission-scene") return CustomAuthoritySceneChecks.Run(args[1],admissionOnly:true);
+if (args.Length == 2 && args[0] == "--engine-readiness-scene") return CustomAuthoritySceneChecks.Run(args[1],readinessOnly:true);
 
 int checks = 0;
 void Check(bool condition, string name)
@@ -174,6 +175,7 @@ SourceJournalChecks.Run(Check);
 EngineSourceHistoryChecks.Run(Check);
 SourceModifierChecks.Run(Check);
 ReadinessChecks.Run(Check);
+SourceBoundaryChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/payment checks (pure contracts; scene fixture requires --scene)");
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

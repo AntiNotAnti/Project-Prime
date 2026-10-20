@@ -28,11 +28,11 @@ internal sealed partial class CustomAuthorityCombatAdapter
         if (!_inputPhase || Now != _inputWorld || !CurrentOwner(player,out var owner)
             || intent.MatchId != owner.MatchId || intent.AuthorityEpoch != owner.AuthorityEpoch
             || intent.SlotGeneration != owner.Generation || intent.LifeId != owner.Life
-            || NetSession.RemoteIntentAge(owner.Slot) > 30 || Spectating(player)
-            || _current[owner.Slot]?.Owner != owner) return;
+            || NetSession.RemoteIntentAge(owner.Slot) > 30 || Spectating(player)) return;
         var input = new CustomSourceInput(owner,intent.Frame,intent.AckFrame,intent.AckSubFrame,
             intent.Position,intent.Aim,(uint)intent.Buttons);
-        if (_sourceAdmission is CustomEngineSourceAdmission engine && !engine.CanCapture(owner)) return;
+        if (_sourceBoundary == null && (_current[owner.Slot]?.Owner != owner
+            || _sourceAdmission is CustomEngineSourceAdmission engine && !engine.CanCapture(owner))) return;
         if (input.IsValid) _acceptedInputs[owner.Slot] = new(player,input,placedBody,stableBiped,acceptedPose);
     }
     internal void CompleteSourceInputPhase(bool capture = true)
@@ -47,12 +47,27 @@ internal sealed partial class CustomAuthorityCombatAdapter
             if (capture && IsEligible && _inputWorld == Now)
                 foreach (var accepted in _acceptedInputs)
                     if (accepted is { } token && CurrentOwner(token.Player,out var owner)
-                        && token.Input.Owner == owner && _current[owner.Slot] is { Journal: not null } life
-                        && life.Owner == owner)
+                        && token.Input.Owner == owner && !Spectating(token.Player))
                     {
+                        CustomPrecombatFacts facts = default;
+                        bool hasFacts = token.AcceptedPose
+                            && token.Player.ModTryCaptureCustomPrecombatFacts(token.Input.ReportedAim,out facts);
+                        // A packet or action cannot grant a loadout. The exact
+                        // accepted post-ready carrier must reach actual engine
+                        // placement/controls before selecting a source boundary.
+                        if (_sourceBoundary != null)
+                        {
+                            if (_current[owner.Slot]?.Owner != owner
+                                && (!hasFacts || !token.StableBiped || token.Player.Position != token.PlacedBody)) continue;
+                            if (!_sourceBoundary.TryOpen(token.Input,out _)
+                                || _sourceAdmission is not CustomEngineSourceAdmission admission || !admission.CanCapture(owner)) continue;
+                            if (_current[owner.Slot]?.Owner != owner
+                                && !BindLife(token.Player,token.Input.Frame,facts.CanUseWeapon)) continue;
+                        }
+                        if (_current[owner.Slot] is not { Journal: not null } life || life.Owner != owner) continue;
                         CustomObservationResult result;
                         bool canUse = false;
-                        if (token.AcceptedPose && token.Player.ModTryCaptureCustomPrecombatFacts(token.Input.ReportedAim,out var facts))
+                        if (hasFacts)
                         {
                             facts = facts with { Body = token.PlacedBody,CanUseWeapon = facts.CanUseWeapon
                                 && token.StableBiped && token.Player.Position == token.PlacedBody,

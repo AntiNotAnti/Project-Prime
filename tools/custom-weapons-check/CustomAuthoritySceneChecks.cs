@@ -47,13 +47,24 @@ internal static class CustomAuthoritySceneChecks
         internal readonly PlayerEntity Shooter, Victim;
         internal readonly TrustedFixtureOracle Oracle = new();
         internal readonly TrustedReadinessFixture Readiness = new();
+        internal readonly CustomReadinessPeer? BoundaryPeer;
+        internal readonly CustomPeerSourceBoundary? Boundary;
         internal readonly CustomAuthorityCombatAdapter Root;
         internal readonly WeaponOwnerContext Owner;
-        internal readonly BeamProjectileEntity[] Pool;
+        internal BeamProjectileEntity[] Pool
+        {
+            get
+            {
+                var slots = (Array)typeof(CustomAuthorityCombatAdapter).GetField("_slots",Hidden)!.GetValue(Root)!;
+                var slot = slots.GetValue(Shooter.SlotIndex);
+                return slot == null ? Array.Empty<BeamProjectileEntity>()
+                    : ((EquipInfo)slot.GetType().GetField("Equip",Hidden)!.GetValue(slot)!).Beams;
+            }
+        }
         private uint _sequence;
         internal long StepFailures => _sim.StepFailures;
         internal void Step() => _sim.Step();
-        internal Fixture(bool engineSources = false)
+        internal Fixture(bool engineSources = false,bool automaticSourceBoundary = false)
         {
             var roster = RosterPacket.Create(); roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 2;
             for (byte slot=0; slot<2; slot++)
@@ -103,24 +114,32 @@ internal static class CustomAuthoritySceneChecks
                 catch (InvalidOperationException) { refused = true; }
                 Check(refused && Scene.CustomCombat == null && Scene.CustomWeapons == null,
                     "missing explicit developer opt-in refuses without installing runtime or registry");
-                Root = engineSources ? Scene.EnableDeveloperEngineCustomCombat(true,Readiness)
-                    : Scene.EnableDeveloperCustomCombat(true,Oracle);
                 var key = ShotKey.For(Shooter.SlotIndex,0);
                 Owner = new(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+                if (automaticSourceBoundary)
+                {
+                    BoundaryPeer = new(Bootstrap(),Owner.Slot,1,0);
+                    Boundary = new(BoundaryPeer);
+                    Root = Scene.EnableDeveloperEngineCustomCombat(true,Boundary);
+                }
+                else Root = engineSources ? Scene.EnableDeveloperEngineCustomCombat(true,Readiness)
+                    : Scene.EnableDeveloperCustomCombat(true,Oracle);
                 Readiness.Context = new(new(Bootstrap(),Root.Manifest.Digest,Owner.Slot,
                     WeaponMechanics.SchemaVersion,WeaponMechanics.BehaviorVersion,CustomWeaponReady.PrecisionCapability),1000,1000,1);
-                Check(Root.BindLife(Shooter,1000,true),"explicit trusted birth binds unequipped life inventory");
-                Check(!Root.BindLife(Shooter,1000,true),"same-life bind cannot recreate or refill current inventory");
-                var slots = (Array)typeof(CustomAuthorityCombatAdapter).GetField("_slots",Hidden)!.GetValue(Root)!;
-                var slot = slots.GetValue(Shooter.SlotIndex)!;
-                Pool = ((EquipInfo)slot.GetType().GetField("Equip",Hidden)!.GetValue(slot)!).Beams;
-                Check(Pool.Length == 8 && !ReferenceEquals(Pool,Shooter.EquipInfo.Beams)
-                    && Pool.All(b=>!Shooter.EquipInfo.Beams.Contains(b) && !Victim.EquipInfo.Beams.Contains(b)),
-                    "authority owns eight private projectiles outside native pools");
+                if (!automaticSourceBoundary)
+                {
+                    Check(Root.BindLife(Shooter,1000,true),"explicit trusted birth binds unequipped life inventory");
+                    Check(!Root.BindLife(Shooter,1000,true),"same-life bind cannot recreate or refill current inventory");
+                    Check(Pool.Length == 8 && !ReferenceEquals(Pool,Shooter.EquipInfo.Beams)
+                        && Pool.All(b=>!Shooter.EquipInfo.Beams.Contains(b) && !Victim.EquipInfo.Beams.Contains(b)),
+                        "authority owns eight private projectiles outside native pools");
+                    Check(Root.TryState(Shooter,out var initial) && initial.Phase == CustomWeaponPhase.Unequipped
+                        && initial.Magazine == 4,"real journal begins unequipped with canonical magazine");
+                }
+                else Check(!Root.TryState(Shooter,out _) && Pool.Length == 0,
+                    "automatic source-boundary mode has no manually granted life inventory or private pool");
                 NetDamage.ForgetSlot(Shooter.SlotIndex); NetDamage.ForgetSlot(Victim.SlotIndex);
-                Check(Root.TryState(Shooter,out var initial) && initial.Phase == CustomWeaponPhase.Unequipped
-                    && initial.Magazine == 4,"real journal begins unequipped with canonical magazine");
-                if (!engineSources)
+                if (!engineSources && !automaticSourceBoundary)
                 {
                     Check(Process(Action(CustomWeaponActionKind.Equip)).Result == WeaponActionResult.Accepted,"source-admitted equip seq1");
                     Check(Process(Action(CustomWeaponActionKind.Optic,optic:1)).Result == WeaponActionResult.Accepted,"source-admitted scope seq2");
@@ -215,7 +234,7 @@ internal static class CustomAuthoritySceneChecks
         public void Dispose()
         { try { NetUnlagged.AbortShot(); Root.Dispose(); } finally { try { _sim.Stop(); } finally { NetSession.Stop(); } } }
     }
-    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false)
+    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false,bool readinessOnly = false)
     {
         _checks = 0;
         string directory = Directory.GetCurrentDirectory();
@@ -232,6 +251,13 @@ internal static class CustomAuthoritySceneChecks
             NetShotProof.Mode = ShotProofMode.Off; NetTimedShotProof.Mode = TimedGrantProofMode.Off;
             NetDynamicGeometryHistory.ProductionEnabled = true; NetDynamicGeometryHistory.ShadowEnabled = false;
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
+            if (readinessOnly)
+            {
+                AutomaticReadinessBoundary(); RejectedReadinessBoundary(); ReadinessBoundaryLifecycle();
+                Console.WriteLine($"PASS {_checks} real engine readiness/source-boundary checks.");
+                Console.WriteLine("SCOPE: actual engine placement/control phases automatically open source boundary and life inventory, then production engine admission/emission/canonical damage. Network accepted-input publications and peer readiness handshake are explicit trusted fixtures; no UDP action or source-frontier transport claim.");
+                return 0;
+            }
             if (admissionOnly)
             {
                 EngineAdmissionSuccess(false); EngineAdmissionSuccess(true); EngineAdmissionRejections(); EngineAdmissionReadiness();
@@ -727,6 +753,149 @@ internal static class CustomAuthoritySceneChecks
     {
         var key = ShotKey.For(player.SlotIndex,0);
         return new(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+    }
+    private static IntentPacket BoundaryPacket(Fixture f,uint source,bool shoot = false)
+    {
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(f.Shooter,GunAnimation.Idle);
+        var input = SourcePacket(f.Shooter,source,f.Aim());
+        if (shoot) input.Buttons |= IntentButtons.Shoot;
+        return input;
+    }
+    private static void PublishBoundaryInput(Fixture f,in IntentPacket input,uint world,bool validReceipt = true)
+    {
+        Frame(world);
+        var owner = new WeaponOwnerContext(input.MatchId,input.AuthorityEpoch,(byte)f.Shooter.SlotIndex,input.SlotGeneration,input.LifeId);
+        // Explicit trusted ingress publication fixture. No UDP receive/authentication
+        // or actual server source-frontier publication is asserted by this test.
+        bool noted = f.Boundary!.NoteAcceptedInput(new(owner,input.Frame,input.AckFrame,input.AckSubFrame,
+            input.Position,input.Aim,(uint)input.Buttons));
+        Check(noted == validReceipt,"trusted fixture publishes exact accepted input receipt; valid=" + validReceipt);
+        Check(NetSession.AcceptSlotIntent(f.Shooter.SlotIndex,input),"boundary fixture submits input through actual native lifecycle carrier intake");
+        ConsumeBoundaryInput(f,world);
+    }
+    private static void ConsumeBoundaryInput(Fixture f,uint world)
+    {
+        Frame(world);
+        Check(f.Root.BeginSourceInputPhase(),"automatic boundary starts actual engine source phase");
+        NetHooks.TryApplyRemoteInput(f.Shooter,f.Shooter.SlotIndex);
+        f.Root.CompleteSourceInputPhase(); NetUnlagged.Record(world);
+    }
+    private static void ConfirmBoundary(Fixture f)
+    {
+        var peer = f.BoundaryPeer!;
+        Check(peer.Receive(peer.Wire.ReadyBytes,peer.ConnectionId,NetSession.NetFrame,0) == CustomReadinessResult.Accepted
+            && f.Boundary!.ConfirmReadiness(),"explicit trusted peer fixture confirms exact readiness and freezes input receipt fence");
+    }
+    private static object GrantClock(Fixture f)
+        => ((Array)typeof(CustomAuthorityCombatAdapter).GetField("_grantClocks",Hidden)!.GetValue(f.Root)!).GetValue(f.Shooter.SlotIndex)!;
+    private static void AutomaticReadinessBoundary()
+    {
+        using var f = new Fixture(automaticSourceBoundary:true);
+        var beforeReady = BoundaryPacket(f,1000);
+        PublishBoundaryInput(f,beforeReady,1000);
+        Check(!f.Root.TryState(f.Shooter,out _) && !f.Boundary!.TryGet(f.Owner,out _) && f.Pool.Length == 0,
+            "consumed pre-readiness input cannot grant inventory or source context");
+        ConfirmBoundary(f); ConsumeBoundaryInput(f,1000);
+        Check(!f.Root.TryState(f.Shooter,out _) && !f.Boundary!.TryGet(f.Owner,out _),
+            "reconsuming pre-ready carrier cannot manufacture post-ready source boundary");
+        PublishBoundaryInput(f,BoundaryPacket(f,1001),1001);
+        Check(f.Root.TryState(f.Shooter,out var initial) && initial.Magazine == 4 && initial.Reserve == 16
+            && initial.Phase == CustomWeaponPhase.Unequipped && initial.Tick == 1001,
+            "fresh engine-consumed carrier automatically grants initial4/16 unequipped inventory");
+        Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var first),"automatic initial life stores exact accepted source observation");
+        Check(f.Boundary!.TryGet(f.Owner,out var context) && context.FirstSourceFrame == 1001
+            && context.OpenedWorld == 1000 && context.PeerIncarnation == 1,
+            "fresh accepted carrier consumed by engine automatically opens exact readiness/source context");
+        Check(f.Pool.Length == 8 && f.Pool.All(b=>!f.Shooter.EquipInfo.Beams.Contains(b) && !f.Victim.EquipInfo.Beams.Contains(b)),
+            "automatic boundary creates only owned private projectile pool after engine admission");
+        Check(f.Process(f.EngineAction(CustomWeaponActionKind.Equip,1001)).Result == WeaponActionResult.Accepted
+            && f.Process(f.EngineAction(CustomWeaponActionKind.Optic,1001,optic:1)).Result == WeaponActionResult.Accepted,
+            "automatically sourced equip and optic use existing journal without supplied certificates");
+        PublishBoundaryInput(f,BoundaryPacket(f,1002,shoot:true),1002);
+        var fire = f.EngineAction(CustomWeaponActionKind.Fire,1002,1001,optic:1);
+        var receipt = f.Process(fire);
+        Check(receipt.Result == WeaponActionResult.Accepted && receipt.Emission == CustomEmissionDisposition.Spawned
+            && f.Oracle.Supplied.Count == 0,"automatic boundary feeds production engine fire admission and real M7 factory");
+        var beam = f.Pool.Single(b=>b.ModCustomShot?.Sequence == fire.Sequence);
+        for (int step=0; step<2 && f.Root.TerminalContacts == 0; step++) beam.Process();
+        Check(f.Victim.Health == 135 && f.Root.PositivePayments == 1
+            && f.Root.TryState(f.Shooter,out var spent) && spent.Magazine == 3 && spent.Reserve == 16,
+            "automatically bound real M7 source removes65 canonical health and consumes one custom round");
+        Check(f.Boundary!.ConfirmReadiness(),"identical readiness confirmation preserves first source boundary");
+        ConsumeBoundaryInput(f,1003);
+        Check(f.Root.TryState(f.Shooter,out var repeated) && repeated.Magazine == 3 && repeated.Reserve == 16
+            && repeated.LastAcceptedShotId == fire.Sequence && f.Root.TryGetSourceObservation(f.Owner,1001,out var unchanged)
+            && unchanged == first && f.Boundary.TryGet(f.Owner,out var sameContext) && sameContext == context,
+            "repeated same-life source and readiness cannot refill resources or revise first observed boundary");
+    }
+    private static void RejectedReadinessBoundary()
+    {
+        foreach (string reason in new[] { "invalid aim","nonfinite body","zero position","frozen placement" })
+        {
+            using var f = new Fixture(automaticSourceBoundary:true); ConfirmBoundary(f);
+            var input = BoundaryPacket(f,1001);
+            if (reason == "invalid aim") input.Aim = Vector3.Zero;
+            if (reason == "nonfinite body") input.Position = new(float.NaN,0,0);
+            if (reason == "zero position") input.Position = Vector3.Zero;
+            if (reason == "frozen placement") Field(f.Shooter,"_frozenTimer",(ushort)60);
+            PublishBoundaryInput(f,input,1001,validReceipt:reason is not ("invalid aim" or "nonfinite body"));
+            Check(!f.Root.TryState(f.Shooter,out _) && !f.Boundary!.TryGet(f.Owner,out _) && f.Pool.Length == 0,
+                "malformed or engine-rejected source cannot open boundary or grant inventory: " + reason);
+            Field(f.Shooter,"_frozenTimer",(ushort)0);
+            PublishBoundaryInput(f,BoundaryPacket(f,1002),1002);
+            Check(f.Root.TryState(f.Shooter,out var state) && state.Magazine == 4 && state.Reserve == 16
+                && state.Phase == CustomWeaponPhase.Unequipped && f.Boundary!.TryGet(f.Owner,out var context)
+                && context.FirstSourceFrame == 1002,"fresh actual accepted pose opens once after earlier unavailable source: " + reason);
+        }
+    }
+    private static void ReadinessBoundaryLifecycle()
+    {
+        using (var f = new Fixture(automaticSourceBoundary:true))
+        {
+            ConfirmBoundary(f); PublishBoundaryInput(f,BoundaryPacket(f,1000),1000);
+            object clock = GrantClock(f); Vector3 body = f.Shooter.Position;
+            f.Shooter.ModSetSpectating(true); f.Root.Advance();
+            Check(!f.Root.TryState(f.Shooter,out _) && f.Pool.Length == 0,"actual spectator retirement releases automatic life inventory and pool");
+            f.Shooter.ModSetSpectating(false); Fixture.Clean(f.Shooter,200);
+            // Explicit same-life body restoration attempt. No native respawn is
+            // claimed here; the clock fence must deny even an otherwise usable
+            // restored body, rather than succeeding only because Spawned is off.
+            f.Shooter.LoadFlags |= LoadFlags.Spawned;
+            Check(f.Shooter.ModIsInPlay && SourceOwner(f.Shooter) == f.Owner,
+                "same-life rejoin fixture restores usable body without advancing native lifecycle");
+            PublishBoundaryInput(f,BoundaryPacket(f,1001),1001);
+            Check(!f.Root.TryState(f.Shooter,out _) && f.Pool.Length == 0 && ReferenceEquals(GrantClock(f),clock),
+                "same-life spectator rejoin cannot recreate resources and retains occupant source clock");
+            // Explicit negative API probes cannot grant any life. The production
+            // auto path above remains the only successful binding in this mode.
+            for (int i=0; i<100; i++) f.Root.BindLife(f.Shooter,1001,true);
+            long before = GC.GetAllocatedBytesForCurrentThread(); bool granted = false;
+            for (int i=0; i<10000; i++) granted |= f.Root.BindLife(f.Shooter,1001,true);
+            long allocated = GC.GetAllocatedBytesForCurrentThread()-before;
+            Check(!granted && allocated == 0,"warmed denied same-life grant probes allocate zero bytes and cannot reopen inventory");
+            Frame(1002); f.Shooter.Spawn(body,Vector3.UnitZ,Vector3.UnitY,f.Shooter.NodeRef,respawn:true);
+            f.Shooter.ModPlaceAt(body); Fixture.Clean(f.Shooter,200); f.Root.Advance();
+            var nextOwner = SourceOwner(f.Shooter);
+            Check(nextOwner.Life != f.Owner.Life,"actual native respawn advances full owner life after spectator retirement");
+            PublishBoundaryInput(f,BoundaryPacket(f,1002),1002);
+            Check(f.Root.TryState(f.Shooter,out var fresh) && fresh.Owner == nextOwner && fresh.Magazine == 4
+                && fresh.Reserve == 16 && fresh.Phase == CustomWeaponPhase.Unequipped
+                && ReferenceEquals(GrantClock(f),clock),"real next life automatically binds once using retained occupant source clock");
+            ConsumeBoundaryInput(f,1003);
+            Check(f.Root.TryState(f.Shooter,out var same) && same.Owner == nextOwner && same.Magazine == 4
+                && same.LastAcceptedShotId == 0,"reconsumed next-life source cannot create a second birth grant");
+        }
+        using (var f = new Fixture(automaticSourceBoundary:true))
+        {
+            ConfirmBoundary(f); PublishBoundaryInput(f,BoundaryPacket(f,1000),1000); object clock = GrantClock(f);
+            f.Shooter.ModSetSpectating(true); f.Root.Advance(); f.Shooter.ModSetSpectating(false);
+            Vector3 body = f.Shooter.Position; Frame(1001);
+            f.Shooter.Spawn(body,Vector3.UnitZ,Vector3.UnitY,f.Shooter.NodeRef,respawn:true);
+            f.Shooter.ModPlaceAt(body); Fixture.Clean(f.Shooter,200); f.Root.Advance();
+            PublishBoundaryInput(f,BoundaryPacket(f,2000),1001);
+            Check(!f.Root.TryState(f.Shooter,out _) && f.Pool.Length == 0 && ReferenceEquals(GrantClock(f),clock),
+                "spectator retirement and actual next life cannot reset fixed source clock to accept accelerated source jump");
+        }
     }
     private static IntentPacket CaptureEngineInput(Fixture f,uint frame,bool shoot = false,bool recordWorld = true,
         uint? ack = null,byte ackSub = 0)

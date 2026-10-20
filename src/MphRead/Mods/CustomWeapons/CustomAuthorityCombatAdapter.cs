@@ -35,7 +35,12 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     private readonly ulong _epoch;
     private readonly WeaponRegistry _registry;
     private readonly ICustomSourceAdmission _sourceAdmission;
+    private readonly ICustomSourceBoundaryReadiness? _sourceBoundary;
     private readonly Slot?[] _slots = new Slot[8];
+    // Pool/flight retirement must not reset an occupant's source clock or the
+    // once-per-life loadout grant fence (e.g. spectate/rejoin in the same life).
+    private readonly CustomSourceClock?[] _grantClocks = new CustomSourceClock?[8];
+    private readonly WeaponOwnerContext[] _grantOccupants = new WeaponOwnerContext[8];
     private readonly Life?[] _lives = new Life[LifeCapacity];
     private readonly Life?[] _current = new Life[8];
     private readonly Death?[] _deaths = new Death?[DeathCapacity];
@@ -72,6 +77,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             throw new InvalidOperationException("Custom campaign/enemy authority is unavailable.");
         Definition = RiftlineM7.Create(); Manifest = new(new[] { Definition });
         _registry = scene.FreezeCustomWeaponRegistry(new[] { Definition });
+        _sourceBoundary = readiness as ICustomSourceBoundaryReadiness;
         _sourceAdmission = sourceAdmission ?? new CustomEngineSourceAdmission(this,readiness!);
     }
     private bool CurrentOwner(PlayerEntity player,out WeaponOwnerContext owner)
@@ -95,12 +101,21 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         int at = Array.FindIndex(_lives,life=>life == null);
         if (at < 0) return false;
         var slot = _slots[owner.Slot];
+        var occupant = _grantOccupants[owner.Slot];
+        if (_grantClocks[owner.Slot] == null || occupant.MatchId != owner.MatchId
+            || occupant.AuthorityEpoch != owner.AuthorityEpoch || occupant.Generation != owner.Generation)
+        {
+            _grantClocks[owner.Slot] = new(owner,verifiedBirthSource,Now);
+            _grantOccupants[owner.Slot] = owner;
+        }
+        var clock = _grantClocks[owner.Slot]!;
+        if (!clock.CanBindLife(owner,verifiedBirthSource,Now)) return false;
         if (slot == null)
         {
             var pool = new BeamProjectileEntity[Definition.Mechanics.MaxActiveProjectiles];
             for (int i=0; i<pool.Length; i++) pool[i] = new(_scene);
             slot = new Slot { Player = player, Generation = owner.Generation,
-                Clock = new(owner,verifiedBirthSource,Now),
+                Clock = clock,
                 Equip = new(CustomPrecisionAdapter.Build(Definition.Mechanics),pool) { InfiniteAmmo = true } };
             _slots[owner.Slot] = slot;
         }
