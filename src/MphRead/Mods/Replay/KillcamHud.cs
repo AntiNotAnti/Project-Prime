@@ -39,10 +39,14 @@ internal sealed class KillcamHud
         { Console.WriteLine("[killcam] Smooth text unavailable: " + ex.Message); }
 #endif
     }
-    internal void Draw(bool final, string killer, string victim, string weapon, bool headshot,
-        int health, float progress, float killProgress, float secondsToKill)
+    internal void Draw(bool final, string killer, string victim, string weapon, byte weaponId,
+        bool headshot, int health, float progress, float killProgress, float secondsToKill,
+        float impactStrength, int finalFrame, int finalLength, bool reduceMotion)
     {
-        Vector4 accent = final ? new(1, .73f, .28f, 1) : new(.28f, .84f, 1, 1);
+        FinalImpactStyle style = FinalKillPresentation.Impact(weaponId);
+        Vector4 accent = final ? ImpactAccent(style) : new(.28f, .84f, 1, 1);
+        if (final && impactStrength > 0 && !reduceMotion)
+            DrawFinalImpact(style, headshot, impactStrength, accent);
         Card(10, 10, 84, 29, accent);
         Box(16, 17, 18, 19, accent);
         Text(22, 12, final ? "FINAL ELIMINATION" : "ELIMINATION REPLAY", .62f, White, 81);
@@ -64,7 +68,96 @@ internal sealed class KillcamHud
         Box(killX - .45f, 181.5f, killX + .45f, 185, new(1, 1, 1, .9f));
         Text(10, 186, "REPLAY", .38f, Muted, 55);
         Text(174, 186, "FIRE / BACK TO SKIP", .43f, White, 246);
+        if (final)
+        {
+            // A short slate shutter hides a distant historical camera cut,
+            // and hands a quiet, dark frame back to the native scoreboard.
+            // It is draw-only: never changes scene lighting or replay timing.
+            float cover = FinalKillPresentation.TransitionCover(finalFrame, finalLength);
+            if (cover > 0)
+                Box(0, 0, 256, 192, new(.025f, .045f, .075f, .92f * cover));
+        }
     }
+
+    private static Vector4 ImpactAccent(FinalImpactStyle style) => style switch
+    {
+        FinalImpactStyle.Precision => new(.46f, .92f, 1f, 1f),
+        FinalImpactStyle.Electrical => new(.66f, .57f, 1f, 1f),
+        FinalImpactStyle.Explosive => new(1f, .69f, .30f, 1f),
+        FinalImpactStyle.Cryo => new(.44f, .92f, .94f, 1f),
+        FinalImpactStyle.Thermal => new(1f, .46f, .28f, 1f),
+        _ => new(1f, .76f, .37f, 1f)
+    };
+
+    private void DrawFinalImpact(FinalImpactStyle style, bool headshot, float strength, Vector4 ink)
+    {
+        float alpha = Math.Clamp(strength, 0f, 1f) * .27f;
+        Vector4 color = new(ink.X, ink.Y, ink.Z, alpha);
+        // HUD-space geometry is inexpensive, deterministic and cannot be
+        // mistaken for an actual server projectile or collision response.
+        switch (style)
+        {
+            case FinalImpactStyle.Precision:
+                Box(94, 93.5f, 122, 94.15f, color);
+                Box(134, 93.5f, 162, 94.15f, color);
+                Box(127.65f, 73, 128.35f, 88, color);
+                Box(127.65f, 100, 128.35f, 115, color);
+                Box(102, 66, 103, 76, color);
+                Box(153, 112, 154, 122, color);
+                break;
+            case FinalImpactStyle.Electrical:
+                for (int i = 0; i < 4; i++)
+                {
+                    float y = 67 + i * 14;
+                    Box(43 + i * 8, y, 47 + i * 8, y + 1.5f, color);
+                    Box(199 - i * 8, 154 - y, 204 - i * 8, 155.5f - y, color);
+                }
+                break;
+            case FinalImpactStyle.Explosive:
+                for (int i = 0; i < 3; i++)
+                {
+                    float radius = 12 + i * 13 + (1f - strength) * 11f;
+                    Outline(128 - radius, 94 - radius, 128 + radius, 94 + radius,
+                        new(ink.X, ink.Y, ink.Z, alpha / (i + 1)));
+                }
+                break;
+            case FinalImpactStyle.Cryo:
+                for (int i = 0; i < 4; i++)
+                {
+                    float inset = i * 7f;
+                    Box(91 + inset, 68 + inset, 94 + inset, 80 + inset, color);
+                    Box(162 - inset, 108 - inset, 165 - inset, 120 - inset, color);
+                }
+                break;
+            case FinalImpactStyle.Thermal:
+                for (int i = 0; i < 3; i++)
+                {
+                    float inset = i * 7f;
+                    Box(65 + inset, 132 - inset, 191 - inset, 134 - inset,
+                        new(ink.X, ink.Y, ink.Z, alpha / (i + 1)));
+                }
+                break;
+            default:
+                Outline(99 - 10 * (1 - strength), 67 - 10 * (1 - strength),
+                    157 + 10 * (1 - strength), 121 + 10 * (1 - strength), color);
+                break;
+        }
+        if (headshot)
+        {
+            Vector4 white = new(.87f, .97f, 1f, alpha * .55f);
+            Box(126, 91, 130, 93, white);
+            Box(127.4f, 88, 128.6f, 96, white);
+        }
+    }
+
+    private void Outline(float x1, float y1, float x2, float y2, Vector4 color)
+    {
+        Box(x1, y1, x2, y1 + .8f, color);
+        Box(x1, y2 - .8f, x2, y2, color);
+        Box(x1, y1, x1 + .8f, y2, color);
+        Box(x2 - .8f, y1, x2, y2, color);
+    }
+
     private void Card(float left, float top, float right, float bottom, Vector4 accent)
     {
         // Soft slate glass with cut corners and a fine highlight, never an opaque black block.
