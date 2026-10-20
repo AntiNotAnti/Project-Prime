@@ -30,7 +30,7 @@ internal static class DocumentCapabilityAcceptance
         check(host.Initialize(640, 360, 1, root, RmlUiRenderBackend.DrawList), "strict authored-binding host initializes");
         var capability = RmlUiLauncherCapabilities.ConfiguredLocalAdventureSaves;
         foreach (var (path, surface, count) in new[] {
-            ("pages/home/home.rml", RmlUiLocalDocumentSurface.Home, 17),
+            ("pages/home/home.rml", RmlUiLocalDocumentSurface.Home, 18),
             ("pages/offline/setup.rml", RmlUiLocalDocumentSurface.Offline, 9),
             ("pages/adventure/saves.rml", RmlUiLocalDocumentSurface.Adventure, 7),
             ("pages/hunters/local-picker.rml", RmlUiLocalDocumentSurface.Shell, 7),
