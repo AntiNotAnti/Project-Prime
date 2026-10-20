@@ -57,12 +57,18 @@ public partial class PlayerEntity
     {
         if(!HudElementVisible(0))return;
         bool customCrosshair=Features.CustomCrosshair;
-        float pulse=HudProfiles.Runtime.ReduceMotion?0:_scene.CustomFeedback(this).FirePulse/2f;
         if(customCrosshair)
         {
+            // Exactly one reticle. The previous path drew the selected
+            // custom crosshair AND the built-in rifle precision brackets on
+            // top of it whenever fire pulse was active. At high turn rates
+            // those two differently shaped silhouettes looked like a
+            // duplicated/ghosting crosshair. The custom reticle already owns
+            // its own HUD geometry and never needs this secondary ring.
             _scene.DrawCustomCrosshair(GetCrosshairColor(),x,y,-1,false);
-            if(pulse<=0||!HudProfiles.Runtime.Crosshair.Enabled)return;
+            return;
         }
+        float pulse=HudProfiles.Runtime.ReduceMotion?0:_scene.CustomFeedback(this).FirePulse/2f;
         // Original precision reticle: open center, range ticks and cosmetic pulse.
         float cx=x*256,cy=y*192,aspect=HudAspectFix;
         using var layout=UseHudLayout(0,128,96);
