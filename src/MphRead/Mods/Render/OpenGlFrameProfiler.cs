@@ -136,9 +136,10 @@ internal static class OpenGlFrameProfiler
         _renderComplete = false;
         // Scene/window transitions may leave long idle intervals between
         // real gameplay presentations. Never include that idle time in the
-        // next 240-frame percentile window.
+        // next legacy 240-frame percentile window. Raw capture retains long
+        // hitches; only explicit lifecycle cancellation breaks its continuity.
         long now = Stopwatch.GetTimestamp();
-        if (_previousPresentEnd != 0
+        if (_capture == null && _previousPresentEnd != 0
             && now - _previousPresentEnd > Stopwatch.Frequency / 2)
         {
             _previousPresentEnd = 0;
