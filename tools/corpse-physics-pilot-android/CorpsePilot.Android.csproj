@@ -44,6 +44,8 @@
     <ProjectReference Include="../../src/MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" AdditionalProperties="Configuration=Release" />
     <AndroidAsset Include="../../src/MphRead.CorpsePhysics/THIRD-PARTY-NOTICES.md" Link="Assets/THIRD-PARTY-NOTICES.md" />
     <Compile Include="MainActivity.cs" />
+    <Compile Include="../corpse-physics-pilot/AffineBindingChecks.cs" Link="AffineBindingChecks.cs" />
+    <Compile Include="../corpse-physics-pilot/HumanoidMapChecks.cs" Link="HumanoidMapChecks.cs" />
     <Compile Include="$(SharedPilotBenchmark)" Link="PilotBenchmarks.cs" Condition="Exists('$(SharedPilotBenchmark)')" />
     <Compile Include="PilotSmoke.cs" Condition="!Exists('$(SharedPilotBenchmark)')" />
   </ItemGroup>
