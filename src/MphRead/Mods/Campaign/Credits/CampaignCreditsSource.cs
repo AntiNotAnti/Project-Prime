@@ -225,13 +225,28 @@ public static class CampaignCreditsSource
         Require(path.Length <= MaxPathBytes && !path.StartsWith('/') && !path.Contains(':')
             && path.All(c => char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '-' or '.' or '/'), "Credits filename is not a supported relative source path.");
         string[] parts = path.Split('/');
-        Require(parts.Length >= 2 && parts.All(p => p.Length > 0 && p is not "." and not "..")
+        Require(parts.Length >= 2 && parts.All(SafePathSegment)
             && (parts[0].Equals("logo_screen", StringComparison.OrdinalIgnoreCase)
                 || parts[0].Equals("main menu", StringComparison.OrdinalIgnoreCase)
                 || parts[0].Equals("tostart", StringComparison.OrdinalIgnoreCase)
                 || parts[0].Equals("gameoptions", StringComparison.OrdinalIgnoreCase))
             && parts[^1].EndsWith(".bin", StringComparison.OrdinalIgnoreCase), "Credits filename has an unsupported source root or extension.");
         return path;
+    }
+    private static bool SafePathSegment(string part)
+    {
+        if (part.Length == 0 || part[^1] is ' ' or '.') return false;
+        ReadOnlySpan<char> stem = part.AsSpan();
+        int dot = stem.IndexOf('.');
+        if (dot > 0 && stem[dot - 1] == ' ') return false;
+        if (dot >= 0) stem = stem[..dot];
+        if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("NUL", StringComparison.OrdinalIgnoreCase)) return false;
+        return !(stem.Length == 4 && stem[3] is >= '1' and <= '9'
+            && (stem[..3].Equals("COM", StringComparison.OrdinalIgnoreCase)
+                || stem[..3].Equals("LPT", StringComparison.OrdinalIgnoreCase)));
     }
     private static bool StateCode(byte code) => code is 1 or 2 or 3 or 10 or 11 or 17;
     private sealed class WorkBudget

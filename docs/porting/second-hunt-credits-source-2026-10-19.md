@@ -55,7 +55,10 @@ Filename spans require an in-span NUL. Logical paths normalize source
 backslashes once while retaining case and spaces. Only the observed relative
 roots `logo_screen`, `main menu`, `tostart` and `gameoptions`, with `.bin`
 extensions, are admitted. Rooted, drive, URI, traversal, empty-segment and
-unsupported-character forms are refused. Filename padding after NUL is ignored
+unsupported-character forms are refused. Every segment also refuses trailing
+spaces/dots, spaces before its first dot and Windows device-name stems (including
+case variants and extensions), keeping the logical path safe across platforms.
+Interior spaces and original case remain intact. Filename padding after NUL is ignored
 as unexecuted padding, while declared lengths and opaque numeric fields remain.
 The reader never resolves or opens these paths.
 

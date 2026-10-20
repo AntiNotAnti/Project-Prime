@@ -146,6 +146,8 @@ internal static class CreditsFixtures
     {
         foreach(string path in new[] {"logo_screen\\MAYA\\invented_Model.bin","main menu\\Invented Model.bin","tostart\\invented.bin","gameoptions\\invented_Anim.bin"})
         {var f=Build(path);Check(Source.Read(f.Marm,f.Text).Widgets[4698].Files[0].Path==path.Replace('\\','/'),"observed source directory/case/space path policy "+path);}
+        foreach(string path in new[] {"logo_screen/MAYA/COM10.bin","main menu/Interior Space/NULish.bin","gameoptions/COM10/NULish.bin","gameoptions/COM10.bin/invented.bin"})
+        {var f=Build(path);Check(Source.Read(f.Marm,f.Text).Widgets[4698].Files[0].Path==path,"nondevice names and valid interior spaces preserved");}
         foreach(string path in new[] {"/logo_screen/file.bin","C:\\logo_screen\\file.bin","\\\\host\\logo_screen\\file.bin","logo_screen/../file.bin",
             "logo_screen/./file.bin","logo_screen//file.bin","logo_screen/file.png","frontend/file.bin","models/file.bin","http://logo_screen/file.bin",
             "gameoptions/file?.bin","gameoptions/é.bin","gameoptions/evil\n.bin"})
@@ -160,6 +162,16 @@ internal static class CreditsFixtures
         Check(Source.Read(fixture.Marm,empty).Strings[2] is {DeclaredLength:0,DeclaredLatin1:"",ContentLatin1:""},"legitimate empty selected text retains known empty span");
         byte[] nullAnimation=(byte[])fixture.Marm.Clone();nullAnimation[fixture.At["fileAnimation"]+1]=1;
         Reject(nullAnimation,fixture.Text,"absent optional animation requires zero declared span");
+        // Windows strips trailing spaces/dots and resolves reserved device stems
+        // before the first dot, including intermediate directory components.
+        foreach(string segment in new[] {"MAYA ","MAYA.",".. ","..."})
+        {var f=Build("logo_screen/"+segment+"/invented.bin");Reject(f.Marm,f.Text,"Windows-trimmed intermediate source path refused");}
+        foreach(string segment in new[] {"CON","prn","AuX","nUl","CON.extra","con.bin","NUL ","CON .foo"}
+            .Concat(Enumerable.Range(1,9).SelectMany(i=>new[]{"cOm"+i,"LpT"+i})))
+        {
+            foreach(string path in new[]{"logo_screen/"+segment+"/invented.bin","logo_screen/MAYA/"+segment+".bin"})
+            {var f=Build(path);Reject(f.Marm,f.Text,"Windows-ambiguous source path refused");}
+        }
     }
 
     private static void Budgets()
