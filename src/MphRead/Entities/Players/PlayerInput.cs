@@ -282,6 +282,10 @@ namespace MphRead.Entities
                         TryEquipWeapon(weapon);
                     }
                 }
+                else if (ModApplyCustomCycle())
+                {
+                    // The scene already routed this acquired custom cycle edge.
+                }
                 else if (Controls.ScrollAllWeapons || CurrentWeapon != BeamType.PowerBeam && CurrentWeapon != BeamType.Missile)
                 {
                     int currentIndex = -1;
