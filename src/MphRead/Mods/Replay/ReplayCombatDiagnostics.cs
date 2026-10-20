@@ -83,7 +83,7 @@ internal static class ReplayCombatDiagnostics
             + $"ACK target {ackWorld}\n"
             + $"Impact {Vec(fact.ImpactPoint)}  {damage}\n"
             + $"WHY HIT: {Explain(fact)}\n"
-            + (DemoPlayback.PresentationScene?.ReplayOwnerProvenance ?? "Partial/legacy");
+            + "CURRENT POV: " + (DemoPlayback.PresentationScene?.ReplayOwnerProvenance ?? "Partial/legacy");
     }
 
     internal static string[] HudLines(in ReplayCombatDiagnostic diagnostic)

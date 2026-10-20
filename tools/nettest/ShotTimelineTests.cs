@@ -54,11 +54,13 @@ internal static class ShotTimelineTests
 
             Check(NetCampaignEvidence.TimelineEnabled == enabled, "route uses actual requested process evidence mode");
             var fire = new FireEvent(key.ShotId, 900, 700, 247, FireEventKind.PressFire,
-                (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
+                (byte)BeamType.Imperialist, 5, FireEvent.ScopedStateBit) with
+            { PoseFlags = FireEvent.FlagPose, Origin = new(1,2,3),
+                Aim = OpenTK.Mathematics.Vector3.UnitZ, Direction = OpenTK.Mathematics.Vector3.UnitZ };
             NetCampaignEvidence.TimelineFire("source-emitted", key, fire);
             var report = JsonSerializer.SerializeToElement(NetCampaignEvidence.CaptureShotTimeline());
             var observed = report.GetProperty("Rows");
-            Check(report.GetProperty("Schema").GetInt32() == 1
+            Check(report.GetProperty("Schema").GetInt32() == 2
                 && report.GetProperty("Clock").GetProperty("Frequency").GetInt64() > 0,
                 "clock domain and measured frequency are explicit");
             if (enabled)
@@ -71,6 +73,10 @@ internal static class ShotTimelineTests
                     && sample.GetProperty("AckSubFrame").GetByte() == 247
                     && sample.GetProperty("Phase").GetUInt32() == 0,
                     "authored fractional ACK is retained; scoped modifier bits are not a continuous phase");
+                Check(sample.GetProperty("Pose").GetProperty("Origin").GetProperty("X").GetSingle() == 1
+                    && sample.GetProperty("Pose").GetProperty("Charge").GetByte() == 5
+                    && report.GetProperty("Provenance").GetProperty("Pose").GetString()!.Contains("never hit authority"),
+                    "schema2 retains authored pose and discloses presentation-only provenance");
                 var outcome = new CombatAckEntry { ShotId = key.ShotId, VictimSlot = 1,
                     VictimGeneration = 8, VictimLife = 9, DamageSequence = uint.MaxValue };
                 NetCampaignEvidence.TimelinePayment("payment-committed",

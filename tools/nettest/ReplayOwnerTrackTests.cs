@@ -86,6 +86,23 @@ internal static class ReplayOwnerTrackTests
             File.Delete(source); Check(ReplayOwnerTrack.Load(source) == null, "missing source falls back");
             foreach (int capacity in new[] { 0, ReplayOwnerTrack.MaximumSamples + 1 })
             { bool rejected = false; try { _ = new ReplayOwnerTrack(capacity); } catch (ArgumentOutOfRangeException) { rejected = true; } Check(rejected, "constructor enforces capacity budget"); }
+            using (var release = new ManualResetEventSlim(false))
+            {
+                var jobs = new System.Threading.Tasks.Task<ReplayOwnerTrack?>[4];
+                try
+                {
+                    for (int i = 0; i < jobs.Length; i++)
+                        jobs[i] = ReplayOwnerTrack.LoadAsyncBounded(source, beforeLoadForCheck: () => release.Wait());
+                    var saturated = ReplayOwnerTrack.LoadAsyncBounded(source);
+                    Check(saturated.IsCompletedSuccessfully && saturated.Result == null,
+                        "rapid seek loader saturation falls back without queue growth");
+                }
+                finally { release.Set(); }
+                Check(System.Threading.Tasks.Task.WaitAll(jobs, TimeSpan.FromSeconds(10)),
+                    "bounded loader workers release their admission slots");
+                Check(ReplayOwnerTrack.LoadAsyncBounded(source).GetAwaiter().GetResult() == null,
+                    "loader accepts subsequent missing-source fallback after saturation");
+            }
             Console.WriteLine($"PASS: {_checks} owner presentation track assertions; synthetic file/pose only, animation remains reconstructed");
             return 0;
         }

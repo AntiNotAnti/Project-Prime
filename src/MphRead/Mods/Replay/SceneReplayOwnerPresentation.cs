@@ -19,7 +19,7 @@ public partial class Scene
         if (Headless.Active) return;
         _ownerPresentationCancellation = new();
         var cancellation = _ownerPresentationCancellation.Token;
-        _ownerPresentation = Task.Run(() => ReplayOwnerTrack.Load(path, cancellation));
+        _ownerPresentation = ReplayOwnerTrack.LoadAsyncBounded(path, cancellation);
     }
     internal void EndOwnerPresentation()
     {
