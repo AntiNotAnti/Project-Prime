@@ -268,7 +268,7 @@ internal static class PirateBlasterSceneTests
         var item=ItemSpawnEntity.SpawnItem(ItemType.UASmall,p.Position,p.NodeRef,6000,f.Scene)
             ??throw new InvalidOperationException("Native UA-small factory refused fixture item.");
         p.IgnoreItemPickups=false;try{for(int n=0;n<8&&item.DespawnTimer!=0;n++)f.Step();}finally{p.IgnoreItemPickups=true;}
-        int funded=Math.Min(105,p.Values.MpAmmoCap);
+        int funded=Math.Min(105,(int)p.Values.MpAmmoCap);
         Check(item.DespawnTimer==0&&p.ModPirateUa==funded&&r.Snapshot.Ua==funded,
             "actual native UASmall contact adds literal50 to the SAME Blaster UA bank under native cap");
         f.Step(new Input(Shoot:true));Check(p.ModPirateUa==funded-5&&r.Shots==4,"next actual first bolt spends pickup-funded native UA5");
@@ -301,7 +301,7 @@ internal static class PirateBlasterSceneTests
                 if(r.LastImpact is {} fact)damages.TryAdd(fact.Source.Sequence,fact.Damage);
             }
             Console.WriteLine("PIRATE BLASTER PER-BOLT MODIFIER TRACE "+JsonSerializer.Serialize(new{damages,flightDamage,hpBefore=hp,hpAfter=target.Health,p.DoubleDamage,prime=p.IsPrimeHunter,nativeDoublePickup=doubleItem?.DespawnTimer==0}));
-            Check(damages.Count==3&&damages.GetValueOrDefault(1)==12&&damages.GetValueOrDefault(2)==18&&damages.GetValueOrDefault(3)==24,
+            Check(damages.Count==3&&damages.GetValueOrDefault(1u)==12&&damages.GetValueOrDefault(2u)==18&&damages.GetValueOrDefault(3u)==24,
                 "actual consecutive contact damage samples none12 / native Prime18 / native Double24 per bolt");
             Check(hp-target.Health==54&&r.Hits==3&&r.Shots==3&&p.ModPirateUa==55,
                 "native per-bolt modifier contacts pay12+18+24 once with one shared UA5 cost");
