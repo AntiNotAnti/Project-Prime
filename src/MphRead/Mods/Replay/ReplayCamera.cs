@@ -377,6 +377,8 @@ namespace MphRead
         private int _replayCameraSubject = -1;
         private float _replayOrbit;
         private Vector3? _replayFollowPosition;
+        private ushort _replayFollowGeneration, _replayFollowLife;
+        private Vector3? _replayFollowTarget;
         private bool _replayCameraInitialized;
         private Mods.Replay.ReplayCameraMode _appliedReplayCameraMode;
 
@@ -490,6 +492,16 @@ namespace MphRead
             if (ReplayPoses?.SamplePresented(player.SlotIndex, ReplayRenderAlpha, out _, out var replicaFacing) == true)
                 facing = replicaFacing;
 
+            if (Services is Mods.Network.ReplaySceneServices replica
+                && replica.State.TryGetPlayer(player.SlotIndex, out var life))
+            {
+                if (_replayFollowGeneration != life.SlotGeneration || _replayFollowLife != life.LifeId)
+                    _replayFollowPosition = null;
+                _replayFollowGeneration = life.SlotGeneration; _replayFollowLife = life.LifeId;
+            }
+            if (_replayFollowTarget is { } previousTarget && (previousTarget - playerPosition).LengthSquared > 64)
+                _replayFollowPosition = null; // teleport/jump discontinuity: no sweep from an old room
+            _replayFollowTarget = playerPosition;
             Vector3 target = playerPosition
                 + Vector3.UnitY * Math.Clamp(Mods.Replay.ReplayCamera.Height, 0.5f, 8);
             facing.Y = 0;
@@ -503,8 +515,21 @@ namespace MphRead
             Vector3 desired = target - facing * Math.Clamp(Mods.Replay.ReplayCamera.Distance, 1, 20);
             Vector3 candidate = !Mods.Replay.ReplayVideoExporter.Rendering && Mods.Replay.ReplayCamera.Profile == Mods.Replay.ReplayPresentationProfile.Presentation && _replayFollowPosition.HasValue ? Vector3.Lerp(_replayFollowPosition.Value, desired, 1 - MathF.Exp(-delta * 10)) : desired;
             CollisionResult collision = default;
-            if (CollisionDetection.CheckBetweenPoints(target, candidate, TestFlags.Players, this, ref collision))
-                candidate = target + (candidate - target) * Math.Max(0, collision.Distance - 0.05f);
+            bool blocked = CollisionDetection.CheckBetweenPoints(target, candidate, TestFlags.Players, this, ref collision);
+            if (blocked && mode == Mods.Replay.ReplayCameraMode.Orbit && Mods.Replay.ReplayCamera.Director)
+            {
+                // An automatic orbit is only a suggestion when its actual ray is
+                // clear. Canonical POV is the safe fallback in tight geometry.
+                Mods.Replay.ReplayCamera.SetDirectorMode(Mods.Replay.ReplayCameraMode.FirstPerson);
+                SetFreeCamera(false); _replayFollowPosition = null; return;
+            }
+            if (blocked) candidate = target + (candidate - target) * Math.Max(0, collision.Distance - 0.05f);
+            Vector3 horizontal = target - candidate; horizontal.Y = 0;
+            if (!float.IsFinite(candidate.X) || !float.IsFinite(candidate.Y) || !float.IsFinite(candidate.Z)
+                || horizontal.LengthSquared < .0001f)
+            {
+                SetFreeCamera(false); _replayFollowPosition = null; return;
+            }
             _cameraPosition = candidate;
             _replayFollowPosition = candidate;
             Vector3 view = target - candidate;

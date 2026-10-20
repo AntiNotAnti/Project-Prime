@@ -12,7 +12,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Render;
 
 internal static partial class RmlUiOpenGlSmoke
 {
-    private sealed partial class CurrentReplayEditor : ITheatreEditorBackend, ITheatreEditorMetadataBackend, ITheatreEditorSeekReviewBackend, ITheatreTimelineSeek, ITheatreSpatialBackend, ITheatreStudioToolsBackend
+    private sealed partial class CurrentReplayEditor : ITheatreEditorBackend, ITheatreEditorSuggestionBackend, ITheatreEditorMetadataBackend, ITheatreEditorSeekReviewBackend, ITheatreTimelineSeek, ITheatreSpatialBackend, ITheatreStudioToolsBackend
     {
         private sealed record Files(ReplayReviewedSidecar Annotations,ReplayReviewedSidecar Reel,ImmutableArray<ReplayEvent> Events);
         private sealed record Inspection(object Owner,ReplayTransport Transport,long Seek,uint Target,ReplayEvent Event);
@@ -41,8 +41,9 @@ internal static partial class RmlUiOpenGlSmoke
                     $"{Name(row.ActorSlot)} → {Name(row.TargetSlot)} // VALUE {row.Value}",row.ActorSlot,(int)row.Type,0,row.TargetSlot)).ToImmutableArray();
                 eventRows=eventRows.AddRange(annotations.Bookmarks.Select(row=>new TheatreEditorEntry("bookmark:"+row.Id.ToString("N"),row.Frame,row.Frame,row.Name,"Bookmark")))
                     .AddRange(named.Select(row=>row with{Id="named:"+row.Id})).OrderBy(row=>row.Frame).ToImmutableArray();
-                var highlights=ReplayStudio.Highlights(events,proof.Duration).Select((row,index)=>new TheatreEditorEntry("highlight:"+index,row.StartFrame,row.EndFrame,row.Label,
-                    $"{row.Kind} // SCORE {row.Score} // FOCUS {row.FocusFrame}",row.ActorSlot,FocusFrame:row.FocusFrame)).ToImmutableArray();
+                // Suggestions are explicitly generated on a worker; reviewing
+                // sidecars must not synchronously sort/score a large recording.
+                var highlights=ImmutableArray<TheatreEditorEntry>.Empty;
                 var analytics=ReplayStudio.Analytics(events,proof.Duration); var rows=ImmutableArray.CreateBuilder<TheatreEditorEntry>();
                 rows.Add(new("summary",0,0,"MATCH SUMMARY",$"{analytics.TotalKills} KILLS // {analytics.TotalDamage} DAMAGE // {analytics.ObjectiveEvents} OBJECTIVES"));
                 foreach(var row in analytics.Players.OrderByDescending(row=>row.Kills).ThenByDescending(row=>row.Damage))
@@ -65,6 +66,21 @@ internal static partial class RmlUiOpenGlSmoke
                     { Tags=TheatreReplayTags.Normalize(annotations.Tags) };
                 Validate(result,false); return result;
             }
+        }
+        public void ValidateSuggestions(TheatreEditorContext context)
+        { lock(ReplayAnnotationWitness.Gate) Validate(context,false); }
+        public System.Threading.Tasks.Task<ImmutableArray<TheatreEditorEntry>> GenerateSuggestions(
+            TheatreEditorContext context, System.Threading.CancellationToken cancellation)
+        {
+            Validate(context, true);
+            var events = ((Files)context.Persisted).Events;
+            if (events.Length > ReplayStudio.MaximumAnalysisEvents)
+                throw new InvalidOperationException("Replay exceeds the bounded highlight analysis limit.");
+            return System.Threading.Tasks.Task.Run(() => ReplayStudio.Highlights(events,context.Duration,
+                    cancellationToken: cancellation).Select((row,index)=>new TheatreEditorEntry("highlight:"+index,
+                        row.StartFrame,row.EndFrame,row.Label,
+                        $"ANNOTATION // {row.Kind} // SCORE {row.Score} // FOCUS {row.FocusFrame}",
+                        row.ActorSlot,FocusFrame:row.FocusFrame)).ToImmutableArray(),cancellation);
         }
         public void ValidateSeekReview(TheatreEditorContext previous,TheatreEditorContext next)
         {

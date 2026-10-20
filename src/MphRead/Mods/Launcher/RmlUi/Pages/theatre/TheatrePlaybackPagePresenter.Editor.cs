@@ -39,10 +39,14 @@ public sealed partial class TheatrePlaybackPagePresenter
             if(opening) TryOpenEditor();
             else if(_editor!=null)switch(action)
             {
-                case TheatrePlaybackAction.EditorRefresh:_editor.Refresh();break;
+                case TheatrePlaybackAction.EditorRefresh:
+                    bool suggestions=_editor.Snapshot().Tab==TheatreEditorTab.AutomaticHighlights;
+                    if(WorkspaceMode)_editor.RefreshWorkspace();else _editor.Refresh();
+                    if(suggestions)_editor.GenerateSuggestions();break;
                 case TheatrePlaybackAction.EditorTab:_editor.NextTab();break;
                 case TheatrePlaybackAction.EditorPlayer:_editor.NextPlayer();break;
-                case TheatrePlaybackAction.EditorEventFilter:_editor.NextFilter();break;
+                case TheatrePlaybackAction.EditorEventFilter:
+                    if(_editor.Snapshot().Tab==TheatreEditorTab.AutomaticHighlights)_editor.RejectSuggestion();else _editor.NextFilter();break;
                 case TheatrePlaybackAction.EditorPrevious:_editor.Move(-1);break;
                 case TheatrePlaybackAction.EditorNext:_editor.Move(1);break;
                 case TheatrePlaybackAction.EditorSeek:_editor.Seek(false);break;
@@ -106,7 +110,8 @@ public sealed partial class TheatrePlaybackPagePresenter
         _host.SetText(_editorModal,"replay_editor_replay",Path.GetFileName(state.Context.LogicalPath));
         _host.SetText(_editorModal,"replay_editor_tab","VIEW: "+state.Tab.ToString().ToUpperInvariant());
         _host.SetText(_editorModal,"replay_editor_player","PLAYER: "+(state.Player<0?"ALL":state.Context.Players.FirstOrDefault(p=>p.Slot==state.Player)?.Name??state.Player.ToString(CultureInfo.InvariantCulture)));
-        _host.SetText(_editorModal,"replay_editor_filter","EVENTS: "+state.Filter.ToString().ToUpperInvariant());
+        _host.SetText(_editorModal,"replay_editor_filter",state.Tab==TheatreEditorTab.AutomaticHighlights?"REJECT SELECTED SUGGESTION":"EVENTS: "+state.Filter.ToString().ToUpperInvariant());
+        _host.SetText(_editorModal,"replay_editor_refresh",state.Tab==TheatreEditorTab.AutomaticHighlights?"GENERATE SUGGESTIONS":"REFRESH REVIEW");
         _host.SetText(_editorModal,"replay_editor_count",state.Entries.IsEmpty?"NO MATCHING ENTRIES":$"ENTRY {state.SelectedIndex+1} / {state.Entries.Length}");
         _host.SetText(_editorModal,"replay_editor_selected",row==null?"No entry selected.":DescribeEditorEntry(row));
         // A bounded window supplies neighbouring event/reel context without rebuilding

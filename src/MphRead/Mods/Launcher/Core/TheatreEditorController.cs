@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace MphRead.Mods.Launcher.Core;
 
-public sealed class TheatreEditorController : IDisposable
+public sealed partial class TheatreEditorController : IDisposable
 {
     private readonly int _thread = Environment.CurrentManagedThreadId;
     private readonly ITheatreEditorBackend _backend;
@@ -26,7 +26,8 @@ public sealed class TheatreEditorController : IDisposable
     public TheatreEditorSnapshot Snapshot()
     {
         Verify(); var live = _backend.ReadLive(_context);
-        if (!live.Current) _authority = false;
+        if (!live.Current) { _authority = false; CancelSuggestions(); }
+        PollSuggestions();
         if (!_authority || _disposed) live = live with { Current = false };
         var rows = Rows(); _selected = Math.Clamp(_selected, 0, Math.Max(0, rows.Length - 1));
         return new(_context,_tab,_filter,_player,rows,_selected,rows.IsEmpty ? null : rows[_selected],_pending,
@@ -36,7 +37,7 @@ public sealed class TheatreEditorController : IDisposable
     public bool RefreshWorkspace() => RefreshReview(true);
     private bool RefreshReview(bool allowSeekReview) => Run(() =>
     {
-        Free(); _authority = false; var next = _backend.Capture();
+        Free(); CancelSuggestions(); _authority = false; var next = _backend.Capture();
         if (!ReferenceEquals(next.Owner,_original.Owner)
             || next.SceneGeneration != _original.SceneGeneration || next.LogicalPath != _original.LogicalPath
             || next.PlaybackPath != _original.PlaybackPath || next.SourceRevision != _original.SourceRevision
@@ -103,12 +104,14 @@ public sealed class TheatreEditorController : IDisposable
         else if (kind==TheatreEditorEditKind.AddHighlight)
         {
             if (_tab!=TheatreEditorTab.AutomaticHighlights) throw new InvalidOperationException("Select an automatic highlight first.");
-            exact=Selected(); after=after.Add(NewRange(exact.Frame,exact.EndFrame,Title(exact.Name),4));
+            exact=Selected();
+            if(before.Any(saved=>exact.Frame<saved.EndFrame&&exact.EndFrame>saved.Frame)) throw new InvalidOperationException("Suggestion overlaps an existing reel segment.");
+            after=after.Add(NewRange(exact.Frame,exact.EndFrame,Title(exact.Name),4));
         }
         else if (kind==TheatreEditorEditKind.AddTopHighlights)
         {
             if (_context.Highlights.IsEmpty) throw new InvalidOperationException("This replay has no automatic highlights.");
-            after=after.AddRange(_context.Highlights.Take(8).Select(row=>NewRange(row.Frame,row.EndFrame,row.Name,4)));
+            after=after.AddRange(VariedSuggestions(before).Select(row=>NewRange(row.Frame,row.EndFrame,row.Name,4)));
         }
         else if (kind==TheatreEditorEditKind.ClearReel)
         { if (before.IsEmpty) throw new InvalidOperationException("The reel is already empty."); after=ImmutableArray<TheatreEditorEntry>.Empty; }
@@ -178,6 +181,6 @@ public sealed class TheatreEditorController : IDisposable
         {if(error is TheatreEditorStaleException)_authority=false;_error=error.Message;return false;}
     }
     private void Verify() {if(_thread!=Environment.CurrentManagedThreadId)throw new InvalidOperationException("Replay editor belongs to the engine thread.");}
-    public void Dispose() {Verify();if(_disposed)return;_disposed=true;_authority=false;_pending=null;_backend.Retire();}
+    public void Dispose() {Verify();if(_disposed)return;CancelSuggestions();_disposed=true;_authority=false;_pending=null;_backend.Retire();}
 }
 #endif

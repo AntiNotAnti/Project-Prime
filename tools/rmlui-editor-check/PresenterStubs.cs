@@ -37,6 +37,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Pages.Theatre
     public sealed partial class TheatrePlaybackPagePresenter : IDisposable
     {
         private bool WorkspaceMode=>false;
+        private string _workspaceTab="markers";
         private bool _workspaceClosing=false;
         private void SelectWorkspaceTab(string tab){}
         private void EnsureWorkspaceOwners(){}

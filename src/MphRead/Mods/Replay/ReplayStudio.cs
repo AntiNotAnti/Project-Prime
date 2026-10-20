@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Replay
@@ -16,7 +17,8 @@ namespace MphRead.Mods.Replay
         Objective,
         CloseFinish,
         Comeback,
-        Duel
+        Duel,
+        MatchFinish
     }
 
     internal readonly record struct ReplayHighlight(
@@ -28,6 +30,11 @@ namespace MphRead.Mods.Replay
         byte TargetSlot,
         int Score,
         string Label);
+
+    // Category multipliers preserve the existing ranking while exposing deterministic tuning.
+    // Scores are always normalized to 0..100; zero suppresses a category.
+    internal sealed record ReplayHighlightWeights(
+        int CombatPercent = 100, int ObjectivePercent = 100, int FinishPercent = 100);
 
     internal readonly record struct ReplayPlayerAnalytics(
         byte Slot,
@@ -68,6 +75,7 @@ namespace MphRead.Mods.Replay
     /// </summary>
     internal static class ReplayStudio
     {
+        internal const int MaximumAnalysisEvents = 100_000;
         private const uint HighlightPreRoll = 4 * 60;
         private const uint HighlightPostRoll = 3 * 60;
         private const uint MultiKillWindow = 8 * 60;
@@ -117,11 +125,14 @@ namespace MphRead.Mods.Replay
         }
 
         public static IReadOnlyList<ReplayHighlight> Highlights(
-            IReadOnlyList<ReplayEvent>? events = null, uint? duration = null)
+            IReadOnlyList<ReplayEvent>? events = null, uint? duration = null,
+            ReplayHighlightWeights? weights = null, CancellationToken cancellationToken = default)
         {
-            bool useCache = events == null && !duration.HasValue;
+            cancellationToken.ThrowIfCancellationRequested();
+            bool useCache = events == null && !duration.HasValue && weights == null && !cancellationToken.CanBeCanceled;
             events ??= DemoPlayback.Events;
             uint length = duration ?? DemoPlayback.LastFrame;
+            if (events.Count > MaximumAnalysisEvents) throw new InvalidOperationException("Replay exceeds highlight analysis event budget.");
             if (useCache)
             {
                 NoteDefaultCache(events.Count, length);
@@ -129,12 +140,22 @@ namespace MphRead.Mods.Replay
                     return _cachedHighlights;
             }
 
+            weights ??= new ReplayHighlightWeights();
             var result = new List<ReplayHighlight>();
             var recentKills = new Dictionary<byte, Queue<ReplayEvent>>();
 
-            foreach (ReplayEvent e in events.OrderBy(e => e.Frame))
+            foreach (ReplayEvent e in events.Where(e => e.Frame <= length).Distinct()
+                .OrderBy(e => e.Frame).ThenBy(e => e.Type).ThenBy(e => e.ActorSlot)
+                .ThenBy(e => e.TargetSlot).ThenBy(e => e.Value))
             {
-                if (e.Type == ReplayEventType.Kill && e.ActorSlot != byte.MaxValue)
+                cancellationToken.ThrowIfCancellationRequested();
+                if (result.Count >= 2048) throw new InvalidOperationException("Replay exceeds highlight candidate budget.");
+                // An annotation has no generation/life ID. Never carry a chain across an
+                // observed lifecycle boundary; missing identities cannot establish a streak.
+                if (e.Type is ReplayEventType.PlayerDeath or ReplayEventType.PlayerSpawn
+                    or ReplayEventType.PlayerJoined or ReplayEventType.PlayerLeft)
+                    recentKills.Remove(e.ActorSlot);
+                if (e.Type == ReplayEventType.Kill && e.ActorSlot < 8)
                 {
                     if (!recentKills.TryGetValue(e.ActorSlot, out Queue<ReplayEvent>? queue))
                     {
@@ -155,45 +176,66 @@ namespace MphRead.Mods.Replay
                         2 => "Double kill",
                         _ => "Kill"
                     };
-                    AddMerged(result, Make(e.Frame, length, kind, e.ActorSlot, e.TargetSlot, score, label));
+                    AddMerged(result, Make(e.Frame, length, kind, e.ActorSlot, e.TargetSlot, score, label), cancellationToken);
                 }
-                else if (e.Type is ReplayEventType.Headshot or ReplayEventType.MatchPoint)
+                else if (e.Type == ReplayEventType.MatchPoint)
                 {
                     AddMerged(result, Make(e.Frame, length, ReplayHighlightKind.Kill,
-                        e.ActorSlot, e.TargetSlot, 75, e.Type == ReplayEventType.Headshot ? "Headshot" : "Match point"));
+                        e.ActorSlot, e.TargetSlot, 75, "Recorded match point"), cancellationToken);
                 }
                 else if (e.Type is ReplayEventType.Objective or ReplayEventType.FlagCapture or ReplayEventType.NodeCapture or ReplayEventType.PrimeChanged)
                 {
                     AddMerged(result, Make(e.Frame, length, ReplayHighlightKind.Objective,
-                        e.ActorSlot, e.TargetSlot, 82, "Objective play"));
+                        e.ActorSlot, e.TargetSlot, 82, "Objective play"), cancellationToken);
                 }
                 else if (e.Type == ReplayEventType.MatchEnded && e.Frame > 0)
                 {
                     uint start = e.Frame > 12 * 60 ? e.Frame - 12 * 60 : 0;
-                    result.Add(new ReplayHighlight(start, Math.Min(length, e.Frame + 2 * 60), e.Frame,
-                        ReplayHighlightKind.CloseFinish, e.ActorSlot, e.TargetSlot, 88, "Match finish"));
+                    result.Add(new ReplayHighlight(start, Math.Min(length, (uint)Math.Min(uint.MaxValue, (ulong)e.Frame + 2 * 60)), e.Frame,
+                        ReplayHighlightKind.MatchFinish, e.ActorSlot, e.TargetSlot, 88, "Match finish"));
                 }
             }
 
             // Dense damage exchanges without a kill are worth surfacing as duels.
             foreach (IGrouping<uint, ReplayEvent> bucket in events
-                .Where(e => e.Type == ReplayEventType.Damage)
-                .GroupBy(e => e.Frame / (5 * 60)))
+                .Where(e => e.Type == ReplayEventType.Damage && e.Frame <= length).Distinct()
+                .GroupBy(e => e.Frame / (5 * 60)).OrderBy(bucket => bucket.Key))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 int damage = bucket.Sum(e => Math.Max(0, e.Value));
                 if (damage < 120) continue;
-                ReplayEvent focus = bucket.OrderByDescending(e => e.Value).First();
+                ReplayEvent focus = bucket.OrderByDescending(e => e.Value).ThenBy(e => e.Frame)
+                    .ThenBy(e => e.ActorSlot).ThenBy(e => e.TargetSlot).First();
                 AddMerged(result, Make(focus.Frame, length, ReplayHighlightKind.Duel,
-                    focus.ActorSlot, focus.TargetSlot, Math.Min(80, 45 + damage / 6), "Heavy duel"));
+                    focus.ActorSlot, focus.TargetSlot, Math.Min(80, 45 + damage / 6), "Heavy duel"), cancellationToken);
             }
 
             ReplayHighlight[] highlights = result
+                .Select(h => h with { Score = (int)Math.Clamp((long)h.Score * Math.Clamp(
+                    h.Kind == ReplayHighlightKind.Objective ? weights.ObjectivePercent
+                    : h.Kind == ReplayHighlightKind.MatchFinish ? weights.FinishPercent
+                    : weights.CombatPercent, 0, 1000) / 100, 0, 100) })
+                .Where(h => h.Score > 0 && h.StartFrame < h.EndFrame)
                 .OrderByDescending(h => h.Score)
-                .ThenBy(h => h.FocusFrame)
+                .ThenBy(h => h.FocusFrame).ThenBy(h => h.ActorSlot)
+                .ThenBy(h => h.TargetSlot).ThenBy(h => h.Kind)
                 .ToArray();
             if (useCache) _cachedHighlights = highlights;
             return highlights;
         }
+
+        /// <summary>Pure, timestamp-free export. Call on a worker with an immutable annotation snapshot.</summary>
+        public static string HighlightsJson(IReadOnlyList<ReplayEvent> events, uint duration,
+            ReplayHighlightWeights? weights = null, CancellationToken cancellationToken = default)
+            => JsonSerializer.Serialize(new
+            {
+                Version = 1,
+                Provenance = "Replay annotations; lifecycle identities and spatial context unavailable",
+                DurationFrames = duration,
+                FramesPerSecond = 60,
+                Weights = weights ?? new ReplayHighlightWeights(),
+                Highlights = Highlights(events, duration, weights, cancellationToken)
+            }, new JsonSerializerOptions { WriteIndented = true });
 
         public static ReplayAnalyticsSnapshot Analytics(
             IReadOnlyList<ReplayEvent>? events = null, uint? duration = null)
@@ -332,14 +374,15 @@ namespace MphRead.Mods.Replay
             byte actor, byte target, int score, string label)
         {
             uint start = frame > HighlightPreRoll ? frame - HighlightPreRoll : 0;
-            uint end = Math.Min(duration, frame + HighlightPostRoll);
+            uint end = Math.Min(duration, (uint)Math.Min(uint.MaxValue, (ulong)frame + HighlightPostRoll));
             return new ReplayHighlight(start, end, frame, kind, actor, target, score, label);
         }
 
-        private static void AddMerged(List<ReplayHighlight> result, ReplayHighlight candidate)
+        private static void AddMerged(List<ReplayHighlight> result, ReplayHighlight candidate, CancellationToken cancellationToken)
         {
             for (int i = 0; i < result.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ReplayHighlight current = result[i];
                 if (current.ActorSlot == candidate.ActorSlot
                     && candidate.StartFrame <= current.EndFrame + 60
@@ -357,6 +400,7 @@ namespace MphRead.Mods.Replay
                     return;
                 }
             }
+            if (result.Count >= 2048) throw new InvalidOperationException("Replay exceeds highlight candidate budget.");
             result.Add(candidate);
         }
 

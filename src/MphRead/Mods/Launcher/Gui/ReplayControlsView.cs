@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -65,7 +67,13 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _exportQueueStatus;
         private readonly ChoiceRow _exportEncoder = new("Encoder", new[] { "libx264" }, 0);
         private readonly DispatcherTimer _timer;
-        private readonly ReplayHighlight[] _highlights;
+        private ReplayHighlight[] _highlights = Array.Empty<ReplayHighlight>();
+        private CancellationTokenSource? _suggestionWork;
+        private string? _suggestionSource;
+        private object? _suggestionEvents;
+        private object? _suggestionOwner;
+        private uint _suggestionDuration;
+        private bool _suggestionsRunning;
         private string _message = "";
         private bool _takeControlArmed;
 
@@ -73,7 +81,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Background = Brushes.Transparent;
             Focusable = true;
-            _highlights = ReplayStudio.Highlights().ToArray();
 
             var body = new StackPanel { Spacing = 9 };
             _status = new TextBlock
@@ -154,6 +161,10 @@ namespace MphRead.Mods.Launcher.Gui
                 + "Lanes: kills · deaths · damage · objectives · annotations · spawns · shots."));
 
             body.Children.Add(new Caption("Highlights"));
+            var generateSuggestions = new DeckButton("GENERATE SUGGESTIONS", Deck.Face.Moss);
+            generateSuggestions.Click += (_, _) => GenerateSuggestions();
+            body.Children.Add(generateSuggestions);
+            body.Children.Add(new Note("Approximate annotation-based suggestions; event labels are recorded annotations, not independently verified outcomes."));
             _highlightPanel = new StackPanel { Spacing = 4 };
             BuildHighlights();
             body.Children.Add(_highlightPanel);
@@ -509,35 +520,95 @@ namespace MphRead.Mods.Launcher.Gui
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             var back = new UiMark(UiMark.Shape.Cancel, "back");
-            back.Click += (_, _) => Closed?.Invoke(this, EventArgs.Empty);
+            back.Click += (_, _) => { CancelSuggestions(); Closed?.Invoke(this, EventArgs.Empty); };
             Content = shell ? scroll : UiLayout.Page(overGame: true, UiLayout.WellSettings,
                 "replay studio", strip: null, body: scroll, no: back);
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             _timer.Tick += (_, _) =>
             {
+                if (_suggestionSource != null && !SuggestionSourceMatches())
+                {
+                    CancelSuggestions();
+                    _suggestionSource = null;
+                    _highlights = Array.Empty<ReplayHighlight>();
+                    BuildHighlights();
+                }
                 if (DemoPlayback.IsActive) Refresh();
             };
             Refresh();
+        }
+
+        private bool SuggestionSourceMatches()
+            => DemoPlayback.IsActive && _suggestionSource == DemoPlayback.CurrentPath
+                && ReferenceEquals(_suggestionOwner, DemoPlayback.PlaybackOwner)
+                && ReferenceEquals(_suggestionEvents, DemoPlayback.Events)
+                && _suggestionDuration == DemoPlayback.LastFrame;
+
+        private void CancelSuggestions()
+        {
+            _suggestionWork?.Cancel();
+            _suggestionWork = null;
+            _suggestionsRunning = false;
+        }
+
+        private async void GenerateSuggestions()
+        {
+            CancelSuggestions();
+            _highlights = Array.Empty<ReplayHighlight>();
+            if (!DemoPlayback.IsActive || DemoPlayback.CurrentPath == null) { BuildHighlights(); return; }
+            var events = DemoPlayback.Events;
+            if (events.Count > ReplayStudio.MaximumAnalysisEvents)
+            { _message = "Recording exceeds the bounded highlight analysis limit."; BuildHighlights(); Refresh(); return; }
+            _suggestionSource = DemoPlayback.CurrentPath;
+            _suggestionEvents = events;
+            _suggestionOwner = DemoPlayback.PlaybackOwner;
+            _suggestionDuration = DemoPlayback.LastFrame;
+            var snapshot = events.ToArray();
+            uint duration = _suggestionDuration;
+            using var cancellation = new CancellationTokenSource();
+            _suggestionWork = cancellation;
+            _suggestionsRunning = true;
+            BuildHighlights();
+            try
+            {
+                var suggestions = await Task.Run(() =>
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var result = ReplayStudio.Highlights(snapshot, duration, cancellationToken: cancellation.Token).ToArray();
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    return result;
+                }, cancellation.Token);
+                if (cancellation.IsCancellationRequested || _suggestionWork != cancellation || !SuggestionSourceMatches()) return;
+                _highlights = suggestions;
+                _message = "Suggestions ready. Preview, accept or reject; only acceptance changes the reel.";
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { _message = "Could not analyze replay: " + ex.Message; }
+            finally
+            {
+                if (_suggestionWork == cancellation)
+                { _suggestionWork = null; _suggestionsRunning = false; BuildHighlights(); Refresh(); }
+            }
         }
 
         private void BuildHighlights()
         {
             _highlightPanel.Children.Clear();
             ReplayHighlight[] ordered = _highlights
-                .OrderBy(h => h.FocusFrame)
+                .OrderByDescending(h => h.Score).ThenBy(h => h.FocusFrame)
                 .Take(8)
                 .ToArray();
             if (ordered.Length == 0)
             {
-                _highlightPanel.Children.Add(new Note("No strong automatic highlights were detected in this recording."));
+                _highlightPanel.Children.Add(new Note(_suggestionsRunning ? "Analyzing annotation snapshot…" : "Generate suggestions to preview and accept individual segments."));
                 return;
             }
             foreach (ReplayHighlight highlight in ordered)
             {
                 var button = new DeckButton(
-                    $"{Time(highlight.FocusFrame)}  {highlight.Label.ToUpperInvariant()}",
-                    highlight.Kind is ReplayHighlightKind.Objective or ReplayHighlightKind.CloseFinish
+                    $"{highlight.Score}/100 · {Time(highlight.FocusFrame)}  {highlight.Label.ToUpperInvariant()} (ANNOTATION)",
+                    highlight.Kind is ReplayHighlightKind.Objective or ReplayHighlightKind.CloseFinish or ReplayHighlightKind.MatchFinish
                         ? Deck.Face.Brass : Deck.Face.Slate,
                     sizeEms: 0.94, padXEms: 0.7, padYEms: 0.4, lip: 3)
                 {
@@ -545,11 +616,31 @@ namespace MphRead.Mods.Launcher.Gui
                 };
                 button.Click += (_, _) =>
                 {
+                    if (!SuggestionSourceMatches()) return;
                     ReplayController.Seek(highlight.FocusFrame, resume: false);
                     _message = $"Highlight: {highlight.Label}.";
                     Refresh();
                 };
                 _highlightPanel.Children.Add(button);
+                var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                var accept = new DeckButton("ACCEPT", Deck.Face.Moss);
+                accept.Click += (_, _) =>
+                {
+                    if (!SuggestionSourceMatches()) { CancelSuggestions(); return; }
+                    try
+                    {
+                        int added = ReplayReels.AddHighlights(_suggestionSource!, new[] { highlight }, 1);
+                        _message = added == 0 ? "This interval overlaps an existing reel segment." : "Suggestion added to reel.";
+                        _highlights = _highlights.Where(h => h != highlight).ToArray();
+                        BuildHighlights(); BuildReel(); Refresh();
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                    { _message = "Could not accept suggestion: " + ex.Message; Refresh(); }
+                };
+                var reject = new DeckButton("REJECT", Deck.Face.Slate);
+                reject.Click += (_, _) => { _highlights = _highlights.Where(h => h != highlight).ToArray(); BuildHighlights(); };
+                actions.Children.Add(accept); actions.Children.Add(reject);
+                _highlightPanel.Children.Add(actions);
             }
         }
 
@@ -651,6 +742,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void AddHighlightsToReel()
         {
+            if (!SuggestionSourceMatches()) { CancelSuggestions(); return; }
             if (DemoPlayback.CurrentPath == null)
             {
                 _message = "No replay is open.";
@@ -1393,7 +1485,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            _timer.Stop(); _clipSave?.Cancel();
+            _timer.Stop(); _clipSave?.Cancel(); CancelSuggestions();
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -1401,6 +1493,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (e.Key == Key.Escape)
             {
+                CancelSuggestions();
                 Closed?.Invoke(this, EventArgs.Empty);
                 e.Handled = true;
                 return;

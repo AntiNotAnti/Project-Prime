@@ -274,6 +274,11 @@ namespace MphRead.Mods
                 if (output == null) Console.WriteLine(json); else System.IO.File.WriteAllText(output, json);
                 return true;
             }
+            if (HasFlag(args, "replayhighlights"))
+            {
+                Environment.ExitCode = Replay.ReplayHighlightsCommand.Run(args);
+                return true;
+            }
             if (HasFlag(args, "replaycontrolcheck"))
             {
                 Environment.ExitCode = Network.ReplayControlCheck.Run();
