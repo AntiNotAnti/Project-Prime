@@ -18,7 +18,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 // Real public offline pickup and native GL submission. The declared setup places
 // the actor at an authored native spawn and uses a declared free-camera vantage at the item.
 // Collection then uses synthetic W input and the ordinary player item phase.
-// This is procedural-proxy acceptance, not final rifle art or a device test.
+// Counts the current original rifle model when prewarmed, or the original
+// three-box fallback otherwise. Historical CW05t captures remain proxy evidence;
+// this still does not qualify held-rifle art/animation or physical devices.
 internal static class StockPickupGlChecks
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -68,7 +70,7 @@ internal static class StockPickupGlChecks
 
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(960, 720); settings.StartVisible = true;
-            settings.Title = "Project Prime public world pickup proxy acceptance";
+            settings.Title = "Project Prime public world pickup presentation acceptance";
             window = new NativeWindow(settings); graphics = new DesktopGraphicsSession(window);
             GLFW.SwapInterval(0);
             string renderer = GL.GetString(StringName.Renderer), version = GL.GetString(StringName.Version);
@@ -126,13 +128,18 @@ internal static class StockPickupGlChecks
                 "camera setup remains outside pickup contact with no custom ownership");
 
             var used = typeof(Scene).GetField("_usedRenderItems", Hidden)!;
-            int ProxyBoxes()
+            int PickupBoxes()
             {
                 int count = 0;
                 foreach (var item in (Queue<RenderItem>)used.GetValue(scene)!)
                 {
                     if (item.Type != RenderItemType.Box || item.ItemCount != 8) continue;
-                    if (item.OverrideColor == new Vector4(.12f, .8f, .95f, 1)
+                    if (scene.CustomRifleModel is {} model)
+                    {
+                        for(byte material=0;material<6;material++)
+                            if(item.OverrideColor==model.Color(material)){count++;break;}
+                    }
+                    else if (item.OverrideColor == new Vector4(.12f, .8f, .95f, 1)
                         || item.OverrideColor == new Vector4(.45f, .65f, .75f, 1)
                         || item.OverrideColor == new Vector4(.4f, 1, .9f, 1)) count++;
                 }
@@ -141,13 +148,16 @@ internal static class StockPickupGlChecks
             void Draw(string? name, int expectedBoxes)
             {
                 Bound();
+                // Existing calls describe one visible station with historical
+                // fallback count3. Its current shared LOD0 asset owns16 boxes.
+                if(expectedBoxes==3)expectedBoxes=scene.CustomRifleModel?.Lod(0).Length??3;
                 ulong frame = scene.FrameCount, revision = ledger.Revision, shots = runtime.AcceptedShots;
                 uint world = ledger.AuthorityFrame;
                 int health = player.Health; var position = player.Position; var ammo = player.ModAmmo;
                 bool owned = runtime.TryPeek(player, out var state, out bool selected);
                 ledger.TryState(0, out var itemBefore);
                 scene.OnDrawFrame(); Check(scene.OnRenderFrame(), "actual world renderer produces a picture");
-                Check(ProxyBoxes() == expectedBoxes, "renderer owns the expected procedural pickup box submissions");
+                Check(PickupBoxes() == expectedBoxes, "renderer owns the expected current original-model or fallback pickup box submissions");
                 Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "native pickup world draw has no GL error");
                 if (name != null)
                 {
@@ -242,12 +252,19 @@ internal static class StockPickupGlChecks
                 Draw("wheel-returned-m7",0);
                 // Actual production gamepad polling/actions from a named
                 // synthetic device; authority/state resources remain untouched.
-                PadBindings.Set(PadAction.WeaponWheel,GamepadButtons.RightThumb);
-                GamepadOptions.Southpaw=false;GamepadOptions.WheelThreshold=.45f;
-                Array.Copy(new[]{5,3,1,4,2,0},GamepadOptions.WheelOrder,6);
                 void Pad(GamepadButtons buttons,float x=0,float y=0)
                 {GamepadManager.UpdateDevice("cw-wheel-gl",new MphRead.Mods.Input.GamepadState{Buttons=buttons,RightX=x,RightY=y,Name="Synthetic wheel acceptance"},mapped:true);}
                 Pad(GamepadButtons.None);GamepadManager.SelectDevice("cw-wheel-gl");Step(2);
+                // Selection switches the compatibility settings view to this
+                // device's own runtime. Configure it only after activation;
+                // writing earlier would configure the no-device fallback.
+                PadBindings.Set(PadAction.WeaponWheel,GamepadButtons.RightThumb);
+                GamepadOptions.Southpaw=false;GamepadOptions.WheelThreshold=.45f;
+                Array.Copy(new[]{5,3,1,4,2,0},GamepadOptions.WheelOrder,6);
+                Pad(GamepadButtons.None);Step(2);
+                Check(GamepadManager.SelectedDeviceId=="cw-wheel-gl"&&GamepadOptions.WheelOrder.SequenceEqual(new[]{5,3,1,4,2,0})
+                    &&PadBindings.Get(PadAction.WeaponWheel)==GamepadButtons.RightThumb,
+                    "selected synthetic controller runtime owns the exact requested binding and six-entry permutation");
                 Pad(GamepadButtons.RightThumb);Step(2);
                 Check(GamepadInput.WheelHeld&&player.ModCustomWheelCount==8&&player.ModCustomWheelSelection==-1,
                     "actual synthetic controller hold preserves neutral-stick cancellation");
@@ -307,7 +324,7 @@ internal static class StockPickupGlChecks
             }
             File.WriteAllText(Path.Combine(outdir, "pickup-gl-results.json"), JsonSerializer.Serialize(new {
                 renderer, version, checks, seconds = watch.Elapsed.TotalSeconds, walkingSteps, captures,wheel,acquireWhileHeld,
-                scope = "Actual offline public pickup/native GL; synthetic keyboard, declared native-spawn setup and presentation-only free-camera vantage. Procedural proxy only; no final CW06 art, Android or physical-device qualification."
+                scope = "Actual offline public pickup/native GL; synthetic keyboard, declared native-spawn setup and presentation-only free-camera vantage. Original shared pickup model when prewarmed, otherwise original three-box fallback. Historical CW05t captures were proxy evidence. No held-rifle animation, Android or physical-device qualification."
             }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"PASS {checks} public world pickup GL checks.");
             return 0;

@@ -51,6 +51,7 @@ public partial class Scene
         // Constructor-failed scenes can own a partially populated player table.
         // Cleanup must release existing scopes without dereferencing empty slots.
         foreach(var player in Players.Items)player?.ModSetCustomScope(default,false,0);
+        ReleaseCustomRifleModel();
         _customPresentationSlots=null;_customHudStates=null;_customFeedback=null;_customPublicFacts=null;_customPublicFactIndex=0;
     }
     internal void UpdateCustomWeaponPresentation()
@@ -61,7 +62,12 @@ public partial class Scene
             return;
         }
         bool online=NetSession.Active,ready=online&&NetSession.CustomWeaponReplicaReady;
-        if(OfflineWeapons==null&&!ready&&_customHudStates==null)return;
+        if(OfflineWeapons==null&&!ready)
+        {
+            ReleaseCustomRifleModel();
+            if(_customHudStates==null)return;
+        }
+        if(OfflineWeapons!=null||ready)PrewarmCustomRifleModel();
         _customHudStates??=new CustomWeaponHudState[8];Array.Clear(_customHudStates);
         bool publicState=false;
         if(ready)

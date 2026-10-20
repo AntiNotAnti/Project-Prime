@@ -5778,6 +5778,7 @@ namespace MphRead
                 _modelLeases.Clear();
             }
             Mods.Render.Characters.CharacterModelRuntime.Release(this);
+            ReleaseCustomRifleModel();
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();

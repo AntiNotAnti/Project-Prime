@@ -1,0 +1,9 @@
+To the extent possible under law, the authors of the original Riftline M7
+presentation assets in this directory waive all copyright and related or
+neighboring rights to these assets under CC0 1.0 Universal.
+
+The assets are provided without warranty. The dedication applies only to
+original content in this directory. It grants no rights to any Nintendo or
+other third-party content.
+
+CC0 1.0 Universal legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode

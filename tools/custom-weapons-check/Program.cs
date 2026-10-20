@@ -4,6 +4,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 3 && args[0] == "--rifle-assets-gl") return CustomRifleAssetSceneChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--wheel-native-hold-gl") return StockPickupGlChecks.Run(args[1],args[2],wheel:true,acquireWhileHeld:true);
 if (args.Length == 3 && args[0] == "--wheel-gl") return StockPickupGlChecks.Run(args[1],args[2],wheel:true);
 if (args.Length == 2 && args[0] == "--knowledge-input-client-scene") return CustomKnowledgeInputClientSceneChecks.Run(args[1]);
@@ -231,6 +232,7 @@ CustomPickupKnowledgeChecks.Run(Check);
 CustomEmptyInventoryChecks.Run(Check);
 CustomKnowledgeCarriageChecks.Run(Check);
 CustomPickupReplicaChecks.Run(Check);
+CustomRifleModelChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;
