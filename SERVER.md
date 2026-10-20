@@ -295,6 +295,19 @@ server-capacity run; do not infer them from idle children. Unrecognized and
 nonpositive settings use default/disabled behavior. Rejection explains which
 resource is constrained; retry after workloads complete.
 
+### Hosted child retirement
+
+The host pool unlists a retiring match immediately, then requests a graceful
+child shutdown on an independent worker instead of blocking the allocator's UDP
+loop. Linux/macOS sends `SIGTERM` through the system `kill` utility, which
+the game already handles via `ShutdownSignals`. The child has up to 8 seconds
+to finish replay/archive/network disposal before a process-tree kill fallback
+(another 2 seconds). Windows attempts a normal window-close request before
+the same fallback. A missing utility or unsupported console signal falls back
+to forced termination. The master waits for its owned children with a 12-second
+aggregate bound during master shutdown, unlike ordinary per-match retirement.
+
+
 ## Capacity benchmarking
 
 Dedicated server publishes use ReadyToRun and prewarm combat/network hot

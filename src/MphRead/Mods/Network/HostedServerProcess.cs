@@ -220,27 +220,81 @@ namespace MphRead.Mods.Network
             return _players;
         }
 
-        public void Dispose()
+        private int _shutdownStarted;
+        private Task? _shutdownTask;
+
+        /// <summary>
+        /// Reaping and listing removal cannot block the parent's UDP owner.
+        /// SIGTERM is already handled by ShutdownSignals in the child, so it
+        /// can finalize replay, send Bye, and unlist before the hard deadline.
+        /// The process handle remains owned by this worker until disposal.
+        /// </summary>
+        internal Task ShutdownGracefully()
+        {
+            if (Interlocked.Exchange(ref _shutdownStarted, 1) == 0)
+                _shutdownTask = Task.Run(() => FinishShutdown(graceful: true));
+            return _shutdownTask ?? Task.CompletedTask;
+        }
+
+        private static bool TryRequestGracefulStop(Process process)
+        {
+            try
+            {
+                if (OperatingSystem.IsWindows()) return process.CloseMainWindow();
+                if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return false;
+                string? binary = File.Exists("/bin/kill") ? "/bin/kill"
+                    : File.Exists("/usr/bin/kill") ? "/usr/bin/kill" : null;
+                if (binary == null) return false;
+                var start = new ProcessStartInfo(binary)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                start.ArgumentList.Add("-TERM");
+                start.ArgumentList.Add(process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                using Process? signal = Process.Start(start);
+                return signal != null && signal.WaitForExit(1000) && signal.ExitCode == 0;
+            }
+            catch (Exception) { return false; } // Missing utility: forced stop still bounded.
+        }
+
+        private void FinishShutdown(bool graceful)
         {
             bool stopped = false;
             try
             {
                 if (!_process.HasExited)
                 {
-                    _process.Kill(entireProcessTree: true);
-                    _process.WaitForExit(2000);
+                    bool requested = graceful && TryRequestGracefulStop(_process);
+                    if (!requested || !_process.WaitForExit(8000))
+                    {
+                        if (!_process.HasExited) _process.Kill(entireProcessTree: true);
+                        _process.WaitForExit(2000);
+                    }
                 }
                 stopped = _process.HasExited;
             }
             catch (Exception)
             {
-                // Already gone, or the operating system reaped it first.
+                // Already gone or reaped: retain existing forced-stop fallback.
+                try
+                {
+                    if (!_process.HasExited) _process.Kill(entireProcessTree: true);
+                    stopped = _process.WaitForExit(2000);
+                }
+                catch (Exception) { }
             }
             finally
             {
                 _process.Dispose();
                 if (stopped) LocalServer.CleanupHostedLibrary(_library);
             }
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _shutdownStarted, 1) == 0)
+                FinishShutdown(graceful: false);
         }
     }
 }

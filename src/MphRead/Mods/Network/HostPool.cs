@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.Network
 {
@@ -335,19 +336,23 @@ namespace MphRead.Mods.Network
 
         public void StopAll(string why)
         {
+            // Unlike ordinary reaping, service shutdown has to wait for the
+            // owned children to finish. Signal all of them before waiting.
+            var pending = new List<Task>(_hosted.Count);
             for (int i = _hosted.Count - 1; i >= 0; i--)
-            {
-                Stop(_hosted[i], why);
-            }
+                pending.Add(Stop(_hosted[i], why));
+            if (pending.Count > 0 && !Task.WaitAll(pending.ToArray(), 12000))
+                Log("hosted child shutdown exceeded grace; workers will force-stop");
         }
 
-        private void Stop(Hosted entry, string why, double now = 0)
+        private Task Stop(Hosted entry, string why, double now = 0)
         {
             Log($"stopping \"{entry.Name}\" on port {entry.Port}: {why}");
-            entry.Process.Dispose();
+            Task shutdown = entry.Process.ShutdownGracefully();
             _hosted.Remove(entry);
             _cooling[entry.Port] = now;
             OnStopped?.Invoke(entry.Port);
+            return shutdown;
         }
     }
 }
