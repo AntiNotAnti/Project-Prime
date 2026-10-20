@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using MphRead.Formats.Collision;
@@ -61,6 +63,8 @@ namespace MphRead.Entities
 
         public void SetUpMenuPauseMapNav()
         {
+            _navMapDetail?.Dispose();
+            _navMapDetail = null;
             _navMapDrawNode = null;
             _navMapModelEnabled = false;
             _navDrawZoom = 0.75f;
@@ -125,6 +129,38 @@ namespace MphRead.Entities
                     _navTargetPos = _navCurRoomNodePos;
                 }
             }
+            BeginPauseMapDetail();
+        }
+
+        private Mods.Campaign.CampaignMapDetailLoad? _navMapDetail;
+
+        private void BeginPauseMapDetail()
+        {
+            if (!Mods.Launcher.LauncherPrefs.DetailedCampaignMap || !_navMapModelEnabled
+                || !_scene.GameState.SinglePlayer) return;
+            var requests = new List<Mods.Campaign.CampaignMapDetailRequest>();
+            int firstArea = _scene.AreaId & ~1;
+            for (int area = firstArea; area <= firstArea + 1; area++)
+            {
+                if (area < 0 || area >= _navMapModels.Length || _navMapModels[area] is not { } inst) continue;
+                UpdateMapModelTransforms(inst, area);
+                foreach (Node node in inst.Model.Nodes)
+                {
+                    if (node.ParentIndex != 0 || !CheckRoomVisited(node)) continue;
+                    // Exact native room bindings only. Connectors retain their
+                    // NAV geometry, placement and real visited-connector checks.
+                    for (int id = 27; id <= 92; id++)
+                    {
+                        RoomMetadata? meta = Metadata.GetRoomById(id);
+                        if (meta == null || meta.FirstHunt || meta.Hybrid
+                            || !String.Equals(meta.Name, node.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                        requests.Add(new(node.Name, Paths.Combine(Paths.FileSystem, meta.CollisionPath),
+                            SceneSetup.GetNodeLayer(GameMode.SinglePlayer, meta.NodeLayer, 1), node.Animation.Row3.Xyz));
+                        break;
+                    }
+                }
+            }
+            _navMapDetail = new(requests);
         }
 
         private static readonly ImmutableArray<Vector3> _navDoorColors =
@@ -175,6 +211,8 @@ namespace MphRead.Entities
 
         public void EndMenuPauseHud()
         {
+            _navMapDetail?.Dispose();
+            _navMapDetail = null;
             InitHudState();
             _scene.Layer1Info.BindingId = _pausedPrevBindingId1;
             _scene.Layer1Info.Alpha = _pausedPrevAlpha1;
@@ -801,19 +839,11 @@ namespace MphRead.Entities
             // which have an exaggerated height to make the rooms fit in the combined map. however, the player indicator is unchanged, so when standing
             // in front of the upper door, it looks like you're only halfway up on the map model, and stepping inside the connector appears discontinuous.
             // fix by applying the same factor to the player position (only if inside the actual room, and not a connector).
-            float posHeightFactor = 1;
-            if (NodeRef.RoomName == "UNIT2_C2") // Fan Room Alpha
-            {
-                posHeightFactor = 2.05f;
-            }
-            else if (NodeRef.RoomName == "UNIT2_C3") // Fan Room Beta
-            {
-                posHeightFactor = 1.305f;
-            }
-            float x = _position.X + _navInitRoomNodePos.X - roomOffset.X;
-            float y = _position.Y * posHeightFactor + _navInitRoomNodePos.Y - roomOffset.Y + 1;
-            float z = _position.Z + _navInitRoomNodePos.Z - roomOffset.Z;
-            playerPosTransform.Row3.Xyz = new Vector3(x, y, z);
+            float posHeightFactor = Mods.Campaign.CampaignMapDetail.RoomHeightScale(NodeRef.RoomName);
+            playerPosTransform.Row3.Xyz = new Vector3(
+                _position.X + _navInitRoomNodePos.X - roomOffset.X,
+                _position.Y * posHeightFactor + _navInitRoomNodePos.Y - roomOffset.Y + 1,
+                _position.Z + _navInitRoomNodePos.Z - roomOffset.Z);
             UpdateTransforms(_navPlayerPosModel, playerPosTransform, 0);
             GetDrawItems(_navPlayerPosModel, 0);
             if (_navMapDrawNode == null || _navMapDrawNode.Name.StartsWith("Con") || !_scene.NavMapRoomSymbols.HasValue)
@@ -872,6 +902,14 @@ namespace MphRead.Entities
                 Model model = inst.Model;
                 if (node.Enabled)
                 {
+                    if (node.ParentIndex == 0 && CheckRoomVisited(node)
+                        && Mods.Launcher.LauncherPrefs.DetailedCampaignMap
+                        && _navMapDetail?.TryGetRoom(node.Name, out var detail) == true)
+                    {
+                        DrawPauseMapDetail(detail!, _navMapDrawNode == node, polygonId);
+                        if (node.NextIndex != -1) GetItems(inst, model.Nodes[node.NextIndex], polygonId);
+                        return;
+                    }
                     Node? roomParent = null;
                     int parentIndex = node.ParentIndex;
                     while (parentIndex > 0)
@@ -936,6 +974,20 @@ namespace MphRead.Entities
                 {
                     GetItems(inst, model.Nodes[node.NextIndex], polygonId);
                 }
+            }
+        }
+
+        private void DrawPauseMapDetail(Mods.Campaign.CampaignMapDetailResult detail, bool selected, int polygonId)
+        {
+            foreach (var polygon in detail.Polygons)
+            {
+                Vector3[] vertices = ArrayPool<Vector3>.Shared.Rent(polygon.Vertices.Count);
+                for (int i = 0; i < polygon.Vertices.Count; i++) vertices[i] = polygon.Vertices[i];
+                float shade = 0.65f + 0.35f * MathF.Abs(polygon.Normal.Y);
+                Vector4 color = new(new Vector3(247, selected ? 153 : 123, selected ? 52 : 22) / 255f * shade,
+                    selected ? 20 / 31f : 4 / 31f);
+                _scene.AddRenderItem(CullingMode.Back, polygonId, color, RenderItemType.Ngon,
+                    vertices, polygon.Vertices.Count, noLines: true);
             }
         }
 
