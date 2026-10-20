@@ -6,6 +6,7 @@ using OpenTK.Mathematics;
 
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--client-projection-scene") return CustomAuthoritySceneChecks.RunClientProjection(args[1]);
 if (args.Length is 2 or 3 && args[0] is "--authority-replica-scene" or "--replica-capture-scene") return CustomAuthoritySceneChecks.Run(args[1],snapshotOnly:true,snapshotCase:args.Length==3 ? args[2]:null);
 if (args.Length == 2 && args[0] == "--authority-scene") return CustomAuthoritySceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--engine-source-scene") return CustomAuthoritySceneChecks.Run(args[1],sourceOnly:true);
