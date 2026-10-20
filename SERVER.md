@@ -270,22 +270,40 @@ Dedicated servers can record anonymous network/combat/performance measurements f
 
 ## Capacity benchmarking
 
-Dedicated server publishes use ReadyToRun and prewarm the combat/network hot
-paths before the first match. To measure how many isolated authoritative matches
-a specific Linux host can sustain, use the real-process harness:
+Dedicated server publishes use ReadyToRun and prewarm combat/network hot
+paths. The Linux real-process capacity harness now defaults to **active**:
+each isolated continuous server is joined by two independent real UDP
+`-netcheck -nographics` AI clients. A listening server with no clients does
+**not** simulate a world, and its idle CPU/RSS must never be advertised as
+active capacity.
 
 ```sh
 python3 tools/server-capacity-benchmark.py \
   --binary publish/linux-x64-server/ProjectPrime \
   --workdir /path/to/configured/server \
+  --client-binary /path/to/netcheck-capable/ProjectPrime \
+  --client-workdir /path/to/configured/client \
+  --mode active --clients-per-match 2 \
   --instances 1,2,4,8 --seconds 120 \
   --output capacity-results
 ```
 
-Each arm starts that many normal dedicated-server processes on separate ports,
-samples per-process CPU/RSS from `/proc`, and preserves the server logs and a
-JSON summary. Run it on the actual VPS/Pi class being evaluated; CPU percentages
-and ReadyToRun gains are hardware/runtime-specific.
+The default client binary/workdir are the server binary/workdir when omitted,
+provided that binary supports `-netcheck -nographics`. Use the standard
+non-server client publish when necessary. Each active arm waits for actual
+admissions, performs a warmup, measures server process CPU/RSS from `/proc`,
+and requires a nonzero server simulation step report. A missing report or
+early client exit fails the arm rather than silently claiming capacity. Raw
+server/client logs and per-arm JSON are preserved.
+
+For an explicit **idle** comparison, pass `--mode idle`. That mode does
+not validate active simulation. The client processes share CPU and memory
+bandwidth with the tested server processes: this is a *co-located load*
+measurement, not a production capacity guarantee with remote clients.
+Use separate load-generating hardware for deployment qualification and
+check 60 Hz deadline violations, p99 steps, UDP drop/retry counters, GC
+pauses, and RSS alongside throughput. Record the binary/runtime/source
+hashes and retain all runs, including failures.
 
 
 ## Advanced Match Rules
