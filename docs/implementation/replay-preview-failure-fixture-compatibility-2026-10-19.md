@@ -23,13 +23,24 @@ explicit fixture defines include it; source ordering places injection inside
 the actual render scope; page validation passes 148 markup/styles; diff
 whitespace passes. These are not compilation or GL execution evidence.
 
-Pending, on an available isolated worker:
+Actual Windows x64 verification used a fresh detached checkout of source
+`5ef4b31715588e2dcd1e0e0d6800fecc5b3390b1`, with its own Core/tool outputs:
 
-```
-dotnet build tools/rmlui-opengl-check/rmlui-opengl-check.csproj -c Release
-```
+- Full fixture and actual engine project-reference Release build: PASS, zero warnings/errors, 48.14 seconds.
+- `--replay-files`: PASS.
+- `--studio-owner`: PASS, 686 checks, with a fresh short user-data root.
 
-This must build its project reference; a previously built normal engine lacks
-the deliberately fixture-only API. Then run the existing RML97 Studio failure
-and retry acceptance through the hosted software-frame job. No macOS full build,
-UI run or performance test was performed for preparation.
+The initial `--studio-owner` attempt under the deeper checkout-local evidence
+path failed with an IOException during the existing symbolic-link redirection
+case. That failure is retained. The same unchanged binaries and assertions
+passed with the shorter fresh root; no fixture source/path policy was changed.
+This comparison establishes a user-data path/environment limitation, without
+claiming its exact Windows API cause. Both attempts, source identity and binary
+hashes remain in ignored `artifacts/replay-preview-fixture-compile/` evidence.
+Existing benchmark/normal engine outputs were not overwritten. All owned
+Windows processes exited and the exclusive lease was released afterward.
+
+No actual GL window, input event, macOS full build or performance test ran.
+Hosted software-frame acceptance and real replay-window injected-failure/retry
+acceptance remain pending. A future fixture build must include its project
+reference; an ordinary engine intentionally lacks this fixture-only API.
