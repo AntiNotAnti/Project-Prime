@@ -4,6 +4,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 2 && args[0] == "--cycle-scene") return CustomWeaponCycleSceneChecks.Run(args[1]);
 if (args.Length == 3 && args[0] == "--pickup-gl") return StockPickupGlChecks.Run(args[1],args[2]);
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
 if (args.Length == 3 && args[0] == "--stock-pickup-scene") return StockPickupSceneChecks.Run(args[1],args[2]);
@@ -218,6 +219,7 @@ CustomReplayBoundaryChecks.Run(Check);
 CustomMatchPolicyChecks.Run(Check);
 CustomOfflineAvailabilityChecks.Run(Check);
 StockPickupChecks.Run(Check);
+CustomWeaponCycleChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

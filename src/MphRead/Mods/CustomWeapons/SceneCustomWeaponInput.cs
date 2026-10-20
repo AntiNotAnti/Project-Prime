@@ -36,6 +36,20 @@ public partial class Scene
             ||!NetSession.Active&&OfflineWeapons?.InputProjection(player)?.Selected==true
             ||NetSession.IsClient&&!NetSession.IsAuthority&&player.SlotIndex==NetSession.LocalSlot
                 &&NetSession.CustomWeaponInputProjection?.Selected==true;
+    internal bool ModCustomSelectionMatches(PlayerEntity player,in CustomInputProjection staged)
+    {
+        var current=!NetSession.Active?OfflineWeapons?.InputProjection(player)
+            :player.SlotIndex==NetSession.LocalSlot?NetSession.CustomWeaponInputProjection:null;
+        return current is {} value&&value.Owner==staged.Owner&&value.Bootstrap==staged.Bootstrap&&value.Manifest==staged.Manifest;
+    }
+    private bool TryCustomCycleState(PlayerEntity player,in CustomInputProjection projection,out WeaponStateSnapshot state)
+    {
+        state=default;
+        if(!NetSession.Active)return OfflineWeapons?.TryPeek(player,out state,out _)==true&&state.Owner==projection.Owner;
+        if(NetSession.CustomWeaponPresentationState is not {} message||message.State.Owner!=projection.Owner
+            ||message.Bootstrap!=projection.Bootstrap||message.Manifest!=projection.Manifest)return false;
+        state=message.State;return true;
+    }
     internal void SampleCustomWeaponInput(bool allowed)
     {
         // Public local input never takes over a server, bot or private replica.
@@ -48,11 +62,11 @@ public partial class Scene
             ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed
             ||controls.Battlehammer.IsPressed||controls.Imperialist.IsPressed||controls.Judicator.IsPressed
             ||controls.Magmaul.IsPressed||controls.ShockCoil.IsPressed||controls.OmegaCannon.IsPressed
-            ||controls.AffinitySlot.IsPressed||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed
+            ||controls.AffinitySlot.IsPressed
             ||player.ModNativeWheelReleaseIntent;
         if(!NetSession.Active)OfflineWeapons?.ApplyPickupAutoSelection(player,
             allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay,
-            native||controls.CustomWeapon.IsPressed);
+            native||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed||controls.CustomWeapon.IsPressed);
         var projection=NetSession.Active?NetSession.CustomWeaponInputProjection:OfflineWeapons?.InputProjection(player);
         if(!NetSession.Active&&projection==null)
         {
@@ -76,7 +90,18 @@ public partial class Scene
         bool inputAllowed=allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay
             &&player.Health>0&&!player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing
             &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
-        _customInput.Sample(new(inputAllowed,controls.CustomWeapon.IsPressed,native,controls.Shoot.IsPressed,
+        bool custom=controls.CustomWeapon.IsPressed;
+        bool cycle=controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed;
+        if(cycle&&!native&&!custom&&inputAllowed&&projection is {} cycleOwner
+            &&!player.ModCustomCycleMenuDown
+            &&TryCustomCycleState(player,cycleOwner,out var cycleState))
+        {
+            var target=player.ModStageCustomCycle(cycleOwner,_customInput.Selected,
+                cycleState.Magazine>0||cycleState.Reserve>0);
+            native=!target.Custom;custom=target.Custom;
+        }
+        else native|=cycle;
+        _customInput.Sample(new(inputAllowed,custom,native,controls.Shoot.IsPressed,
             controls.CustomReload.IsPressed,controls.Zoom.IsPressed,controls.Zoom.IsDown,controls.CustomOptic.IsPressed,Mods.InputSettings.CustomScopeHold),_customInputSink!);
         player.ModSynchronizeCustomNativeSuppression();
     }

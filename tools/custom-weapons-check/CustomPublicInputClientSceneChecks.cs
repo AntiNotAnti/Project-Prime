@@ -160,9 +160,9 @@ internal static class CustomPublicInputClientSceneChecks
             NetSession.Stop();Directory.SetCurrentDirectory(Path.GetFullPath(data));Paths.UpdatePaths();Paths.ChooseMphPath();Headless.Enter();
             MapAudit.ForceEveryone=true;GamepadContexts.Focused=true;GamepadContexts.Current=GamepadContext.Gameplay;NetSession.DeveloperCustomWeaponReadiness=true;
             using var f=new Fixture();int health=f.Player.Health;
-            f.Sample(c=>c.CustomWeapon.IsPressed=true);var equip=f.Request(1);
+            f.Sample(c=>c.PrevWeapon.IsPressed=true);var equip=f.Request(1);
             Check(equip.Kind==CustomWeaponActionKind.Equip&&equip.Owner==f.Owner(1)&&equip.Manifest==f.Manifest.Manifest.Digest
-                &&equip.Bootstrap==f.Bootstrap&&equip.Weapon.Value==10,"public actor control derives complete canonical Equip identity/nonce1");
+                &&equip.Bootstrap==f.Bootstrap&&equip.Weapon.Value==10,"public acquired-weapon cycle derives complete canonical Equip identity/nonce1");
             f.Until(()=>f.Wire.Sent.Any(p=>p.Type==PacketType.CustomWeaponInput&&CustomInputCarrier.TryRead(p.Payload,out var r,out var i)
                 &&r==equip&&i.Frame==102&&i.LifeId==1),"same public sample emits actual93 containing native source102 and exact pending Equip");
             // Canonical state stands in for accepted Equip with its application
