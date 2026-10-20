@@ -420,6 +420,14 @@ internal static class ControlRequestChecks
     private static void Client(Fixture f,Action<bool,string> check)
     {
         var request=f.Request with { Sequence=1 }; var client=Client(f); var initial=client.State;
+        var unknown=request with { Weapon=new(73) };
+        check(unknown.IsValid && !client.Submit(unknown,0) && client.State==initial
+            && !client.TryNextControl(0,out _),
+            "client rejects structurally valid unknown runtime73 before queuing or advancing an M7-only control stream");
+        var unknownDenied=new CustomControlDenied(unknown,1,201,CustomControlDenialReason.SourceUnavailable);
+        check(!client.Receive(PacketType.CustomWeaponControlDenied,Encode(unknownDenied),out var unknownAck)
+            && unknownAck==default && client.LastControlDenied==null && client.State==initial,
+            "typed no-source result for unknown runtime73 cannot create an acknowledgement or projection under the M7-only manifest");
         check(client.Submit(request,0) && client.Submit(request,0)
             && !client.Submit(request with { Optic=2 },0) && !client.Submit(request with { Sequence=3 },0),
             "client retains exact immutable contiguous control intent and rejects conflicts/gaps");
