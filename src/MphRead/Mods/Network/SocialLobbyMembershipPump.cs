@@ -27,6 +27,9 @@ internal sealed class SocialLobbyMembershipPump : IDisposable
     private readonly Func<SocialLobbyMembershipReport, CancellationToken, Task<SocialLobbyMembershipReceipt>> _send;
     private readonly Action<SocialLobbyMembershipIdentity,Guid>? _verified;
     private readonly Dictionary<(ulong, uint, string), State> _states = new();
+    // Snapshot keys/states before processing asynchronous completions, just
+    // like ToArray did, but without allocating a new array each poll.
+    private readonly List<KeyValuePair<(ulong, uint, string), State>> _iteration = new(16);
     private readonly CancellationTokenSource _stop = new();
     private long _sequence;
     private int _refreshGeneration;
@@ -55,8 +58,12 @@ internal sealed class SocialLobbyMembershipPump : IDisposable
             state.Present = true;
             state.AbsentSince = double.NaN;
         }
-        int running = _states.Values.Count(s => s.Work is { IsCompleted: false });
-        foreach (var pair in _states.ToArray())
+        int running = 0;
+        foreach (State state in _states.Values)
+            if (state.Work is { IsCompleted: false }) running++;
+        _iteration.Clear();
+        foreach (var pair in _states) _iteration.Add(pair);
+        foreach (var pair in _iteration)
         {
             State state = pair.Value;
             if (!state.Present && double.IsNaN(state.AbsentSince)) state.AbsentSince = now;
@@ -95,6 +102,7 @@ internal sealed class SocialLobbyMembershipPump : IDisposable
             });
             ++running;
         }
+        _iteration.Clear(); // Do not retain expired identities/tickets between polls.
     }
 
     public void Dispose()
@@ -104,5 +112,6 @@ internal sealed class SocialLobbyMembershipPump : IDisposable
         _stop.Cancel();
         // Shutdown does not wait on HTTPS. Backend membership has a 60 s TTL.
         _states.Clear();
+        _iteration.Clear();
     }
 }
