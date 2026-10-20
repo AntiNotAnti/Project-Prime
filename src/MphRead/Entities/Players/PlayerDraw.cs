@@ -310,8 +310,10 @@ namespace MphRead.Entities
                     Vector3 fallbackLateral = new(_field70, 0, _field74);
                     Matrix4 transform = ModBuildBipedDrawTransform(drawPosition, drawFacing,
                         fallbackLateral, scale, bottom, out float angle);
+                    float crouchVisual = ModCrouchVisualAmount;
+                    bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0);
                     float canonicalAngle = angle;
-                    Matrix4 canonicalBody = ordinaryOfflineActor
+                    Matrix4 canonicalBody = ordinaryOfflineActor || crouchInterpolated
                         ? ModBuildBipedDrawTransform(Position, _facingVector,
                             fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
@@ -334,12 +336,12 @@ namespace MphRead.Entities
                     // Node interpolation can remain fractional when float actor
                     // interpolation rounds exactly to the current world pose.
                     // These canonical owners must not inherit either sample.
-                    bool isolateBipedAnchors = ordinaryOfflineActor
+                    bool isolateBipedAnchors = ordinaryOfflineActor || crouchInterpolated
                         || (ordinaryOfflinePresentation && interpolatedPose);
                     try
                     {
-                    UpdateHunterBipedPresentation(model, spineNode, transform, angle,
-                        lowerSample, upperSample);
+                    UpdateHunterBipedVisual(model, spineNode, transform, angle,
+                        lowerSample, upperSample, crouchVisual);
                     if (drawAlive)
                     {
                         if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -405,7 +407,7 @@ namespace MphRead.Entities
                             finally
                             {
                                 if (isolateBipedAnchors)
-                                    UpdateHunterBipedPresentation(model, spineNode, transform, angle, lowerSample, upperSample);
+                                    UpdateHunterBipedVisual(model, spineNode, transform, angle, lowerSample, upperSample, crouchVisual);
                             }
                         }
                         if (_frozenGfxTimer > 0)
@@ -576,6 +578,10 @@ namespace MphRead.Entities
         private void UpdateHunterBipedPresentation(Model model, Node spineNode,
             Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper)
+            => UpdateHunterBipedVisual(model, spineNode, world, pitch, lower, upper, ModCrouched ? 1 : 0);
+
+        private void UpdateHunterBipedVisual(Model model, Node spineNode, Matrix4 world, float pitch,
+            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount)
         {
             spineNode.AnimIgnoreChild = true;
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
@@ -593,7 +599,7 @@ namespace MphRead.Entities
                 _bipedModel2.AnimInfo, upper);
             foreach (Node node in model.Nodes)
                 node.Animation *= world;
-            ModApplyCrouchPose(model, world);
+            ModApplyCrouchVisualPose(model, world, crouchAmount);
             model.UpdateMatrixStack();
         }
 

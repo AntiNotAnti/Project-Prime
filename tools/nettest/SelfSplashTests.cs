@@ -409,8 +409,15 @@ internal static class SelfSplashTests
             var claim = SelfClaim(beam);
             Check(NetSelfSplash.Validate(0, claim, out var expected), "pre-payment witness independently derives floor rocket outcome");
             if (additive)
+            {
                 Check(expected.Impulse.Y > .26f && expected.Impulse.Length <= Quake3MovementProfileV2.MaximumRocketImpulse + .000001f,
                     "actual floor rocket witness supplies bounded lift above native quarter-unit cap");
+                var capsuleImpulse = Quake3MovementProfileV3.RocketImpulse((uint)beam.SplashDamage, origin,
+                    _shooter.Position, beam.SplashRadius, _shooter.ModBipedBottom, _shooter.ModBipedTop,
+                    Fixed.ToFloat(_shooter.Values.BipedColRadius));
+                Check(Vector3.Distance(expected.Impulse, capsuleImpulse) < .000001f,
+                    "current authority floor witness uses base splash strength and the canonical biped capsule");
+            }
             int before = _shooter.Health;
             beam.OnCollision(floor, colWith: null);
             PlayerState state = default; NetDamage.Write(0, ref state);
@@ -432,6 +439,82 @@ internal static class SelfSplashTests
                 && _shooter.Health == health && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
                 $"{_model} {weapon} native-first claim retry preserves immutable receipt, health and velocity");
         }
+    }
+    private static void CapsuleBoundaryAndHandicapPayments(BeamType weapon = BeamType.Missile)
+    {
+        if (!AdditiveBlast(weapon)) return;
+        foreach (float boundaryOffset in new[] { -.01f, .01f })
+        {
+            Prepare(); var beam = EmitFloorBlast(weapon);
+            CollisionResult floor = default;
+            Check(CollisionDetection.CheckBetweenPoints(beam.Position, beam.Position - Vector3.UnitY * 4,
+                TestFlags.Beams, _shooter.OwningScene, ref floor), "capsule boundary resolves actual room floor");
+            beam.BackPosition = beam.Position; beam.Position = floor.Position + Vector3.UnitY * .05f;
+            Vector3 origin = BeamProjectileEntity.ModSplashOrigin(_shooter.OwningScene, beam.Beam, beam.Position, floor.Position);
+            _shooter.ModPlaceAt(_shooter.Position.WithY(origin.Y + beam.SplashRadius - _shooter.ModBipedBottom + boundaryOffset));
+            // Keep the horizontal source location exactly under its authority body.
+            beam.Position = beam.Position.WithX(_shooter.Position.X).WithZ(_shooter.Position.Z);
+            origin = BeamProjectileEntity.ModSplashOrigin(_shooter.OwningScene, beam.Beam, beam.Position, floor.Position);
+            Check(Vector3.Distance(origin, _shooter.Position) > beam.SplashRadius,
+                "capsule boundary fixture lies outside the historical centre-point radius");
+            NetSelfSplash.Observe(beam, origin); var claim = SelfClaim(beam);
+            bool inside = boundaryOffset < 0;
+            Check(NetSelfSplash.Validate(0, claim, out var expected) == inside,
+                "authority capsule radius admits its inside edge and refuses its outside edge");
+            int health = _shooter.Health; var speed = _shooter.Speed;
+            beam.OnCollision(floor, colWith: null);
+            if (inside)
+            {
+                Check(health - _shooter.Health == expected.Damage && expected.Damage > 0
+                    && Vector3.Distance(_shooter.Speed, speed + expected.Impulse) < .000001f,
+                    "native inside-capsule edge pays the same captured authority damage and additive impulse");
+                Check(Receive(claim) == HitVerdictPacket.ResultDuplicate,
+                    "inside-capsule native payment cannot be repaid by its self claim");
+                byte[] receipt = Bytes(_lastAck); int paidHealth = _shooter.Health; var paidSpeed = _shooter.Speed;
+                Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Bytes(_lastAck).SequenceEqual(receipt)
+                    && _shooter.Health == paidHealth && _shooter.Speed == paidSpeed,
+                    "capsule-edge retry preserves immutable receipt and exactly one physical impulse");
+            }
+            else Check(_shooter.Health == health && _shooter.Speed == speed,
+                "outside-capsule native floor explosion grants neither health damage nor movement");
+        }
+        byte oldReduction = NetSession.SlotDamageReduction[0];
+        try
+        {
+            Vector3? unmodifiedImpulse = null; ushort unmodifiedDamage = 0;
+            foreach (byte reduction in new byte[] { 0, 10, 50 })
+            {
+                Prepare(); NetSession.SlotDamageReduction[0] = reduction;
+                var beam = EmitFloorBlast(weapon); CollisionResult floor = default;
+                Check(CollisionDetection.CheckBetweenPoints(beam.Position, beam.Position - Vector3.UnitY * 4,
+                    TestFlags.Beams, _shooter.OwningScene, ref floor), "handicap fixture resolves actual room floor");
+                beam.BackPosition = beam.Position; beam.Position = floor.Position + Vector3.UnitY * .05f;
+                Vector3 origin = BeamProjectileEntity.ModSplashOrigin(_shooter.OwningScene, beam.Beam, beam.Position, floor.Position);
+                NetSelfSplash.Observe(beam, origin); var claim = SelfClaim(beam);
+                Check(NetSelfSplash.Validate(0, claim, out var expected), "handicap fixture retains an admitted source and floor witness");
+                if (unmodifiedImpulse is not { } baseline)
+                { unmodifiedImpulse = expected.Impulse; unmodifiedDamage = expected.Damage; }
+                else Check(Vector3.Distance(baseline, expected.Impulse) < .000001f
+                    && expected.Damage == PlayerHandicap.ScaleDamage(unmodifiedDamage, reduction),
+                    "roster handicap changes native health cost while preserving the same physical blast");
+                NetSession.SlotDamageReduction[0] = reduction == 0 ? (byte)50 : (byte)0;
+                Check(NetSelfSplash.Validate(0, claim, out var retained) && retained == expected,
+                    "later handicap changes cannot resample an authority explosion's captured cost or impulse");
+                NetSession.SlotDamageReduction[0] = reduction;
+                int health = _shooter.Health; var speed = _shooter.Speed;
+                beam.OnCollision(floor, colWith: null);
+                Check(health - _shooter.Health == expected.Damage
+                    && Vector3.Distance(_shooter.Speed, speed + expected.Impulse) < .000001f,
+                    "native handicap payment agrees with captured authority health and full additive impulse");
+                Check(Receive(claim) == HitVerdictPacket.ResultDuplicate,
+                    "handicap self claim acknowledges the existing native payment");
+                byte[] receipt = Bytes(_lastAck); int paidHealth = _shooter.Health; var paidSpeed = _shooter.Speed;
+                Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Bytes(_lastAck).SequenceEqual(receipt)
+                    && _shooter.Health == paidHealth && _shooter.Speed == paidSpeed,
+                    "handicap receipt retry cannot debit health or apply blast twice");
+            }
+        }
+        finally { NetSession.SlotDamageReduction[0] = oldReduction; }
     }
     private static void StaleAndInvalidRocketWitnesses(BeamType weapon = BeamType.Missile)
     {
@@ -613,8 +696,9 @@ internal static class SelfSplashTests
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
             SelfPredictionTests.RunReplay(_shooter);
-            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); RocketImpulsePayments(); StaleAndInvalidRocketWitnesses();
+            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); RocketImpulsePayments(); CapsuleBoundaryAndHandicapPayments(); StaleAndInvalidRocketWitnesses();
             ForgedClaims(BeamType.Magmaul); RocketImpulsePayments(BeamType.Magmaul);
+            CapsuleBoundaryAndHandicapPayments(BeamType.Magmaul);
             SplitNativeHookRescue(BeamType.Magmaul); StaleAndInvalidRocketWitnesses(BeamType.Magmaul);
             BombLifecycleFence(); BurnOwnership();
             long lifetimePayments = NetCombatPayments.LifetimePayments;

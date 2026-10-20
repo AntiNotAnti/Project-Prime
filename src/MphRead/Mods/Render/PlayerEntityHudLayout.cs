@@ -5,7 +5,7 @@ public partial class PlayerEntity
 {
     // Reads the current player's authorized presentation values. This adapter never
     // requests additional information and never writes game or network state.
-    private bool HudElementVisible(int index)
+    internal bool HudElementVisible(int index)
     {
         var runtime = HudProfiles.Runtime;
         if (index < 0 || runtime.Mode != HudMode.Custom) return true;

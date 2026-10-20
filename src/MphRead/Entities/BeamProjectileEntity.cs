@@ -1216,7 +1216,10 @@ namespace MphRead.Entities
                     if (!player.Flags2.TestFlag(PlayerFlags2.Halfturret) || Owner != player.Halfturret)
                     {
                         CollisionResult discard = default;
-                        float dist = Vector3.Distance(player.Position, splashOrigin);
+                        float dist = player == Owner && ModCustomShot == null && player.ModMovementBlastWeaponEligible(Beam)
+                            ? Mods.Movement.Quake3MovementProfileV3.BlastDistance(splashOrigin, player.Position,
+                                player.ModBipedBottom, player.ModBipedTop, Fixed.ToFloat(player.Values.BipedColRadius))
+                            : Vector3.Distance(player.Position, splashOrigin);
                         // todo?: wifi conditions
                         if (dist >= SplashRadius
                             || CollisionDetection.CheckBetweenPoints(splashOrigin, player.Position, TestFlags.Beams, _scene, ref discard))

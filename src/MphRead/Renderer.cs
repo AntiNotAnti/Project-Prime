@@ -2655,6 +2655,7 @@ namespace MphRead
                     PlayerEntity player = this.Players.Items[i];
                     player.CameraInfo.ModCaptureDrawState();
                     player.ModCaptureFirstPersonDrawState();
+                    player.ModCaptureTraversalVisual();
                 }
 
                 // Ages the predictions the authority has not answered yet and

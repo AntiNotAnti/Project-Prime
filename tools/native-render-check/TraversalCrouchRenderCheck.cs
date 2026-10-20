@@ -11,6 +11,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Movement;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -24,6 +25,10 @@ sealed partial class CheckWindow
     private readonly bool _crouchCheck;
     private readonly List<object> _crouchPictures = new();
     private readonly List<object> _crouchFocusEvents = new();
+    private readonly List<TransitionSample> _crouchTransitionSamples = new();
+    private readonly HashSet<(int Stage, ulong Ticks)> _crouchTransitionCaptures = new();
+    private sealed record TransitionSample(int Stage, int CompletedTicks, float VisualAmount,
+        float CanonicalEyeOffset, int BodyHeight);
     private void ObserveCrouchFocus(bool focused, string source) => _crouchFocusEvents.Add(new
     {
         focused, source, sceneFrame = Scene?.FrameCount, stage = _crouchStage,
@@ -32,6 +37,10 @@ sealed partial class CheckWindow
     private KeyboardState _crouchKeyboard = null!;
     private Action<KeyboardState, Keys, bool> _crouchKey = null!;
     private ulong? _crouchSpawnFrame;
+    private long? _crouchContinuousGeneration;
+    private static readonly PropertyInfo CrouchGeneration = typeof(FrameTiming).GetProperty(
+        "PresentationGeneration", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+    private static long CrouchPresentationGeneration => (long)CrouchGeneration.GetValue(null)!;
     private ulong _crouchStageFrame;
     private int _crouchStage;
     private Vector3 _crouchActorOrigin, _crouchCamera, _crouchAim;
@@ -82,9 +91,10 @@ sealed partial class CheckWindow
         inputMode.SetValue(Scene, Enum.Parse(inputMode.FieldType, "All"));
         _crouchKey(_crouchKeyboard, Keys.Enter, !Scene.Players.Main.LoadFlags.TestFlag(LoadFlags.Spawned));
         _crouchKey(_crouchKeyboard, Keys.LeftControl, _crouchStage == 1);
-        // Reuse the diagnostic's existing one-step-per-picture capture owner.
-        // This run produces image evidence and never reports timing acceptance.
-        CrouchSet(Scene, "_frameAdvanceOn", true); CrouchSet(Scene, "_advanceOneFrame", true);
+        // Use RenderWindow's continuous FrameTiming.Advance branch. Debug
+        // single-step resets the presentation generation every picture and must
+        // retain its production snap fence, rather than qualify a transition.
+        CrouchRequire(!Scene.FrameAdvance, "continuous native scheduler required; debug single-step is inapplicable");
         if (_crouchStanding != null) SetCrouchCamera();
     }
 
@@ -111,23 +121,37 @@ sealed partial class CheckWindow
             _crouchStanding = CaptureCrouchSilhouette("standing");
             _crouchStage = 1; _crouchStageFrame = Scene.FrameCount;
         }
-        else if (_crouchStage == 1 && Scene.FrameCount - _crouchStageFrame >= 8)
+        else if (_crouchStage is 1 or 2)
         {
-            CrouchRequire(player.Controls.Crouch.IsDown && (bool)CrouchGet(player, "ModCrouched")!,
-                "production Ctrl hold earns the captured crouched stance");
-            _crouchLow = CaptureCrouchSilhouette("crouched");
-            CrouchRequire(_crouchLow.Height < _crouchStanding!.Height - 2,
-                "native rendered crouch silhouette must be shorter than standing");
-            _crouchStage = 2; _crouchStageFrame = Scene.FrameCount;
-        }
-        else if (_crouchStage == 2 && Scene.FrameCount - _crouchStageFrame >= 8)
-        {
-            CrouchRequire(!player.Controls.Crouch.IsDown && !(bool)CrouchGet(player, "ModCrouched")!,
-                "released Ctrl permits native standing clearance");
-            _crouchReleased = CaptureCrouchSilhouette("released-standing");
-            CrouchRequire(_crouchReleased.Height > _crouchLow!.Height + 2,
-                "released native renderer restores standing silhouette height");
-            Complete = true; Close();
+            ulong completedTicks = Scene.FrameCount - _crouchStageFrame;
+            CrouchRequire(completedTicks <= 8, "transition capture must not skip its completed-tick endpoint");
+            if (completedTicks is 2 or 4 or 6 or 8
+                && _crouchTransitionCaptures.Add((_crouchStage, completedTicks)))
+            {
+                bool entering = _crouchStage == 1;
+                CrouchRequire(player.Controls.Crouch.IsDown == entering
+                    && (bool)CrouchGet(player, "ModCrouched")! == entering,
+                    entering ? "production Ctrl hold earns each captured crouched stance"
+                        : "released Ctrl permits native standing clearance at each transition capture");
+                string label = entering ? "crouched" : "released-standing";
+                if (completedTicks != 8) label += "-tick-" + completedTicks;
+                Silhouette picture = CaptureCrouchSilhouette(label, checked((int)completedTicks));
+                if (completedTicks == 8 && entering)
+                {
+                    _crouchLow = picture;
+                    CrouchRequire(_crouchLow.Height < _crouchStanding!.Height - 2,
+                        "native rendered crouch silhouette must be shorter than standing");
+                    _crouchStage = 2; _crouchStageFrame = Scene.FrameCount;
+                }
+                else if (completedTicks == 8)
+                {
+                    _crouchReleased = picture;
+                    CrouchRequire(_crouchReleased.Height > _crouchLow!.Height + 2,
+                        "released native renderer restores standing silhouette height");
+                    CheckCrouchTransitionProgress();
+                    Complete = true; Close();
+                }
+            }
         }
         CrouchRequire((player.Position - _crouchActorOrigin).Length < .005f,
             "the stationary actor was not repositioned or moved between stance captures");
@@ -165,11 +189,21 @@ sealed partial class CheckWindow
         mode.SetValue(Scene, Enum.Parse(mode.FieldType, "All"));
     }
 
-    private Silhouette CaptureCrouchSilhouette(string label)
+    private Silhouette CaptureCrouchSilhouette(string label, int completedTicks = 0)
     {
         PlayerEntity player = Scene.Players.Main; ulong frame = Scene.FrameCount;
+        long generation = CrouchPresentationGeneration;
+        CrouchRequire(FrameTiming.Active && !Scene.FrameAdvance, "capture must follow the native continuous scheduler");
+        if (_crouchContinuousGeneration.HasValue)
+            CrouchRequire(generation == _crouchContinuousGeneration.Value,
+                "presentation generation changed during the measured transition; production reset fence remains authoritative");
+        else _crouchContinuousGeneration = generation;
         Scene.OnDrawFrame(); CrouchRequire(Scene.OnRenderFrame(), "external native body view initializes");
         PlayerFlags2 flags = player.Flags2;
+        float visualAmount = (float)CrouchGet(player, "ModCrouchVisualAmount")!;
+        float canonicalEye = (float)CrouchGet(player, "ModBipedEyeOffset")!;
+        CrouchRequire(float.IsFinite(visualAmount) && visualAmount is >= 0 and <= 1
+            && float.IsFinite(canonicalEye), "finite visual blend and canonical eye samples");
         (byte[] Pixels, int Width, int Height, object Metadata) Capture(string suffix)
         {
             Scene.OnDrawFrame(); CrouchRequire(Scene.OnRenderFrame(), "native renderer stopped");
@@ -193,9 +227,13 @@ sealed partial class CheckWindow
         }
         finally { CrouchSet(player, nameof(PlayerEntity.Flags2), flags); }
         var repeat = Capture("-repeat");
+        CrouchRequire(generation == CrouchPresentationGeneration, "frozen extra draws retain the native presentation generation");
         CrouchRequire(frame == Scene.FrameCount && flags == player.Flags2,
             "frozen body control restores flags without advancing simulation");
         CrouchRequire(enabled.Pixels.SequenceEqual(repeat.Pixels), "same-frame body readback is stable");
+        CrouchRequire(visualAmount == (float)CrouchGet(player, "ModCrouchVisualAmount")!
+            && canonicalEye == (float)CrouchGet(player, "ModBipedEyeOffset")!,
+            "frozen extra draws cannot advance the visual transition or canonical eye");
         int left = enabled.Width, bottom = enabled.Height, right = -1, top = -1, count = 0;
         for (int pixel = 0; pixel < enabled.Width * enabled.Height; pixel++)
         {
@@ -209,7 +247,13 @@ sealed partial class CheckWindow
         }
         CrouchRequire(count >= 20, "positive native Hunter body pixels are required");
         var silhouette = new Silhouette(count, left, bottom, right, top);
-        _crouchPictures.Add(new { label, simulationFrame = frame, hunter = player.Hunter.ToString(),
+        _crouchTransitionSamples.Add(new(_crouchStage, completedTicks, visualAmount, canonicalEye, silhouette.Height));
+        _crouchPictures.Add(new { label, completedTicks, transitionStage = _crouchStage,
+            presentationGeneration = generation, clockActive = FrameTiming.Active,
+            schedulerStepsThisFrame = FrameTiming.StepsThisFrame, schedulerTotalSteps = FrameTiming.TotalSteps,
+            debugFrameAdvance = Scene.FrameAdvance,
+            visualAmount, canonicalEyeOffset = canonicalEye, nativeCameraPosition = CrouchVector(player.CameraInfo.Position),
+            simulationFrame = frame, hunter = player.Hunter.ToString(),
             ctrlHeld = player.Controls.Crouch.IsDown, crouched = CrouchGet(player, "ModCrouched"),
             collisionCrouched = CrouchGet(player, "ModCollisionCrouched"), actualPosition = CrouchVector(player.Position),
             bottom = CrouchGet(player, "ModBipedBottom"), top = CrouchGet(player, "ModBipedTop"),
@@ -218,12 +262,59 @@ sealed partial class CheckWindow
         return silhouette;
     }
 
+    private int CrouchBodyJitterPixels => Math.Max(3, (int)Math.Ceiling((_crouchStanding?.Height ?? 0) * .02));
+
+    private void CheckCrouchTransitionProgress()
+    {
+        TransitionSample[] entering = _crouchTransitionSamples.Where(sample => sample.Stage == 1)
+            .OrderBy(sample => sample.CompletedTicks).ToArray();
+        TransitionSample[] released = _crouchTransitionSamples.Where(sample => sample.Stage == 2)
+            .OrderBy(sample => sample.CompletedTicks).ToArray();
+        int[] expectedTicks = { 2, 4, 6, 8 };
+        CrouchRequire(entering.Select(sample => sample.CompletedTicks).SequenceEqual(expectedTicks)
+            && released.Select(sample => sample.CompletedTicks).SequenceEqual(expectedTicks),
+            "both phases require completed 2/4/6 tick samples and their existing 8 tick endpoints");
+        CrouchRequire(entering[0].VisualAmount > 0 && entering[0].VisualAmount < entering[1].VisualAmount
+            && entering[1].VisualAmount < 1 && MathF.Abs(entering[2].VisualAmount - 1) <= .00001f
+            && MathF.Abs(entering[3].VisualAmount - 1) <= .00001f,
+            "held crouch visual blend progresses through intermediate values and completes after six ticks");
+        CrouchRequire(released[0].VisualAmount < 1 && released[0].VisualAmount > released[1].VisualAmount
+            && released[1].VisualAmount > 0 && MathF.Abs(released[2].VisualAmount) <= .00001f
+            && MathF.Abs(released[3].VisualAmount) <= .00001f,
+            "released crouch visual blend reverses through intermediate values and completes after six ticks");
+        int previousHeight = _crouchStanding!.Height;
+        foreach (TransitionSample sample in entering)
+        {
+            CrouchRequire(sample.BodyHeight <= previousHeight + CrouchBodyJitterPixels,
+                "rendered body height decreases through crouch, allowing declared native idle-animation pixel jitter");
+            CrouchRequire(sample.CanonicalEyeOffset == entering[^1].CanonicalEyeOffset,
+                "canonical eye stays exactly crouched while the rendered pose blends");
+            previousHeight = sample.BodyHeight;
+        }
+        previousHeight = _crouchLow!.Height;
+        foreach (TransitionSample sample in released)
+        {
+            CrouchRequire(sample.BodyHeight + CrouchBodyJitterPixels >= previousHeight,
+                "rendered body height increases through release, allowing declared native idle-animation pixel jitter");
+            CrouchRequire(sample.CanonicalEyeOffset == _crouchTransitionSamples[0].CanonicalEyeOffset,
+                "canonical eye returns exactly to standing while the rendered pose blends");
+            previousHeight = sample.BodyHeight;
+        }
+        CrouchRequire(entering[0].BodyHeight > _crouchLow.Height + 2
+            && released[0].BodyHeight < _crouchReleased!.Height - 2,
+            "intermediate rendered silhouettes must differ from their final pose rather than snap immediately");
+    }
+
     internal object CrouchRenderResult() => new { schema = 1, status = Complete ? "PASS" : "FAIL",
         scope = "Windows native renderer and actual Traversal Ctrl input; native spawn and intro skip; fixed external camera and frozen render-only body-hidden controls; no actor position/stance/pose/velocity writes; image capture only; OS focus observed with isolated frozen synthetic input, no OS-focus, frame timing or physical-device qualification",
         focusPolicy = "OS focus callbacks are recorded without invoking the production focus-loss handler; only this diagnostic owns the frozen synthetic keyboard",
         focusEvents = _crouchFocusEvents,
+        scheduler = "native continuous RenderWindow FrameTiming.Advance at configured 60 Hz; no debug single-step or generation override",
+        continuousPresentationGeneration = _crouchContinuousGeneration,
         model = Scene.GameState.MovementModel.ToString(), hunter = Scene.Players.Main.Hunter.ToString(),
         standing = _crouchStanding, crouched = _crouchLow, released = _crouchReleased,
+        transitionCompletedTicks = new[] { 2, 4, 6, 8 }, bodyHeightJitterPixels = CrouchBodyJitterPixels,
+        transitionSamples = _crouchTransitionSamples,
         glVendor = _glVendor, glRenderer = _glRenderer, glVersion = _glVersion,
         clientMvid = typeof(Scene).Module.ModuleVersionId, room = _room, pictures = _crouchPictures };
 }

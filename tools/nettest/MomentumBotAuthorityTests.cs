@@ -177,8 +177,8 @@ internal static class MomentumBotAuthorityTests
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
                     var result = model switch
                     {
-                        MovementModel.Traversal => TraversalMovementProfileV2.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
-                        MovementModel.Quake3 => Quake3MovementProfileV2.Step(incoming, sample.Input),
+                        MovementModel.Traversal => TraversalMovementProfileV3.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Quake3 => Quake3MovementProfileV3.Step(incoming, sample.Input),
                         MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
                         _ => throw new InvalidOperationException("Classic must not reach the horizontal solver.")
                     };

@@ -31,7 +31,7 @@ internal sealed partial class ReplayWindowAcceptance
             var semantic=NativeSemanticReadback.Read(Host!,hud.Document);
             if(!Directory.Exists(directory)||!Directory.EnumerateFiles(directory,"*.tga").Any()||semantic.Label("hud_preview_warning").Length!=0)return false;
             Require(owner.Snapshot().Elements.Length==14&&owner.Snapshot().Error.Length==0,"owned native HUD exposes all fourteen elements without controller error");
-            for(int i=0;i<14;i++)Require(Host!.TryGetElementBounds(hud.Document,"hud_element"+i,out _,out _,out float w,out float h)&&w>0&&h>0,"owned HUD element has real layout "+i);
+            for(int i=0;i<MphRead.Mods.Render.Hud.HudProfileDefaults.ElementIds.Length;i++)Require(Host!.TryGetElementBounds(hud.Document,"hud_element"+i,out _,out _,out float w,out float h)&&w>0&&h>0,"owned HUD element has real layout "+i);
             Require(Host!.TryGetElementBounds(hud.Document,"hud_preview",out _,out _,out float pw,out float ph)&&pw>0&&ph>0,"owned native HUD generated preview is laid out");return true;
         },45000);
         WaitHeaderFrames(3,"owned HUD publishes successful preview after asynchronous completion",()=>

@@ -29,7 +29,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SetupAction => 15,
         RmlUiIntentKind.SetupRelease => 30,
         RmlUiIntentKind.HudAction => 45,
-        RmlUiIntentKind.HudElement => 14,
+        RmlUiIntentKind.HudElement => 15,
         RmlUiIntentKind.HudProperty => 8,
         RmlUiIntentKind.CampaignShipAction => 11,
         RmlUiIntentKind.CommunityTransferAction => 4,
@@ -121,6 +121,11 @@ for (int index = 0; index < studioBuildActions.Length; index++)
         && parsed.Kind == RmlUiIntentKind.StudioAction && parsed.Argument == 200 + index,
         $"Studio build action index changed: {action}");
 }
+Require(RmlUiIntentRegistry.TryParseLegacy("hud:element:14", new(1, 1), 1, out var movementHudIntent)
+    && movementHudIntent.Kind == RmlUiIntentKind.HudElement && movementHudIntent.Argument == 14,
+    "Movement HUD element action is admitted by the managed codec");
+Require(!RmlUiIntentRegistry.TryParseLegacy("hud:element:15", new(1, 1), 1, out _),
+    "HUD element actions remain bounded after appending movement telemetry");
 foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:19", "offline:rule:15",
     "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",
     "lobby:map-select:6", "lobby:map-category:5", "route:unexpected", "quit:extra",

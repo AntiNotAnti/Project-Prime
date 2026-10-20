@@ -869,12 +869,19 @@ namespace MphRead.Formats
             TestFlags flags, Scene scene, CollisionResult[] results)
         {
             using var workspace = CollisionQueryWorkspace.Borrow();
-            limit = Math.Min(limit, results.Length);
-            if (limit <= 0 || radius <= 0)
-            {
-                return 0;
-            }
+            if (Math.Min(limit, results.Length) <= 0 || radius <= 0) return 0;
+            PopulateCandidatesForLimits(point, point, radius, null, Vector3.Zero, includeEntities: true, scene, workspace);
+            return CheckSpherePenetration(workspace, point, radius, limit, flags, results);
+        }
 
+        // Reuse a caller-owned broadphase covering this sphere. The deduplication
+        // set is per narrow query, never retained between different sphere centres.
+        internal static int CheckSpherePenetration(CollisionQueryWorkspace workspace, Vector3 point,
+            float radius, int limit, TestFlags flags, CollisionResult[] results)
+        {
+            limit = Math.Min(limit, results.Length);
+            if (limit <= 0 || radius <= 0) return 0;
+            workspace.SeenFaces.Clear();
             ushort mask = 0;
             if (flags.TestFlag(TestFlags.Players))
             {
@@ -885,7 +892,6 @@ namespace MphRead.Formats
                 mask |= (ushort)CollisionFlags.IgnoreBeams;
             }
 
-            PopulateCandidatesForLimits(point, point, radius, null, Vector3.Zero, includeEntities: true, scene, workspace);
             IReadOnlyList<CollisionCandidate> candidates = workspace.Items;
             int count = 0;
             for (int candidateIndex = 0; candidateIndex < candidates.Count && count < limit; candidateIndex++)

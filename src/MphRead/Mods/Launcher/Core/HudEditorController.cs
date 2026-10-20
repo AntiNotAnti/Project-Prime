@@ -39,7 +39,7 @@ public sealed class HudEditorController : IDisposable
     private HudProfile? _accepted;
     private HudEditorSnapshot? _snapshot;
     private static readonly Vector2[] Sizes = { new(60), new(248,112), new(326,112), new(248,620), Vector2.Zero,
-        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17) };
+        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17), new(750,90) };
 
     public HudEditorController(HudProfile original, IHudEditorBackend? backend = null)
     {
@@ -330,9 +330,10 @@ public sealed class HudEditorController : IDisposable
         VerifyOwner(); var profile=_history.Draft; var e=profile.Elements[HudProfileDefaults.ElementIds[index]]; var t=Transform; var surface=Surface;
         Vector2 point=t.Resolve(e.Anchor,new(e.OffsetX,e.OffsetY));
         Vector2 size=(index==4 ? HudRadarGeometry.GetBounds(new(profile.Radar),profile.TextScale) : Sizes[index])*t.UnitScale*e.Scale*profile.GlobalScale;
+        if(index==HudProfileDefaults.MovementTelemetryIndex) size.X*=Aspect.Width/Aspect.Height*.5625f;
         if(index==4) { size=Vector2.Max(size,new(16));point-=size/2; }
         if(index==11) point.X-=size.X;
-        if(index is 6 or 8) point.X-=size.X/2;
+        if(index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex) point.X-=size.X/2;
         if(index==0) point=new Vector2(surface.Width/2,surface.Height/2)-size/2;
         return new(surface.X+point.X,surface.Y+point.Y,Math.Max(16,size.X),Math.Max(16,size.Y));
     }

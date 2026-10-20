@@ -1267,12 +1267,13 @@ namespace MphRead.Entities
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
-            _modSlideTicks = 0; _modCrouchWasDown = false;
+            ModCancelTraversalSlide(); _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
             ModResetWallClingForLife();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
             if (_modCrouched && ModCanStand()) _modCrouched = false;
+            _modCrouchPresentation.Reset();
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
                 ResumeOwnCamera();
@@ -2122,9 +2123,9 @@ namespace MphRead.Entities
                 && (beam == null || beam.ModCustomShot == null);
             if (quake3RocketImpulse && beam is { EnhancedDirectHit: false, SplashRadius: > 0 })
             {
-                direction = Quake3MovementProfileV2.RocketImpulse(damage,
+                direction = Quake3MovementProfileV3.RocketImpulse((uint)Math.Max(0, beam.SplashDamage),
                     beam.ModResolvedHitPointValid ? beam.ModResolvedHitPoint : beam.Position,
-                    Position, beam.SplashRadius);
+                    Position, beam.SplashRadius, ModBipedBottom, ModBipedTop, Fixed.ToFloat(Values.BipedColRadius));
             }
             ushort replayDamageEventId = beam?.ModCustomShot != null ? (ushort)0 : Mods.Network.NetDamage.Note(this, attacker,
                 beam?.Beam ?? BeamType.None, flags, direction,

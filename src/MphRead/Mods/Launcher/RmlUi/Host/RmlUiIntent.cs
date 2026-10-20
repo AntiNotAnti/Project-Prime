@@ -322,7 +322,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.SetupRelease => argument is >= 0 and < 30,
             RmlUiIntentKind.HudAction => argument is >= 0 and < 45,
             RmlUiIntentKind.ResultsMap => argument is >= 0 and < 4096,
-            RmlUiIntentKind.HudElement => argument is >= 0 and < 14,
+            RmlUiIntentKind.HudElement => argument is >= 0 and < 15,
             RmlUiIntentKind.HudProperty => argument is >= 0 and < 8,
             RmlUiIntentKind.CampaignShipAction => argument is >= 0 and < 11,
             RmlUiIntentKind.SocialAction => argument is >= 0 and < 54,
@@ -493,7 +493,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HudAction, argument, document, sequence);
             else if (TryIndex(action, "results:map:", 4096, out argument))
                 intent = new(RmlUiIntentKind.ResultsMap, argument, document, sequence);
-            else if (TryIndex(action, "hud:element:", 14, out argument))
+            else if (TryIndex(action, "hud:element:", 15, out argument))
                 intent = new(RmlUiIntentKind.HudElement, argument, document, sequence);
             else if (TryIndex(action, "hud:property:", 8, out argument))
                 intent = new(RmlUiIntentKind.HudProperty, argument, document, sequence);
