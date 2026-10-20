@@ -39,8 +39,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     internal CustomImpactFact? LastImpact { get; private set; }
     internal bool IsEligible => !_disposed && !NetSession.Active && !_scene.Services.IsReplica
         && !DemoPlayback.IsActive && !_scene.IsReplayLab && _scene.AimTrainer == null
-        && _scene.GameState.Mode == GameMode.Battle && !_scene.GameState.InstaGib
-        && !_scene.GameState.OneInTheChamber && !_scene.GameState.NoImperialist && !_scene.GameState.BalancedMode;
+        && CustomWeaponMatchPolicy.TryAdmit(_scene,out _);
     private uint Tick => (uint)_scene.FrameCount;
     internal OfflineCustomWeaponRuntime(Scene scene, bool developerOptIn)
     {

@@ -61,9 +61,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     internal bool IsEligible => !_disposed && NetSession.Active && NetSession.IsAuthority
         && NetSession.MatchesStream(_match,_epoch) && !_scene.Services.IsReplica
         && !DemoPlayback.IsActive && !_scene.IsReplayLab && _scene.AimTrainer == null
-        && _scene.GameState.Mode == GameMode.Battle && !_scene.GameState.InstaGib
-        && !_scene.GameState.OneInTheChamber && !_scene.GameState.NoImperialist
-        && !_scene.GameState.BalancedMode && !_scene.GameState.EnhancedHunters;
+        && CustomWeaponMatchPolicy.TryAdmit(_scene,out _);
     private uint Now => NetSession.NetFrame;
     internal CustomAuthorityCombatAdapter(Scene scene, bool developerOptIn, ICustomSourceAdmission sourceAdmission)
         : this(scene,developerOptIn,sourceAdmission,null,null) { }

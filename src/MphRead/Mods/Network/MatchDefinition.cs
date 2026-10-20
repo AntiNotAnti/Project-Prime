@@ -50,7 +50,9 @@ namespace MphRead.Mods.Network
         DisablePowerups = 8, SpawnProtection = 16, VanillaDuelResources = 32,
         InstaGib = 64, LowTier = 128, NoImperialist = 256, OctolithAutoReset = 512,
         EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192, ThirdPersonCamera = 16384,
-        MomentumMovement = 32768, Quake3Movement = 65536, TraversalMovement = 131072
+        MomentumMovement = 32768, Quake3Movement = 65536, TraversalMovement = 131072,
+        // Reserved until the public custom-loadout protocol is activated.
+        RiftlineM7Available = 262144
     }
 
     public readonly record struct MatchDefinition
@@ -76,6 +78,9 @@ namespace MphRead.Mods.Network
         public bool LowTier { get; init; }
         public bool NoImperialist { get; init; }
         public bool BalancedMode { get; init; }
+        // Frozen availability; personal selection remains a per-life custom action.
+        // CW-05f reserves this contract; lobby/wire admission still refuses activation.
+        public bool RiftlineM7Available { get; init; }
         // Rendering-only choice, owned by the match host and shared with every client.
         public bool ThirdPersonCamera { get; init; }
         public MovementModel MovementModel { get; init; }
@@ -118,6 +123,7 @@ namespace MphRead.Mods.Network
         public string ModifierSummary => String.Join(" • ", new[] {
             Fiesta ? "Fiesta" : null, OneInTheChamber && Mode != GameMode.OneInTheChamber ? "One in the Chamber" : null, InstaGib ? "Insta-Gib" : null, LowTier ? "Low Tier" : null,
             NoImperialist ? "No Imp" : null,
+            RiftlineM7Available ? "Riftline M7 available" : null,
             BalancedMode ? "Balanced" : null, ThirdPersonCamera ? "Third person" : null,
             MovementModel == Movement.MovementModel.Momentum ? "Momentum v1"
                 : MovementModel == Movement.MovementModel.Quake3 ? "Quake III"
@@ -136,6 +142,7 @@ namespace MphRead.Mods.Network
             | (LowTier ? MatchModifierFlags.LowTier : 0)
             | (NoImperialist ? MatchModifierFlags.NoImperialist : 0)
             | (BalancedMode ? MatchModifierFlags.BalancedMode : 0)
+            | (RiftlineM7Available ? MatchModifierFlags.RiftlineM7Available : 0)
             | (ThirdPersonCamera ? MatchModifierFlags.ThirdPersonCamera : 0)
             | (OctolithAutoReset ? MatchModifierFlags.OctolithAutoReset : 0)
             | MovementModelRules.Modifier(MovementModel);
