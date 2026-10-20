@@ -674,6 +674,8 @@ def run(args):
         manifest["harnessSha256"]["fruity_comparator.py"] = digest(Path(__file__).with_name("fruity_comparator.py"))
         manifest["emulatedFixture"] = qualified_fixture(args)
         manifest["fixtureAssetCopies"] = fixture_asset_copies
+    if getattr(args, "combat_fastpath", "off") == "shadow":
+        manifest["harnessSha256"]["ncx_fastpath.py"] = digest(Path(__file__).with_name("ncx_fastpath.py"))
     manifest["combatFastPath"] = {"mode": getattr(args, "combat_fastpath", "off"),
         "scope": "Authority-only read-only observation; no early claim family enabled"}
     if getattr(args, "claim_receipts", False):
@@ -984,6 +986,19 @@ def run(args):
                 if receipts["status"] != "PASS":
                     summary["status"] = "FAIL"
                     summary["failures"].append("Requested keyed claim receipt accounting: " + receipts["status"])
+        if getattr(args, "combat_fastpath", "off") == "shadow":
+            from ncx_fastpath import audit as audit_fastpath
+            try:
+                authority_report = json.loads((args.out / "server.json").read_text())
+            except (OSError, ValueError):
+                authority_report = {}
+            fastpath = audit_fastpath({"server": authority_report})
+            save(args.out / "ncx-fastpath.json", fastpath)
+            summary["combatFastPath"] = {"status": fastpath["status"],
+                "reportSha256": digest(args.out / "ncx-fastpath.json")}
+            if fastpath["status"] != "PASS":
+                summary["status"] = "FAIL"
+                summary["failures"].append("Requested scoped shadow parity: " + fastpath["status"])
         if len(records) < args.players + 1 or manifest.get("runnerError") or manifest["assemblyAfterSha256"] != manifest["assemblySha256"]:
             summary["status"] = "FAIL"
             summary["failures"].append(manifest.get("runnerError", "missing participants or modified running assembly"))

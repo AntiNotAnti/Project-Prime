@@ -299,7 +299,7 @@ internal static class NetCombatFastPath
     private static object ExportNative(in FastNativeEvidence value) => new {
         value.SourceVerified, value.GeometryVerified, value.PriorPayment, value.TransientEmission,
         value.SourceGates, value.VictimGates, value.Profile,
-        Source = new { value.Source.Key, value.Source.Lane, value.Source.TrustedSource,
+        Source = new { value.Source.Key, value.Source.Room, value.Source.AuthorityFrame, value.Source.Lane, value.Source.TrustedSource,
             value.Source.Source, value.Source.Unavailable, value.Source.Knowledge, value.Source.Funding,
             value.Source.DoubleHintAgrees, value.Source.AuthorizedDouble, value.Source.Components,
             Fire = new { value.Source.Fire.ShotId, value.Source.Fire.SourceLife,

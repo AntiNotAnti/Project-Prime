@@ -339,13 +339,16 @@ internal static class TimedShotNativeTests
         var getter = owner.EquipInfo.GetAmmo
             ?? throw new InvalidOperationException("Native Missile equipment lacks its actual ammo getter.");
         int actualAmmo = getter();
-        Check(actualAmmo >= owner.EquipInfo.Weapon.AmmoCost && owner.EquipInfo.Weapon.AmmoCost > 0,
-            "controlled negative first read has actual native bank funding for automatic selection");
+        Check(actualAmmo >= owner.EquipInfo.Weapon.AmmoCost && owner.EquipInfo.Weapon.AmmoCost > 0
+            && actualAmmo >= owner.EquipInfo.Weapon.ChargeCost,
+            "controlled negative real bank funds automatic selection and the biped charge precheck");
         int fired = NetDamage.Fired[0]; long stored = NetTimedShotProof.Stored;
         long empty = NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo];
         var reads = new List<(int Value, string[] Calls)>();
-        // Explicit fault input: preserve the real bank at the automatic weapon
-        // precheck, then expose zero during the actual native firing attempt.
+        // Explicit fault input: automatic selection reads the raw bank through
+        // ModAmmoForWeapon. The first equipment getter read is ProcessBiped's
+        // charge precheck inside ProcessInput, before TryFireWeapon. Preserve
+        // that real bank value, then require the first zero at the spawn kernel.
         // This is not a natural ammo race or positive funding/source proof.
         owner.EquipInfo.GetAmmo = () => {
             Check(reads.Count < 64, "controlled ammo fault read capture remains bounded");
@@ -357,10 +360,14 @@ internal static class TimedShotNativeTests
         try { fixture.Step(shoot: true); }
         finally { owner.EquipInfo.GetAmmo = getter; }
         string state = AmmoState(owner, fired, stored, empty);
+        int spawnRead = reads.FindIndex(r => r.Calls.Contains("SpawnWithEmission")
+            && r.Calls.Contains("TryFireWeapon"));
         Check(reads.Count >= 2 && reads[0].Value == actualAmmo
-            && reads[0].Calls.Contains("ProcessPlayer") && !reads[0].Calls.Contains("ProcessInput")
-            && reads.Any(r => r.Value == 0 && r.Calls.Contains("SpawnWithEmission")),
-            "controlled zero reaches actual Spawn after real pre-input ammo gate; " + state
+            && reads[0].Calls.Contains("ProcessPlayer") && reads[0].Calls.Contains("ProcessBiped")
+            && !reads[0].Calls.Contains("TryFireWeapon") && !reads[0].Calls.Contains("SpawnWithEmission")
+            && spawnRead > 0 && reads[spawnRead].Value == 0
+            && reads.FindIndex(r => r.Value == 0) == spawnRead,
+            "controlled first zero reaches native Spawn only after the funded biped charge precheck; " + state
                 + " reads=" + JsonSerializer.Serialize(reads.Select(r => new { r.Value, r.Calls })));
         Check(NetDamage.Fired[0] == fired && NetTimedShotProof.Stored == stored
             && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] == empty + 1
