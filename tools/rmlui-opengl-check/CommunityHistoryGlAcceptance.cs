@@ -219,7 +219,13 @@ internal static class CommunityHistoryGlAcceptance
             do { Frame(); if (predicate()) { Check(true, label); return; } Thread.Sleep(5); } while (timer.Elapsed < TimeSpan.FromSeconds(4));
             throw new TimeoutException(label);
         }
-        void ReadyBase() => Wait(() => host.FocusDocument(parent, "native_community_history"), "native project selection settles synthetic catalog");
+        void ReadyBase()
+        {
+            Wait(() => host.FocusDocument(parent, "native_community_details"), "native project selection settles synthetic catalog");
+            if (!host.FocusDocument(parent, "native_community_history"))
+                Click("native_community_details", RmlUiIntentKind.CommunityDetailAction, 7);
+            Wait(() => host.FocusDocument(parent, "native_community_history"), "expanded technical details expose revision history");
+        }
         void ReadyRows() => Wait(() => host.FocusDocument(pages.Top, "community_history_row0"), "native history settles bounded synthetic revisions");
         void AssertLifecycleLayout()
         {

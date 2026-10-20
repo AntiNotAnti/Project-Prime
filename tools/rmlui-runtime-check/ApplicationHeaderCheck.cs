@@ -17,7 +17,10 @@ internal static class ApplicationHeaderCheck
         XElement Element(string id)=>document.Descendants().Single(element=>(string?)element.Attribute("id")==id);
         foreach(var pair in new Dictionary<string,string>{{"nav_play","route:home"},{"nav_hunters","route:hunter"},{"nav_community","route:forge"},{"nav_theatre","route:theatre"},{"nav_studio","studio:open"},{"nav_studio_home","studio:open"}})
             require((string?)Element(pair.Key).Attribute("data-action")==pair.Value,"Header typed destination remains exact: "+pair.Key);
-        require(Element("nav_studio").Value=="PRIME STUDIO"&&Element("nav_theatre").Value=="THEATRE","Main header names Theatre and Prime Studio separately");
+        require(Element("nav_studio").Elements().Single(e=>(string?)e.Attribute("class")=="nav_full").Value=="PRIME STUDIO"
+            &&Element("nav_studio").Elements().Single(e=>(string?)e.Attribute("class")=="nav_short").Value=="STUDIO"
+            &&(string?)Element("nav_studio").Attribute("aria-label")=="Open Prime Studio"
+            &&Element("nav_theatre").Value=="THEATRE","Main and compact headers distinguish Theatre and Prime Studio with a stable accessible name");
         foreach(string key in studio.Keys)
         {
             string[] parts=key.Split(':');string id=parts.Length>1?parts[1]:key;

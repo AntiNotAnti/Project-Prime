@@ -14,34 +14,34 @@
       </div>
       <div id="hunter_status">Select your Hunter, then apply.</div>
       <div id="identity_cards" class="hunter-choices">
-        <button id="hunter_choice0" class="hunter-card" data-action="hunter:select:0">
+        <button id="hunter_choice0" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:0">
           <div id="hunter_model0" class="hunter-model"><span id="hunter_model_status0" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">SAMUS</span>
         </button>
         <button id="hunter_placeholder1" class="hunter-card hunter-placeholder" disabled="disabled" tab-index="none">
           <span class="hunter-placeholder-mark">?</span><span class="hunter-card-name">UNAVAILABLE</span>
         </button>
-        <button id="hunter_choice5" class="hunter-card" data-action="hunter:select:5">
+        <button id="hunter_choice5" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:5">
           <div id="hunter_model5" class="hunter-model"><span id="hunter_model_status5" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">SPIRE</span>
         </button>
-        <button id="hunter_choice1" class="hunter-card" data-action="hunter:select:1">
+        <button id="hunter_choice1" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:1">
           <div id="hunter_model1" class="hunter-model"><span id="hunter_model_status1" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">KANDEN</span>
         </button>
-        <button id="hunter_choice2" class="hunter-card" data-action="hunter:select:2">
+        <button id="hunter_choice2" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:2">
           <div id="hunter_model2" class="hunter-model"><span id="hunter_model_status2" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">TRACE</span>
         </button>
-        <button id="hunter_choice4" class="hunter-card" data-action="hunter:select:4">
+        <button id="hunter_choice4" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:4">
           <div id="hunter_model4" class="hunter-model"><span id="hunter_model_status4" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">NOXUS</span>
         </button>
-        <button id="hunter_choice3" class="hunter-card" data-action="hunter:select:3">
+        <button id="hunter_choice3" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:3">
           <div id="hunter_model3" class="hunter-model"><span id="hunter_model_status3" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">SYLUX</span>
         </button>
-        <button id="hunter_choice6" class="hunter-card" data-action="hunter:select:6">
+        <button id="hunter_choice6" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:6">
           <div id="hunter_model6" class="hunter-model"><span id="hunter_model_status6" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
           <span class="hunter-card-name">WEAVEL</span>
         </button>
@@ -51,7 +51,7 @@
         <button id="hunter_placeholder9" class="hunter-card hunter-placeholder" disabled="disabled" tab-index="none">
           <span class="hunter-placeholder-mark">?</span><span class="hunter-card-name">UNAVAILABLE</span>
         </button>
-        <button id="hunter_random" class="hunter-card hunter-random" data-action="hunter:random">
+        <button id="hunter_random" class="hunter-card hunter-random" data-focus-scroll="center" data-action="hunter:random">
           <span class="hunter-random-mark">?</span><span class="hunter-card-name">RANDOM</span>
         </button>
       </div>

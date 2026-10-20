@@ -65,20 +65,26 @@ public sealed class LauncherHunterChoiceController : IDisposable
         return true;
     }
 
+    /// <summary>Validate without mutating status, revision or persisted identity.</summary>
+    public bool CanApply(out string reason)
+    {
+        Owner();
+        reason = "";
+        if (!HunterRules.Allowed(_draft.Hunter, lowTier: false) || _draft.Suit is < 0 or > 3)
+            reason = "INVALID HUNTER OR SUIT";
+        else if (_draft != _original && _store.Capture() != _original)
+            reason = "PROFILE CHANGED ELSEWHERE. DISCARD AND REOPEN.";
+        return reason.Length == 0;
+    }
+
     public bool Apply()
     {
         Owner();
-        if (!HunterRules.Allowed(_draft.Hunter, lowTier: false)
-            || _draft.Suit is < 0 or > 3) return false;
+        if (!CanApply(out string reason)) { Note(reason); return false; }
         if (_draft == _original)
         {
             Note("HUNTER ALREADY EQUIPPED");
             return true;
-        }
-        if (_store.Capture() != _original)
-        {
-            Note("PROFILE CHANGED ELSEWHERE. DISCARD AND REOPEN.");
-            return false;
         }
         try { _store.Save(_draft); }
         catch (Exception e) when (e is not OutOfMemoryException and not StackOverflowException)
