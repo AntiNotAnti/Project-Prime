@@ -260,10 +260,34 @@
   "decoderRecovery": {
     "status": "PASS on exact retained Momentum trace; no new simulation measurement",
     "portableTestsWindows": 48,
-    "elapsedSeconds": 142.8543,
+    "elapsedSeconds": 142.85426839999855,
     "peakWorkingSetBytes": 148815872,
     "stepSpans": 3600,
     "failure": null,
-    "method": "Bounded complete-Event XML chunks plus streaming all-event clock/decoder audit; original traces and both earlier failures retained"
+    "method": "Bounded complete-Event XML chunks plus streaming all-event clock/decoder audit; original traces and both earlier failures retained",
+    "amendmentZipSha256": "1f395f33dc79c2b9d4c41de20f246b9ad100b8f1eadc45d79628d363ea93ee1c",
+    "rawExportBytes": 2463002114,
+    "decoderAudit": {
+      "decoderScope": "only required scheduler/lifecycle/interrupt providers, independently xperf joined",
+      "tracerptTotalProcessingErrors": 10225,
+      "tracerptRequiredOpaqueSwitches": 1499701,
+      "rawNormalEventCount": 2613581,
+      "constantFiletimeMinusQpc": 134368471852119992,
+      "switchCount": 1499701,
+      "interruptCount": 13525,
+      "retainedWindowSwitchCount": 329788,
+      "retainedWindowInterruptCount": 2660,
+      "timestampUnit": "raw100nsQPC, no cycle-to-time conversion",
+      "quantization": "100ns clock; not a logging-bias bound"
+    },
+    "individualArmCpu": {
+      "scope": "ETW scheduled-thread running time minus ISR/DPC union",
+      "unit": "milliseconds from raw QPC, never thread-cycle conversion",
+      "samples": 3600,
+      "p50CpuMs": 0.2066,
+      "p95CpuMs": 0.3002,
+      "p99CpuMs": 0.36860000000000004
+    },
+    "maxNumericalErrorBoundMs": 0.0032
   }
 }
