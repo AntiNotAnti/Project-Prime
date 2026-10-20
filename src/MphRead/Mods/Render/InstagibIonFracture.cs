@@ -344,6 +344,7 @@ namespace MphRead.Mods.Render
             float fraction = age / LifeSeconds;
             float fade = FadeAt(fraction);
             RailLook look = LookAt(fraction);
+            float sizeScale = ImperialistWidthScale(_imperialistHalfWidth);
             Vector3 hot = Vector3.Lerp(lance.Color, Vector3.One, 0.55f);
 
             // Preserve the original world depth test. A soft textured halo,
@@ -362,13 +363,12 @@ namespace MphRead.Mods.Render
             }
             else
             {
-                float size = ImperialistWidthScale(_imperialistHalfWidth);
                 if (!reducedTransparency && quality != CosmeticEffectQuality.Off)
-                    DrawShaft(scene, lance.Start, lance.End, right, 0.24f * size,
+                    DrawShaft(scene, lance.Start, lance.End, right, 0.24f * sizeScale,
                         lance.Color, look.Glow * 0.45f);
-                DrawShaft(scene, lance.Start, lance.End, right, 0.11f * size,
+                DrawShaft(scene, lance.Start, lance.End, right, 0.11f * sizeScale,
                     lance.Color, look.Core * 0.90f);
-                DrawShaft(scene, lance.Start, lance.End, right, 0.06f * size, hot, look.Core);
+                DrawShaft(scene, lance.Start, lance.End, right, 0.06f * sizeScale, hot, look.Core);
             }
 
             // Default signature: two animated filaments around the exact rail.
@@ -430,7 +430,7 @@ namespace MphRead.Mods.Render
             // and does not introduce any fire-time delay or recoil.
             if (age < 0.08f && medium)
                 DrawRing(scene, lance.Start + axis * 0.12f, right, up,
-                    4, 0.11f + age * 0.45f, 0.024f, hot,
+                    4, (0.11f + age * 0.45f) * sizeScale, 0.024f * sizeScale, hot,
                     (1f - age / 0.08f) * 0.62f);
 
             // A real player collision emits a short prismatic spark rather
@@ -482,18 +482,19 @@ namespace MphRead.Mods.Render
                 case BeamFxStyle.IonFracture:
                     if (age < 0.19f)
                     {
-                        Vector3 fork = (right + up) * (0.19f * blossom);
+                        Vector3 fork = (right + up) * (0.19f * blossom * sizeScale);
                         DrawFacet(scene, center - axis * 0.21f - fork,
-                            center + axis * 0.21f + fork, up, 0.024f, 0.007f,
+                            center + axis * 0.21f + fork, up, 0.024f * sizeScale, 0.007f * sizeScale,
                             hot, fade * blossom);
                         DrawFacet(scene, center - axis * 0.21f + fork,
-                            center + axis * 0.21f - fork, right, 0.020f, 0.006f,
+                            center + axis * 0.21f - fork, right, 0.020f * sizeScale, 0.006f * sizeScale,
                             lance.Color, fade * blossom * 0.8f);
                         if (full) DrawRing(scene, center, right, up, 4,
-                            0.10f + 0.09f * blossom, 0.018f, hot, fade * blossom);
+                            (0.10f + 0.09f * blossom) * sizeScale,
+                            0.018f * sizeScale, hot, fade * blossom);
                     }
                     if (medium) Shards(scene, lance.Start, delta, axis, right, up,
-                        lance.Color, fade, fraction, 3, outward: true);
+                        lance.Color, fade, fraction, 3, sizeScale, outward: true);
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.07f,
                         right, up, full ? 6 : 3, 0.21f + age * 0.9f, 0.036f,
                         hot, impact * 0.76f);
@@ -502,13 +503,14 @@ namespace MphRead.Mods.Render
                 case BeamFxStyle.VoidRift:
                     if (medium)
                     {
-                        DrawShaft(scene, lance.Start + right * 0.08f, lance.End + right * 0.08f,
-                            right, 0.013f, lance.Color, fade * 0.65f);
-                        DrawShaft(scene, lance.Start - right * 0.08f, lance.End - right * 0.08f,
-                            right, 0.013f, lance.Secondary, fade * 0.85f);
+                        Vector3 separation = right * (0.08f * sizeScale);
+                        DrawShaft(scene, lance.Start + separation, lance.End + separation,
+                            right, 0.013f * sizeScale, lance.Color, fade * 0.65f);
+                        DrawShaft(scene, lance.Start - separation, lance.End - separation,
+                            right, 0.013f * sizeScale, lance.Secondary, fade * 0.85f);
                     }
                     if (full) Shards(scene, lance.Start, delta, axis, right, up,
-                        lance.Color, fade, fraction, 3, outward: false);
+                        lance.Color, fade, fraction, 3, sizeScale, outward: false);
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
                         right, up, 4, 0.14f + age * 0.72f, 0.035f,
                         lance.Color, impact * 0.9f);
@@ -517,19 +519,21 @@ namespace MphRead.Mods.Render
                 case BeamFxStyle.QuantumSplit:
                     if (medium)
                     {
-                        float spread = 0.11f * MathF.Sin(MathF.PI * fraction);
+                        float spread = 0.11f * sizeScale * MathF.Sin(MathF.PI * fraction);
                         Vector3 skew = (right + up * 0.36f) * spread;
                         DrawShaft(scene, lance.Start, lance.End + skew, right,
-                            0.014f, lance.Secondary, fade * 0.64f);
+                            0.014f * sizeScale, lance.Secondary, fade * 0.64f);
                         DrawShaft(scene, lance.Start, lance.End - skew, right,
-                            0.014f, lance.Secondary, fade * 0.50f);
+                            0.014f * sizeScale, lance.Secondary, fade * 0.50f);
                     }
                     if (full)
                         for (int i = 0; i < 3; i++)
                         {
                             Vector3 site = lance.Start + delta * (0.27f + i * 0.24f);
-                            DrawFacet(scene, site - up * 0.11f, site + right * 0.11f,
-                                axis, 0.012f, 0.012f, lance.Secondary, fade * 0.58f);
+                            DrawFacet(scene, site - up * (0.11f * sizeScale),
+                                site + right * (0.11f * sizeScale),
+                                axis, 0.012f * sizeScale, 0.012f * sizeScale,
+                                lance.Secondary, fade * 0.58f);
                         }
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
                         right, up, 4, 0.18f + age * 0.6f, 0.020f,
@@ -539,11 +543,13 @@ namespace MphRead.Mods.Render
                 case BeamFxStyle.AlimbicResonance:
                     if (medium)
                         DrawRing(scene, lance.Start + delta * (0.19f + fraction * 0.08f),
-                            right, up, full ? 6 : 4, 0.17f, 0.025f,
+                            right, up, full ? 6 : 4,
+                            0.17f * sizeScale, 0.025f * sizeScale,
                             lance.Color, fade * 0.72f);
                     if (full)
                         DrawRing(scene, lance.Start + delta * (0.67f + fraction * 0.06f),
-                            right, up, 6, 0.20f, 0.018f, lance.Secondary, fade * 0.56f);
+                            right, up, 6, 0.20f * sizeScale, 0.018f * sizeScale,
+                            lance.Secondary, fade * 0.56f);
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
                         right, up, full ? 6 : 4, 0.19f + age * 0.62f, 0.032f,
                         lance.Color, impact * 0.83f);
@@ -555,7 +561,9 @@ namespace MphRead.Mods.Render
                     {
                         float along = (0.19f + i * 0.26f + fraction * 0.26f) % 0.94f;
                         DrawRing(scene, lance.Start + delta * along, right, up,
-                            medium ? 4 : 3, 0.15f + fraction * 0.05f, 0.026f,
+                            medium ? 4 : 3,
+                            (0.15f + fraction * 0.05f) * sizeScale,
+                            0.026f * sizeScale,
                             lance.Color, fade * 0.73f);
                     }
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
@@ -570,11 +578,13 @@ namespace MphRead.Mods.Render
                         Vector3 a = lance.Start + delta * u;
                         float sign = (i & 1) == 0 ? 1f : -1f;
                         Vector3 b = a + axis * MathF.Min(0.65f, length * 0.13f)
-                            + right * (0.15f * sign);
+                            + right * (0.15f * sign * sizeScale);
                         Vector3 c = b + axis * MathF.Min(0.4f, length * 0.07f)
-                            - up * 0.18f;
-                        DrawFacet(scene, a, b, up, 0.025f, 0.013f, lance.Color, fade * 0.83f);
-                        DrawFacet(scene, b, c, right, 0.013f, 0.003f, hot, fade * 0.78f);
+                            - up * (0.18f * sizeScale);
+                        DrawFacet(scene, a, b, up, 0.025f * sizeScale,
+                            0.013f * sizeScale, lance.Color, fade * 0.83f);
+                        DrawFacet(scene, b, c, right, 0.013f * sizeScale,
+                            0.003f * sizeScale, hot, fade * 0.78f);
                     }
                     if (impact > 0)
                         for (int i = 0; i < (full ? 3 : 2); i++)
@@ -588,7 +598,7 @@ namespace MphRead.Mods.Render
 
                 case BeamFxStyle.SolarSpear:
                     Shards(scene, lance.Start, delta, axis, right, up,
-                        lance.Color, fade, fraction, full ? 3 : 2, outward: true);
+                        lance.Color, fade, fraction, full ? 3 : 2, sizeScale, outward: true);
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.06f,
                         right, up, full ? 6 : 4, 0.14f + age * 0.9f, 0.040f,
                         lance.Secondary, impact * 0.93f);
@@ -596,7 +606,7 @@ namespace MphRead.Mods.Render
 
                 case BeamFxStyle.CryoShatter:
                     if (medium) Shards(scene, lance.Start, delta, axis, right, up,
-                        lance.Color, fade, fraction, full ? 4 : 2, outward: true);
+                        lance.Color, fade, fraction, full ? 4 : 2, sizeScale, outward: true);
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.05f,
                         right, up, 4, 0.17f + age * 0.56f, 0.025f,
                         lance.Secondary, impact * 0.75f);
@@ -605,11 +615,11 @@ namespace MphRead.Mods.Render
                 case BeamFxStyle.PhantomTrace:
                     if (medium)
                     {
-                        Vector3 echo = (right - up) * (0.034f + fraction * 0.09f);
+                        Vector3 echo = (right - up) * ((0.034f + fraction * 0.09f) * sizeScale);
                         DrawShaft(scene, lance.Start + echo, lance.End + echo,
-                            right, 0.012f, lance.Color, fade * 0.29f);
+                            right, 0.012f * sizeScale, lance.Color, fade * 0.29f);
                         if (full) DrawShaft(scene, lance.Start - echo, lance.End - echo,
-                            right, 0.009f, lance.Color, fade * 0.18f);
+                            right, 0.009f * sizeScale, lance.Color, fade * 0.18f);
                     }
                     if (impact > 0) DrawRing(scene, lance.End - axis * 0.05f,
                         right, up, 3, 0.12f + age * 0.35f, 0.012f,
@@ -683,11 +693,11 @@ namespace MphRead.Mods.Render
             if (_trailTexture <= 0 || reach <= 0.05f || alpha <= 0.004f) return;
             int count = samples * 4;
             Vector3[] data = ArrayPool<Vector3>.Shared.Rent(count);
+            float sizeScale = ImperialistWidthScale(_imperialistHalfWidth);
             for (int i = 0; i < samples; i++)
             {
                 float t = i / (float)(samples - 1);
                 float s = reach * (strand < 0 ? t * t : t);
-                float sizeScale = ImperialistWidthScale(_imperialistHalfWidth);
                 float bandHalfWidth = TaperAt(s, width * sizeScale, widthReach);
                 Vector3 motion = Vector3.Zero;
                 if (signatureStyle.HasValue)
@@ -719,7 +729,7 @@ namespace MphRead.Mods.Render
         // oscillations: neither simulation RNG nor a draw-frame counter is read.
         private static void Shards(Scene scene, Vector3 origin, Vector3 delta,
             Vector3 axis, Vector3 right, Vector3 up, Vector3 color,
-            float fade, float fraction, int count, bool outward)
+            float fade, float fraction, int count, float sizeScale, bool outward)
         {
             float open = MathF.Min(1f, fraction * 10f);
             float signDirection = outward ? 1f : -1f;
@@ -730,8 +740,9 @@ namespace MphRead.Mods.Render
                 float sign = (i & 1) == 0 ? 1f : -1f;
                 Vector3 direction = (right * sign + up * (i % 3 == 0 ? 0.52f : -0.36f));
                 Vector3 tip = basePoint + axis * 0.19f
-                    + direction * signDirection * (0.10f + 0.28f * open);
-                DrawFacet(scene, basePoint, tip, right, 0.032f, 0.005f,
+                    + direction * signDirection * ((0.10f + 0.28f * open) * sizeScale);
+                DrawFacet(scene, basePoint, tip, right,
+                    0.032f * sizeScale, 0.005f * sizeScale,
                     color, fade * (0.4f + 0.06f * i));
             }
         }
