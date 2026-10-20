@@ -71,6 +71,25 @@ internal static class HeadDeathRigGlChecks
                 int[] left=[model.GetNodeIndexByName("L_hip"),model.GetNodeIndexByName("L_knee"),model.GetNodeIndexByName("L_ankle")];
                 int[] right=[model.GetNodeIndexByName("R_hip"),model.GetNodeIndexByName("R_knee"),model.GetNodeIndexByName("R_ankle")];
                 check(left.Concat(right).All(i=>i>=0),"native joint-name mapping resolves both complete legs");
+                var profile=CorpseRigProfile.For(model);
+                check(profile.ProceduralSupported&&!profile.PhysicalQualified&&profile.Hunter==victim.Hunter&&profile.Lod==lod,
+                    $"{victim.Hunter}/LOD{lod}: strict native layout supports procedural fallback only");
+                check(profile.Head==model.GetNodeIndexByName("Head_1")&&profile.Spine==model.GetNodeIndexByName("Spine_2")
+                    &&profile.LeftHip==left[0]&&profile.LeftKnee==left[1]&&profile.LeftAnkle==left[2]
+                    &&profile.RightHip==right[0]&&profile.RightKnee==right[1]&&profile.RightAnkle==right[2],
+                    "profile maps actual named head/spine/legs without assumed node IDs");
+                int expectedPalette=victim.Hunter switch{Hunter.Kanden=>16,Hunter.Noxus=>14,Hunter.Spire=>13,_=>17};
+                check(profile.PaletteCount==expectedPalette&&profile.PaletteCount==model.NodeMatrixIds.Count,
+                    "profile preserves hunter-specific palette count distinct from19 node count");
+                check(profile.WeightedHead==model.NodeMatrixIds.Contains(profile.Head)&&profile.WeightedHead==(victim.Hunter!=Hunter.Spire),
+                    "Spire unweighted head and six weighted native heads remain explicit profile facts");
+                check(model.Nodes[profile.LeftKnee].ParentIndex==profile.LeftHip&&model.Nodes[profile.LeftAnkle].ParentIndex==profile.LeftKnee
+                    &&model.Nodes[profile.RightKnee].ParentIndex==profile.RightHip&&model.Nodes[profile.RightAnkle].ParentIndex==profile.RightKnee,
+                    "profile leg ancestry follows both actual native chains");
+                check(ReferenceEquals(profile,CorpseRigProfile.For(model)),"warmed profile lookup returns the same immutable model-owned profile");
+                if(definition.WireId==0&&pose.Head>0)
+                {RejectUnknownProfiles(model,pose,check);RejectIncompleteLodPair(victim,lod,check);}
+
                 if(victim.Hunter is Hunter.Trace or Hunter.Noxus)check(model.GetNodeIndexByName("Pelvis")==-1,"Trace/Noxus accepted without a fabricated Pelvis node");
                 var feet=new[]{model.Nodes[left[2]].Animation.Row3.Xyz,model.Nodes[right[2]].Animation.Row3.Xyz};
                 var hips=(model.Nodes[left[0]].Animation.Row3.Xyz+model.Nodes[right[0]].Animation.Row3.Xyz)*.5f;
@@ -105,9 +124,71 @@ internal static class HeadDeathRigGlChecks
         check(victim.Position==position&&victim.Speed==speed&&Equals(Aim.GetValue(victim),aim)&&Equals(Muzzle.GetValue(victim),muzzle)&&Equals(Gun.GetValue(victim),gun)
             &&(scene.Random.Rng1,scene.Random.Rng2)==rng&&scene.ModHeadDeathPose(victim,definition)==beforePose,"LOD scope probe cannot alter canonical source/physics/RNG/pose clock");
     }
+    // Declared malformed-asset seam: only fresh node/palette-owning model copies
+    // are changed. Shared native source nodes/raw assets/palette lists stay intact.
+    private static int _negativeLayouts,_incompletePairs;
+    private static void RejectUnknownProfiles(Model original,HeadDeathPose pose,Action<bool,string> check)
+    {
+        var originalState=new ModelState(original);var palette=original.NodeMatrixIds.ToArray();
+        foreach(string failure in new[]{"name","duplicate-palette","out-of-range-palette"})
+        {
+            var clone=original.CreateSceneCopy();
+            if(failure=="name")typeof(Model).GetField("<Name>k__BackingField",Hidden)!.SetValue(clone,original.Name+"-unsupported");
+            else
+            {
+                var altered=clone.NodeMatrixIds.ToArray();
+                if(failure=="duplicate-palette")altered[0]=altered[1];else altered[0]=clone.Nodes.Count;
+                typeof(Model).GetField("<NodeMatrixIds>k__BackingField",Hidden)!.SetValue(clone,altered);
+            }
+            var before=new ModelState(clone);var profile=CorpseRigProfile.For(clone);
+            check(!profile.ProceduralSupported&&!profile.PhysicalQualified&&!HeadDeathPoseOverlay.Prewarm(clone),
+                "unsupported cloned model layout refuses prewarm: "+failure);
+            using(HeadDeathPoseOverlay.Begin(clone,pose))check(before.Same(clone),"unsupported cloned layout Begin is exact NOP: "+failure);
+            check(before.Same(clone),"unsupported cloned layout scope cannot rewrite nodes/palette: "+failure);
+        }
+        check(originalState.Same(original)&&original.NodeMatrixIds.SequenceEqual(palette)&&CorpseRigProfile.For(original).ProceduralSupported,
+            "malformed independent clones cannot poison or mutate actual shared native model profile");
+        _negativeLayouts++;
+    }
+    private static void RejectIncompleteLodPair(PlayerEntity victim,int lod,Action<bool,string> check)
+    {
+        var instances=(ModelInstance[])Models.GetValue(victim)!;
+        var native=instances.Select(i=>i.Model).ToArray();var before=native.Select(m=>new ModelState(m)).ToArray();
+        var ready=typeof(PlayerEntity).GetField("_headDeathRigReady",Hidden)!;
+        var visible=typeof(PlayerEntity).GetProperty("ModClassicHeadDeathVisible",Hidden)!;
+        victim.ModPrewarmHeadDeathPose();
+        check((bool)ready.GetValue(victim)!&&(bool)visible.GetValue(victim)!,
+            "actual Classic peak starts with a fully supported visible native LOD pair");
+        var unsupported=native[lod].CreateSceneCopy();
+        typeof(Model).GetField("<Name>k__BackingField",Hidden)!.SetValue(unsupported,native[lod].Name+"-unsupported-pair");
+        try
+        {
+            instances[lod].SetModel(unsupported);victim.ModPrewarmHeadDeathPose();
+            check(!(bool)ready.GetValue(victim)!&&!(bool)visible.GetValue(victim)!,
+                "one unsupported LOD"+lod+" disables pair readiness and Classic retained-body visibility");
+            check(native.Select((m,i)=>before[i].Same(m)).All(same=>same),
+                "failed pair prewarm changes no original LOD canonical node or palette");
+        }
+        finally
+        {instances[lod].SetModel(native[lod]);victim.ModPrewarmHeadDeathPose();}
+        check((bool)ready.GetValue(victim)!&&(bool)visible.GetValue(victim)!
+            &&instances.Select((i,n)=>ReferenceEquals(i.Model,native[n])&&before[n].Same(native[n])).All(same=>same),
+            "restored actual LOD pair rewarms and preserves all original composed matrices/palettes");
+        _incompletePairs++;
+    }
     private static bool Finite(Matrix4 m)=>new[]{m.M11,m.M12,m.M13,m.M14,m.M21,m.M22,m.M23,m.M24,m.M31,m.M32,m.M33,m.M34,m.M41,m.M42,m.M43,m.M44}.All(float.IsFinite);
     private static object PoseReceipt(HeadDeathPose pose)=>new{pose.Active,pose.Head,pose.Collapse,pose.Alpha,pose.Side,direction=pose.Direction.ToString()};
-    internal static int Run(string data,string output)=>Run(data,output,ProbeScopes);
+    internal static int Run(string data,string output)
+    {
+        _negativeLayouts=_incompletePairs=0;
+        int code=Run(data,output,ProbeScopes);
+        Directory.CreateDirectory(output);
+        File.WriteAllText(Path.Combine(output,"profile-negative-results.json"),JsonSerializer.Serialize(new
+        {negativeLayoutCohorts=_negativeLayouts,incompleteLodPairs=_incompletePairs,expected=14,code},new JsonSerializerOptions{WriteIndented=true}));
+        if(code==0&&(_negativeLayouts!=14||_incompletePairs!=14))
+            throw new InvalidOperationException("Negative layout/LOD tests must execute for all fourteen native profiles.");
+        return code;
+    }
     internal delegate void ScopeProbe(PlayerEntity victim,Scene scene,DeathPresentationDefinition definition,HeadDeathPose pose,Action<bool,string> check,List<object> results);
     internal static int Run(string data,string output,ScopeProbe scopeProbe)
     {

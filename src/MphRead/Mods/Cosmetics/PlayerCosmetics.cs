@@ -58,6 +58,9 @@ namespace MphRead.Entities
         }
         private void DrawHeadDeathBody(ModelInstance body, Mods.Render.HeadDeathPose pose, bool cosmeticDeath)
         {
+            // A partial/unknown LOD pair retains the original catalog/native
+            // route on both tiers, rather than popping between pose policies.
+            if(!_headDeathRigReady)pose=default;
             UpdateMaterials(body, Recolor);
             var previous = _scene.CosmeticSubmission;
             var previousMaterial = _scene.CosmeticMaterialSubmission;
