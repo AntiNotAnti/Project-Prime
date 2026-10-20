@@ -106,6 +106,26 @@ explicitly set incoming velocities and claim schedules; they do not masquerade
 as physical input or live UDP blast tests. Real UDP and recordings have separate
 source/binary leases.
 
+## Final UI/input compatibility integration
+
+Clean committed `f8848deef2dea788ca7105b4931f540595a1f925` additionally integrates
+main `fab3b50204695bd3638836cb8052c5bc3bed352e` (UI styling, touch ownership,
+lifecycle and viewmodel regressions). Its normal Windows build passes with zero
+warnings/errors, all seven focused movement/rocket/rules/metadata/architecture/
+lifecycle checks pass, and the three menu/browser CPU fixtures plus touch-model
+fixture pass. The retained combined archive passes 80,101 replay assertions as
+protocol 62/profile 2 with its input hash unchanged. No new live cohort is claimed
+for this bounded compatibility run. Only `Program.cs` changed among the original
+38 feature files; the final manifest also covers touch and lifecycle test sources.
+
+Final compatibility Core/tool SHA-256 values are respectively
+`8cd5624fd482bc9365d31f5b790e3345559c442ff25de6c01a410e703f1f808c` and
+`e197fc7625dfa503ac529fc2c79f4f4fc011adb76c283bebe63e8f6012fe5647`.
+All 40 final source hashes independently match the worktree after integration.
+Subsequent main `8413cd643` (#800) adds performance/MapAudit harness evidence,
+with no change to those 40 files or movement/combat/recording paths. It is merged
+without relabeling the earlier runtime proofs or claiming a new performance pass.
+
 ## Retained failures and diagnostics
 
 Earlier logs remain preserved under ignored `artifacts/quake3-advanced/`.

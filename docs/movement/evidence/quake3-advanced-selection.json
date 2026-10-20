@@ -1963,5 +1963,140 @@
       "archiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
       "diagnosticScope": "Broad post-step planar displacement/change trigger >0.25 units, not an acceptance threshold; uncontrolled native combat/contact and lifecycle can contribute. No zero-anomaly or seamless-traversal claim."
     }
+  },
+  "latestCompatibility": {
+    "status": "PASS",
+    "baseSha": "f8848deef2dea788ca7105b4931f540595a1f925",
+    "upstreamMainSha": "fab3b50204695bd3638836cb8052c5bc3bed352e",
+    "previousFullAcceptanceSha": "f62676dce3ea698ed2f943097e863fe64c3359ac",
+    "cleanCommittedCheckout": true,
+    "sourceOverlay": false,
+    "sourceManifestSha256": "64703e5a282369440aed2d756d97709de5e7e0d99c73fdb760e00814eb45fbd8",
+    "sourceFileCount": 40,
+    "changedAmongPrior38FeatureFiles": [
+      "tools/nettest/Program.cs"
+    ],
+    "normalBuildExit": 0,
+    "binaries": {
+      "ProjectPrime.dll": "8cd5624fd482bc9365d31f5b790e3345559c442ff25de6c01a410e703f1f808c",
+      "nettest.dll": "e197fc7625dfa503ac529fc2c79f4f4fc011adb76c283bebe63e8f6012fe5647"
+    },
+    "sourceBinaryLeasesUnchanged": true,
+    "focusedCases": [
+      {
+        "name": "advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "advanced-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "lifecycle-checkpoint",
+        "exitCode": 0
+      }
+    ],
+    "uiTouchFixtures": [
+      {
+        "fixture": "rmlui-offline-rules-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "8ff12017dd6c9fe7fb024461af3eef2803741ff47a60c1fd019b045324e9e081",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "rmlui-live-menu-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "38edf5ce9a763e1e5a57bf693e5bb2b1ad7d056ed37866dd02b39a97f61e78b2",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "server-browser-party-source-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "f6d26028232c1a753db27c88a1fa716ba65d89b7dc8b1ba593cd95edc1a018fe",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "touchcheck",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "e949a6cb95b80610e793febef699dcf0e8e45dd981b230800327a2fe9cbaddbc",
+        "scope": "production touch-model CPU fixture; no Android View/MotionEvent or physical-device acceptance"
+      }
+    ],
+    "replayedArchiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+    "replay": {
+      "checks": 80101,
+      "frames": 2399,
+      "recordedProtocol": 62,
+      "recordedProfileVersion": 2
+    },
+    "newLiveCohort": false,
+    "scope": "bounded Windows CPU compatibility onf884; priorf626 full26checks andlivecohort retain theiroriginal identity; noMac,performance,GL,physicaldevice acceptance",
+    "sourceFiles": {
+      "src/MphRead/Entities/Players/PlayerEntity.cs": "fc0a18c67822fe9baab49c881e5f375a4a3e5fd584799e17a22fc4708457614b",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "dfa0c00fa567d8a4ee9d609a6a1e7d9566ab2da8207dad88e6caede460e7d5b2",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "bbf0d655ee284b2fef2360a162a5249ea02c7fef9019449fab1c3553360aee1d",
+      "src/MphRead/Mods/Movement/MovementModel.cs": "8c1e05bac0544d0939e8d2067dc80f256259e475d2c7fab361fbac1e4c0081a0",
+      "src/MphRead/Mods/Movement/Quake3MovementProfileV2.cs": "c1ab8bd9775fff43a5e1cc1df1aae8a3f227f7174386edecc08e05c5c7a38103",
+      "src/MphRead/Mods/Network/MatchDefinition.cs": "1bd5a40decf57b4b5a8b276e8ee08b46d2131db6a1039dce44b0f1e4c667e2a0",
+      "src/MphRead/Mods/Network/NetHitClaims.cs": "938679b723e7c305ea8588adead7deff7d8076f6518c4c1fdfb14cca16ff181d",
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": "c83ac3b0ba014107130993471dbeeafe6acdd38b38dec76ca2387020f0906654",
+      "src/MphRead/Mods/Network/NetProtocol.cs": "9a94e3b6b08a4fac5274b16e1c8e555d4aefc31ef513e10c65e935c5617125ea",
+      "src/MphRead/Mods/Network/NetSelfSplash.cs": "354d92dc4b7c66506f863fa0ef4ef57d4b68c6f74649ab23c6d321dc75dfab38",
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": "162a5ffafc84c93a90e60fbe490f21d2793860cfdb16c3d64eb437afb990e93a",
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": "3a037f2abf0c74742c336f6a8a38c5784f69dac83c4ab0b871225f2557d26cb0",
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "dbf55d0048c11aba3a4403c892cbaa5999d3563b34f80827534c6a32b36a5667",
+      "src/MphRead/SceneMomentumMovement.cs": "9ea77e03c81f72396fb9e4075c434d37b793f8e38d63d4809320fe3c733f6890",
+      "tools/group-reservation-check/check_registry.py": "ec496206c690c79535cc2baf795089d899fcdbb3dcb7fa59196486a62d16894b",
+      "tools/nettest/ContinuousTargetTests.cs": "ee8427f923bcb96904391c024761afb96216afebdaff4d99c37c92e13711e0f5",
+      "tools/nettest/EnhancedRetirementTests.cs": "093bdcc200ddec909242b0d7c132f10bd04ff23f92078f11aa8bb354ca302c55",
+      "tools/nettest/MomentumBotAuthorityTests.cs": "323f09239674913780e1d795af3d6a553e1f8c9a0135317de54b3d3892d97c0a",
+      "tools/nettest/MomentumOnlineSceneTests.cs": "c03c877c87222f885f979928592063d1ec1100058c40b89a7ff09952509c6362",
+      "tools/nettest/MomentumReplayMetadataTests.cs": "c5fbaf7c0a4db49038da7616320b8dc0d947cd253a3ae5fc144349acb81c9d1a",
+      "tools/nettest/MomentumReplayRulesTests.cs": "250535cfc7dd3a5fd55dbded46f086415726c2f2599f93322cd1272e31b53c39",
+      "tools/nettest/MomentumReplaySceneTests.cs": "79b5613d2bc722d0fd6c6d1ca26f567a0853364149febe8b809d16b80b6a9d60",
+      "tools/nettest/MomentumRulesTests.cs": "304ffff19f739188cee7e4ccf9efa3a423989e53efbf711cdb521de76e98813b",
+      "tools/nettest/MovementValidationTests.cs": "fee85ef7c81ee8c018dc82302946a7cbb82de61a7853cd60568b4fada03c2321",
+      "tools/nettest/NetArchitectureTests.cs": "2249123faa90c688bcc6cb68b3833e2c89666020e46c055c0174f8ad22864b86",
+      "tools/nettest/PickupProtocolTests.cs": "b8c007ee44b3117433cebe5cbbe69ac0ac0530b98abc1e893dd2484af466558f",
+      "tools/nettest/PlayerNameChatTests.cs": "2e670b950039d1008f08a1f6cc37ffed1de0b42f63da5865414545a38ef102e5",
+      "tools/nettest/Program.cs": "35826878a2e40c31236fd906d7708aee4555d26e26905e896401a66862e63d84",
+      "tools/nettest/Protocol17Tests.cs": "fa53222891f682b23898c83fc245967bc644876ab00d91a943c12a6718bb376f",
+      "tools/nettest/Quake3AdvancedRulesTests.cs": "9b0e9a91cadf5a40de8332dd7ad3b7abf39f481bd92a3f38102064570826102c",
+      "tools/nettest/Quake3AdvancedSceneTests.cs": "9b128468cfb68212aa625ad869b00cc8b863dc679dda555f406faa10a2e9f8fb",
+      "tools/nettest/Quake3ReplayCompatibilityTests.cs": "749926e4ff376b21db67278343241b0cece8a404bf3ead4fdbc9db971569a675",
+      "tools/nettest/Quake3RulesTests.cs": "deadd70b06352881b614a9c24cfeca93990b7683597b78b2a173e91c3e15905f",
+      "tools/nettest/Quake3SceneTests.cs": "c57db39f62302ad1a90bbf03e567302071789c582b0b5e50364833965f5edf38",
+      "tools/nettest/ReplayProtocol58Tests.cs": "1b6423ff35b7353ab81dcc4c457b162f1f0fc25022ffe43f45c84e9a53d6c4d6",
+      "tools/nettest/SelfPredictionTests.cs": "cef814199ed20041c51a7b59705531eaa79651f271169cc444d976cd70b3c0cc",
+      "tools/nettest/SelfSplashTests.cs": "e264384fac31e82c85f6807a3ac8c7942087c9d07505d9c1be589fd35b61bf2d",
+      "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "f1848b144e74d17de98e442a52673c6c4ede43c463836b99629f5bc264f3bde3",
+      "src/MphRead.Android/TouchControls.cs": "3ba3193a8c6cb022063f8109632275825d3b441965e74f8ebb9ff1e8dce2ebd4",
+      "tools/nettest/LifecycleCheckpointTests.cs": "cc153adeeb673fad98a835c6fc6fdfc5eebf365d6c9d704ba51e183a5b0bf9cc"
+    }
+  },
+  "postCompatibilityIntegration": {
+    "mainSha": "8413cd643c523349ac3ddae8eef52b01896ba648",
+    "pullRequest": 800,
+    "scope": "Performance/MapAudit harness and evidence only; no change to the 40 verified feature/input/lifecycle files or live movement/combat/recording paths. Runtime results remain attributed to f884/f626, not relabeled."
   }
 }
