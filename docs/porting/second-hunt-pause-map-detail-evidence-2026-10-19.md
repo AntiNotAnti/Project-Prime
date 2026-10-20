@@ -24,6 +24,9 @@ wc01 collision without using the simulation's shared Collision cache. It
 never reads mutable StorySave, Model/Node, Player or Scene objects. Parsing
 validates every section extent, allocation count and point/face/grid index
 before the existing collision reader filters the native layer.
+The sum of all grid-cell reference counts is also bounded before that
+reader expands them; repeated individually valid spans cannot amplify a
+small file into unbounded layer-filter allocations.
 
 Each opening owns its cancellation and immutable result. Closing or reopening
 retires the old result immediately. A shared read lane bounds outstanding IO;
@@ -32,6 +35,8 @@ malformed rooms fall back independently. The batch is limited to66 native
 rooms and1048576 output vertices; each room also has strict input/output
 budgets. The draw owner rechecks the real visited-room bit even for ready
 cached detail. No source geometry is requested for an unexplored room.
+Scene cleanup and player destruction retire the same worker independently
+of HUD restoration, including leaving while the native map is still open.
 
 The shared room-height helper preserves Fan Room Alpha's2.05 and Beta's1.305
 factors for detail, the existing marker and native door symbols. Local Y is
@@ -72,7 +77,7 @@ be inspected locally and deleted after verification.
 
 ## Verification and remaining gates
 
-The source-free helper/source/load suite covers89 checks, including exact
+The source-free helper/source/load suite covers91 checks, including exact
 fan and winding preservation, tiny/zero-area behavior, bounds and index
 refusal, native layer filtering, malformed-room isolation, cancellation,
 retirement and detached snapshots. Native settings fixtures cover default

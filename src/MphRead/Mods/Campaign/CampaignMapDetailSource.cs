@@ -14,6 +14,7 @@ namespace MphRead.Mods.Campaign;
 public static class CampaignMapDetailSource
 {
     public const int MaxFileBytes = 32 * 1024 * 1024;
+    public const int MaxGridReferences = 1048576;
 
     public static MphCollisionInfo ReadCollision(string path, int layerMask, CancellationToken cancellation = default)
     {
@@ -56,9 +57,17 @@ public static class CampaignMapDetailSource
         var dataIndices = Read.DoOffsets<ushort>(bytes, header.DataIndexOffset, header.DataIndexCount);
         foreach (ushort index in dataIndices)
             if (index >= header.DataCount) throw new InvalidDataException("Pause-map grid index is invalid.");
+        ulong gridReferences = 0;
         foreach (CollisionEntry entry in Read.DoOffsets<CollisionEntry>(bytes, header.EntryOffset, header.EntryCount))
+        {
             if ((ulong)entry.DataStartIndex + entry.DataCount > header.DataIndexCount)
                 throw new InvalidDataException("Pause-map grid span is invalid.");
+            // The existing layer filter expands every cell span, even when
+            // many valid cells refer to the same small source index table.
+            gridReferences += entry.DataCount;
+            if (gridReferences > MaxGridReferences)
+                throw new InvalidDataException("Pause-map grid expansion exceeds its budget.");
+        }
         return Collision.ReadMphCollision(header, bytes, layerMask);
 
         void Section<T>(uint offset, uint count, uint maxCount) where T : struct

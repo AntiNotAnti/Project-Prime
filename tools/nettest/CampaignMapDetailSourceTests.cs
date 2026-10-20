@@ -74,6 +74,26 @@ internal static class CampaignMapDetailSourceTests
         try{CampaignMapDetailSource.ReadCollision(hiddenMalformed,0x40);}catch(InvalidDataException){hiddenRefused=true;}
         check(hiddenRefused,"malformed hidden-layer face cannot bypass structural validation");
 
+        // Every cell span is individually valid, but overlapping cells make
+        // the native layer filter expand far beyond the source index table.
+        const int repeatedIndexCount=UInt16.MaxValue,repeatedEntryCount=17;
+        int repeatedEntryOffset=188+repeatedIndexCount*2;
+        byte[] repeatedGrid=new byte[repeatedEntryOffset+repeatedEntryCount*4];
+        valid.AsSpan(0,188).CopyTo(repeatedGrid);
+        BinaryPrimitives.WriteUInt32LittleEndian(repeatedGrid.AsSpan(36,4),repeatedIndexCount);
+        BinaryPrimitives.WriteUInt32LittleEndian(repeatedGrid.AsSpan(68,4),repeatedEntryCount);
+        BinaryPrimitives.WriteUInt32LittleEndian(repeatedGrid.AsSpan(72,4),(uint)repeatedEntryOffset);
+        for(int i=0;i<repeatedEntryCount;i++)
+            BinaryPrimitives.WriteUInt16LittleEndian(repeatedGrid.AsSpan(repeatedEntryOffset+i*4,2),repeatedIndexCount);
+        check(repeatedGrid.Length<CampaignMapDetailSource.MaxFileBytes
+            &&repeatedIndexCount<=CampaignMapDetailSource.MaxGridReferences
+            &&(ulong)repeatedIndexCount*repeatedEntryCount>CampaignMapDetailSource.MaxGridReferences,
+            "repeated grid fixture has bounded tables and valid individual spans but excessive aggregate references");
+        bool expansionRefused=false;
+        try{CampaignMapDetailSource.ReadCollision(repeatedGrid,0x40);}
+        catch(InvalidDataException ex){expansionRefused=ex.Message.Contains("grid expansion",StringComparison.Ordinal);}
+        check(expansionRefused,"overlapping valid grid spans are rejected before native layer-filter expansion");
+
         string temporary=Path.Combine(Path.GetTempPath(),"prime-map-detail-source-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporary);
         var gate=(SemaphoreSlim)typeof(CampaignMapDetailLoad).GetField("_readGate",BindingFlags.Static|BindingFlags.NonPublic)!.GetValue(null)!;

@@ -63,8 +63,7 @@ namespace MphRead.Entities
 
         public void SetUpMenuPauseMapNav()
         {
-            _navMapDetail?.Dispose();
-            _navMapDetail = null;
+            RetirePauseMapDetail();
             _navMapDrawNode = null;
             _navMapModelEnabled = false;
             _navDrawZoom = 0.75f;
@@ -133,6 +132,12 @@ namespace MphRead.Entities
         }
 
         private Mods.Campaign.CampaignMapDetailLoad? _navMapDetail;
+
+        internal void RetirePauseMapDetail()
+        {
+            _navMapDetail?.Dispose();
+            _navMapDetail = null;
+        }
 
         private void BeginPauseMapDetail()
         {
@@ -211,8 +216,7 @@ namespace MphRead.Entities
 
         public void EndMenuPauseHud()
         {
-            _navMapDetail?.Dispose();
-            _navMapDetail = null;
+            RetirePauseMapDetail();
             InitHudState();
             _scene.Layer1Info.BindingId = _pausedPrevBindingId1;
             _scene.Layer1Info.Alpha = _pausedPrevAlpha1;

@@ -187,6 +187,14 @@ internal static class CampaignMapGlTests
             Check(load.Completion.IsCompletedSuccessfully&&reopened.Completion.IsCompletedSuccessfully,
                 "retired completed detail snapshots remain available to the diagnostic");
             Check(Draw(null)==0,"post-exit native frame cannot draw retired detail snapshots");
+            TogglePause();
+            Check(scene.GameState.MenuPause,"fresh actual pause is active before launcher-style cleanup");
+            var cleanupLoad=(CampaignMapDetailLoad)Get(player,"_navMapDetail");WaitLoad(cleanupLoad);
+            string currentRoom=Metadata.GetRoomById(scene.RoomId)!.Name;
+            Check(cleanupLoad.TryGetRoom(currentRoom,out _),"fresh pause has visible Ready detail before cleanup");
+            scene.DoCleanup();
+            Check(Get(player,"_navMapDetail")==null,"Scene.DoCleanup retires pause detail without normal Pause exit");
+            Check(!cleanupLoad.TryGetRoom(currentRoom,out _),"launcher-style cleanup refuses held completed detail snapshot");
 
             void Step(){Bound();scene.OnSimulationFrame();Draw(null);}
             void TogglePause(){key(keyboard,Keys.Tab,true);Step();key(keyboard,Keys.Tab,false);Step();}
