@@ -45,3 +45,20 @@ src/MphRead/Assets/Fonts/NotoSansJP-Regular.ttf
 # Synthetic RVZ decoder test vector from an explicit 68-byte seed; generated
 # by the adjacent make-junk-oracle.py, with no disc or cartridge input.
 tools/external-import-check/Fixtures/Rvz/junk-oracle.bin
+
+# Original, source-rendered RmlUi offscreen before/after UX captures from
+# PR #794. These are our own native UI fixtures, not extracted cartridge
+# textures, maps, models, or generated in-game thumbnail previews. Keep each
+# approved capture named explicitly so later images are still rejected.
+docs/implementation/rmlui-ux-2026-10-19/community-after.png
+docs/implementation/rmlui-ux-2026-10-19/community-before.png
+docs/implementation/rmlui-ux-2026-10-19/compact-profile-after.png
+docs/implementation/rmlui-ux-2026-10-19/compact-profile-before.png
+docs/implementation/rmlui-ux-2026-10-19/hunters-after.png
+docs/implementation/rmlui-ux-2026-10-19/hunters-before.png
+docs/implementation/rmlui-ux-2026-10-19/license-after.png
+docs/implementation/rmlui-ux-2026-10-19/license-before.png
+docs/implementation/rmlui-ux-2026-10-19/quick-settings-after.png
+docs/implementation/rmlui-ux-2026-10-19/quick-settings-before.png
+docs/implementation/rmlui-ux-2026-10-19/versions-after.png
+docs/implementation/rmlui-ux-2026-10-19/versions-before.png
