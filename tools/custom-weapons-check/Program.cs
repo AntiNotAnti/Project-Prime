@@ -223,6 +223,7 @@ CustomOfflineAvailabilityChecks.Run(Check);
 StockPickupChecks.Run(Check);
 CustomWeaponCycleChecks.Run(Check);
 CustomWeaponWheelChecks.Run(Check);
+CustomPickupKnowledgeChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;
