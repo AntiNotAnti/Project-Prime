@@ -28,6 +28,8 @@ namespace MphRead.Droid
             Action<Scene>? lifetimeOwned = null)
         {
             GameFiles.ApplyPaths();
+            if (plan.MatchRules.RiftlineM7Available && !OfflineMatchPreflight.TryAdmit(plan,out string pickupReason))
+                throw new ProgramException(pickupReason);
             if (NetSession.Active)
                 NetSession.ReportMatchLoadProgress(MatchLoadStage.Preflight);
             if (plan.Kind == LaunchKind.Demo)
@@ -67,6 +69,8 @@ namespace MphRead.Droid
                 // limits are not replaced by values such as Battle's 7/7:00.
                 MphRead.Mods.GameSettings.ApplyMatchRules(scene.GameState);
                 plan.MatchRules.ApplyModifiers(scene.GameState);
+                if (plan.Kind==LaunchKind.Offline&&plan.MatchRules.RiftlineM7Available)
+                    scene.EnableOfflineRifleAvailability(true);
             }
             if (plan.Kind == LaunchKind.AimTrainer)
                 MphRead.Mods.Training.AimTrainerSession.Attach(scene, plan);

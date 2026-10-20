@@ -7,18 +7,19 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.CustomWeapons;
 
 /// <summary>Scene-owned offline custom inventory. Public availability captures
-/// only the local human and starts unequipped; explicit developer grants remain
+/// only the local human and starts unowned; explicit developer grants remain
 /// available to fixtures. Native slots and replay reconstruction stay separate.</summary>
-internal sealed class OfflineCustomWeaponRuntime : IDisposable
+internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
 {
     private readonly record struct LocalInput(uint Sequence,CustomWeaponActionKind Kind,byte Optic,uint Tick,WeaponOwnerContext Owner);
-    private sealed class Slot
+    private sealed partial class Slot
     {
         internal required PlayerEntity Player;
         internal required EquipInfo Equip;
-        internal required WeaponRuntimeState State;
+        internal required WeaponOwnerContext Owner;
+        internal WeaponRuntimeState? State;
         internal ushort Life = 1;
-        internal bool Alive = true, Emitting, Selected=true;
+        internal bool Alive = true, Emitting, Selected;
         internal uint InputSequence,SettledInputSequence,SelectionDenied,OpticDenied;
         internal readonly LocalInput[] Inputs=new LocalInput[16];
         internal int InputCount;
@@ -27,6 +28,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     private readonly PlayerEntity? _availabilityPlayer;
     private readonly WeaponRegistry _registry;
     private readonly WeaponDefinition _definition;
+    private readonly ulong _offlineEpoch=1;
     internal WeaponDigest Manifest { get; }
     private readonly Slot?[] _slots = new Slot[8];
     private bool _disposed;
@@ -35,7 +37,8 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     {
         state=default;selected=false;
         if(!IsEligible||player.OwningScene!=_scene||(uint)player.SlotIndex>=8
-            ||_slots[player.SlotIndex] is not {Alive:true} slot||slot.Player!=player||player.Health<=0)return false;
+            ||_slots[player.SlotIndex] is not {Alive:true,State:not null} slot||slot.Player!=player||player.Health<=0
+            ||Before(Tick,slot.OwnedFrom))return false;
         state=slot.State.Snapshot();selected=slot.Selected;return true;
     }
     internal ulong AcceptedShots { get; private set; }
@@ -56,14 +59,27 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
                 || scene.Players.Items[0].OwningScene!=scene || scene.Players.Items[0].SlotIndex!=0)
                 throw new InvalidOperationException("Riftline M7 availability requires the local human player.");
             _availabilityPlayer=scene.Players.Items[0];
+            _offlineEpoch=NewOfflineEpoch();
         }
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy damage is unavailable in this prototype.");
         _definition = RiftlineM7.Create();
-        Manifest = new CustomWeaponManifest(new[] { _definition }).Digest;
+        var manifest = new CustomWeaponManifest(new[] { _definition }); Manifest = manifest.Digest;
+        // Validate the authored layout before publishing the scene registry.
+        var placements = publicAvailability ? StockRiftlinePickups.ForRoom(scene.Room?.Meta.Name ?? "") : null;
+        if (publicAvailability)
+            foreach (var map in Mods.MapGen.CustomRooms.Definitions)
+                if (string.Equals(map.Name,scene.Room?.Meta.Name,StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Custom-map M7 pickup layouts are not available yet.");
         _registry = scene.FreezeCustomWeaponRegistry(new[] { _definition });
+        if (placements != null)
+        {
+            var layout = new CustomPickupLayout(Mods.MapGen.MapContentIdentity.BuiltIn(scene.Room!.Meta.Name),
+                manifest,_registry,placements);
+            _pickups = new(layout,new(new(1,_offlineEpoch,1),Manifest,layout.Digest),Tick);
+        }
     }
-    internal bool Grant(PlayerEntity player) => GrantCore(player,selected:true);
+    internal bool Grant(PlayerEntity player) => _availabilityPlayer==null && GrantCore(player,selected:true);
     private bool GrantCore(PlayerEntity player,bool selected)
     {
         if (!IsEligible || player.IsBot || player.OwningScene != _scene || player.Health <= 0
@@ -75,7 +91,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         inventory.TryGetState(_definition.Identity,out var state);
         var pool = new BeamProjectileEntity[_definition.Mechanics.MaxActiveProjectiles];
         for (int i=0; i<pool.Length; i++) pool[i] = new(_scene);
-        _slots[player.SlotIndex] = new Slot { Player = player, State = state!, Selected = selected,
+        _slots[player.SlotIndex] = new Slot { Player = player, Owner = state!.Owner, State = state, Selected = selected, OwnedFrom = Tick,
             Equip = new EquipInfo(CustomPrecisionAdapter.Build(_definition.Mechanics),pool) { InfiniteAmmo = true } };
         state!.SetEquipped(Tick,selected);
         return true;
@@ -86,7 +102,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         var slot = _slots[player.SlotIndex];
         if (slot == null || slot.Player != player) return null;
         Observe(slot);
-        return slot.Alive ? slot : null;
+        return slot.Alive && slot.State != null && !Before(Tick,slot.OwnedFrom) ? slot : null;
     }
     private void RetireBeams(Slot slot)
     {
@@ -97,19 +113,34 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         bool alive = slot.Player.Health > 0 && !slot.Player.Flags2.TestFlag(PlayerFlags2.Spectating);
         if (!alive)
         {
-            if (slot.Alive) { ExpireInputs(slot);slot.State.Invalidate(WeaponCancellation.Death); RetireBeams(slot); }
+            if (slot.Alive)
+            {
+                ExpireInputs(slot);slot.State?.Invalidate(WeaponCancellation.Death);slot.Selected=false;
+                ClearPickupFunding(slot);
+                // Already emitted public flights retain their original life provenance.
+                if (_availabilityPlayer==null) RetireBeams(slot);
+            }
             slot.Alive = false; return;
         }
         if (!slot.Alive)
         {
-            slot.Life = unchecked((ushort)(slot.Life+1)); if (slot.Life == 0) slot.Life = 1;
+            ushort nextLife=unchecked((ushort)(slot.Life+1));if(nextLife==0)nextLife=1;
             var inventory = _registry.Inventory(slot.Player.SlotIndex);
-            if (!inventory.BindLife(new(1,1,(byte)slot.Player.SlotIndex,1,slot.Life),Tick)
-                || !inventory.Grant(_definition.Identity,Tick)) return;
-            inventory.TryGetState(_definition.Identity,out var state); slot.State = state!; slot.Alive = true;
+            var owner = new WeaponOwnerContext(1,_offlineEpoch,(byte)slot.Player.SlotIndex,1,nextLife);
+            if (!inventory.BindLife(owner,Tick)) return;
+            slot.Life=nextLife;
+            slot.Owner=owner;slot.State=null;slot.PickupRevision=0;
+            if (_availabilityPlayer==null)
+            {
+                if (!inventory.Grant(_definition.Identity,Tick)) return;
+                inventory.TryGetState(_definition.Identity,out var state);slot.State=state;slot.OwnedFrom=Tick;
+            }
+            slot.Alive = true;
             slot.Selected=false;slot.InputSequence=slot.SettledInputSequence=slot.SelectionDenied=slot.OpticDenied=0;
             slot.InputCount=0;Array.Clear(slot.Inputs);
         }
+        ApplyPickupFunding(slot);
+        if (slot.State == null || Before(Tick,slot.OwnedFrom)) return;
         bool biped = !slot.Player.IsAltForm && !slot.Player.IsMorphing && !slot.Player.IsUnmorphing;
         bool usable=biped&&slot.Player.ModTryCaptureCustomPrecombatFacts(slot.Player.ModGunVector,out var facts)&&facts.CanUseWeapon;
         slot.State.SetEquipped(Tick,usable&&slot.Selected);
@@ -119,7 +150,8 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     {
         if (_disposed) return;
         if (!IsEligible) { Dispose(); return; }
-        if (_availabilityPlayer is { } local && _slots[0]==null) GrantCore(local,selected:false);
+        _pickups?.Advance(Tick);
+        if (_availabilityPlayer is { } local && _slots[0]==null) BindPickupLife(local);
         foreach (var slot in _slots) if (slot != null)
         {
             // A source that never reached its post-aim biped phase cannot fire
@@ -129,7 +161,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     }
     internal WeaponRuntimeState? State(PlayerEntity player) => Resolve(player)?.State;
     internal CustomInputProjection? InputProjection(PlayerEntity player)
-        =>Resolve(player) is {} slot?new(slot.State.Owner,slot.Selected,(byte)slot.State.Snapshot().Optic,
+        =>Resolve(player) is {} slot?new(slot.Owner,slot.Selected,(byte)slot.State!.Snapshot().Optic,
             slot.SettledInputSequence,slot.SelectionDenied,slot.OpticDenied):null;
     internal bool SubmitInput(PlayerEntity player,CustomWeaponActionKind kind,byte optic,out uint sequence)
     {
@@ -137,7 +169,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         if(slot==null||slot.InputSequence==uint.MaxValue||slot.InputCount==slot.Inputs.Length
             ||(byte)kind<(byte)CustomWeaponActionKind.Fire||(byte)kind>(byte)CustomWeaponActionKind.Unequip)return false;
         sequence=++slot.InputSequence;
-        slot.Inputs[slot.InputCount++]=new(sequence,kind,optic,Tick,slot.State.Owner);
+        slot.Inputs[slot.InputCount++]=new(sequence,kind,optic,Tick,slot.Owner);
         return true;
     }
     private void CompleteResult(Slot slot,in LocalInput input,WeaponActionResult result)
@@ -158,12 +190,12 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         if(!IsEligible||player.OwningScene!=_scene||(uint)player.SlotIndex>=8
             ||_slots[player.SlotIndex] is not {} slot||slot.Player!=player||slot.InputCount==0)return;
         Observe(slot);
-        if(!slot.Alive||slot.InputCount==0)return;
+        if(!slot.Alive||slot.State==null||Before(Tick,slot.OwnedFrom)||slot.InputCount==0)return;
         int count=slot.InputCount;slot.InputCount=0;
         for(int i=0;i<count;i++)
         {
             var input=slot.Inputs[i];slot.Inputs[i]=default;
-            bool usable=input.Tick==Tick&&input.Owner==slot.State.Owner
+            bool usable=input.Tick==Tick&&input.Owner==slot.Owner
                 &&player.ModTryCaptureCustomPrecombatFacts(player.ModGunVector,out var facts)&&facts.CanUseWeapon;
             WeaponActionResult result;
             switch(input.Kind)
@@ -185,9 +217,9 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         }
     }
     internal WeaponActionResult Reload(PlayerEntity player,uint sequence)
-        => Resolve(player)?.State.TryReload(Tick,sequence) ?? WeaponActionResult.InvalidLife;
+        => Resolve(player)?.State!.TryReload(Tick,sequence) ?? WeaponActionResult.InvalidLife;
     internal WeaponActionResult Optic(PlayerEntity player,uint sequence,int optic)
-        => Resolve(player)?.State.TrySetOptic(Tick,sequence,optic) ?? WeaponActionResult.InvalidLife;
+        => Resolve(player)?.State!.TrySetOptic(Tick,sequence,optic) ?? WeaponActionResult.InvalidLife;
     internal WeaponActionResult Fire(PlayerEntity player,uint shotId,Vector3 direction)
     {
         var slot = Resolve(player); if (slot == null) return WeaponActionResult.InvalidLife;
@@ -196,7 +228,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
             && float.IsFinite(player.Position.X) && float.IsFinite(player.Position.Y) && float.IsFinite(player.Position.Z);
         bool capacity = false;
         foreach (var beam in slot.Equip.Beams) if (beam.Lifespan <= 0) { capacity = true; break; }
-        var before = slot.State.Snapshot();
+        var before = slot.State!.Snapshot();
         var result = slot.State.TryFire(Tick,shotId,capacity && finite);
         if (result != WeaponActionResult.Accepted) return result;
         var snapshot = slot.State.Snapshot();
@@ -239,7 +271,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         var slot = _slots[player.SlotIndex];
         return slot is { Emitting: true } && slot.Player == player && ReferenceEquals(slot.Equip,equip)
             && equip.CustomShot is { } source && source.Definition == _definition
-            && source.Owner == slot.State.Owner && source.Sequence == slot.State.Snapshot().LastAcceptedShotId;
+            && slot.State != null && source.Owner == slot.Owner && source.Sequence == slot.State.Snapshot().LastAcceptedShotId;
     }
     internal void Impact(CustomShotSource source,PlayerEntity victim,int before,int turretBefore,DamageFlags flags,Vector3 point)
     {
@@ -256,7 +288,8 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         if (_disposed) return;
         _disposed = true;
         foreach (var slot in _slots)
-            if (slot != null) { slot.State.Invalidate(WeaponCancellation.MatchChanged); RetireBeams(slot); }
+            if (slot != null) { slot.State?.Invalidate(WeaponCancellation.MatchChanged); RetireBeams(slot); }
+        _pickups?.Retire();
         Array.Clear(_slots);
     }
 }
