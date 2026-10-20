@@ -4,18 +4,17 @@ This audit maps implementation-plan sections 7 and 9 and PR-09 to retained
 results. **Release acceptance is incomplete.** PASS below means the named fixture
 and source lease passed, not every platform, mode or input combination. Earlier
 results keep their original revision; current-main builds do not refresh their
-runtime evidence. The principal fresh build lease is `91f3a96d3` plus the
-PR-09 overlay; the replay repair has its separately recorded source lease.
-Source review and the focused Windows build/guard/combat/replay refresh reach
-publication main `33cb131a3`, including the concurrent NCX diagnostics merge.
-The additional Windows team fixture retains its `46c101cdb` lease. Current33
-passes 21 focused checks, both production durable packet comparators and both
-two-owner fault proofs; earlier runtime results retain their source leases.
-The further current5d refresh after NCX receipt changes passes 15 focused cases,
-both production durable packet checks, both two-owner fault proofs and four
-verification-only bot workload/snapshot comparisons. Its exact source and binary
-lease is recorded in [PR-09e](pr09e-results.md); it does not relabel earlier timing,
-team or device results. See [PR-09 results](pr09-results.md).
+runtime evidence. The recent [receipt-ordering compatibility refresh](../implementation/claim-life-ordering-compatibility-2026-10-19.md)
+includes a fresh Windows `9c13d4409` build on main `42bac699e`, all 20 focused
+cases, both production durable packet comparators and four exact frozen-bot
+snapshot/workload comparisons. The actual two-owner impaired sessions retain
+their separately tested `017373d45` plus-fix lease. Earlier team, replay,
+current33 and current5d campaigns retain their original source/binary leases
+in [PR-09 results](pr09-results.md) and [PR-09e](pr09e-results.md).
+After NCX04 and the repair merge, a separate fresh `e50093244` normal build
+passes lifecycle, receipt, fast-receipt and Paid-scene checks; the optional
+cap tool also compiles against that unchanged Core. [Current integration evidence](evidence/pr09-current-paid-compatibility.json)
+keeps this lease separate from the actual `9c13d4409` cap capture.
 
 The plan requires coverage across these areas; it does not require a full
 Hunter × map × mode × device × cadence × fault-profile Cartesian product.
@@ -26,15 +25,19 @@ The further [PR-09g air-turn fixture](pr09g-results.md) passes one fixed Windows
 run: 28 mirrored envelope pairs, 14 calibration pairs, 245,829 assertions and
 31,920 body samples. All seven Hunters/two maps traverse the objectives with
 zero collision overflow/recovery. Actual air contribution and native-jump/Y
-preservation are witnessed. No pair reaches the cap; maximum-cap and competitive
-calibration remain unverified. This adds controlled pointer/keyboard evidence,
-not physical-device, achieved-refresh or performance acceptance.
+preservation are witnessed. No pair reaches the cap in that fixed-turn trial.
+The separate [PR-09i cap trial](pr09i-results.md) passes all 28 prescribed
+ordinary-input pairs, each reaching the regular cap at tick 104; Native replays
+identical raw commands. The 56 incoming-overspeed labels, one-ULP reported speed
+boundary, controller clamps and censored objectives remain visible. This is
+controlled pointer/keyboard evidence, not optimal play, competitive balance,
+physical-device, achieved-refresh or performance acceptance.
 
 | Required area | Existing evidence | Status and remaining boundary |
 | --- | --- | --- |
 | Pure movement mathematics | [PR-01](pr01-results.md): 104 checks, signed/rotated bases, reversal, zero/invalid input; [PR-03](pr03-results.md): 20,046 profile checks including long air-turn stress. | **PASS, scoped.** Pure/profile determinism and warmed zero-allocation checks do not establish whole-engine cost or cross-CPU bit identity. |
 | Fixed simulation / render clocks | [PR-09 cadence evidence](evidence/pr09-cadence-draft.json): seven Hunters × two models × virtual30/60/120/144/240 schedules, 70 actual GL arms,119,166 checks; [PR-06](pr06-results.md) playback cadence. | **PASS synthetic scheduling. UNVERIFIED measured display/device refresh.** Simulation remains60Hz; synthetic draw schedules are not achieved physical Hz. |
-| Ordinary movement / Native preservation | [PR-00](pr00-results.md): unchanged56 golden trajectories/10,080 ticks at1e-5; [PR-03](pr03-results.md):187,405 jump/landing/Space Jump checks; [balance observations](balance-validation.md): seven Hunters/two maps,112 macOS trials and preserved84 Windows trials. | **PASS named controls. OPEN broader competitive/envelope calibration.** Straight manual-hop distributions and traversal observations are measured; they are not exhaustive optimal-strafe/cap stress or approved competitive balance. |
+| Ordinary movement / Native preservation | [PR-00](pr00-results.md): unchanged56 golden trajectories/10,080 ticks at1e-5; [PR-03](pr03-results.md):187,405 jump/landing/Space Jump checks; [balance observations](balance-validation.md) and [PR-09i](pr09i-results.md): seven Hunters/two maps, distributions, traversal and all 28 regular-cap pairs. | **PASS named controls and measured cap envelope.** Native golden paths, actual accepted-jump/Y seams and fixed input replay remain intact. The unchanged v1 cap is retained after measured trials; floating-point boundary and incoming exemptions are explicit. Optimal play, broader maps and competitive balance remain unverified. |
 | Collision | [PR-04](pr04-results.md):364 fresh traces/378,667 assertions, authored walls, slope/edge/corner/step/ceiling/thin/high-speed cases; [collision evidence](evidence/pr04-collision-scenes.json). | **PASS fixture scope**, not all maps. Live collision/recovery remains native; no replacement sweep is claimed. Advisory UDP displacement cases below retain their limits. |
 | Forms, abilities and impulses | [PR-04](pr04-results.md):98,556 special-event assertions,14,442 ability checks including real Spire climb/ledge,1,051 native carrier checks; [PR-03](pr03-results.md) native jump/Space Jump timing. | **PASS named actual scene activations.** Paired form trajectories, pad/teleport/bomb/damage, death/respawn/Prime and carrier bypass/resumption are distinct from every possible online timing combination. |
 | Slippery / terrain modifiers | [PR-04](pr04-results.md), [collision trace evidence](evidence/pr04-collision-scenes.json), [PR-07 navigation](evidence/pr07-navigation.json). | **PASS sampled native surfaces/contact paths.** No global map-surface equivalence claim. |

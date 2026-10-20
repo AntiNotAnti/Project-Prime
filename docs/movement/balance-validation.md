@@ -1,12 +1,21 @@
 # Movement balance observations — PR-09 draft
 
-These are measured input/collision trials, not competitive balance acceptance. The straight chains do not exercise an exhaustive strafe or maximum-speed envelope. No profile tuning or acceptance threshold changed.
+These are measured input/collision trials, not competitive balance acceptance. The straight chains do not exercise an exhaustive strafe or maximum-speed envelope. No profile tuning changed.
+
+[PR-09i](pr09i-results.md) adds one predeclared ordinary-input cap trial: all
+28 mirrored Hunter/map pairs reach the regular cap at tick 104, and Native
+replays identical raw commands. There are 5,390 regular air-cap witnesses,
+with all 56 incoming-overspeed decisions retained separately. Observed native
+impulse/exclusion state and overflow/recovery counters are zero. The report
+retains the one-ULP speed boundary, all distributions, controller clamps and
+censored traversal objectives. These measured chains support retaining the
+unchanged v1 cap for the sampled rooms; no global or competitive claim follows.
 
 The later [PR-09g fixed air-turn observations](pr09g-results.md) add all seven
 Hunters on both maps with mirrored ordinary mouse/strafe input: 28 envelope pairs,
 14 calibration pairs and 31,920 actual body samples. Every pair reaches its radial
 objectives with zero collision overflow/recovery. The maximum observed solver
-speed is 8.887898, below the unchanged 10.799561 cap; cap engagement remains zero.
+speed is 8.887898, below the unchanged 10.799561 cap; cap engagement in that fixed-turn experiment remains zero.
 All distributions and per-pair outcomes are retained in
 [the new evidence](evidence/pr09-air-turn-envelope.json). This adds a fixed turning
 observation without claiming optimal-strafe or competitive calibration.
