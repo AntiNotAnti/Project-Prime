@@ -48,7 +48,8 @@ public sealed class NetPacketQueue
         // The periodically repeated full result report recovers final authority
         // counters even while cosmetic/replay facts fill the background lane.
         PacketType.PostMatchReport => NetPacketPriority.Critical,
-        PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
+        PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
+            or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict

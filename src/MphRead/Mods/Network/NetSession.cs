@@ -429,6 +429,7 @@ namespace MphRead.Mods.Network
                 NetClientJoinOwnership.RetireIncarnation();
                 ClearNativePartyReservation();
                 _customReadiness = null;
+                _customCombatClient=null; _customCombatWire=null;
                 NetPowerUpLedger.Reset();
                 NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
                 NetTelemetry.FullSessionReset();
@@ -754,6 +755,7 @@ namespace MphRead.Mods.Network
             }
             PumpLobby(time);
             PumpCustomReadiness(time);
+            PumpCustomCombat(time);
             ConfigurePickups();
             NetPickupNetwork.PumpOwner();
             // Reconnect/liveness is wall-clock work, including while scene
@@ -917,6 +919,9 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponManifest when Role == NetRole.Client && !_playback:
                 case PacketType.CustomWeaponReadyConfirmed when Role == NetRole.Client && !_playback:
                     HandleCustomReadiness(packet,time); break;
+                case PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact or PacketType.CustomWeaponState
+                    when Role == NetRole.Client && !_playback:
+                    HandleCustomCombatResult(packet); break;
                 case PacketType.PartyReservationState when Role == NetRole.Client:
                     ReceiveNativePartyReservation(packet); break;
                 case PacketType.SessionState when Role == NetRole.Client:

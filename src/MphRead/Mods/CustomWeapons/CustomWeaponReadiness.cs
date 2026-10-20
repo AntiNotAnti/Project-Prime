@@ -16,13 +16,14 @@ internal sealed class CustomReadinessWire
     internal WorldBootstrapIdentity Bootstrap { get; }
     internal byte Slot { get; }
     internal CustomWeaponManifest Manifest { get; }
+    internal WeaponDefinition Definition { get; }
     internal byte[] ManifestBytes { get; }
     internal byte[] ReadyBytes { get; }
     internal CustomReadinessWire(WorldBootstrapIdentity bootstrap,byte slot)
     {
         if (!CustomWeaponProtocol.ValidBootstrap(bootstrap) || slot >= 8) throw new ArgumentException("Exact recipient bootstrap required.");
         Bootstrap = bootstrap; Slot = slot;
-        Manifest = new(new[] { RiftlineM7.Create() });
+        Definition=RiftlineM7.Create(); Manifest = new(new[] { Definition });
         var page = new CustomManifestPage(bootstrap,Manifest.Digest,1,0,new[] { Manifest.Rows[0] });
         ManifestBytes = new byte[page.Size]; page.Write(ManifestBytes);
         ReadyBytes = new byte[CustomWeaponReady.Size];
@@ -112,7 +113,7 @@ internal sealed class CustomReadinessClient
         bool repeated = Confirmed; Confirmed = true;
         return repeated ? CustomReadinessResult.Duplicate : CustomReadinessResult.Accepted;
     }
-    private CustomReadinessResult Invalidate()
+    internal CustomReadinessResult Invalidate()
     { Invalidated = true; Confirmed = false; return CustomReadinessResult.Invalidated; }
     internal bool Due(double now)
     {
