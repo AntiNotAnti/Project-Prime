@@ -35,7 +35,7 @@ public partial class PlayerEntity
     internal void ModResetTraversalStance()
     {
         _modCrouched = _modCrouchWasDown = false;
-        _modCrouchPresentation.Reset();
+        _modCrouchPresentation.Reset(); _modCrouchGait.Reset();
         _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
     }
 
@@ -136,7 +136,7 @@ public partial class PlayerEntity
             if (_modSlideEntryTicks > 0) _modSlideEntryTicks--;
             _modStanceFrame = _scene.FrameCount;
         }
-        if (fresh) _modSlideEntryTicks = TraversalMovementProfileV3.SlideEntryTicks;
+        if (fresh) _modSlideEntryTicks = TraversalMovementProfileV4.SlideEntryTicks;
         if (!_modCrouched || !down || !ModMomentumBodyEligible || jumpAccepted
             || Flags1.TestFlag(PlayerFlags1.CollidingLateral))
             _modSlideTicks = _modSlideEntryTicks = 0;
@@ -146,9 +146,9 @@ public partial class PlayerEntity
             // Consume a single fresh request at the first physical floor contact.
             // A held key cannot restart an expired slide or wait for a later boost.
             _modSlideEntryTicks = 0;
-            float minimum = TraversalMovementProfileV3.SlideMinimumSpeed / NativeVelocityUnitsPerSecond;
+            float minimum = TraversalMovementProfileV4.SlideMinimumSpeed / NativeVelocityUnitsPerSecond;
             if (Speed.X * Speed.X + Speed.Z * Speed.Z >= minimum * minimum)
-                _modSlideTicks = TraversalMovementProfileV3.SlideTicks;
+                _modSlideTicks = TraversalMovementProfileV4.SlideTicks;
         }
         _modCrouchWasDown = down;
     }

@@ -26,8 +26,8 @@ internal static class TraversalStanceTests
             Check(TraversalStance.HeightRatio == .65f && TraversalMovementProfileV2.ProfileVersion == 2
                 && TraversalMovementProfileV1.ProfileVersion == 1,
                 "new stance profile preserves immutable historical Traversal v1");
-            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 3,
-                "live Traversal selects profile three while historical stance profile two stays immutable");
+            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 4,
+                "live Traversal selects profile four while historical stance profiles remain immutable");
             Check(TraversalMovementProfileV2.SlideTicks == 48
                 && TraversalMovementProfileV2.SlideMinimumSpeed == TraversalMovementProfileV2.GroundSpeed * 1.1f
                 && TraversalMovementProfileV2.CrouchSpeed == TraversalMovementProfileV2.GroundSpeed * .5f,
@@ -39,6 +39,13 @@ internal static class TraversalStanceTests
                 && TraversalMovementProfileV3.CrouchSpeed == TraversalMovementProfileV2.CrouchSpeed
                 && TraversalMovementProfileV3.Tuning == TraversalMovementProfileV2.Tuning,
                 "V3 admits earned running slides and a six-tick entry buffer without changing established solver coefficients");
+            Check(TraversalMovementProfileV4.ProfileVersion == 4 && TraversalMovementProfileV4.SlideTicks == 72
+                && TraversalMovementProfileV4.CrouchTuning(true).GroundFriction == .45f
+                && TraversalMovementProfileV4.SlideEntryTicks == TraversalMovementProfileV3.SlideEntryTicks
+                && TraversalMovementProfileV4.SlideMinimumSpeed == TraversalMovementProfileV3.SlideMinimumSpeed
+                && TraversalMovementProfileV4.CrouchSpeed == TraversalMovementProfileV3.CrouchSpeed
+                && TraversalMovementProfileV4.Tuning == TraversalMovementProfileV3.Tuning,
+                "V4 selects a 72-tick slide with lower friction and preserves the prior entry, crouch and standing policy");
             foreach (Hunter hunter in new[] { Hunter.Samus, Hunter.Kanden, Hunter.Spire, Hunter.Noxus,
                 Hunter.Trace, Hunter.Sylux, Hunter.Weavel })
             {
@@ -112,6 +119,8 @@ internal static class TraversalStanceTests
             }
             Check(TraversalMovementProfileV3.Step(speed, input) == TraversalMovementProfileV2.Step(speed, input),
                 "V3 standing movement remains exact V2 behavior");
+            Check(TraversalMovementProfileV4.Step(speed, input) == TraversalMovementProfileV3.Step(speed, input),
+                "V4 standing movement remains exact V3 behavior");
         }
         foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
         {

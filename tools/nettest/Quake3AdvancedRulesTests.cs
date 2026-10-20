@@ -98,7 +98,7 @@ internal static class Quake3AdvancedRulesTests
     private static void RecordedProfileContract()
     {
         const string room = "MP3 PROVING GROUND";
-        foreach (byte protocol in new byte[] { 60, 61, 62, 70, 71, 72, 73 })
+        foreach (byte protocol in new byte[] { 60, 61, 62, 70, 71, 72, 73, 74 })
         foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3 })
         {
             var match = new MatchStatePacket { MatchId = 7, AuthorityEpoch = 23, RoomKey = room,

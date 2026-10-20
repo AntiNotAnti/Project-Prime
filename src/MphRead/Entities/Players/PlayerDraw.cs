@@ -140,7 +140,7 @@ namespace MphRead.Entities
                 && !_scene.Services.IsReplica
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation
                 && (drawPosition != Position || drawFacing != _facingVector
-                    || ModCrouchVisualAmount != (ModCrouched ? 1f : 0f));
+                    || ModCrouchVisualAmount != (ModCrouched ? 1f : 0f) || ModCrouchGaitActive);
             bool isolateLocalOrOfflineActor = ordinaryOfflineActor || localThirdPersonActor;
             bool forceNetworkVisibility = ModForceNetworkVisibility(
                 _scene.Services.IsReplica, Mods.Network.NetSession.Active,
@@ -346,7 +346,7 @@ namespace MphRead.Entities
                     Matrix4 transform = ModBuildBipedDrawTransform(drawPosition, drawFacing,
                         fallbackLateral, scale, bottom, out float angle);
                     float crouchVisual = ModCrouchVisualAmount;
-                    bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0);
+                    bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0) || ModCrouchGaitActive;
                     float canonicalAngle = angle;
                     Matrix4 canonicalBody = isolateLocalOrOfflineActor || crouchInterpolated
                         ? ModBuildBipedDrawTransform(Position, _facingVector,
@@ -624,17 +624,29 @@ namespace MphRead.Entities
         private void UpdateHunterBipedPresentation(Model model, Node spineNode,
             Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper)
-            => UpdateHunterBipedVisual(model, spineNode, world, pitch, lower, upper, ModCrouched ? 1 : 0);
+            => UpdateHunterBipedPose(model, spineNode, world, pitch, lower, upper,
+                ModCrouched ? 1 : 0, visualGait: false);
 
         private void UpdateHunterBipedVisual(Model model, Node spineNode, Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount)
+            => UpdateHunterBipedPose(model, spineNode, world, pitch, lower, upper, crouchAmount,
+                visualGait: ModCrouchGaitActive);
+
+        private void UpdateHunterBipedPose(Model model, Node spineNode, Matrix4 world, float pitch,
+            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount, bool visualGait)
         {
+            AnimationInfo lowerInfo = visualGait ? ModCrouchLowerPose(model, out lower) : _bipedModel1.AnimInfo;
+            AnimationInfo upperInfo = _bipedModel2.AnimInfo;
+            // Walking arms follow the same travel clock (or stable slide pose).
+            // A real shot/charge/ability upper clip keeps its native animation.
+            if (visualGait && ModIsWalkingClip(Biped2Anim))
+            { upperInfo = lowerInfo; upper = lower; }
             spineNode.AnimIgnoreChild = true;
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
             try
             {
                 model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One,
-                    _bipedModel1.AnimInfo, lower);
+                    lowerInfo, lower);
             }
             finally
             {
@@ -642,10 +654,10 @@ namespace MphRead.Entities
                 spineNode.AfterTransform = null;
             }
             model.AnimateNodes(spineNode.ChildIndex, false, Matrix4.Identity, Vector3.One,
-                _bipedModel2.AnimInfo, upper);
+                upperInfo, upper);
             foreach (Node node in model.Nodes)
                 node.Animation *= world;
-            ModApplyCrouchVisualPose(model, world, crouchAmount);
+            ModApplyCrouchVisualPose(model, world, crouchAmount, visualGait);
             model.UpdateMatrixStack();
         }
 

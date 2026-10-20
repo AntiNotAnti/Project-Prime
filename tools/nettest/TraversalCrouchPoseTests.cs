@@ -67,6 +67,7 @@ internal static class TraversalCrouchPoseTests
             }
         }
         CheckPresentationTimeline();
+        _checks += TraversalCrouchGaitTests.CheckMath();
         return _checks;
     }
 
@@ -361,7 +362,14 @@ internal static class TraversalCrouchPoseTests
         }
     }
 
-    internal static object Capture(Hunter hunter)
+    internal static object Capture(Hunter hunter) => new
+    {
+        hunter = hunter.ToString(),
+        canonical = CaptureCanonical(hunter),
+        gait = TraversalCrouchGaitTests.Capture(hunter)
+    };
+
+    private static object CaptureCanonical(Hunter hunter)
     {
         _checks = 0;
         object?[] arguments = { hunter, MovementModel.Traversal, null };
@@ -382,7 +390,7 @@ internal static class TraversalCrouchPoseTests
             var lower = (ModelInstance)typeof(PlayerEntity).GetField("_bipedModel1", Hidden)!.GetValue(p)!;
             var upper = (ModelInstance)typeof(PlayerEntity).GetField("_bipedModel2", Hidden)!.GetValue(p)!;
             var present = typeof(PlayerEntity).GetMethod("UpdateHunterBipedPresentation", Hidden)!;
-            var visual = typeof(PlayerEntity).GetMethod("UpdateHunterBipedVisual", Hidden)!;
+            var visual = typeof(PlayerEntity).GetMethod("UpdateHunterBipedPose", Hidden)!;
             for (int sample = 0; sample < 3; sample++)
             {
                 SetKey(keyboard, Keys.W, sample > 0);
@@ -465,7 +473,7 @@ internal static class TraversalCrouchPoseTests
                         var blends = new List<object>();
                         foreach (float amount in new[] { 0f, .2f, .5f, .8f, 1f })
                         {
-                            visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, amount });
+                            visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, amount, false });
                             Matrix4[] blended = model.Nodes.Select(node => node.Animation).ToArray();
                             Check(blended.All(Finite) && model.MatrixStackValues.All(float.IsFinite),
                                 "partial visual stance produces finite native nodes and submitted matrices");
