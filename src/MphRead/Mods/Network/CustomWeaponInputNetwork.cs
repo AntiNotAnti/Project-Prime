@@ -8,8 +8,9 @@ public sealed partial class DedicatedServer
     {
         if (_phase is SessionPhase.Lobby or SessionPhase.Starting || !Simulating
             || Find(packet.Sender) is not { MatchReady:true } peer
-            || !CustomInputCarrier.TryRead(packet.Payload,out var request,out var intent)
-            || request.Slot!=peer.SlotIndex) return;
+            || !CustomInputCarrier.TryRead(packet.Payload,out var envelope)
+            || envelope.Control is {} supplied&&supplied.Slot!=peer.SlotIndex) return;
+        var intent=envelope.Intent;var control=envelope.Control;
         var scene=_sim?.EvidenceScene;
         var entry=scene==null ? null:CurrentCustomActionEntry(peer.SlotIndex,scene);
         ulong fence=0;
@@ -18,15 +19,15 @@ public sealed partial class DedicatedServer
             // Reject a contradictory custom envelope before native mutation.
             // An absent/retired custom lane still permits ordinary native input,
             // so loss of custom readiness cannot freeze movement.
-            if (request.Bootstrap!=entry.State.Wire.Bootstrap || request.Manifest!=entry.State.Wire.Manifest.Digest
-                || request.Weapon.Value!=10 || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId) return;
-            if (!entry.Boundary.TryGetFence(request.Owner,out fence)) entry=null;
+            if (envelope.Bootstrap!=entry.State.Wire.Bootstrap || envelope.Manifest!=entry.State.Wire.Manifest.Digest
+                || control is {} scoped&&scoped.Weapon.Value!=10 || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId) return;
+            if (control is {} pending&&!entry.Boundary.TryGetFence(pending.Owner,out fence)) entry=null;
         }
         // The exact accepted current native carrier must exist before admitting
         // a previously unseen nonce. An old/duplicate input can recover native
         // events but can never retrofit a custom trigger into frozen history.
-        bool current=HandleDecodedIntent(packet,now,peer,intent);
-        if (!current || scene==null || entry is not { Combat:not null } || !CustomCanReceiveAction(scene,entry.Combat)
+        bool current=HandleDecodedIntent(packet,now,peer,intent,entry!=null?envelope.Knowledge:default);
+        if (!current || control is not {} request || scene==null || entry is not { Combat:not null } || !CustomCanReceiveAction(scene,entry.Combat)
             || !entry.Combat.AcceptsMode(request.Owner,2)
             || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)) return;
         // Native input can repeat at60Hz. An exact retained nonce is not another

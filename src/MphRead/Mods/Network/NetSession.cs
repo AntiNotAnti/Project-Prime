@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 
 namespace MphRead.Mods.Network
 {
@@ -2052,7 +2053,8 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>Client -> host: this frame's intent for the local player.</summary>
-        public static void SendIntent(IntentPacket intent)
+        public static void SendIntent(IntentPacket intent)=>SendIntent(intent,default);
+        internal static void SendIntent(IntentPacket intent,CustomCapturedKnowledge captured)
         {
             if (FreezeGameplay) return;
             if (_transport == null || Role != NetRole.Client || _hostEndPoint == null)
@@ -2066,7 +2068,7 @@ namespace MphRead.Mods.Network
             intent.SlotGeneration = NetPlayerLifecycle.Generation(LocalSlot);
             intent.LifeId = NetPlayerLifecycle.Get(LocalSlot);
             int intentSize = CompactIntentCodec.Write(intent, _scratch);
-            if (!SendCustomInputCarrier(intent,_scratch.AsSpan(0,intentSize)))
+            if (!SendCustomInputCarrier(intent,_scratch.AsSpan(0,intentSize),captured))
                 _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, intentSize));
             NetCampaignEvidence.Intent(LocalSlot, intent, offered: true);
             // A demo only ever contains what this client *received* -- and

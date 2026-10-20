@@ -48,7 +48,9 @@ public partial class Scene
         =>_customHudStates!=null&&(uint)player.SlotIndex<8?_customHudStates[player.SlotIndex]:default;
     private void ReleaseCustomWeaponPresentation()
     {
-        foreach(var player in Players.Items)player.ModSetCustomScope(default,false,0);
+        // Constructor-failed scenes can own a partially populated player table.
+        // Cleanup must release existing scopes without dereferencing empty slots.
+        foreach(var player in Players.Items)player?.ModSetCustomScope(default,false,0);
         _customPresentationSlots=null;_customHudStates=null;_customFeedback=null;_customPublicFacts=null;_customPublicFactIndex=0;
     }
     internal void UpdateCustomWeaponPresentation()

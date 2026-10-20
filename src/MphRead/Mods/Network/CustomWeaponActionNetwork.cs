@@ -28,9 +28,9 @@ public sealed partial class DedicatedServer
         _customAudience?.CancelPrepared((byte)entry.Peer.SlotIndex,entry.State.Wire.Bootstrap,NetSession.NetFrame);
         entry.State.Invalidate();entry.Combat?.Outbox.Close();entry.Replica?.Close();
     }
-    private bool PublishCustomReceipt(CustomActionPeer combat,in CustomActionReceipt receipt)
+    private bool PublishCustomReceipt(CustomActionPeer combat,in CustomActionReceipt receipt,CustomResourceKnowledge knowledge=default)
     {
-        if(!combat.Outbox.Publish(receipt))return false;
+        if(!combat.Outbox.Publish(receipt,knowledge))return false;
         _customAudience?.FinalizeReceipt(receipt);return true;
     }
     private CustomReadyEntry? CurrentCustomActionEntry(int slot,Scene scene)
@@ -67,13 +67,19 @@ public sealed partial class DedicatedServer
         public bool HasActionReservation(in CustomWeaponAction action)
             => (server.CustomRoomReady(scene) || server.PublicCustomWeaponMatch)
                 && server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasActionReservation(action)==true;
+        public bool TryKnowledge(in CustomWeaponAction action,out CustomResourceKnowledge knowledge)
+        {
+            knowledge=default;
+            return server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.TryKnowledge(action,out knowledge)==true;
+        }
         public bool MayExecute(in CustomWeaponAction action) => server.CustomRoomReady(scene);
         public bool HasContactReservation(in CustomWeaponAction action)
             => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasContactReservation(action)==true;
-        public bool Publish(in CustomActionReceipt receipt)
+        public bool Publish(in CustomActionReceipt receipt)=>Publish(receipt,default);
+        public bool Publish(in CustomActionReceipt receipt,CustomResourceKnowledge knowledge)
         {
             return server.CurrentCustomResultEntry(receipt.Action,scene)?.Combat is {} combat
-                &&server.PublishCustomReceipt(combat,receipt);
+                &&server.PublishCustomReceipt(combat,receipt,knowledge);
         }
         public bool Publish(in CustomContactOutcome outcome)
         {
@@ -99,23 +105,24 @@ public sealed partial class DedicatedServer
             || Find(packet.Sender) is not { } peer || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { Combat:not null } entry
             || entry.Peer!=peer || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId
             || !entry.Combat.Admit(now) || !CustomCanReceiveAction(scene,entry.Combat)
-            || !CustomWeaponAction.TryRead(packet.Payload,out var action) || action.Slot!=peer.SlotIndex
-            || action.Bootstrap!=peer.BootstrapIdentity || action.Manifest!=entry.State.Wire.Manifest.Digest
-            || action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(action.Slot,action.Owner.Generation,action.Life)
-            || !entry.Combat.AcceptsMode(action.Owner,1)) return;
-        var offered=entry.Combat.Outbox.Reserve(action,now);
+            || !CustomPrivateAction.TryRead(packet.Payload,out var envelope) || envelope.Action.Slot!=peer.SlotIndex
+            || envelope.Action.Bootstrap!=peer.BootstrapIdentity || envelope.Action.Manifest!=entry.State.Wire.Manifest.Digest
+            || envelope.Action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(envelope.Action.Slot,envelope.Action.Owner.Generation,envelope.Action.Life)
+            || !entry.Combat.AcceptsMode(envelope.Action.Owner,1)) return;
+        var action=envelope.Action;
+        var offered=entry.Combat.Outbox.Reserve(action,envelope.Knowledge,now);
         if (offered is not (CustomOutboxOffer.Reserved or CustomOutboxOffer.Duplicate)) return;
         entry.Combat.UseMode(action.Owner,1);
         if (offered==CustomOutboxOffer.Duplicate) return; // Retained verdict retries independently; never execute twice.
         var root=scene.CustomCombat;
-        var queued=root.Offer(action);
+        var queued=root.Offer(action,envelope.Knowledge);
         if (queued==CustomQueueResult.Queued) return;
         if (queued==CustomQueueResult.Duplicate && root.TryReceipt(action,out var receipt))
-        { PublishCustomReceipt(entry.Combat,receipt); return; }
+        { PublishCustomReceipt(entry.Combat,receipt,envelope.Knowledge); return; }
         if (queued is CustomQueueResult.Retired or CustomQueueResult.WindowExceeded)
         {
             PublishCustomReceipt(entry.Combat,new CustomActionReceipt(action,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
-                WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null)); return;
+                WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null),envelope.Knowledge); return;
         }
         entry.Combat.Outbox.ReleaseUnprocessed(action); // Backpressure/foreign is nonterminal; retry exact bytes.
     }
@@ -150,9 +157,10 @@ public sealed partial class DedicatedServer
                 for (int n=0;n<CustomSourceActionJournal.MaxDrainPerTick;n++)
                     if (!root.TryProcess(scene.Players.Items[slot],out _)) break;
             for (int n=0;n<CustomActionOutbox.Capacity;n++)
-                if (combat.Outbox.TryPending(n,out var pending) && !root.IsActionLifeActive(pending.Owner))
+                if (combat.Outbox.TryPending(n,out var pending) && !root.IsActionLifeActive(pending.Owner)
+                    &&combat.Outbox.TryKnowledge(pending,out var pendingKnowledge))
                     PublishCustomReceipt(combat,new CustomActionReceipt(pending,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
-                        WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null));
+                        WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null),pendingKnowledge);
             combat.Outbox.AdvanceFlights(NetSession.NetFrame);
             var player=scene.Players.Items[slot];
             if (!root.TryPrivateState(player,out var snapshot,out bool hasWeapon) || !root.TryStateMetadata(player,out var selected,out var settled,out var committed)) continue;

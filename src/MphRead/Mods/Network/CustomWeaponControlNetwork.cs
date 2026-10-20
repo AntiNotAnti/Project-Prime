@@ -28,6 +28,7 @@ public sealed partial class DedicatedServer
         // biped pose to create its resource grant.
         if (!root.IsActionLifeActive(request.Owner)
             || !root.TryStateMetadata(scene.Players.Items[request.Slot],out _,out uint settled,out _)) return;
+        if(root.HasRetainedControlConflict(request))return;
         if ((ulong)request.Sequence> (ulong)settled+CustomSourceActionJournal.PendingCapacity) return;
         var offered=entry.Combat.Outbox.Reserve(request,fence,now,NetSession.NetFrame,NetSession.Clock);
         if (offered is not (CustomOutboxOffer.Reserved or CustomOutboxOffer.Duplicate)) return;
@@ -36,7 +37,7 @@ public sealed partial class DedicatedServer
         if (request.Sequence>settled) return; // Reservation waits for a genuinely new consumed carrier.
         if (root.TryControlReceipt(request,out var receipt))
         {
-            if (entry.Combat.Outbox.Bind(request,receipt.Action)) entry.Combat.Outbox.Publish(receipt);
+            if (entry.Combat.Outbox.Bind(request,receipt.Action)) entry.Combat.Outbox.Publish(receipt,request.Knowledge);
         }
         else if (root.TryUnobservedControl(request,out var denied))
             entry.Combat.Outbox.PublishDenied(request,denied.AuthorityFrame,denied.Reason);
@@ -68,6 +69,6 @@ public sealed partial class DedicatedServer
         }
         // Only this trusted consumed-input callback can create the exact internal
         // control witness. Admission/capacity remain required before any effects.
-        if (!outbox.Bind(request,action) || root.Offer(action)!=CustomQueueResult.Queued) InvalidateCustomEntry(entry);
+        if (!outbox.Bind(request,action) || root.Offer(action,request.Knowledge)!=CustomQueueResult.Queued) InvalidateCustomEntry(entry);
     }
 }
