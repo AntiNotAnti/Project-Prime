@@ -58,6 +58,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [903](https://github.com/AntiNotAnti/Project-Prime/pull/903) | Explicit offline native-Weavel wall-cling practice with actual owner/arena/native-UI and Android packaging checks | `db131b9fc8353cfc6315e2b3fb206a11f5ef372a` |
 | [901](https://github.com/AntiNotAnti/Project-Prime/pull/901) | Complete normal/Overcharged private body source-program viewer, exact source clocks/ownership, Final manifest migration and actual Android SAF upgrade/repeat/removal | `4a8719384dc24e4d7af7d147f469f9a7f642ef77` |
 | [911](https://github.com/AntiNotAnti/Project-Prime/pull/911) | Explicit offline Scout Drone primary/hover practice, native pool/body ownership, real Scene/OpenGL/menu checks and both Android Release packages | `7bc52d5b7e217a8a52c057bdf80738a0309b3f69` |
+| [916](https://github.com/AntiNotAnti/Project-Prime/pull/916) | Offline native-fallback Scout Drone laser and distinct0–7 native-bot combat route; exact Scene/GL/UI and default/optional Android Release qualification | `67bface0f2f360f70283d849633d141fa247f675` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
