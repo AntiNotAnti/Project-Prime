@@ -33,6 +33,8 @@ namespace MphRead.Mods.Input
         OmegaCannon
     }
 
+    public enum TouchMode { Auto, Touch, AimOnly, Off }
+
     /// <summary>Normalized centre and per-button size multiplier.</summary>
     public readonly struct TouchButtonLayout
     {
@@ -86,6 +88,17 @@ namespace MphRead.Mods.Input
         public const float MinIndividualScale = 0.40f;
         public const float MaxIndividualScale = 2.00f;
 
+        // Retain full touch input on upgrades. Auto/AimOnly are opt-in until
+        // physical Android controller/lifecycle qualification is complete.
+        private static TouchMode _mode = TouchMode.Touch;
+        public static TouchMode Mode
+        {
+            get => _mode;
+            set => _mode = Enum.IsDefined(value) ? value : TouchMode.Touch;
+        }
+
+        // Android visual/device acceptance is required before enabling by default.
+        public static bool DirectWeaponSelection { get; set; }
         public static bool ButtonsVisible { get; set; } = true;
 
         private static float _buttonScale = 1f;
@@ -380,6 +393,8 @@ namespace MphRead.Mods.Input
 
         public static void Reset()
         {
+            Mode = TouchMode.Touch;
+            DirectWeaponSelection = false;
             ButtonsVisible = true;
             ButtonScale = 1f;
             StickScale = 1f;
@@ -409,6 +424,17 @@ namespace MphRead.Mods.Input
 
         public static bool ReadSetting(string key, string value)
         {
+            if (key == "touch_direct_weapon_selection")
+            {
+                DirectWeaponSelection = Boolean.TryParse(value, out bool direct) && direct;
+                return true;
+            }
+            if (key == "touch_mode")
+            {
+                Mode = Enum.TryParse<TouchMode>(value, true, out var mode)
+                    && Enum.IsDefined(mode) ? mode : TouchMode.Touch;
+                return true;
+            }
             if (key == ButtonsSettingKey)
             {
                 if (Boolean.TryParse(value, out bool visible))
@@ -482,6 +508,8 @@ namespace MphRead.Mods.Input
 
         public static void WriteSettings(List<string> lines)
         {
+            lines.Add($"touch_mode={Mode}");
+            lines.Add($"touch_direct_weapon_selection={DirectWeaponSelection.ToString().ToLowerInvariant()}");
             lines.Add($"{ButtonsSettingKey}={ButtonsVisible.ToString().ToLowerInvariant()}");
             lines.Add($"{ButtonScaleSettingKey}={ButtonScale.ToString("0.###", CultureInfo.InvariantCulture)}");
             lines.Add($"{StickScaleSettingKey}={StickScale.ToString("0.###", CultureInfo.InvariantCulture)}");

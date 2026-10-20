@@ -23,7 +23,7 @@ internal static class ViewModelAcceptanceCheck
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static List<RenderItem> Items(Scene scene, string field) =>
         (List<RenderItem>)typeof(Scene).GetField(field, Private)!.GetValue(scene)!;
-    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false)
+    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false, bool projectionOnly = false)
     {
         var directory = Path.GetFullPath(output); Directory.CreateDirectory(directory);
         var cases = new List<object>();
@@ -136,6 +136,37 @@ internal static class ViewModelAcceptanceCheck
                     if (expected > 0) submitted++;
                     if (hunter != Hunter.Samus && label.StartsWith("suit-",StringComparison.Ordinal) && target.Recolor >= 4)
                         Require(replacement.Segments.Any(s=>s.AlbedoBinding.HasValue && s.GetAlbedo(scene,target.Recolor)!=s.AlbedoBinding), "Native team weapon palette did not resolve.");
+                }
+                // PR-06: hold the simulation/camera pose fixed while changing only
+                // the selected world FOV. This exercises the real projection path,
+                // including retained gun/effect packets, rather than a copy of its math.
+                RenderOptions.FieldOfView = RenderOptions.DefaultFov;
+                Present();
+                Matrix4 baselineGunProjection = (Matrix4)typeof(Scene)
+                    .GetField("_viewModelPerspectiveMatrix", Private)!.GetValue(scene)!;
+                foreach (int selectedFov in new[] { 60, 78, 120 })
+                {
+                    RenderOptions.FieldOfView = selectedFov;
+                    Present($"projection-fov-{selectedFov}.png");
+                    Matrix4 gunProjection = (Matrix4)typeof(Scene)
+                        .GetField("_viewModelPerspectiveMatrix", Private)!.GetValue(scene)!;
+                    float worldFov = (float)typeof(Scene)
+                        .GetField("_cameraFov", Private)!.GetValue(scene)!;
+                    Require(gunProjection == baselineGunProjection,
+                        $"World FOV {selectedFov} changed the fixed-pose weapon projection.");
+                    Require(MathF.Abs(worldFov - MathHelper.DegreesToRadians(
+                        RenderOptions.ScaleCameraFov(target.CameraInfo.Fov))) < .00001f,
+                        $"World FOV {selectedFov} did not reach the camera projection.");
+                    cases.Add(new { Name = "projection-fov-" + selectedFov, fov = selectedFov });
+                }
+                RenderOptions.FieldOfView = RenderOptions.DefaultFov;
+                if (projectionOnly)
+                {
+                    File.WriteAllText(Path.Combine(directory,"projection-acceptance.json"),JsonSerializer.Serialize(new {
+                        pass=true, room, hunter=hunter.ToString(), cases,
+                        scope="Real OpenGL fixed-pose projection only: six assertions at FOV 60/78/120; no charge/scope/high-refresh acceptance."
+                    },json));
+                    Console.WriteLine("VIEWMODEL PROJECTION PASS 6 assertions: " + directory); return 0;
                 }
                 var stages = new (string Name, int Count)[] {
                     ("idle",60),("fov-60",60),("fov-120",60),("materials-on",60),("materials-off",60),

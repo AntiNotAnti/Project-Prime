@@ -413,6 +413,9 @@ namespace MphRead.Droid
             private bool _chatWasHeld;
             private bool _clipWasHeld;
             private bool _keyboardShown;
+            private PlayerEntity? _touchPlayer;
+            private ushort _touchLife;
+            private bool _touchAlive, _touchAltForm;
             private long _presentationInputRevision =
                 MphRead.Mods.Input.GamepadContexts.Revision;
 
@@ -1503,11 +1506,23 @@ namespace MphRead.Droid
                 // So the touch controls stay on screen through one whether or
                 // not a pad is in the player's hands, or the story stops at
                 // the first scan with nothing to press.
+                _controls.UpdateController(Mods.Input.GamepadManager.ActiveState);
                 _controls.ForceVisible = GameState.DialogPause;
                 PlayerEntity main = PresentedScene?.Players.Main ?? PlayerEntity.Main;
                 if (main == null || !main.LoadFlags.TestFlag(LoadFlags.Active))
                 {
                     return;
+                }
+                ushort life = Mods.Network.NetPlayerLifecycle.Get(main.SlotIndex);
+                bool alive = main.Health > 0;
+                if (!ReferenceEquals(_touchPlayer, main) || _touchLife != life
+                    || _touchAlive != alive || _touchAltForm != main.IsAltForm)
+                {
+                    _controls.ReleaseEverything();
+                    _touchPlayer = main;
+                    _touchLife = life;
+                    _touchAlive = alive;
+                    _touchAltForm = main.IsAltForm;
                 }
                 _input.BeginFrame();
                 try

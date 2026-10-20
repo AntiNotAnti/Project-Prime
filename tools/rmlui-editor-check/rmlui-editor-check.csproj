@@ -3,6 +3,7 @@
 <ItemGroup>
 <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreEditorContracts.cs"/>
 <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreEditorController.cs"/>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreEditorController.Suggestions.cs"/>
 <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatrePlaybackContracts.cs"/>
 <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreBookmarkContracts.cs"/>
 <Compile Include="../../src/MphRead/Mods/Launcher/Core/TheatreTimelineSeek.cs"/>

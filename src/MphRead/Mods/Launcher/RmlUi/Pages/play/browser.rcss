@@ -267,3 +267,24 @@ min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
     #play_create .play_toolbar { margin-top:8dp; flex-wrap:wrap; }
     #play_create .play_action { min-height:28dp; padding:5dp 7dp; font-size:9dp; }
 }
+
+/* Let the list consume available stage height, rather than capping it at
+   260dp on every 720p window. Keep one intentional list scroller. */
+#play_header { top:16dp; left:24dp; max-width:90%; }
+#play_browser { left:24dp; top:88dp; bottom:16dp; width:64%; display:flex; flex-direction:column; min-height:0; }
+#play_browser .play_toolbar, #play_search { flex-shrink:0; flex-wrap:wrap; }
+#play_browser .play_panel { flex:1; min-height:0; max-height:none; overflow-x:hidden; }
+#play_connect { top:88dp; right:24dp; width:27%; max-width:320dp; bottom:16dp; overflow-y:auto; overflow-x:hidden; }
+.play_server { min-height:44dp; padding:6dp 8dp; white-space:normal; word-break:break-word; }
+#play_create { top:88dp; left:24dp; width:52%; max-width:620dp; max-height:none; padding:16dp; }
+@media (max-width:800dp) {
+    #play_header { left:12dp; }
+    #play_browser { left:12dp; width:60%; }
+    #play_connect { right:12dp; width:33%; padding:8dp; }
+    #play_create { left:12dp; width:94%; }
+    #play_browser .play_action { min-height:32dp; }
+}
+@media (max-height:500dp) {
+    #play_header { top:8dp; }
+    #play_browser, #play_connect, #play_create { top:64dp; bottom:8dp; }
+}

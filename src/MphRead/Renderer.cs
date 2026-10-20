@@ -6836,26 +6836,21 @@ localCenter *= _profileHudScale;
         /// them re-cuts the font at the wrong size and draws confetti. This is
         /// the destination, and only the destination.
         /// </param>
+        public Mods.Render.Hud.HudSpriteBounds GetHudObjectBounds(
+            HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false)
+        {
+            float iconScale = !isText && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom
+                ? Mods.Render.Hud.HudProfiles.Runtime.IconScale : 1;
+            return Mods.Render.Hud.HudSpriteBounds.Resolve(inst.PositionX, inst.PositionY,
+                inst.Width, inst.Height, inst.Center, mode, scale, Size.X, Size.Y,
+                _profileHudScale, _profileHudX, _profileHudY, _hudDrawScale, iconScale);
+        }
+
         public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false)
         {
             if (_profileHudAlpha <= 0) return;
-            scale *= _profileHudScale;
-            if (!inst.Enabled)
-            {
-                return;
-            }
-            float x = inst.PositionX * _profileHudScale + _profileHudX / 256;
-            float y = inst.PositionY * _profileHudScale + _profileHudY / 192;
-            if (_hudDrawScale != 1f)
-            {
-                x = 0.5f + (x - 0.5f) * _hudDrawScale;
-                y = 0.5f + (y - 0.5f) * _hudDrawScale;
-            }
-            if (!isText && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom)
-                scale *= Mods.Render.Hud.HudProfiles.Runtime.IconScale;
-            float width = inst.Width;
-            float height = inst.Height;
-            bool center = inst.Center;
+            if (!inst.Enabled) return;
+            var bounds = GetHudObjectBounds(inst, mode, scale, isText);
             GL.Uniform1(_shaderLocations.LayerAlpha, HudPresentationAlpha(inst.Alpha * _profileHudAlpha));
             GL.Uniform1(_shaderLocations.UseMask, inst.UseMask && _hudMaskActive ? 1 : 0);
             GL.BindTexture(TextureTarget.Texture2D, inst.BindingId);
@@ -6870,45 +6865,10 @@ localCenter *= _profileHudScale;
                 TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
             GL.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            float viewWidth = Size.X;
-            float viewHeight = Size.Y;
-            if (mode == 2)
-            {
-                width = width / 256 * viewWidth;
-                height = height / 192 * viewHeight;
-            }
-            else if (mode == 1)
-            {
-                float aspect = height / width;
-                height = height / 192 * viewHeight;
-                width = height / aspect;
-            }
-            else // if (mode == 0)
-            {
-                float aspect = width / height;
-                width = width / 256 * viewWidth;
-                height = width / aspect;
-            }
-            if (scale != 1)
-            {
-                width *= scale;
-                height *= scale;
-            }
-            if (_hudDrawScale != 1f)
-            {
-                width *= _hudDrawScale;
-                height *= _hudDrawScale;
-            }
-            float viewLeft = -viewWidth / 2;
-            float viewTop = viewHeight / 2;
-            float leftPos = viewLeft + x * viewWidth - (center ? (width / 2) : 0);
-            float rightPos = leftPos + width;
-            float topPos = viewTop - y * viewHeight + (center ? (height / 2) : 0);
-            float bottomPos = topPos - height;
-            leftPos /= (viewWidth / 2);
-            rightPos /= (viewWidth / 2);
-            topPos /= (viewHeight / 2);
-            bottomPos /= (viewHeight / 2);
+            float leftPos = bounds.Left / Size.X * 2 - 1;
+            float rightPos = (bounds.Left + bounds.Width) / Size.X * 2 - 1;
+            float topPos = 1 - bounds.Top / Size.Y * 2;
+            float bottomPos = 1 - (bounds.Top + bounds.Height) / Size.Y * 2;
             if (inst.FlipHorizontal)
             {
                 (rightPos, leftPos) = (leftPos, rightPos);

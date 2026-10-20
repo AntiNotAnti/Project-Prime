@@ -975,6 +975,8 @@ namespace MphRead.Entities
         private void UpdateWeaponSelect()
         {
             int selection = Mods.Input.GamepadInput.WheelHeld ? ModControllerWeaponSelection()
+                : OperatingSystem.IsAndroid() && Mods.Input.TouchSettings.DirectWeaponSelection
+                ? UpdateWeaponTouchTargets()
                 : Mods.Input.WeaponWheel.Absolute
                 ? UpdateWeaponArc()
                 : UpdateWeaponDrag();
@@ -1021,6 +1023,23 @@ namespace MphRead.Entities
                 WeaponSelection = (BeamType)_weaponSelectInsts[selection].CurrentFrame;
             }
             return selection;
+        }
+
+        private int UpdateWeaponTouchTargets()
+        {
+            // Resolve through the same transform that draws the selection boxes,
+            // including pen-zone placement, profile offsets/scales and aspect.
+            float scale = ModPlaceWeaponSelect();
+            WeaponSelection = BeamType.None;
+            for (int i = 0; i < _selectBoxInsts.Length; i++)
+            {
+                var beam = (BeamType)_weaponSelectInsts[i].CurrentFrame;
+                if (CanCycleToWeapon(beam)
+                    && _scene.GetHudObjectBounds(_selectBoxInsts[i], mode: 1, scale: scale)
+                        .Contains(Input.PointerX, Input.PointerY))
+                    return ModResolveWeaponSlot(i);
+            }
+            return -1;
         }
 
         /// <summary>

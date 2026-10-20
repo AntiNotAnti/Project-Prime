@@ -2,6 +2,9 @@ using System;
 using MphRead.Droid;
 using MphRead.Mods;
 
+InputOwnershipChecks.Run();
+WeaponTouchChecks.Run();
+
 var controls = new TouchControls();
 controls.Layout(1920, 1080, 1);
 controls.PointerDown(1, 1400, 500);

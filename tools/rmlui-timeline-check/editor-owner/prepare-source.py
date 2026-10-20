@@ -8,7 +8,7 @@ out = Path(__file__).resolve().parent / 'obj/source-linked'
 out.mkdir(parents=True, exist_ok=True)
 studio = (root / 'src/MphRead/Mods/Replay/ReplayStudio.cs').read_text()
 body = studio[studio.index('    internal enum ReplayHighlightKind'):studio.index('    internal static class ReplayVirtualClips')]
-(out / 'Studio.cs').write_text('using System; using System.Collections.Generic; using System.Linq; using MphRead.Mods.Network; namespace MphRead.Mods.Replay {\n'+body+'\n}')
+(out / 'Studio.cs').write_text('using System; using System.Collections.Generic; using System.Linq; using System.Text.Json; using System.Threading; using MphRead.Mods.Network; namespace MphRead.Mods.Replay {\n'+body+'\n}')
 workspace = (root / 'src/MphRead/Mods/Replay/ReplayWorkspace.cs').read_text()
 body = workspace[workspace.index('    internal enum ReplaySegmentCamera'):workspace.index('    internal readonly record struct ReplayExportPreset')]
 (out / 'Reels.cs').write_text('using System; using System.IO; using System.Collections.Generic; using System.Text.Json; using System.Linq; using MphRead.Mods.Network; namespace MphRead.Mods.Replay {\n'+body.replace('internal static class ReplayReels','internal static partial class ReplayReels')+'\n}')

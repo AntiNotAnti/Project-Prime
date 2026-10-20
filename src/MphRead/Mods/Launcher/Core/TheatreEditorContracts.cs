@@ -51,6 +51,13 @@ public interface ITheatreEditorBackend
 }
 
 /// <summary>Optional metadata publication through the editor's exact reviewed annotation owner.</summary>
+public interface ITheatreEditorSuggestionBackend
+{
+    void ValidateSuggestions(TheatreEditorContext context);
+    System.Threading.Tasks.Task<ImmutableArray<TheatreEditorEntry>> GenerateSuggestions(
+        TheatreEditorContext context, System.Threading.CancellationToken cancellation);
+}
+
 public interface ITheatreEditorMetadataBackend
 {
     TheatreEditorContext SaveTags(TheatreEditorContext context, ImmutableArray<string> tags);

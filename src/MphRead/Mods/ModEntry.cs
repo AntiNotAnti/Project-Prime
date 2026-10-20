@@ -274,6 +274,11 @@ namespace MphRead.Mods
                 if (output == null) Console.WriteLine(json); else System.IO.File.WriteAllText(output, json);
                 return true;
             }
+            if (HasFlag(args, "replayhighlights"))
+            {
+                Environment.ExitCode = Replay.ReplayHighlightsCommand.Run(args);
+                return true;
+            }
             if (HasFlag(args, "replaycontrolcheck"))
             {
                 Environment.ExitCode = Network.ReplayControlCheck.Run();
@@ -1483,7 +1488,7 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.Characters.ViewModelAcceptanceCheck.Run(viewModelRoom,
                     ValueAfter(args, "output") ?? "viewmodel-acceptance",
                     Enum.TryParse(ValueAfter(args, "hunter"), true, out Hunter viewModelHunter) ? viewModelHunter : Hunter.Samus,
-                    HasFlag(args, "poseonly"));
+                    HasFlag(args, "poseonly"), HasFlag(args, "projectiononly"));
                 return true;
             }
             if (HasFlag(args, "charactermaterialpalette"))
