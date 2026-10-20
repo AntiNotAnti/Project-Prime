@@ -1,6 +1,6 @@
 #native_build_panel { padding:7dp; margin-bottom:8dp; background-color:#102b40; border:1dp #5889a9; overflow-x:hidden; }
 #native_build_panel h3 { font-size:12dp; color:#91dfff; margin:9dp 0 4dp; }
-#native_build_panel p { white-space:pre-wrap; overflow-wrap:break-word; }
+#native_build_panel p { white-space:pre-wrap; word-break:break-word; }
 #native_build_panel .editor-row { min-height:38dp; white-space:pre-wrap; }
 #native_build_panel .native-build-budget { padding:5dp; border-bottom:1dp #2a4c64; }
 #native_build_status { color:#c7efff; }

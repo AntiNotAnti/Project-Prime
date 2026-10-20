@@ -61,6 +61,25 @@ body.touch-targets .native-hunter-panel button { min-height:48dp; }
 body.large-text .native-hunter-panel button { font-size:17dp; line-height:22dp; }
 body.large-text .hint { font-size:15dp; line-height:20dp; }
 @media (max-height: 440dp) {
-  body.touch-targets .hunter-picker,body.large-text .hunter-picker { overflow-y:auto; display:block; }
-  body.touch-targets .hunter-options,body.large-text .hunter-options { overflow:visible; }
+  /* Keep navigation and draft actions in one row, leaving the catalog its own
+     scroll budget even with enlarged targets in a landscape window. */
+  .hunter-equip-actions > button,
+  .hunter-equip-actions > #hunter_apply { flex:1; min-width:0; margin-right:3dp; padding:6dp 4dp; }
+  .hunter-equip-actions > #hunter_apply { flex:2; }
+}
+@media (max-width:560dp) {
+  /* Three draft/navigation commands need readable labels; the narrower
+     preview retains its own scrollable controls and engine-owned viewport. */
+  .hunter-picker { width:64%; }
+  .hunter-preview { width:34%; }
+}
+@media (max-height:340dp) {
+  /* A short landscape stage still needs one complete 48dp catalog target.
+     Share the title row with bounded, focusable feedback instead of shrinking
+     buttons or returning the entire picker to a nested outer scroll. */
+  .native-hunter-panel { top:2dp; bottom:2dp; padding:6dp; }
+  .hunter-heading { display:flex; align-items:center; height:20dp; }
+  .native-hunter-panel h1 { width:48%; min-width:0; margin:0; font-size:18dp; line-height:20dp; }
+  .hunter-status { flex:1; min-width:0; max-height:20dp; margin-left:8dp; overflow-y:auto; font-size:12dp; line-height:16dp; tab-index:auto; }
+  .hunter-grid { top:28dp; bottom:4dp; left:6dp; right:6dp; }
 }

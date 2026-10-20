@@ -123,6 +123,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "home_news1_title", "{{home_news1_title}}"),
             new(RmlUiBindingKind.Text, "home_news1_category", "{{home_news1_category}}"),
             new(RmlUiBindingKind.Boolean, "visible:home_social_rail", "home_social_rail_visible"),
+            new(RmlUiBindingKind.Boolean, "visible:home_social_open", "home_social_rail_visible"),
             new(RmlUiBindingKind.Boolean, "visible:home_social_empty", "home_social_empty_visible"),
             new(RmlUiBindingKind.Text, "home_social_empty", "{{home_social_empty_text}}"),
             new(RmlUiBindingKind.Text, "home_social_count", "{{home_social_count}}"),

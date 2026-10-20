@@ -1,0 +1,144 @@
+{
+  "source_implementation_commit": "ac2133922",
+  "rebased_onto": "7bc52d5b7",
+  "platform": "macOS arm64; Apple M4 Pro; OpenGL 2.1 Metal",
+  "windows": "SSH authentication unavailable; Mac fallback used",
+  "scope": "Real native bridge, synthetic service/authority data and isolated user data. No physical Android/controller, live account/network or gameplay qualification.",
+  "build": {
+    "command": "dotnet build tools/rmlui-opengl-check -c Release -m:1 -p:BuildInParallel=false",
+    "errors": 0,
+    "warnings": 1,
+    "existing_warning": "CS0649 CustomReadinessProbe.DiscardPickupAcks",
+    "log_sha256": "da2e85a3e627d723bf135f2b704bb33be54f77b69e21559150b045182f4fa45c"
+  },
+  "executions": [
+    {
+      "name": "hunter-contract",
+      "code": 0,
+      "seconds": 0.77,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/hunter-contract.log",
+      "log_sha256": "1cf21e9aa9083d2c44ffc7da896008ee62bbc690f5ac42e62372eeef075dc98d"
+    },
+    {
+      "name": "studio-settings",
+      "code": 0,
+      "seconds": 32.23,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/studio-settings.log",
+      "log_sha256": "0b9fe6c61d2c15638578fbf2665d3018e49476672085c8cbd20fd2f6e53b0130"
+    },
+    {
+      "name": "browser",
+      "code": 0,
+      "seconds": 3.48,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/browser.log",
+      "log_sha256": "d39dd17c3a7932e27f264a6d6536acb02ed42ff533b7db8679a83a31b355003b"
+    },
+    {
+      "name": "offline",
+      "code": 0,
+      "seconds": 13.47,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/offline.log",
+      "log_sha256": "a367483290eebf14b9d1a569855bf23930aae5ee8384f8f3d5bd4947d82e0011"
+    },
+    {
+      "name": "lobby",
+      "code": 0,
+      "seconds": 17.9,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/lobby.log",
+      "log_sha256": "5398fbecaf374a1d772810065a23d05c348fb8b44a77dd1eb7078140a5d638c1"
+    },
+    {
+      "name": "input",
+      "code": 0,
+      "seconds": 2.79,
+      "receipt_group": "results.json",
+      "log": "artifacts/refinement-2-managed/input.log",
+      "log_sha256": "c74a1cdc8249e665f439fbcffb942233b9c058f9c7470fb20a1214e3e01fb8a0"
+    },
+    {
+      "name": "license-after",
+      "code": 0,
+      "seconds": 14.15,
+      "receipt_group": "license-results.json",
+      "log": "artifacts/refinement-2-managed/license-after.log",
+      "log_sha256": "179552c05efb7dbdc2ac8d923219a44285e0f4530a2269a25a36194fa794788a"
+    },
+    {
+      "name": "license-baseline-repaired-contract",
+      "code": 0,
+      "seconds": 13.84,
+      "receipt_group": "license-results.json",
+      "log": "artifacts/refinement-2-managed/license-baseline-repaired-contract.log",
+      "log_sha256": "508214c9be0f0f167ec9d94177cdf7d9943563712a31e2c649c6cbae07834abd"
+    },
+    {
+      "name": "license-compact",
+      "code": 0,
+      "seconds": 13.74,
+      "receipt_group": "license-results.json",
+      "log": "artifacts/refinement-2-managed/license-compact.log",
+      "log_sha256": "88fca2a495576b2ddadefc964c94335f29e6ca3d9ba0903bd366c2cf30f79721"
+    },
+    {
+      "name": "hunter-final",
+      "code": 0,
+      "seconds": 0.56,
+      "receipt_group": "final-results.json",
+      "log": "artifacts/refinement-2-managed/hunter-final.log",
+      "log_sha256": "1cf21e9aa9083d2c44ffc7da896008ee62bbc690f5ac42e62372eeef075dc98d"
+    },
+    {
+      "name": "theatre-final",
+      "code": 0,
+      "seconds": 8.18,
+      "receipt_group": "final-results.json",
+      "log": "artifacts/refinement-2-managed/theatre-final.log",
+      "log_sha256": "eecbf012ce4e56f1e271b86b940838538d0e8132c9f9282a38836d1021696227"
+    },
+    {
+      "name": "community-final",
+      "code": 0,
+      "seconds": 8.53,
+      "receipt_group": "final-results.json",
+      "log": "artifacts/refinement-2-managed/community-final.log",
+      "log_sha256": "e754c04d1bc8716ef35af182cadeb01b103ef079b70a0c106c388aef1d2b930e"
+    },
+    {
+      "name": "party-final",
+      "code": 0,
+      "seconds": 30.6,
+      "receipt_group": "final-results.json",
+      "log": "artifacts/refinement-2-managed/party-final.log",
+      "log_sha256": "bd2abcd092f5ea30ca70131ce460f2d7fed351b7feb7de0589bc310f0a910041"
+    },
+    {
+      "name": "offline-final",
+      "code": 0,
+      "log": "artifacts/refinement-2-managed/offline-final.log",
+      "log_sha256": "84f822d2f18f6f25c3dfc7416fc34de151ddee1b17f8f8d50949bd82bc4ee7bc"
+    }
+  ],
+  "baseline_stale_test": {
+    "error": "tall viewport uses the compact 680dp license height",
+    "same_failure_before_and_after": true,
+    "repair": "Replace obsolete fixed-height assertion with whole-sheet and persistent Sync/Account viewport containment; baseline and candidate then pass."
+  },
+  "post_rebase_retests": [
+    {
+      "name": "rebased-hunter",
+      "code": 0,
+      "seconds": 0.29
+    },
+    {
+      "name": "rebased-offline",
+      "code": 0,
+      "seconds": 13.41
+    }
+  ],
+  "post_rebase_game_dll_sha256": "a5cf3a0a8cab2eede59ca145f3bbedb14d2b2888bb545eb34ddf0128c727cfd2"
+}

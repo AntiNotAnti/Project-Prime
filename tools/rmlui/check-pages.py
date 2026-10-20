@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import sys
+import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parents[2] / "src/MphRead/Mods/Launcher/RmlUi"
 pages = root / "Pages"
@@ -25,6 +26,13 @@ for name in expected:
 files = sorted(root.rglob("*.rml")) + sorted(root.rglob("*.rcss"))
 for file in files:
     data = file.read_text(encoding="utf-8")
+    # Authored RML uses balanced XML syntax. Native parser recovery can leave a
+    # button or confirmation inside the wrong panel without failing page open.
+    if file.suffix == ".rml":
+        try:
+            ET.fromstring(data)
+        except ET.ParseError as error:
+            errors.append(f"{file.relative_to(root)}: malformed markup: {error}")
     if published is not None:
         relative = file.relative_to(root)
         published_file = (published / Path(*relative.parts[1:])

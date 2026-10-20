@@ -280,7 +280,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         for(int i=0;i<_visible.Length;i++)if(_visible[i].HasSlider&&double.TryParse(_visible[i].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out double number))
         {
             var row=_visible[i];Text("native_settings_readout_"+i,row.Value+"  // "+row.Minimum!.Value.ToString("0.###",CultureInfo.InvariantCulture)+"–"+row.Maximum!.Value.ToString("0.###",CultureInfo.InvariantCulture));
-            if(_host.FocusedElement()!="native_settings_slider_"+i)_host.SetField(_document,"native_settings_slider_"+i,Math.Round(Math.Clamp((number-row.Minimum.Value)/(row.Maximum.Value-row.Minimum.Value)*1000,0,1000)).ToString(CultureInfo.InvariantCulture));
+            if(focus!="native_settings_slider_"+i)_host.SetField(_document,"native_settings_slider_"+i,Math.Round(Math.Clamp((number-row.Minimum.Value)/(row.Maximum.Value-row.Minimum.Value)*1000,0,1000)).ToString(CultureInfo.InvariantCulture));
         }
         _pages.Present(_document,++_revision,fields);
     }

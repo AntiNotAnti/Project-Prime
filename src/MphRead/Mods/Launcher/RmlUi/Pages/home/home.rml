@@ -101,6 +101,7 @@
             </div>
         </div>
         <div id="home_right_rail">
+        <div id="home_right_scroll">
         <div id="session_panel" class="enter_right">
             <div class="session_header">
                 <div class="eyebrow">YOUR PARTY</div>
@@ -171,8 +172,9 @@
                     <span id="home_friend2_status" class="home_friend_status"></span>
                 </button>
             </div>
-            <button id="home_social_open" class="home_rail_link" data-action="route:social"><span id="home_social_open_label" class="home_rail_label">OPEN SOCIAL</span><span class="home_rail_arrow">&gt;</span></button>
         </div>
+        </div>
+        <button id="home_social_open" class="home_rail_link" data-prime-visible="home_social_rail_visible" data-action="route:social"><span id="home_social_open_label" class="home_rail_label">OPEN SOCIAL</span><span class="home_rail_arrow">&gt;</span></button>
         </div>
     </body>
 </rml>
