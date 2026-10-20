@@ -10,6 +10,7 @@ public static partial class NetSession
     internal static CustomStateMessage? CustomWeaponPresentationState => CustomWeaponReadinessConfirmed ? _customCombatClient?.State:null;
     internal static CustomReceiptMessage? LastCustomWeaponReceipt => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastReceipt:null;
     internal static CustomContactMessage? LastCustomWeaponContact => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastContact:null;
+    internal static CustomControlDenied? LastCustomControlDenied => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastControlDenied:null;
     private static CustomClientCombat? CurrentCustomCombat()
     {
         if (!CustomWeaponReadinessConfirmed || _customReadiness is not { } ready)
@@ -22,6 +23,11 @@ public static partial class NetSession
     {
         if (!action.IsValid || action.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,action.Owner.Generation,action.Life)) return false;
         return CurrentCustomCombat()?.Submit(action,Clock)==true;
+    }
+    internal static bool SubmitCustomWeaponControl(in CustomControlRequest request)
+    {
+        if (!request.IsValid || request.Slot!=LocalSlot || !NetPlayerLifecycle.Matches(LocalSlot,request.Owner.Generation,request.Life)) return false;
+        return CurrentCustomCombat()?.Submit(request,Clock)==true;
     }
     private static void HandleCustomCombatResult(ReceivedPacket packet)
     {
@@ -46,6 +52,12 @@ public static partial class NetSession
             action.Write(bytes);
             if (!_transport.TrySendSemantic(_hostEndPoint,PacketType.CustomWeaponAction,bytes)) break;
             client.Sent(action,now);
+        }
+        for (int n=0;n<4 && client.TryNextControl(now,out var request);n++)
+        {
+            request.Write(bytes);
+            if (!_transport.TrySendSemantic(_hostEndPoint,PacketType.CustomWeaponControl,bytes[..CustomControlRequest.Size])) break;
+            client.Sent(request,now);
         }
         if (client.Invalidated) _customReadiness?.Invalidate();
     }

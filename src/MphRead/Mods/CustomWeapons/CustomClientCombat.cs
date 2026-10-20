@@ -9,7 +9,11 @@ namespace MphRead.Mods.CustomWeapons;
 internal sealed class CustomClientCombat
 {
     private readonly record struct Seen(ulong Token,PacketType Type,WeaponDigest Digest);
-    private readonly record struct Pending(CustomWeaponAction Action,double Created,double Due);
+    private readonly record struct Pending(CustomWeaponAction Action,CustomControlRequest? Control,double Created,double Due)
+    {
+        internal WeaponOwnerContext Owner => Control?.Owner ?? Action.Owner;
+        internal uint Sequence => Control?.Sequence ?? Action.Sequence;
+    }
     private readonly Seen[] _seen=new Seen[128];
     private readonly Pending?[] _pending=new Pending?[16];
     private readonly CustomReadinessWire _wire;
@@ -17,10 +21,12 @@ internal sealed class CustomClientCombat
     private WeaponOwnerContext _submittedOwner;
     private uint _submitted;
     private double _time;
+    private byte _mode;
     internal bool Invalidated { get; private set; }
     internal CustomStateMessage? State { get; private set; }
     internal CustomReceiptMessage? LastReceipt { get; private set; }
     internal CustomContactMessage? LastContact { get; private set; }
+    internal CustomControlDenied? LastControlDenied { get; private set; }
     internal CustomClientCombat(CustomReadinessWire wire) => _wire=wire;
     private bool Time(double now)
     { if (!double.IsFinite(now) || now<_time) return false; _time=now; return true; }
@@ -55,7 +61,9 @@ internal sealed class CustomClientCombat
             if (_submittedOwner!=state.State.Owner)
             {
                 _submittedOwner=state.State.Owner; _submitted=state.SettledSequence;
+                _mode=0;
                 if (LastReceipt?.Receipt.Action.Owner!=state.State.Owner) LastReceipt=null;
+                if (LastControlDenied?.Request.Owner!=state.State.Owner) LastControlDenied=null;
                 // A new canonical life retires old local intent/prediction;
                 // late results still receive exact old-life acknowledgements.
                 Array.Clear(_pending);
@@ -69,9 +77,10 @@ internal sealed class CustomClientCombat
                 || !Recipient(message.Receipt.Action.Bootstrap,message.Receipt.Action.Manifest,message.Receipt.Action.Slot)) return false;
             var action=message.Receipt.Action;
             for (int i=0;i<_pending.Length;i++)
-                if (_pending[i] is { } pending && pending.Action.Owner==action.Owner && pending.Action.Sequence==action.Sequence)
+                if (_pending[i] is { } pending && pending.Owner==action.Owner && pending.Sequence==action.Sequence)
                 {
-                    if (pending.Action!=action) { Invalidated=true; return false; }
+                    if (pending.Control is { } control ? !control.Matches(action):pending.Action!=action)
+                    { Invalidated=true; return false; }
                     _pending[i]=null;
                 }
             bool first=First(message.Token,type,bytes,out bool conflict);
@@ -80,6 +89,24 @@ internal sealed class CustomClientCombat
             if (first && (State==null || State.Value.State.Owner==action.Owner)
                 && (LastReceipt is not { } prior || prior.Receipt.Action.Owner!=action.Owner
                 || prior.Receipt.Action.Sequence<action.Sequence)) LastReceipt=message;
+            return true;
+        }
+        if (type==PacketType.CustomWeaponControlDenied)
+        {
+            if (!CustomControlDenied.TryRead(bytes,out var denied)
+                || !Recipient(denied.Request.Bootstrap,denied.Request.Manifest,denied.Request.Slot)) return false;
+            for (int i=0;i<_pending.Length;i++)
+                if (_pending[i] is { } pending && pending.Owner==denied.Request.Owner && pending.Sequence==denied.Request.Sequence)
+                {
+                    if (pending.Control!=denied.Request) { Invalidated=true; return false; }
+                    _pending[i]=null;
+                }
+            bool first=First(denied.Token,type,bytes,out bool conflict);
+            if (conflict) { Invalidated=true; return false; }
+            ack=denied.Ack;
+            if (first && (State==null || State.Value.State.Owner==denied.Request.Owner)
+                && (LastControlDenied is not { } old || old.Request.Owner!=denied.Request.Owner || old.Request.Sequence<denied.Request.Sequence))
+                LastControlDenied=denied;
             return true;
         }
         if (type==PacketType.CustomWeaponContact)
@@ -94,7 +121,7 @@ internal sealed class CustomClientCombat
     }
     internal bool Submit(in CustomWeaponAction action,double now)
     {
-        if (Invalidated || !Time(now) || !action.IsValid || State is not { } state
+        if (Invalidated || _mode==2 || !Time(now) || !action.IsValid || State is not { } state
             || !Recipient(action.Bootstrap,action.Manifest,action.Slot) || action.Owner!=state.State.Owner
             || action.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         for (int i=0;i<_pending.Length;i++)
@@ -102,7 +129,19 @@ internal sealed class CustomClientCombat
                 return pending.Action==action;
         if (action.Sequence!=_submitted+1) return false;
         for (int i=0;i<_pending.Length;i++)
-            if (_pending[i]==null) { _pending[i]=new(action,now,now); _submitted=action.Sequence; return true; }
+            if (_pending[i]==null) { _pending[i]=new(action,null,now,now); _submitted=action.Sequence; _mode=1; return true; }
+        return false;
+    }
+    internal bool Submit(in CustomControlRequest request,double now)
+    {
+        if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not { } state
+            || !Recipient(request.Bootstrap,request.Manifest,request.Slot) || request.Owner!=state.State.Owner
+            || request.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
+        foreach (var pending in _pending)
+            if (pending is { } value && value.Owner==request.Owner && value.Sequence==request.Sequence) return value.Control==request;
+        if (request.Sequence!=_submitted+1) return false;
+        for (int i=0;i<_pending.Length;i++)
+            if (_pending[i]==null) { _pending[i]=new(default,request,now,now); _submitted=request.Sequence; _mode=2; return true; }
         return false;
     }
     internal bool TryNext(double now,out CustomWeaponAction action)
@@ -114,7 +153,7 @@ internal sealed class CustomClientCombat
         foreach (var pending in _pending)
             if (pending is { } value)
             {
-                if (now>=value.Due) { action=value.Action; return true; }
+                if (value.Control==null && now>=value.Due) { action=value.Action; return true; }
             }
         return false;
     }
@@ -123,5 +162,21 @@ internal sealed class CustomClientCombat
         if (Invalidated || !Time(now)) return;
         for (int i=0;i<_pending.Length;i++)
             if (_pending[i] is { } value && value.Action==action) { _pending[i]=value with { Due=now+.25 }; return; }
+    }
+    internal bool TryNextControl(double now,out CustomControlRequest request)
+    {
+        request=default; if (Invalidated || !Time(now)) return false;
+        foreach (var pending in _pending)
+            if (pending is { } expiring && now-expiring.Created>CustomActionOutbox.DeadlineSeconds)
+            { Invalidated=true; return false; }
+        foreach (var pending in _pending)
+            if (pending is { Control:{ } control } value && now>=value.Due) { request=control; return true; }
+        return false;
+    }
+    internal void Sent(in CustomControlRequest request,double now)
+    {
+        if (Invalidated || !Time(now)) return;
+        for (int i=0;i<_pending.Length;i++)
+            if (_pending[i] is { } value && value.Control==request) { _pending[i]=value with { Due=now+.25 }; return; }
     }
 }

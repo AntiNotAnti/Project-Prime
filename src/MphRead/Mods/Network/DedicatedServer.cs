@@ -1249,6 +1249,7 @@ namespace MphRead.Mods.Network
                 case PacketType.WorldReady: HandleWorldReady(packet, now); break;
                 case PacketType.CustomWeaponReady: HandleCustomWeaponReady(packet,now); break;
                 case PacketType.CustomWeaponAction: HandleCustomWeaponAction(packet,now); break;
+                case PacketType.CustomWeaponControl: HandleCustomWeaponControl(packet,now); break;
                 case PacketType.CustomWeaponResultAck: HandleCustomResultAck(packet,now); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;

@@ -8,5 +8,7 @@ internal interface ICustomCombatDelivery
     bool HasContactReservation(in CustomWeaponAction action);
     bool Publish(in CustomActionReceipt receipt);
     bool Publish(in CustomContactOutcome outcome);
+    bool HasControlWitness(in CustomWeaponAction action);
+    void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input);
     void AfterSourcePhase(CustomAuthorityCombatAdapter root);
 }

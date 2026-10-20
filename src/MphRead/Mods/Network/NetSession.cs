@@ -919,7 +919,7 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponManifest when Role == NetRole.Client && !_playback:
                 case PacketType.CustomWeaponReadyConfirmed when Role == NetRole.Client && !_playback:
                     HandleCustomReadiness(packet,time); break;
-                case PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact or PacketType.CustomWeaponState
+                case PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact or PacketType.CustomWeaponState or PacketType.CustomWeaponControlDenied
                     when Role == NetRole.Client && !_playback:
                     HandleCustomCombatResult(packet); break;
                 case PacketType.PartyReservationState when Role == NetRole.Client:

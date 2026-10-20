@@ -52,6 +52,14 @@ internal sealed class CustomPeerSourceBoundary : ICustomSourceBoundaryReadiness
             _invalidated = true; return false;
         }
     }
+    internal bool TryGetFence(WeaponOwnerContext owner,out ulong serial)
+    { serial=0; if (!Current || !SameOccupant(owner)) return false; serial=_serial; return true; }
+    internal bool TryGetSerial(in CustomSourceInput input,out ulong serial)
+    {
+        serial=0;
+        if (!Current || !_hasInput || input!=_latest || !SameOccupant(input.Owner)) return false;
+        serial=_serial; return true;
+    }
     public bool TryOpen(in CustomSourceInput input,out CustomSourceReadyContext context)
     {
         context = default;

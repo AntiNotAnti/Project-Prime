@@ -89,6 +89,7 @@ internal interface ICustomWeaponEmitter
 internal readonly record struct CustomActionReceipt(CustomWeaponAction Action, uint AuthorityFrame,
     CustomJournalDisposition Disposition, WeaponActionResult Result, CustomEmissionDisposition Emission,
     CustomSourceCertificate? Source, WeaponStateSnapshot? Before, WeaponStateSnapshot? After);
+internal readonly record struct CustomUnobservedControl(CustomControlRequest Request,uint AuthorityFrame,CustomControlDenialReason Reason);
 
 /// <summary>One immutable initial loadout and owner life. Only a contiguous prefix
 /// of its universal custom action sequence can mutate source-time resource state.
@@ -102,6 +103,7 @@ internal sealed class CustomSourceActionJournal
     private readonly Pending?[] _pending = new Pending?[PendingCapacity];
     private readonly Permission?[] _permissions = new Permission?[128];
     private readonly CustomActionReceipt?[] _terminal = new CustomActionReceipt?[TerminalCapacity];
+    private readonly CustomUnobservedControl?[] _unobserved = new CustomUnobservedControl?[TerminalCapacity];
     private readonly WeaponRuntimeState?[] _states = new WeaponRuntimeState?[CustomWeaponManifest.MaxEntries];
     private readonly CustomSourceClock _clock;
     private readonly WeaponDigest _manifest;
@@ -204,6 +206,26 @@ internal sealed class CustomSourceActionJournal
         receipt = entry.GetValueOrDefault();
         return entry.HasValue && receipt.Action.Sequence == sequence;
     }
+    internal bool TryGetUnobserved(uint sequence,out CustomUnobservedControl denial)
+    {
+        var entry=_unobserved[sequence%TerminalCapacity]; denial=entry.GetValueOrDefault();
+        return entry.HasValue && denial.Request.Sequence==sequence;
+    }
+    // Trusted consumed-input rejection, not an action and not a source clock
+    // observation. Settle only the contiguous head without touching resources,
+    // committed source time or manufacturing a certificate/ray.
+    internal bool SettleUnobserved(in CustomControlRequest request,uint world,CustomControlDenialReason reason)
+    {
+        if (_processing || IsRetired || !request.IsValid || request.Owner!=Owner || request.Manifest!=_manifest
+            || reason!=CustomControlDenialReason.SourceUnavailable || !Time(world)
+            || _settled==uint.MaxValue || request.Sequence!=_settled+1 || _drained>=MaxDrainPerTick
+            || _pending[request.Sequence%PendingCapacity]!=null) return false;
+        int index=(int)(request.Sequence%TerminalCapacity);
+        if (_terminal[index] is { } old && unchecked(world-old.AuthorityFrame)<=TerminalRetention
+            || _unobserved[index] is { } denied && unchecked(world-denied.AuthorityFrame)<=TerminalRetention) return false;
+        _terminal[index]=null; _unobserved[index]=new(request,world,reason); _settled=request.Sequence; _drained++;
+        return true;
+    }
     internal bool TryPreview(WeaponRuntimeId weapon, out WeaponStateSnapshot snapshot)
     {
         snapshot = default;
@@ -246,6 +268,8 @@ internal sealed class CustomSourceActionJournal
         int terminalIndex = (int)(next.Action.Sequence % TerminalCapacity);
         if (_terminal[terminalIndex] is { } retained && unchecked(authorityFrame-retained.AuthorityFrame) <= TerminalRetention)
         { Retire(WeaponCancellation.RulesChanged); return false; }
+        if (_unobserved[terminalIndex] is { } denied && unchecked(authorityFrame-denied.AuthorityFrame)<=TerminalRetention)
+        { Retire(WeaponCancellation.RulesChanged); return false; }
         var action = next.Action;
         var state = _states[action.Weapon.Value-10];
         _drained++; // Waiting/denied oracle calls consume the same bounded work budget.
@@ -283,6 +307,7 @@ internal sealed class CustomSourceActionJournal
         }
         finally { _processing = false; }
         _terminal[terminalIndex] = receipt;
+        _unobserved[terminalIndex] = null;
         int pendingIndex = (int)(action.Sequence % PendingCapacity);
         if (_pending[pendingIndex].HasValue) { _pending[pendingIndex] = null; PendingCount--; }
         _settled = action.Sequence; return true;

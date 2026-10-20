@@ -163,6 +163,21 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         receipt=default;
         return action.IsValid && Find(action.Owner)?.Journal is { } journal && journal.TryGetReceipt(action.Sequence,out receipt) && receipt.Action==action;
     }
+    internal bool HasControlWitness(in CustomWeaponAction action) => _delivery?.HasControlWitness(action)==true;
+    internal bool TryControlReceipt(in CustomControlRequest request,out CustomActionReceipt receipt)
+    {
+        receipt=default;
+        return request.IsValid && Find(request.Owner)?.Journal is { } journal
+            && journal.TryGetReceipt(request.Sequence,out receipt) && request.Matches(receipt.Action);
+    }
+    internal bool TryUnobservedControl(in CustomControlRequest request,out CustomUnobservedControl denied)
+    {
+        denied=default;
+        return request.IsValid && Find(request.Owner)?.Journal is { } journal
+            && journal.TryGetUnobserved(request.Sequence,out denied) && denied.Request==request;
+    }
+    internal bool SettleUnobserved(in CustomControlRequest request)
+        => request.IsValid && Find(request.Owner)?.Journal?.SettleUnobserved(request,Now,CustomControlDenialReason.SourceUnavailable)==true;
     internal bool TryStateMetadata(PlayerEntity player,out WeaponRuntimeId selected,out uint settled,out uint committed)
     {
         selected=default; settled=committed=0;

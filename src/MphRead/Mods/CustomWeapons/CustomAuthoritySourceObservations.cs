@@ -82,9 +82,15 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         // older frame can neither revise permission nor promote
                         // a rejected placement after the actor thaws.
                         if (result == CustomObservationResult.Captured)
+                        {
                             life.Journal.ObserveSource(owner,token.Input.Frame,Now,canUse);
+                        }
                         else if (result == CustomObservationResult.Conflict)
                             life.Journal.Retire(WeaponCancellation.RulesChanged);
+                        // A fresh denied/unavailable observation is terminal for
+                        // the active primary control too; never wait for thaw or
+                        // a later favorable pose. Duplicate carriers are inert.
+                        if (result!=CustomObservationResult.Duplicate) _delivery?.SourceObserved(this,token.Input);
                     }
             if (capture && IsEligible && _inputWorld==Now) _delivery?.AfterSourcePhase(this);
         }
