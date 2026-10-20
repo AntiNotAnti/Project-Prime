@@ -46,9 +46,16 @@ internal readonly record struct CustomContactMessage(WorldBootstrapIdentity Boot
         Outcome.Contact.Key.Action.Owner.Life,Outcome.Contact.Key.Action.Weapon,Outcome.Contact.Key.Action.Sequence,CustomResultKind.Contact,Token);
 }
 internal readonly record struct CustomStateMessage(WorldBootstrapIdentity Bootstrap,WeaponDigest Manifest,WeaponRuntimeId Weapon,
-    uint AuthorityFrame,uint Revision,uint SettledSequence,WeaponRuntimeId Selected,uint CommittedSource,WeaponStateSnapshot State)
+    uint AuthorityFrame,uint Revision,uint SettledSequence,WeaponRuntimeId Selected,uint CommittedSource,WeaponStateSnapshot State,
+    bool HasWeapon=true)
 {
-    internal const int Size=113;
+    internal const int Size=114;
+    internal static CustomStateMessage Empty(WorldBootstrapIdentity bootstrap,WeaponDigest manifest,WeaponRuntimeId weapon,
+        uint world,uint revision,uint settled,uint committed,WeaponOwnerContext owner,WeaponDefinition definition)
+        =>new(bootstrap,manifest,weapon,world,revision,settled,default,committed,
+            EmptySnapshot(owner,definition,committed),false);
+    internal static WeaponStateSnapshot EmptySnapshot(WeaponOwnerContext owner,WeaponDefinition definition,uint committed)
+        =>new(owner,definition.Identity,committed,CustomWeaponPhase.Invalid,0,0,0,0,0,0,0);
 }
 
 internal static class CustomCombatResults
@@ -210,6 +217,8 @@ internal static class CustomCombatResults
             && message.State.Owner.MatchId==message.Bootstrap.Start.MatchId && message.State.Owner.AuthorityEpoch==message.Bootstrap.Start.AuthorityEpoch
             && message.State.Owner.Generation==message.Bootstrap.SlotGeneration && !Before(message.AuthorityFrame,message.Bootstrap.AuthorityFrame)
             && (!message.Selected.IsValid || message.Selected==message.Weapon) && SnapshotValid(message.State,message.State.Owner,definition)
+            && (message.HasWeapon || !message.Selected.IsValid
+                && message.State==CustomStateMessage.EmptySnapshot(message.State.Owner,definition,message.CommittedSource))
             && !Before(message.State.Tick,message.CommittedSource) && message.State.LastAcceptedShotId <= message.SettledSequence;
     internal static void Write(in CustomStateMessage message,Span<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
@@ -219,17 +228,18 @@ internal static class CustomCombatResults
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[70..],message.AuthorityFrame); BinaryPrimitives.WriteUInt32LittleEndian(bytes[74..],message.Revision);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[78..],message.SettledSequence); BinaryPrimitives.WriteUInt16LittleEndian(bytes[82..],message.Selected.Value);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[84..],message.CommittedSource); WriteSnapshot(bytes[88..],message.State);
+        bytes[113]=message.HasWeapon?(byte)1:(byte)0;
     }
     internal static bool TryReadState(ReadOnlySpan<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition,out CustomStateMessage message)
     {
         message=default;
         if (bytes.Length!=CustomStateMessage.Size || !CustomWeaponProtocol.ReadHeader(bytes,out var bootstrap,out var digest)
-            || bytes[65]>=8 || BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..])==0) return false;
+            || bytes[65]>=8 || BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..])==0 || bytes[113]>1) return false;
         ushort id=BinaryPrimitives.ReadUInt16LittleEndian(bytes[68..]),selected=BinaryPrimitives.ReadUInt16LittleEndian(bytes[82..]);
         if (id is < 10 or > 73 || selected!=0 && selected!=id || !Resolves(digest,new(id),manifest,definition)) return false;
         var owner=new WeaponOwnerContext(bootstrap.Start.MatchId,bootstrap.Start.AuthorityEpoch,bytes[65],bootstrap.SlotGeneration,BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..]));
         var value=new CustomStateMessage(bootstrap,digest,new(id),BinaryPrimitives.ReadUInt32LittleEndian(bytes[70..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[74..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(bytes[78..]),selected==0 ? default:new(selected),BinaryPrimitives.ReadUInt32LittleEndian(bytes[84..]),ReadSnapshot(bytes[88..],owner,definition));
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[78..]),selected==0 ? default:new(selected),BinaryPrimitives.ReadUInt32LittleEndian(bytes[84..]),ReadSnapshot(bytes[88..],owner,definition),bytes[113]!=0);
         if (!Valid(value,manifest,definition)) return false; message=value; return true;
     }
 }

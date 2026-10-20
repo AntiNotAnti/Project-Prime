@@ -3,7 +3,8 @@ using MphRead.Mods.Network;
 namespace MphRead.Mods.CustomWeapons;
 
 internal readonly record struct CustomInputProjection(WeaponOwnerContext Owner,bool Selected,byte Optic,
-    uint SettledSequence,uint SelectionDenied,uint OpticDenied,WorldBootstrapIdentity Bootstrap=default,WeaponDigest Manifest=default);
+    uint SettledSequence,uint SelectionDenied,uint OpticDenied,WorldBootstrapIdentity Bootstrap=default,WeaponDigest Manifest=default,
+    bool HasWeapon=true);
 internal readonly record struct CustomInputSample(bool Allowed,bool SelectCustom,bool SelectNative,
     bool ShootPressed,bool ReloadPressed,bool ZoomPressed,bool ZoomDown,bool CycleOptic,bool HoldScope=false);
 internal interface ICustomWeaponInputSink
@@ -40,6 +41,8 @@ internal sealed class CustomWeaponInputController
         { _uncertain|=SuppressNative;_available=false;return; }
         if(_owner!=state.Owner||_bootstrap!=state.Bootstrap||_manifest!=state.Manifest)
         {Reset();_owner=state.Owner;_bootstrap=state.Bootstrap;_manifest=state.Manifest;}
+        if(!state.HasWeapon)
+        {Reset();_owner=state.Owner;_bootstrap=state.Bootstrap;_manifest=state.Manifest;return;}
         _available=true;_uncertain=false;_canonicalSelected=state.Selected;_canonicalOptic=state.Optic;
         if(_nativeFence!=0&&(state.SettledSequence>=_nativeFence
             ||!_ambiguousEquip&&state.SelectionDenied==_nativeFence))

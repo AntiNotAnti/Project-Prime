@@ -42,7 +42,7 @@ public static partial class NetSession
     internal static bool TrySubmitCustomWeaponControl(CustomWeaponActionKind kind,byte optic,out CustomControlRequest request)
     {
         request=default;
-        if (!CustomWeaponReplicaReady || CurrentCustomCombat() is not { State: { } state } client
+        if (!CustomWeaponReplicaReady || CurrentCustomCombat() is not { State: {HasWeapon:true} state } client
             || state.State.Owner.Slot!=LocalSlot
             || !NetPlayerLifecycle.Matches(LocalSlot,state.State.Owner.Generation,state.State.Owner.Life)) return false;
         return client.TrySubmitControl(kind,optic,Clock,out request);

@@ -40,13 +40,14 @@ public partial class Scene
     {
         var current=!NetSession.Active?OfflineWeapons?.InputProjection(player)
             :player.SlotIndex==NetSession.LocalSlot?NetSession.CustomWeaponInputProjection:null;
-        return current is {} value&&value.Owner==staged.Owner&&value.Bootstrap==staged.Bootstrap&&value.Manifest==staged.Manifest;
+        return current is {HasWeapon:true} value&&staged.HasWeapon&&value.Owner==staged.Owner&&value.Bootstrap==staged.Bootstrap&&value.Manifest==staged.Manifest;
     }
     private bool TryCustomCycleState(PlayerEntity player,in CustomInputProjection projection,out WeaponStateSnapshot state)
     {
         state=default;
+        if(!projection.HasWeapon)return false;
         if(!NetSession.Active)return OfflineWeapons?.TryPeek(player,out state,out _)==true&&state.Owner==projection.Owner;
-        if(NetSession.CustomWeaponPresentationState is not {} message||message.State.Owner!=projection.Owner
+        if(NetSession.CustomWeaponPresentationState is not {HasWeapon:true} message||message.State.Owner!=projection.Owner
             ||message.Bootstrap!=projection.Bootstrap||message.Manifest!=projection.Manifest)return false;
         state=message.State;return true;
     }
@@ -79,14 +80,13 @@ public partial class Scene
             allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay,
             native||player.ModNativeWheelReleaseIntent||controls.NextWeapon.IsPressed||controls.PrevWeapon.IsPressed||controls.CustomWeapon.IsPressed);
         var projection=NetSession.Active?NetSession.CustomWeaponInputProjection:OfflineWeapons?.InputProjection(player);
-        if(!NetSession.Active&&projection==null)
+        if(!NetSession.Active&&projection==null||projection is {HasWeapon:false})
         {
-            // Offline absence is a definite empty life, not an unacknowledged
-            // online selection. A dead owner's uncertainty cannot block the
-            // native weapon after an empty respawn.
+            // Explicit absence is a definite empty life. Lost online readiness
+            // remains uncertain, while an empty respawn must allow native fire.
             player.ModCancelCustomWheelHold();
             player.ModResolveCustomWheelRelease(false,false,out _);
-            ReleaseCustomWeaponInput();player.ModSynchronizeCustomNativeSuppression();return;
+            ReleaseCustomWeaponInput();_customFeedback?.Synchronize(null);player.ModSynchronizeCustomNativeSuppression();return;
         }
         if(projection==null&&_customInput==null)return;
         if(!ReferenceEquals(_customInputPlayer,player))
