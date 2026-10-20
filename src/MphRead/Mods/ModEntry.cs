@@ -1897,20 +1897,38 @@ namespace MphRead.Mods
             }
 
 #if !ANDROID && !MPHREAD_SERVER
-            if (HasFlag(args, "momentumdev"))
+            if (HasFlag(args, "momentumdev") || HasFlag(args, "momentumq3dev"))
             {
-                string? room = ValueAfter(args, "momentumdev");
+                bool quakePractice = HasFlag(args, "momentumq3dev");
+                string? room = ValueAfter(args, quakePractice ? "momentumq3dev" : "momentumdev");
                 string? secondsText = ValueAfter(args, "seconds");
                 int? ticks = null;
-                if (string.IsNullOrWhiteSpace(room)
+                if (HasFlag(args, "momentumdev") && quakePractice
+                    || !quakePractice && HasFlag(args, "tuning")
+                    || string.IsNullOrWhiteSpace(room)
+                    || HasFlag(args, "tuning") && string.IsNullOrWhiteSpace(ValueAfter(args, "tuning"))
+                    || HasFlag(args, "seconds") && secondsText == null
                     || secondsText != null && (!int.TryParse(secondsText, out int seconds) || seconds < 1 || seconds > 600))
                 {
-                    Console.Error.WriteLine("Usage: -momentumdev <offline multiplayer room> [-hunter H] [-seconds 1..600]");
+                    Console.Error.WriteLine("Usage: -momentumdev <offline multiplayer room> [-hunter H] [-seconds 1..600], or -momentumq3dev <room> [-hunter H] [-seconds 1..600] [-tuning <json>]");
                     Environment.ExitCode = 2;
                     return true;
                 }
                 if (secondsText != null) ticks = int.Parse(secondsText) * Render.FrameTiming.SimulationHz;
-                Environment.ExitCode = Movement.MomentumDeveloperLaunch.Run(room, ParseHunter(args), ticks);
+                try
+                {
+                    Movement.MomentumPracticeTuning? tuning = null;
+                    if (quakePractice)
+                        tuning = ValueAfter(args, "tuning") is string file
+                            ? Movement.MomentumPracticeTuning.Load(file) : Movement.MomentumPracticeTuning.Quake3Default;
+                    Environment.ExitCode = Movement.MomentumDeveloperLaunch.Run(room!, ParseHunter(args), ticks, tuning);
+                }
+                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException
+                    or System.Text.Json.JsonException or ArgumentException)
+                {
+                    Console.Error.WriteLine("Movement practice refused: " + ex.Message);
+                    Environment.ExitCode = 2;
+                }
                 return true;
             }
 #endif

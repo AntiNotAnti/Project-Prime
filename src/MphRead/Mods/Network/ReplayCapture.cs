@@ -36,6 +36,21 @@ namespace MphRead.Mods.Network
             };
         }
 
+        internal static bool LiveRecordingActive => DemoRecorder.IsRecording
+            || ServerReplayRecorder.IsRecording || DemoClip.IsSaving;
+
+        internal static bool CanStartLiveRecording(out string? error)
+        {
+            // Do not query Active: retirement does not make an unsupported scene recordable.
+            if (GameState.Current.Owner?.DeveloperMomentumPracticeTuning != null)
+            {
+                error = "Replay recording is unavailable for private movement practice tuning. Start a fresh scene to record supported rules.";
+                return false;
+            }
+            error = null;
+            return true;
+        }
+
         internal static bool NeedsWorld => (!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
             || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled || DemoClip.Active))
             || DemoClip.IsSaving || DemoRecorder.IsRecording || ServerReplayRecorder.IsRecording;

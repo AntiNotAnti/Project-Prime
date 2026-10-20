@@ -102,6 +102,8 @@ namespace MphRead.NetTest
                     + "  --compact-intents                 Test compact live intent transport and replay compatibility.\n"
                     + "  --shot-proof-scene <assets> [room] Test shot proof with real scene assets.\n"
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
+                    + "  --momentum-practice-tuning         Test private Quake III draft coefficients and speed building.\n"
+                    + "  --momentum-practice-scene <assets> [json] Test private draft input, native jump and collision.\n"
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
@@ -646,6 +648,13 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return MomentumOnlineSceneTests.Run(movementPort, model, output, seconds, replay, touchModel);
             }
+            if (args.Length > 1 && args[0] == "--momentum-practice-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumPracticeSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--momentum-match-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -653,6 +662,7 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return MomentumMatchSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--momentum-practice-tuning") return MomentumPracticeTuningTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-profile") return MomentumProfileTests.Run();
             if (args.Length > 1 && (args[0] == "--momentum-collision"
                 || args[0] == "--momentum-specials" || args[0] == "--momentum-abilities"
