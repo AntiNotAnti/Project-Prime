@@ -96,10 +96,72 @@ OFF/ON and hidden-room frames. Its scripted visited bits are fixture state,
 not evidence of a real campaign playthrough. Fan Room arithmetic with real
 NAV origins is distinct from standing at a real upper door or connector.
 
-Frozen integrated results follow after verification. Windows authentication
+Frozen integrated results are recorded below. Windows authentication
 was unavailable; the user-authorized Mac fallback is used. Physical touch,
 controller and Android gameplay, actual upper-door/connector travel, complete
 campaign acceptance and performance qualification remain open. No achieved
 display-Hz, frame-pacing improvement, source-lighting fidelity, cockpit or
 ending/credits completion is implied. SH-08A/B are separate work. Rollback is
 turning this optional preference OFF or reverting this room-detail slice.
+
+
+## Frozen combined verification
+
+Production source `6724e5a6950c87a3e8ecd49e6e7793ecc6648cfc`, tree
+`ac3fdbf8b4bfab1c7db21d8aabfe7f4028462ae3`, passed desktop and dedicated
+Release with0 warnings/errors and Android Release/AOT/signedAPK with25
+existing XML documentation warnings and0 errors. All5852 archived tracked
+files remained unchanged. This union includes the earlier Overcharged,
+protocol64 and lobby slices. DLL SHA256:
+
+- Desktop: `5eff325be56ca0f13c7d97198f7800cbe5838ceb7ed166fc6f53dc192d820cfc`.
+- Dedicated: `8d0820045512375bd5d1efd160594061e5a5316a630ff4a96db82fd472013664`.
+- SignedAPK: `354ac4c7e59d17e85e0d100e965bc53464d209cea11b84f38011e82d182657e1`.
+
+Passing regressions include map-detail91, campaign presentation/navigation/
+journey/dialog/ship/endings, the full native menu/settings suite, settings
+archive26, game files18, touch/Classic/handoff, Android input54 and pause38,
+pointer1790, controller1014, character/source-rig904, import RVZ997 and CPP09197
+plus bundle/batch/motion fixtures, ownership42, browser126, closed UDP
+loopback652 and four replay suites (414/299/84/51). The explicit legacy
+controller diagnostic uses the documented `PROJECT_PRIME_RMLUI_GL_SMOKE=0`;
+its Avalonia-startup fixture assumes that mode. The bare diagnostic's stale
+startup failure is retained in predecessor evidence. Native UI separately
+passes its complete suite; no runtime UI policy was reverted.
+
+The final actual-native GL diagnostic uses test-only commit
+`981cace4e959f41ace22a502fc32bf8651d35795` against the exact production DLL
+above. A complete5852-file witness confirms the sole changed tracked file is
+the diagnostic; every production file is byte-identical. It passed1682 checks
+on Apple M4 Pro/OpenGL2.1 Metal91.7 at actual1600x1200 and1920x1080 framebuffers.
+OFF submits0 detail triangles; ON10286. Clearing the selected room48 visit bit
+removes exactly3205 triangles, leaving7081. Its4 door-mesh draws become0;
+legitimate reopened/current visited room45 retains2 doors, and explicitly
+reselecting hidden48 emits0. Root visually inspected both aspect ratios:
+the room shape and door glyphs disappear and the location reads UNKNOWN
+LOCATION. All12 relevant source input hashes remain unchanged, and the
+isolated save context is deleted.
+
+The original6724 diagnostic incorrectly assumed reopening retained the
+hidden selection. Native reopening correctly selects the visited current
+room. The test-only correction first proves that room keeps its doors, then
+explicitly selects the hidden node to test its annotation gate. The failed
+fixture receipt remains recorded; this correction changed no runtime bytes.
+
+Scripted held Move input advances60 fixed ticks under virtual60/120/144 host
+cadences, with matching pan offsets within0.001; the corresponding picture
+counts are60/120/145. These are virtual schedules and actual functional GL
+draws, not achieved refresh, pacing or performance measurements. Normal
+Pause exit and actual Scene cleanup while paused both retire the detail owner,
+including refusal through an older completed load reference. Fan Room tests
+use real NAV origins and the shared height arithmetic; the player remains in
+room45, so actual upper-door traversal is not claimed.
+
+All16 final private screenshots were inspected and removed, retaining only
+metadata/hash receipts. Local evidence is under
+`artifacts/sh-integration/map-6724e5a69`, including the production archive,
+source integrity, separate harness witness and final GL receipt. Earlier
+failed/superseded runs remain explicitly scoped. Actual Echoes source exports
+were not rerun for this UI-only slice; their earlier frozen source proof
+remains separate. Per user instruction this locally verified slice merges
+without waiting for review or CI, with no CI result claim.
