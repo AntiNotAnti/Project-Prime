@@ -233,14 +233,18 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
 
     public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
     {
+        string root = GameFiles.Root;
         string[] rooms = Shell.RmlUiOfflineRooms().ToArray();
         if (!GameFiles.Ready) return Task.FromResult("CONFIGURE GAME FILES BEFORE OFFLINE PLAY");
-        if (!request.ValidateForm(rooms)) return Task.FromResult("INVALID OFFLINE MAP OR MATCH CHOICE");
-        // Entity/room capability checks can touch the map registry and must
-        // never block the native compositor's GL owner thread.
+        if (!request.ValidateForm(rooms)) return Task.FromResult("SELECT AN INSTALLED OFFLINE ARENA AND TRY AGAIN");
+        // Reading the entity layer belongs to an immutable configured-files
+        // lease. Other menu/status workers can otherwise republish the global
+        // Paths between form validation and the asynchronous map inspection.
         return Task.Run(() =>
         {
             token.ThrowIfCancellationRequested();
+            using var files = GameFiles.TryUseConfiguredFiles(root);
+            if (files == null) return "GAME FILE CONFIGURATION CHANGED // REOPEN OFFLINE BATTLE";
             if (!MapModeCapabilities.Supports(request.RoomKey, request.Mode,
                     MatchWorldProfile.Resolve(request.Bots + 1), out string reason,
                     request.Bots + 1, allowLocalSource: true))

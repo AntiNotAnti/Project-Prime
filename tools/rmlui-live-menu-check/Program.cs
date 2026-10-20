@@ -1182,6 +1182,7 @@ SocialConnectionAcceptance.Run();
 PartyQueueAcceptance.Run();
 RandomMatchAcceptance.Run();
 CreatedLobbyCompletionAcceptance.Run();
+OfflineArenaInstallChecks.Run();
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices
