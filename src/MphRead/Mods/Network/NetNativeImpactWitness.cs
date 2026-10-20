@@ -92,6 +92,7 @@ internal static class NetNativeImpactWitness
             point, channel, flags.TestFlag(DamageFlags.Headshot), beam.SpawnPosition,
             exactSegment ? segment!.Value.Start : beam.BackPosition,
             exactSegment ? segment!.Value.End : beam.Position, direct, ordinary);
+        if (witness.Valid) NetCombatFastPath.NativeBefore(victim, beam, witness);
         return new Scope(witness.Valid ? witness : null);
     }
 }

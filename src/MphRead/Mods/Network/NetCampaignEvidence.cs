@@ -544,6 +544,7 @@ internal static partial class NetCampaignEvidence
                 TimedCaseJoins = NetTimedCampaignJoin.Capture(),
                 CombatReconciliation = NetHitPrediction.Capture(),
                 CombatPayments = NetCombatPayments.Capture(),
+                CombatFastPath = NetCombatFastPath.Capture(),
                 ShotTimeline = CaptureShotTimeline(),
                 ExpectedContacts = NetCampaignHitOracle.Capture(),
                 PresentationSchedule,

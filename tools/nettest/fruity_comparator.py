@@ -50,6 +50,7 @@ def validate_options(args):
                  'pacing_lobby_client', 'timed_replay_facts', 'observer_delay'):
         if getattr(args, name, False): unsupported.append('--' + name.replace('_', '-'))
     if args.ai_net_client is not None: unsupported.append('--ai-net-client')
+    if getattr(args, 'combat_fastpath', 'off') != 'off': unsupported.append('--combat-fastpath')
     if args.timed_grant_proof != 'off': unsupported.append('--timed-grant-proof')
     if args.evidence_row_limit is not None: unsupported.append('--evidence-row-limit')
     if args.shot_proof != 'shadow': unsupported.append('--shot-proof')

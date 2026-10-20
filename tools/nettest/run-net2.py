@@ -41,6 +41,8 @@ def child_environment(args, name, profile, inherited=None):
     env.update(PROJECT_PRIME_USER_DATA=str(profile), ALSOFT_DRIVERS="null",
                MPHREAD_PHASE_SECONDS="2", PRIME_NET2_EVIDENCE=str(args.out / f"{name}.json"),
                PRIME_SHOT_PROOF=args.shot_proof)
+    if name == "server" and getattr(args, "combat_fastpath", "off") != "off":
+        env["PRIME_COMBAT_FASTPATH"] = args.combat_fastpath
     if args.timed_grant_proof != "off":
         env["PRIME_TIMED_GRANT_PROOF"] = args.timed_grant_proof
     if getattr(args, "shot_timeline", False):
@@ -672,6 +674,8 @@ def run(args):
         manifest["harnessSha256"]["fruity_comparator.py"] = digest(Path(__file__).with_name("fruity_comparator.py"))
         manifest["emulatedFixture"] = qualified_fixture(args)
         manifest["fixtureAssetCopies"] = fixture_asset_copies
+    manifest["combatFastPath"] = {"mode": getattr(args, "combat_fastpath", "off"),
+        "scope": "Authority-only read-only observation; no early claim family enabled"}
     if getattr(args, "claim_receipts", False):
         manifest["harnessSha256"]["ncx_receipts.py"] = digest(Path(__file__).with_name("ncx_receipts.py"))
     save(args.out / "manifest.json", manifest)
@@ -1033,6 +1037,8 @@ def parse_args(argv=None):
     p.add_argument("--protocol", type=int, help="Expected evidence protocol; defaults to checkout, set explicitly for historical binaries")
     p.add_argument("--shot-proof", choices=("off", "shadow", "enforce"), default="shadow",
                    help="Record and apply the explicit N4 admission mode")
+    p.add_argument("--combat-fastpath", choices=("off", "shadow"), default="off",
+                   help="Explicit authority-only NCX03 read-only decision observation; no settlement changes")
     p.add_argument("--timed-grant-proof", choices=("off", "shadow"), default="off",
                    help="Explicit NET-01 timed certificate observation; independent of legacy --shot-proof")
     p.add_argument("--timed-replay-facts", action="store_true",

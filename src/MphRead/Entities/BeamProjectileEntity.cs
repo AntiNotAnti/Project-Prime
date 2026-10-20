@@ -133,6 +133,7 @@ namespace MphRead.Entities
             try
             {
                 player.TakeDamage(damage, flags, direction, this);
+                NetCombatFastPath.NativeAfter(player, this, before);
                 if (ModCustomShot is { } accepted)
                     _scene.OfflineWeapons?.Impact(accepted,player,before,turretBefore,flags,impactPoint);
             }
