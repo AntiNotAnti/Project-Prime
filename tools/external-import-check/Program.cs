@@ -10,6 +10,8 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-world-coordinates")
+        return EchoesSourceCoordinateOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-texture-banks")
         return RetroTextureOwnedProbe.Run(args[1], roundTripBanks: true);
     if (args.Length == 2 && args[0] == "--probe-textures")
@@ -151,6 +153,7 @@ try
     LocalImportBatchTests.Run();
     DarkSamusSourceFixtureTests.Run();
     EchoesWorldSourceFixtureTests.Run();
+    EchoesSourceCoordinateTests.Run();
     EchoesVisualLayerFixtureTests.Run();
     EchoesCannonFixtureTests.Run();
     EchoesRouteFixtureTests.Run();
@@ -161,6 +164,7 @@ try
     RetroTextureSourceTests.Run();
     EchoesSourceTextureBankTests.Run();
     SourceBankMaterialSnapshotTests.Run();
+    RetroMaterialBoundsTests.Run();
     Console.WriteLine("PASS: local GameCube source bounds, files, SHA-1 receipts and negative fixtures");
     return 0;
 }

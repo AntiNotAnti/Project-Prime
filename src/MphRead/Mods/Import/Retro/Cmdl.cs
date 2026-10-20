@@ -8,7 +8,7 @@ namespace MphRead.Mods.Import.Retro
     // blend, TEV stages, texgens, UV animations), the vertex arrays and every surface's GX display list turned into
     // per-corner triangles. Port of prime_model.py's load_model / read_material (as PrimeWorldEditor's CModelLoader /
     // CMaterialLoader read them, MIT; Metaforce documents the bit fields).
-    public sealed class Cmdl
+    public sealed partial class Cmdl
     {
         // material flag bits (Metaforce MaterialSet)
         public const uint Konst = 0x8, DepthSort = 0x10, AlphaTest = 0x20, Reflect = 0x40, DepthWrite = 0x80, ReflectEye = 0x100,
@@ -80,94 +80,6 @@ namespace MphRead.Mods.Import.Retro
 
         public int PositionCount => Positions.Length / 3;
         public int TriangleCount => TriangleMaterial.Length;
-
-        static TevStage[] ReadStages(byte[] b, ref int o)
-        {
-            int n = checked((int)Be.U32(b, o)); o += 4;
-            var st = new TevStage[n];
-            for (int i = 0; i < n; i++)
-            {
-                uint ci = Be.U32(b, o), ai = Be.U32(b, o + 4), co = Be.U32(b, o + 8), ao = Be.U32(b, o + 12);
-                var s = new TevStage
-                {
-                    ColorOp = TevOp.From(co), AlphaOp = TevOp.From(ao), RawColorOp = co, RawAlphaOp = ao,
-                    KAlpha = b[o + 17], KColor = b[o + 18], Ras = b[o + 19],
-                };
-                for (int k = 0; k < 4; k++)
-                {
-                    s.ColorIn[k] = (int)(ci >> (5 * k)) & 0x1F;
-                    s.AlphaIn[k] = (int)(ai >> (5 * k)) & 0x1F;
-                }
-                st[i] = s;
-                o += 20;
-            }
-            for (int i = 0; i < n; i++)
-            {
-                st[i].Tex = b[o + 2]; st[i].TexCoord = b[o + 3]; o += 4;
-            }
-            return st;
-        }
-
-        public static Material ReadMaterial(byte[] b, int o, int end, bool echoes)
-        {
-            var m = new Material();
-            m.Flags = Be.U32(b, o); o += 4;
-            int n = checked((int)Be.U32(b, o)); o += 4;
-            m.Tex = new int[n];
-            for (int i = 0; i < n; i++) m.Tex[i] = checked((int)Be.U32(b, o + 4 * i));
-            o += 4 * n;
-            m.VertexAttributes = Be.U32(b, o); o += 4;
-            if (echoes)
-            {
-                m.EchoesUnknown = new[] { Be.U32(b, o), Be.U32(b, o + 4) };
-                o += 8;
-            }
-            m.Group = Be.U32(b, o); o += 4;
-            if ((m.Flags & Konst) != 0)
-            {
-                n = checked((int)Be.U32(b, o)); o += 4;
-                m.Konst = new byte[n][];
-                for (int i = 0; i < n; i++) m.Konst[i] = Be.Slice(b, o + 4 * i, 4);
-                o += 4 * n;
-            }
-            m.BlendDst = Be.U16(b, o); m.BlendSrc = Be.U16(b, o + 2); o += 4;
-            if ((m.Flags & IndStage) != 0)
-            {
-                m.IndTex = Be.U32(b, o); o += 4;
-            }
-            n = checked((int)Be.U32(b, o)); o += 4;
-            m.Channels = new uint[n];
-            for (int i = 0; i < n; i++) m.Channels[i] = Be.U32(b, o + 4 * i);
-            o += 4 * n;
-            m.Stages = ReadStages(b, ref o);
-            n = checked((int)Be.U32(b, o)); o += 4;
-            m.TexGens = new TexGen[n];
-            for (int i = 0; i < n; i++)
-            {
-                uint g = Be.U32(b, o + 4 * i);
-                m.TexGens[i] = new TexGen
-                {
-                    Type = (int)g & 0xF, Src = (int)(g >> 4) & 0x1F, Mtx = (int)(g >> 9) & 0x1F, Normalize = (g & 0x4000) != 0, Post = (int)(g >> 15) & 0x3F,
-                };
-            }
-            o += 4 * n;
-            int size = checked((int)Be.U32(b, o)); o += 4;
-            int aEnd = o + size;
-            n = checked((int)Be.U32(b, o)); o += 4;
-            m.UvAnims = new UvAnim[n];
-            for (int i = 0; i < n; i++)
-            {
-                uint mode = Be.U32(b, o); o += 4;
-                int k = mode switch { 2 => 4, 3 => 2, 4 => 4, 5 => 4, 7 => 2, 8 => 9, _ => 0 };
-                var p = new double[k];
-                for (int j = 0; j < k; j++) p[j] = Be.F32(b, o + 4 * j);
-                o += 4 * k;
-                m.UvAnims[i] = new UvAnim { Mode = mode, Params = p };
-            }
-            if (o != aEnd) throw new InvalidDataException($"uv anim block ends at {o:x}, expected {aEnd:x}");
-            if (o > end) throw new InvalidDataException($"material overran by {o - end}");
-            return m;
-        }
 
         // res: resource bytes by id; matSet 0 = the model's own (Prime 1's morph ball keeps Power / Varia / Gravity looks
         // as sets 0 / 1 / 2; Echoes' VariaArm keeps one set per suit)
