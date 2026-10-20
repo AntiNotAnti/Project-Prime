@@ -122,6 +122,7 @@ namespace MphRead.Mods.Render
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
             failures += RunAngularCameraPresentationCase() ? 0 : 1;
             failures += RunThirdPersonFormHandoffCase() ? 0 : 1;
+            failures += RunThirdPersonSpawnAndNearWallCase() ? 0 : 1;
             failures += RunThirdPersonShotReticleCase() ? 0 : 1;
             failures += RunFastLateAimCase() ? 0 : 1;
             failures += RunLockjawNoiseCases();
@@ -534,6 +535,69 @@ namespace MphRead.Mods.Render
             Console.WriteLine("FRAMETIMING " + (correct ? "ok  " : "FAIL")
                 + " third-person biped / Morph Ball view handoff (60/120/240Hz)");
             return correct;
+        }
+
+        /// <summary>
+        /// The shoulder camera must render the first active spawned frame,
+        /// without requiring movement or wall clearance. A wall may compress
+        /// its offset; fading only the local biped preserves collision and
+        /// never restores the first-person cannon. This test also exercises
+        /// the already-resolved render eye overload and respawn lifetime reset.
+        /// </summary>
+        private static bool RunThirdPersonSpawnAndNearWallCase()
+        {
+            bool active = ThirdPersonCameraPolicy.ShowShoulder(
+                isLiveMatchView: true, CameraType.First, isAltForm: false);
+            bool notAlt = !ThirdPersonCameraPolicy.ShowShoulder(
+                isLiveMatchView: true, CameraType.Third1, isAltForm: true)
+                && !ThirdPersonCameraPolicy.ShowShoulder(
+                    isLiveMatchView: true, CameraType.Third2, isAltForm: true)
+                && !ThirdPersonCameraPolicy.ShowShoulder(
+                    isLiveMatchView: false, CameraType.First, isAltForm: false);
+            float[] distances = { 0f, 0.2f, 0.3f, 0.6f, 0.8f, 1.05f, 2.4f };
+            float prior = 0f;
+            bool continuous = true;
+            foreach (float distance in distances)
+            {
+                float alpha = ThirdPersonCameraPolicy.LocalBodyOpacity(distance);
+                continuous &= active && float.IsFinite(alpha)
+                    && alpha >= prior && alpha is >= 0f and <= 1f;
+                prior = alpha;
+            }
+            continuous &= ThirdPersonCameraPolicy.LocalBodyOpacity(0f) == 0f
+                && ThirdPersonCameraPolicy.LocalBodyOpacity(2.4f) == 1f
+                && ThirdPersonCameraPolicy.LocalBodyOpacity(0.8f) > 0f
+                && ThirdPersonCameraPolicy.LocalBodyOpacity(0.8f) < 1f
+                && ThirdPersonCameraPolicy.LocalBodyOpacity(float.NaN) == 0f;
+
+            Matrix4 first = Matrix4.LookAt(new Vector3(0.5f, 1.7f, 2.4f),
+                new Vector3(0, 1, 0), Vector3.UnitY);
+            Vector3 firstEye = first.Inverted().Row3.Xyz;
+            var handoff = new ThirdPersonFormCameraHandoff();
+            Matrix4 firstPicture = handoff.Present(first, firstEye,
+                CameraType.First, 150, 7, out bool blended, out Vector3 displayedEye);
+            bool firstFrame = !blended
+                && (displayedEye - firstEye).LengthSquared < 0.000001f
+                && (firstPicture.Inverted().Row3.Xyz - firstEye).LengthSquared < 0.000001f;
+
+            Matrix4 ball = Matrix4.LookAt(new Vector3(2f, 1f, 3f),
+                new Vector3(0, .5f, 0), Vector3.UnitY);
+            handoff.Present(ball, ball.Inverted().Row3.Xyz,
+                CameraType.Third1, 151, 7, out bool switching, out _);
+            handoff.Reset(); // Spawn or respawn into a fresh playable life
+            Matrix4 next = Matrix4.LookAt(new Vector3(12, 2, 13),
+                new Vector3(12, 1, 10), Vector3.UnitY);
+            Vector3 nextEye = next.Inverted().Row3.Xyz;
+            Matrix4 restored = handoff.Present(next, nextEye,
+                CameraType.First, 151, 7, out bool staleBlend, out Vector3 actual);
+            bool respawn = switching && !staleBlend
+                && (actual - nextEye).LengthSquared < 0.000001f
+                && (restored.Inverted().Row3.Xyz - nextEye).LengthSquared < 0.000001f;
+
+            bool ok = active && notAlt && continuous && firstFrame && respawn;
+            Console.WriteLine("FRAMETIMING " + (ok ? "ok  " : "FAIL")
+                + " shoulder camera first playable frame, near-wall fade and respawn reset");
+            return ok;
         }
 
         /// <summary>
