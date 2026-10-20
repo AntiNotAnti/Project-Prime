@@ -25,7 +25,12 @@ public readonly record struct CorpsePose(Vector3 Position, Quaternion Orientatio
         => new(Vector3.Lerp(before.Position, after.Position, alpha), Quaternion.Slerp(before.Orientation, after.Orientation, alpha));
 }
 public readonly record struct CorpsePart(CorpsePose Rest, Vector3 Size, float Mass, int Parent,
-    Vector3 Joint, float Swing, float Twist);
+    Vector3 Joint, float Swing, float Twist)
+{
+    // Common rest-space joint frame for both connected bodies. Local Z is
+    // the twist axis; identity retains the original primitive pilot policy.
+    public Quaternion JointBasis { get; init; } = Quaternion.Identity;
+}
 
 public sealed class CorpseRig
 {
@@ -44,7 +49,8 @@ public sealed class CorpseRig
                 || p.Size.Y is < .03f or > 2 || p.Size.Z is < .03f or > 2
                 || !float.IsFinite(p.Mass) || p.Mass is < .5f or > 4
                 || p.Parent < -1 || p.Parent >= i || (i == 0 ? p.Parent != -1 : p.Parent < 0)
-                || !Limits.Position(p.Joint) || !float.IsFinite(p.Swing) || p.Swing is < .05f or > 1.5f
+                || !Limits.Position(p.Joint) || !Limits.UnitQuaternion(p.JointBasis)
+                || !float.IsFinite(p.Swing) || p.Swing is < .05f or > 1.5f
                 || !float.IsFinite(p.Twist) || p.Twist is < .01f or > .8f
                 || p.Rest.Position.LengthSquared() > 16 || p.Joint.LengthSquared() > 16
                 || (p.Joint - p.Rest.Position).LengthSquared() > 1
@@ -53,7 +59,8 @@ public sealed class CorpseRig
         }
         Name = name; _parts = parts.ToArray();
         for (int i = 0; i < _parts.Length; i++)
-            _parts[i] = _parts[i] with { Rest = _parts[i].Rest with { Orientation = Quaternion.Normalize(_parts[i].Rest.Orientation) } };
+            _parts[i] = _parts[i] with { Rest = _parts[i].Rest with { Orientation = Quaternion.Normalize(_parts[i].Rest.Orientation) },
+                JointBasis = Quaternion.Normalize(_parts[i].JointBasis) };
     }
 }
 // Right-handed, counterclockwise when viewed from the collidable outside.
