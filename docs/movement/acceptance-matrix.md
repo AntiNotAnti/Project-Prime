@@ -46,7 +46,7 @@ not physical-device, achieved-refresh or performance acceptance.
 | Spectators / JIP / death / slot reuse / transitions | [PR-09 network](evidence/pr09-network-draft.json): genuine4human+4bot roster, live disconnect/rejoin/generation change, natural respawn, spectator cohorts, same-map rematches and distinct `MP3 PROVING GROUND`→`MP1 SANCTORUS` rotation. | **PASS named model pairs.** Spectator cohort has8slots but7playingentities. Roster/lifecycle acceptance is separate from combat-lifecycle combinations; exact simultaneous death/form/shot/rewind timing is not exhaustively covered. |
 | Replay old/current mode / seek / export / killcam | [PR-06](pr06-results.md): actual Native/Momentum Clip/FullMatch, memory/durable seeks, private worlds, rewind geometry, GL theatre/export/killcam; [PR-08](pr08-results.md): cached/uncached labels. Qualified protocol57 recording:1,980 frames/14seeks/five rates; v1/protocol4 timing and reviewed56/57/58/59 archival fixtures. | **PASS these historical fixtures and repaired exact packet comparison, not arbitrary old archives.** The91f index regression and failed repair attempts remain preserved; [PR-752](https://github.com/AntiNotAnti/Project-Prime/pull/752) passes all six exact comparison targets and unchanged scene digests. Saved-world indexes fall back to complete packet history; packet-only acceleration remains deferred. See [replay validation](replay-validation.md). No blanket old-replay compatibility claim. |
 | UI / defaults / rollback | [PR-08](pr08-results.md): native GL lobby248 checks and offline126 at each640×360/1280×720/1920×1080; legacy19, metadata54, offline109; authority checks. | **PASS stated UI paths.** Classic default, explicit host/offline choice, stale/nonowner refusal and recorded-mode labels. Android emulator uses its actual Avalonia/GLES backend; optional native Android UI is not inferred. |
-| CI / solver allocation / integrated performance | [PR-01](pr01-results.md), [PR-03](pr03-results.md): warmed solver/profile zero allocation; [PR-09 performance](evidence/pr09-performance-draft.json) and [results](pr09-results.md): matched retained Native/Momentum workloads, timing tails and diagnostic cycles. | **FAIL integrated5%p95 gate on Proving Ground.** Later default shot-proof environment pin does not relabel old undisclosed settings. p99/worst and workload differences remain visible. Relevant hosted CI was queued at documented inspection; **OPEN final green CI and retained-source refresh**. No new timing run or budget waiver is authorized by this audit. |
+| CI / solver allocation / integrated performance | [PR-01](pr01-results.md), [PR-03](pr03-results.md): warmed solver/profile zero allocation; [PR-09h](pr09h-results.md): all 32 timing arms, 16 CPU audits and 48 archive checks retained. | **OPERATOR ACCEPTS CURRENT TRADEOFF (2026-10-19); optimization deferred.** CPU diagnostic p95 increases are +12.9436% / +5.25246%; predeclared observer controls fail, so both measurements remain inconclusive. Historical 5% failures, p99/worst, world allocations and workload differences remain visible. No false measurement pass or new numerical guarantee. **OPEN final relevant green CI**; current42 compatibility and the receipt-ordering repair are independently documented. |
 
 ## Platform and input coverage
 
@@ -62,9 +62,10 @@ not physical-device, achieved-refresh or performance acceptance.
 1. The indexed replay regression is repaired with exact decoder/player checks
    intact. Keep the saved-world versus packet-only distinction; no indexed
    acceleration acceptance follows from the canonical linear fallback.
-2. Resolve or explicitly decide the documented failed integrated performance
-   budget. Small absolute frame cost and a passing second room do not satisfy
-   the agreed relative gate. Do not run timing on a busy user's host.
+2. The operator accepted the documented performance tradeoff on 2026-10-19
+   and deferred optimization. Retain the original threshold failures and
+   inconclusive CPU controls as diagnostics; do not relabel them as passes.
+   Do not run timing on a busy user's host.
 3. Representative actual team/objective gameplay now passes in DefenderTeams.
    Keep the separate unsuccessful Nodes capture control and stated physical/
    platform gaps explicitly unverified. The plan permits unavailable hardware
