@@ -60,29 +60,33 @@ packets, replay state or new simulation controller are imported.
 
 ## Qualification
 
-Frozen combined source `cf54892cbea3568041f23e9b058d68ea8c57e8e9`
-includes main through `7513ece03` (scoreboard/lobby return and Aim Lab routing).
+Frozen combined source `6d311aef552b22a37f6c6721812283cc9b993d6e`
+includes main through `7762666cd` (scoreboard/lobby return, Aim Lab routing,
+corpse-profile work and native-picker/test corrections).
 Mac SDK10.0.401 desktop Release passes with one inherited CS0649 warning and
 zero errors. The shipping desktop DLL SHA256 is
-`799f8dd3c2a747bd7f45ca7163db22faf8aba50966f2f6d1823a32e31e552bf0`;
-nettest is `782cf5f8c653ff94ca2ae68256dba9dbed2e78637f43743a3f26550855c7253c`.
-Both binaries and all6,332 tracked inputs remain unchanged throughout the
+`428af3405eb8ef28bd21ab940ba8a2186ff08a6d9c896d7b18b4fc55d12a712b`;
+nettest is `02f3e1fc0a9ff78492344a2a29f5f5ab3e9a71b852489e4bd11bfc5bf54d77b7`.
+Both binaries and all6,337 tracked inputs remain unchanged throughout the
 following runs. Logs, commands, inventories and exact numeric results remain
-local under `artifacts/sh-integration/scout-drone-cf54892cb/`.
+local under `artifacts/sh-integration/scout-drone-6d311aef5/`.
 
 | Check | Result and scope |
 | --- | --- |
-| Isolated dedicated Release |54.34s, one inherited CS0649 warning/zero errors; retained DLL SHA256 `33630a8ac7f6aff42b011569dbaf9cb257c972f2258c1203c59266748c6d94f7` |
+| Isolated dedicated Release |Captured exit0; initial full compile one inherited CS0649 warning/zero errors, same-source incremental confirmation zero warnings/errors; retained DLL SHA256 `87cc04db766e048620edfa875097dd05b7fe58f6d049cb5ecfff041e0452f57d` |
 | Source-free wall owner and offline plan |276 and166 assertions; explicit capture, refusal, lifetime/registry/rule fences and native defaults |
-| Owned initialized Scene |4,936 assertions; real native keyboard/mouse input, split79=>40+39, body damage12=>6+6, merge67, room-floor hover cap1.5998536, exact32/150/24/120 timeline,38 bolts/94 nominal damage, release/current-aim/merge/freeze/death/retirement and native Weavel controls |
+| Owned initialized Scene |4,958 assertions; real native keyboard/mouse input, split79=>40+39, body damage12=>6+6, merge67, room-floor hover cap1.5998536, exact32/150/24/120 timeline,38 bolts/94 nominal damage, release/current-aim/merge/freeze/death/retirement and native Weavel controls |
 | Wall-cling initialized Scene regression |1,403 assertions,608 simulation steps, two clings, kick, timeout, zero held drift and native fall recovery |
 | Owned actual OpenGL |773 assertions,632 simulation steps,17 full Scene pictures and14 HUD-only diagnostics; native fallback meshes/trails, actual reticle pixel witness, independent HUD states, extra draws cannot advance simulation; all40 pool members and380 Scene textures retired |
 | Actual native menu OpenGL |265 assertions and27 translated intents at each960x600 and640x480; explicit drone/wall/native choices, stale preflight refusals and merged Aim Lab/Battle route boundaries; synthetic services, no match/media |
 | Source-linked runtime/capabilities |Default checks and732 capability assertions; finite native action boundary, no new ABI or inferred rule |
 | Core-bound Android handoff/live menu |66 handoff assertions and full live-menu defaults; four tool-only builds/runs each, zero warnings/errors; preserved exact core copies |
 
-The owned tests use existing local AMHE1 data read-only. All3,970 files and
-845,958,857 bytes remain unchanged. The GPU run is Apple M4 Pro, OpenGL2.1 Metal91.7;
+The owned tests use existing local AMHE1 data read-only. Each run preserves its before/after inventory of3,970 files and
+845,958,857 bytes. Between the earliercf548 and final6d freezes, precisely three
+816-byte generated `map.build.json` files changed (Prime Aim Lab, Test Arena
+and Test Pads), with no added/removed files or size changes. The normalized
+per-file comparison is retained; no cross-freeze byte-identity claim is made. The GPU run is Apple M4 Pro, OpenGL2.1 Metal91.7;
 only hashes/counts/numeric receipts are retained, with no screenshots, media or
 saves. Fresh temporary contexts are deleted. Windows SSH recovery reached the
 host but authentication was refused before any command ran, so this increment
@@ -106,13 +110,58 @@ were fixture defects, corrected without weakening the relevant oracle. Actual
 production defects were also exposed: native HUD initialization disabled the
 reticle, and anonymous pool entities survived map-guarded retirement. Commit
 `14c334cfb` fixes both and passes the strict actual GL/Scene tests; the combined
-freeze repeats them. The earlier14c Android run was deliberately superseded
-without an APK when overlapping main UI changes arrived, and is not a pass or
-a compile/gameplay failure. Later unrelated main corpse-profile work is outside
-this frozen whole-binary qualification.
+freeze repeats them. A later read-only audit exposed a third production
+defect: the body could observe a lost rules owner inside its fire condition,
+retire itself, then fall through into native turret emission. The new strict
+fixture reproduces one ordinary shot after removal against thecf548 core.
+Commit `6d311aef5` resolves the owner before the body lifetime guard; the same
+body-first call now returns false with zero ordinary/private flights, both old
+private bolts retired, cooldown600 unchanged and replay exclusion still latched.
+Native turret positive controls and all prior drone assertions remain intact.
+The explicit target/cooldown setup and direct body scheduling are synthetic,
+not a separate simulation loop. Raw red and final green receipts are retained.
 
-Android packaging qualification is still running; this paragraph is replaced
-with its exact results before this increment is merged.
+The earlier14c Android run was deliberately superseded
+without an APK when overlapping main UI changes arrived, and is not a pass or
+a compile/gameplay failure. The intermediatecf548 Android attempt was stopped by the768MiB disk reserve
+during linking, before an APK; its source compile and raw wrapper/stop logs are
+retained without a package pass. Final6d includes the later main changes above. Its first dedicated wrapper
+omitted an import after starting the compiler; the compiler log reports success
+but that wrapper did not capture its exit. The corrected same-source incremental
+confirmation captures exit0; both logs and the wrapper error are retained.
+
+The final6d parallel Android attempt also hit the disk reserve during AOT.
+A same-cache retry signed an APK but the independent inventory found zero AOT
+entries for both ABIs, so that APK was rejected and retained as failed evidence.
+No optional profile was admitted from it. Subsequent clean-cache serial-AOT builds
+pass both required Release profiles: default APK SHA256
+`dd23c3995e59119b811857d518ed73fa1ab0afea385872522d34ed83ca876fcb`
+(147,839,049 bytes), and Package+Experiment APK
+`5c5c62b5b05294b8d71575302553d405277b95a29b2edc95e5b8e0fd35bc86e2`
+(179,978,263 bytes). Both contain119 AOT libraries per ABI with correct ELF
+machines and valid v2/v3 signatures using the local Android Debug certificate.
+The default excludes the optional native bridge; the optional package matches
+fingerprint `65eb5d70c119715a3c941aa68792512d53adf760bee7bc8980fe227fd8403ec9`.
+The optional build completes in275.35 seconds with27 existing warnings and zero
+errors. Retained Android core hashes are
+`9e2f0716a05916546a7d97d4508c553f5a07e60a0dd5d226d0d5e41ce3b0d791`
+(default) and `226f58ac9f7c16198c008fc58366d64699937193df4e4fcd1ff61aa51535f2c0`
+(optional). All6,337 source inputs and the root desktop core remain unchanged.
+Scheduling changes are recorded in the exact commands without relaxing any
+AOT/signature/native gate. These are compile/package results, not Android
+runtime, UI, production-signing or playability acceptance.
+Standalone Debug is not part of this slice's final qualification.
+
+Storage recovery touched only explicitly inventoried task-created caches and
+source duplicates. Qualified binaries/packages, logs and hash/recreation receipts
+remain. Removed original source archives matched both their historical hash and
+a freshly streamed exact Git archive; source/native files remained intact. Three
+older task-created tracked source snapshots were separately retired after exact
+Git/blob verification, preserving all untracked outputs and complete recreation
+metadata. Four additional Git-tracked source/server-source trees in two completed
+PR856 snapshots were retired the same way (24,440 verified files); their commits
+remain reachable from main and all untracked outputs are unchanged. Logical
+cache sizes are not reported as physical disk recovery.
 
 These checks qualify native-fallback private mechanics and scoped rendering.
 Pad landings, ledge/ceiling acceptance, balance, imported model/animation fidelity,
@@ -122,3 +171,9 @@ Rollback: leave MECHANICS at Native (the default), or revert this increment.
 Remaining work includes laser, blaster/affinity, standing-body cylinder/headshots,
 source Trooper/drone/cannon materials and animation, authenticated multiplayer
 identity/authority and deterministic replay setup/state.
+
+After the frozen qualification, commit `e6ebd69a4` changes only one test's
+diagnostic description to match an overlapping main fix; no assertion predicate
+or production code changes. The frozen core/tool/package identities above remain
+the evidence identities. Later main changes outside the drone owners are not
+claimed as covered by this frozen whole-binary proof.
