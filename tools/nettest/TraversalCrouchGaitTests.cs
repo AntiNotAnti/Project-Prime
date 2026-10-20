@@ -101,6 +101,7 @@ internal static class TraversalCrouchGaitTests
         Check(gait.Moving && gait.Gliding, "travel above the existing threshold infers a visual glide");
 
         CheckAcceptedSpeedCadence();
+        CheckAcceptedSpeedThreshold();
 
         ulong frame = 3; Vector3 allocationPosition = Vector3.UnitZ * (2 * thresholdDistance);
         for (int index = 0; index < 2048; index++) AllocationStep(ref gait, ref frame, ref allocationPosition);
@@ -168,6 +169,40 @@ internal static class TraversalCrouchGaitTests
         }
         fast.Capture(frame + 2, position, true, false, 0, 0, acceptedSpeed: speed * 2);
         Check(!fast.Gliding, "accepted speed cannot bridge a missing capture tick to infer movement");
+    }
+
+    private static void CheckAcceptedSpeedThreshold()
+    {
+        float speed = TraversalMovementProfileV4.CrouchSpeed;
+        var gait = new TraversalGaitPresentation();
+        ulong frame = 1;
+        gait.Capture(frame, Vector3.Zero, true, false, 0, 0, speed);
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.04f);
+        Check(!gait.Gliding, "a fresh accepted speed inside the deadband stays walking");
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.06f);
+        Check(gait.Gliding, "accepted speed above the existing entry threshold starts inferred glide");
+        for (int tick = 0; tick < 30; tick++)
+        {
+            gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * (tick % 2 == 0 ? 1.04f : 1.06f));
+            Check(gait.Gliding, "threshold jitter cannot alternate remote walk and glide envelopes");
+        }
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed);
+        Check(!gait.Gliding, "accepted walking speed immediately retires an inferred glide");
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.04f);
+        Check(!gait.Gliding, "retired glide cannot rearm inside the deadband");
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.06f);
+        gait.Capture(frame += 2, Vector3.Zero, true, false, 0, 0, speed * 1.04f);
+        Check(!gait.Gliding, "missing capture clears deadband history");
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.06f);
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, float.NaN);
+        gait.Capture(++frame, Vector3.Zero, true, false, 0, 0, speed * 1.04f);
+        Check(!gait.Gliding, "invalid accepted speed clears deadband history");
+        gait.Reset(); frame = 1;
+        gait.Capture(frame, Vector3.Zero, true, false, 0, 0);
+        gait.Capture(++frame, Vector3.UnitZ * (speed * 1.06f / 60), true, false, 0, 0);
+        Check(gait.Gliding, "local completed fast travel retains its original classification");
+        gait.Capture(++frame, Vector3.UnitZ * (speed * 2.1f / 60), true, false, 0, 0);
+        Check(!gait.Gliding, "local classification does not acquire remote accepted-speed hysteresis");
     }
 
     private static void AllocationStep(ref TraversalGaitPresentation gait, ref ulong frame, ref Vector3 position)

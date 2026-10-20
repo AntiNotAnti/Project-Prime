@@ -84,7 +84,12 @@ internal struct TraversalWalkPresentation
         float span = legReach * CycleReach * SupportFraction;
         if (p <= SupportFraction) return new(span * (.5f - p / SupportFraction), 0);
         float swing = (p - SupportFraction) / (1 - SupportFraction);
-        float ease = swing * swing * (3 - 2 * swing);
-        return new(span * (ease - .5f), MathF.Sin(MathF.PI * swing) * legReach * FootLift);
+        // Match support velocity at both ends of swing. The small airborne
+        // follow-through replaces the old instantaneous horizontal reversal.
+        float ease = swing * swing * swing * (10 + swing * (-15 + 6 * swing));
+        float cycle = legReach * CycleReach;
+        float along = cycle * (ease - (1 - SupportFraction) * swing - SupportFraction * .5f);
+        float lift = MathF.Sin(MathF.PI * swing);
+        return new(along, lift * lift * legReach * FootLift);
     }
 }

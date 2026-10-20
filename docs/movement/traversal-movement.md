@@ -81,3 +81,24 @@ bounded amount based on final horizontal speed. Walking emissions are suppressed
 while sliding; native sound clocks, shared RNG draws, source ownership and teardown
 remain intact. Player volume controls the existing source. See
 [movement feedback results](movement-feedback-results.md) for validation scope.
+
+
+Low-travel presentation now blends native lower animation into its neutral
+footwork skeleton using the existing walk/slide envelope. Matching local joint
+rotations interpolate before hierarchy composition, while native upper curves,
+canonical/source-time poses and all animation clocks retain their original
+sampling. Knee-floor correction and reach limiting fade with that same envelope
+rather than switching on at the first positive weight. Full walking still keeps
+its planted support intervals and floor-clearance constraints.
+
+The swing path matches horizontal foot velocity at toe-off and contact; its low
+lift starts and ends with zero vertical velocity. A small airborne follow-through
+is bounded below four percent of the cycle length. Fully blended support travel,
+cycle length, body speed, jump timing and collision are unchanged.
+
+Remote accepted-speed inference enters a cosmetic glide above 105% of crouch
+walking speed and retires it at walking speed. This narrow deadband avoids
+walk/slide envelope chatter near the threshold; held positions invent no stride
+travel. Discontinuities, invalid speed and leaving the walking level clear the
+inference. Local physical slide ownership and local travel classification keep
+their existing rules. See [low-travel smoothing results](consistent-low-travel-results.md).

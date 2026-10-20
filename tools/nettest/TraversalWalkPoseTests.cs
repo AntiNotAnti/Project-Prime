@@ -113,6 +113,8 @@ internal static class TraversalWalkPoseTests
                     "native clock coverage records actual frames inside the untouched directional clip");
                 nativeFrames.Add(lower.AnimInfo.NodeFrame);
                 TraversalWalkSample sample = Sample(p);
+                if (!uphill && tick == 12)
+                    foreach (ModelInstance lod in lods) TinyWeightContinuity(scene, p, lower, upper, lod.Model);
                 float reach = (float)Reach.GetValue(p)!;
                 Check(float.IsFinite(reach) && reach > .01f && float.IsFinite(sample.Phase)
                     && sample.Phase >= 0 && sample.Phase <= 1 && sample.Amount >= 0 && sample.Amount <= 1,
@@ -215,6 +217,11 @@ internal static class TraversalWalkPoseTests
             idle.FrameCount[0] = idle.Node.Group.FrameCount; idle.Node.Slot = 0;
             Raw(model, model.Nodes[spine], world, pitch, idle, new(0, 0, 0), upper.AnimInfo);
             Matrix4[] neutral = model.Nodes.Select(n => n.Animation).ToArray();
+            // Partial weights start from the native lower clip and progressively
+            // neutralize it. Sample that source before procedural leg posing.
+            Raw(model, model.Nodes[spine], world, pitch, lower.AnimInfo, null, upper.AnimInfo,
+                requireIdleTarget ? idle : null, walk.Amount);
+            Matrix4[] blended = model.Nodes.Select(n => n.Animation).ToArray();
             if (requireIdleTarget)
             {
                 object?[] args = { model, null };
@@ -231,7 +238,20 @@ internal static class TraversalWalkPoseTests
             // At zero weight the lower channel resumes its actual native
             // idle frame. Noxus/Trace animate that spine, so Idle0 is no longer
             // the unposed arm reference. Exact native retirement is checked below.
-            Matrix4[] reference = requireIdleTarget ? neutral : canonical;
+            Matrix4[] reference = walk.Amount == 1 ? neutral : walk.Amount > 0 ? blended : canonical;
+            Matrix4 inverseSpine = Matrix4.Invert(picture[spine]);
+            Matrix4 inverseNativeSpine = Matrix4.Invert(canonical[spine]);
+            for (int node = 0; node < model.Nodes.Count; node++)
+                for (int ancestor = model.Nodes[node].ParentIndex; ancestor >= 0; ancestor = model.Nodes[ancestor].ParentIndex)
+                    if (ancestor == spine)
+                    {
+                        Matrix4 relative = picture[node] * inverseSpine;
+                        Matrix4 nativeRelative = canonical[node] * inverseNativeSpine;
+                        Near((relative.Row0.Xyz - nativeRelative.Row0.Xyz).Length, 0, "upper first axis retains its native spine-relative orientation");
+                        Near((relative.Row1.Xyz - nativeRelative.Row1.Xyz).Length, 0, "upper second axis retains its native spine-relative orientation");
+                        Near((relative.Row2.Xyz - nativeRelative.Row2.Xyz).Length, 0, "upper third axis retains its native spine-relative orientation");
+                        break;
+                    }
             int cannon = Find("R_elbow");
             Near((picture[cannon].Row0.Xyz.Normalized() - reference[cannon].Row0.Xyz.Normalized()).Length, 0,
                 "low walking retains the native weapon arm first aim axis");
@@ -245,13 +265,13 @@ internal static class TraversalWalkPoseTests
                 Vector3 h = picture[leg[0]].Row3.Xyz, k = picture[leg[1]].Row3.Xyz, a = picture[leg[2]].Row3.Xyz;
                 float thigh = (reference[leg[1]].Row3.Xyz - reference[leg[0]].Row3.Xyz).Length;
                 float shin = (reference[leg[2]].Row3.Xyz - reference[leg[1]].Row3.Xyz).Length;
-                if (requireIdleTarget && side == 0 && ReferenceEquals(model, lower.Model))
+                if (walk.Amount == 1 && side == 0 && ReferenceEquals(model, lower.Model))
                     Near(reach, thigh + shin, "shared phase calibration is the canonical LOD0 native-idle world leg reach");
                 metrics.MaxThighError = Math.Max(metrics.MaxThighError, MathF.Abs((k - h).Length - thigh));
                 metrics.MaxShinError = Math.Max(metrics.MaxShinError, MathF.Abs((a - k).Length - shin));
                 Near((k - h).Length, thigh, "dedicated gait preserves this LOD's native thigh length");
                 Near((a - k).Length, shin, "dedicated gait preserves this LOD's native shin length");
-                if (requireIdleTarget)
+                if (walk.Amount == 1)
                 {
                     Vector3 anchor = neutral[leg[2]].Row3.Xyz;
                     Vector2 step = TraversalWalkPresentation.Step(walk.Phase, side == 1, reach);
@@ -331,6 +351,58 @@ internal static class TraversalWalkPoseTests
         }
     }
 
+    // Hold the exact physical snapshot and native animation cursors while only
+    // replacing the cosmetic envelope. No simulation runs until it is restored.
+    private static void TinyWeightContinuity(Scene scene, PlayerEntity p, ModelInstance lower, ModelInstance upper, Model model)
+    {
+        object captured = Walk.GetValue(p)!;
+        Matrix4[] saved = model.Nodes.Select(n => n.Animation).ToArray();
+        int spine = model.Nodes.Select((n, i) => (n, i)).First(pair => pair.n.Name == "Spine_1").i;
+        Matrix4 world = PlayerEntity.ModBuildBipedDrawTransform(p.Position, p.FacingVector,
+            p.FacingVector.WithY(0), Metadata.HunterScales[p.Hunter], p.ModBipedBottom, out float pitch);
+        Matrix4[] Picture(float weight)
+        {
+            object clock = Walk.GetValue(p)!;
+            typeof(TraversalWalkPresentation).GetField("_amount", Hidden)!.SetValue(clock, weight);
+            typeof(TraversalWalkPresentation).GetField("_previousAmount", Hidden)!.SetValue(clock, weight);
+            Walk.SetValue(p, clock);
+            Action unchanged = Guard(scene, p, lower.AnimInfo, upper.AnimInfo);
+            Visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, 1f });
+            unchanged();
+            Matrix4[] result = model.Nodes.Select(n => n.Animation).ToArray();
+            Check(result.All(Finite) && model.MatrixStackValues.All(float.IsFinite), "tiny-weight picture and submitted matrices remain finite");
+            return result;
+        }
+        float Distance(Matrix4[] a, Matrix4[] b)
+        {
+            float distance = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                distance = Math.Max(distance, (a[i].Row0 - b[i].Row0).Length);
+                distance = Math.Max(distance, (a[i].Row1 - b[i].Row1).Length);
+                distance = Math.Max(distance, (a[i].Row2 - b[i].Row2).Length);
+                distance = Math.Max(distance, (a[i].Row3 - b[i].Row3).Length);
+            }
+            return distance;
+        }
+        try
+        {
+            Matrix4[] zero = Picture(0), small = Picture(.0001f), tiny = Picture(.00001f);
+            float smallDistance = Distance(small, zero), tinyDistance = Distance(tiny, zero);
+            Check(tinyDistance <= smallDistance * .25f + .00002f,
+                "both LODs converge to the same native picture as walk weight approaches zero");
+            Check(tinyDistance <= (float)Reach.GetValue(p)! * .002f + .00002f,
+                "tiny walk weight cannot switch to a visibly different native lower/spine pose");
+            Check(Distance(Picture(0), zero) == 0, "zero retirement remains exactly repeatable after tiny-weight entry");
+        }
+        finally
+        {
+            Walk.SetValue(p, captured);
+            for (int i = 0; i < saved.Length; i++) model.Nodes[i].Animation = saved[i];
+            model.UpdateMatrixStack();
+        }
+    }
+
     private static Action Guard(Scene scene, PlayerEntity p, params AnimationInfo[] infos)
     {
         var collision = p.ModCaptureCollisionState();
@@ -373,11 +445,15 @@ internal static class TraversalWalkPoseTests
     }
 
     private static void Raw(Model model, Node spine, Matrix4 world, float pitch,
-        AnimationInfo lower, AnimationSamples.Sample sample, AnimationInfo upper)
+        AnimationInfo lower, AnimationSamples.Sample? sample, AnimationInfo upper, AnimationInfo? neutral = null, float weight = 0)
     {
         bool ignore = spine.AnimIgnoreChild; Matrix4? after = spine.AfterTransform;
         spine.AnimIgnoreChild = true; spine.AfterTransform = Matrix4.CreateRotationZ(pitch);
-        try { model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lower, sample); }
+        try
+        {
+            if (neutral != null) model.AnimateNodesBlended(0, lower, sample, neutral, new(0, 0, 0), weight);
+            else model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lower, sample);
+        }
         finally { spine.AnimIgnoreChild = ignore; spine.AfterTransform = after; }
         model.AnimateNodes(spine.ChildIndex, false, Matrix4.Identity, Vector3.One, upper);
         foreach (Node node in model.Nodes) node.Animation *= world;

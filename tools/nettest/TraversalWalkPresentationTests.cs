@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 
@@ -41,6 +42,7 @@ internal static class TraversalWalkPresentationTests
         Case("planted-sideways-constant-speed", () => PlantedFeet(Vector3.UnitX, false));
         Case("planted-diagonal-variable-speed", () => PlantedFeet(new Vector3(1, 0, 1).Normalized(), true));
         Case("support-swing-and-both-foot-wraps", StepContract);
+        Case("local-node-rigid-blend", LocalNodeBlend);
         Case("direction-reversal-finite-and-bounded", Reversal);
         Case("duplicate-discontinuity-reset-and-alpha", Lifecycle);
         Case("ground-normal-fallback", GroundNormal);
@@ -249,7 +251,8 @@ internal static class TraversalWalkPresentationTests
 
     private static void StepContract()
     {
-        float span = Reach * TraversalWalkPresentation.CycleReach * TraversalWalkPresentation.SupportFraction;
+        float cycle = Reach * TraversalWalkPresentation.CycleReach;
+        float span = cycle * TraversalWalkPresentation.SupportFraction;
         const float epsilon = .00001f;
         foreach (bool right in new[] { false, true })
         {
@@ -264,23 +267,92 @@ internal static class TraversalWalkPresentationTests
             Vector2 beforeWrap = TraversalWalkPresentation.Step(origin - epsilon, right, Reach);
             Vector2 afterWrap = TraversalWalkPresentation.Step(origin + epsilon, right, Reach);
             Near((beforeWrap - afterWrap).Length, 0, "each foot wraps continuously from swing into support", .00005f);
+            // One-sided finite differences independently require the same stance
+            // velocity on either side of both joins, including zero lift speed.
+            const float derivativeStep = .0005f;
+            foreach (float join in new[] { origin, origin + TraversalWalkPresentation.SupportFraction })
+            {
+                Vector2 at = TraversalWalkPresentation.Step(join, right, Reach);
+                Vector2 incoming = (at - TraversalWalkPresentation.Step(join - derivativeStep, right, Reach)) / derivativeStep;
+                Vector2 outgoing = (TraversalWalkPresentation.Step(join + derivativeStep, right, Reach) - at) / derivativeStep;
+                Near(incoming.X, -cycle, "incoming endpoint velocity matches planted support", .003f);
+                Near(outgoing.X, -cycle, "outgoing endpoint velocity matches planted support", .003f);
+                Near(incoming.Y, 0, "incoming vertical endpoint velocity vanishes", .003f);
+                Near(outgoing.Y, 0, "outgoing vertical endpoint velocity vanishes", .003f);
+            }
             float peakPhase = origin + TraversalWalkPresentation.SupportFraction
                 + (1 - TraversalWalkPresentation.SupportFraction) * .5f;
             Vector2 peak = TraversalWalkPresentation.Step(peakPhase, right, Reach);
             Near(peak.X, 0, "swing passes through the middle");
             Near(peak.Y, Reach * TraversalWalkPresentation.FootLift, "swing has the specified low lift");
+            // The extrema solve 30*s²*(1-s)² = 1-SupportFraction.
+            // At the declared .62 support fraction their follow-through is
+            // below .04 cycle lengths; support itself keeps its exact span.
             for (int index = -120; index <= 240; index++)
             {
                 float phase = index / 120f;
                 Vector2 step = TraversalWalkPresentation.Step(phase, right, Reach);
                 Vector2 repeated = TraversalWalkPresentation.Step(phase + 1, right, Reach);
                 Near((step - repeated).Length, 0, "step is periodic for negative and wrapped phases");
-                Check(float.IsFinite(step.LengthSquared) && MathF.Abs(step.X) <= span * .5f + .000001f
+                Check(float.IsFinite(step.LengthSquared) && MathF.Abs(step.X) <= span * .5f + cycle * .04f + .000001f
                     && step.Y >= -.000001f && step.Y <= Reach * TraversalWalkPresentation.FootLift + .000001f,
-                    "step remains finite, within reach, above the floor and below the lift bound");
+                    "step remains finite, within bounded airborne follow-through, above the floor and below the lift bound");
                 if (FootPhase(phase, right) <= TraversalWalkPresentation.SupportFraction)
+                {
                     Near(step.Y, 0, "support interval never lifts the planted foot");
+                    Near(step.X, span * .5f - cycle * FootPhase(phase, right),
+                        "support stays exactly linear despite airborne follow-through");
+                }
             }
+        }
+    }
+
+    private static void LocalNodeBlend()
+    {
+        Matrix4 from = Matrix4.CreateScale(1, 2, 3) * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(170))
+            * Matrix4.CreateTranslation(2, -4, 6);
+        Matrix4 to = Matrix4.CreateScale(3, 4, 5) * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(-170))
+            * Matrix4.CreateTranslation(-6, 8, 10);
+        Check(Model.BlendLocalNode(from, to, 0) == from && Model.BlendLocalNode(from, to, -1) == from,
+            "zero and clamped start return the exact native matrix");
+        Check(Model.BlendLocalNode(from, to, 1) == to && Model.BlendLocalNode(from, to, 2) == to,
+            "one and clamped end return the exact neutral matrix");
+        foreach (Matrix4 optional in new[] { Matrix4.CreateScale(0, 2, 3), Matrix4.CreateScale(-1, 2, 3) })
+        {
+            Check(Model.BlendLocalNode(optional, to, 0) == optional
+                && Model.BlendLocalNode(from, optional, 1) == optional,
+                "collapsed and reflected rig endpoints remain exact");
+            foreach (float weight in new[] { .00001f, .5f, .99999f })
+                foreach (Matrix4 result in new[] { Model.BlendLocalNode(optional, to, weight), Model.BlendLocalNode(from, optional, weight) })
+                {
+                    foreach (Vector4 row in new[] { result.Row0, result.Row1, result.Row2, result.Row3 })
+                        Check(float.IsFinite(row.X) && float.IsFinite(row.Y) && float.IsFinite(row.Z) && float.IsFinite(row.W),
+                            "optional collapsed/reflected rig blend stays finite in both directions");
+                    Near(result.Row0.W, 0, "optional blend keeps affine first row");
+                    Near(result.Row1.W, 0, "optional blend keeps affine second row");
+                    Near(result.Row2.W, 0, "optional blend keeps affine third row");
+                    Near(result.Row3.W, 1, "optional blend keeps affine translation row");
+                }
+        }
+        foreach (float amount in new[] { .00001f, .25f, .5f, .75f, .99999f })
+        {
+            Matrix4 result = Model.BlendLocalNode(from, to, amount);
+            Same(result.Row3.Xyz, new Vector3(2 - 8 * amount, -4 + 12 * amount, 6 + 4 * amount),
+                "translation follows the declared blend weight");
+            Vector3 x = result.Row0.Xyz, y = result.Row1.Xyz, z = result.Row2.Xyz;
+            Near(x.Length, 1 + 2 * amount, "first scale interpolates without shrinkage");
+            Near(y.Length, 2 + 2 * amount, "second scale interpolates without shrinkage");
+            Near(z.Length, 3 + 2 * amount, "third scale interpolates without shrinkage");
+            x.Normalize(); y.Normalize(); z.Normalize();
+            Near(Vector3.Dot(x, y), 0, "rotation keeps x/y orthogonal");
+            Near(Vector3.Dot(y, z), 0, "rotation keeps y/z orthogonal");
+            Near(Vector3.Dot(z, x), 0, "rotation keeps z/x orthogonal");
+            Near(Vector3.Dot(Vector3.Cross(x, y), z), 1, "rotation preserves handedness");
+            // Independent expected axis: the short arc crosses 180 degrees,
+            // while the long arc incorrectly passes through identity.
+            Matrix4 expected = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(170 + 20 * amount));
+            Same(x, expected.Row0.Xyz, "rotation follows the short arc across the angle wrap");
+            Same(z, expected.Row2.Xyz, "short-arc rotation preserves the third axis");
         }
     }
 

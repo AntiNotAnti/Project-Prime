@@ -188,18 +188,22 @@ internal static class TraversalSlidePoseTests
             // so the unrelated canonical Walk frame is not its length baseline.
             Raw(model, model.Nodes[spine], world, pitch, scratch, sample, upper.AnimInfo);
             Matrix4[] neutral = Nodes(model);
+            float blend = Math.Max((float)typeof(PlayerEntity).GetProperty("ModCrouchWalkAmount", Hidden)!.GetValue(p)!,
+                (float)typeof(PlayerEntity).GetProperty("ModSlideVisualAmount", Hidden)!.GetValue(p)!);
+            Raw(model, model.Nodes[spine], world, pitch, lower.AnimInfo, null, upper.AnimInfo, scratch, sample, blend);
+            Matrix4[] reference = blend == 1 ? neutral : Nodes(model);
             float crouch = (float)typeof(PlayerEntity).GetProperty("ModCrouchVisualAmount", Hidden)!.GetValue(p)!;
             void Draw() => Visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, crouch });
             Draw(); Matrix4[] picture = Nodes(model); float[] pictureStack = model.MatrixStackValues.ToArray();
             Check(picture.All(Finite) && pictureStack.All(float.IsFinite), "actual slide geometry and submitted matrix stack are finite");
-            Near(OrientationError(picture[cannon], neutral[cannon]), 0,
+            Near(OrientationError(picture[cannon], reference[cannon]), 0,
                 "slide counter-lean retains actual native upper-channel cannon aim through every entry/turn sample");
             float maxLengthError = 0;
             for (int side = 0; side < 2; side++)
                 for (int segment = 0; segment < 2; segment++)
                 {
                     int a = joints[side * 3 + segment], b = joints[side * 3 + segment + 1];
-                    float nativeLength = (neutral[b].Row3.Xyz - neutral[a].Row3.Xyz).Length;
+                    float nativeLength = (reference[b].Row3.Xyz - reference[a].Row3.Xyz).Length;
                     float slideLength = (picture[b].Row3.Xyz - picture[a].Row3.Xyz).Length;
                     Check(nativeLength > 0, "native leg segment has a positive measurable length");
                     Near(slideLength, nativeLength, "visual slide preserves each native thigh and shin length");
@@ -221,22 +225,15 @@ internal static class TraversalSlidePoseTests
                     else steadyLegs[lod] = local;
                 }
 
-                // Cosmetic comparison seam only: replace the presentation
-                // envelope with zero around the SAME production Visual call.
-                // Both calls keep the same idle lower curves and native upper
-                // animation/aim channel. Restore the captured timeline
-                // in finally. Physical timers, speed, and node poses are never
-                // fixture-authored; every node is composed by production code.
-                object capturedClock = Slide.GetValue(p)!;
-                Matrix4[] control;
-                try
-                {
-                    Slide.SetValue(p, default(TraversalSlidePresentation));
-                    Draw(); control = Nodes(model);
-                }
-                finally { Slide.SetValue(p, capturedClock); }
+                // Compare the full glide against a canonical crouch of the
+                // same Idle0 lower curves and native upper aim channel. Zeroing
+                // slide strength would now select a different native lower clip.
+                Raw(model, model.Nodes[spine], world, pitch, scratch, sample, upper.AnimInfo);
+                p.ModApplyCrouchPose(model, world);
+                model.UpdateMatrixStack();
+                Matrix4[] control = Nodes(model);
                 Draw();
-                Check(Nodes(model).SequenceEqual(picture), "restoring the cosmetic timeline restores the identical slide picture");
+                Check(Nodes(model).SequenceEqual(picture), "production slide redraw restores the identical picture after its neutral crouch control");
                 Vector2 heading = Clock(p).SampleDirection(1);
                 Vector3 travel = new(heading.X, 0, heading.Y);
                 leftAdvance = Vector3.Dot(picture[joints[2]].Row3.Xyz - control[joints[2]].Row3.Xyz, travel);
@@ -249,6 +246,8 @@ internal static class TraversalSlidePoseTests
                     "cannon orientation stays independent of torso back lean on identical native aim curves");
                 unchanged();
             }
+            if (steady && !turning && tick == 8)
+                TinySlideContinuity(scene, p, model, world, pitch, spine, lower.AnimInfo, upper.AnimInfo);
             Canonical.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null });
             Check(Nodes(model).SequenceEqual(canonical) && model.MatrixStackValues.SequenceEqual(canonicalStack),
                 "canonical nodes and matrix stack restore exactly after slide and cosmetic control pictures");
@@ -273,14 +272,71 @@ internal static class TraversalSlidePoseTests
     }
 
     private static void Raw(Model model, Node spine, Matrix4 world, float pitch,
-        AnimationInfo lower, AnimationSamples.Sample sample, AnimationInfo upper)
+        AnimationInfo lower, AnimationSamples.Sample? sample, AnimationInfo upper, AnimationInfo? neutral = null,
+        AnimationSamples.Sample? neutralSample = null, float amount = 0)
     {
         bool ignore = spine.AnimIgnoreChild; Matrix4? after = spine.AfterTransform;
         spine.AnimIgnoreChild = true; spine.AfterTransform = Matrix4.CreateRotationZ(pitch);
-        try { model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lower, sample); }
+        try
+        {
+            if (neutral != null) model.AnimateNodesBlended(0, lower, sample, neutral, neutralSample, amount);
+            else model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lower, sample);
+        }
         finally { spine.AnimIgnoreChild = ignore; spine.AfterTransform = after; }
         model.AnimateNodes(spine.ChildIndex, false, Matrix4.Identity, Vector3.One, upper);
         foreach (Node node in model.Nodes) node.Animation *= world;
+    }
+
+    private static void TinySlideContinuity(Scene scene, PlayerEntity p, Model model, Matrix4 world, float pitch,
+        int spine, AnimationInfo lower, AnimationInfo upper)
+    {
+        object capturedSlide = Slide.GetValue(p)!;
+        FieldInfo walk = typeof(PlayerEntity).GetField("_modCrouchWalk", Hidden)!;
+        object capturedWalk = walk.GetValue(p)!;
+        Matrix4[] saved = Nodes(model);
+        Matrix4[] Draw(float envelope)
+        {
+            object clock = Slide.GetValue(p)!;
+            typeof(TraversalSlidePresentation).GetField("_current", Hidden)!.SetValue(clock, envelope);
+            typeof(TraversalSlidePresentation).GetField("_previous", Hidden)!.SetValue(clock, envelope);
+            Slide.SetValue(p, clock);
+            Action unchanged = Guard(scene, p, lower, upper);
+            Visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, 1f });
+            unchanged();
+            Matrix4[] result = Nodes(model);
+            Check(result.All(Finite) && model.MatrixStackValues.All(float.IsFinite), "zero-adjacent slide geometry stays finite");
+            return result;
+        }
+        float Distance(Matrix4[] a, Matrix4[] b)
+        {
+            float distance = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                distance = Math.Max(distance, (a[i].Row0 - b[i].Row0).Length);
+                distance = Math.Max(distance, (a[i].Row1 - b[i].Row1).Length);
+                distance = Math.Max(distance, (a[i].Row2 - b[i].Row2).Length);
+                distance = Math.Max(distance, (a[i].Row3 - b[i].Row3).Length);
+            }
+            return distance;
+        }
+        try
+        {
+            // Isolate only cosmetic timelines at one fixed physical/native
+            // snapshot. Restore both before the next simulation tick.
+            walk.SetValue(p, default(TraversalWalkPresentation));
+            Matrix4[] zero = Draw(0), small = Draw(.01f), tiny = Draw(.001f);
+            float tinyDistance = Distance(tiny, zero);
+            Check(tinyDistance <= Distance(small, zero) * .05f + .00002f,
+                "both LODs converge to their native lower picture as slide strength approaches zero");
+            Check(tinyDistance < .002f, "tiny slide strength cannot introduce a finite skeleton jump");
+            Check(Distance(Draw(0), zero) == 0, "zero slide retirement remains exactly repeatable");
+        }
+        finally
+        {
+            Slide.SetValue(p, capturedSlide); walk.SetValue(p, capturedWalk);
+            for (int i = 0; i < saved.Length; i++) model.Nodes[i].Animation = saved[i];
+            model.UpdateMatrixStack();
+        }
     }
 
     private static float OrientationError(Matrix4 a, Matrix4 b)
@@ -297,7 +353,7 @@ internal static class TraversalSlidePoseTests
         var anchors = (p.ModGunVector, Field(p, "_muzzlePos"), Field(p, "_aimPosition"), Field(p, "_walkViewBob"), Field(p, "_gunViewBob"));
         var clocks = (scene.FrameCount, FrameTiming.TotalSteps, FrameTiming.TotalFrames,
             FrameTiming.PresentationGeneration, FrameTiming.PresentationAlpha,
-            Field(p, "_modCrouchGait"), Slide.GetValue(p), Field(p, "_modCrouchPresentation"),
+            Field(p, "_modCrouchGait"), Field(p, "_modCrouchWalk"), Slide.GetValue(p), Field(p, "_modCrouchPresentation"),
             stance: (Field(p, "_modSlideTicks"), Field(p, "_modSlideEntryTicks"), Field(p, "_modStanceFrame")));
         Check(p.ModTryCaptureCustomPrecombatFacts(p.ModGunVector, out var facts), "actual slide has canonical source-time weapon facts");
         var integers = infos.Select(i => i.Index.Concat(i.PrevIndex).Concat(i.Frame).Concat(i.FrameCount).Concat(i.Step).ToArray()).ToArray();
@@ -314,7 +370,7 @@ internal static class TraversalSlidePoseTests
             Check(anchors.Equals((p.ModGunVector, Field(p, "_muzzlePos"), Field(p, "_aimPosition"), Field(p, "_walkViewBob"), Field(p, "_gunViewBob")))
                 && clocks.Equals((scene.FrameCount, FrameTiming.TotalSteps, FrameTiming.TotalFrames,
                     FrameTiming.PresentationGeneration, FrameTiming.PresentationAlpha,
-                    Field(p, "_modCrouchGait"), Slide.GetValue(p), Field(p, "_modCrouchPresentation"),
+                    Field(p, "_modCrouchGait"), Field(p, "_modCrouchWalk"), Slide.GetValue(p), Field(p, "_modCrouchPresentation"),
                     (Field(p, "_modSlideTicks"), Field(p, "_modSlideEntryTicks"), Field(p, "_modStanceFrame"))))
                 && p.ModTryCaptureCustomPrecombatFacts(p.ModGunVector, out var after) && after == facts,
                 "slide pictures preserve muzzle, aim, bob, source facts and simulation/presentation clocks exactly");
