@@ -1,0 +1,14 @@
+{
+  "cwd": "/Users/jarrett/.codex/worktrees/rmlui-ux-optimization/Prime Hunters Online",
+  "staging": "Freeze packaged assets before source edits. Copy before-assets to candidate-assets. Overlay every source .rml/.rcss: Assets/* maps to asset-root/*; other first-level source folders map to lowercase packaged folders. check-pages.py --published-root validates all151 authored assets match.",
+  "commands": [
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/before-assets --output artifacts/refinement-2-validation/before.json --allow-failures",
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/candidate-assets --output artifacts/refinement-2-validation/candidate.json",
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/before-assets --output artifacts/refinement-2-validation/before/gl.json --glfw /tmp/prime-hunter-crash-776-baseline/gl-check/libglfw.3.dylib --gl-only",
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/before-assets --output artifacts/refinement-2-validation/before-accessibility/gl.json --glfw /tmp/prime-hunter-crash-776-baseline/gl-check/libglfw.3.dylib --gl-only --gl-touch --gl-large-text --gl-page pages/hunters/native-picker.rml --gl-case 480x320@1",
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/candidate-assets --output artifacts/refinement-2-validation/after/gl.json --glfw /tmp/prime-hunter-crash-776-baseline/gl-check/libglfw.3.dylib --gl-only",
+    "python3 tools/rmlui-layout-check/check.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --assets artifacts/refinement-2-validation/candidate-assets --output artifacts/refinement-2-validation/after-accessibility/gl.json --glfw /tmp/prime-hunter-crash-776-baseline/gl-check/libglfw.3.dylib --gl-only --gl-touch --gl-large-text --gl-page pages/hunters/native-picker.rml --gl-case 480x320@1",
+    "python3 tools/rmlui-layout-check/benchmark.py --library artifacts/refinement-2-validation/libProjectPrime.RmlUi.Native.dylib --before artifacts/refinement-2-validation/before-assets --after artifacts/refinement-2-validation/candidate-assets --output artifacts/refinement-2-validation/abba.json"
+  ],
+  "performance_order": "Wait for all CPU/GL checks and other builds to stop before ABBA; no builds/captures during measurement."
+}
