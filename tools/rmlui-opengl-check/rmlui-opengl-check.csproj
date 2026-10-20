@@ -10,10 +10,14 @@
     <!-- Focused canvas acceptance runs against the normal shipping DLL. The full
          replay harness separately requires its explicit failure-injection build. -->
     <EnableDefaultCompileItems Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">false</EnableDefaultCompileItems>
+    <DefineConstants Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_DRAWLIST_TEST</DefineConstants>
+    <AllowUnsafeBlocks Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="CanvasProgram.cs" Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
-    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs;CanvasDrawListAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawList.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawListReader.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiGlesPlan.cs"
+             Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
     <ProjectReference Include="../../src/MphRead/MphRead.csproj"
                       AdditionalProperties="MphReadRmlUiGlSmoke=true;MphReadReplayPreviewFailureFixture=true"
                       Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />

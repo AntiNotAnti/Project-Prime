@@ -6,7 +6,8 @@ internal static class CanvasProgram
 {
     private static int Main(string[] args)
     {
-        if (args.Length is < 1 or > 2) throw new ArgumentException("Pass runtime RmlUi assets and optional WIDTHxHEIGHT.");
+        if (args.Length is < 1 or > 2) throw new ArgumentException("Pass runtime RmlUi assets and optional WIDTHxHEIGHT or --draw-list.");
+        if (args.Length == 2 && args[1] == "--draw-list") return CanvasDrawListAcceptance.Run(Path.GetFullPath(args[0]));
         int width = 960, height = 600;
         if (args.Length == 2)
         {

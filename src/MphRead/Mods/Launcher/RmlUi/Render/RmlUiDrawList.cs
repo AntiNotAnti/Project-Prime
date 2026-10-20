@@ -1,6 +1,7 @@
 #if (ANDROID && PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT) || MPHREAD_RMLUI_DRAWLIST_TEST
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
@@ -96,7 +97,12 @@ internal sealed class RmlUiDrawListFrame
         IReadOnlyDictionary<ulong, RmlUiDrawGeometry> geometry,
         IReadOnlyDictionary<ulong, RmlUiDrawTexture> textures)
     {
-        Generation = generation; Commands = commands; Geometry = geometry; Textures = textures;
+        Generation = generation; Commands = commands;
+        // The reader prunes its caches on later captures and clears them on
+        // teardown. A retained frame owns its resource map until its consumer
+        // releases it; the already detached resource payloads can be shared.
+        Geometry = new ReadOnlyDictionary<ulong, RmlUiDrawGeometry>(new Dictionary<ulong, RmlUiDrawGeometry>(geometry));
+        Textures = new ReadOnlyDictionary<ulong, RmlUiDrawTexture>(new Dictionary<ulong, RmlUiDrawTexture>(textures));
     }
 }
 #endif
