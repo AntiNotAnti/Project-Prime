@@ -215,7 +215,7 @@ internal static class TraversalStanceSceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failures.Count == 0 ? "PASS" : "FAIL",
-                checks = _checks, failures, profileVersion = TraversalMovementProfileV4.ProfileVersion,
+                checks = _checks, failures, profileVersion = MovementModelRules.ProfileVersion(MovementModel.Traversal),
                 scope = "Actual offline CPU keyboard and authored collision; native spawn/intro skip and one initial lane placement; all measured speeds, stance, clearance and slide lifetime are production-derived; no physical device, GL, multiplayer or replay qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }

@@ -183,7 +183,7 @@ internal static class Quake3AdvancedSceneTests
         {
             string path = Path.GetFullPath(outputPath); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failure == null ? "PASS" : "FAIL", failure,
-                checks = _checks, profileVersion = Quake3MovementProfileV3.ProfileVersion,
+                checks = _checks, profileVersion = MovementModelRules.ProfileVersion(MovementModel.Quake3),
                 scope = "Actual offline CPU input/collision; synthetic keyboard and raw mouse samples, native spawn/intro skip, fixed 60 Hz; no physical device, GL, online, bot, replay, competitive-balance or maximum-speed acceptance",
                 conditions = "MP3 PROVING GROUND; normal admitted match rule, diagnostics only; native SpaceJump ability bit enabled only in explicitly labeled paired probes; no body/velocity/facing/jump-state or authority writes",
                 schedules = "stationary hold: Space continuously; manual: one-tick pulse after each physical Standing contact; airborne edge: hold ticks1-9, release10, hold11 onward; circle: W run-up24 ticks, diagonal/raw mouse +/-4 from tick25, jump25 only; strafe: same run-up, diagonal+read-only velocity-directed raw mouse and held Jump from tick25; Classic replays exact recorded raw commands",
@@ -262,8 +262,10 @@ internal static class Quake3AdvancedSceneTests
                         "same-tick actual player solver sample");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y)
                         == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "horizontal solver preserves native Y bits");
-                    Vector3 expected = Quake3MovementProfileV3.Step(new Vector3(sample.NativeVelocityBefore.X * 30,
-                        0, sample.NativeVelocityBefore.Z * 30), sample.Input).Velocity;
+                    Vector3 incomingSolver = sample.GroundSupport.HasValue
+                        ? GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30
+                        : new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    Vector3 expected = Quake3MovementProfileV4.Step(incomingSolver, sample.Input).Velocity;
                     Near(sample.NativeVelocityAfter.X, expected.X / 30, "actual immutable solver X");
                     Near(sample.NativeVelocityAfter.Z, expected.Z / 30, "actual immutable solver Z");
                     Require(!sample.SpeedLimited && !sample.IncomingOverCap, "uncapped profile diagnostics");

@@ -6,7 +6,11 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **75** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **76** (`NetConfig.ProtocolVersion`).
+- Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
+  walkable ground uses surface-speed acceleration and contact redirection;
+  earned Traversal slides receive one bounded slope-gravity force per fixed tick.
+  Classic, Momentum, native abilities and historical profile attribution remain unchanged.
 - Protocol 62 selects Quake3 movement profile v2, including advanced movement and
   damage-derived additive rocket impulses. Match bits and packet widths remain unchanged;
   historical Quake3 recordings use v1 for protocols 60–61 and v2 for 62–70.

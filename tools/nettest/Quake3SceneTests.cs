@@ -201,8 +201,10 @@ internal static class Quake3SceneTests
                         var tuning = Quake3MovementProfileV1.Tuning;
                         Check(sample.Tuning == tuning && sample.Input.DesiredSpeed == Quake3MovementProfileV1.GroundSpeed,
                             "diagnostics use selected immutable rates and calibrated ground speed");
-                        Vector3 expected = Quake3MovementProfileV1.Step(new Vector3(sample.NativeVelocityBefore.X * 30, 0,
-                            sample.NativeVelocityBefore.Z * 30), sample.Input).Velocity;
+                        Vector3 solverInput = sample.GroundSupport.HasValue
+                            ? GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30
+                            : new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                        Vector3 expected = Quake3MovementProfileV4.Step(solverInput, sample.Input).Velocity;
                         Check(MathF.Abs(sample.NativeVelocityAfter.X - expected.X / 30) <= .00001f
                             && MathF.Abs(sample.NativeVelocityAfter.Z - expected.Z / 30) <= .00001f,
                             "actual adapter matches immutable match-rule solver exactly");

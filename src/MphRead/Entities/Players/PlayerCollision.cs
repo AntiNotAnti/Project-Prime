@@ -4,6 +4,7 @@ using System.Diagnostics;
 using MphRead.Formats;
 using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Movement;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 
@@ -904,7 +905,12 @@ namespace MphRead.Entities
             else
             {
                 float radius = (ModBipedTop - ModBipedBottom) / 2;
-                int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
+                // Gathering at the exact shortened height can round a resting
+                // floor just outside the sphere at elevated world coordinates.
+                // Keep it in the candidate set; HandleCollision still applies
+                // the true biped bounds and its existing contact tolerance.
+                float gatherRadius = radius + (ModCollisionCrouched ? 1f / 4096 : 0);
+                int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, gatherRadius,
                     limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
                 if (count == results.Length && UseRobustCollisionController)
                 {
@@ -1297,8 +1303,13 @@ namespace MphRead.Entities
                             Speed = Speed.AddX(axis.X * (-magSqr / 2)).AddZ(axis.Z * (-magSqr / 2));
                         }
                     }
-                    Speed += result.Plane.Xyz * -dot;
-                    if (!v163 && !IsAltForm && result.Field0 != 1 && !ModSurfContact(result))
+                    bool groundTravel = !v163 && _modGroundTravelFrame == _scene.FrameCount
+                        && ModWalkableGroundContact(result);
+                    // Preserve only the velocity entering this qualified contact;
+                    // a prior wall/ceiling clip must never be undone by a ramp.
+                    Speed = groundTravel ? GroundSlopeMovement.Clip(Speed, result.Plane.Xyz)
+                        : Speed + result.Plane.Xyz * -dot;
+                    if (!groundTravel && !v163 && !IsAltForm && result.Field0 != 1 && !ModSurfContact(result))
                     {
                         float hMagSqr = Speed.X * Speed.X + Speed.Z * Speed.Z;
                         if (hMagSqr > 0)
@@ -1498,7 +1509,7 @@ namespace MphRead.Entities
                     // solid landing
                     if (result.Field0 == 0 && result.Plane.Y > 0.5f && !ModSurfContact(result))
                     {
-                        if (ModTraversalActive)
+                        if (ModWalkableGroundContact(result))
                         {
                             _modRampSupport = result.Plane.Xyz;
                             _modRampSupportFrame = _scene.FrameCount;
