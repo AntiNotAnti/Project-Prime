@@ -328,7 +328,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 8; ++index) if (action == "play:server:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::PlayServer); intent.argument = index; return true;
     }
-    for (int index = 0; index < 18; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
+    for (int index = 0; index < PrimeLobbyRuleChoiceCount; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::LobbyRulesToggle); intent.argument = index; return true;
     }
     for (int index = 0; index < 6; ++index) if (action == "lobby:map-select:" + std::to_string(index)) {
