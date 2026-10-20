@@ -547,13 +547,13 @@ namespace MphRead.Mods.Render
         private static bool RunThirdPersonSpawnAndNearWallCase()
         {
             bool active = ThirdPersonCameraPolicy.ShowShoulder(
-                isLiveMatchView: true, CameraType.First, isAltForm: false);
+                true, CameraType.First, false);
             bool notAlt = !ThirdPersonCameraPolicy.ShowShoulder(
-                isLiveMatchView: true, CameraType.Third1, isAltForm: true)
+                true, CameraType.Third1, true)
                 && !ThirdPersonCameraPolicy.ShowShoulder(
-                    isLiveMatchView: true, CameraType.Third2, isAltForm: true)
+                    true, CameraType.Third2, true)
                 && !ThirdPersonCameraPolicy.ShowShoulder(
-                    isLiveMatchView: false, CameraType.First, isAltForm: false);
+                    false, CameraType.First, false);
             float[] distances = { 0f, 0.2f, 0.3f, 0.6f, 0.8f, 1.05f, 2.4f };
             float prior = 0f;
             bool continuous = true;
