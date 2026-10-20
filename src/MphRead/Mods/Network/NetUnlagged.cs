@@ -510,6 +510,9 @@ namespace MphRead.Mods.Network
         private static uint _collisionCacheToken;
         private static bool _collisionCacheActive;
         internal static bool CollisionCacheActive => _collisionCacheActive;
+        // ResetSlot can clear the cache while a native shot/rewind scope is
+        // still active. Read-only snapshots need the complete scope guard.
+        internal static bool ShotScopeActive => _inProgress || _reconciled || _collisionCacheActive;
         internal static uint CollisionCacheToken => _collisionCacheToken;
         public static long HistoricalCollisionQueries, HistoricalCollisionCacheHits, HistoricalCollisionCacheMisses, HistoricalCollisionBuildTicks;
         private static ref CollisionCacheEntry CollisionCell(int slot, double target, ushort generation, ushort life)
