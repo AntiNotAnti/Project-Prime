@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 65, "current protocol train is 65");
+            Check(NetConfig.ProtocolVersion == 66, "current protocol train is 66");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");
@@ -66,8 +66,8 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 65 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol65 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64 })
+            Check(bytes[3] == 66 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol66 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
@@ -84,6 +84,21 @@ internal static class Protocol17Tests
                 "production envelope passes application payload");
             server.Send(clientAddress, PacketType.Snapshot, new byte[] { 8 });
             Check(SpinWait.SpinUntil(() => client.ConnectionStats(serverAddress)?.Acknowledged > 0, 2000), "real UDP ACK");
+            foreach (var replica in new[] { PacketType.CustomWeaponReplicaPage, PacketType.CustomWeaponReplicaEvent, PacketType.CustomWeaponReplicaAck })
+            {
+                // Opaque transport payload only: actual replica schema is checked separately.
+                // Reliable event framing costs four bytes in addition to NetHeader.
+                byte[] bounded = new byte[1200 - NetHeader.Size - 4];
+                bounded[0] = (byte)replica; bounded[^1] = 0xA5;
+                Check(server.TrySendSemantic(clientAddress,replica,bounded), "replica semantic whitelist admits " + replica);
+                bool replicaDelivered = false;
+                Check(SpinWait.SpinUntil(() =>
+                {
+                    foreach (var packet in client.Drain())
+                        if (packet.Type==replica) replicaDelivered = packet.Payload.SequenceEqual(bounded);
+                    return replicaDelivered;
+                },2000), "exact 1200-byte reliable replica datagram reaches application: " + replica);
+            }
             using var stranger = new UdpClient(0);
             byte[] forged = new byte[NetHeader.Size + 1];
             new NetHeader(PacketType.Bye, 0, client.ConnectionStats(serverAddress)!.Value.ConnectionId, 80, 0, 0).Write(forged);
