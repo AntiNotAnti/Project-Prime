@@ -35,7 +35,7 @@ internal static class CharacterGeneratedCannonOwnedProbe
             before=HashFile(rvz);Directory.CreateDirectory(temporary);string imports=Path.Combine(temporary,"imports");
             var outputs=RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:new[]{Id});
             var spec=RetroCharacterPreviewExporter.BundleSpec(Id);var state=LocalImportBundle.Inspect(imports,Id,spec);
-            Check(spec.Version==5&&outputs.Count==1&&state.State==ImportBundleState.Ready&&state.Receipt!=null,"Actual importer must publish complete normal recipe5.");
+            Check(spec.Version==6&&outputs.Count==1&&state.State==ImportBundleState.Ready&&state.Receipt!=null,"Actual importer must publish complete normal recipe6.");
             string folder=Path.GetDirectoryName(outputs.Single())!;generation=state.Receipt!.Generation;
             Check(Path.GetFileName(folder)==generation&&state.Files.All(f=>Path.GetDirectoryName(f)==folder),"One immutable source generation required.");
             var original=state.Files.ToDictionary(f=>Path.GetFileName(f)!,f=>HashFile(f));

@@ -16,17 +16,17 @@ internal static class CharacterBundleAcceptance
         {
             var again = RetroCharacterPreviewExporter.BundleSpec(spec.Id);
             bool echoes=spec.Id.EndsWith("-echoes",StringComparison.Ordinal);
-            Check(spec.Version == (spec.Id=="darksamus-echoes"?5:echoes?4:1) && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
+            Check(spec.Version == (spec.Id=="darksamus-echoes"?6:echoes?5:1) && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
                 "canonical version and digest contract " + spec.Id);
             string[] body={spec.Id+".obj",spec.Id+".skeleton.json",spec.Id+".weights.json",spec.Id+".motions.json"};
             string[] completeBody=body.Concat(new[]{spec.Id+".cinf.bin",spec.Id+".animations.bin",spec.Id+".source.glb",spec.Id+".source.json"}).ToArray();
-            string[] required=echoes?completeBody.Concat(spec.Id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:Array.Empty<string>())
+            string[] required=echoes?completeBody.Append(spec.Id+".materials.bin").Concat(spec.Id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:Array.Empty<string>())
                 .Concat(completeBody.Select(f=>spec.Id+".ball"+f[spec.Id.Length..])).Append(spec.Id+".parts.json").ToArray():body;
             Check(spec.RequiredComponents.SequenceEqual(required),
                 "complete required body/ball inventory in one appearance contract " + spec.Id);
             var parts=RetroCharacterPreviewExporter.PartsFor(spec.Id);
             Check(parts.Select(p=>p.Id).SequenceEqual(echoes?new[]{"body","ball"}:new[]{"body"})
-                &&parts.All(p=>p.Version==(spec.Id=="darksamus-echoes"&&p.Id=="body"?4:echoes?3:1))&&RetroCharacterPreviewExporter.PartStem(spec.Id,"body")==spec.Id,
+                &&parts.All(p=>p.Version==(echoes?(p.Id=="body"?(spec.Id=="darksamus-echoes"?5:4):3):1))&&RetroCharacterPreviewExporter.PartStem(spec.Id,"body")==spec.Id,
                 "canonical versioned authoring parts retain body namespace " + spec.Id);
             Check(!ReferenceEquals(parts,RetroCharacterPreviewExporter.PartsFor(spec.Id)),"part inventory detached between calls "+spec.Id);
             Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.SourcePart>)parts)[0]=new("tampered",0,"",99),
@@ -131,6 +131,10 @@ internal static class CharacterBundleAcceptance
                 Check(normalParts.Parts.Single(p=>p.Id=="ball").Refs==chargedParts.Parts.Single(p=>p.Id=="ball").Refs
                     &&normalParts.Parts.Single(p=>p.Id=="body").Refs!=chargedParts.Parts.Single(p=>p.Id=="body").Refs,
                     "normal and Overcharged have different source bodies and the same exact source ball refs");
+                var materials=ids.Select(id=>RetroCharacterMaterialArchive.Read(File.ReadAllBytes(Path.Combine(
+                    Path.GetDirectoryName(files.Single(f=>Path.GetFileNameWithoutExtension(f)==id))!,id+".materials.bin")))).ToArray();
+                Check(materials.SelectMany(m=>m.Textures).Select(t=>t.ResourceId).Distinct().Count()==20,
+                    "normal ten and Final twelve declared texture inventories retain the measured twenty-resource union");
             }
             foreach(string id in ids.Where(id=>RetroCharacterPreviewExporter.BundleSpec(id).Version>=4))
             {
@@ -139,7 +143,7 @@ internal static class CharacterBundleAcceptance
                 string folder=Path.GetDirectoryName(before.Files.Single(f=>Path.GetFileName(f)==id+".obj"))!;
                 string missing=Path.Combine(folder,id+".ball.obj");
                 var survivors=before.Files.Where(f=>f!=missing).ToDictionary(f=>f,f=>Convert.ToHexStringLower(HashFile(f)));
-                string[] bodyNames={id+".obj",id+".skeleton.json",id+".weights.json",id+".motions.json",id+".cinf.bin",id+".animations.bin",id+".source.glb",id+".source.json"};
+                string[] bodyNames={id+".obj",id+".skeleton.json",id+".weights.json",id+".motions.json",id+".cinf.bin",id+".animations.bin",id+".source.glb",id+".source.json",id+".materials.bin"};
                 var bodyHashes=bodyNames.Concat(id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:Array.Empty<string>()).ToDictionary(n=>n,n=>Convert.ToHexStringLower(HashFile(Path.Combine(folder,n))));
                 File.Delete(missing);
                 var incomplete=LocalImportBundle.Inspect(root,id,spec);
@@ -153,7 +157,7 @@ internal static class CharacterBundleAcceptance
                     &&ballStatus.Components.Where(c=>c.Role!="geometry").All(c=>c.State==ImportBundleState.Ready),
                     "missing ball OBJ leaves real body and other seven ball components Ready "+id);
                 string description=RetroCharacterPreviewExporter.DescribeInspection(id,incomplete);
-                Check(description.Contains("body v"+(id=="darksamus-echoes"?4:3)+": Ready",StringComparison.Ordinal)
+                Check(description.Contains("body v"+(id=="darksamus-echoes"?5:4)+": Ready",StringComparison.Ordinal)
                     &&description.Contains("ball v3: Incomplete (geometry v1 Incomplete)",StringComparison.Ordinal)
                     &&description.Contains("Source authoring bundle",StringComparison.Ordinal)
                     &&description.Contains("animated diagnostic preview",StringComparison.Ordinal)
@@ -163,7 +167,7 @@ internal static class CharacterBundleAcceptance
                 var repaired=LocalImportBundle.Inspect(root,id,spec);
                 string repairedFolder=Path.GetDirectoryName(repairedFiles.Single())!;
                 Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Version==spec.Version
-                    &&repaired.Receipt.Generation!=before.Receipt!.Generation&&repaired.Files.Count==(id=="darksamus-echoes"?23:21),
+                    &&repaired.Receipt.Generation!=before.Receipt!.Generation&&repaired.Files.Count==(id=="darksamus-echoes"?24:22),
                     "update repairs whole body/ball appearance into a fresh complete v"+spec.Version+" generation "+id);
                 Check(Directory.Exists(folder)&&!File.Exists(missing)
                     &&survivors.All(p=>File.Exists(p.Key)&&Convert.ToHexStringLower(HashFile(p.Key))==p.Value),
@@ -172,6 +176,8 @@ internal static class CharacterBundleAcceptance
                     "repair preserves original body geometry rig weights sparse motions raw CINF full archive and generated source GLB/provenance bytes "+id);
                 ValidateOwnedParts(id,repairedFolder,spec,repaired,resources!.Read,fullAnimationProof:false);
             }
+            foreach(string id in ids.Where(id=>RetroCharacterPreviewExporter.BundleSpec(id).Version>=4))
+                RepairOwnedMaterials(source,root,id,resources!.Read);
             if(ids.Contains("darksamus-echoes")) RepairOwnedCannon(source,root,resources!.Read);
             files=ids.Select(id=>LocalImportBundle.Inspect(root,id,RetroCharacterPreviewExporter.BundleSpec(id)).Files
                 .Single(f=>Path.GetFileName(f)==id+".obj")).ToArray();
@@ -207,6 +213,13 @@ internal static class CharacterBundleAcceptance
                     "remove unpublishes canonical inventory " + id);
                 Check(generation.All(p => File.Exists(p.Key) && Convert.ToHexStringLower(HashFile(p.Key)) == p.Value), "remove retains immutable generation bytes " + id);
                 Check(!LocalImportBundle.Remove(root, id), "repeated remove is absent " + id);
+                string reinstalled=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single())!;
+                var ready=LocalImportBundle.Inspect(root,id,RetroCharacterPreviewExporter.BundleSpec(id));
+                Check(ready.State==ImportBundleState.Ready&&ready.Files.Count==generation.Count&&generation.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
+                    &&ready.Files.All(f=>generation.Any(p=>Path.GetFileName(p.Key)==Path.GetFileName(f)&&p.Value==ShaFile(f))),
+                    "reimport after remove retains old generation and exact complete source component bytes "+id);
+                if(id.EndsWith("-echoes",StringComparison.Ordinal))
+                    ValidateMaterialArchive(id,reinstalled,ReadParts(reinstalled,id).Parts.Single(p=>p.Id=="body"),RetroCharacterPreviewExporter.BundleSpec(id).SourceFingerprint,resources!.Read);
             }
             Console.WriteLine("PASS: owned character bundles, immutable siblings, reuse, BeforeCommit cancellation, safe removal");
         }
@@ -219,6 +232,57 @@ internal static class CharacterBundleAcceptance
             Console.WriteLine("Owned source SHA256 after: "+Convert.ToHexStringLower(sourceAfter));
             Check(sourceBefore.SequenceEqual(sourceAfter),"owned source unchanged after update/cancel/remove or failed probe");
         }
+    }
+    private static void RepairOwnedMaterials(string source,string root,string id,Func<uint,byte[]> resource)
+    {
+        var spec=RetroCharacterPreviewExporter.BundleSpec(id);var before=LocalImportBundle.Inspect(root,id,spec);
+        string material=id+".materials.bin",folder=Path.GetDirectoryName(before.Files.Single(f=>Path.GetFileName(f)==id+".obj"))!;
+        byte[] bytes=File.ReadAllBytes(Path.Combine(folder,material));var captured=RetroCharacterMaterialArchive.Read(bytes);
+        string originalHash=Sha(bytes);var survivors=before.Files.Where(f=>Path.GetFileName(f)!=material).ToDictionary(f=>f,ShaFile);
+        File.Delete(Path.Combine(folder,material));var incomplete=LocalImportBundle.Inspect(root,id,spec);
+        var status=RetroCharacterPreviewExporter.InspectParts(id,incomplete);
+        Check(incomplete.State==ImportBundleState.Incomplete&&status.Single(p=>p.Id=="body").State==ImportBundleState.Incomplete
+            &&status.Single(p=>p.Id=="body").Components.Single(c=>c.Role=="source-materials").State==ImportBundleState.Incomplete
+            &&status.Single(p=>p.Id=="body").Components.Where(c=>c.Role!="source-materials").All(c=>c.State==ImportBundleState.Ready)
+            &&status.Single(p=>p.Id=="ball").State==ImportBundleState.Ready,
+            "missing required materials withdraws only complete body readiness while verified ball/siblings remain Ready "+id);
+        Check(captured.ReadProgram(0).TexIds.SequenceEqual(captured.Programs[0].TextureIds),"detached material archive remains usable after its live file disappears "+id);
+        string repairedFolder=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single())!;
+        var repaired=LocalImportBundle.Inspect(root,id,spec);
+        Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Generation!=before.Receipt!.Generation
+            &&ShaFile(Path.Combine(repairedFolder,material))==originalHash
+            &&survivors.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value&&ShaFile(Path.Combine(repairedFolder,Path.GetFileName(p.Key)))==p.Value),
+            "material repair creates a complete new generation and preserves all old/new geometry/provenance/cannon/ball sibling bytes "+id);
+
+        int previousVersion=id=="darksamus-echoes"?5:4,previousBody=id=="darksamus-echoes"?4:3;
+        string recipe=$"retro-character-preview-v{previousVersion}:{id}:Echoes:parts-index-v1:"
+            +string.Join(":",RetroCharacterPreviewExporter.PartsFor(id).Select(p=>
+                $"{p.Id}-v{(p.Id=="body"?previousBody:3)}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
+        if(id=="darksamus-echoes")recipe+=":normal-fixed-generated-cannon-v1-global-triangle-ids";
+        var previous=spec with{Version=previousVersion,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(recipe)),RequiredComponents=spec.RequiredComponents.Where(n=>n!=material).ToArray()};
+        var components=repaired.Files.Where(f=>Path.GetFileName(f)!=material).ToDictionary(f=>Path.GetFileName(f)!,File.ReadAllBytes);
+        var index=ReadParts(repairedFolder,id);
+        components[id+".parts.json"]=JsonSerializer.SerializeToUtf8Bytes(index with{BundleVersion=previousVersion,Parts=index.Parts.Select(p=>p.Id!="body"?p:p with{
+            Version=previousBody,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-materials").ToArray()}).ToArray()});
+        LocalImportBundle.Publish(root,previous,components,replaceAllComponents:true);
+        var old=LocalImportBundle.Inspect(root,id,previous);var oldFiles=old.Files.ToDictionary(f=>f,ShaFile);
+        Check(old.State==ImportBundleState.Ready&&old.Files.Count==(id=="darksamus-echoes"?23:21)
+            &&RetroCharacterPreviewExporter.InspectParts(id,LocalImportBundle.Inspect(root,id,spec)).All(p=>p.State==ImportBundleState.Outdated),
+            "previous complete normalv5/Finalv4 receipt is explicitly valid but Outdated for new material transport "+id);
+        string pointer=Path.Combine(root,LocalImportBundle.StorageDirectory,id,"current.json"),pointerHash=ShaFile(pointer);bool stage=false;
+        using(var cancellation=new CancellationTokenSource())
+        {
+            var progress=new SynchronousProgress(s=>{if(s==ImportPublishStage.BeforeCommit){stage=true;cancellation.Cancel();}});
+            Expect<OperationCanceledException>(()=>RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,cancellation.Token,progress,new[]{id}),"material migration BeforeCommit cancellation "+id);
+        }
+        Check(stage&&ShaFile(pointer)==pointerHash&&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
+            &&LocalImportBundle.Inspect(root,id,previous).State==ImportBundleState.Ready,
+            "canceled new material migration retains prior complete receipt and every immutable source byte "+id);
+        string migratedFolder=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single())!;
+        var migrated=LocalImportBundle.Inspect(root,id,spec);
+        Check(migrated.State==ImportBundleState.Ready&&migrated.Receipt!.Version==spec.Version&&ShaFile(Path.Combine(migratedFolder,material))==originalHash
+            &&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value),"material migration publishes current complete authoring bundle without deleting or overwriting old generation "+id);
+        ValidateOwnedParts(id,migratedFolder,spec,migrated,resource,fullAnimationProof:false);
     }
     private static void RepairOwnedCannon(string source,string root,Func<uint,byte[]> resource)
     {
@@ -233,17 +297,17 @@ internal static class CharacterBundleAcceptance
         var incomplete=LocalImportBundle.Inspect(root,id,spec);
         var parts=RetroCharacterPreviewExporter.InspectParts(id,incomplete);
         Check(incomplete.State==ImportBundleState.Incomplete&&parts[0].State==ImportBundleState.Incomplete
-            &&parts[0].Version==4&&parts[0].Components.Single(c=>c.Role=="source-cannon-recipe").State==ImportBundleState.Incomplete
+            &&parts[0].Version==5&&parts[0].Components.Single(c=>c.Role=="source-cannon-recipe").State==ImportBundleState.Incomplete
             &&parts[0].Components.Where(c=>c.Role!="source-cannon-recipe").All(c=>c.State==ImportBundleState.Ready)
             &&parts[1].State==ImportBundleState.Ready
-            &&RetroCharacterPreviewExporter.DescribeInspection(id,incomplete).Contains("body v4: Incomplete (source-cannon-recipe v1 Incomplete)",StringComparison.Ordinal),
+            &&RetroCharacterPreviewExporter.DescribeInspection(id,incomplete).Contains("body v5: Incomplete (source-cannon-recipe v1 Incomplete)",StringComparison.Ordinal),
             "owned missing cannon alone makes body Incomplete while verified body siblings and ball stay Ready");
         string repairedFolder=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single())!;
         var repaired=LocalImportBundle.Inspect(root,id,spec);
-        Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Version==5&&repaired.Files.Count==23
-            &&spec.RequiredComponents.Length==19&&repaired.Receipt.RequiredComponents.Length==23&&repaired.Receipt.Generation!=before.Receipt!.Generation
+        Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Version==6&&repaired.Files.Count==24
+            &&spec.RequiredComponents.Length==20&&repaired.Receipt.RequiredComponents.Length==24&&repaired.Receipt.Generation!=before.Receipt!.Generation
             &&ShaFile(Path.Combine(repairedFolder,cannonName))==cannonHash,
-            "owned missing cannon repair publishes fresh complete v5 generation with deterministic recipe");
+            "owned missing cannon repair publishes fresh complete v6 generation with deterministic recipe");
         Check(!File.Exists(missing)&&Directory.Exists(oldFolder)&&survivors.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
             &&survivors.All(p=>ShaFile(Path.Combine(repairedFolder,Path.GetFileName(p.Key)))==p.Value),
             "cannon repair retains damaged old generation and exact surviving old/new bytes");
@@ -255,8 +319,8 @@ internal static class CharacterBundleAcceptance
         string legacyRecipe=$"retro-character-preview-v4:{id}:{sourceCharacter.Game}:parts-index-v1:"
             +string.Join(":",RetroCharacterPreviewExporter.PartsFor(id).Select(p=>
                 $"{p.Id}-v3:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
-        var oldSpec=spec with{Version=4,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(legacyRecipe)),RequiredComponents=spec.RequiredComponents.Where(n=>n!=cannonName).ToArray()};
-        var oldBytes=repaired.Files.Where(f=>Path.GetFileName(f)!=cannonName)
+        var oldSpec=spec with{Version=4,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(legacyRecipe)),RequiredComponents=spec.RequiredComponents.Where(n=>n!=cannonName&&n!=id+".materials.bin").ToArray()};
+        var oldBytes=repaired.Files.Where(f=>Path.GetFileName(f)!=cannonName&&Path.GetFileName(f)!=id+".materials.bin")
             .ToDictionary(f=>Path.GetFileName(f),File.ReadAllBytes);
         var manifest=System.Text.Json.Nodes.JsonNode.Parse(oldBytes["characters.json"])!.AsObject();
         var models=manifest["models"]!.AsArray();models.RemoveAt(1);
@@ -265,7 +329,7 @@ internal static class CharacterBundleAcceptance
         oldBytes["characters.json"]=JsonSerializer.SerializeToUtf8Bytes(manifest);
         var index=ReadParts(repairedFolder,id);
         oldBytes[id+".parts.json"]=JsonSerializer.SerializeToUtf8Bytes(index with{BundleVersion=4,Parts=index.Parts.Select(p=>p.Id!="body"?p:p with{
-            Version=3,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-cannon-recipe")
+            Version=3,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-cannon-recipe"&&c.Role!="source-materials")
                 .Select(c=>c.Role=="source-preview-manifest"?c with{Version=1}:c).ToArray()}).ToArray()});
         LocalImportBundle.Publish(root,oldSpec,oldBytes,replaceAllComponents:true);
         var old=LocalImportBundle.Inspect(root,id,oldSpec);
@@ -278,10 +342,10 @@ internal static class CharacterBundleAcceptance
             "old generated receipt is Outdated before migration without current component-readiness claims");
         string migratedFolder=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single())!;
         var migrated=LocalImportBundle.Inspect(root,id,spec);
-        Check(migrated.State==ImportBundleState.Ready&&migrated.Receipt!.Version==5&&migrated.Files.Count==23
+        Check(migrated.State==ImportBundleState.Ready&&migrated.Receipt!.Version==6&&migrated.Files.Count==24
             &&migrated.Receipt.Generation!=old.Receipt!.Generation&&retained.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
             &&ShaFile(Path.Combine(migratedFolder,cannonName))==cannonHash,
-            "migration repairs old v4 into complete cannon v5 without deleting or overwriting old generation");
+            "migration repairs old v4 into complete materials/cannon v6 without deleting or overwriting old generation");
         ValidateOwnedParts(id,migratedFolder,spec,migrated,resource,fullAnimationProof:false);
     }
     private static string ShaFile(string path)=>Convert.ToHexStringLower(HashFile(path));
@@ -293,9 +357,9 @@ internal static class CharacterBundleAcceptance
         var states=spec.RequiredComponents.Select(file=>new ImportBundleComponentInspection(file,ImportBundleState.Ready,"verified fixture")).ToList();
         var ready=new ImportBundleInspection(ImportBundleState.Ready,"synthetic complete",null,Array.Empty<string>(),states);
         var parts=RetroCharacterPreviewExporter.InspectParts(id,ready);
-        Check(parts.Select(p=>p.Id).SequenceEqual(new[]{"body","ball"})&&parts.All(p=>p.Version==(p.Id=="body"?4:3)&&p.State==ImportBundleState.Ready
+        Check(parts.Select(p=>p.Id).SequenceEqual(new[]{"body","ball"})&&parts.All(p=>p.Version==(p.Id=="body"?5:3)&&p.State==ImportBundleState.Ready
             &&p.Components.Select(c=>c.Role).SequenceEqual(new[]{"geometry","rig","weights","motion-samples","skeleton-source","animation-resources","source-rig-geometry","generated-provenance"}
-                .Concat(p.Id=="body"?new[]{"source-preview-manifest","source-cannon-recipe"}:Array.Empty<string>()))
+                .Concat(p.Id=="body"?new[]{"source-materials","source-preview-manifest","source-cannon-recipe"}:Array.Empty<string>()))
             &&p.Components.All(c=>c.Version==(c.Role=="source-preview-manifest"?2:1)&&c.State==ImportBundleState.Ready)),
             "inspection exposes exact logical part and required role versions from verified component states");
         Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.AuthoringPartStatus>)parts)[0]=parts[1],
@@ -315,7 +379,7 @@ internal static class CharacterBundleAcceptance
             "missing shared parts index keeps both independently verified complete authoring parts Ready");
         string indexDescription=RetroCharacterPreviewExporter.DescribeInspection(id,missingIndex);
         Check(indexDescription.Contains(id+": Incomplete.",StringComparison.Ordinal)
-            &&indexDescription.Contains("body v4: Ready; ball v3: Ready",StringComparison.Ordinal),
+            &&indexDescription.Contains("body v5: Ready; ball v3: Ready",StringComparison.Ordinal),
             "description preserves global incomplete state while identifying verified logical parts");
         states[indexState]=states[indexState] with { State=ImportBundleState.Ready };
         states.Add(new(id+".ball.ancs-graph.json",ImportBundleState.Failed,"optional proof corrupt"));
@@ -345,19 +409,27 @@ internal static class CharacterBundleAcceptance
                 "missing required raw source component refuses complete part readiness while preserving verified siblings "+missing.Item1);
         }
         var oldV2=new ImportBundleReceipt(1,id,2,new string('c',64),spec.SourceFingerprint,new string('d',64),
-            spec.RequiredComponents.Where(c=>!c.EndsWith(".cinf.bin",StringComparison.Ordinal)&&!c.EndsWith(".animations.bin",StringComparison.Ordinal)&&!c.EndsWith(".source.glb",StringComparison.Ordinal)&&!c.EndsWith(".source.json",StringComparison.Ordinal)&&c!="characters.json"&&c!=id+".cannon-source.json").ToArray(),Array.Empty<ImportBundleComponent>());
+            spec.RequiredComponents.Where(c=>!c.EndsWith(".cinf.bin",StringComparison.Ordinal)&&!c.EndsWith(".animations.bin",StringComparison.Ordinal)&&!c.EndsWith(".source.glb",StringComparison.Ordinal)&&!c.EndsWith(".source.json",StringComparison.Ordinal)&&c!="characters.json"&&c!=id+".cannon-source.json"&&c!=id+".materials.bin").ToArray(),Array.Empty<ImportBundleComponent>());
         Check(RetroCharacterPreviewExporter.InspectParts(id,new(ImportBundleState.Outdated,"old sparse-only v2",oldV2,Array.Empty<string>()))
             .All(p=>p.State==ImportBundleState.Outdated),"old body/ball v2 receipt cannot claim current generated-source readiness");
         var oldV3=new ImportBundleReceipt(1,id,3,new string('e',64),spec.SourceFingerprint,new string('f',64),
-            spec.RequiredComponents.Where(c=>!c.EndsWith(".source.glb",StringComparison.Ordinal)&&!c.EndsWith(".source.json",StringComparison.Ordinal)&&c!="characters.json"&&c!=id+".cannon-source.json").ToArray(),Array.Empty<ImportBundleComponent>());
+            spec.RequiredComponents.Where(c=>!c.EndsWith(".source.glb",StringComparison.Ordinal)&&!c.EndsWith(".source.json",StringComparison.Ordinal)&&c!="characters.json"&&c!=id+".cannon-source.json"&&c!=id+".materials.bin").ToArray(),Array.Empty<ImportBundleComponent>());
         Check(RetroCharacterPreviewExporter.InspectParts(id,new(ImportBundleState.Outdated,"old raw-source v3",oldV3,Array.Empty<string>()))
             .All(p=>p.State==ImportBundleState.Outdated),"old raw-source v3 receipt cannot claim current generated geometry/provenance readiness");
-        var oldV4=oldV3 with{Version=4,RequiredComponents=spec.RequiredComponents.Where(c=>c!=id+".cannon-source.json").ToArray()};
+        var oldV4=oldV3 with{Version=4,RequiredComponents=spec.RequiredComponents.Where(c=>c!=id+".cannon-source.json"&&c!=id+".materials.bin").ToArray()};
         var oldGenerated=new ImportBundleInspection(ImportBundleState.Outdated,"old generated body-only v4",oldV4,Array.Empty<string>());
         Check(RetroCharacterPreviewExporter.InspectParts(id,oldGenerated).All(p=>p.State==ImportBundleState.Outdated
                 &&p.Components.All(c=>c.State==ImportBundleState.Outdated))
             &&!RetroCharacterPreviewExporter.DescribeInspection(id,oldGenerated).Contains(": Ready",StringComparison.Ordinal),
-            "old generated v4 receipt cannot claim v5 cannon/manifest readiness without current component verification");
+            "old generated v4 receipt cannot claim current material/cannon/manifest readiness without component verification");
+        var materialMissing=ready with{State=ImportBundleState.Incomplete,ComponentStates=spec.RequiredComponents.Select(file=>new ImportBundleComponentInspection(file,
+            file==id+".materials.bin"?ImportBundleState.Incomplete:ImportBundleState.Ready,"invented material archive state")).ToArray()};
+        var materialParts=RetroCharacterPreviewExporter.InspectParts(id,materialMissing);
+        Check(materialParts[0].Version==5&&materialParts[0].State==ImportBundleState.Incomplete
+            &&materialParts[0].Components.Single(c=>c.Role=="source-materials").State==ImportBundleState.Incomplete
+            &&materialParts[0].Components.Where(c=>c.Role!="source-materials").All(c=>c.State==ImportBundleState.Ready)
+            &&materialParts[1].Version==3&&materialParts[1].State==ImportBundleState.Ready,
+            "missing material authoring transport affects only its new required body role, not verified ball or runtime capabilities");
         var manifestMissing=ready with{State=ImportBundleState.Incomplete,ComponentStates=spec.RequiredComponents.Select(file=>new ImportBundleComponentInspection(file,
             file=="characters.json"?ImportBundleState.Incomplete:ImportBundleState.Ready,"invented manifest state")).ToArray()};
         var manifestParts=RetroCharacterPreviewExporter.InspectParts(id,manifestMissing);
@@ -371,7 +443,7 @@ internal static class CharacterBundleAcceptance
             &&cannonParts[0].Components.Single(c=>c.Role=="source-cannon-recipe").State==ImportBundleState.Incomplete
             &&cannonParts[0].Components.Where(c=>c.Role!="source-cannon-recipe").All(c=>c.State==ImportBundleState.Ready)
             &&cannonParts[1].State==ImportBundleState.Ready
-            &&RetroCharacterPreviewExporter.DescribeInspection(id,cannonMissing).Contains("body v4: Incomplete (source-cannon-recipe v1 Incomplete)",StringComparison.Ordinal),
+            &&RetroCharacterPreviewExporter.DescribeInspection(id,cannonMissing).Contains("body v5: Incomplete (source-cannon-recipe v1 Incomplete)",StringComparison.Ordinal),
             "missing cannon identifies only failed body recipe while manifest and ball remain independently Ready");
     }
     private static void ValidateSourceGlb(string id,RetroCharacterPreviewExporter.AuthoringPart part,string folder,Func<uint,byte[]> resource)
@@ -484,11 +556,11 @@ internal static class CharacterBundleAcceptance
             ??throw new InvalidDataException("Missing authoring parts index");
     private static void ValidateOwnedParts(string id,string folder,ImportBundleSpec spec,ImportBundleInspection inspected,Func<uint,byte[]> resource,bool fullAnimationProof)
     {
-        int requiredCount=id=="darksamus-echoes"?19:17,fileCount=requiredCount+4;
+        int requiredCount=id=="darksamus-echoes"?20:18,fileCount=requiredCount+4;
         Check(spec.RequiredComponents.Length==requiredCount&&inspected.Files.Count==fileCount&&inspected.Receipt!.Components.Length==fileCount
             &&inspected.Files.All(f=>Path.GetDirectoryName(f)==folder),"exact complete body/ball inventory and four graph files share one generation "+id);
         Check(RetroCharacterPreviewExporter.InspectParts(id,inspected).All(p=>p.State==ImportBundleState.Ready
-            &&p.Version==(id=="darksamus-echoes"&&p.Id=="body"?4:3)&&p.Components.Count==(id=="darksamus-echoes"&&p.Id=="body"?10:8)
+            &&p.Version==(p.Id=="body"?(id=="darksamus-echoes"?5:4):3)&&p.Components.Count==(p.Id=="body"?(id=="darksamus-echoes"?11:9):8)
             &&p.Components.All(c=>c.State==ImportBundleState.Ready&&c.Version==(c.Role=="source-preview-manifest"?2:1))),
             "actual verified body and ball report every versioned source component Ready "+id);
         var index=ReadParts(folder,id);
@@ -499,10 +571,12 @@ internal static class CharacterBundleAcceptance
         foreach(var part in index.Parts)
         {
             string stem=RetroCharacterPreviewExporter.PartStem(id,part.Id);
-            Check(part.Version==(id=="darksamus-echoes"&&part.Id=="body"?4:3)&&part.RequiredComponents.All(c=>c.Version==(c.Role=="source-preview-manifest"?2:1))
+            Check(part.Version==(part.Id=="body"?(id=="darksamus-echoes"?5:4):3)&&part.RequiredComponents.All(c=>c.Version==(c.Role=="source-preview-manifest"?2:1))
                 &&part.RequiredComponents.Select(c=>c.Role).SequenceEqual(new[]{"geometry","rig","weights","motion-samples","skeleton-source","animation-resources","source-rig-geometry","generated-provenance"}
+                    .Concat(part.Id=="body"?new[]{"source-materials"}:Array.Empty<string>())
                     .Concat(id=="darksamus-echoes"&&part.Id=="body"?new[]{"source-preview-manifest","source-cannon-recipe"}:Array.Empty<string>()))
                 &&part.RequiredComponents.Select(c=>c.File).SequenceEqual(new[]{stem+".obj",stem+".skeleton.json",stem+".weights.json",stem+".motions.json",stem+".cinf.bin",stem+".animations.bin",stem+".source.glb",stem+".source.json"}
+                    .Concat(part.Id=="body"?new[]{stem+".materials.bin"}:Array.Empty<string>())
                     .Concat(id=="darksamus-echoes"&&part.Id=="body"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:Array.Empty<string>()))
                 &&part.OptionalComponents.SequenceEqual(new[]{stem+".ancs-graph.json",stem+".ancs.bin"})
                 &&part.RequiredComponents.Select(c=>c.File).Concat(part.OptionalComponents).All(n=>inspected.Files.Contains(Path.Combine(folder,n))),
@@ -510,6 +584,8 @@ internal static class CharacterBundleAcceptance
             ValidateSourceGlb(id,part,folder,resource);
             ValidateAnimationArchive(id,part,folder,resource,fullAnimationProof);
         }
+        ValidateMaterialArchive(id,folder,index.Parts.Single(p=>p.Id=="body"),spec.SourceFingerprint,resource);
+        Check(!inspected.Files.Any(f=>Path.GetFileName(f)==id+".ball.materials.bin"),"body-only material transport does not invent alternate-form qualification "+id);
         if(id=="darksamus-echoes")
         {
             using var manifest=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,"characters.json")));
@@ -595,6 +671,99 @@ internal static class CharacterBundleAcceptance
         byte[] raw=File.ReadAllBytes(Path.Combine(folder,stem+".ancs.bin"));
         byte[] descriptor=File.ReadAllBytes(Path.Combine(folder,stem+".ancs-graph.json"));
         return new(raw,descriptor,RetroAnimationGraphProof.Verify(descriptor,raw));
+    }
+    private static void ValidateMaterialArchive(string id,string folder,RetroCharacterPreviewExporter.AuthoringPart body,string fingerprint,Func<uint,byte[]> resource)
+    {
+        byte[] input=File.ReadAllBytes(Path.Combine(folder,id+".materials.bin"));
+        var archive=RetroCharacterMaterialArchive.Read(input);
+        byte[] cmdl=resource(body.Refs.Cmdl),cskr=resource(body.Refs.Cskr);
+        var model=Cmdl.Load(value=>value==body.Refs.Cmdl?cmdl:value==body.Refs.Cskr?cskr:resource(value),body.Refs.Cmdl,body.Refs.Cskr);
+        uint Be(int at)=>BinaryPrimitives.ReadUInt32BigEndian(cmdl.AsSpan(at,4));
+        int materialAt=checked((0x2c+4*(int)Be(0x24)+31)&~31),materialLength=checked((int)Be(0x2c));
+        var set=cmdl.AsSpan(materialAt,materialLength);
+        int tableCount=checked((int)BinaryPrimitives.ReadUInt32BigEndian(set));
+        uint[] table=Enumerable.Range(0,tableCount).Select(i=>BinaryPrimitives.ReadUInt32BigEndian(cmdl.AsSpan(materialAt+4+i*4,4))).ToArray();
+        int countAt=4+4*tableCount,count=checked((int)BinaryPrimitives.ReadUInt32BigEndian(set[countAt..])),baseAt=countAt+4+4*count,previous=0;
+        Check(archive.Binding==new RetroCharacterMaterialArchive.Source(id,body.Refs.Cmdl,body.Refs.Cskr,body.Refs.Cinf,body.Ancs,fingerprint)
+            &&archive.CmdlSha256==Sha(cmdl)&&archive.CskrSha256==Sha(cskr)
+            &&archive.GeometrySha256==ShaFile(Path.Combine(folder,id+".source.glb"))&&archive.MaterialSetSha256==Sha(set)
+            &&archive.Programs.Count==count&&count==(id=="darksamus-echoes"?7:9)&&archive.Textures.Count==(id=="darksamus-echoes"?10:12),
+            "material transport binds exact original body resources/full material set/generated geometry and all source slot counts "+id);
+        var json=new JsonSerializerOptions{IncludeFields=true};
+        for(int i=0;i<count;i++)
+        {
+            int end=checked((int)BinaryPrimitives.ReadUInt32BigEndian(set.Slice(countAt+4+i*4,4))),length=end-previous;
+            var raw=set.Slice(baseAt+previous,length);var program=archive.ReadProgram(i);
+            Check(archive.RawProgram(i).SequenceEqual(raw)&&archive.Programs[i].Ordinal==i&&archive.Programs[i].Length==length
+                &&archive.Programs[i].RawSha256==Sha(raw)&&archive.Programs[i].TextureIds.SequenceEqual(program.Tex.Select(t=>table[t]))
+                &&JsonSerializer.SerializeToUtf8Bytes(program,json).SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(model.Materials[i],json)),
+                "every raw program byte/opaque field and parsed selector matches its original CMDL material ordinal "+id+"/"+i);
+            byte[] before=JsonSerializer.SerializeToUtf8Bytes(program,json);program.Flags^=1;
+            if(program.TexIds.Length>0)program.TexIds[0]^=1;if(program.Channels.Length>0)program.Channels[0]^=1;
+            if(program.Stages.Length>0)program.Stages[0].ColorIn[0]^=1;
+            Check(before.SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(archive.ReadProgram(i),json)),"mutable returned material parser is detached from captured archive "+id+"/"+i);
+            previous=end;
+        }
+        uint[] needed=model.Materials.SelectMany(m=>m.TexIds).Distinct().Order().ToArray();
+        Check(archive.Textures.Select(t=>t.ResourceId).SequenceEqual(needed),"archive retains exactly every declared texture slot including TEV-unused declarations "+id);
+        var textureMetadata=new List<object>();long pixels=0;
+        foreach(var texture in archive.Textures)
+        {
+            byte[] raw=resource(texture.ResourceId);var image=archive.DecodeTexture(texture.ResourceId);
+            string oracle=MaterialTextureOracle(raw,image);
+            Check(archive.RawTexture(texture.ResourceId).SequenceEqual(raw)&&texture.SourceSha256==Sha(raw)&&texture.Length==raw.Length
+                &&image.Layout.Width==texture.Width&&image.Layout.Height==texture.Height&&image.Layout.Format==texture.Format
+                &&texture.RgbaSha256==Sha(image.Pixels)&&oracle==texture.RgbaSha256,
+                "every complete TXTR and every decoded RGBA texel agrees with original source and independent coordinate oracle "+id+"/"+texture.ResourceId.ToString("x8"));
+            pixels+=(long)texture.Width*texture.Height;
+            textureMetadata.Add(new{texture.ResourceId,texture.Format,texture.Width,texture.Height,texture.MipCount,texture.Length,texture.SourceSha256,texture.RgbaSha256,OracleSha256=oracle});
+        }
+        string firstProgram=archive.Programs[0].RawSha256,firstTexture=archive.Textures[0].SourceSha256;Array.Fill(input,(byte)0);
+        Check(Sha(archive.RawProgram(0))==firstProgram&&Sha(archive.RawTexture(archive.Textures[0].ResourceId))==firstTexture,
+            "archive owns detached bytes after caller destroys original input "+id);
+        Expect<NotSupportedException>(()=>((IList<RetroCharacterMaterialArchive.Program>)archive.Programs)[0]=archive.Programs[0],"program directory is read-only");
+        Expect<NotSupportedException>(()=>((IList<uint>)archive.Programs[0].TextureIds)[0]=0,"program texture bindings are read-only");
+        Console.WriteLine(JsonSerializer.Serialize(new{Kind="owned-complete-material-authoring",CharacterId=id,ArchiveSha256=archive.Sha256,
+            SourceCmdlSha256=archive.CmdlSha256,SourceCskrSha256=archive.CskrSha256,GeneratedGlbSha256=archive.GeometrySha256,
+            MaterialSetSha256=archive.MaterialSetSha256,Programs=archive.Programs.Count,Textures=textureMetadata,ComparedPixels=pixels,
+            archive.DecodedBytes,SourcePayloadsWritten=false,RenderingActivated=false,SourceMaterialsQualified=false}));
+    }
+    // Logical-coordinate oracle from the separately qualified texture probe:
+    // no production tile loops or endpoint helpers are used here.
+    private static string MaterialTextureOracle(ReadOnlySpan<byte> source,RetroTextureSource.Decoded image)
+    {
+        static int Expand(int v,int bits){int result=0;for(int b=0;b<8;b++)result=2*result+((v>>(bits-1-b%bits))&1);return result;}
+        static int Word(ReadOnlySpan<byte> s,int at)=>256*s[at]+s[at+1];
+        var layout=image.Layout;var row=new byte[layout.Width*4];using var digest=IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Require(layout.Format is 8 or 10,"Owned material oracle only admits the measured RGB5A3/CMPR source profile.");
+        for(int y=0;y<layout.Height;y++)
+        {
+            for(int x=0;x<layout.Width;x++)
+            {
+                int at;
+                if(layout.Format==8)
+                {
+                    at=12+32*((y/4)*((layout.Width+3)/4)+x/4)+2*(4*(y%4)+x%4);int word=Word(source,at),bits=word>=0x8000?5:4;
+                    for(int c=0;c<3;c++)row[x*4+c]=(byte)Expand((word>>((2-c)*bits))&((1<<bits)-1),bits);
+                    row[x*4+3]=(byte)(word>=0x8000?255:Expand(word/4096,3));
+                }
+                else
+                {
+                    at=12+32*((y/8)*((layout.Width+7)/8)+x/8)+8*(2*((y%8)/4)+(x%8)/4);
+                    int first=Word(source,at),second=Word(source,at+2),choice=(source[at+4+y%4]>>(6-2*(x%4)))&3;
+                    for(int c=0;c<3;c++)
+                    {
+                        int shift=c==0?11:c==1?5:0,bits=c==1?6:5;
+                        int a=Expand((first>>shift)&((1<<bits)-1),bits),b=Expand((second>>shift)&((1<<bits)-1),bits);
+                        row[x*4+c]=(byte)(choice switch{0=>a,1=>b,2=>first>second?(5*a+3*b)/8:(a+b)/2,_=>first>second?(3*a+5*b)/8:(a+b)/2});
+                    }
+                    row[x*4+3]=(byte)(choice==3&&first<=second?0:255);
+                }
+            }
+            Require(row.AsSpan().SequenceEqual(image.Pixels.Slice(y*row.Length,row.Length)),"Independent logical texel oracle differs from material archive decode.");
+            digest.AppendData(row);
+        }
+        return Convert.ToHexStringLower(digest.GetHashAndReset());
     }
     private static void ValidateAnimationArchive(string id,RetroCharacterPreviewExporter.AuthoringPart part,string folder,Func<uint,byte[]> resource,bool full)
     {
