@@ -37,6 +37,27 @@ public sealed class MainActivity : Activity
             try
             {
                 Log.Info(Tag, $"START owner={owner} output={output}");
+                int bridgeChecks = 0;
+                string? bridgeFailure = null;
+                void CheckBridge(bool passed, string label)
+                {
+                    Interlocked.Increment(ref bridgeChecks);
+                    if (!passed) Interlocked.CompareExchange(ref bridgeFailure, label, null);
+                }
+                global::AffineBindingChecks.Run(CheckBridge);
+                int affineChecks = bridgeChecks;
+                global::HumanoidMapChecks.Run(CheckBridge);
+                int mapChecks = bridgeChecks - affineChecks;
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName(output)!, "bridge-check-results.json"),
+                    JsonSerializer.Serialize(new
+                    {
+                        status = bridgeFailure == null ? "passed" : "failed", ownerThread = owner,
+                        affineChecks, humanoidMapChecks = mapChecks, totalChecks = bridgeChecks,
+                        firstFailure = bridgeFailure,
+                        scope = "Synthetic standalone affine/map contracts only; no native asset/render/game integration qualification."
+                    }, new JsonSerializerOptions { WriteIndented = true }));
+                Log.Info(Tag, $"BRIDGE affine={affineChecks} humanoid-map={mapChecks} total={bridgeChecks} firstFailure={bridgeFailure ?? "none"}");
+                if (bridgeFailure != null) throw new InvalidOperationException("Bridge check failed: " + bridgeFailure);
 #if SHARED_PILOT_BENCHMARKS
                 string benchmarkDirectory = Path.Combine(Path.GetDirectoryName(output)!, "benchmark");
                 global::CorpsePilot.PilotBenchmarks.Run(benchmarkDirectory, steps: 600);
