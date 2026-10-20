@@ -22,7 +22,9 @@ namespace MphRead.Mods.Render
 
         private static int _program;
         private static int _energyTime, _launch, _hunterWeightsA, _hunterWeightsB;
+        private static int _detail, _effectStrength, _sceneBlend, _heroReveal;
         private static readonly int[] _slotLight = new int[8];
+        private static readonly int[] _slotSignal = new int[8];
         private static int _time;
         private static int _resolution;
         private static int _top;
@@ -61,30 +63,43 @@ namespace MphRead.Mods.Render
 
         public static void Draw(int width, int height)
         {
-            if (!Enabled || width <= 0 || height <= 0 || !EnsureProgram())
+            if (!Enabled || width <= 0 || height <= 0)
                 return;
+
+            using var state = new MenuGraphicsStateScope();
+            if (!EnsureProgram()) return;
+            var budget = MenuEnvironmentBudget.For(RenderOptions.CosmeticQuality, LauncherPrefs.ReduceMotion);
 
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
             LauncherActivityAmbience activity = LauncherPresentation.Motion.Activity;
             LauncherHunterTheme hunter = LauncherPresentation.Motion.Theme;
-            float time = LauncherPrefs.ReduceMotion
+            float time = !budget.Animate
                 ? 0f
                 : (float)LauncherPresentation.Seconds;
 
             GL.UseProgram(_program);
             var motion = LauncherPresentation.Motion;
-            GL.Uniform1(_energyTime, LauncherPrefs.ReduceMotion ? 0f : (float)motion.EnergyTime);
+            GL.Uniform1(_energyTime, budget.Animate ? (float)motion.EnergyTime : 0f);
+            GL.Uniform1(_detail, (float)budget.Detail);
+            GL.Uniform1(_effectStrength, budget.Atmosphere);
+            GL.Uniform1(_sceneBlend, motion.SceneBlend);
+            GL.Uniform1(_heroReveal, budget.Animate ? motion.HeroReveal : 1f);
             GL.Uniform1(_launch, motion.Launch);
             GL.Uniform4(_hunterWeightsA, new Vector4(motion.HunterWeights[0], motion.HunterWeights[1], motion.HunterWeights[2], motion.HunterWeights[3]));
             GL.Uniform4(_hunterWeightsB, new Vector4(motion.HunterWeights[4], motion.HunterWeights[5], motion.HunterWeights[6], 0));
             for (int i = 0; i < 8; i++)
             {
                 var color = motion.SlotColors[i];
-                GL.Uniform4(_slotLight[i], new Vector4(color.R, color.G, color.B, motion.ReadyPulse[i]));
+                GL.Uniform4(_slotLight[i], new Vector4(color.R, color.G, color.B, budget.Animate ? motion.ReadyPulse[i] : 0));
+                GL.Uniform4(_slotSignal[i], new Vector4(motion.Ready[i] ? 1 : 0,
+                    budget.Animate ? motion.JoinPulse[i] : 0, budget.Animate ? motion.LeavePulse[i] : 0,
+                    LauncherLobbyVisuals.Active && (LauncherLobbyVisuals.OccupiedMask & (1 << i)) != 0 ? 1 : 0));
             }
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.AlphaTest);
+            GL.Disable(EnableCap.StencilTest);
+            GL.DepthMask(false);
             GL.Disable(EnableCap.Blend);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.Disable(EnableCap.Texture2D);
@@ -99,9 +114,9 @@ namespace MphRead.Mods.Render
             Color(_hunterHalo, hunter.Halo);
             Color(_hunterRim, hunter.Rim);
             GL.Uniform1(_energy, activity.Energy);
-            GL.Uniform1(_fog, style.Fog * activity.FogBias);
+            GL.Uniform1(_fog, style.Fog * activity.FogBias * budget.Atmosphere);
             GL.Uniform1(_particles,
-                style.Particles * activity.ParticleBias * hunter.ParticleScale);
+                style.Particles * activity.ParticleBias * hunter.ParticleScale * budget.Atmosphere);
             GL.Uniform1(_structure, style.StructureOpacity * activity.StructureBias);
             GL.Uniform1(_floorGrid, activity.FloorGrid);
             GL.Uniform1(_heroLight, activity.HeroLightBias);
@@ -153,10 +168,6 @@ namespace MphRead.Mods.Render
             GL.TexCoord2(1f, 1f); GL.Vertex2(1f, -1f);
             GL.End();
 
-            GL.UseProgram(0);
-            GL.Color4(1f, 1f, 1f, 1f);
-            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            GL.Enable(EnableCap.DepthTest);
         }
 
         public static void Release()
@@ -213,9 +224,14 @@ namespace MphRead.Mods.Render
                 _time = GL.GetUniformLocation(program, "time_value");
                 _energyTime = GL.GetUniformLocation(program, "energy_time");
                 _launch = GL.GetUniformLocation(program, "launch_amount");
+                _detail = GL.GetUniformLocation(program, "detail_level");
+                _effectStrength = GL.GetUniformLocation(program, "effect_strength");
+                _sceneBlend = GL.GetUniformLocation(program, "scene_blend");
+                _heroReveal = GL.GetUniformLocation(program, "hero_reveal");
                 _hunterWeightsA = GL.GetUniformLocation(program, "hunter_weights_a");
                 _hunterWeightsB = GL.GetUniformLocation(program, "hunter_weights_b");
                 for (int i = 0; i < 8; i++) _slotLight[i] = GL.GetUniformLocation(program, $"slot_light[{i}]");
+                for (int i = 0; i < 8; i++) _slotSignal[i] = GL.GetUniformLocation(program, $"slot_signal[{i}]");
                 _resolution = GL.GetUniformLocation(program, "resolution");
                 _top = GL.GetUniformLocation(program, "base_top");
                 _mid = GL.GetUniformLocation(program, "base_mid");
@@ -283,7 +299,9 @@ namespace MphRead.Mods.Render
         private static void ResetLocations()
         {
             _energyTime = _launch = _hunterWeightsA = _hunterWeightsB = -1;
+            _detail = _effectStrength = _sceneBlend = _heroReveal = -1;
             Array.Fill(_slotLight, -1);
+            Array.Fill(_slotSignal, -1);
             _time = _resolution = _top = _mid = _bottom = -1;
             _activityAccent = _activitySecondary = _hunterHalo = _hunterRim = -1;
             _energy = _fog = _particles = _structure = _floorGrid = -1;
@@ -292,6 +310,7 @@ namespace MphRead.Mods.Render
             _beamIntensity = _backgroundSoftness = -1;
             _lobbyMode = _homePartyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
             _homeLayoutMode = -1;
+            Array.Fill(_homePadLocations, -1);
             HomeLayout = null;
             Array.Fill(_lobbyPadLocations, -1);
         }
