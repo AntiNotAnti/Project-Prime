@@ -1757,7 +1757,7 @@ namespace MphRead
         /// </summary>
         public void StartNewSave()
         {
-            StorySave = new StorySave();
+            StorySave = MphRead.StorySave.CreateNewCampaign();
         }
 
         public StorySave ReadSave()
@@ -1773,7 +1773,7 @@ namespace MphRead
                     save = JsonSerializer.Deserialize<StorySave>(File.ReadAllText(path), _jsonOpt);
                 }
             }
-            StorySave result = save ?? new StorySave();
+            StorySave result = save ?? (fileExists ? new StorySave() : MphRead.StorySave.CreateNewCampaign());
             if (DebugLog.Active)
             {
                 DebugLog.Line("save", fileExists
@@ -2077,6 +2077,14 @@ namespace MphRead
         public byte[] AreaHunters { get; init; } = new byte[4];
         public byte DefeatedHunters { get; set; }
         public SaveStats Stats { get; init; } = new SaveStats();
+
+        /// <summary>Only a deliberate new campaign has known timing history from zero.</summary>
+        public static StorySave CreateNewCampaign()
+        {
+            var save = new StorySave();
+            save.Stats.CampaignTime = Mods.Campaign.CampaignTimeRecords.CreateNew();
+            return save;
+        }
 
         public StorySave()
         {
@@ -2431,6 +2439,8 @@ namespace MphRead
 
         public class SaveStats
         {
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+            public Mods.Campaign.CampaignTimeRecords.Record? CampaignTime { get; set; }
             public uint HunterKills { get; set; }
             public uint Deaths { get; set; }
             public uint EnemyHunterDeaths { get; set; }

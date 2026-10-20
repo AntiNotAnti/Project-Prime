@@ -37,9 +37,9 @@ public sealed class NativeCampaignEndingPage : IDisposable
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
         Receipt = summary;
         _audio = audio;
-        _controller = new(new(summary.Slot, summary.Kind == CampaignEndingKind.Complete,
+        _controller = new(new NativeCampaignEndingReport(summary.Slot, summary.Kind == CampaignEndingKind.Complete,
             summary.SaveCommitted, summary.CompletionPercent, summary.Octoliths, summary.Deaths,
-            summary.HunterKills, summary.EnemyKills));
+            summary.HunterKills, summary.EnemyKills) { PlayTicks = summary.PlayTicks, GoreaTicks = summary.GoreaTicks });
     }
 
     public void Open()
@@ -106,6 +106,8 @@ public sealed class NativeCampaignEndingPage : IDisposable
         Text("campaign_ending_save", Receipt.SaveCommitted ? "SAVE COMMITTED" : "SAVE NOT REQUESTED");
         Text("campaign_ending_totals", "COMPLETION  " + (Receipt.CompletionPercent is { } percentage
                 ? percentage.ToString(CultureInfo.InvariantCulture) + "%" : "NOT AVAILABLE")
+            + "\nTOTAL TIME  " + CampaignTimeRecords.FormatTotal(state.Report.PlayTicks)
+            + "\nGOREA TIME  " + (state.Report.Complete ? CampaignTimeRecords.FormatGorea(state.Report.GoreaTicks) : "INCOMPLETE")
             + $"\nOCTOLITHS  {Receipt.Octoliths}/8\nDEATHS  {Receipt.Deaths}\nHUNTER KILLS  {Receipt.HunterKills}\nENEMY KILLS  {Receipt.EnemyKills}");
         Text("campaign_ending_credits", CreditsText());
         fields["disabled:campaign_ending_continue"] = RmlUiBindingValue.FromBoolean(state.Closed);

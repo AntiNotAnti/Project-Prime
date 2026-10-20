@@ -19,6 +19,8 @@ namespace MphRead.Mods.Campaign
         int? CompletionPercent, int Octoliths, uint Deaths,
         uint HunterKills, uint EnemyKills)
     {
+        public long? PlayTicks { get; init; }
+        public long? GoreaTicks { get; init; }
         public string Heading => Kind == CampaignEndingKind.Complete
             ? "CONGRATULATIONS // MISSION COMPLETE"
             : "MISSION COMPLETE...?";
@@ -53,12 +55,13 @@ namespace MphRead.Mods.Campaign
                 }
             }
 
+            var timing = CampaignTimeRecords.Capture(save.Stats);
             return new CampaignEndingSummary(slot,
                 roomId == CampaignNavigation.GoreaSecondRoomId
                     ? CampaignEndingKind.Complete : CampaignEndingKind.Incomplete,
                 false, completion, save.CountFoundOctoliths(),
                 save.Stats?.Deaths ?? 0, save.Stats?.HunterKills ?? 0,
-                save.Stats?.EnemyKills ?? 0);
+                save.Stats?.EnemyKills ?? 0) { PlayTicks = timing.PlayTicks, GoreaTicks = timing.GoreaTicks };
         }
     }
 }

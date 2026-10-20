@@ -2495,6 +2495,12 @@ namespace MphRead
                 if (this.GameState.MatchState == MatchState.InProgress && !this.GameState.DialogPause && !this.GameState.MenuPause)
                 {
                     _elapsedTime += _frameTime;
+                    // Match the existing elapsed-time policy, but record only local original-campaign rooms.
+                    if (this.GameState.SinglePlayer && _room is { RoomId: >= 27 and <= 92 } campaignRoom && !Mods.Headless.Active
+                        && !Services.IsReplica && !Mods.Network.DemoPlayback.IsActive && !Mods.Network.NetSession.Active)
+                    {
+                        Mods.Campaign.CampaignTimeRecords.Advance(this.GameState.StorySave.Stats, campaignRoom.RoomId);
+                    }
                 }
                 if (_inputMode == InputMode.CameraOnly || Mods.Chat.ChatBox.Composing)
                 {

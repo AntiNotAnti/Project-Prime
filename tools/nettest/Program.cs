@@ -55,6 +55,8 @@ namespace MphRead.NetTest
                     + "  --campaign-movies                 Test cartridge-movie catalog and bounded VX warmup.\n"
                     + "  --campaign-movie-lifetime         Test private VX decode, cancellation and movie worker retirement.\n"
                     + "  --campaign-endings                Test final cinematics, ending results and save handoff.\n"
+                    + "  --campaign-timing                 Test optional60Hz observations, unknown legacy history and immutable save retry.\n"
+                    + "  --campaign-timing-gl <assets>      Test owned native Renderer timing under virtual picture cadences; no captures.\n"
                     + "  --campaign-presentation           Test native campaign HUD, scan journal, and map framing.\n"
                     + "  --campaign-map-detail             Test bounded detached pause-map polygons and native map transforms.\n"
                     + "  --campaign-map-gl <assets> <fresh-dir> Owned native pause-map GL captures; private derivatives.\n"
@@ -215,6 +217,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--campaign-movies") return CampaignMovieTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-movie-lifetime") return CampaignMovieLifetimeTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-endings") return CampaignEndingTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-timing") return CampaignTimingTests.Run();
+            if (args.Length > 0 && args[0] == "--campaign-timing-gl") return CampaignTimingGlTests.Run(args);
             if (args.Length > 0 && args[0] == "--campaign-presentation") return CampaignPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-map-detail") return CampaignMapDetailTests.Run();
             if (args.Length > 0 && args[0] == "--campaign-map-gl") return CampaignMapGlTests.Run(args);
