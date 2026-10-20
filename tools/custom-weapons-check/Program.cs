@@ -9,9 +9,11 @@ if (args.Length is 2 or 3 && args[0] == "--scope-gl") return CustomScopeSceneChe
 if (args.Length == 2 && args[0] == "--scope-scene") return CustomScopeSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--offline-launch-scene") return CustomOfflineLaunchSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--offline-availability-scene") return CustomOfflineAvailabilitySceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--menu-selection-scene") return CustomMenuSelectionSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--local-input-scene") return CustomLocalInputSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--client-projection-scene") return CustomAuthoritySceneChecks.RunClientProjection(args[1]);
+if (args.Length == 2 && args[0] == "--menu-selection-client-scene") return CustomPublicInputClientSceneChecks.Run(args[1],menuSelection:true);
 if (args.Length == 2 && args[0] == "--public-input-client-scene") return CustomPublicInputClientSceneChecks.Run(args[1]);
 if (args.Length == 1 && args[0] == "--gamepad-enhancements")
 {
@@ -213,6 +215,7 @@ ReplicaAudienceChecks.Run(Check);
 CustomReplayBoundaryChecks.Run(Check);
 CustomMatchPolicyChecks.Run(Check);
 CustomOfflineAvailabilityChecks.Run(Check);
+CustomSelectionMailboxChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

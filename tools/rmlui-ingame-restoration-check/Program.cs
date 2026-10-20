@@ -50,6 +50,90 @@ using (var menu = new InGameController(backend))
     Check(!menu.Dispatch(new(menu.Snapshot().Lifetime, menu.Snapshot().Revision - 1, InGameAction.Quit)).Accepted, "Old menu revision is rejected");
     Check(Task.Run(() => { try { menu.Intent(InGameAction.Resume); return false; } catch (InvalidOperationException) { return true; } }).Result, "Owner-thread intent construction is guarded");
 }
+// Custom selection remains a menu intent; this fake backend never mutates a world.
+Check((int)InGameAction.JournalBack == 33 && (int)InGameAction.CustomEquip == 34
+    && (int)InGameAction.CustomReturnNative == 35, "Custom actions append without changing journal indices");
+var customBackend = new FakeMatch();
+customBackend.State = customBackend.State with { Owner = false, CanManageBots = false,
+    CustomAvailable = true, CanEquipCustom = true, CanReturnNative = false,
+    CustomBindingHelp = "Selection unbound; use menu buttons." };
+using (var customMenu = new InGameController(customBackend))
+{
+    Check(customMenu.Dispatch(customMenu.Intent(InGameAction.CustomEquip)).Effect == InGameEffect.Resume
+        && customBackend.Executed.Single().Action == InGameAction.CustomEquip
+        && customBackend.Edits.Count == 0, "Non-owner custom equip routes to selection backend, never bot administration");
+    int sent = customBackend.Executed.Count;
+    Check(!customMenu.Dispatch(customMenu.Intent(InGameAction.CustomReturnNative)).Accepted
+        && customBackend.Executed.Count == sent, "Disabled native return never reaches backend");
+    customBackend.State = customBackend.State with { CanEquipCustom = false, CanReturnNative = true,
+        CustomNativePending = true }; customMenu.Refresh();
+    Check(customMenu.Snapshot().Facts.CustomNativePending && customMenu.Snapshot().Facts.CustomBindingHelp.Contains("unbound"),
+        "Readonly custom facts and binding fallback reach menu snapshot");
+    Check(customMenu.Dispatch(customMenu.Intent(InGameAction.CustomReturnNative)).Effect == InGameEffect.Resume
+        && customBackend.Executed.Last().Action == InGameAction.CustomReturnNative, "Allowed native return resumes after backend accepts");
+    customBackend.ExecuteError = "The loadout changed.";
+    Check(!customMenu.Dispatch(customMenu.Intent(InGameAction.CustomReturnNative)).Accepted
+        && customMenu.Snapshot().Error == customBackend.ExecuteError, "Refused queue request remains visible without resume");
+    customBackend.ExecuteError = "";
+    customBackend.State = customBackend.State with { CustomAvailable = false }; customMenu.Refresh();
+    sent = customBackend.Executed.Count;
+    Check(!customMenu.Dispatch(customMenu.Intent(InGameAction.CustomEquip)).Accepted
+        && customBackend.Executed.Count == sent, "Readiness loss refuses custom action before backend");
+    customBackend.State = customBackend.State with { CustomAvailable = true, CanEquipCustom = true, Replay = true };
+    Check(!customMenu.Dispatch(customMenu.Intent(InGameAction.CustomEquip)).Accepted, "Replay cannot request custom selection");
+}
+// Equal-looking display facts cannot let an old click adopt a replacement source witness.
+// These are fake immutable source identities; asset-backed Scene/mailbox checks live separately.
+var originalContext = new SelectionTestContext(7, 9, 11, "manifest-a");
+foreach (var (label, replacement) in new[]
+{
+    ("life", originalContext with { Life = 10 }),
+    ("bootstrap", originalContext with { Bootstrap = 12 }),
+    ("manifest", originalContext with { Manifest = "manifest-b" }),
+    ("scene", originalContext with { SceneGeneration = 8 }),
+    ("equal full context, distinct publication", originalContext)
+})
+foreach (var action in new[] { InGameAction.CustomEquip, InGameAction.CustomReturnNative })
+{
+    object firstWitness = new SelectionTestWitness(originalContext);
+    object replacementWitness = new SelectionTestWitness(replacement);
+    var raceBackend = new FakeMatch();
+    raceBackend.State = raceBackend.State with { Owner = false, CanManageBots = false,
+        CustomAvailable = true, CanEquipCustom = action == InGameAction.CustomEquip,
+        CanReturnNative = action == InGameAction.CustomReturnNative, CustomSelectionWitness = firstWitness };
+    using var raceMenu = new InGameController(raceBackend);
+    long initialRevision = raceMenu.Snapshot().Revision;
+    raceMenu.Refresh();
+    Check(raceMenu.Snapshot().Revision == initialRevision,
+        "Stable selection witness preserves revision: " + label + "/" + action);
+    InGameIntent queued = raceMenu.Intent(action);
+    InGameFacts oldDisplay = raceMenu.Snapshot().Facts;
+    raceBackend.State = raceBackend.State with { CustomSelectionWitness = replacementWitness };
+    Check((oldDisplay with { CustomSelectionWitness = null, Bots = ImmutableArray<InGameBot>.Empty,
+            BotHunters = ImmutableArray<Hunter>.Empty, Teams = ImmutableArray<InGameTeam>.Empty })
+        == (raceBackend.State with { CustomSelectionWitness = null, Bots = ImmutableArray<InGameBot>.Empty,
+            BotHunters = ImmutableArray<Hunter>.Empty, Teams = ImmutableArray<InGameTeam>.Empty }),
+        "Source replacement keeps all displayed permission facts equal: " + label + "/" + action);
+    InGameResult refused = raceMenu.Dispatch(queued);
+    Check(!refused.Accepted && refused.Effect == InGameEffect.None
+        && raceBackend.Executed.Count == 0 && raceBackend.Edits.Count == 0
+        && refused.Error.Contains("loadout changed", StringComparison.OrdinalIgnoreCase),
+        "Old click before Refresh cannot adopt replacement witness: " + label + "/" + action);
+    Check(ReferenceEquals(raceMenu.Snapshot().Facts.CustomSelectionWitness, firstWitness)
+        && !raceMenu.Dispatch(raceMenu.Intent(action)).Accepted && raceBackend.Executed.Count == 0,
+        "Refusal preserves old publication until Refresh: " + label + "/" + action);
+    long refusedRevision = raceMenu.Snapshot().Revision;
+    raceMenu.Refresh();
+    Check(raceMenu.Snapshot().Revision > refusedRevision
+        && ReferenceEquals(raceMenu.Snapshot().Facts.CustomSelectionWitness, replacementWitness),
+        "Refresh advances revision for equal-looking replacement source: " + label + "/" + action);
+    Check(!raceMenu.Dispatch(queued).Accepted && raceBackend.Executed.Count == 0,
+        "Old revision remains rejected after Refresh: " + label + "/" + action);
+    InGameResult retried = raceMenu.Dispatch(raceMenu.Intent(action));
+    Check(retried.Accepted && retried.Effect == InGameEffect.Resume
+        && raceBackend.Executed.Single().Action == action && raceBackend.Edits.Count == 0,
+        "Explicit current retry reaches selection backend once: " + label + "/" + action);
+}
 var resultsBackend = new FakeResults();
 using (var results = new MatchResultsController(resultsBackend))
 {
@@ -92,7 +176,8 @@ sealed class FakeMatch : IInGameBackend
     public List<(InGameAction Action, InGameBot Bot)> Edits = new(); public List<(InGameAction Action, string Map)> Executed = new();
     public InGameFacts Capture() => State with { Bots = State.Bots.ToArray().ToImmutableArray(), BotHunters = State.BotHunters.ToArray().ToImmutableArray(), Teams = State.Teams.ToArray().ToImmutableArray() };
     public ImmutableArray<string> Maps() => ImmutableArray.Create("arena_a", "arena_b");
-    public string Execute(InGameAction action, string map) { Executed.Add((action, map)); return ""; }
+    public string ExecuteError = "";
+    public string Execute(InGameAction action, string map) { Executed.Add((action, map)); return ExecuteError; }
     public string EditBot(InGameAction action, InGameBot bot) { Edits.Add((action, bot)); return ""; }
 }
 sealed class FakeResults : IMatchResultsBackend
@@ -102,4 +187,11 @@ sealed class FakeResults : IMatchResultsBackend
     public MatchResultsFacts Capture() => State with { Maps = State.Maps.ToArray().ToImmutableArray() };
     public string Choose(string roomKey) { Selected = roomKey; ChooseCount++; State = State with { Picked = roomKey }; return ""; }
     public string Rematch() { RematchCount++; return ""; }
+}
+
+readonly record struct SelectionTestContext(long SceneGeneration, uint Life, uint Bootstrap, string Manifest);
+// Deliberately reference equality, matching the production immutable publication class.
+sealed class SelectionTestWitness(SelectionTestContext context)
+{
+    public SelectionTestContext Context { get; } = context;
 }

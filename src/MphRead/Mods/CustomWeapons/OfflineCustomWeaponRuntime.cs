@@ -27,6 +27,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     private readonly PlayerEntity? _availabilityPlayer;
     private readonly WeaponRegistry _registry;
     private readonly WeaponDefinition _definition;
+    internal WeaponDigest Manifest { get; }
     private readonly Slot?[] _slots = new Slot[8];
     private bool _disposed;
     internal WeaponMechanics Mechanics=>_definition.Mechanics;
@@ -59,6 +60,7 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy damage is unavailable in this prototype.");
         _definition = RiftlineM7.Create();
+        Manifest = new CustomWeaponManifest(new[] { _definition }).Digest;
         _registry = scene.FreezeCustomWeaponRegistry(new[] { _definition });
     }
     internal bool Grant(PlayerEntity player) => GrantCore(player,selected:true);

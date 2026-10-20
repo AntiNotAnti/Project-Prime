@@ -15,7 +15,7 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-02 | Mechanics schema and deterministic per-life state | Complete; 1,179 checks, zero-allocation routine ticks, native parity |
 | CW-03 | Offline M7 through canonical combat hooks | Complete; 1,181 pure and 45 real-scene checks; native parity |
 | CW-04 | Custom action authority/network state | Authority implementation complete through04q: live private results, public recipient replicas, exact source/resource/contact admission, impaired ordinary-client owner symmetry, spectator reconnect/old ACK refusal and native client HP/death projection validated. Developer flags remain off; public controls/device cadence are CW-05 and custom bots/packages/replay are CW-12. Physical/rendered/WAN acceptance remains a release gate. |
-| CW-05 | Loadout, input, HUD and scope | In progress:05a canonical client request producer,05b bounded source-time selection history,05c authority native-fire isolation and05d public device bindings/local input isolation and05e optics/sensitivity/hold settings, canonical HUD and reversible feedback;05f reserved frozen availability contract and shared eligibility policy;05g protocol70 frozen online activation and public readiness;05h launcher choice and captured-human offline availability;05i Android UI-owned async settings; accessible in-game selection and final device acceptance pending |
+| CW-05 | Loadout, input, HUD and scope | In progress:05a canonical client request producer,05b bounded source-time selection history,05c authority native-fire isolation and05d public device bindings/local input isolation and05e optics/sensitivity/hold settings, canonical HUD and reversible feedback;05f reserved frozen availability contract and shared eligibility policy;05g protocol70 frozen online activation and public readiness;05h launcher choice and captured-human offline availability;05i Android UI-owned async settings;05j immutable in-game desired selection and pending-native fencing implemented, [final local qualification pending](evidence/CW-05j.md);05k Rules/pause fallback layout and final device acceptance pending |
 | CW-06 | Original assets and presentation | Pending CW-05 |
 | CW-07 | Accepted nonlethal head reaction | Pending CW-06 |
 | CW-08 | Lethal head collapse/cosmetics | Pending CW-07 |
@@ -27,6 +27,10 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-14 | Studio creator | Pending CW-13 |
 | CW-15 | Community creator/install UI | Pending CW-14 |
 | CW-16 | Full release/security/platform acceptance | Pending CW-15 |
+
+CW-05j desktop menu selection does not qualify mobile usability: reviewed landscape
+actions remain small and portrait Quit/scroll is clipped. Those Rules/pause layout
+repairs are scoped to CW-05k; CW-05 is not complete.
 
 No pending row denotes delivered runtime functionality. Device/visual/network gaps remain explicit
 release blockers. Foundation code alone cannot satisfy the final create/publish/download/play/replay flow.
