@@ -28,6 +28,7 @@ class HomeProbe:
     def __init__(self, library):
         self.lib = C.CDLL(str(library))
         self.checks, self.failures = 0, []
+        self.trace = []
         self.last_sequence = 0
         signatures = {
             "initialize_backend": (C.c_int, [C.c_int, C.c_int, C.c_float, C.c_char_p, C.c_int]),
@@ -62,6 +63,8 @@ class HomeProbe:
         for key, value in (("lobby_mode", lobby), ("lobby_rules_open", opened), ("rules_owner", owner)):
             self.require(self.document_set_bool(home, key.encode(), int(value)) == 1, "existing_bool_owner_accepts_" + key)
         self.update()
+        self.trace.append({"stage": "set_flags", "requested": {"lobby": lobby, "opened": opened, "owner": owner},
+                           "model": self.snapshot(home).get("guard_state", {}).get("label")})
 
     def snapshot(self, home):
         buffer = (C.c_uint8 * (1024 * 1024 + 1))()
@@ -81,7 +84,7 @@ class HomeProbe:
             result.append(intent)
         raise RuntimeError("bounded_native_intent_queue_did_not_drain")
 
-    def click(self, home, element):
+    def click(self, home, element, stage="initial"):
         self.require(not self.intents(), "fixture_enters_each_click_without_pending_intents")
         x, y, width, height = (C.c_float() for _ in range(4))
         self.require(self.document_element_bounds(home, element.encode(), C.byref(x), C.byref(y), C.byref(width), C.byref(height)) == 1
@@ -90,11 +93,17 @@ class HomeProbe:
         self.mouse_button(0, 1, 0)
         self.mouse_button(0, 0, 0)
         self.update()
-        return self.intents()
+        intents = self.intents()
+        self.trace.append({"stage": stage, "element": element,
+                           "bounds": [x.value, y.value, width.value, height.value],
+                           "model": self.snapshot(home).get("guard_state", {}).get("label"),
+                           "actions": [{"kind": p.kind, "argument": p.argument, "generation": p.generation,
+                                        "document": p.document, "sequence": p.sequence} for p in intents]})
+        return intents
 
-    def accepted(self, home, element, argument):
-        intents = self.click(home, element)
-        self.check(len(intents) == 1, "model_callback_emits_exactly_once_" + element)
+    def accepted(self, home, element, argument, stage="initial"):
+        intents = self.click(home, element, stage)
+        self.check(len(intents) == 1, "model_callback_emits_exactly_once_" + stage + "_" + element)
         if len(intents) == 1:
             event = intents[0]
             self.check(event.size == 40 and event.version == 1 and event.kind == 42 and event.argument == argument,
@@ -121,8 +130,8 @@ class HomeProbe:
         self.accepted(home, "control", 16)
         self.accepted(home, "movement", 17)
         self.accepted(home, "m7", 18)
-        self.accepted(home, "routed_m7", 18)
-        self.check(not self.click(home, "out_of_range"), "generic_action_rejects_first_unsupported_rule19")
+        self.accepted(home, "routed_m7", 18, "generic_route")
+        self.check(not self.click(home, "out_of_range", "generic_route"), "generic_action_rejects_first_unsupported_rule19")
         for key, value in ((b"rules_toggle16", b"OWN_CONTROL_CHANGED"), (b"rules_toggle17", b"OWN_MOVEMENT_CHANGED"),
                            (b"rules_toggle18", b"OWN_M7_CHANGED")):
             self.require(self.document_set_text(home, key, value) == 1, "repeat_home_text_owner_accepts_" + key.decode())
@@ -134,10 +143,11 @@ class HomeProbe:
         for name, flags in (("not_owner", dict(owner=False)), ("rules_closed", dict(opened=False)), ("not_lobby", dict(lobby=False))):
             self.flags(home, **flags)
             for element in ("control", "movement", "m7"):
-                self.check(not self.click(home, element), "model_owner_guard_refuses_" + name + "_" + element)
+                self.check(not self.click(home, element, name), "model_owner_guard_refuses_" + name + "_" + element)
         self.flags(home)
-        self.accepted(home, "movement", 17)
-        self.accepted(home, "m7", 18)
+        self.accepted(home, "control", 16, "restored")
+        self.accepted(home, "movement", 17, "restored")
+        self.accepted(home, "m7", 18, "restored")
 
 
 def assets(root, source):
@@ -158,6 +168,7 @@ def assets(root, source):
         <button id="m7" data-event-click="lobby_rules_toggle18">M7 {{rules_toggle18}}</button>
         <button id="routed_m7" data-action="lobby:rules-toggle:18">ROUTED M7</button>
         <button id="out_of_range" data-action="lobby:rules-toggle:19">INVALID RULE</button>
+        <div id="guard_state" role="status" style="position:absolute;left:500px;top:8px;width:140px;height:80px;">L {{lobby_mode}} R {{lobby_rules_open}} O {{rules_owner}}</div>
         </body></rml>""")
 
 
@@ -182,7 +193,7 @@ def main():
     except (ValueError, RuntimeError, KeyError, OSError) as error:
         probe.failures.append("fixture_setup_or_native_boundary: " + str(error))
     probe.check(hashlib.sha256(library.read_bytes()).hexdigest() == digest, "native_library_unchanged")
-    print(json.dumps({"result": "FAIL" if probe.failures else "PASS", "checks": probe.checks, "failures": probe.failures,
+    print(json.dumps({"result": "FAIL" if probe.failures else "PASS", "checks": probe.checks, "failures": probe.failures, "actions": probe.trace,
                       "library_sha256": digest, "backend": 1, "temporary_assets_removed": True,
                       "scope": "invented Home markup using real model binding/callbacks; no GL or game media"}, sort_keys=True))
     return int(bool(probe.failures))
