@@ -208,7 +208,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                                 && float.IsFinite(nativeMaterials[s.NativeMaterialIndex].CurrentAlpha)
                                 && nativeMaterials[s.NativeMaterialIndex].CurrentAlpha >= .99999f
                                 && nativeMaterials[s.NativeMaterialIndex].RenderMode == RenderMode.Normal
-                                && nativeMaterials[s.NativeMaterialIndex].PolygonMode == PolygonMode.Modulate),
+                                && nativeMaterials[s.NativeMaterialIndex].PolygonMode == MphRead.PolygonMode.Modulate),
                                 "Every cannon segment uses an opaque native anchor rather than an invisible animated glow.");
                             var source = Get(model, "_sourceGeometry") as CharacterWeightedModelData;
                             Check(ordinal == 32 && seconds == 0 && model.SourceCannon?.IsGenerated == true && source != null
