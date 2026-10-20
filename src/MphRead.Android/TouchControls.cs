@@ -812,13 +812,20 @@ namespace MphRead.Droid
         /// <summary>One controller snapshot on the simulation owner. Meaningful
         /// activity latches Auto until disconnect; resting stick noise cannot
         /// take the touchscreen or repeatedly reveal/hide its buttons.</summary>
-        public void UpdateController(GamepadState state)
+        private string? _controllerDevice;
+        public void UpdateController(GamepadState state) => UpdateController(state, null);
+        public void UpdateControllerSnapshot(GamepadSnapshot snapshot) => UpdateController(snapshot.State, snapshot.DeviceId);
+        private void UpdateController(GamepadState state, string? deviceId)
         {
             bool before, after;
             lock (_lock)
             {
                 before = HiddenLocked;
                 bool wasBlocked = InputBlockedLocked;
+                string? nextDevice = state.Connected ? deviceId ?? "controller" : null;
+                bool handoff = _controllerDevice != nextDevice;
+                _controllerDevice = nextDevice;
+                if (handoff) _padDriving = false;
                 bool active = state.Connected && (state.Buttons != 0
                     || MathF.Abs(state.LeftX) > .25f || MathF.Abs(state.LeftY) > .25f
                     || MathF.Abs(state.RightX) > .25f || MathF.Abs(state.RightY) > .25f
@@ -827,7 +834,7 @@ namespace MphRead.Droid
                 _mode = TouchSettings.Mode;
                 _padDriving = state.Connected && (_padDriving || active);
                 after = HiddenLocked;
-                if (modeChanged || wasBlocked != InputBlockedLocked) ReleaseEverything();
+                if (handoff || modeChanged || wasBlocked != InputBlockedLocked) ReleaseEverything();
             }
             Settle(before, after);
         }
@@ -874,7 +881,7 @@ namespace MphRead.Droid
         /// <summary>Re-evaluate the canonical controller snapshot after an event.</summary>
         public void NotePadActivity()
         {
-            UpdateController(GamepadManager.ActiveState);
+            UpdateControllerSnapshot(GamepadManager.Snapshot);
         }
 
         /// <summary>Notify the overlay only when visibility changes.</summary>
