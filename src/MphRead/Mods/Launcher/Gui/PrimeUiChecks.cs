@@ -129,7 +129,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // exercised without reintroducing a License edit control.
                 foreach (int mode in new[] { 1, 2, 0, 2, 1 })
                 {
-                    stand.PreviewMode = (SkinContext)mode;
+                    stand.PreviewMode = (MphRead.Mods.Cosmetics.SkinContext)mode;
                     Drain(window);
                     Check((int)stand.PreviewMode == mode, "Hunter model preview mode " + mode);
                     window.Content = null; Drain(window);
