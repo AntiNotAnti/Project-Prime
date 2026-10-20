@@ -437,7 +437,10 @@ namespace MphRead.Mods.Render.Characters
             model=null!;
             if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
             {if(instance!=null)ReleaseSourcePreview(scene,instance);DebugLog.Line("render",CharacterSourceRootWitness.UnsupportedPlatformMessage);return false;}
-            bool diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
+            bool diagnosticStage = false;
+#if !ANDROID && !MPHREAD_SERVER
+            diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
+#endif
             if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage)||!allowSourcePreview
                 ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview

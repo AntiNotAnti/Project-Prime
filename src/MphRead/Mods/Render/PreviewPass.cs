@@ -434,10 +434,12 @@ namespace MphRead
                 SelectWorldShaderVariant();
                 RefreshTextureQuality();
                 ModStepLauncherPreview();
-                // Every draw synchronizes the optional source owner, including
-                // high-refresh frames without a native60Hz step.
+#if !ANDROID && !MPHREAD_SERVER
+                // Every desktop draw synchronizes the optional source owner,
+                // including frames without a native60Hz step.
                 if (_activePreview != null && !_activePreview.SyncSourceStage(Mods.Render.LauncherHunter.SourcePreviewRequest))
                     return false;
+#endif
                 int presentationSlot = LauncherPreviewSlot >= 0
                     && LauncherPreviewSlot < _launcherSlotNextStep.Length
                     ? LauncherPreviewSlot : -1;
