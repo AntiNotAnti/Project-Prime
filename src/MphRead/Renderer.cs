@@ -2637,6 +2637,7 @@ namespace MphRead
                 // Reconcile current life, form and selection before a due
                 // mechanical cue can advance on the completed fixed step.
                 StepCustomRifleTracks();
+                StepHeadHitPresentation();
                 SemanticPublisher.Publish(this);
                 SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
@@ -5786,6 +5787,7 @@ namespace MphRead
             }
             Mods.Render.Characters.CharacterModelRuntime.Release(this);
             ReleaseCustomRifleModel();
+            ReleaseHeadHitPresentation();
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();

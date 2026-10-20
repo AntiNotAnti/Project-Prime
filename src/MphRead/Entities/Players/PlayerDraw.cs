@@ -396,11 +396,14 @@ namespace MphRead.Entities
                         // The replacement pack may provide the same LOD tier
                         // the native player draw already selected. Missing HD
                         // LOD1 falls through to the native LOD1 automatically.
+                        using (Mods.Render.HeadHitPoseOverlay.Begin(_bipedModel2.Model, _scene.ModHeadHitPose(this)))
+                        {
                         if (!TryDrawModernCharacter(_bipedModel2,
                             CharacterModelPart.Biped, alpha, lod: lod,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
                                 overrideColor: brightSkin, outlineColor: outlineColor);
+                        }
                         PaletteOverride = null;
                         ModDrawCustomRifle(firstPerson: false,lod,alpha);
                         if (_chargeEffect != null || _muzzleEffect != null)

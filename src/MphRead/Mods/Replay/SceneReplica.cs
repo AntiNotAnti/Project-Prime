@@ -57,6 +57,7 @@ namespace MphRead
                 }
             }
             replay.AfterSimulation(this);
+            StepHeadHitPresentation();
             ProcessMessageQueue();
             foreach (EntityBase entity in Entities)
                 if (entity.Initialized) entity.ModCaptureDrawState();
