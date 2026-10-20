@@ -93,10 +93,10 @@ internal readonly record struct CustomActionReceipt(CustomWeaponAction Action, u
     CustomSourceCertificate? Source, WeaponStateSnapshot? Before, WeaponStateSnapshot? After);
 internal readonly record struct CustomUnobservedControl(CustomControlRequest Request,uint AuthorityFrame,CustomControlDenialReason Reason);
 
-/// <summary>One immutable initial loadout and owner life. Only a contiguous prefix
+/// <summary>One owner life with source-fenced engine pickup funding. Only a contiguous prefix
 /// of its universal custom action sequence can mutate source-time resource state.
 /// No transport, scene callback or current inventory snapshot can bypass the gate.</summary>
-internal sealed class CustomSourceActionJournal
+internal sealed partial class CustomSourceActionJournal
 {
     internal const int PendingCapacity = 16, TerminalCapacity = 128, MaxDrainPerTick = 4, MaxOffersPerTick = 8;
     internal const uint MaxSourceAge = 64, MaxWorldAge = 64, GapTimeout = 64, TerminalRetention = 128;
@@ -133,7 +133,7 @@ internal sealed class CustomSourceActionJournal
 
     internal CustomSourceActionJournal(WeaponOwnerContext owner, CustomSourceClock clock,
         CustomWeaponManifest manifest, WeaponRegistry registry, IEnumerable<WeaponRuntimeId> initialLoadout,
-        uint verifiedBirthSource, uint authorityFrame, bool initialCanUseWeapon)
+        uint verifiedBirthSource, uint authorityFrame, bool initialCanUseWeapon, CustomPickupWorld? pickupWorld = null)
     {
         ArgumentNullException.ThrowIfNull(clock); ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(registry); ArgumentNullException.ThrowIfNull(initialLoadout);
@@ -142,7 +142,10 @@ internal sealed class CustomSourceActionJournal
         foreach (var row in manifest.Rows)
             if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity)
                 throw new ArgumentException("Manifest does not resolve exactly.", nameof(registry));
-        Owner = owner; _clock = clock; _manifest = manifest.Digest;
+        if (pickupWorld is { } world && (!world.IsValid || world.Manifest != manifest.Digest
+            || world.Start.MatchId != owner.MatchId || world.Start.AuthorityEpoch != owner.AuthorityEpoch))
+            throw new ArgumentException("Pickup world must match the frozen life manifest.",nameof(pickupWorld));
+        Owner = owner; _clock = clock; _manifest = manifest.Digest; _registry = registry; _pickupWorld = pickupWorld;
         _nativeSelection=new(owner,verifiedBirthSource);
         _birth = _sourceFrontier = _committedSource = verifiedBirthSource; _authority = authorityFrame;
         _latestCanUse = initialCanUseWeapon;
@@ -251,7 +254,9 @@ internal sealed class CustomSourceActionJournal
     internal bool TryPreview(WeaponRuntimeId weapon, out WeaponStateSnapshot snapshot)
     {
         snapshot = default;
-        if (weapon.Value is < 10 or > 73 || _states[weapon.Value-10] is not { } state) return false;
+        if (weapon.Value is < 10 or > 73 || !OwnedAt(weapon,_sourceFrontier) || _states[weapon.Value-10] is not { } state) return false;
+        if (_pickupFunds != null)
+        { snapshot = ProjectPickupState(weapon,state,_sourceFrontier); return true; }
         if (!IsRetired && Selected == weapon && _interruption is { } interruption
             && !Before(interruption,state.Snapshot().Tick) && !Before(_sourceFrontier,interruption))
         {
@@ -273,7 +278,7 @@ internal sealed class CustomSourceActionJournal
     internal bool TryCommitted(WeaponRuntimeId weapon, out WeaponStateSnapshot snapshot)
     {
         snapshot = default;
-        if (weapon.Value is < 10 or > 73 || _states[weapon.Value-10] is not { } state) return false;
+        if (weapon.Value is < 10 or > 73 || !OwnedAt(weapon,_sourceFrontier) || _states[weapon.Value-10] is not { } state) return false;
         snapshot = state.Snapshot(); return true;
     }
     internal bool TryProcessNext(uint authorityFrame, ICustomSourceAdmission admission,
@@ -298,7 +303,7 @@ internal sealed class CustomSourceActionJournal
         _processing = true;
         try
         {
-            if (state == null) receipt = Denied(action,CustomJournalDisposition.NotOwned,WeaponActionResult.Unequipped);
+            if (state == null || !OwnedAt(action.Weapon,action.SourceFrame)) receipt = Denied(action,CustomJournalDisposition.NotOwned,WeaponActionResult.Unequipped);
             else if (Before(action.SourceFrame,_birth) || Before(action.SourceFrame,_committedSource))
                 receipt = Denied(action,CustomJournalDisposition.StaleSource,WeaponActionResult.StaleFrame);
             else if (Before(_sourceFrontier,action.SourceFrame)) return false;
@@ -344,6 +349,7 @@ internal sealed class CustomSourceActionJournal
     private CustomActionReceipt Apply(CustomWeaponAction action, CustomSourceCertificate source,
         WeaponRuntimeState state, ICustomWeaponEmitter emitter)
     {
+        CommitPickupFunding(action.SourceFrame);
         if (Selected.IsValid && _states[Selected.Value-10] is { } selected)
         {
             if (_interruption is { } interruption && !Before(interruption,selected.Snapshot().Tick)
@@ -419,5 +425,6 @@ internal sealed class CustomSourceActionJournal
         IsRetired = true; _nativeSelection.Retire(); Selected = default;
         foreach (var state in _states) state?.Invalidate(reason);
         Array.Clear(_pending); PendingCount = 0;
+        if (_pickupFunds is { } funds) { Array.Clear(funds.Pending); funds.Count = 0; }
     }
 }

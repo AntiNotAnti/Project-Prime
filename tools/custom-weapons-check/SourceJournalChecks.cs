@@ -6,7 +6,7 @@ internal static class SourceJournalChecks
 {
     // These stubs attest deliberately supplied engine observations. They do not
     // implement or prove historical pose, geometry, modifiers or trade admission.
-    private sealed class Admission(Fixture fixture) : ICustomSourceAdmission
+    internal sealed class Admission(Fixture fixture) : ICustomSourceAdmission
     {
         internal CustomSourceDecision Decision = CustomSourceDecision.Verified;
         internal Func<CustomSourceCertificate,CustomSourceCertificate>? Alter;
@@ -23,7 +23,7 @@ internal static class SourceJournalChecks
             return Decision;
         }
     }
-    private sealed class Emitter : ICustomWeaponEmitter
+    internal sealed class Emitter : ICustomWeaponEmitter
     {
         internal bool Capacity = true, Throws, CapacityThrows;
         internal CustomEmissionDisposition Disposition = CustomEmissionDisposition.Spawned;
@@ -54,7 +54,7 @@ internal static class SourceJournalChecks
             return CustomSourceDecision.Verified;
         }
     }
-    private sealed class Fixture : IDisposable
+    internal sealed class Fixture : IDisposable
     {
         internal readonly Dictionary<uint,(uint World,bool CanUse)> Observations = new();
         internal readonly WeaponRegistry Registry;
@@ -64,9 +64,10 @@ internal static class SourceJournalChecks
         internal readonly Admission Oracle;
         internal readonly Emitter Engine = new();
         internal readonly WorldBootstrapIdentity Bootstrap;
+        internal readonly CustomPickupWorld? PickupWorld;
         internal uint Now;
         internal Fixture(uint birth = 100, uint world = 100, ushort life = 1,
-            CustomSourceClock? clock = null, bool initialCanUse = true, WeaponRuntimeId[]? loadout = null)
+            CustomSourceClock? clock = null, bool initialCanUse = true, WeaponRuntimeId[]? loadout = null, bool pickupFunding = false)
         {
             var rules = MechanicsChecks.Rules();
             var definitions = new[]
@@ -78,7 +79,8 @@ internal static class SourceJournalChecks
             var owner = new WeaponOwnerContext(1,1,0,1,life);
             Clock = clock ?? new(owner,birth,world);
             Bootstrap = new(new(1,1,1),1,1,1,1,1); Now = world;
-            try { Journal = new(owner,Clock,Manifest,Registry,loadout ?? new[] { new WeaponRuntimeId(10) },birth,world,initialCanUse); }
+            PickupWorld = pickupFunding ? new(new(1,1,1),Manifest.Digest,new(1,2,3,4)) : null;
+            try { Journal = new(owner,Clock,Manifest,Registry,loadout ?? new[] { new WeaponRuntimeId(10) },birth,world,initialCanUse,PickupWorld); }
             catch { Registry.Dispose(); throw; }
             Observations.Add(birth,(world,initialCanUse)); Oracle = new(this);
         }
