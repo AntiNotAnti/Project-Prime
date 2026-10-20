@@ -28,7 +28,9 @@ namespace MphRead
         private ulong _thirdPersonReticleTraceFrame = ulong.MaxValue;
         private Vector3 _thirdPersonReticleTraceMuzzle;
         private Vector3 _thirdPersonReticleTraceAim;
-        private Vector3 _thirdPersonReticleTraceTarget;
+        private Vector3 _thirdPersonReticleCameraRay;
+        private bool _thirdPersonReticleRayValid;
+        private float _thirdPersonReticleContactDistance = ThirdPersonReticleProjection.TraceRange;
         // A stationary shoulder pose submits the same wall ray many times at
         // 120/240Hz. Reuse only byte-identical rays from this simulation tick;
         // changed pose or world step always gets a fresh occlusion answer.
@@ -85,14 +87,12 @@ namespace MphRead
             out Vector2 position)
         {
             position = new Vector2(0.5f, 0.5f);
-            if (!ModThirdPersonCameraActive || _cameraMode != CameraMode.Player
+            if (!ModThirdPersonCameraActive || !_thirdPersonRenderedEyeValid
+                || _cameraMode != CameraMode.Player
                 || !GameState.Multiplayer || !GameState.ThirdPersonCamera
                 || Services.IsReplica || Mods.Headless.Active
-                || this.Players.Main.CameraType != CameraType.First
-                || !ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
-                    out Vector3 direction))
+                || this.Players.Main.CameraType != CameraType.First)
                 return false;
-
             if (_thirdPersonReticleTraceFrame != FrameCount
                 || _thirdPersonReticleTraceMuzzle != muzzle
                 || _thirdPersonReticleTraceAim != aim)
@@ -100,18 +100,46 @@ namespace MphRead
                 _thirdPersonReticleTraceFrame = FrameCount;
                 _thirdPersonReticleTraceMuzzle = muzzle;
                 _thirdPersonReticleTraceAim = aim;
-                Vector3 far = ThirdPersonReticleProjection.Target(muzzle,
-                    direction, 1f);
-                CollisionResult impact = default;
-                float contact = CollisionDetection.CheckBetweenPoints(muzzle, far,
-                    TestFlags.Beams, this, ref impact)
-                    ? impact.Distance : 1f;
-                _thirdPersonReticleTraceTarget = ThirdPersonReticleProjection.Target(
-                    muzzle, direction, contact);
+                _thirdPersonReticleRayValid =
+                    ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
+                        out Vector3 direction);
+                if (_thirdPersonReticleRayValid)
+                {
+                    // The real projectile and wall contact remain canonical.
+                    // Only its simulation-camera-space direction is cached
+                    // for presentation frames that have newer raw aim input.
+                    _thirdPersonReticleCameraRay = Matrix.Vec3MultMtx3(
+                        direction, this.Players.Main.CameraInfo.ViewMatrix);
+                    Vector3 far = ThirdPersonReticleProjection.Target(
+                        muzzle, direction, 1f);
+                    CollisionResult impact = default;
+                    float contact = CollisionDetection.CheckBetweenPoints(muzzle, far,
+                        TestFlags.Beams, this, ref impact) ? impact.Distance : 1f;
+                    _thirdPersonReticleContactDistance =
+                        ThirdPersonReticleProjection.TraceRange
+                        * Math.Clamp(float.IsFinite(contact) ? contact : 1f, 0f, 1f);
+                }
             }
-            return ThirdPersonReticleProjection.TryProject(
-                _thirdPersonReticleTraceTarget, _viewMatrix,
-                _perspectiveMatrix, out position);
+            if (!_thirdPersonReticleRayValid)
+                return true; // never fall back to the independently sampled native reticle
+
+            // ViewMatrix rotates again on draw-only frames (late mouse/touch/
+            // stick input). The source beam remains canonical 60Hz state; a
+            // draw-only compensated ray keeps the ONE visible crosshair on the
+            // same angular clock as the high-refresh shoulder camera.
+            Vector3 renderedNativeEye = _thirdPersonRenderedEye
+                - _thirdPersonCameraOffset;
+            if (!ThirdPersonReticleProjection.TryProjectCameraRay(
+                    muzzle, _thirdPersonReticleCameraRay,
+                    _thirdPersonReticleContactDistance,
+                    this.Players.Main.CameraInfo.Position, renderedNativeEye,
+                    _viewInvRotMatrix, _viewMatrix, _perspectiveMatrix,
+                    out position))
+                position = new Vector2(.5f, .5f);
+            // The shoulder camera always owns its reticle while active.
+            // Returning false would resurrect the unrelated first-person
+            // reticle history for one frame during a fast reversal.
+            return true;
         }
 
         /// <summary>Shift only the render matrix, never CameraInfo or simulation.</summary>
@@ -295,7 +323,9 @@ namespace MphRead
         private bool _blending;
         private CameraType _lastCameraType;
         private Matrix4 _lastPresentedView;
-        private Matrix4 _fromView;
+        // The outgoing camera is constant for the whole 18-tick form blend.
+        // Invert it once on transition, not again on every 144/240Hz draw.
+        private Matrix4 _fromInverse;
         private double _startTick;
         private double _lastTick;
         private long _lastGeneration;
@@ -358,7 +388,7 @@ namespace MphRead
 
             if (cameraType != _lastCameraType)
             {
-                _fromView = _lastPresentedView;
+                _fromInverse = _lastPresentedView.Inverted();
                 _startTick = ticks;
                 _blending = true;
             }
@@ -373,7 +403,7 @@ namespace MphRead
                 else
                 {
                     float eased = fraction * fraction * (3f - 2f * fraction);
-                    if (TryBlend(_fromView, desired, eased,
+                    if (TryBlend(_fromInverse, desired, eased,
                             out Matrix4 halfway, out Vector3 midwayEye))
                     {
                         presented = halfway;
@@ -389,13 +419,12 @@ namespace MphRead
             return presented;
         }
 
-        private static bool TryBlend(Matrix4 from, Matrix4 to,
+        private static bool TryBlend(Matrix4 fromInverse, Matrix4 to,
             float fraction, out Matrix4 view, out Vector3 eye)
         {
             view = to;
             eye = Vector3.Zero;
-            if (!ValidView(from) || !ValidView(to)) return false;
-            Matrix4 fromInverse = from.Inverted();
+            if (!ValidView(fromInverse) || !ValidView(to)) return false;
             Matrix4 toInverse = to.Inverted();
             eye = Vector3.Lerp(fromInverse.Row3.Xyz,
                 toInverse.Row3.Xyz, fraction);

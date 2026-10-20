@@ -124,6 +124,7 @@ namespace MphRead.Mods.Render
             failures += RunThirdPersonFormHandoffCase() ? 0 : 1;
             failures += RunThirdPersonSpawnAndNearWallCase() ? 0 : 1;
             failures += RunThirdPersonShotReticleCase() ? 0 : 1;
+            failures += RunThirdPersonRapidTurnReticleCase() ? 0 : 1;
             failures += RunFastLateAimCase() ? 0 : 1;
             failures += RunLockjawNoiseCases();
             Console.WriteLine(failures == 0
@@ -666,6 +667,103 @@ namespace MphRead.Mods.Render
             Console.WriteLine("FRAMETIMING " + (success ? "ok  " : "FAIL")
                 + " third-person muzzle-ray crosshair & release-rate invariants");
             return success;
+        }
+
+        /// <summary>
+        /// High-speed mouse/controller turns rotate the draw camera after the
+        /// last 60Hz shot ray was sampled. The old world-space projected target
+        /// went off-screen, briefly resurrecting native reticle history. This
+        /// regression compares an uncapped 180-degree turn at several picture
+        /// cadences against a stationary viewport. The canonical shot ray
+        /// remains fixed and the predicted HUD-only ray remains on-screen.
+        /// </summary>
+        private static bool RunThirdPersonRapidTurnReticleCase()
+        {
+            Vector3 origin = Vector3.Zero;
+            Vector3 shot = -Vector3.UnitZ;
+            Matrix4 simView = Matrix4.LookAt(origin, origin + shot, Vector3.UnitY);
+            Vector3 simLocalRay = Matrix.Vec3MultMtx3(shot, simView);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(78f), 16f / 9f, .1f, 200f);
+
+            bool stable = true, oldInvalidAtFastYaw = false;
+            Vector2 baseline = default;
+            int checkedDraws = 0;
+            foreach (int rate in new[] { 60, 120, 240, 540 })
+            {
+                foreach (float yaw in new[] { 0f, 20f, 45f, 75f, 90f, 135f, 179f, -90f })
+                {
+                    float angle = MathHelper.DegreesToRadians(yaw);
+                    Vector3 forward = new(-MathF.Sin(angle), 0, -MathF.Cos(angle));
+                    Vector3 right = new(MathF.Cos(angle), 0, -MathF.Sin(angle));
+                    // Camera position changes only in draw time. The sim shot
+                    // remains along -Z for this entire simulated 60Hz tick.
+                    Vector3 shoulder = right * .5f
+                        + Vector3.UnitY * .35f - forward * 2.4f;
+                    Matrix4 drawView = Matrix4.LookAt(
+                        shoulder, shoulder + forward, Vector3.UnitY);
+                    Matrix4 drawInverseRotation =
+                        Matrix4.Transpose(drawView.ClearTranslation());
+                    bool full = ThirdPersonReticleProjection.TryProjectDrawRay(
+                        origin, shot, ThirdPersonReticleProjection.TraceRange,
+                        origin, origin, simView, drawInverseRotation, drawView,
+                        projection, out Vector2 projected);
+                    bool cached = ThirdPersonReticleProjection.TryProjectCameraRay(
+                        origin, simLocalRay, ThirdPersonReticleProjection.TraceRange,
+                        origin, origin, drawInverseRotation, drawView,
+                        projection, out Vector2 cachedPos);
+                    stable &= full && cached
+                        && (projected - cachedPos).LengthSquared < .00000001f
+                        && projected.X is > .05f and < .95f
+                        && projected.Y is > .05f and < .95f;
+                    if (yaw == 0) baseline = projected;
+                    else stable &= (projected - baseline).LengthSquared < .00001f;
+                    if (MathF.Abs(yaw) >= 90)
+                    {
+                        oldInvalidAtFastYaw |= !ThirdPersonReticleProjection.TryProject(
+                            origin + shot * ThirdPersonReticleProjection.TraceRange,
+                            drawView, projection, out _);
+                    }
+                    checkedDraws++;
+                }
+            }
+
+            // A fast running Hunter uses the same interpolated native eye as
+            // the local third-person body, not the stale 60Hz muzzle position.
+            Vector3 nativeEye = new(4f, .3f, 1f);
+            Vector3 shiftedShoulder = nativeEye + new Vector3(.5f, .35f, 2.4f);
+            Matrix4 shiftedView = Matrix4.LookAt(
+                shiftedShoulder, shiftedShoulder - Vector3.UnitZ, Vector3.UnitY);
+            bool translate = ThirdPersonReticleProjection.TryProjectCameraRay(
+                origin, simLocalRay, ThirdPersonReticleProjection.TraceRange,
+                origin, nativeEye, Matrix4.Transpose(shiftedView.ClearTranslation()),
+                shiftedView, projection, out Vector2 translated);
+            stable &= translate && (translated - baseline).LengthSquared < .00001f;
+
+            // When a wall is closer than the shoulder eye, its true impact
+            // cannot be divided by clip W. The same camera ray at a useful
+            // forward distance is a safe single-HUD-marker fallback.
+            Vector3 eyeBehindContact = new(0f, 0f, -4f);
+            Matrix4 behindView = Matrix4.LookAt(
+                eyeBehindContact, eyeBehindContact - Vector3.UnitZ, Vector3.UnitY);
+            bool closeWall = ThirdPersonReticleProjection.TryProjectCameraRay(
+                origin, simLocalRay, .1f, origin, origin,
+                Matrix4.Transpose(behindView.ClearTranslation()),
+                behindView, projection, out Vector2 close);
+            stable &= closeWall && close.X is >= 0f and <= 1f
+                && close.Y is >= 0f and <= 1f;
+
+            bool rejected = !ThirdPersonReticleProjection.TryProjectCameraRay(
+                origin, new Vector3(float.NaN, 0f, 0f), 96f,
+                origin, origin, Matrix4.Identity, simView, projection, out _)
+                && !ThirdPersonReticleProjection.TryProjectCameraRay(
+                origin, simLocalRay, float.NaN,
+                origin, origin, Matrix4.Identity, simView, projection, out _);
+            bool ok = stable && oldInvalidAtFastYaw && rejected;
+            Console.WriteLine("FRAMETIMING " + (ok ? "ok  " : "FAIL")
+                + " third-person single reticle high-turn 60/120/240/540Hz"
+                + " (" + checkedDraws + " draw pose fixtures)");
+            return ok;
         }
 
         /// <summary>
