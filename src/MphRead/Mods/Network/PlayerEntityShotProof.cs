@@ -27,7 +27,7 @@ public partial class PlayerEntity
             !_scene.Services.IsReplica && game.Multiplayer && NetSession.IsAuthority,
             _health, ModIsInPlay && LoadFlags.TestFlag(LoadFlags.Active)
                 && !Flags2.TestFlag(PlayerFlags2.Spectating),
-            !ModCollisionIsAltForm && !IsMorphing && !IsUnmorphing, IsBot,
+            !IsAltForm && !ModCollisionIsAltForm && !IsMorphing && !IsUnmorphing, IsBot,
             _spawnInvulnTimer > 0, ModMatchSpawnProtectionActive, _damageInvulnTimer > 0,
             IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true,
             _scene.Services.SuppressDamage, _scene.AimTrainer != null,

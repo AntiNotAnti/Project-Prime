@@ -164,7 +164,7 @@ internal static class TimedImperialistImpactTests
         }
         internal (TimedShotCertificate Shot, BeamProjectileEntity Beam, HitClaimPacket Claim) Emit(
             BeamType weapon = BeamType.Imperialist, byte charge = 0, bool rewind = true,
-            bool malformedDoubleHint = false, bool requireTrusted = true)
+            bool malformedDoubleHint = false, bool requireTrusted = true, Action? beforeAcceptedDrain = null)
         {
             for (uint i = 1; i <= charge; i++)
             { Frame(1000 + i); Submit(Packet(null, NetSession.NetFrame, weapon, down: true)); NetHooks.TryApplyRemoteInput(Owner, 0); }
@@ -181,7 +181,9 @@ internal static class TimedImperialistImpactTests
             var fire = new FireEvent(++_shot, source, ack, 0, charge == 0 ? FireEventKind.PressFire : FireEventKind.ReleaseFire, (byte)weapon,
                 charge, modifiers, FireEvent.FlagPose, Base + Vector3.UnitY * .5f,
                 Direction, Direction, Direction, SourceLife: NetPlayerLifecycle.Get(0));
-            Submit(Packet(fire, source)); NetHooks.TryApplyRemoteInput(Owner, 0);
+            Submit(Packet(fire, source));
+            beforeAcceptedDrain?.Invoke();
+            NetHooks.TryApplyRemoteInput(Owner, 0);
             var key = ShotKey.For(0, fire.ShotId);
             Check(NetFireEvents.CaptureLedger(0).TryGet(key, out var admitted, out var disposition, out _)
                 && admitted.Fire == fire && disposition == ShotDisposition.Fired,
@@ -241,13 +243,37 @@ internal static class TimedImperialistImpactTests
         ReplayCapture.Recorder.Accepted += Capture;
         try
         {
+            Action? beforeAcceptedDrain = null;
+            if (control == "current-alt-after-history")
+                beforeAcceptedDrain = () => {
+                    Check(!f.Victim.IsAltForm && NetUnlagged.TryHistoricalPose(f.Victim, 1001, out var pose)
+                        && !pose.AltForm,
+                        "form control starts with actual retained frame1001 biped before accepted catch-up");
+                    // Declared current-form change only. The ordinary native
+                    // rewind must recover the earlier biped without changing
+                    // the live alt flag; no history cells or poses are injected.
+                    f.Victim.ModForceForm(true);
+                    Check(f.Victim.IsAltForm && !f.Victim.IsMorphing && !f.Victim.IsUnmorphing,
+                        "form control enters actual current alt before the accepted drain");
+                };
             var emitted = f.Emit(malformedDoubleHint: control == "malformed-double",
-                requireTrusted: control != "balanced");
+                requireTrusted: control != "balanced", beforeAcceptedDrain: beforeAcceptedDrain);
             Check(emitted.Shot.Damage.FirstSegmentKnown && emitted.Shot.Damage.FirstCollisionFrame == 1001,
                 control + "/" + mode + " uses actual accepted historical first segment");
             if (control == "malformed-double")
                 Check(emitted.Shot.DoubleHintAgrees == false,
                     "malformed modifier control actually disagrees with independently retained funding");
+            if (control == "current-alt-after-history")
+            {
+                bool retained = NetUnlagged.TryHistoricalPose(f.Victim, 1001, out var pose);
+                Console.WriteLine("FAST_SHADOW_FORM_CONTROL " + JsonSerializer.Serialize(new {
+                    Mode = mode, CurrentAlt = f.Victim.IsAltForm, HistoricalFrame = 1001,
+                    HistoricalPoseAvailable = retained, HistoricalAlt = retained ? (bool?)pose.AltForm : null,
+                    Before = before, After = f.Victim.Health,
+                    Scope = "Declared current form change after actual native biped history; no injected history or controller." }));
+                Check(f.Victim.IsAltForm && retained && !pose.AltForm,
+                    "native catch-up restores current alt while exact frame1001 remains biped");
+            }
             string scores = JsonSerializer.Serialize(new {
                 f.Scene.GameState.Points, f.Scene.GameState.TeamPoints, f.Scene.GameState.Kills,
                 f.Scene.GameState.TeamKills, f.Scene.GameState.Deaths, f.Scene.GameState.TeamDeaths,
@@ -274,7 +300,7 @@ internal static class TimedImperialistImpactTests
         {
             _checks = 0;
             foreach (string control in new[] { "body", "head", "health-one", "ordinary-timer",
-                "spawn-immunity", "balanced", "alt", "bot", "malformed-double" })
+                "spawn-immunity", "balanced", "alt", "bot", "malformed-double", "current-alt-after-history" })
             {
                 var off = FastSceneArm(room, control, CombatFastMode.Off);
                 var shadow = FastSceneArm(room, control, CombatFastMode.Shadow);
@@ -329,6 +355,16 @@ internal static class TimedImperialistImpactTests
                         && row.Compared && row.Agrees && row.Payments == 0 && shadow.Payments == 0
                         && shadow.Before == shadow.After,
                         "actual native spawn-protection call independently predicts refusal without payment");
+                else if (control == "current-alt-after-history")
+                    Check(row.NativeEvidence.SourceVerified && row.NativeEvidence.GeometryVerified
+                        && !row.NativeEvidence.VictimGates.Biped
+                        && row.Decision.State == FastDecisionState.LegacyRequired
+                        && row.Decision.Reason == FastDecisionReason.DamageUnavailable
+                        && row.Decision.Damage.Status == FastDamageAvailability.Unavailable
+                        && row.Decision.Damage.Reason == FastDamageReason.UnsupportedContext
+                        && !row.Decision.Eligible && !row.Decision.WouldPay && !row.Decision.WouldReject
+                        && shadow.Before > shadow.After && shadow.Payments == 1 && row.Payments == 1,
+                        "verified historical biped contact still pays natively but current alt cannot acquire a fast certificate");
                 else
                     Check(!row.Decision.Eligible && !row.Decision.WouldPay && !row.Decision.WouldReject,
                         control + " unsupported or unfunded context falls back without a legal-damage certificate");
