@@ -2785,6 +2785,7 @@ namespace MphRead
                 return;
             }
             using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
+            using var directorSubject = BeginDirectorPicturePreparation();
             RefreshTextureQuality();
             BeginRenderDiagnostics();
             // A first-person pose belongs to exactly one picture. If this draw
@@ -3564,6 +3565,7 @@ namespace MphRead
             }
             // Collection now includes preview and outline geometry, so one
             // program choice can safely persist through every pass this frame.
+            using var directorSubject = BeginDirectorPictureRender();
             SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
 #if !MPHREAD_SERVER
@@ -3764,6 +3766,7 @@ namespace MphRead
 
         private void TransformCamera()
         {
+            PrepareOwnerPresentationDraw();
             // todo: only update this when the camera values change
             _viewMatrix = Matrix4.Identity;
             _viewInvRotMatrix = Matrix4.Identity;

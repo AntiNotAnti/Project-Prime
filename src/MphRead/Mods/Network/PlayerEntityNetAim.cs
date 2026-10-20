@@ -799,7 +799,7 @@ namespace MphRead.Entities
         }
 
         internal void ModInvalidateFirstPersonRenderPose()
-            => _fpRenderPoseValid = false;
+        { _fpRenderPoseValid = false; _ownerVisual = default; }
 
         internal bool ModGetFirstPersonRenderCameraPosition(out Vector3 position)
         {

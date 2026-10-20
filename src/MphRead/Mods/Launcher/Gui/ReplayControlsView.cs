@@ -565,6 +565,7 @@ namespace MphRead.Mods.Launcher.Gui
             _suggestionOwner = DemoPlayback.PlaybackOwner;
             _suggestionDuration = DemoPlayback.LastFrame;
             var snapshot = events.ToArray();
+            string playbackSource = DemoPlayback.PlaybackPath ?? _suggestionSource;
             uint duration = _suggestionDuration;
             using var cancellation = new CancellationTokenSource();
             _suggestionWork = cancellation;
@@ -575,7 +576,8 @@ namespace MphRead.Mods.Launcher.Gui
                 var suggestions = await Task.Run(() =>
                 {
                     cancellation.Token.ThrowIfCancellationRequested();
-                    var result = ReplayStudio.Highlights(snapshot, duration, cancellationToken: cancellation.Token).ToArray();
+                    var result = ReplayContextAnalysis.Suggestions(playbackSource, snapshot, duration,
+                        cancellation: cancellation.Token).ToArray();
                     cancellation.Token.ThrowIfCancellationRequested();
                     return result;
                 }, cancellation.Token);
@@ -936,13 +938,14 @@ namespace MphRead.Mods.Launcher.Gui
                     + $"{player.Damage} DMG  {player.ObjectiveEvents} OBJ", frame);
             }
 
-            _analyticsPanel.Children.Add(new Caption("Damage over time"));
+            _analyticsPanel.Children.Add(new Caption("Recorded activity / 10s (0–100)"));
+            _analyticsPanel.Children.Add(new Caption(ReplayAnalyticsSnapshot.ActivityDescription));
             foreach (ReplayTimeBucket bucket in analytics.DamageTimeline
                 .Where(bucket => bucket.Damage > 0 || bucket.Kills > 0
                     || bucket.Objectives > 0)
                 .Take(12))
             {
-                JumpRow($"{Time(bucket.StartFrame)}  {bucket.Damage} DMG  "
+                JumpRow($"{Time(bucket.StartFrame)}  ACTIVITY {bucket.ActivityScore}/100  {bucket.Damage} DMG  "
                     + $"{bucket.Kills} KILLS  {bucket.Objectives} OBJ",
                     bucket.StartFrame);
             }

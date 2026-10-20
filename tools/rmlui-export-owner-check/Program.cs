@@ -45,10 +45,23 @@ try
     ReplayVideoExporter.AfterSceneDraw(new Scene { ReplayPresentationFrame = 1 });
     Check(ScreenCapture.Captures == 0 && frameValidations == 0 && ReplayVideoExporter.FramesWritten == 0,
         "unrelated caller scene cannot submit another replay's picture or advance its active export");
+    int stepsBeforeOwnerLoad = ReplayController.StepCalls;
+    ReplayOwnerExport.Ready = false;
+    ReplayVideoExporter.AfterSceneDraw(shell);
+    Check(ScreenCapture.Captures == 0 && ReplayVideoExporter.FramesWritten == 0
+        && ReplayController.StepCalls == stepsBeforeOwnerLoad && ReplayController.CurrentFrame == 1,
+        "pending owner track cannot capture or step the accepted exact frame");
+    ReplayOwnerExport.Ready = true;
+    DemoPlayback.PresentationScene!.OwnerExportPreparedForDraw = false;
+    ReplayVideoExporter.AfterSceneDraw(shell);
+    Check(ScreenCapture.Captures == 0 && ReplayVideoExporter.FramesWritten == 0
+        && ReplayController.StepCalls == stepsBeforeOwnerLoad && ReplayController.CurrentFrame == 1,
+        "load completing after draw cannot capture or step a picture drawn before owner preparation");
+    DemoPlayback.PresentationScene.OwnerExportPreparedForDraw = true;
     ReplayVideoExporter.AfterSceneDraw(shell);
     Check(ScreenCapture.Captures == 1 && ReferenceEquals(ScreenCapture.LastScene, DemoPlayback.PresentationScene),
         "production AfterSceneDraw resolves real presentation replica when caller supplies shell");
-    Check(frameValidations == 1 && sourceValidations == validatedBeforeFrames, "frame checks are cheap owner checks and never repeat explicit source-file validation");
+    Check(frameValidations == 3 && sourceValidations == validatedBeforeFrames, "frame checks are cheap owner checks and never repeat explicit source-file validation");
     DemoPlayback.PresentationScene = new Scene { ReplayPresentationFrame = 2 };
     ReplayController.CurrentFrame = 2;
     ReplayVideoExporter.AfterSceneDraw(shell);

@@ -405,6 +405,7 @@ namespace MphRead
                 || subject != _replayCameraSubject;
             if (resetHistory)
             {
+                ResetDirectorShot();
                 _replayFollowPosition = null;
                 _previousReplayPresentationFrame = double.NaN;
             }
@@ -424,6 +425,7 @@ namespace MphRead
                 Mods.Replay.ReplayCamera.Changed = false;
                 _replayFollowPosition = null;
                 delta = 0;
+                ResetDirectorShot();
             }
             if (Mods.Replay.ReplayCamera.BookmarkRequested)
             {
@@ -469,6 +471,9 @@ namespace MphRead
                     Quaternion.FromAxisAngle(_cameraFacing, MathHelper.DegreesToRadians(Mods.Replay.ReplayCamera.Roll)));
                 _cameraRight = Vector3.Cross(_cameraFacing, _cameraUp).Normalized();
             }
+            if (Mods.Replay.ReplayCamera.Director && !Mods.Replay.ReplayCamera.PlayTrack
+                && Mods.Replay.ReplayCamera.Profile == Mods.Replay.ReplayPresentationProfile.Presentation)
+            { ApplyDirectorShot(mode, delta * 60); return; }
             if (mode == Mods.Replay.ReplayCameraMode.Overview)
             {
                 // Legacy Studio overview follows the selected recorded subject;
