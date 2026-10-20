@@ -887,6 +887,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--bot-ai") return BotAiChecks.Run();
             if (args.Length > 0 && args[0] == "--bots") return NetLobbyTest.RunBots();
             if (args.Length > 0 && args[0] == "--waitlist") return NetLobbyTest.RunWaitlist();
+            if (args.Length > 0 && args[0] == "--custom-readiness-udp") return NetLobbyTest.RunCustomWeaponReadiness();
             if (args.Length > 0 && args[0] == "--lobby") return NetLobbyTest.Run();
             if (args.Length > 0 && args[0] == "--compact-intents")
             {
