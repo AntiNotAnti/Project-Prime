@@ -28,7 +28,8 @@ internal static class HeadDeathPoseOverlay
         internal Profile(Model model)
         {
             Model=model;int count=model.Nodes.Count;
-            if(count is <=0 or >128)
+            var rig=CorpseRigProfile.For(model);
+            if(!rig.ProceduralSupported||count is <=0 or >128)
             {Saved=Array.Empty<Matrix4>();Groups=Left=Right=Array.Empty<int>();Head=Spine=-1;return;}
             Saved=new Matrix4[count];Groups=new int[count];
             int Find(string name){for(int i=0;i<count;i++)if(model.Nodes[i].Name==name)return i;return -1;}
