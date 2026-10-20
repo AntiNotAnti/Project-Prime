@@ -87,7 +87,7 @@ internal static class HeadDeathRigGlChecks
                     &&model.Nodes[profile.RightKnee].ParentIndex==profile.RightHip&&model.Nodes[profile.RightAnkle].ParentIndex==profile.RightKnee,
                     "profile leg ancestry follows both actual native chains");
                 check(ReferenceEquals(profile,CorpseRigProfile.For(model)),"warmed profile lookup returns the same immutable model-owned profile");
-                if(definition.WireId==0&&pose.Head>=.99f)
+                if(definition.WireId==0&&pose.Head>0)
                 {RejectUnknownProfiles(model,pose,check);RejectIncompleteLodPair(victim,lod,check);}
 
                 if(victim.Hunter is Hunter.Trace or Hunter.Noxus)check(model.GetNodeIndexByName("Pelvis")==-1,"Trace/Noxus accepted without a fabricated Pelvis node");
@@ -126,6 +126,7 @@ internal static class HeadDeathRigGlChecks
     }
     // Declared malformed-asset seam: only fresh node/palette-owning model copies
     // are changed. Shared native source nodes/raw assets/palette lists stay intact.
+    private static int _negativeLayouts,_incompletePairs;
     private static void RejectUnknownProfiles(Model original,HeadDeathPose pose,Action<bool,string> check)
     {
         var originalState=new ModelState(original);var palette=original.NodeMatrixIds.ToArray();
@@ -147,6 +148,7 @@ internal static class HeadDeathRigGlChecks
         }
         check(originalState.Same(original)&&original.NodeMatrixIds.SequenceEqual(palette)&&CorpseRigProfile.For(original).ProceduralSupported,
             "malformed independent clones cannot poison or mutate actual shared native model profile");
+        _negativeLayouts++;
     }
     private static void RejectIncompleteLodPair(PlayerEntity victim,int lod,Action<bool,string> check)
     {
@@ -172,10 +174,21 @@ internal static class HeadDeathRigGlChecks
         check((bool)ready.GetValue(victim)!&&(bool)visible.GetValue(victim)!
             &&instances.Select((i,n)=>ReferenceEquals(i.Model,native[n])&&before[n].Same(native[n])).All(same=>same),
             "restored actual LOD pair rewarms and preserves all original composed matrices/palettes");
+        _incompletePairs++;
     }
     private static bool Finite(Matrix4 m)=>new[]{m.M11,m.M12,m.M13,m.M14,m.M21,m.M22,m.M23,m.M24,m.M31,m.M32,m.M33,m.M34,m.M41,m.M42,m.M43,m.M44}.All(float.IsFinite);
     private static object PoseReceipt(HeadDeathPose pose)=>new{pose.Active,pose.Head,pose.Collapse,pose.Alpha,pose.Side,direction=pose.Direction.ToString()};
-    internal static int Run(string data,string output)=>Run(data,output,ProbeScopes);
+    internal static int Run(string data,string output)
+    {
+        _negativeLayouts=_incompletePairs=0;
+        int code=Run(data,output,ProbeScopes);
+        Directory.CreateDirectory(output);
+        File.WriteAllText(Path.Combine(output,"profile-negative-results.json"),JsonSerializer.Serialize(new
+        {negativeLayoutCohorts=_negativeLayouts,incompleteLodPairs=_incompletePairs,expected=14,code},new JsonSerializerOptions{WriteIndented=true}));
+        if(code==0&&(_negativeLayouts!=14||_incompletePairs!=14))
+            throw new InvalidOperationException("Negative layout/LOD tests must execute for all fourteen native profiles.");
+        return code;
+    }
     internal delegate void ScopeProbe(PlayerEntity victim,Scene scene,DeathPresentationDefinition definition,HeadDeathPose pose,Action<bool,string> check,List<object> results);
     internal static int Run(string data,string output,ScopeProbe scopeProbe)
     {

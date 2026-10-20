@@ -17,17 +17,17 @@ Raw commands/logs/receipts are under `artifacts/custom-weapons/CW-10/`.
 Final desktop DLL SHA256:
 `0f03fa9fc780355d29797425294ff129d3a22aed4f2203d1f6df44765f8ac0c2`.
 Final fixture SHA256:
-`cbc64e198281bef910b648754f1d6a3a7a3f9d3578845696701061ef015daf10`.
+`2080c9f34d6806c84c14de77ad7491227e9b8c206f5d3fabba1138ad95b07a9a`.
 
 | Check | Actual result |
 |---|---|
 | Desktop Release | PASS89.133s,1 existing warning,0 errors |
 | Server Release | PASS60.348s,1 existing warning,0 errors; separate output |
 | Android default arm64 embedded | PASS131.303s,26 existing warnings,0 errors; compile/package only in this slice |
-| Fixture Release | PASS4.92s,0 warnings/errors |
-| Full CPU suite | PASS35,726 checks,7.739s |
-| Actual lethal-head native GL | PASS12,099 checks/56 genuine M7 deaths/322 captures/420 LOD seams,76.394s |
-| Actual native replay/replica/cold reset/seek | PASS3,278 checks,0.894s |
+| Fixture Release | PASS3.68s,0 warnings/errors |
+| Full CPU suite | PASS35,726 checks,12.559s |
+| Actual lethal-head native GL | PASS12,295 checks/56 genuine M7 deaths/322 captures/420 LOD seams,85.984s |
+| Actual native replay/replica/cold reset/seek | PASS3,278 checks,2.323s |
 | Native protocol registry | PASS78 historical names unchanged; protocol76 |
 | Native tuning tables | PASS all original stored MP/1P fields |
 | Native fidelity | Known46/47 baseline,3.799s,raw exit1; missile splash tick177 victim.position4096.z expected52814/actual52815 unchanged |
@@ -68,3 +68,13 @@ Modern/HD multi-actor palette use, moving surfaces, physical replay,100+ actual
 integrated respawn/scene cycles and target frame budgets remain subsequent gates.
 No new network code changed; live transport suite was not repeated in10a.
 Existing device preview/re-entry and reload uncertainties remain CW-16 blockers.
+
+The first graphics pass's condition `Head>=.99` skipped malformed/partial-LOD
+probes: actual sampled peak Head was0.875 because death/cause clocks differ by
+a step. The condition now selects the nonzero Classic kick, and a separate
+receipt plus mandatory assertion requires exactly14 malformed-layout cohorts and
+14 incomplete-pair probes. Final actual result is14/14 for both categories,
+code0 (`native-rig-negative-final/profile-negative-results.json`). The previous
+positive graphics run is retained; it does not count as negative coverage.
+Final CPU/replay runs use the same final fixture hash above. Production DLL
+remained unchanged throughout the corrected test run.
