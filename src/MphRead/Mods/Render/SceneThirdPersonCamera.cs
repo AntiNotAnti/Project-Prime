@@ -29,6 +29,7 @@ namespace MphRead
         private Vector3 _thirdPersonReticleTraceMuzzle;
         private Vector3 _thirdPersonReticleTraceAim;
         private Vector3 _thirdPersonReticleTraceTarget;
+        private float _thirdPersonReticleContactDistance = ThirdPersonReticleProjection.TraceRange;
         // A stationary shoulder pose submits the same wall ray many times at
         // 120/240Hz. Reuse only byte-identical rays from this simulation tick;
         // changed pose or world step always gets a fresh occlusion answer.
@@ -85,13 +86,15 @@ namespace MphRead
             out Vector2 position)
         {
             position = new Vector2(0.5f, 0.5f);
-            if (!ModThirdPersonCameraActive || _cameraMode != CameraMode.Player
+            if (!ModThirdPersonCameraActive || !_thirdPersonRenderedEyeValid
+                || _cameraMode != CameraMode.Player
                 || !GameState.Multiplayer || !GameState.ThirdPersonCamera
                 || Services.IsReplica || Mods.Headless.Active
-                || this.Players.Main.CameraType != CameraType.First
-                || !ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
-                    out Vector3 direction))
+                || this.Players.Main.CameraType != CameraType.First)
                 return false;
+            if (!ThirdPersonReticleProjection.TryShotRay(muzzle, aim,
+                    out Vector3 direction))
+                return true; // one center reticle, never a second native fallback
 
             if (_thirdPersonReticleTraceFrame != FrameCount
                 || _thirdPersonReticleTraceMuzzle != muzzle
@@ -108,10 +111,27 @@ namespace MphRead
                     ? impact.Distance : 1f;
                 _thirdPersonReticleTraceTarget = ThirdPersonReticleProjection.Target(
                     muzzle, direction, contact);
+                _thirdPersonReticleContactDistance =
+                    (_thirdPersonReticleTraceTarget - muzzle).Length;
             }
-            return ThirdPersonReticleProjection.TryProject(
-                _thirdPersonReticleTraceTarget, _viewMatrix,
-                _perspectiveMatrix, out position);
+
+            // ViewMatrix rotates again on draw-only frames (late mouse/touch/
+            // stick input). The source beam remains canonical 60Hz state; a
+            // draw-only compensated ray keeps the ONE visible crosshair on the
+            // same angular clock as the high-refresh shoulder camera.
+            Vector3 renderedNativeEye = _thirdPersonRenderedEye
+                - _thirdPersonCameraOffset;
+            if (!ThirdPersonReticleProjection.TryProjectDrawRay(
+                    muzzle, direction, _thirdPersonReticleContactDistance,
+                    this.Players.Main.CameraInfo.Position, renderedNativeEye,
+                    this.Players.Main.CameraInfo.ViewMatrix,
+                    _viewInvRotMatrix, _viewMatrix, _perspectiveMatrix,
+                    out position))
+                position = new Vector2(.5f, .5f);
+            // The shoulder camera always owns its reticle while active.
+            // Returning false would resurrect the unrelated first-person
+            // reticle history for one frame during a fast reversal.
+            return true;
         }
 
         /// <summary>Shift only the render matrix, never CameraInfo or simulation.</summary>
