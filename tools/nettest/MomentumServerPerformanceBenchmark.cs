@@ -107,6 +107,7 @@ internal static class MomentumServerPerformanceBenchmark
             _restored = true;
         }
     }
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     private static void Require(bool value, string message)
     { if (!value) throw new InvalidOperationException(message); }
 
@@ -150,6 +151,12 @@ internal static class MomentumServerPerformanceBenchmark
     private static object Measure(string room, MovementModel model, int steps, bool verify)
     {
         using var threadCycles = ThreadCycleObserver.Create(steps);
+        // Test-only opt-in export. Reuse existing Step wall timestamps; no EventSource/ETW writes in the sample window.
+        bool spanRequested = Environment.GetEnvironmentVariable("PRIME_BENCHMARK_STEP_SPANS") == "1";
+        bool spanSupported = spanRequested && OperatingSystem.IsWindows();
+        long[]? spanStarts = spanSupported ? new long[steps] : null;
+        long[]? spanEnds = spanSupported ? new long[steps] : null;
+        uint spanNativeThread = spanSupported ? GetCurrentThreadId() : 0;
         Rng.SetRng1(Seed1); Rng.SetRng2(Seed2);
         var roster = RosterPacket.Create();
         roster.Count = Players; roster.MatchId = 7; roster.AuthorityEpoch = 23; roster.Revision = 1; roster.ContainsBots = true;
@@ -281,6 +288,7 @@ internal static class MomentumServerPerformanceBenchmark
                 long wallEnded = Stopwatch.GetTimestamp(); // Stop wall timing before the end-cycle API read.
                 if (threadCycles != null) threadCycles.Record(tick, cycleBefore, threadCycles.Read());
                 raw[tick] = (wallEnded - started) * (1000d / Stopwatch.Frequency);
+                if (spanStarts != null) { spanStarts[tick] = started; spanEnds![tick] = wallEnded; }
                 allocated += GC.GetAllocatedBytesForCurrentThread() - bytesBefore;
                 int alive = 0, eligible = 0;
                 // Matched nonallocating observations are outside the sim.Step timer.
@@ -371,6 +379,8 @@ internal static class MomentumServerPerformanceBenchmark
                     tieredCompilation = Environment.GetEnvironmentVariable("DOTNET_TieredCompilation"),
                     tieredPgo = Environment.GetEnvironmentVariable("DOTNET_TieredPGO"),
                     readyToRun = Environment.GetEnvironmentVariable("DOTNET_ReadyToRun"),
+                    stepSpansRequested = spanRequested,
+                    stepSpansSupport = OperatingSystem.IsWindows() ? "Windows native-TID/raw-QPC export opt-in" : "unsupported; null spans",
                     threadCyclesRequested = Environment.GetEnvironmentVariable("PRIME_BENCHMARK_THREAD_CYCLES") == "1",
                     threadCyclesSupport = OperatingSystem.IsWindows() ? "Windows QueryThreadCycleTime opt-in" : "unsupported; null cycle evidence is not CPU measurement",
                     shotProofMode = NetShotProof.Mode.ToString(), acceptedShotPlayback = NetFireEvents.AcceptedPlaybackEnabled,
@@ -383,6 +393,12 @@ internal static class MomentumServerPerformanceBenchmark
                     processCpuMilliseconds, processCpuScope = "whole measured loop including matched post-step observations and verification when enabled",
                     loopSeconds, simulationStepsPerWallSecond = steps / loopSeconds, rawStepMilliseconds = raw },
                 threadCycles = threadCycles?.Report(),
+                stepSpans = spanStarts == null ? null : new {
+                    schema = 1, clock = "QueryPerformanceCounter via Stopwatch; validate ETL clock and PerfFreq before joining",
+                    qpcFrequency = Stopwatch.Frequency, processId = Environment.ProcessId,
+                    nativeThreadId = spanNativeThread, nativeThreadIdAtReport = GetCurrentThreadId(),
+                    rawStartQpc = spanStarts, rawEndQpc = spanEnds,
+                    scope = "existing timestamps around sim.Step only; export stores occur after wall end; no marker provider or per-step event emission; ETW reconstruction required for CPU milliseconds" },
                 allocation = new { simStepCurrentThreadBytes = allocated, bytesPerStep = allocated / (double)steps,
                     bytesPerAlivePlayerStep = allocated / (double)aliveSteps, bytesPerActivePlayerStep = allocated / (double)activeSteps,
                     aliveSteps, activeSteps, processAllocationBytes, processScope = "whole measured loop; includes observers/verification",

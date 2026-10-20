@@ -730,6 +730,8 @@ jobs:
         run: dotnet run --project tools/protocol-generator-check -c Release
       - name: fail-closed network campaign and Netcode 2.1 evidence contracts
         run: python3 -m unittest discover -s tools/nettest -p 'test_*.py'
+      - name: simulation CPU accounting and trace rejection contracts
+        run: python3 -m unittest discover -s tools/movement-cpu -p 'test_*.py'
       - name: physical device animation and map evidence parser selftests (synthetic rejection only)
         run: python3 -m unittest discover -s tools/device-acceptance -p 'test_*.py'
       - name: waitlist policy and synthetic UDP wire checks
