@@ -860,7 +860,7 @@ namespace MphRead.Entities
 
             // Check the actual camera ray before *and* after smoothing, since
             // a filtered camera can drift behind geometry the target avoids.
-            Vector3 proposed = MatchEndSafeCamera(winner, focus, desired);
+            Vector3 proposed = MatchEndSafeCamera(focus, desired);
             bool firstFrame = CameraType != CameraType.Third2 || timeSinceMatchEnd <= 1f / 30f;
             CameraType = CameraType.Third2;
             if (firstFrame || reduceMotion)
@@ -874,7 +874,7 @@ namespace MphRead.Entities
                 // The simulation ticks at 60 Hz; smoothing is performed on
                 // camera poses, not by adding independent render-frame motion.
                 float alpha = 1f - MathF.Exp(-12f * MathF.Max(_scene.FrameTime, 1f / 60f));
-                CameraInfo.Position = MatchEndSafeCamera(winner, focus,
+                CameraInfo.Position = MatchEndSafeCamera(focus,
                     Vector3.Lerp(CameraInfo.Position, proposed, alpha));
                 CameraInfo.Target = Vector3.Lerp(CameraInfo.Target, desiredTarget, alpha);
                 CameraInfo.Fov += (desiredFov - CameraInfo.Fov) * alpha;
@@ -885,7 +885,7 @@ namespace MphRead.Entities
             CameraInfo.NodeRef = _scene.UpdateNodeRef(winner.NodeRef, winner.Position, CameraInfo.Position);
         }
 
-        private Vector3 MatchEndSafeCamera(PlayerEntity winner, Vector3 focus, Vector3 target)
+        private Vector3 MatchEndSafeCamera(Vector3 focus, Vector3 target)
         {
             CollisionResult hit = default;
             if (!CollisionDetection.CheckBetweenPoints(focus, target, TestFlags.Players, _scene, ref hit))
