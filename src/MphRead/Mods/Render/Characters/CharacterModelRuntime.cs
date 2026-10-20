@@ -51,7 +51,7 @@ namespace MphRead.Mods.Render.Characters
         RepeatMode WrapS = RepeatMode.Repeat,
         RepeatMode WrapT = RepeatMode.Repeat,
         MaterialMapBindings MaterialMaps = default,
-        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, IReadOnlyList<int>? SourceJointPalette = null, float[]? SourceMatrixPalette = null, string? SourceMaterialName = null, int SourcePrimitiveOrdinal = -1)
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, IReadOnlyList<int>? SourceJointPalette = null, float[]? SourceMatrixPalette = null, string? SourceMaterialName = null, int SourcePrimitiveOrdinal = -1, CharacterSourceGxBinding? SourceGx = null)
     {
         // GPU Weighted4 consumes only its matrix stack. Keep raw source skin matrices
         // intact and reuse a separate bounded world-composed buffer for submission.
@@ -516,7 +516,7 @@ namespace MphRead.Mods.Render.Characters
                 catch{candidate.Release();throw;}
             }
             catch(Exception ex)when(ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException
-                or InvalidOperationException or JsonException or FormatException or OverflowException or KeyNotFoundException)
+                or InvalidOperationException or JsonException or FormatException or OverflowException or KeyNotFoundException or ProgramException)
             {model=null!;DebugLog.Line("render","Private source preview rejected: "+ex.Message);return false;}
         }
 
@@ -688,6 +688,15 @@ namespace MphRead.Mods.Render.Characters
                 if(sourceLease==null||resources==null)throw new InvalidDataException("Source attachment owner absent.");
                 attachment=new(scene,resources,sourceLease,asset,nativeModel,geometry,sourceAnchor);
             }
+            IReadOnlyList<CharacterSourceGxBinding>? sourcePrograms = null;
+            if (sourceLease?.SourceMaterials is { } sourceMaterials && sourceLease.SourceCannon == null)
+            {
+                if (attachment == null || asset.Part != CharacterModelPart.Biped
+                    || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count)
+                    || geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() != sourceMaterials.Programs.Count)
+                    throw new InvalidDataException("Complete original body material ordinals required.");
+                sourcePrograms = scene.PrepareSourceGxMaterials(sourceMaterials);
+            }
             var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
                 .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
             var materialIndices = nativeModel.Materials.Select((material, index) => (Name: material.Name, Index: index))
@@ -723,7 +732,7 @@ namespace MphRead.Mods.Render.Characters
                             + "weighted GLB UVs require None/Texcoord.");
 
                     int? albedo = null;
-                    if (primitive.Albedo != null)
+                    if (sourcePrograms == null && primitive.Albedo != null)
                     {
                         int binding = scene.GetCharacterModelTexture(
                             compiledAssetKey + "/" + compiled.Count, primitive.Albedo.Image,
@@ -747,7 +756,8 @@ namespace MphRead.Mods.Render.Characters
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false,
                         primitive.JointPalette==null?null:Array.AsReadOnly(primitive.JointPalette.ToArray()),
                         primitive.JointPalette==null?null:new float[16*primitive.JointPalette.Length],
-                        sourceLease==null?null:primitive.MaterialName,sourceLease==null?-1:primitive.SourcePrimitiveOrdinal>=0?primitive.SourcePrimitiveOrdinal:compiled.Count));
+                        sourceLease==null?null:primitive.MaterialName,sourceLease==null?-1:primitive.SourcePrimitiveOrdinal>=0?primitive.SourcePrimitiveOrdinal:compiled.Count,
+                        sourcePrograms?[primitive.SourceMaterialOrdinal]));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry);

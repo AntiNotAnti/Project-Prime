@@ -19,7 +19,7 @@ namespace MphRead.Mods.Render;
 /// This is a depth/stencil/alpha baseline, not a claim that full Ice Hive or
 /// shadow-map rendering has been verified on end-user GPUs.
 /// </summary>
-internal static class OpenGlVisualCheck
+internal static partial class OpenGlVisualCheck
 {
     private const int Width = 64;
     private const int Height = 64;
@@ -899,6 +899,7 @@ internal static class OpenGlVisualCheck
             CheckDisplayListAttributeMetadata();
             CheckMatrixArrayRestore();
             CheckRetainedVertexArrayState(output);
+            CheckCharacterSourceGx();
 
             // A red wall in front of a green pickup. Only portions of the
             // green geometry peeking around wall edges may reach the image.

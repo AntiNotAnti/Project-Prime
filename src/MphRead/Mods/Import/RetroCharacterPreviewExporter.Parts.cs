@@ -46,7 +46,7 @@ public static partial class RetroCharacterPreviewExporter
             + (part.State == ImportBundleState.Ready || inspection.ComponentStates == null ? "" : " (" + string.Join(", ", part.Components
                 .Where(c => c.State != ImportBundleState.Ready).Select(c => c.Role + " v" + c.Version + " " + c.State)) + ")")));
         return id + ": " + inspection.State + ". " + parts + ". " + inspection.Message
-            + ". Source authoring bundle; normal Echoes supports an animated diagnostic preview. Materials, first-person and playable animation/morph remain unqualified.";
+            + ". Source authoring bundle; normal and Overcharged Echoes support a source-program body preview with preview lighting. First-person and playable animation/morph remain unqualified.";
     }
 
     private static SourceCharacter Source(string id) => Sources.SingleOrDefault(s => s.Id == id)
@@ -60,8 +60,7 @@ public static partial class RetroCharacterPreviewExporter
     {
         SourceCharacter source = Source(id);
         _ = ExternalSourceRequirements.For(source.Game, edition);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Id == "darksamus-echoes" ? 5
-            : source.Game == ExternalGameKind.Echoes ? 4 : FullPrime(source, edition) ? 2 : 1);
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 5 : FullPrime(source, edition) ? 2 : 1);
         return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 3 } } : new[] { body });
     }
 
@@ -101,7 +100,9 @@ public static partial class RetroCharacterPreviewExporter
         .Concat(id == "darksamus-echoes" && part == "body"
             ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
                 new AuthoringComponent("source-cannon-recipe", 1, "darksamus-echoes.cannon-source.json") }
-            : Array.Empty<AuthoringComponent>()).ToArray() : legacy;
+            : id == "darksamus-overcharged-echoes" && part == "body"
+                ? new[] { new AuthoringComponent("source-preview-manifest", 1, "characters.json") }
+                : Array.Empty<AuthoringComponent>()).ToArray() : legacy;
     }
 
     /// <summary>Receipt describes complete authoring parts, never gameplay readiness.</summary>
@@ -127,12 +128,13 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        int bundleVersion = spec.Id == "darksamus-echoes" ? 6 : 5;
+        int bundleVersion = 6;
         string recipe = $"retro-character-preview-v{bundleVersion}:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
                 $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
         recipe += ":body-raw-materials-txtr-authoring-v1-all-local-slots";
         if (spec.Id == "darksamus-echoes") recipe += ":normal-fixed-generated-cannon-v1-global-triangle-ids";
+        else recipe += ":final-generated-body-preview-manifest-v1";
         return new(spec.Id, bundleVersion, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
@@ -173,13 +175,13 @@ public static partial class RetroCharacterPreviewExporter
             throw new InvalidDataException("Incomplete or oversized skinned Retro source part: " + stem);
 
         var files = new List<string>();
-        void Stage(string name)
+        void Stage(string name, string? component = null)
         {
             string path = Path.Combine(staging, name);
             if (new FileInfo(path).Length is <= 0 or > MaxOutputBytes)
                 throw new InvalidDataException("Source authoring part exceeds its output budget: " + stem);
-            staged.Add((path, Path.Combine(root, name)));
-            files.Add(name);
+            staged.Add((path, Path.Combine(root, component ?? name)));
+            files.Add(component ?? name);
         }
 
         string obj = stem + ".obj";
@@ -275,6 +277,24 @@ public static partial class RetroCharacterPreviewExporter
                         format = 1, id = "generated-darksamus-echoes-diagnostic-v2", models = new[] { Entry("Biped", false), Entry("ViewModel", true) }
                     }));
                     Stage("characters.json");
+                }
+                if (spec.Id == "darksamus-overcharged-echoes" && part.Id == "body")
+                {
+                    // Unique staging name prevents Update-all from replacing
+                    // normal's manifest before independent receipt publication.
+                    string temporary = spec.Id + ".characters.json";
+                    File.WriteAllBytes(Path.Combine(staging, temporary), JsonSerializer.SerializeToUtf8Bytes(new
+                    {
+                        format = 1, id = "generated-darksamus-final-body-preview-v1", models = new[] { new
+                        {
+                            hunter = "Samus", part = "Biped", lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
+                            model = geometryName, characterId = "darksamus", skinSource = "MP2DarkSamusFinal",
+                            provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
+                            sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
+                            boneMap = new Dictionary<string, string>()
+                        } }
+                    }));
+                    Stage(temporary, "characters.json");
                 }
             }
             motion = motion with { SourceGraphProof = new(1, graphName,

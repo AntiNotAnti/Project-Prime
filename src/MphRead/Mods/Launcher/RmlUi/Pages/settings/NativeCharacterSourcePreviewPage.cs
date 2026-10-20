@@ -25,7 +25,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     private CharacterSourcePreviewSelection? _selection;
     private int _clip;
     private long _stamp, _revision;
-    private double _seconds;
+    private double _seconds, _materialSeconds;
     private bool _paused, _disposed;
     private string _status = "Reading the selected immutable source generation…";
     internal RmlUiDocumentToken Document { get; private set; }
@@ -35,8 +35,8 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal LauncherHunterPreviewSnapshot Preview => _preview.Current();
     private bool Cannon => _preview.Current().Mode == Mods.Cosmetics.SkinContext.ViewModel;
     internal CharacterSourceStageRequest? Request => OwnsForeground && _selection != null
-        ? new(_owner, _selection.Pack, CharacterSourcePreviewSelection.Appearance, Cannon ? 32 : _selection.Clips[_clip].Ordinal, Cannon ? 0 : _seconds,
-            Cannon ? CharacterModelPart.ViewModel : CharacterModelPart.Biped) : null;
+        ? new(_owner, _selection.Pack, _selection.SelectedAppearance, Cannon ? 32 : _selection.Clips[_clip].Ordinal, Cannon ? 0 : _seconds,
+            Cannon ? CharacterModelPart.ViewModel : CharacterModelPart.Biped, _materialSeconds) : null;
 
     internal NativeCharacterSourcePreviewPage(RmlUiHost host, RmlUiPageManager pages, string id, bool asModal)
         => (_host, _pages, _id, _asModal) = (host, pages, id, asModal);
@@ -73,6 +73,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
         {
             double duration = _selection.Clips[_clip].Duration;
             double delta = Stopwatch.GetElapsedTime(_stamp, now).TotalSeconds;
+            _materialSeconds += Math.Min(delta, .25);
             _seconds = duration > 0 ? (_seconds + Math.Min(delta, .25)) % duration : 0;
         }
         _stamp = now; Refresh();
@@ -84,7 +85,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
         if (intent.Kind == RmlUiIntentKind.HunterCancel) { Back(); return true; }
         if (intent.Kind == RmlUiIntentKind.HunterPreviewMode)
         {
-            if (intent.Argument is not (0 or 1)) return false;
+            if (intent.Argument is not (0 or 1) || intent.Argument == 1 && _selection?.HasCannon != true) return false;
             _preview.SelectMode(intent.Argument);
         }
         else if (intent.Kind == RmlUiIntentKind.HunterRotate) _preview.Rotate(intent.Argument);
@@ -104,7 +105,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal void ReportDraw(bool drawn)
     {
         if (_selection != null) _host.SetText(Document, "source_render_status", drawn
-            ? Cannon ? "FIXED SOURCE CANNON CUT // DIAGNOSTIC MATERIAL COLORS" : "ANIMATED SOURCE GEOMETRY // DIAGNOSTIC MATERIAL COLORS"
+            ? Cannon ? "FIXED SOURCE CANNON CUT // DIAGNOSTIC MATERIAL COLORS" : "ANIMATED BODY // SOURCE MATERIAL PROGRAMS"
             : GameFiles.Ready ? "Source render unavailable. Reopen this viewer to retry; Back remains usable." : "Configure original game files to use the shared 3D preview.");
     }
     internal void Back() { if (!OwnsForeground) return; Closed = true; LauncherHunter.ReleaseSourcePreview(_owner); }
@@ -117,6 +118,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
             ["source_status"] = RmlUiBindingValue.FromText(_status), ["source_clip"] = RmlUiBindingValue.FromText(clip),
             ["source_pause"] = RmlUiBindingValue.FromText(_paused ? "PLAY" : "PAUSE"),
             ["source_phase"] = RmlUiBindingValue.FromText((Cannon ? 0 : _seconds).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " seconds"),
+            ["disabled:source_cannon"] = RmlUiBindingValue.FromBoolean(_selection?.HasCannon != true),
             ["disabled:source_restart"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),
             ["disabled:source_prev"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),
             ["disabled:source_next"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),

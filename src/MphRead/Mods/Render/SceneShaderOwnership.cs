@@ -116,6 +116,7 @@ public partial class Scene
         DeleteTexture(ref _screenTexture);
         DeleteTexture(ref _celTexture);
         DeleteTexture(ref _depthTexture);
+        ReleaseSourceGxPrograms();
         ReleaseWorldShaderVariants();
         DeleteProgram(ref _shaderProgramId);
         DeleteProgram(ref _rttShaderProgramId);

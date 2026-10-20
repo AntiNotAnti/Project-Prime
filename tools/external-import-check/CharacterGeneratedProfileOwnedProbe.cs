@@ -22,7 +22,8 @@ internal static class CharacterGeneratedProfileOwnedProbe
         string coreBefore = HashFile(core), toolBefore = HashFile(tool); var caches = Caches();
         string? before = null, after = null, errorType = null, errorSha = null, generation = null, provenanceSha = null;
         bool cleaned = false, cachesUnchanged = false, retained = false, reopenRefused = false, downgradeRefused = false;
-        int checks = 0, refusals = 0, clips = 0, nodes = 0, joints = 0, triangles = 0;
+        int checks = 0, refusals = 0, clips = 0, nodes = 0, joints = 0, triangles = 0, finalClips = 0;
+        bool finalAdmitted = false, finalLegacyRefused = false, finalNativeRefused = false;
         var cases = new List<string>(); var inputs = new List<object>();
         void Check(bool value, string why) { if (!value) throw new InvalidDataException(why); checks++; }
         void Reject(Action work, string why)
@@ -108,7 +109,7 @@ internal static class CharacterGeneratedProfileOwnedProbe
                 Mutation("source-pin-" + field, (p, _) => p[field] = invented);
             Mutation("invented-native-retarget-authority", (p, _) => { p["sourceNativeKitSha256"] = invented; p["sourceMappingSha256"] = invented; });
             Mutation("wrong-presentation-part", (p, e) => { p["presentationPart"] = "viewModel"; e["part"] = "ViewModel"; });
-            Mutation("final-refusal", (p, e) => { p["skinSource"] = "MP2DarkSamusFinal"; e["skinSource"] = "MP2DarkSamusFinal"; });
+            Mutation("normal-bytes-cannot-claim-final", (p, e) => { p["skinSource"] = "MP2DarkSamusFinal"; e["skinSource"] = "MP2DarkSamusFinal"; });
             Mutation("manifest-archive-identity", (_, e) => e["sourceAnimationArchiveSha256"] = invented);
             byte[] forgedGlb = (byte[])originalModel.Clone();
             int jsonLength = BinaryPrimitives.ReadInt32LittleEndian(forgedGlb.AsSpan(12, 4));
@@ -152,7 +153,55 @@ internal static class CharacterGeneratedProfileOwnedProbe
                 catch (OperationCanceledException) { checks++; }
                 Check(LocalImportBundle.Inspect(imports, Id, spec).State == ImportBundleState.Ready, "Cancellation preserves published discovery.");
             }
-            Reject(() => CharacterSourcePreviewSelection.Load("darksamus-overcharged-echoes", CancellationToken.None, imports), "final-product-selection-refusal");
+            const string finalId="darksamus-overcharged-echoes";
+            Reject(() => CharacterSourcePreviewSelection.Load(finalId, CancellationToken.None, imports), "missing-final-bundle-refusal");
+            var normalInventory=state.Files.ToDictionary(f=>f,HashFile);
+            var finalOutput=RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:new[]{finalId});
+            var finalSpec=RetroCharacterPreviewExporter.BundleSpec(finalId);var finalState=LocalImportBundle.Inspect(imports,finalId,finalSpec);
+            Check(finalOutput.Count==1&&finalState.State==ImportBundleState.Ready&&finalState.Receipt is { Version:6 }
+                &&finalSpec.RequiredComponents.Length==19&&finalState.Files.Count==23
+                &&normalInventory.All(p=>HashFile(p.Key)==p.Value),"Importing Final publishes its own recipe6 and preserves normal's generation and manifest.");
+            var finalSelection=CharacterSourcePreviewSelection.Load(finalId,CancellationToken.None,imports);finalClips=finalSelection.Clips.Count;
+            var finalAppearance=new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal");
+            bool finalBodyFound=finalSelection.Pack.TryResolvePrivate(Hunter.Samus,finalAppearance,CharacterModelPart.Biped,0,out var finalAsset);
+            Check(finalSelection.SelectedAppearance==finalAppearance&&!finalSelection.HasCannon&&finalClips>0
+                &&finalSelection.Generation==finalState.Receipt!.Generation&&finalBodyFound
+                &&!finalSelection.Pack.TryResolvePrivate(Hunter.Samus,finalAppearance,CharacterModelPart.ViewModel,0,out _)
+                &&!finalSelection.Pack.TryResolvePrivate(Hunter.Samus,CharacterSourcePreviewSelection.Appearance,CharacterModelPart.Biped,0,out _),
+                "Final captures only its own generated Biped and clip inventory without normal-body or cannon alias.");
+            bool finalLeaseCreated=finalSelection.Pack.TryCreateSourcePreviewLease(finalAsset,out var finalLease);
+            Check(finalLeaseCreated
+                &&finalLease.ModelSha256.Equals("ff1866fd7c92c7aad0326381e059119febd0993d63aacc85b45400b019af5164",StringComparison.OrdinalIgnoreCase)
+                &&finalLease.SourceMaterials?.Archive.Binding.CharacterId==finalId&&finalLease.SourceAnimations!=null,
+                "Final lease captures its exact generated geometry, temporal source and material archive under the actual owner.");
+            var finalModel=CharacterWeightedModelLoader.LoadSourcePreview(finalAsset,finalLease);
+            var finalChoice=finalSelection.Clips[0];var finalClip=CharacterSourceClip.Load(finalLease,finalAsset,finalModel.SourceRig!,finalChoice.Ordinal);
+            Check(finalModel.SourceRig!.Nodes.Count==40&&finalModel.Joints.Count==39&&finalModel.IndexCount/3==12734
+                &&finalModel.SourceRig.Evaluate(finalClip.Sample(finalChoice.Duration*.37),finalModel.Joints).Length==39
+                &&finalModel.Primitives.SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Order().SequenceEqual(Enumerable.Range(0,12734)),
+                "Final full source hierarchy, original triangle inventory and temporal adapter load independently of normal.");
+            finalAdmitted=true;
+            string finalMutable=Path.Combine(temporary,"mutable-final");Directory.CreateDirectory(finalMutable);
+            foreach(string file in finalState.Files){LocalImportBundle.CheckPath(file,imports);File.Copy(file,Path.Combine(finalMutable,Path.GetFileName(file)));}
+            byte[] finalManifest=File.ReadAllBytes(Path.Combine(finalMutable,"characters.json")),finalProof=File.ReadAllBytes(Path.Combine(finalMutable,finalId+".source.json"));
+            void FinalMutation(string label,Action<JsonObject,JsonObject> edit)
+            {
+                var document=JsonNode.Parse(finalManifest)!.AsObject();var proof=JsonNode.Parse(finalProof)!.AsObject();var entry=document["models"]![0]!.AsObject();
+                try
+                {
+                    edit(proof,entry);byte[] rewritten=Encoding.UTF8.GetBytes(proof.ToJsonString());entry["provenanceSha256"]=Sha(rewritten);
+                    File.WriteAllBytes(Path.Combine(finalMutable,finalId+".source.json"),rewritten);File.WriteAllText(Path.Combine(finalMutable,"characters.json"),document.ToJsonString());
+                    Reject(()=>CharacterModelPack.Load(finalMutable),label);
+                }
+                finally{File.WriteAllBytes(Path.Combine(finalMutable,finalId+".source.json"),finalProof);File.WriteAllBytes(Path.Combine(finalMutable,"characters.json"),finalManifest);}
+            }
+            FinalMutation("final-legacy-format1-refusal",(p,_)=>{p["format"]=1;foreach(string name in new[]{"sourceNativeKitSha256","sourceMappingSha256","sourceSkeletonSha256","sourceWeightsSha256"})p[name]=invented;});finalLegacyRefused=true;
+            FinalMutation("final-native-profile-refusal",(_,e)=>e["poseSource"]="Native");finalNativeRefused=true;
+            Check(!PrivateCharacterAppearance.TryCreate(Hunter.Samus,"darksamus","MP2DarkSamusFinal",out _,out _),
+                "Legacy native appearance lookup still refuses Final without exact generated admission.");
+            Check(finalState.Files.All(f=>HashFile(f)==HashFile(Path.Combine(finalMutable,Path.GetFileName(f))))
+                &&CharacterSourcePreviewSelection.Load(finalId,CancellationToken.None,imports).Generation==finalSelection.Generation,
+                "Final negative fixtures preserve committed bytes and repeat selection's immutable generation.");
             Check(LocalImportBundle.Remove(imports, Id) && state.Files.All(File.Exists), "Removal withdraws discovery without deleting any generation payload.");
             Reject(() => CharacterSourcePreviewSelection.Load(Id, CancellationToken.None, imports), "removed-selection-reopen"); reopenRefused = true;
             Check(selection.Pack.TryCreateSourcePreviewLease(asset, out var retainedLease), "Retained generation still passes actual strong proof after removal.");
@@ -174,7 +223,7 @@ internal static class CharacterGeneratedProfileOwnedProbe
         }
         string coreAfter = HashFile(core), toolAfter = HashFile(tool);
         bool passed = errorType == null && cleaned && before != null && before == after && coreBefore == coreAfter && toolBefore == toolAfter
-            && cachesUnchanged && retained && reopenRefused && downgradeRefused;
+            && cachesUnchanged && retained && reopenRefused && downgradeRefused && finalAdmitted && finalLegacyRefused && finalNativeRefused;
         Console.WriteLine(JsonSerializer.Serialize(new { Schema = 1, Passed = passed, Checks = checks, Refusals = refusals, Cases = cases,
             ErrorType = errorType, ErrorMessageSha256 = errorSha, MetadataOutputOnly = true, CpuOnly = true, RenderingActivated = false,
             SourceBeforeSha256 = before, SourceAfterSha256 = after, SourceUnchanged = before != null && before == after,
@@ -182,7 +231,8 @@ internal static class CharacterGeneratedProfileOwnedProbe
             TemporaryDerivedPayloadsDeleted = cleaned, RetainedSourcePayloadsWritten = !cleaned, CachesUnchanged = cachesUnchanged,
             Generation = generation, GeneratedGlbSha256 = GlbSha, GeneratedProvenanceSha256 = provenanceSha, Inputs = inputs,
             ClipChoices = clips, Nodes = nodes, Joints = joints, SourceTriangles = triangles, RetainedSelectionAfterRemove = retained,
-            RemovedSelectionReopenRefused = reopenRefused, RehashedLegacyDowngradeRefused = downgradeRefused }));
+            RemovedSelectionReopenRefused = reopenRefused, RehashedLegacyDowngradeRefused = downgradeRefused, FinalGeneratedSelectionAdmitted = finalAdmitted,
+            FinalClipChoices = finalClips, FinalLegacyFormat1Refused = finalLegacyRefused, FinalNativeProfileRefused = finalNativeRefused }));
         return passed ? 0 : 1;
     }
     private static Dictionary<string, object[]> Caches()
