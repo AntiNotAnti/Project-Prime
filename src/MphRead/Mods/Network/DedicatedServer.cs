@@ -759,10 +759,19 @@ namespace MphRead.Mods.Network
                 // Use it only when there is enough room for that worst case;
                 // Unix sleeps are fine much closer to the deadline.
                 double coarseSleepRoom = OperatingSystem.IsWindows() ? 0.012 : 0.002;
-                if (remaining > coarseSleepRoom)
+                // Sleep on the transport's existing activity event rather
+                // than polling the entire game/control loop every millisecond.
+                // Retain the platform deadline guard and the 10 ms reliable
+                // servicing cadence; the receive worker signals on admission.
+                if (remaining > coarseSleepRoom + 0.001)
                 {
-                    Thread.Sleep(1);
-                    return;
+                    int waitMs = Math.Min(8, (int)Math.Floor(
+                        (remaining - coarseSleepRoom) * 1000.0));
+                    if (waitMs > 0)
+                    {
+                        _transport?.WaitForActivity(waitMs);
+                        return;
+                    }
                 }
                 if (remaining > 0.00025)
                 {
