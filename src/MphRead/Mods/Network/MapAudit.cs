@@ -365,6 +365,12 @@ namespace MphRead.Mods.Network
             base.OnLoad();
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
             Scene.OnResize();
+            if (PerformanceMode)
+            {
+                _performanceEvidence = CapturePerformanceEvidence();
+                // Evidence hashing/serialization setup is outside the measured workload.
+                for (int i = 0; i < _perfGcStart.Length; i++) _perfGcStart[i] = GC.CollectionCount(i);
+            }
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -1627,16 +1633,23 @@ namespace MphRead.Mods.Network
             int gen2 = GC.CollectionCount(2) - _perfGcStart[2];
             double simP99 = simulation.Length == 0 ? 0 : Percentile(simulation, 0.99);
 
-            Console.WriteLine($"PERF {_room} | draws {_perfDrawMs.Count} | rate {DrawRate}x60 presentation"
+            Console.WriteLine($"PERF {_room} | batched-draw-cpu | draws {_perfDrawMs.Count} | requested workload {PerformanceHz} Hz"
                 + $" | draw avg {avg:0.000} ms p50 {p50:0.000} p95 {p95:0.000}"
                 + $" p99 {p99:0.000} p99.9 {p999:0.000}"
                 + $" | 1% low {oneLow:0.0} fps 0.1% low {pointOneLow:0.0} fps"
                 + $" | sim p99 {simP99:0.000} ms | allocated {allocated:0} B/draw"
                 + $" | GC {gen0}/{gen1}/{gen2}");
 
+            var evidence = _performanceEvidence
+                ?? throw new InvalidOperationException("Performance evidence was not captured before sampling.");
             var document = new
             {
-                Version = 1,
+                Version = 2,
+                MeasurementKind = "batched-draw-cpu",
+                evidence.ApplicationImageSha256,
+                evidence.ApplicationImageKind,
+                evidence.Hardware,
+                evidence.Workload,
                 Build = Update.BuildVersion.Display,
                 Room = _room,
                 Players = _players,
