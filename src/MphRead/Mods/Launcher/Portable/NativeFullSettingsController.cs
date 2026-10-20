@@ -26,6 +26,7 @@ internal sealed class NativeSettingRow
     internal Dictionary<string,string>? ChoiceLabels;
     internal string DisplayValue=>ChoiceLabels?.GetValueOrDefault(Value)??(Choices.Length==0?Value:Value.ToLowerInvariant() switch{"true" or "on"=>"On","false" or "off"=>"Off",_=>Regex.Replace(Value.Replace('_',' '),"(?<=[a-z])([A-Z])"," $1")});
     internal string Description="Enter a value, then Apply Changes";
+    internal string? HintOverride;
     internal PadAction? BindingAction;
     internal int BindingSlot;
     internal bool KeyboardBinding;
@@ -38,7 +39,7 @@ internal sealed class NativeSettingRow
     { Category=category; Group=group; Label=label; Read=read; Write=write; Validate=validate;
       Choices=choices ?? Array.Empty<string>(); string initial=read();Saved=Value=Choices.FirstOrDefault(c=>c.Equals(initial,StringComparison.OrdinalIgnoreCase))??initial; }
     internal bool Dirty => Value != Saved;
-    internal string Hint => Choices.Length > 0 ? string.Join(" / ", Choices.Select(c=>ChoiceLabels?.GetValueOrDefault(c)??c)) : Description;
+    internal string Hint => HintOverride ?? (Choices.Length > 0 ? string.Join(" / ", Choices.Select(c=>ChoiceLabels?.GetValueOrDefault(c)??c)) : Description);
 }
 
 internal sealed partial class NativeFullSettingsController : IDisposable
@@ -159,6 +160,11 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         Menu("Display","Frame pacing","ShowFps",OnOff);
         Menu("Display","HUD","SmoothNativeHud",OnOff);
         Add(typeof(LauncherPrefs),null,"Display","Campaign map","DetailedCampaignMap");
+        if (!OperatingSystem.IsAndroid())
+        {
+            Add(typeof(LauncherPrefs),null,"Display","Campaign ending","OriginalCampaignCredits");
+            Rows[^1].HintOverride = Rows[^1].Description = "Animated cartridge credits. Uses the mission receipt when unavailable.";
+        }
         Add(typeof(Features),null,"Display","HUD","ProHud","KillFeedEnabled","ProHudFixedWeapon");
         Add(typeof(Crosshair),null,"Display","HUD","Size","Style");
         Add(typeof(Radar),null,"Display","HUD","Enabled","ShowBackground","ShowOutlines");
@@ -326,6 +332,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
                 "CustomScopeHold"=>"Hold custom scope (all aim devices)",
                 "CustomScope25Sensitivity"=>"2.5x custom scope sensitivity (all aim devices)",
                 "CustomScope4Sensitivity"=>"4x custom scope sensitivity (all aim devices)",
+                "OriginalCampaignCredits"=>"Original campaign credits",
                 _=>Words(name)
             };
             Rows.Add(new(category,group,label,Read,v=>p.SetValue(owner,p.PropertyType.IsEnum?Enum.Parse(p.PropertyType,v,true):Convert.ChangeType(v,p.PropertyType,CultureInfo.InvariantCulture)),Validate,choices){KeyboardBinding=p.PropertyType==typeof(Keys),Minimum=tune?numeric.Min:null,Maximum=tune?numeric.Max:null,WholeNumber=p.PropertyType==typeof(int),Description=tune?$"{numeric.Min:0.###}–{numeric.Max:0.###}":"Enter a value, then Apply Changes"});

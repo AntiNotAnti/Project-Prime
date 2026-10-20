@@ -98,6 +98,7 @@ internal static partial class RmlUiOpenGlSmoke
     internal static void NativeFocusChanged(bool focused)
     {
         _gamepad?.Reset(); _gamepadDocument = default;
+        if (!focused) _campaignEnding?.Suspend();
         if (!focused && _host is { Active:true } host) ReleaseNativeInput(host);
     }
 
@@ -112,6 +113,7 @@ internal static partial class RmlUiOpenGlSmoke
             // Focus loss and a zero-sized viewport still revoke the proposal.
             bool unusable = _inputWindow == null || _inputWindow.FramebufferSize.X <= 0
                 || _inputWindow.FramebufferSize.Y <= 0;
+            if (unusable) _campaignEnding?.Suspend();
             ReleaseNativeInput(host, revertDisplayTrial: unusable);
         }
     }

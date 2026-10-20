@@ -218,6 +218,16 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             VerifyNativeCallAllowed();
             return _protocol == 1 && IsAlive(document) && (!foreground || (IsVisible(document) && CurrentInputDocument == document));
         }
+        internal bool SupportsCanvas
+        {
+            get
+            {
+                VerifyNativeCallAllowed();
+                if (!_active || _protocol != 1) return false;
+                try { return _native.CanvasVersion() == 1; }
+                catch (EntryPointNotFoundException) { return false; }
+            }
+        }
         internal RmlUiCanvas? AcquireCanvas(RmlUiDocumentToken document, string element)
         {
             if (string.IsNullOrEmpty(element) || Encoding.UTF8.GetByteCount(element) > 256 || element.Contains('\0'))

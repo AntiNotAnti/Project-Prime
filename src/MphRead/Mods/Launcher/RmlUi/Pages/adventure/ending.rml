@@ -10,6 +10,11 @@
         <div class="eyebrow">ADVENTURE // MISSION RECEIPT</div>
         <h1 id="campaign_ending_heading">MISSION COMPLETE</h1>
         <button id="campaign_ending_continue" class="play_action primary" data-action="route:adventure">RETURN TO CAMPAIGN FILE SELECT</button>
+        <div id="campaign_ending_source_status" class="eyebrow" />
+        <div id="campaign_ending_source" style="display: none;">
+            <prime-canvas id="campaign_ending_source_canvas" />
+        </div>
+        <button id="campaign_ending_source_ok" class="play_action primary" data-action="results:close" style="display: none;" disabled="disabled">OK // RETURN TO FILE SELECT</button>
         <div id="campaign_ending_scroll">
             <div class="campaign_ending_summary">
                 <h2 id="campaign_ending_result" />

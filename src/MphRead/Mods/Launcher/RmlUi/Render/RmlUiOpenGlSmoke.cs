@@ -65,6 +65,7 @@ internal static partial class RmlUiOpenGlSmoke
             || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0
             || !Shell.RmlUiCanPresent)
         {
+            _campaignEnding?.Suspend();
             if (_shown && _host is { Active: true } current) ReleaseNativeInput(current);
             RmlUiHunterStageRenderer.Hide();
             _shown = false;
@@ -450,6 +451,7 @@ internal static partial class RmlUiOpenGlSmoke
             // immediately, not one presented frame later.
             if (!Shell.RmlUiCanPresent)
             {
+                _campaignEnding?.Suspend();
                 _shown = false;
                 ReleaseNativeInput(host);
                 return;
@@ -474,7 +476,8 @@ internal static partial class RmlUiOpenGlSmoke
             RefreshNativeStudioRoute();
             if (_studio?.Closed == true) CloseNativeStudio();
             _hunterChoice?.Pump();
-            _campaignEnding?.Refresh();
+            _campaignEnding?.Refresh(window.IsFocused && width > 0 && height > 0);
+            ApplyCampaignEndingReturn();
             _campaignShip?.Refresh();
             RmlUiMenuSnapshot snapshot = controller.Tick();
             if (Shell.StudioWindow && !Shell.NativeStartupPending && !controller.TheatreOpen && _studio == null && _quickSettings == null

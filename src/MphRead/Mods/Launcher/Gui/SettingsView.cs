@@ -238,6 +238,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _proHud = null!;
         private ToggleRow _smoothNativeHud = null!;
         private ToggleRow _detailedCampaignMap = null!;
+        private ToggleRow? _originalCampaignCredits;
         private ToggleRow _killFeed = null!;
         private ChoiceRow _crosshairSizeRow = null!;
         private ChoiceRow _crosshairStyleRow = null!;
@@ -1485,6 +1486,11 @@ namespace MphRead.Mods.Launcher.Gui
             Explain(page, "Smooth native HUD uses filtered sampling for the original DS reticle, meters and weapon-menu sprites when they are enlarged on modern displays. Turn it off for the original hard pixel edges.");
             _detailedCampaignMap = Add(page, new ToggleRow("Detailed campaign map", LauncherPrefs.DetailedCampaignMap));
             Explain(page, "Shows room collision detail for explored rooms on the campaign pause map. Unavailable room detail and connectors keep their original map shapes. Takes effect when the map is reopened.");
+            if (!OperatingSystem.IsAndroid())
+            {
+                _originalCampaignCredits = Add(page, new ToggleRow("Original campaign credits", LauncherPrefs.OriginalCampaignCredits));
+                Explain(page, "Animated cartridge credits. Uses the mission receipt when unavailable.");
+            }
             _killFeed = Add(page, new ToggleRow("Kill feed", Features.KillFeedEnabled));
             Explain(page, "Shows confirmed match deaths with attacker, weapon or cause, victim, headshots and team kills.");
             // Size applies to both the original DS reticle and the Pro/custom
@@ -3147,6 +3153,8 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherPrefs.AutoUpdate = _autoUpdate.On;
             LauncherPrefs.ReduceMotion = _reduceMotion.On;
             LauncherPrefs.DetailedCampaignMap = _detailedCampaignMap.On;
+            if (_originalCampaignCredits != null)
+                LauncherPrefs.OriginalCampaignCredits = _originalCampaignCredits.On;
             if (_replayStorageRow != null)
             {
                 LauncherPrefs.ReplayStorageLimitGb = _replayStorageStops[

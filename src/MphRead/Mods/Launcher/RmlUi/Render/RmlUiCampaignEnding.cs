@@ -25,7 +25,7 @@ internal static partial class RmlUiOpenGlSmoke
             _launcherPages?.Suspend();
             var page = new NativeCampaignEndingPage(_host, _pages, receipt);
             _campaignEnding = page;
-            page.Open();
+            page.Open(window.IsFocused && window.FramebufferSize.X > 0 && window.FramebufferSize.Y > 0);
             _shown = true;
             return true;
         }

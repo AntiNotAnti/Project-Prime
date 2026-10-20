@@ -7,6 +7,8 @@ actual prime_menu model. It intentionally has NO data-action fallback: real
 pointer clicks must reach the model's guarded lobby_rules_toggle17/18 callbacks.
 Only the three openly licensed runtime fonts are copied into temporary assets.
 The same test must fail before the missing binding/callback fix and pass after.
+Also checks the routed Offline M7 boundary: literal kind141 argument14 is
+supported, while the first unsupported Offline rule15 emits no intent.
 """
 from __future__ import annotations
 
@@ -103,15 +105,21 @@ class HomeProbe:
                                         "document": p.document, "sequence": p.sequence} for p in intents]})
         return intents
 
-    def accepted(self, home, element, argument, stage="initial"):
+    def accepted(self, home, element, argument, stage="initial", expected_kind=42):
         intents = self.click(home, element, stage)
-        self.check(len(intents) == 1, "model_callback_emits_exactly_once_" + stage + "_" + element)
+        self.trace[-1].update(expected_kind=expected_kind, expected_argument=argument)
+        prefix = "model_callback" if expected_kind == 42 else "routed_action"
+        self.check(len(intents) == 1, prefix + "_emits_exactly_once_" + stage + "_" + element)
         if len(intents) == 1:
             event = intents[0]
-            self.check(event.size == 40 and event.version == 1 and event.kind == 42 and event.argument == argument,
-                       "model_callback_uses_literal_lobby_rule_kind42_argument_" + str(argument))
+            if expected_kind == 42:
+                self.check(event.size == 40 and event.version == 1 and event.kind == 42 and event.argument == argument,
+                           "model_callback_uses_literal_lobby_rule_kind42_argument_" + str(argument))
+            else:
+                self.check(event.size == 40 and event.version == 1 and event.kind == expected_kind and event.argument == argument,
+                           "routed_action_uses_literal_offline_rule_kind" + str(expected_kind) + "_argument_" + str(argument))
             self.check(event.generation == self.generation() and event.document == home and event.sequence > self.last_sequence,
-                       "model_callback_preserves_home_owner_and_monotonic_sequence_" + element)
+                       prefix + "_preserves_home_owner_and_monotonic_sequence_" + element)
             self.last_sequence = event.sequence
 
     def focused(self):
@@ -142,7 +150,7 @@ class HomeProbe:
         self.check(actual == "rules_map_next", "genuine_rules_reopen_keeps_authored_map_focus_transition")
 
     def run(self, assets):
-        self.require(self.initialize_backend(640, 360, 1, str(assets).encode(), 1) == 1, "actual_home_cpu_backend_initialized")
+        self.require(self.initialize_backend(640, 600, 1, str(assets).encode(), 1) == 1, "actual_home_cpu_backend_initialized")
         home = self.home_document()
         self.require(home != 0 and self.generation() != 0, "actual_home_lifetime_nonzero")
         self.flags(home)
@@ -161,6 +169,9 @@ class HomeProbe:
         self.accepted(home, "m7", 18)
         self.accepted(home, "routed_m7", 18, "generic_route")
         self.check(not self.click(home, "out_of_range", "generic_route"), "generic_action_rejects_first_unsupported_rule19")
+        self.accepted(home, "offline_m7", 14, "offline_route", expected_kind=141)
+        self.check(not self.click(home, "offline_out_of_range", "offline_route"),
+                   "generic_offline_action_rejects_first_unsupported_rule15")
         self.focus_snapshots(home)
         for key, value in ((b"rules_toggle16", b"OWN_CONTROL_CHANGED"), (b"rules_toggle17", b"OWN_MOVEMENT_CHANGED"),
                            (b"rules_toggle18", b"OWN_M7_CHANGED")):
@@ -199,6 +210,8 @@ def assets(root, source):
         <button id="routed_m7" data-action="lobby:rules-toggle:18">ROUTED M7</button>
         <button id="out_of_range" data-action="lobby:rules-toggle:19">INVALID RULE</button>
         <button id="rules_map_next">OWN MAP NEXT</button>
+        <button id="offline_m7" data-action="offline:rule:14">OFFLINE M7</button>
+        <button id="offline_out_of_range" data-action="offline:rule:15">INVALID OFFLINE RULE</button>
         <div id="guard_state" role="status" style="position:absolute;left:500px;top:8px;width:140px;height:80px;">L {{lobby_mode}} R {{lobby_rules_open}} O {{rules_owner}}</div>
         </body></rml>""")
 
@@ -226,7 +239,7 @@ def main():
     probe.check(hashlib.sha256(library.read_bytes()).hexdigest() == digest, "native_library_unchanged")
     print(json.dumps({"result": "FAIL" if probe.failures else "PASS", "checks": probe.checks, "failures": probe.failures, "actions": probe.trace,
                       "library_sha256": digest, "backend": 1, "temporary_assets_removed": True,
-                      "scope": "invented Home markup using real model binding/callbacks; no GL or game media"}, sort_keys=True))
+                      "scope": "invented Home markup using real model binding/callbacks and routed Offline M7 boundary; no GL or game media"}, sort_keys=True))
     return int(bool(probe.failures))
 
 

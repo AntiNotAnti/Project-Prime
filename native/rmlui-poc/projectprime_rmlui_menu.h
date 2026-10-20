@@ -3,6 +3,7 @@
 // Private compatibility presenter; included inside the runtime namespace.
 // It owns no RmlUi context, renderer, network session, or document lifetime.
 constexpr int PrimeLobbyRuleChoiceCount = 19;
+constexpr int PrimeOfflineRuleChoiceCount = 15;
 struct PrimeMenuData {
     Rml::String player_name = "PLAYER";
     Rml::String profile_state = "LOCAL PROFILE";
