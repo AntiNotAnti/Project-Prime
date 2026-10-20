@@ -13,7 +13,7 @@ on:
       - 'tools/nettest/InstagibIonFractureTests.cs'
       - 'tools/nettest/InstagibAudioOwnershipTests.cs'
       - 'tools/rmlui-hunter-check/**'
-      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/native-picker.rml'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/**'
       - 'tools/instagib/check_native_beam_actions.py'
       - '.github/workflows/instagib-beam-fx.yml'
   pull_request:
@@ -27,7 +27,7 @@ on:
       - 'tools/nettest/InstagibIonFractureTests.cs'
       - 'tools/nettest/InstagibAudioOwnershipTests.cs'
       - 'tools/rmlui-hunter-check/**'
-      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/native-picker.rml'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/**'
       - 'tools/instagib/check_native_beam_actions.py'
       - '.github/workflows/instagib-beam-fx.yml'
   workflow_dispatch:

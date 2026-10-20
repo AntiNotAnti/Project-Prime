@@ -334,13 +334,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             var item = CosmeticCatalog.DeathPresentations[i];
             Option("death", i, item.DisplayName, cosmetic.Draft.DeathEffectKey == item.Key, Hex(item.LightEffect));
         }
-        for (int i = 0; i < CosmeticCatalog.BeamEffects.Count; i++)
-        {
-            var item = CosmeticCatalog.BeamEffects[i];
-            Option("beam", i, item.DisplayName, cosmetic.Draft.BeamEffectKey == item.Key, Hex(item.PrimaryColor));
-            Option("beam_color", i, BeamPalette.Names[i], cosmetic.Draft.BeamColor == i,
-                Hex(BeamPalette.Resolve((byte)i, CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).PrimaryColor)));
-        }
+        // Beam and tint use the cycle buttons bound above. Their former option
+        // grids are not authored; publishing those targets rejects page opening.
         _pages.Present(_page, ++_revision, data);
     }
 

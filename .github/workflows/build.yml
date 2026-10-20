@@ -224,6 +224,8 @@ jobs:
           python3 tools/rmlui/check-pages.py --published-root tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           cp artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
              tools/rmlui-opengl-check/bin/Release/net10.0/
+          dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --hunter-presenter-contract \
+            tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --replay-files
           mkdir -p "${RUNNER_TEMP}/rmlui-studio-owner"
           PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-studio-owner" \
