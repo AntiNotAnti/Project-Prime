@@ -68,6 +68,7 @@ internal static class TraversalCrouchPoseTests
         }
         CheckPresentationTimeline();
         _checks += TraversalCrouchGaitTests.CheckMath();
+        _checks += TraversalSlidePresentationTests.CheckMath();
         return _checks;
     }
 
@@ -366,7 +367,8 @@ internal static class TraversalCrouchPoseTests
     {
         hunter = hunter.ToString(),
         canonical = CaptureCanonical(hunter),
-        gait = TraversalCrouchGaitTests.Capture(hunter)
+        gait = TraversalCrouchGaitTests.Capture(hunter),
+        slide = TraversalSlidePoseTests.Capture(hunter)
     };
 
     private static object CaptureCanonical(Hunter hunter)
