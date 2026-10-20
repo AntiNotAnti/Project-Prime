@@ -323,7 +323,9 @@ namespace MphRead
         private bool _blending;
         private CameraType _lastCameraType;
         private Matrix4 _lastPresentedView;
-        private Matrix4 _fromView;
+        // The outgoing camera is constant for the whole 18-tick form blend.
+        // Invert it once on transition, not again on every 144/240Hz draw.
+        private Matrix4 _fromInverse;
         private double _startTick;
         private double _lastTick;
         private long _lastGeneration;
@@ -386,7 +388,7 @@ namespace MphRead
 
             if (cameraType != _lastCameraType)
             {
-                _fromView = _lastPresentedView;
+                _fromInverse = _lastPresentedView.Inverted();
                 _startTick = ticks;
                 _blending = true;
             }
@@ -401,7 +403,7 @@ namespace MphRead
                 else
                 {
                     float eased = fraction * fraction * (3f - 2f * fraction);
-                    if (TryBlend(_fromView, desired, eased,
+                    if (TryBlend(_fromInverse, desired, eased,
                             out Matrix4 halfway, out Vector3 midwayEye))
                     {
                         presented = halfway;
@@ -417,13 +419,12 @@ namespace MphRead
             return presented;
         }
 
-        private static bool TryBlend(Matrix4 from, Matrix4 to,
+        private static bool TryBlend(Matrix4 fromInverse, Matrix4 to,
             float fraction, out Matrix4 view, out Vector3 eye)
         {
             view = to;
             eye = Vector3.Zero;
-            if (!ValidView(from) || !ValidView(to)) return false;
-            Matrix4 fromInverse = from.Inverted();
+            if (!ValidView(fromInverse) || !ValidView(to)) return false;
             Matrix4 toInverse = to.Inverted();
             eye = Vector3.Lerp(fromInverse.Row3.Xyz,
                 toInverse.Row3.Xyz, fraction);
