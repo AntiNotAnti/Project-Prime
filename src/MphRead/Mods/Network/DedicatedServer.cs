@@ -242,26 +242,18 @@ namespace MphRead.Mods.Network
         private readonly ushort[] _slotGenerations = new ushort[PlayerEntity.SlotCapacity];
 
         /// <summary>
-        /// How long the results are left on screen before the map changes.
-        ///
-        /// The client's own end-of-match sequence is three seconds of the
-        /// winner's camera and <see cref="GameState.MatchEndingSeconds"/> of
-        /// the results; a second on top of that means the fade to black
-        /// belongs to the rotation rather than cutting the results short.
-        ///
-        /// It has to cover the whole sequence, because the results screen is
-        /// where the next hunter and the next suit are chosen now (see
-        /// Mods.EndScreen) -- a server that rotated early would take the
-        /// question away mid-answer.
+        /// Full server-authoritative post-match window: five seconds for the
+        /// native winner shot, up to five seconds for an eligible replay and
+        /// six seconds for the unobstructed scoreboard. One additional second
+        /// gives clients room to finish rendering and fade before rotation.
+        /// Persistent sessions return to lobby at this boundary.
         /// </summary>
         internal const double EndSequenceSeconds = GameState.MatchFinalCameraSeconds + GameState.MatchKillcamSeconds + GameState.MatchEndingSeconds + 1.0;
 
         /// <summary>
-        /// Post-match is a fixed decision window. Map selection is itself the
-        /// action players take between rounds; requiring a second Ready step
-        /// made the ballot feel stuck and could stretch every match by thirty
-        /// seconds. The floor above already covers the complete results
-        /// sequence, hunter/suit choice and the ballot.
+        /// Fixed intermission window. Results never wait for a client UI
+        /// acknowledgement. Continuous servers use their configured rotation;
+        /// persistent sessions return all peers to their lobby.
         /// </summary>
         private static double EndSequenceFor() => EndSequenceSeconds;
 
