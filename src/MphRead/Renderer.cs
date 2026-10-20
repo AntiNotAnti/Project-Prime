@@ -3559,6 +3559,7 @@ namespace MphRead
 #if !MPHREAD_SERVER
             if (rendered) QueueRenderedNativeReplayCamera(nativeReplayCamera);
 #endif
+            if (rendered && _cameraMode == CameraMode.Player) Mods.Replay.ReplayOwnerCapture.Capture(this, _viewMatrix, _cameraFov, _viewModelFov);
             return rendered;
         }
 
@@ -3811,6 +3812,7 @@ namespace MphRead
                     fov = Mods.RenderOptions.ScaleCameraFov(fov);
                     _cameraFov = MathHelper.DegreesToRadians(fov);
                     ModApplyThirdPersonCamera(ref _viewMatrix);
+                    ApplyOwnerPresentation(ref _viewMatrix, ref _cameraFov, ref _viewModelFov);
                 }
                 else
                 {

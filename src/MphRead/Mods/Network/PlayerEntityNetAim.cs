@@ -769,6 +769,16 @@ namespace MphRead.Entities
             return true;
         }
 
+        internal bool ModTryOwnerRenderPose(out FirstPersonRenderPose pose)
+        { pose = _fpRenderPose; return _fpRenderPoseValid; }
+
+        internal void ModApplyOwnerRenderPose(in Mods.Replay.ReplayOwnerPose pose)
+        {
+            _fpRenderPose = new(pose.View, Matrix4.Invert(pose.View).Row3.Xyz,
+                pose.GunPosition, pose.GunFacing, pose.GunUp, MathHelper.RadiansToDegrees(pose.GunFov));
+            _fpRenderPoseValid = true;
+        }
+
         internal void ModInvalidateFirstPersonRenderPose()
             => _fpRenderPoseValid = false;
 
