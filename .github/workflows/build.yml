@@ -676,6 +676,31 @@ jobs:
       - name: Android touch sampling and release between fixed steps
         run: dotnet run --project tools/touchcheck -c Release
 
+  native-frame-capture-policy:
+    name: native frame diagnostics contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      DOTNET_EXE: dotnet
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      # Asset-free storage/arithmetic contracts only. Native game FPS, scanout,
+      # driver overrides, GPU timing and physical devices need separate receipts.
+      - run: dotnet run --project tools/frame-capture-check -c Release
+      - run: dotnet run --project tools/frame-profiler-check -c Release
+      - run: python -m unittest discover -s tools/native-fps -v
+      - run: python -m unittest discover -s tools/native-render-check -p test_timing_samples.py -v
+      - run: python -m unittest discover -s tools/native-render-check -p test_provenance_phase.py -v
+
   renderer-policy-foundation:
     name: renderer state, lifecycle and low-latency policy
     runs-on: ubuntu-latest

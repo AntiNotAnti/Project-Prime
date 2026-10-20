@@ -17,9 +17,11 @@ This changes diagnostic sampling only. It does not change game simulation,
 rendering, presentation pacing, input, replay identity or feature defaults.
 Production-helper tests cover duration/capacity boundaries, zero-allocation
 recording, exact capacity, overflow accounting and chronological preservation;
-full harness compilation and analyzer validation pass. Windows native results
-will be recorded under the exact frozen binary and source identity. Hardware
-qualification is not implied by these tests or by a successful build.
+full harness compilation and analyzer validation pass. Windows native results are now retained in [the sustained report](windows-sustained.json)
+under the exact frozen binary and source identity. Its 30-minute recording
+completed with zero record loss, but the stability gate fails with 26 dropped
+simulation steps and an external build overlap near the end. See [Windows evidence](windows.md).
+Hardware qualification is not implied by these tests or by a successful build.
 
 Rollback: revert this slice; use the previous short-run tool with its documented
 allocation-counter limitation. No player settings or game data are modified.

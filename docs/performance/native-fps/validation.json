@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "source": "FPS-01",
+  "source": "FPS-00..08",
   "build": {
     "command": "dotnet build tools/native-render-check -c Release",
     "exitCode": 0,
@@ -9,20 +9,87 @@
   },
   "checks": {
     "frame-capture-check": "PASS: arithmetic, bounds, attribution, export, allocation seam",
-    "native-fps analyzer": "PASS: 7 tests",
+    "native-fps analyzer": "PASS: 11 tests incl gzip, timestamp consistency and raw receipt overwrite protection",
     "OpenGL modernization": "PASS: 22 tests",
     "OpenGL visual tooling": "PASS: 6 tests",
-    "native-render tooling": "PASS: 113 tests; 4 skipped",
+    "native-render tooling": "PASS: 115 tests; 4 skipped",
     "display-pose-check": "PASS: 77268 checks",
     "native final-composite-check": "PASS: Apple M4 Pro GL 2.1",
     "frametimingcheck": "PASS",
     "renderbackendcheck": "PASS",
     "rendergraphcheck": "PASS",
-    "native window-cycle capture": "PASS: 1297 records, zero drops, no legacy hot-path log records"
+    "native window-cycle capture": "PASS: 1297 records, zero drops, no legacy hot-path log records",
+    "frame-profiler-check": "PASS: actual production profiler lifecycle, retained 750ms hitch and cancellation segmentation with dependency stubs",
+    "replayformatcheck": "PASS: 3050 checks after separate historical fixture repair PR785",
+    "replaycontrolcheck": "PASS: freshly built client",
+    "nettest --architecture": "PASS: current production source 8e1559d12, before test-only fixture repair",
+    "nettest --input-edges": "PASS: current production source 8e1559d12, before test-only fixture repair",
+    "nettest --display-pose-integration": "PASS: 69 checks; exact archival fields roundtrip",
+    "CI YAML": "PASS: parsed three-platform contract job",
+    "raw archived receipt integrity": "PASS:312 gzip and restored raw hashes/lengths/size limits;18 single-segment captures pass timestamp consistency; corrected120 mixed-segment capture rejected as expected",
+    "Windows frame-capture-check": "PASS: source-linked bounded arithmetic/export/allocations; exit0",
+    "Windows frame-profiler-check": "PASS: source-linked actual profiler retains750ms hitch and lifecycle segmentation; exit0",
+    "Windows full pose matrix": "PASS:28/28 native scheduled-draw cases;21 exact1440-step canonical/input comparisons; isolated native gun/charge pixels and particle gates unchanged",
+    "repository asset guard": "FAIL_PREEXISTING:12 tracked UI PNGs already present at521aff029; none introduced by FPS08; see asset-guard.log",
+    "FPS08 scoped asset guard": "PASS:no image/extracted-game/settings-path files; all changed files below2MiB"
   },
-  "performanceQualification": "NOT_RUN: no uncontended Mac A/A",
-  "windows": "Pending user-requested RTX 5080 campaign",
+  "performanceQualification": "NO_ROLLOUT: no ordinary renderer candidate qualifies; frozen Windows results separately scoped",
+  "windows": {
+    "sourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+    "soakProcess": "PASS_EXIT_ZERO",
+    "recording": "PASS:429116intervals, zero record loss",
+    "stabilityGate": "FAIL:26simulationdrops",
+    "performanceQualification": "NOT_RUN:externalbuildoverlapnearend",
+    "cap120": "FAIL:98.399FPS,22simulationdrops,mixedcapturesegments",
+    "cap144": "FAIL:124.524FPS,0simulationdrops",
+    "samusV2Pilots": "PASS:60/144; scheduled native draws only",
+    "fullFunctionalMatrix": "PASS:28/28 native draw/pixel/particle cases;21 exact1440-step cross-rate comparisons; not OS focus/scanout/performance",
+    "poseSourceSha": "9c1aabc1b59fba5b34451304093503f28dba5c24",
+    "poseAnalysis": "windows-pose-analysis.json"
+  },
   "linux": "NOT_RUN",
-  "android": "NOT_RUN: physical device unavailable",
-  "ci": "Not awaited per explicit user instruction"
+  "android": "Release build PASS; physical GLES device/thermals NOT_RUN",
+  "ci": "NOT_WAITED: explicit user override; hosted exact-head/final-main green not asserted",
+  "localBuildSourceHead": "521aff02907f93f62956f53e3f0e3503c43e9559",
+  "productionSourceDirtyAtFinalChecks": false,
+  "loadedLocalClientSha256": "46a05db9b5b5ec1a069f2e0e10e321ff91d2090d495f7436d841f3b34b6fde77",
+  "androidRelease": {
+    "status": "PASS",
+    "errors": 0,
+    "warnings": 32,
+    "sdk": "36",
+    "jdk": "27",
+    "physicalDevice": "NOT_RUN",
+    "sourceHead": "521aff02907f93f62956f53e3f0e3503c43e9559",
+    "warningScope": "Existing documentation/nullable/unused-field and Android JDK27 tooling warnings; zero errors"
+  },
+  "historicalReplayFixtureFailure": {
+    "status": "REPAIRED",
+    "pr": 785,
+    "cause": "Protocol60 uint-rules expansion left two synthetic historical fixtures at current width; historical decoder correct",
+    "scope": "test fixtures only"
+  },
+  "loadedLocalHarnessSha256": "50f313ffb7c785af50617a4887805d63bc83dee3b28c1aaa0559d05d11fa369a",
+  "assetGuard": {
+    "repositoryExitCode": 1,
+    "baselineSourceHead": "521aff02907f93f62956f53e3f0e3503c43e9559",
+    "preexistingRefusedPaths": [
+      "docs/implementation/rmlui-ux-2026-10-19/community-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/community-before.png",
+      "docs/implementation/rmlui-ux-2026-10-19/compact-profile-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/compact-profile-before.png",
+      "docs/implementation/rmlui-ux-2026-10-19/hunters-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/hunters-before.png",
+      "docs/implementation/rmlui-ux-2026-10-19/license-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/license-before.png",
+      "docs/implementation/rmlui-ux-2026-10-19/quick-settings-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/quick-settings-before.png",
+      "docs/implementation/rmlui-ux-2026-10-19/versions-after.png",
+      "docs/implementation/rmlui-ux-2026-10-19/versions-before.png"
+    ],
+    "allRefusedPathsPresentInBaseline": true,
+    "rawLog": "asset-guard.log",
+    "scopedStatus": "PASS:docs/performance/native-fps,tools/native-fps,.github/workflows",
+    "scopedLog": "asset-guard-scoped.log"
+  }
 }

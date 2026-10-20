@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "sourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+  "status": "FAIL_OR_INCOMPLETE:4SamusPASS,Kanden60FAILinputnotconsumed,23NOT_RUN",
+  "scope": "Native scheduled draw correctness/readbacks only, not performance or OS focus acceptance",
+  "files": [
+    {
+      "path": "final-contract-result.json.gz",
+      "rawSha256": "f652475205e4b3a0af2078d0d8a4dec51e48c0ea3a1e594325236d41daa9115c",
+      "gzipSha256": "c0b761b4e396e802cbc22c6897316de15c3e850a73c975c5b54fdf01198a6041",
+      "rawBytes": 604,
+      "gzipBytes": 306,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "frame-capture-check-final.log.gz",
+      "rawSha256": "8be28827efbb7213d22fc171eae6ac86718f3777e1ef65f33594922750ce44f8",
+      "gzipSha256": "8161ef3a40f95981ba3a167995797e61a7d66bb1ab3f51522a0b6dfc8334eb3b",
+      "rawBytes": 260,
+      "gzipBytes": 168,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "frame-profiler-check-final.log.gz",
+      "rawSha256": "9aae5b2853245c833f3fb3b2545e8413eb424c176a2ca0e7915e8c21e1fbd98e",
+      "gzipSha256": "22dcea390b047031e3d5848934415a6fd2ad377c1c169abcaa9ce5370b5d7312",
+      "rawBytes": 198,
+      "gzipBytes": 146,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "functional-environment.json.gz",
+      "rawSha256": "285386bcbda5b2338822b19266a2b90c6d87e9da18401f9148c69e469c11bcb7",
+      "gzipSha256": "7317ccfdf4c0a4501f38adc3eefa36c0c711c96f10aedb095f8e06044c1f79fc",
+      "rawBytes": 8,
+      "gzipBytes": 28,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "functional-result.json.gz",
+      "rawSha256": "72baa6a51d980df8cf6aaa949be0fd208bc67f6f2af7f5943f8eac845a25e63a",
+      "gzipSha256": "e938c4ca07a3568b05fb1bec155adfc755262732e07b10010b2f8c687881a303",
+      "rawBytes": 648,
+      "gzipBytes": 174,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "functional-status.json.gz",
+      "rawSha256": "199453c3fac20d9fe92d5d31fd3eaea54d06fa1af7e9627da0d4d41394061418",
+      "gzipSha256": "b742a87b48d4225c7776ebd6a272805127603ad9dd6d4401319295d5f9e971e1",
+      "rawBytes": 102,
+      "gzipBytes": 111,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "maptest-1/run.log.gz",
+      "rawSha256": "559b60305e8e7069be8a4ff1016170d15633eac2c5f34dfdb4150be6ac3bd97f",
+      "gzipSha256": "198f1c868ee0e3f6a3f3b33d03d3377d1383729a647f81cbcfb60ede7caa8b15",
+      "rawBytes": 4256,
+      "gzipBytes": 1372,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "maptest-3/run.log.gz",
+      "rawSha256": "bdfe82cd07ec162d2d9a1cfe93ec6352a3b3899c9d75729c0fa12608e0d658f2",
+      "gzipSha256": "9425a071bcec1450c60169463201dd1f3e503e7db18ee16fb3ef476c4753d306",
+      "rawBytes": 4656,
+      "gzipBytes": 1500,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "maptest-4/run.log.gz",
+      "rawSha256": "81c1655368ae76756d95eae76d9e8f5789c88744beb1de711935eeac925c8e60",
+      "gzipSha256": "87f11d1f9a340f74bace1638999f5f5377acb049f0f75db203aa1c0b70626acd",
+      "rawBytes": 4656,
+      "gzipBytes": 1496,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "pose-matrix/01-samus-60/analysis.json.gz",
+      "rawSha256": "b4140b5da0db3b4fe0caa7deb26e3f8dc0f1b2cdb663d5a265f95425190b52d7",
+      "gzipSha256": "f289d5a4ed78dea53d62317cc94863cc04f1f805b53f7360cfc5a3c50e6aab04",
+      "rawBytes": 988,
+      "gzipBytes": 528,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/01-samus-60/console.log.gz",
+      "rawSha256": "e9d7dc55ae2b2a87e4f864464e1ae7db28d6859dfa7c3b610011ba0d75f781d2",
+      "gzipSha256": "05c439491eb4c3918d96f449171b618bb7bfc48253a7e761582f8fb2463fe89f",
+      "rawBytes": 1608,
+      "gzipBytes": 814,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/01-samus-60/receipt.json.gz",
+      "rawSha256": "4c1eb2e2d1ffab05a972262a321691d6c0fbdd15128abf1e5f364713693750c5",
+      "gzipSha256": "b9afdd72385099e269e92dcd382b4532376adc82f5f3f292bcc152f69aebc8d5",
+      "rawBytes": 1102,
+      "gzipBytes": 512,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/01-samus-60/result.json.gz",
+      "rawSha256": "ebfd29599c8779a98eb33c19f7cc45f247f3e50725d91f38e3ac68eca1093c20",
+      "gzipSha256": "7317619aa8970752aecb4762ee385af841ad1cf57e7084a61397292a0586b58f",
+      "rawBytes": 3645734,
+      "gzipBytes": 222133,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/02-samus-144/analysis.json.gz",
+      "rawSha256": "6a94a4bb3cff4a6c772fdc21f182d0cbfcc8d39b6f068b2aef3904d6a7aa39d1",
+      "gzipSha256": "2877e6fef7931d09a52a062da3a731af6057035bddd02b71c5ecf021617d85bd",
+      "rawBytes": 990,
+      "gzipBytes": 527,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/02-samus-144/console.log.gz",
+      "rawSha256": "e5161ef49baa09df148eb10fb1df62232e7a16657b630825c79f5402678607bf",
+      "gzipSha256": "b4069dfbb85fdcf54da03bdca425c8237a70af63f65706c7efeffe03947747a2",
+      "rawBytes": 1610,
+      "gzipBytes": 816,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/02-samus-144/cross-rate-analysis.json.gz",
+      "rawSha256": "f4975665a1fbbed5e1e9756350e25dcdaa7165d29d727be2f3760df790323c61",
+      "gzipSha256": "713fe3bce4875689250a3bdc5e4ae6a685c46ed5fedbef0c2a2e3a75443825df",
+      "rawBytes": 1493,
+      "gzipBytes": 619,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/02-samus-144/receipt.json.gz",
+      "rawSha256": "a650a43ae71f6256e62623f70dcce998d5e2f1988930e4aa8f67a6d9ad8bb11c",
+      "gzipSha256": "45fda0a4f956e541b2d8890af78d7582bcb1e354c170d3e9fc634bc53d65ad48",
+      "rawBytes": 1105,
+      "gzipBytes": 512,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/02-samus-144/result.json.gz",
+      "rawSha256": "daf15b5f24998086ebeb37f37efb5f511902916a205ae865ea966b216d1bec7c",
+      "gzipSha256": "489e5cdadc43c3cb5be5635834ef0270ed90cf6a1da7db5052be3a244bda540e",
+      "rawBytes": 4413444,
+      "gzipBytes": 258471,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/03-samus-120/analysis.json.gz",
+      "rawSha256": "243ca3b9e1208aca75fdec80b93693b1ec402cb2eb0260394fd5eb2d5f68c352",
+      "gzipSha256": "c5a23d4566ca00ed2dc13fcaae59521e0ee7bb77ba0691ea92165e21d7cccd7c",
+      "rawBytes": 990,
+      "gzipBytes": 527,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/03-samus-120/console.log.gz",
+      "rawSha256": "5ed19aa059925ca0a57f194d66a11157572df1543edc3cbf58489cf4a742101f",
+      "gzipSha256": "224fb42b847b708525caee6ff55687937405139a6aa070fc34847cd049ecc94d",
+      "rawBytes": 1610,
+      "gzipBytes": 816,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/03-samus-120/cross-rate-analysis.json.gz",
+      "rawSha256": "3e7a6e1d4f767e1796689584901917aa999454db44b35c84bca602ad0a081ac2",
+      "gzipSha256": "54850d9436af935fa642833b89e38ad9c07da08e8d6b3fb4b56c8000238eac45",
+      "rawBytes": 1493,
+      "gzipBytes": 622,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/03-samus-120/receipt.json.gz",
+      "rawSha256": "6f1e50fe48e9d97fa4b2f03a27142e54cd4256fd0856a2e9e636ec5a61ebbab3",
+      "gzipSha256": "e2e37ec2ade5ddb2db76444f434f479ea31879bddcb89e6c686e940a2298a2a9",
+      "rawBytes": 1106,
+      "gzipBytes": 512,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/03-samus-120/result.json.gz",
+      "rawSha256": "baeb0da027ed357ba8b35188b7149521a8658fd8ff158070550f194a8484a643",
+      "gzipSha256": "5e99ba9edd4e0d782b4d83fee9fb881f432e97bb4d7579c8841e5f5438dde3f6",
+      "rawBytes": 4114336,
+      "gzipBytes": 233339,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/04-samus-240/analysis.json.gz",
+      "rawSha256": "cef225cbfcf0ff6571bb0cc761ae8dfdc1f39c3ea2a8ec28a82e6c77396f8f91",
+      "gzipSha256": "dfdcaf4dd5aeb4edd02da01d348327d6ce6b147a3f3479818404195cdd4699b9",
+      "rawBytes": 990,
+      "gzipBytes": 527,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/04-samus-240/console.log.gz",
+      "rawSha256": "a9ccb67ddee23605c32d8430eb0a8b492b979be9cb1279adb5d2e0a1950eb685",
+      "gzipSha256": "e676989bb2bb261622c015f776b94b9cd524d89761b5a0be981cfd0502fbb1a7",
+      "rawBytes": 1610,
+      "gzipBytes": 815,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/04-samus-240/cross-rate-analysis.json.gz",
+      "rawSha256": "40bae700b905c591924c6378f8673703515321dfdaa98204913113ff5f212a35",
+      "gzipSha256": "9a31c34f8023aa83b9cd5f87ec5896d9b29794449fe0c660d2cba771d2c1b5ac",
+      "rawBytes": 1493,
+      "gzipBytes": 622,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/04-samus-240/receipt.json.gz",
+      "rawSha256": "bdb88d7690842c58ec250c78507b40a56e37444fdfb322bf90beed10eb0a34c2",
+      "gzipSha256": "51fe3c60b3db3ef78dc162407ba6936e9d5e2734b6a385b2bd7e86e88f9f8fc5",
+      "rawBytes": 1106,
+      "gzipBytes": 512,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/04-samus-240/result.json.gz",
+      "rawSha256": "62d5a9db5b7032289e05acf81b0227a5dd5ddc7a9466aad26e0e43f905819333",
+      "gzipSha256": "0b4c2d8853e718ec3c106c43dd1596686293129780c42712f59b767ed57da49e",
+      "rawBytes": 5053892,
+      "gzipBytes": 253541,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/05-kanden-60/analysis.json.gz",
+      "rawSha256": "33f2fd1dbb82c5102815769e792a31a822044135dca5f2b70ea6127a367aa8e0",
+      "gzipSha256": "6e35f6e965693643f7653b2ec6061dc3377a28a1c58110baf0fbe033bb33fcf7",
+      "rawBytes": 1736,
+      "gzipBytes": 758,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/05-kanden-60/console.log.gz",
+      "rawSha256": "3db32d70af51edd52f07bb2d3e491c6db0b4c2e5b7305f16305096cec72702e6",
+      "gzipSha256": "d96719607c456e08d9d69a381cca771be66d518e09af8ddd1a36e1cf43818630",
+      "rawBytes": 2795,
+      "gzipBytes": 1064,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/05-kanden-60/receipt.json.gz",
+      "rawSha256": "2bfaaf221740e72f89330b5efdb758272188b9431a854cf28edba55eb1de8dca",
+      "gzipSha256": "3c3dbe8e66133b8e5863ad013c5f48c626eac5ce14dda67e2814feb577c59a17",
+      "rawBytes": 1105,
+      "gzipBytes": 511,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/05-kanden-60/result.json.gz",
+      "rawSha256": "2608102f0d13e20371bb1afcc05bc7d6d4d3475d1562bb7bded65be79945e011",
+      "gzipSha256": "7e020e818de5c3b7a465d342824cd0e1b2f8ca664651190f85c1573fea914cce",
+      "rawBytes": 798527,
+      "gzipBytes": 63679,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/analysis.json.gz",
+      "rawSha256": "1145ff28f56e90f7aee3a634776e0c797b124ca2fc52ac02caa8872b298d928a",
+      "gzipSha256": "8584fd33ed3483b2fb0de9464c57d65340d654dce382d763c6c02c111529d8e0",
+      "rawBytes": 3857,
+      "gzipBytes": 980,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/plan.json.gz",
+      "rawSha256": "a29d4b3165d09ab1cba4b6c84255bf95a2e867960ee8c9f9556252ea9adc33c0",
+      "gzipSha256": "17b707eb48d291388e715b683dfcae51b853b9ac0cbdcbbdd1f70c4e73ba3f44",
+      "rawBytes": 735449,
+      "gzipBytes": 183509,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix/summary.json.gz",
+      "rawSha256": "01c795c9dab236a3bd5303e106fbfa963cc8a805ce90f942aab74038ef3ed11d",
+      "gzipSha256": "462654b763c313845d03e26c6b670edea5db142fe832c58d95a2364a6041917c",
+      "rawBytes": 6398,
+      "gzipBytes": 979,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-matrix.log.gz",
+      "rawSha256": "00ad0bf4baa444f0d9f23dffac4cf7f909774ba50bc6c7444f0b7ff60fa94c82",
+      "gzipSha256": "ce90a4f3ca4893725ccb9c857edeca266436fe92f9505d2a7c5ff36b4fa99aa1",
+      "rawBytes": 220,
+      "gzipBytes": 108,
+      "encoding": "utf-16"
+    }
+  ]
+}

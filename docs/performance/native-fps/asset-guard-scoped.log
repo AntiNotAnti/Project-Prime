@@ -1,0 +1,4 @@
+== checking docs/performance/native-fps ==
+== checking tools/native-fps ==
+== checking .github/workflows ==
+clean: nothing from the game is being published

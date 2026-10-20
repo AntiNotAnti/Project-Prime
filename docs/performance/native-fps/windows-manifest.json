@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "device": "DESKTOP-94724L4",
+  "os": "Microsoft Windows 10.0.26200",
+  "cpu": "AMD Ryzen 7 9850X3D, 8 cores / 16 logical processors",
+  "gpu": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+  "glVersion": "4.6.0 NVIDIA 617.42",
+  "windowsDriverVersion": "32.0.16.1742",
+  "reportedPanel": {
+    "pixels": [
+      5120,
+      1440
+    ],
+    "refreshHz": 239,
+    "verification": "Windows WMI; no physical scanout measurement"
+  },
+  "runtime": "private .NET SDK 10.0.401; interactive session 1",
+  "short": {
+    "status": "DIAGNOSTIC_ONLY",
+    "sourceSha": "ff76552e811710989bca332598053be9012a7b52",
+    "loadedClientMvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+    "loadedClientSha256": "fd68f72905ff77f291fb8b8dd1a1201c54fac5254e16add163c58a26a91f9e07",
+    "rawReceiptIndex": "evidence/windows-short/index.json",
+    "summary": "windows-short.json",
+    "explicitRawCaptureFlags": {
+      "PROJECT_PRIME_GL_FRAME_CAPTURE": "C:\\Users\\Jarrett\\Documents\\ProjectPrime-Native-FPS-20261019\\campaign-short\\paired-2-B/frames.json",
+      "PROJECT_PRIME_GL_FRAME_CAPACITY": "65536"
+    },
+    "unprofiledEnvironmentOverrides": "UNVERIFIED: full per-process environment was not serialized; fresh settings and scheduled script retained"
+  },
+  "provenanceAndSustained": {
+    "sourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+    "loadedClientMvid": "dda389b6-b993-448d-bf17-169b3a334917",
+    "loadedHarnessMvid": "d041f135-b192-424f-a261-1bc916f39b6f",
+    "loadedClientSha256": "3fd4f2ef9d0cc7bae4dd1e5a2f3848e8007f4b1ef4c96ac041a87446cffab9f9",
+    "loadedHarnessSha256": "721f225d1d9a07bf6e95ce8eb2eb4692d34a438ee88d64dc47b850262f4dbd12",
+    "sourceVerification": "3223 source files hash checked after restoring case-sensitive Obj source omitted by Windows robocopy /XD obj",
+    "controlReceiptIndex": "evidence/provenance-controls/index.json",
+    "sustainedReceiptIndex": "evidence/windows-sustained/index.json",
+    "sustainedSummary": "windows-sustained.json",
+    "stabilityGate": "FAIL: 26 simulation drops",
+    "performanceQualification": "NOT_RUN: external dotnet/MSBuild overlap near end",
+    "assetsBeforeAfter": "PASS: identical tree hashes; raw receipts retained"
+  },
+  "physicalLatency": "NOT_RUN",
+  "driverVsyncVrrOverrides": "UNVERIFIED",
+  "defaultChanges": [],
+  "poseMatrix": {
+    "sourceSha": "9c1aabc1b59fba5b34451304093503f28dba5c24",
+    "loadedClientMvid": "dc8876fa-2eea-4f83-81f7-1b9575cb0e8e",
+    "loadedClientSha256": "7ac9893a145e4b1127ea2a044aa0c9aafa73de43a2ff5ae888e8b412aad7df98",
+    "loadedHarnessSha256": "ec9e55f7cd9634b396ed0714f88f40e287b9ae3c598ebe3c587db060efca10e8",
+    "status": "PASS:28/28 bounded native correctness cells",
+    "summary": "windows-functional.json",
+    "analysis": "windows-pose-analysis.json",
+    "rawReceiptIndexes": [
+      "evidence/windows-pose-interrupted/index.json",
+      "evidence/windows-pose-recovery/index.json"
+    ],
+    "scope": "Scheduled native draws and exact canonical/input parity only; no physical/OS focus/performance acceptance",
+    "sourceArchiveSha256": "1979c8b0d7b0d56f7d430ee41901de598b47bf96016fad82d6d4a122eb500f81",
+    "sourceVerification": "2039 source/native harness files hash-verified from full Git archive before build"
+  }
+}
