@@ -1,0 +1,7 @@
+# Historical replay fixture repair
+
+The integrated replay sweep exposed two fixture construction failures already reproducible on parent8413cd643. The fixture relabeled a current107-byte MatchState as protocol52–55 without removing the two bytes introduced by the protocol60 rule-bit widening. The production historical reader correctly requires105 bytes. This repair generates the historical width before converting checkpoint rows, preserving every existing restoration assertion. It also rejects attempts to discard nonzero upper rule bits and adds a regression for Quake III rules. Runtime codecs and archive formats are unchanged.
+
+Mac fallback validation: SDK10.0.401 Release nettest build, zero warnings/errors. `--pickup-replay`84, `--grant-replay`51, `--protocol58-replay`323 and `--quake3-replay-compatibility`289 checks passed. `--momentum-replay-metadata`66 also passed; its unrelated hardcoded-future-protocol fixture was already corrected on current main, so that concurrent fix is preserved. The earlier independently built proposal also passed on frozen import commit0f9bb255b; final integrated reruns are recorded in the integration status.
+
+These are synthetic compatibility results, not real replay capture/playback/seek, hardware or gameplay acceptance. No source media is needed, no feature default changes and no protocol bump. Rollback is a test-only revert. The user authorized merging after local verification without waiting for review or CI; CI is not claimed green.
