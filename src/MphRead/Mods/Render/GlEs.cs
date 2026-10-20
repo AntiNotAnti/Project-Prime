@@ -127,7 +127,7 @@ namespace MphRead.Mods.Render
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.StateSkips);
                 return;
             }
-            ES.GL.BindVertexArray(name);
+            AndroidGlFastCalls.BindVertexArray(name);
             _boundVertexArray = name;
             _boundVertexArrayKnown = true;
         }
@@ -316,13 +316,13 @@ namespace MphRead.Mods.Render
             BindVertexArray(compiled.Vao);
             if (compiled.TriCount > 0)
             {
-                ES.GL.DrawElements(ES.PrimitiveType.Triangles, compiled.TriCount,
+                AndroidGlFastCalls.DrawElements(ES.PrimitiveType.Triangles, compiled.TriCount,
                     ES.DrawElementsType.UnsignedInt, IntPtr.Zero);
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.IndexedDraws);
             }
             if (compiled.LineCount > 0)
             {
-                ES.GL.DrawElements(ES.PrimitiveType.Lines, compiled.LineCount,
+                AndroidGlFastCalls.DrawElements(ES.PrimitiveType.Lines, compiled.LineCount,
                     ES.DrawElementsType.UnsignedInt, (IntPtr)(compiled.TriCount * sizeof(int)));
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.IndexedDraws);
             }
@@ -422,13 +422,13 @@ namespace MphRead.Mods.Render
             if (triCount > 0)
             {
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.IndexedDraws, 1);
-                ES.GL.DrawElements(ES.PrimitiveType.Triangles, triCount,
+                AndroidGlFastCalls.DrawElements(ES.PrimitiveType.Triangles, triCount,
                     ES.DrawElementsType.UnsignedInt, IntPtr.Zero);
             }
             if (lineCount > 0)
             {
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.IndexedDraws, 1);
-                ES.GL.DrawElements(ES.PrimitiveType.Lines, lineCount,
+                AndroidGlFastCalls.DrawElements(ES.PrimitiveType.Lines, lineCount,
                     ES.DrawElementsType.UnsignedInt, (IntPtr)(triCount * sizeof(int)));
             }
             if (!OpenGlOptimizationPolicy.AndroidPerformanceOptedIn) BindVertexArray(0);
@@ -466,7 +466,7 @@ namespace MphRead.Mods.Render
         {
             if (_immColorLoc >= 0)
             {
-                ES.GL.Uniform4(_immColorLoc, _curColor.X, _curColor.Y, _curColor.Z, _curColor.W);
+                AndroidGlFastCalls.Uniform4(_immColorLoc, _curColor.X, _curColor.Y, _curColor.Z, _curColor.W);
             }
             if (_alphaTestLoc >= 0)
             {
@@ -475,7 +475,7 @@ namespace MphRead.Mods.Render
                 {
                     mode = _alphaFunc == AlphaFunction.Equal ? 1 : _alphaFunc == AlphaFunction.Less ? 2 : 0;
                 }
-                ES.GL.Uniform1(_alphaTestLoc, mode);
+                AndroidGlFastCalls.Uniform1(_alphaTestLoc, mode);
             }
         }
 
