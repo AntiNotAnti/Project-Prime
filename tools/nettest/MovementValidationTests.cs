@@ -104,13 +104,13 @@ internal static class MovementValidationTests
         Check(Count("Invalid") == 3 && Count("HardRejections") == 0,
             "unknown profile/model evidence is diagnostic only and cannot enter grouping keys");
         NetMovementValidationShadow.Reset();
-        var quake = Sample(1) with { MovementModel = MovementModel.Quake3, ProfileVersion = Quake3MovementProfileV1.ProfileVersion };
+        var quake = Sample(1) with { MovementModel = MovementModel.Quake3, ProfileVersion = Quake3MovementProfileV2.ProfileVersion };
         NetMovementValidationShadow.Observe(quake);
         NetMovementValidationShadow.Observe(quake with { Frame = 2, Position = new(1000, 0, 0) });
         NetMovementValidationShadow.Observe(quake with { Frame = 3, Position = new(2000, 0, 0) });
         var uncapped = NetMovementValidationShadow.Capture();
         Check(uncapped.HardRejections == 0 && uncapped.Hunters[28].MovementModel == MovementModel.Quake3
-            && uncapped.Hunters[28].ProfileVersion == 1 && uncapped.Hunters[28].Evaluated == 2
+            && uncapped.Hunters[28].ProfileVersion == 2 && uncapped.Hunters[28].Evaluated == 2
             && uncapped.Hunters[28].WouldRefuse == 0,
             "uncapped Quake III retains independent model/profile measurements without a capped-speed signal");
     }

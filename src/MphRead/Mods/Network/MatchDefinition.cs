@@ -120,7 +120,7 @@ namespace MphRead.Mods.Network
             NoImperialist ? "No Imp" : null,
             BalancedMode ? "Balanced" : null, ThirdPersonCamera ? "Third person" : null,
             MovementModel == Movement.MovementModel.Momentum ? "Momentum v1"
-                : MovementModel == Movement.MovementModel.Quake3 ? "Quake III v1" : null }.Where(value => value != null));
+                : MovementModel == Movement.MovementModel.Quake3 ? "Quake III" : null }.Where(value => value != null));
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)
             | (AffinityWeapons ? MatchModifierFlags.AffinityWeapons : 0)

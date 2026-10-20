@@ -1690,7 +1690,11 @@ namespace MphRead.Mods.Network
                     + $"{claim.Beam}, which cannot deal more than {maxDamage}");
                 return HitVerdictPacket.ResultDamageLimit;
             }
-            if (!ValidClaimImpulse(claim.Beam, shooterHunter, claim.Direction))
+            bool quake3SelfRocket = victimSlot == shooterSlot && claim.Beam == (byte)BeamType.Missile
+                && (claim.Flags & HitClaimPacket.FlagDirect) == 0
+                && PlayerEntity.Players[shooterSlot].OwningScene.Quake3TechniquesActive;
+            if (!(quake3SelfRocket ? ValidQuake3RocketCandidate(claim.Direction)
+                : ValidClaimImpulse(claim.Beam, shooterHunter, claim.Direction)))
             {
                 RefusedHere++;
                 NetLog.Event($"slot {shooterSlot} claimed impact {claim.Direction} with beam "
@@ -2213,6 +2217,15 @@ namespace MphRead.Mods.Network
                 max = Math.Max(max, 0.526f);
             }
             return direction.LengthSquared <= max * max;
+        }
+
+        // This gate admits a bounded candidate only. NetSelfSplash.Validate
+        // still proves the authority explosion and replaces the client vector.
+        private static bool ValidQuake3RocketCandidate(Vector3 direction)
+        {
+            const float maximum = Movement.Quake3MovementProfileV2.MaximumRocketImpulse + .001f;
+            return Single.IsFinite(direction.X) && Single.IsFinite(direction.Y) && Single.IsFinite(direction.Z)
+                && direction.LengthSquared <= maximum * maximum;
         }
 
         /// <summary>

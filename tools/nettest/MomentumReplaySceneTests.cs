@@ -194,6 +194,8 @@ internal static class MomentumReplaySceneTests
 
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             File.WriteAllText(output, JsonSerializer.Serialize(new { checks = _checks, expectedModel = expected.ToString(), frames,
+                recordedProtocol = first.Session.Metadata!.ProtocolVersion,
+                recordedProfileVersion = first.Session.Metadata.RecordedMovementProfileVersion,
                 firstFrame = references.Keys.Min(), lastFrame = references.Keys.Max(), gameplayPresentationDigest = digest,
                 snapshotPoseChecks, morphFrames, midairMorphFrames, altFrames, airborneFrames,
                 minimumRecordedPlayers = minimumPlayers, maximumRecordedPlayers = maximumPlayers,
@@ -215,6 +217,11 @@ internal static class MomentumReplaySceneTests
         Require(replay.Session.Metadata?.RecordedMovementModel == expected
             && replay.Session.Metadata.MovementLabel == MovementModelRules.DisplayName(expected),
             operation + ": metadata label follows recorded rules across playback and seeks");
+        int recordedProfile = expected == MovementModel.Quake3
+            ? replay.Session.Metadata!.ProtocolVersion >= 62 ? 2 : 1
+            : MovementModelRules.ProfileVersion(expected);
+        Require(replay.Session.Metadata!.RecordedMovementProfileVersion == recordedProfile,
+            operation + ": profile version follows recorded protocol, never current live policy");
         Require(replay.Scene.Services.IsReplica && !replay.Scene.MomentumMovementActive && replay.Scene.DeveloperMomentumSteps == 0,
             operation + ": private replica never reruns an active horizontal adapter");
         Require(!NetSession.Active && !DemoPlayback.IsActive, operation + ": private reader never opens live/global playback ownership");

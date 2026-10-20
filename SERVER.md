@@ -39,8 +39,10 @@ Momentum changes ordinary biped acceleration, air-strafing and manual bunny-hop
 momentum. Native jumps, alternate forms and abilities remain native. Balanced
 and Enhanced Hunter variants cannot be combined with Momentum or Quake III.
 Quake III enables full-speed air projection and strafe-jump speed building with
-no artificial total-speed cap. All live peers must use protocol 60; protocol
-59 and older clients are refused rather than assigned different movement rules.
+no artificial total-speed cap. Its profile v2 also chains held jumps on legal
+landings and supports additive self-missile rocket jumps with normal self-damage.
+All live peers must use protocol 62; protocol 61 and older clients are refused
+rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is
 being completed; see [movement modes](docs/movement/movement-modes.md).

@@ -63,7 +63,7 @@ internal static class MomentumReplayMetadataTests
         }
         Check(Metadata(58).RecordedMovementModel == MovementModel.Native, "supported pre-movement absence is Classic");
         Check(Metadata(59).RecordedMovementModel == null, "current missing facts unknown");
-        Check(Metadata(61, Match(MovementModel.Momentum)).RecordedMovementModel == null, "future protocol unknown");
+        Check(Metadata((byte)(NetConfig.ProtocolVersion + 1), Match(MovementModel.Momentum)).RecordedMovementModel == null, "future protocol unknown");
         Check(Metadata(3).RecordedMovementModel == null, "unsupported historical protocol unknown");
         Check(Metadata(58, Match(MovementModel.Native), Session(MovementModel.Native)).RecordedMovementModel == MovementModel.Native, "historical 58 Classic");
         Check(Metadata(58, Match(MovementModel.Momentum)).RecordedMovementModel == null, "historical reserved match bit refused");

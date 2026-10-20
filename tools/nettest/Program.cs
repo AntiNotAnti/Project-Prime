@@ -428,6 +428,13 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return SelfSplashTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 1 && args[0] == "--quake3-rocket-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return SelfSplashTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS",
+                    Mods.Movement.MovementModel.Quake3);
+            }
             if (args.Length > 1 && args[0] == "--combat-arbitration-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
@@ -482,6 +489,14 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Quake3SceneTests.Run(output);
+            }
+            if (args.Length > 0 && args[0] == "--quake3-advanced-rules") return Quake3AdvancedRulesTests.Run();
+            if (args.Length > 1 && args[0] == "--quake3-advanced-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return Quake3AdvancedSceneTests.Run(output);
             }
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();

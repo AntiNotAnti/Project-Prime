@@ -942,7 +942,8 @@ namespace MphRead.Entities
                     }
                     // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
                     // unimpl-controls: the aim input disable flag is also checked by the game
-                    if (_jumpPadControlLockMin == 0 && Controls.Jump.IsPressed && !Flags1.TestFlag(PlayerFlags1.UsedJump))
+                    if (_jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
+                        && !Flags1.TestFlag(PlayerFlags1.UsedJump))
                     {
                         // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
                         jumping = true;

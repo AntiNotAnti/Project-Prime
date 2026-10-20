@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 61, "current protocol train is 61");
+            Check(NetConfig.ProtocolVersion == 62, "current protocol train is 62");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");
@@ -66,7 +66,7 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 61 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol61 envelope round trip");
+            Check(bytes[3] == 62 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol62 envelope round trip");
             bytes[3] = 60; Check(!NetHeader.TryRead(bytes, out _), "protocol60 live envelope rejected despite preserved native payload contract");
             Check(SplitSnapshotBudgets(), "eight-player canonical state and actual split live/bootstrap lanes remain bounded");
             using var server = new NetTransport(0);

@@ -459,7 +459,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61 native widths and
+        // Status discovery accepts reviewed protocol60/61/62 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -467,7 +467,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62)
                 status = Read(src);
             else
             {
@@ -2576,7 +2576,9 @@ namespace MphRead.Mods.Network
         // Owner-reported movement and intent/snapshot payloads remain unchanged.
         // Protocol 61 adds opt-in custom weapon manifest/readiness packets only.
         // Native intent, fire, player-state and match-rule payloads retain their widths.
-        public const int ProtocolVersion = 61;
+        // Protocol 62 selects Quake3 movement profile v2 and additive rocket impulses.
+        // Match bits, native packet widths and historical replay bodies are unchanged.
+        public const int ProtocolVersion = 62;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

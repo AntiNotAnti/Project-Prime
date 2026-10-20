@@ -13,7 +13,10 @@ public partial class PlayerEntity
 
     internal bool ModMomentumEligible => _scene.MomentumMovementActive
         && (IsBot || _scene.DeveloperMomentumInputAllowed) && _scene.MomentumOwnsPlayer(this)
-        && LoadFlags.TestFlag(LoadFlags.Active) && _health > 0 && _frozenTimer == 0 && !_field6D0
+        && ModMomentumBodyEligible;
+
+    private bool ModMomentumBodyEligible => LoadFlags.TestFlag(LoadFlags.Active)
+        && _health > 0 && _frozenTimer == 0 && !_field6D0
         && !IsAltForm && !IsMorphing && !IsUnmorphing && !IsPrimeHunter
         && !Flags1.TestAny(PlayerFlags1.UsedJumpPad | PlayerFlags1.Boosting | PlayerFlags1.OnLava | PlayerFlags1.OnAcid)
         && !Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck | PlayerFlags2.SpireClimbing
@@ -23,6 +26,20 @@ public partial class PlayerEntity
         && _slipperiness == 0 && _standingEntCol == null && _spireLedgeCrestTimer == 0
         && AttachedEnemy == null && (!IsMainPlayer || _scene.CameraSequences.Current == null) && !Controls.Morph.IsPressed
         && ModCharacterGameplay.Variant == CharacterGameplayVariant.Native;
+
+    // A new physical contact is required: Grounded includes a native grace
+    // period. The contact edge also prevents re-jumping while an upward body
+    // still touches the floor. Held input never spends airborne SpaceJump.
+    private bool ModUsesQuake3Techniques => _scene.Quake3TechniquesActive
+        && (IsBot || !_scene.DeveloperMomentumActive);
+
+    private bool ModQuake3HeldJumpRequested => ModUsesQuake3Techniques
+        && ModMomentumEligible && Controls.Jump.IsDown && Flags1.TestFlag(PlayerFlags1.Standing)
+        && !Flags1.TestFlag(PlayerFlags1.StandingPrevious);
+
+    // Combat runs on authoritative puppet bodies too; do not require local
+    // input ownership when deriving the authority's self-splash payment.
+    internal bool ModQuake3RocketImpulseEligible => ModUsesQuake3Techniques && ModMomentumBodyEligible;
 
     private bool ModTryApplyMomentum(bool nativeJumpAccepted)
     {
@@ -41,20 +58,20 @@ public partial class PlayerEntity
         bool developerOwns = !IsBot && _scene.DeveloperMomentumActive;
         MomentumPracticeTuning? practice = developerOwns ? _scene.DeveloperMomentumPracticeTuning : null;
         bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
-        MomentumTuning tuning = practice?.Tuning ?? (quake3 ? Quake3MovementProfileV1.Tuning : MomentumProfileV1.Tuning);
+        MomentumTuning tuning = practice?.Tuning ?? (quake3 ? Quake3MovementProfileV2.Tuning : MomentumProfileV1.Tuning);
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
             Speed.Y, nativeJumpAccepted);
         var input = new MomentumInput(new Vector2(x, y),
             new Vector3(_field70, 0, _field74), new Vector3(-_field78, 0, -_field7C),
-            practice?.GroundSpeed ?? (quake3 ? Quake3MovementProfileV1.GroundSpeed : MomentumProfileV1.GroundSpeed),
+            practice?.GroundSpeed ?? (quake3 ? Quake3MovementProfileV2.GroundSpeed : MomentumProfileV1.GroundSpeed),
             MomentumProfileV1.UsesGroundFriction(contact), dt);
         Vector3 before = Speed;
         Vector3 horizontal = new(before.X * NativeVelocityUnitsPerSecond, 0,
             before.Z * NativeVelocityUnitsPerSecond);
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
-            : quake3 ? Quake3MovementProfileV1.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
+            : quake3 ? Quake3MovementProfileV2.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);
