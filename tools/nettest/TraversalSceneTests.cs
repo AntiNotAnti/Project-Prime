@@ -103,7 +103,7 @@ internal static class TraversalSceneTests
                 Require(contact.All(t => t.TelemetrySpeed.HasValue
                     && MathF.Abs(t.TelemetrySpeed.Value - t.PlanarSpeed) <= .00001f),
                     "HUD speed uses actual body velocity after wall collision");
-                Require(contact.All(t => t.FormattedTelemetrySpeed == "SPEED "
+                Require(contact.All(t => t.FormattedTelemetrySpeed == "HORIZ "
                     + t.PlanarSpeed.ToString("0.0", CultureInfo.InvariantCulture) + " U/S"),
                     "formatted speed reflects postcollision body units per second");
             });

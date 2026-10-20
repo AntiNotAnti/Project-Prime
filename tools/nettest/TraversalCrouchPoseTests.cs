@@ -369,7 +369,8 @@ internal static class TraversalCrouchPoseTests
         hunter = hunter.ToString(),
         canonical = CaptureCanonical(hunter),
         gait = TraversalCrouchGaitTests.Capture(hunter),
-        slide = TraversalSlidePoseTests.Capture(hunter)
+        slide = TraversalSlidePoseTests.Capture(hunter),
+        slideFeedback = TraversalSlideFeedbackSceneTests.Capture(hunter)
     };
 
     private static object CaptureCanonical(Hunter hunter)
