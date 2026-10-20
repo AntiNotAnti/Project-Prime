@@ -175,7 +175,7 @@ internal static class MomentumBotAuthorityTests
                     Require(sample.Slot == 0 && sample.SimulationFrame == frame, "solver diagnostic identifies actual bot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "solver preserves native vertical bits");
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
-                    var result = model == MovementModel.Quake3 ? Quake3MovementProfileV1.Step(incoming, sample.Input)
+                    var result = model == MovementModel.Quake3 ? Quake3MovementProfileV2.Step(incoming, sample.Input)
                         : MomentumProfileV1.Step(incoming, sample.Input);
                     Require(sample.NativeVelocityAfter.X == result.Velocity.X / 30 && sample.NativeVelocityAfter.Z == result.Velocity.Z / 30,
                         "actual authority bot velocity equals its immutable match profile");

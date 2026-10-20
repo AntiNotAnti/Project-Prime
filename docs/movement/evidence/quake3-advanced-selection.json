@@ -1,0 +1,2102 @@
+{
+  "status": "PASS within stated scopes",
+  "protocol": 62,
+  "currentQuake3Profile": 2,
+  "featureCommit": "48fee4a5d",
+  "combinedSourceCommit": "f62676dce3ea698ed2f943097e863fe64c3359ac",
+  "integratedMain": "d51605175",
+  "originalAcceptance": {
+    "status": "PASS within stated scopes",
+    "testedBase": "2d18ac05721366597afc1afdb57f061e73ee4423",
+    "sourceIdentity": {
+      "baseSha": "2d18ac05721366597afc1afdb57f061e73ee4423",
+      "overlayManifestSha256": "29ad6c360576400f51a0abbb88ea675e0ab064ab8152353b95adab41e741ebdb",
+      "overlayFiles": {
+        "src/MphRead/Entities/Players/PlayerEntity.cs": "fc0a18c67822fe9baab49c881e5f375a4a3e5fd584799e17a22fc4708457614b",
+        "src/MphRead/Entities/Players/PlayerInput.cs": "dfa0c00fa567d8a4ee9d609a6a1e7d9566ab2da8207dad88e6caede460e7d5b2",
+        "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "bbf0d655ee284b2fef2360a162a5249ea02c7fef9019449fab1c3553360aee1d",
+        "src/MphRead/Mods/Movement/MovementModel.cs": "8c1e05bac0544d0939e8d2067dc80f256259e475d2c7fab361fbac1e4c0081a0",
+        "src/MphRead/Mods/Movement/Quake3MovementProfileV2.cs": "c1ab8bd9775fff43a5e1cc1df1aae8a3f227f7174386edecc08e05c5c7a38103",
+        "src/MphRead/Mods/Network/MatchDefinition.cs": "1bd5a40decf57b4b5a8b276e8ee08b46d2131db6a1039dce44b0f1e4c667e2a0",
+        "src/MphRead/Mods/Network/NetHitClaims.cs": "938679b723e7c305ea8588adead7deff7d8076f6518c4c1fdfb14cca16ff181d",
+        "src/MphRead/Mods/Network/NetLobbyTest.cs": "331a571586bcf919db59648734b5a8bc59d26975ccbb8bbb778ac6d36e271ca2",
+        "src/MphRead/Mods/Network/NetProtocol.cs": "9a94e3b6b08a4fac5274b16e1c8e555d4aefc31ef513e10c65e935c5617125ea",
+        "src/MphRead/Mods/Network/NetSelfSplash.cs": "354d92dc4b7c66506f863fa0ef4ef57d4b68c6f74649ab23c6d321dc75dfab38",
+        "src/MphRead/Mods/Network/ReplayFormatV3.cs": "162a5ffafc84c93a90e60fbe490f21d2793860cfdb16c3d64eb437afb990e93a",
+        "src/MphRead/Mods/Network/ReplayMetadata.cs": "3a037f2abf0c74742c336f6a8a38c5784f69dac83c4ab0b871225f2557d26cb0",
+        "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "dbf55d0048c11aba3a4403c892cbaa5999d3563b34f80827534c6a32b36a5667",
+        "src/MphRead/SceneMomentumMovement.cs": "9ea77e03c81f72396fb9e4075c434d37b793f8e38d63d4809320fe3c733f6890",
+        "tools/group-reservation-check/check_registry.py": "ec496206c690c79535cc2baf795089d899fcdbb3dcb7fa59196486a62d16894b",
+        "tools/nettest/ContinuousTargetTests.cs": "ee8427f923bcb96904391c024761afb96216afebdaff4d99c37c92e13711e0f5",
+        "tools/nettest/EnhancedRetirementTests.cs": "093bdcc200ddec909242b0d7c132f10bd04ff23f92078f11aa8bb354ca302c55",
+        "tools/nettest/MomentumBotAuthorityTests.cs": "323f09239674913780e1d795af3d6a553e1f8c9a0135317de54b3d3892d97c0a",
+        "tools/nettest/MomentumOnlineSceneTests.cs": "c03c877c87222f885f979928592063d1ec1100058c40b89a7ff09952509c6362",
+        "tools/nettest/MomentumReplayMetadataTests.cs": "c5fbaf7c0a4db49038da7616320b8dc0d947cd253a3ae5fc144349acb81c9d1a",
+        "tools/nettest/MomentumReplayRulesTests.cs": "250535cfc7dd3a5fd55dbded46f086415726c2f2599f93322cd1272e31b53c39",
+        "tools/nettest/MomentumReplaySceneTests.cs": "79b5613d2bc722d0fd6c6d1ca26f567a0853364149febe8b809d16b80b6a9d60",
+        "tools/nettest/MomentumRulesTests.cs": "304ffff19f739188cee7e4ccf9efa3a423989e53efbf711cdb521de76e98813b",
+        "tools/nettest/MovementValidationTests.cs": "fee85ef7c81ee8c018dc82302946a7cbb82de61a7853cd60568b4fada03c2321",
+        "tools/nettest/NetArchitectureTests.cs": "2249123faa90c688bcc6cb68b3833e2c89666020e46c055c0174f8ad22864b86",
+        "tools/nettest/PickupProtocolTests.cs": "b8c007ee44b3117433cebe5cbbe69ac0ac0530b98abc1e893dd2484af466558f",
+        "tools/nettest/PlayerNameChatTests.cs": "2e670b950039d1008f08a1f6cc37ffed1de0b42f63da5865414545a38ef102e5",
+        "tools/nettest/Program.cs": "ea709db381b07961aa504dc190ed3c5446979c38ab61bff7829cd48db5767ad6",
+        "tools/nettest/Protocol17Tests.cs": "fa53222891f682b23898c83fc245967bc644876ab00d91a943c12a6718bb376f",
+        "tools/nettest/Quake3AdvancedRulesTests.cs": "9b0e9a91cadf5a40de8332dd7ad3b7abf39f481bd92a3f38102064570826102c",
+        "tools/nettest/Quake3AdvancedSceneTests.cs": "9b128468cfb68212aa625ad869b00cc8b863dc679dda555f406faa10a2e9f8fb",
+        "tools/nettest/Quake3ReplayCompatibilityTests.cs": "749926e4ff376b21db67278343241b0cece8a404bf3ead4fdbc9db971569a675",
+        "tools/nettest/Quake3RulesTests.cs": "deadd70b06352881b614a9c24cfeca93990b7683597b78b2a173e91c3e15905f",
+        "tools/nettest/Quake3SceneTests.cs": "c57db39f62302ad1a90bbf03e567302071789c582b0b5e50364833965f5edf38",
+        "tools/nettest/ReplayProtocol58Tests.cs": "1b6423ff35b7353ab81dcc4c457b162f1f0fc25022ffe43f45c84e9a53d6c4d6",
+        "tools/nettest/SelfPredictionTests.cs": "cef814199ed20041c51a7b59705531eaa79651f271169cc444d976cd70b3c0cc",
+        "tools/nettest/SelfSplashTests.cs": "e264384fac31e82c85f6807a3ac8c7942087c9d07505d9c1be589fd35b61bf2d",
+        "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "f1848b144e74d17de98e442a52673c6c4ede43c463836b99629f5bc264f3bde3"
+      },
+      "buildExitCode": 0,
+      "buildSeconds": 59.33885210000153,
+      "normalProperties": {
+        "Configuration": "Release",
+        "MphReadReplayPreviewFailureFixture": false,
+        "otherProperties": "normal defaults"
+      },
+      "binarySha256": {
+        "ProjectPrime.dll": "b0735608dda492c1f1bbd4674a09e72a0b12357cffd5b29b26d1347b1aeac998",
+        "nettest.dll": "a814b55e6c353fc8dd8fdb1ea3a67ffb49399b6e1efa4ebbde26fbd918dd999c",
+        "nettest.pdb": "1a85172d3887165118c14e983a480c121be3fb0487fe5b4fec4fffb814d86cae",
+        "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      },
+      "binaries": {
+        "ProjectPrime.dll": "b0735608dda492c1f1bbd4674a09e72a0b12357cffd5b29b26d1347b1aeac998",
+        "nettest.dll": "a814b55e6c353fc8dd8fdb1ea3a67ffb49399b6e1efa4ebbde26fbd918dd999c"
+      },
+      "sourceFileCount": 38,
+      "cleanCommittedCheckout": false,
+      "onlineProvenanceSha256": "06339a5ae95a2812f4a8b4a6e2149813862e4c5f0c843d235dfeb26e9e3740be",
+      "onlineReplaySha256": "721535ad7fd5743c194572362dbf8063dadff0897695bc0f15dd79cda96dcc58",
+      "scope": "Protocol62 advanced Q3 overlay on2d18base; Windows CPU/headless current/historical replay and realUDP cohort; noMac/performance/GL/deviceacceptance",
+      "historicalReplayProfiles": {
+        "60": 1,
+        "61": 1
+      },
+      "newReplayProfile": {
+        "protocol": 62,
+        "profile": 2
+      },
+      "acceptedHeldHops": [
+        12,
+        17
+      ],
+      "ownerAnomalyCounts": [
+        35,
+        36
+      ]
+    },
+    "cases": [
+      {
+        "name": "advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "advanced-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-bot-authority",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      },
+      {
+        "name": "self-prediction",
+        "exitCode": 0
+      },
+      {
+        "name": "self-splash-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "bomb-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "native-gold",
+        "exitCode": 0
+      },
+      {
+        "name": "math",
+        "exitCode": 0
+      },
+      {
+        "name": "profile",
+        "exitCode": 0
+      },
+      {
+        "name": "admission",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-shadow",
+        "exitCode": 0
+      },
+      {
+        "name": "practice-tuning",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixtures",
+        "exitCode": 0
+      },
+      {
+        "name": "combat-fast-receipts",
+        "exitCode": 0
+      }
+    ],
+    "menuFixtures": [
+      {
+        "fixture": "rmlui-offline-rules-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "d2deb0bf5b42e8f77ad4c793d620adbc2e134a4b907bf0fb761198ee7e715cce",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "rmlui-live-menu-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "b6b428ddbd716a55ddccf9131c7d44560ec098806cbea5a2a49fdf8d37fef320",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "server-browser-party-source-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "6095074c21a6c2e0209a9409b04d0fa6c48eccf38810ababd0230ec918e0e164",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      }
+    ],
+    "advancedMovement": {
+      "checks": 171054,
+      "scope": "Actual offline CPU input/collision; synthetic keyboard and raw mouse samples, native spawn/intro skip, fixed 60 Hz; no physical device, GL, online, bot, replay, competitive-balance or maximum-speed acceptance",
+      "summaries": [
+        {
+          "hunter": "Samus",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Samus",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Kanden",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Spire",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Noxus",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Trace",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Sylux",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "hold-hop-vs-Classic-and-manual",
+          "held": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "manual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 360
+          },
+          "classicHeld": {
+            "AcceptedTicks": [
+              1
+            ],
+            "LandingTicks": [
+              65
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          },
+          "classicManual": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131,
+              196,
+              261,
+              326
+            ],
+            "LandingTicks": [
+              65,
+              130,
+              195,
+              260,
+              325
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "hunter": "Weavel",
+          "scenario": "native-air-jump-needs-fresh-edge",
+          "abilityHeld": {
+            "AcceptedTicks": [
+              1,
+              66,
+              131
+            ],
+            "LandingTicks": [
+              65,
+              130
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "abilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11,
+              82,
+              147
+            ],
+            "LandingTicks": [
+              81,
+              146
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 180
+          },
+          "classicAbilityEdge": {
+            "AcceptedTicks": [
+              1,
+              11
+            ],
+            "LandingTicks": [
+              81
+            ],
+            "PeakSpeed": 0,
+            "PathLength": 0,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "scenario": "circle-jump-left",
+          "circle": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 11.700683,
+            "PathLength": 20.167755,
+            "AirGainSteps": 65,
+            "SurvivingAirGainSteps": 65,
+            "AimingDiagonalSteps": 120,
+            "SolverSteps": 144
+          },
+          "straight": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 7.1997066,
+            "PathLength": 14.22063,
+            "AirGainSteps": 27,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 144
+          },
+          "classicCircle": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 7.199708,
+            "PathLength": 15.681136,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "scenario": "multi-hop-strafe-left",
+          "firstFlightPeak": 12.774461,
+          "laterFlightPeak": 13.546651,
+          "strafe": {
+            "AcceptedTicks": [
+              25,
+              90,
+              155,
+              203,
+              250,
+              315
+            ],
+            "LandingTicks": [
+              89,
+              154,
+              202,
+              249,
+              314
+            ],
+            "PeakSpeed": 13.546651,
+            "PathLength": 50.686615,
+            "AirGainSteps": 336,
+            "SurvivingAirGainSteps": 327,
+            "AimingDiagonalSteps": 336,
+            "SolverSteps": 360
+          },
+          "manualStrafe": {
+            "AcceptedTicks": [
+              25,
+              90,
+              155,
+              203,
+              250,
+              315
+            ],
+            "LandingTicks": [
+              89,
+              154,
+              202,
+              249,
+              314
+            ],
+            "PeakSpeed": 13.546651,
+            "PathLength": 50.686615,
+            "AirGainSteps": 336,
+            "SurvivingAirGainSteps": 327,
+            "AimingDiagonalSteps": 336,
+            "SolverSteps": 360
+          },
+          "classicStrafe": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 7.199708,
+            "PathLength": 38.981937,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "scenario": "circle-jump-right",
+          "circle": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 11.468597,
+            "PathLength": 17.627617,
+            "AirGainSteps": 65,
+            "SurvivingAirGainSteps": 64,
+            "AimingDiagonalSteps": 120,
+            "SolverSteps": 144
+          },
+          "straight": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 7.1997066,
+            "PathLength": 14.22063,
+            "AirGainSteps": 27,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 144
+          },
+          "classicCircle": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89
+            ],
+            "PeakSpeed": 7.199708,
+            "PathLength": 11.662712,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        },
+        {
+          "scenario": "multi-hop-strafe-right",
+          "firstFlightPeak": 12.503201,
+          "laterFlightPeak": 16.33115,
+          "strafe": {
+            "AcceptedTicks": [
+              25,
+              90,
+              155,
+              220,
+              285,
+              350
+            ],
+            "LandingTicks": [
+              89,
+              154,
+              219,
+              284,
+              349
+            ],
+            "PeakSpeed": 16.33115,
+            "PathLength": 58.942554,
+            "AirGainSteps": 336,
+            "SurvivingAirGainSteps": 331,
+            "AimingDiagonalSteps": 336,
+            "SolverSteps": 360
+          },
+          "manualStrafe": {
+            "AcceptedTicks": [
+              25,
+              90,
+              155,
+              220,
+              285,
+              350
+            ],
+            "LandingTicks": [
+              89,
+              154,
+              219,
+              284,
+              349
+            ],
+            "PeakSpeed": 16.33115,
+            "PathLength": 58.942554,
+            "AirGainSteps": 336,
+            "SurvivingAirGainSteps": 331,
+            "AimingDiagonalSteps": 336,
+            "SolverSteps": 360
+          },
+          "classicStrafe": {
+            "AcceptedTicks": [
+              25
+            ],
+            "LandingTicks": [
+              89,
+              97,
+              176,
+              220
+            ],
+            "PeakSpeed": 7.199708,
+            "PathLength": 38.758514,
+            "AirGainSteps": 0,
+            "SurvivingAirGainSteps": 0,
+            "AimingDiagonalSteps": 0,
+            "SolverSteps": 0
+          }
+        }
+      ]
+    },
+    "rocketChecks": 445,
+    "classicSelfSplashChecks": 443,
+    "advancedRulesChecks": 165,
+    "historicalReplays": [
+      {
+        "protocol": 60,
+        "inputSha256": "74b65d6d4938026d8940a2e5a7e08fa18eb8d34cfec04667829e2d6049d09414",
+        "exitCode": 0
+      },
+      {
+        "protocol": 61,
+        "inputSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+        "exitCode": 0
+      }
+    ],
+    "online": {
+      "processes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "checks": 22879,
+          "model": "Quake3",
+          "profileVersion": 2,
+          "acceptedHeldHops": 12,
+          "ownerAnomalyCount": 35,
+          "ownerAnomalyOverflow": 0,
+          "solverSteps": 1291,
+          "recordedFrames": 2399
+        },
+        {
+          "checks": 25475,
+          "model": "Quake3",
+          "profileVersion": 2,
+          "acceptedHeldHops": 17,
+          "ownerAnomalyCount": 36,
+          "ownerAnomalyOverflow": 0,
+          "solverSteps": 2147,
+          "recordedFrames": null
+        }
+      ],
+      "replay": {
+        "checks": 79741,
+        "expectedModel": "Quake3",
+        "frames": 2399,
+        "recordedProtocol": 62,
+        "recordedProfileVersion": 2,
+        "firstFrame": 0,
+        "lastFrame": 2399,
+        "gameplayPresentationDigest": "15791FA36CB15ACB625EE118FFD62238C054EBAF98D945B843E22093F7C3BCE9",
+        "snapshotPoseChecks": 6837,
+        "morphFrames": 440,
+        "midairMorphFrames": 218,
+        "altFrames": 313,
+        "airborneFrames": 2012,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 3,
+        "checkpointFrames": [
+          220,
+          300,
+          600,
+          900,
+          1200,
+          1500,
+          1800,
+          2100
+        ],
+        "checkpointSizes": [
+          586236,
+          585798,
+          586052,
+          587779,
+          588781,
+          588662,
+          586727,
+          587443
+        ],
+        "continuedFrames": 2179,
+        "memoryCheckpointCount": 7,
+        "memoryCheckpointBytes": 4112138,
+        "seeks": [
+          {
+            "requested": 1500,
+            "target": 1500,
+            "updates": 13,
+            "steps": 1500,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 35,
+            "target": 35,
+            "updates": 1,
+            "steps": 35,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1100,
+            "target": 1100,
+            "updates": 2,
+            "steps": 200,
+            "restoreFrame": 900,
+            "source": "memory"
+          },
+          {
+            "requested": 615,
+            "target": 615,
+            "updates": 1,
+            "steps": 15,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 0,
+            "target": 0,
+            "updates": 1,
+            "steps": 0,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1799,
+            "target": 1799,
+            "updates": 3,
+            "steps": 299,
+            "restoreFrame": 1500,
+            "source": "memory"
+          },
+          {
+            "requested": 1201,
+            "target": 1201,
+            "updates": 1,
+            "steps": 1,
+            "restoreFrame": 1200,
+            "source": "memory"
+          },
+          {
+            "requested": 610,
+            "target": 610,
+            "updates": 1,
+            "steps": 10,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 2399,
+            "target": 2399,
+            "updates": 8,
+            "steps": 899,
+            "restoreFrame": 1500,
+            "source": "memory"
+          }
+        ],
+        "durableEnabled": false,
+        "durableSeeks": [],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      },
+      "archiveSha256": "721535ad7fd5743c194572362dbf8063dadff0897695bc0f15dd79cda96dcc58",
+      "diagnosticScope": "Broad post-step planar displacement/change trigger >0.25 units, not an acceptance threshold; uncontrolled native combat/contact and lifecycle can contribute. No zero-anomaly or seamless-traversal claim."
+    }
+  },
+  "preservedFailures": [
+    "Historical protocol61 baseline metadata fixture misclassified its current protocol as future; the new fixture uses current+1.",
+    "Windows disk filled during fresh checkout; only reproducible owned QA bin/obj outputs were removed; archives, source identities and logs preserved.",
+    "Initial harness compile omitted the MatchWorldProfile namespace; test-only import corrected.",
+    "Browser fixture tried writing an intentionally old QueueHello through the current-only encoder; old inputs are now literal bytes passed to the decoder.",
+    "New rescued-claim retry fixture expected ResultDuplicate instead of immutable original ResultApplied; now compares every receipt byte to the first accepted outcome and retains all no-second-payment assertions.",
+    "NaN-direction wire fixture was invalid because direction is encoded as signed integers; finite validator is probed directly, while representable oversized direction still runs through real packet serialization and Receive."
+  ],
+  "staticChecks": {
+    "packetRegistry": "PASS; existing IDs retained; protocol62 expectation",
+    "publicationGuard": "PASS for both exact source/document closures; no raw archives, extracted assets or host data included."
+  },
+  "hostedCI": "NOT VERIFIED; publication follows immediate merge without waiting on hosted CI/review.",
+  "limits": [
+    "No Mac build, simulation, UI/focus or performance run.",
+    "No rendered GL or physical-device acceptance; menu tests are controller/editor CPU fixtures.",
+    "No new timing-budget acceptance; optimization remains deferred.",
+    "Human feel and broad high-speed map qualification remain open.",
+    "Native collision/step/slope handling retained; no surf/crouch/hitbox or collision-controller replacement.",
+    "Combat rocket proofs are admitted authority collision/claim/receipt seams with explicit controlled velocity setup, not physical-input/live-UDP rocket-flight qualification.",
+    "Broad displacement diagnostic triggers remain retained; no zero-anomaly or seamless-traversal claim."
+  ],
+  "combinedAcceptance": {
+    "sourceIdentity": {
+      "baseSha": "f62676dce3ea698ed2f943097e863fe64c3359ac",
+      "buildExitCode": 0,
+      "buildSeconds": 53.85225320000609,
+      "normalProperties": {
+        "Configuration": "Release",
+        "MphReadReplayPreviewFailureFixture": false,
+        "otherProperties": "normal defaults"
+      },
+      "binarySha256": {
+        "ProjectPrime.dll": "8b8c0335a5ef082c9088dce988e38bad1defee96f43d7b213268046296d0c9e5",
+        "nettest.dll": "ef115729c8a64bce88e4ef2e9c2c70b95e89a8adf1105dc4d8b8f62b19073c26",
+        "nettest.pdb": "bffa2f2329e6cb18222635567a14ef1d126bdd8f952d30c405bdb56cecb88493",
+        "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+        "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+      },
+      "binaries": {
+        "ProjectPrime.dll": "8b8c0335a5ef082c9088dce988e38bad1defee96f43d7b213268046296d0c9e5",
+        "nettest.dll": "ef115729c8a64bce88e4ef2e9c2c70b95e89a8adf1105dc4d8b8f62b19073c26"
+      },
+      "sourceFileCount": 38,
+      "cleanCommittedCheckout": true,
+      "onlineProvenanceSha256": "bf001c1cf0583ef9411fb3db5aa01fb69dfa18630196897f1f457462276b85ac",
+      "onlineReplaySha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+      "scope": "Clean committed f626 combined protocol62 branch;26checks plus retained60/61/62 archive replay and new realUDP cohort; noMac/performance/GL/deviceacceptance",
+      "sourceManifestSha256": "83e2ee1cee8475cf12b284998c4e19a660eb2ef7c9423121254a8ebcfca1fb18",
+      "sourceFiles": {
+        "src/MphRead/Entities/Players/PlayerEntity.cs": "fc0a18c67822fe9baab49c881e5f375a4a3e5fd584799e17a22fc4708457614b",
+        "src/MphRead/Entities/Players/PlayerInput.cs": "dfa0c00fa567d8a4ee9d609a6a1e7d9566ab2da8207dad88e6caede460e7d5b2",
+        "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "bbf0d655ee284b2fef2360a162a5249ea02c7fef9019449fab1c3553360aee1d",
+        "src/MphRead/Mods/Movement/MovementModel.cs": "8c1e05bac0544d0939e8d2067dc80f256259e475d2c7fab361fbac1e4c0081a0",
+        "src/MphRead/Mods/Movement/Quake3MovementProfileV2.cs": "c1ab8bd9775fff43a5e1cc1df1aae8a3f227f7174386edecc08e05c5c7a38103",
+        "src/MphRead/Mods/Network/MatchDefinition.cs": "1bd5a40decf57b4b5a8b276e8ee08b46d2131db6a1039dce44b0f1e4c667e2a0",
+        "src/MphRead/Mods/Network/NetHitClaims.cs": "938679b723e7c305ea8588adead7deff7d8076f6518c4c1fdfb14cca16ff181d",
+        "src/MphRead/Mods/Network/NetLobbyTest.cs": "c83ac3b0ba014107130993471dbeeafe6acdd38b38dec76ca2387020f0906654",
+        "src/MphRead/Mods/Network/NetProtocol.cs": "9a94e3b6b08a4fac5274b16e1c8e555d4aefc31ef513e10c65e935c5617125ea",
+        "src/MphRead/Mods/Network/NetSelfSplash.cs": "354d92dc4b7c66506f863fa0ef4ef57d4b68c6f74649ab23c6d321dc75dfab38",
+        "src/MphRead/Mods/Network/ReplayFormatV3.cs": "162a5ffafc84c93a90e60fbe490f21d2793860cfdb16c3d64eb437afb990e93a",
+        "src/MphRead/Mods/Network/ReplayMetadata.cs": "3a037f2abf0c74742c336f6a8a38c5784f69dac83c4ab0b871225f2557d26cb0",
+        "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "dbf55d0048c11aba3a4403c892cbaa5999d3563b34f80827534c6a32b36a5667",
+        "src/MphRead/SceneMomentumMovement.cs": "9ea77e03c81f72396fb9e4075c434d37b793f8e38d63d4809320fe3c733f6890",
+        "tools/group-reservation-check/check_registry.py": "ec496206c690c79535cc2baf795089d899fcdbb3dcb7fa59196486a62d16894b",
+        "tools/nettest/ContinuousTargetTests.cs": "ee8427f923bcb96904391c024761afb96216afebdaff4d99c37c92e13711e0f5",
+        "tools/nettest/EnhancedRetirementTests.cs": "093bdcc200ddec909242b0d7c132f10bd04ff23f92078f11aa8bb354ca302c55",
+        "tools/nettest/MomentumBotAuthorityTests.cs": "323f09239674913780e1d795af3d6a553e1f8c9a0135317de54b3d3892d97c0a",
+        "tools/nettest/MomentumOnlineSceneTests.cs": "c03c877c87222f885f979928592063d1ec1100058c40b89a7ff09952509c6362",
+        "tools/nettest/MomentumReplayMetadataTests.cs": "c5fbaf7c0a4db49038da7616320b8dc0d947cd253a3ae5fc144349acb81c9d1a",
+        "tools/nettest/MomentumReplayRulesTests.cs": "250535cfc7dd3a5fd55dbded46f086415726c2f2599f93322cd1272e31b53c39",
+        "tools/nettest/MomentumReplaySceneTests.cs": "79b5613d2bc722d0fd6c6d1ca26f567a0853364149febe8b809d16b80b6a9d60",
+        "tools/nettest/MomentumRulesTests.cs": "304ffff19f739188cee7e4ccf9efa3a423989e53efbf711cdb521de76e98813b",
+        "tools/nettest/MovementValidationTests.cs": "fee85ef7c81ee8c018dc82302946a7cbb82de61a7853cd60568b4fada03c2321",
+        "tools/nettest/NetArchitectureTests.cs": "2249123faa90c688bcc6cb68b3833e2c89666020e46c055c0174f8ad22864b86",
+        "tools/nettest/PickupProtocolTests.cs": "b8c007ee44b3117433cebe5cbbe69ac0ac0530b98abc1e893dd2484af466558f",
+        "tools/nettest/PlayerNameChatTests.cs": "2e670b950039d1008f08a1f6cc37ffed1de0b42f63da5865414545a38ef102e5",
+        "tools/nettest/Program.cs": "f2e2726635582ccc6f08f6ec38b9df43aacfdd83c0d89864d7c25e6316d96823",
+        "tools/nettest/Protocol17Tests.cs": "fa53222891f682b23898c83fc245967bc644876ab00d91a943c12a6718bb376f",
+        "tools/nettest/Quake3AdvancedRulesTests.cs": "9b0e9a91cadf5a40de8332dd7ad3b7abf39f481bd92a3f38102064570826102c",
+        "tools/nettest/Quake3AdvancedSceneTests.cs": "9b128468cfb68212aa625ad869b00cc8b863dc679dda555f406faa10a2e9f8fb",
+        "tools/nettest/Quake3ReplayCompatibilityTests.cs": "749926e4ff376b21db67278343241b0cece8a404bf3ead4fdbc9db971569a675",
+        "tools/nettest/Quake3RulesTests.cs": "deadd70b06352881b614a9c24cfeca93990b7683597b78b2a173e91c3e15905f",
+        "tools/nettest/Quake3SceneTests.cs": "c57db39f62302ad1a90bbf03e567302071789c582b0b5e50364833965f5edf38",
+        "tools/nettest/ReplayProtocol58Tests.cs": "1b6423ff35b7353ab81dcc4c457b162f1f0fc25022ffe43f45c84e9a53d6c4d6",
+        "tools/nettest/SelfPredictionTests.cs": "cef814199ed20041c51a7b59705531eaa79651f271169cc444d976cd70b3c0cc",
+        "tools/nettest/SelfSplashTests.cs": "e264384fac31e82c85f6807a3ac8c7942087c9d07505d9c1be589fd35b61bf2d",
+        "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "f1848b144e74d17de98e442a52673c6c4ede43c463836b99629f5bc264f3bde3"
+      },
+      "sourceOverlay": false,
+      "historicalReplayProfiles": {
+        "60": 1,
+        "61": 1,
+        "62": 2
+      },
+      "newReplayProfile": {
+        "protocol": 62,
+        "profile": 2
+      },
+      "acceptedHeldHops": [
+        14,
+        17
+      ],
+      "ownerAnomalyCounts": [
+        0,
+        11
+      ]
+    },
+    "cases": [
+      {
+        "name": "advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "advanced-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-bot-authority",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      },
+      {
+        "name": "self-prediction",
+        "exitCode": 0
+      },
+      {
+        "name": "self-splash-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "bomb-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "native-gold",
+        "exitCode": 0
+      },
+      {
+        "name": "math",
+        "exitCode": 0
+      },
+      {
+        "name": "profile",
+        "exitCode": 0
+      },
+      {
+        "name": "admission",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-shadow",
+        "exitCode": 0
+      },
+      {
+        "name": "practice-tuning",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixtures",
+        "exitCode": 0
+      },
+      {
+        "name": "combat-fast-receipts",
+        "exitCode": 0
+      },
+      {
+        "name": "replay-owner-track",
+        "exitCode": 0
+      },
+      {
+        "name": "replay-fidelity-export",
+        "exitCode": 0
+      },
+      {
+        "name": "upstream-baseline",
+        "exitCode": 0
+      },
+      {
+        "name": "custom-readiness-udp",
+        "exitCode": 0
+      }
+    ],
+    "historicalReplays": [
+      {
+        "protocol": 60,
+        "inputSha256": "74b65d6d4938026d8940a2e5a7e08fa18eb8d34cfec04667829e2d6049d09414",
+        "exitCode": 0
+      },
+      {
+        "protocol": 61,
+        "inputSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+        "exitCode": 0
+      },
+      {
+        "protocol": 62,
+        "inputSha256": "721535ad7fd5743c194572362dbf8063dadff0897695bc0f15dd79cda96dcc58",
+        "exitCode": 0
+      }
+    ],
+    "online": {
+      "processes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "checks": 23978,
+          "model": "Quake3",
+          "profileVersion": 2,
+          "acceptedHeldHops": 14,
+          "ownerAnomalyCount": 0,
+          "ownerAnomalyOverflow": 0,
+          "solverSteps": 1652,
+          "recordedFrames": 2399
+        },
+        {
+          "checks": 26055,
+          "model": "Quake3",
+          "profileVersion": 2,
+          "acceptedHeldHops": 17,
+          "ownerAnomalyCount": 11,
+          "ownerAnomalyOverflow": 0,
+          "solverSteps": 2220,
+          "recordedFrames": null
+        }
+      ],
+      "replay": {
+        "checks": 80101,
+        "expectedModel": "Quake3",
+        "frames": 2399,
+        "recordedProtocol": 62,
+        "recordedProfileVersion": 2,
+        "firstFrame": 0,
+        "lastFrame": 2399,
+        "gameplayPresentationDigest": "46F7E4DC02A6ADC624E9F9CC822AF31BDE4C9C9C9BA3E17823EF50867B687DDB",
+        "snapshotPoseChecks": 7017,
+        "morphFrames": 437,
+        "midairMorphFrames": 165,
+        "altFrames": 312,
+        "airborneFrames": 1835,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 3,
+        "checkpointFrames": [
+          220,
+          300,
+          600,
+          900,
+          1200,
+          1500,
+          1800,
+          2100
+        ],
+        "checkpointSizes": [
+          586417,
+          585965,
+          586166,
+          587275,
+          588065,
+          588662,
+          589815,
+          590197
+        ],
+        "continuedFrames": 2179,
+        "memoryCheckpointCount": 7,
+        "memoryCheckpointBytes": 4117041,
+        "seeks": [
+          {
+            "requested": 1500,
+            "target": 1500,
+            "updates": 13,
+            "steps": 1500,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 35,
+            "target": 35,
+            "updates": 1,
+            "steps": 35,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1100,
+            "target": 1100,
+            "updates": 2,
+            "steps": 200,
+            "restoreFrame": 900,
+            "source": "memory"
+          },
+          {
+            "requested": 615,
+            "target": 615,
+            "updates": 1,
+            "steps": 15,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 0,
+            "target": 0,
+            "updates": 1,
+            "steps": 0,
+            "restoreFrame": 0,
+            "source": "initial world"
+          },
+          {
+            "requested": 1799,
+            "target": 1799,
+            "updates": 3,
+            "steps": 299,
+            "restoreFrame": 1500,
+            "source": "memory"
+          },
+          {
+            "requested": 1201,
+            "target": 1201,
+            "updates": 1,
+            "steps": 1,
+            "restoreFrame": 1200,
+            "source": "memory"
+          },
+          {
+            "requested": 610,
+            "target": 610,
+            "updates": 1,
+            "steps": 10,
+            "restoreFrame": 600,
+            "source": "memory"
+          },
+          {
+            "requested": 2399,
+            "target": 2399,
+            "updates": 8,
+            "steps": 899,
+            "restoreFrame": 1500,
+            "source": "memory"
+          }
+        ],
+        "durableEnabled": false,
+        "durableSeeks": [],
+        "scope": "actual asset-backed private CPU replay worlds; within-environment interleaved gameplay/presentation hashes; actual world checkpoint capture/restore/continuation, memory seek and media pause/step APIs; optional real durable-file seeks when provided; no GL raster, physical device, Studio/theatre UI, killcam or export acceptance"
+      },
+      "archiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+      "diagnosticScope": "Broad post-step planar displacement/change trigger >0.25 units, not an acceptance threshold; uncontrolled native combat/contact and lifecycle can contribute. No zero-anomaly or seamless-traversal claim."
+    }
+  },
+  "latestCompatibility": {
+    "status": "PASS",
+    "baseSha": "f8848deef2dea788ca7105b4931f540595a1f925",
+    "upstreamMainSha": "fab3b50204695bd3638836cb8052c5bc3bed352e",
+    "previousFullAcceptanceSha": "f62676dce3ea698ed2f943097e863fe64c3359ac",
+    "cleanCommittedCheckout": true,
+    "sourceOverlay": false,
+    "sourceManifestSha256": "64703e5a282369440aed2d756d97709de5e7e0d99c73fdb760e00814eb45fbd8",
+    "sourceFileCount": 40,
+    "changedAmongPrior38FeatureFiles": [
+      "tools/nettest/Program.cs"
+    ],
+    "normalBuildExit": 0,
+    "binaries": {
+      "ProjectPrime.dll": "8cd5624fd482bc9365d31f5b790e3345559c442ff25de6c01a410e703f1f808c",
+      "nettest.dll": "e197fc7625dfa503ac529fc2c79f4f4fc011adb76c283bebe63e8f6012fe5647"
+    },
+    "sourceBinaryLeasesUnchanged": true,
+    "focusedCases": [
+      {
+        "name": "advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "advanced-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "lifecycle-checkpoint",
+        "exitCode": 0
+      }
+    ],
+    "uiTouchFixtures": [
+      {
+        "fixture": "rmlui-offline-rules-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "8ff12017dd6c9fe7fb024461af3eef2803741ff47a60c1fd019b045324e9e081",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "rmlui-live-menu-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "38edf5ce9a763e1e5a57bf693e5bb2b1ad7d056ed37866dd02b39a97f61e78b2",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "server-browser-party-source-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "f6d26028232c1a753db27c88a1fa716ba65d89b7dc8b1ba593cd95edc1a018fe",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "touchcheck",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "e949a6cb95b80610e793febef699dcf0e8e45dd981b230800327a2fe9cbaddbc",
+        "scope": "production touch-model CPU fixture; no Android View/MotionEvent or physical-device acceptance"
+      }
+    ],
+    "replayedArchiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+    "replay": {
+      "checks": 80101,
+      "frames": 2399,
+      "recordedProtocol": 62,
+      "recordedProfileVersion": 2
+    },
+    "newLiveCohort": false,
+    "scope": "bounded Windows CPU compatibility onf884; priorf626 full26checks andlivecohort retain theiroriginal identity; noMac,performance,GL,physicaldevice acceptance",
+    "sourceFiles": {
+      "src/MphRead/Entities/Players/PlayerEntity.cs": "fc0a18c67822fe9baab49c881e5f375a4a3e5fd584799e17a22fc4708457614b",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "dfa0c00fa567d8a4ee9d609a6a1e7d9566ab2da8207dad88e6caede460e7d5b2",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "bbf0d655ee284b2fef2360a162a5249ea02c7fef9019449fab1c3553360aee1d",
+      "src/MphRead/Mods/Movement/MovementModel.cs": "8c1e05bac0544d0939e8d2067dc80f256259e475d2c7fab361fbac1e4c0081a0",
+      "src/MphRead/Mods/Movement/Quake3MovementProfileV2.cs": "c1ab8bd9775fff43a5e1cc1df1aae8a3f227f7174386edecc08e05c5c7a38103",
+      "src/MphRead/Mods/Network/MatchDefinition.cs": "1bd5a40decf57b4b5a8b276e8ee08b46d2131db6a1039dce44b0f1e4c667e2a0",
+      "src/MphRead/Mods/Network/NetHitClaims.cs": "938679b723e7c305ea8588adead7deff7d8076f6518c4c1fdfb14cca16ff181d",
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": "c83ac3b0ba014107130993471dbeeafe6acdd38b38dec76ca2387020f0906654",
+      "src/MphRead/Mods/Network/NetProtocol.cs": "9a94e3b6b08a4fac5274b16e1c8e555d4aefc31ef513e10c65e935c5617125ea",
+      "src/MphRead/Mods/Network/NetSelfSplash.cs": "354d92dc4b7c66506f863fa0ef4ef57d4b68c6f74649ab23c6d321dc75dfab38",
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": "162a5ffafc84c93a90e60fbe490f21d2793860cfdb16c3d64eb437afb990e93a",
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": "3a037f2abf0c74742c336f6a8a38c5784f69dac83c4ab0b871225f2557d26cb0",
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "dbf55d0048c11aba3a4403c892cbaa5999d3563b34f80827534c6a32b36a5667",
+      "src/MphRead/SceneMomentumMovement.cs": "9ea77e03c81f72396fb9e4075c434d37b793f8e38d63d4809320fe3c733f6890",
+      "tools/group-reservation-check/check_registry.py": "ec496206c690c79535cc2baf795089d899fcdbb3dcb7fa59196486a62d16894b",
+      "tools/nettest/ContinuousTargetTests.cs": "ee8427f923bcb96904391c024761afb96216afebdaff4d99c37c92e13711e0f5",
+      "tools/nettest/EnhancedRetirementTests.cs": "093bdcc200ddec909242b0d7c132f10bd04ff23f92078f11aa8bb354ca302c55",
+      "tools/nettest/MomentumBotAuthorityTests.cs": "323f09239674913780e1d795af3d6a553e1f8c9a0135317de54b3d3892d97c0a",
+      "tools/nettest/MomentumOnlineSceneTests.cs": "c03c877c87222f885f979928592063d1ec1100058c40b89a7ff09952509c6362",
+      "tools/nettest/MomentumReplayMetadataTests.cs": "c5fbaf7c0a4db49038da7616320b8dc0d947cd253a3ae5fc144349acb81c9d1a",
+      "tools/nettest/MomentumReplayRulesTests.cs": "250535cfc7dd3a5fd55dbded46f086415726c2f2599f93322cd1272e31b53c39",
+      "tools/nettest/MomentumReplaySceneTests.cs": "79b5613d2bc722d0fd6c6d1ca26f567a0853364149febe8b809d16b80b6a9d60",
+      "tools/nettest/MomentumRulesTests.cs": "304ffff19f739188cee7e4ccf9efa3a423989e53efbf711cdb521de76e98813b",
+      "tools/nettest/MovementValidationTests.cs": "fee85ef7c81ee8c018dc82302946a7cbb82de61a7853cd60568b4fada03c2321",
+      "tools/nettest/NetArchitectureTests.cs": "2249123faa90c688bcc6cb68b3833e2c89666020e46c055c0174f8ad22864b86",
+      "tools/nettest/PickupProtocolTests.cs": "b8c007ee44b3117433cebe5cbbe69ac0ac0530b98abc1e893dd2484af466558f",
+      "tools/nettest/PlayerNameChatTests.cs": "2e670b950039d1008f08a1f6cc37ffed1de0b42f63da5865414545a38ef102e5",
+      "tools/nettest/Program.cs": "35826878a2e40c31236fd906d7708aee4555d26e26905e896401a66862e63d84",
+      "tools/nettest/Protocol17Tests.cs": "fa53222891f682b23898c83fc245967bc644876ab00d91a943c12a6718bb376f",
+      "tools/nettest/Quake3AdvancedRulesTests.cs": "9b0e9a91cadf5a40de8332dd7ad3b7abf39f481bd92a3f38102064570826102c",
+      "tools/nettest/Quake3AdvancedSceneTests.cs": "9b128468cfb68212aa625ad869b00cc8b863dc679dda555f406faa10a2e9f8fb",
+      "tools/nettest/Quake3ReplayCompatibilityTests.cs": "749926e4ff376b21db67278343241b0cece8a404bf3ead4fdbc9db971569a675",
+      "tools/nettest/Quake3RulesTests.cs": "deadd70b06352881b614a9c24cfeca93990b7683597b78b2a173e91c3e15905f",
+      "tools/nettest/Quake3SceneTests.cs": "c57db39f62302ad1a90bbf03e567302071789c582b0b5e50364833965f5edf38",
+      "tools/nettest/ReplayProtocol58Tests.cs": "1b6423ff35b7353ab81dcc4c457b162f1f0fc25022ffe43f45c84e9a53d6c4d6",
+      "tools/nettest/SelfPredictionTests.cs": "cef814199ed20041c51a7b59705531eaa79651f271169cc444d976cd70b3c0cc",
+      "tools/nettest/SelfSplashTests.cs": "e264384fac31e82c85f6807a3ac8c7942087c9d07505d9c1be589fd35b61bf2d",
+      "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "f1848b144e74d17de98e442a52673c6c4ede43c463836b99629f5bc264f3bde3",
+      "src/MphRead.Android/TouchControls.cs": "3ba3193a8c6cb022063f8109632275825d3b441965e74f8ebb9ff1e8dce2ebd4",
+      "tools/nettest/LifecycleCheckpointTests.cs": "cc153adeeb673fad98a835c6fc6fdfc5eebf365d6c9d704ba51e183a5b0bf9cc"
+    }
+  },
+  "postCompatibilityIntegration": {
+    "mainSha": "8413cd643c523349ac3ddae8eef52b01896ba648",
+    "pullRequest": 800,
+    "scope": "Performance/MapAudit harness and evidence only; no change to the 40 verified feature/input/lifecycle files or live movement/combat/recording paths. Runtime results remain attributed to f884/f626, not relabeled."
+  }
+}

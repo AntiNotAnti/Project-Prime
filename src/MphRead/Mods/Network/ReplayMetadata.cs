@@ -67,6 +67,12 @@ namespace MphRead.Mods.Network
         public string MovementLabel => RecordedMovementModel is { } model
             ? MovementModelRules.DisplayName(model) : "Unknown";
 
+        [JsonIgnore]
+        public int? RecordedMovementProfileVersion => RecordedMovementModel is { } model
+            ? model == MovementModel.Quake3 ? ProtocolVersion >= 62 ? 2 : 1
+                : MovementModelRules.ProfileVersion(model)
+            : null;
+
         private MovementModel? ResolveMovementModel()
         {
             if (!ReplayIdentityCompatibility.Supports(ProtocolVersion)) return null;

@@ -21,3 +21,10 @@ examples of the equations, not gameplay tuning imported from another engine.
 Any future substantial source reuse requires a separate provenance review and
 the applicable notices before it enters the repository. These links record design
 references, not a claim of compatible licensing for their entire dependency trees.
+
+The profile-v2 extension also reviewed the [Quake III combat reference](https://github.com/id-Software/Quake-III-Arena/blob/master/code/game/g_combat.c)
+for the behavior of radial explosion knockback. No source bodies or translated
+functions are reused. Project Prime's damage-derived push, finite bound, native
+velocity conversion, contact-only held-jump request and existing payment/receipt
+integration are independently implemented. Its native-unit coefficients are
+Project Prime tuning, rather than an imported Quake collision or damage system.

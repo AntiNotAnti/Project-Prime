@@ -106,7 +106,7 @@ internal static class MomentumOnlineSceneTests
             int altTicks = 0, airborneMorphTicks = 0, bipedReturnTicks = 0, padCoincidentJumpInputs = 0;
             var excludedPadJumpSamples = new List<object>();
             var acceptedJumpSamples = new List<object>(); var postSeamVerticalChanges = new List<object>();
-            int acceptedMomentumJumps = 0, postSeamVerticalChangeCount = 0, highFinalJumpInputCount = 0;
+            int acceptedMomentumJumps = 0, acceptedHeldHops = 0, postSeamVerticalChangeCount = 0, highFinalJumpInputCount = 0;
             var highFinalJumpInputs = new List<object>(); long previousSolverDelta = 0;
             var ownerAnomalies = new List<object>(); int ownerAnomalyCount = 0, ownerAnomalyOverflow = 0;
             Vector3 previousOwnerDisplacement = Vector3.Zero;
@@ -151,7 +151,8 @@ internal static class MomentumOnlineSceneTests
                     set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
                     set(keyboard, Keys.S, phase >= 96 && phase < 144);
                 }
-                set(keyboard, Keys.Space, tick % 90 == 30);
+                bool heldHopScript = expected == MovementModel.Quake3 && acceptanceOptions != null;
+                set(keyboard, Keys.Space, heldHopScript ? phase >= 30 && phase < 192 : tick % 90 == 30);
                 // Recording acceptance adds real mid-air form transitions; the
                 // short protocol/rule worker keeps its original input script.
                 set(keyboard, Keys.Tab, replayPath != null && tick % 600 is 220 or 350);
@@ -161,6 +162,8 @@ internal static class MomentumOnlineSceneTests
                     ? MomentumBypassEvidence(scene, player) : null;
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
                 Vector3 ownerPositionBefore = player.Position, ownerSpeedBefore = player.Speed;
+                bool newGroundContactBefore = player.Flags1.TestFlag(PlayerFlags1.Standing)
+                    && !player.Flags1.TestFlag(PlayerFlags1.StandingPrevious);
                 uint ownerNetFrameBefore = NetSession.NetFrame;
                 object? ownerGatesBefore = acceptanceOptions != null ? MomentumBypassEvidence(scene, player) : null;
                 scene.OnSimulationFrame(); CheckConnection();
@@ -205,10 +208,10 @@ internal static class MomentumOnlineSceneTests
                     Require(sample.Slot == localSlot && sample.SimulationFrame == frame, "diagnostic names actual local slot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "online horizontal adapter preserves native Y bits");
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
-                    var result = expected == MovementModel.Quake3 ? Quake3MovementProfileV1.Step(incoming, sample.Input)
+                    var result = expected == MovementModel.Quake3 ? Quake3MovementProfileV2.Step(incoming, sample.Input)
                         : MomentumProfileV1.Step(incoming, sample.Input);
                     Require(MathF.Abs(sample.NativeVelocityAfter.X - result.Velocity.X / 30) <= .00001f
-                        && MathF.Abs(sample.NativeVelocityAfter.Z - result.Velocity.Z / 30) <= .00001f, "actual online rule uses v1 horizontal solver");
+                        && MathF.Abs(sample.NativeVelocityAfter.Z - result.Velocity.Z / 30) <= .00001f, "actual online rule uses its immutable horizontal solver");
                     directSamples++;
                 }
                 bool observedMomentumJump = acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && delta == 1
@@ -216,8 +219,11 @@ internal static class MomentumOnlineSceneTests
                 if (observedMomentumJump)
                 {
                     var jump = scene.LastMomentumStep!.Value;
-                    Require(jump.SimulationFrame == frame && player.Controls.Jump.IsPressed,
+                    bool heldHop = expected == MovementModel.Quake3 && !player.Controls.Jump.IsPressed
+                        && player.Controls.Jump.IsDown && newGroundContactBefore;
+                    Require(jump.SimulationFrame == frame && (player.Controls.Jump.IsPressed || heldHop),
                         "actual native jump acceptance names current input/frame");
+                    if (heldHop) acceptedHeldHops++;
                     Require(jump.NativeVelocityBefore.Y > .01f
                         && jump.NativeVelocityBefore.Y <= Fixed.ToFloat(player.Values.JumpSpeed) + .00001f,
                         "accepted native jump impulse before gravity/collision retains native ceiling");
@@ -302,6 +308,8 @@ internal static class MomentumOnlineSceneTests
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
             if (acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected))
                 Require(acceptedMomentumJumps > 0, "extended match earns actual native accepted jump samples");
+            if (acceptanceOptions != null && expected == MovementModel.Quake3)
+                Require(acceptedHeldHops > 0, "live Quake III owner earns held hops from actual new ground contacts");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
             acceptance?.Complete();
@@ -331,7 +339,7 @@ internal static class MomentumOnlineSceneTests
                 ownerAnomalyCount, ownerAnomalyOverflow, ownerAnomalies,
                 ownerAnomalyScope = "Test-only post-step body displacement/change trigger >0.25 units per simulation call; not a movement acceptance threshold. Maximum128 rows; overflow explicit. Native Speed and positional displacement differ in meaning. Scratch candidates are not a current collision response witness.",
                 port, localSlot, matchId, authorityEpoch = epoch, name, seconds, ticks = tick, firstSceneFrame, finalSceneFrame = scene.FrameCount,
-                solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, airborneTicks, landings,
+                solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, acceptedHeldHops, airborneTicks, landings,
                 altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames, padCoincidentJumpInputs, excludedPadJumpSamples, acceptedMomentumJumps, acceptedJumpSamples, postSeamVerticalChangeCount, postSeamVerticalChanges, highFinalJumpInputCount, highFinalJumpInputs,
                 inputSource = touchModel ? "linked production Android TouchControls + explicit GameView digital keyboard boundary" : "synthetic keyboard",
                 touchSamples, touchDirectionalSamples, touchDiagonalSamples, touchReleases,

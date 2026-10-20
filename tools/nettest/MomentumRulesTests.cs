@@ -51,7 +51,7 @@ internal static class MomentumRulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1, "stable movement enum values");
-        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 61, "current protocol preserves v1 bit15 contract");
+        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 62, "current protocol preserves v1 bit15 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Momentum", "momentum", "MOMENTUM" })

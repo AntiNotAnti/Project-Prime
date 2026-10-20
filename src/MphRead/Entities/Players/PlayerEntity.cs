@@ -1,5 +1,6 @@
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -2107,6 +2108,20 @@ namespace MphRead.Entities
             int combatTurretBefore = Halfturret?.Health ?? 0;
             ushort combatSequenceBefore = Mods.Network.NetDamage.Sequence(SlotIndex);
             if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
+            // Derive the shared self-missile impulse before prediction can clamp
+            // damage. Claim/feedback paths already carry the authority's vector.
+            BeamType impulseWeapon = beam?.Beam ?? (NetDamage.ApplyingClaim ? NetDamage.ClaimedBeam
+                : NetDamage.Replaying ? NetDamage.ReplayBeam : BeamType.None);
+            bool quake3RocketImpulse = attacker == this && ModQuake3RocketImpulseEligible
+                && impulseWeapon == BeamType.Missile
+                && !flags.TestAny(DamageFlags.Burn | DamageFlags.Halfturret | DamageFlags.Death)
+                && (beam == null || beam.ModCustomShot == null);
+            if (quake3RocketImpulse && beam is { EnhancedDirectHit: false, SplashRadius: > 0 })
+            {
+                direction = Quake3MovementProfileV2.RocketImpulse(damage,
+                    beam.ModResolvedHitPointValid ? beam.ModResolvedHitPoint : beam.Position,
+                    Position, beam.SplashRadius);
+            }
             ushort replayDamageEventId = beam?.ModCustomShot != null ? (ushort)0 : Mods.Network.NetDamage.Note(this, attacker,
                 beam?.Beam ?? BeamType.None, flags, direction,
                 damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey ?? (bomb != null ? bomb.ModOwnerKey : NetBurnSource.Current?.Key),
@@ -2994,7 +3009,7 @@ namespace MphRead.Entities
                         {
                             // todo: FPS stuff?
                             Vector3 speed = Speed + direction.Value.WithY(0);
-                            if (direction.Value.Y <= 0)
+                            if (quake3RocketImpulse || direction.Value.Y <= 0)
                             {
                                 speed.Y += direction.Value.Y;
                             }

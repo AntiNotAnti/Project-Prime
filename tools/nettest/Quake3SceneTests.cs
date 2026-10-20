@@ -73,7 +73,7 @@ internal static class Quake3SceneTests
                 string path = Path.GetFullPath(outputPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 File.WriteAllText(path, JsonSerializer.Serialize(new { checks = _checks,
-                    movementModel = MovementModel.Quake3.ToString(), profileVersion = Quake3MovementProfileV1.ProfileVersion,
+                    movementModel = MovementModel.Quake3.ToString(), profileVersion = MovementModelRules.ProfileVersion(MovementModel.Quake3),
                     scope = "Actual offline CPU scene, synthetic keyboard and native spawn/intro skip; no transforms/velocities written, no physical device, GL, online or replay qualification",
                     schedule = "jump-only: Space tick0; moving: W ticks0..95, A ticks49..95, Space tick48; release through tick179; fixed native simulation steps", rows },
                     new JsonSerializerOptions { WriteIndented = true }));
@@ -140,6 +140,18 @@ internal static class Quake3SceneTests
                     Check(!player.ModMomentumEligible, "native exclusion " + probe.Field); }
                 finally { field.SetValue(player, old); }
             }
+            // Predicate-only private-draft boundary, not a fabricated AI run.
+            var requested = typeof(Scene).GetField("_developerMomentumRequested", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            try
+            {
+                requested.SetValue(scene, true);
+                Check(scene.DeveloperMomentumActive && !player.ModQuake3RocketImpulseEligible,
+                    "private human draft excludes current shared rocket policy");
+                player.IsBot = true;
+                Check(player.ModQuake3RocketImpulseEligible,
+                    "bot body retains selected shared policy while local human experiments privately");
+            }
+            finally { player.IsBot = false; requested.SetValue(scene, false); }
             player.ModStartFormSwitch();
             Check(player.IsMorphing && !player.ModMomentumEligible, "native morph bypass");
             for (int i = 0; i < 100 && player.IsMorphing; i++) scene.OnSimulationFrame();

@@ -18,6 +18,11 @@ on:
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerEntity.cs'
+      - 'src/MphRead/Mods/Network/NetSelfSplash.cs'
+      - 'src/MphRead/Mods/Network/NetHitClaims.cs'
+      - 'tools/nettest/SelfSplashTests.cs'
+      - 'tools/nettest/SelfPredictionTests.cs'
       - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
       - 'src/MphRead.Android/TouchControls.cs'
       - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
@@ -73,6 +78,11 @@ on:
       - 'src/MphRead/SceneMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
       - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerEntity.cs'
+      - 'src/MphRead/Mods/Network/NetSelfSplash.cs'
+      - 'src/MphRead/Mods/Network/NetHitClaims.cs'
+      - 'tools/nettest/SelfSplashTests.cs'
+      - 'tools/nettest/SelfPredictionTests.cs'
       - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
       - 'src/MphRead.Android/TouchControls.cs'
       - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
@@ -145,6 +155,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-rules
       - name: Quake III authoritative rules and protocol admission
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-rules
+      - name: Quake III advanced profile, rocket impulses and historical identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-advanced-rules
       - name: Historical replay widths and Quake III identity
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-replay-compatibility
       - name: Saved and offline model defaults, validation and rule preservation

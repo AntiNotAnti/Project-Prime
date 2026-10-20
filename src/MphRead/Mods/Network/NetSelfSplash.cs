@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Entities;
+using MphRead.Mods.Movement;
 using MphRead.Formats;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
@@ -20,7 +21,7 @@ internal static class NetSelfSplash
     private readonly record struct Explosion(ShotKey Key, uint Component, uint Frame, uint Launch,
         byte Weapon, Vector3 Origin, Vector3 Body, float Radius, float Damage, byte Curve,
         byte DirectionType, float DirectionMagnitude, Vector3 Velocity, float Effectiveness,
-        float DamageLevel, byte Handicap, bool EnhancedJump, bool Eligible, byte Effects);
+        float DamageLevel, byte Handicap, bool EnhancedJump, bool Quake3Jump, bool Eligible, byte Effects);
     private static readonly Explosion?[,] Explosions = new Explosion?[8, Capacity];
     internal static long Observed, Verified, Refused, CapacityRefused, EvidenceOverflow;
     private static readonly List<object> Paid = new(), Receipts = new(), Feedback = new();
@@ -81,7 +82,9 @@ internal static class NetSelfSplash
             beam.DamageDirType, beam.DamageDirMag, beam.Velocity,
             Metadata.DamageMultipliers[(int)owner.BeamEffectiveness[(int)beam.Beam]],
             Metadata.DamageLevels[owner.OwningScene.GameState.DamageLevel], NetSession.SlotDamageReduction[slot],
-            beam.ModEnhancedSelfJump, owner.ModSelfSplashEligible && owner != excluded,
+            beam.ModEnhancedSelfJump, beam.Beam == BeamType.Missile && beam.ModCustomShot == null
+                && owner.ModQuake3RocketImpulseEligible,
+            owner.ModSelfSplashEligible && owner != excluded,
             owner.OwningScene.GameState.BalancedMode ? (byte)0 : NetHitClaims.AfflictionClaimFlags(beam.Afflictions));
         Observed++;
     }
@@ -119,7 +122,9 @@ internal static class NetSelfSplash
         damage = Math.Max(1u, (uint)(damage * hit.Effectiveness));
         damage = Math.Max(1u, (uint)(damage * hit.DamageLevel));
         if (hit.Handicap > 0) damage = PlayerHandicap.ScaleDamage(damage, hit.Handicap);
-        Vector3 impulse = Impulse(hit, hit.Body);
+        Vector3 impulse = hit.Quake3Jump
+            ? Quake3MovementProfileV2.RocketImpulse(damage, hit.Origin, hit.Body, hit.Radius)
+            : Impulse(hit, hit.Body);
         if (hit.EnhancedJump) { damage = (uint)Math.Ceiling(damage * .25f); impulse *= 1.35f; }
         outcome = new((ushort)Math.Min(damage, ushort.MaxValue), impulse, hit.Effects);
         Verified++; return true;

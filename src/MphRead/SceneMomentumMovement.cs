@@ -73,6 +73,9 @@ public partial class Scene
                 ?? MovementModelRules.FromRules((MatchModifierFlags)(NetSession.ServerMatch?.RuleBits ?? 0)))
                 == GameState.MovementModel);
 
+    internal bool Quake3TechniquesActive => GameState.MovementModel == MovementModel.Quake3
+        && MomentumMovementActive;
+
     private bool MomentumSceneEligible() =>
         ForegroundLease.ThreadId == Environment.CurrentManagedThreadId
         && ReferenceEquals(global::MphRead.GameState.Current, GameState)

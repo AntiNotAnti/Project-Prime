@@ -154,6 +154,9 @@ internal static class SelfPredictionTests
     internal static void RunReplay(PlayerEntity owner)
     {
         int checksBefore = _checks;
+        bool quake3 = owner.OwningScene.Quake3TechniquesActive;
+        Vector3 authorityImpulse = Vector3.UnitY * (quake3 ? .6f : .2f);
+        Vector3 localImpulse = Vector3.UnitY * (quake3 ? .45f : .1f);
         var role = NetSession.Role; bool authority = NetSession.IsAuthority; int local = NetSession.LocalSlot;
         var savedState = NetSession.RemoteStates[owner.SlotIndex]; bool valid = NetSession.RemoteStateValid[owner.SlotIndex];
         try
@@ -173,7 +176,7 @@ internal static class SelfPredictionTests
                 NetSession.RemoteStates[owner.SlotIndex] = baseline; NetSession.RemoteStateValid[owner.SlotIndex] = true;
                 NetDamage.BeginLife(owner.SlotIndex, baseline);
                 var hit = baseline; hit.Health = 79; hit.DamageEventId = 11;
-                hit.DamageBeam = (byte)BeamType.Missile; hit.HitDirection = Vector3.UnitY * .2f;
+                hit.DamageBeam = (byte)BeamType.Missile; hit.HitDirection = authorityImpulse;
                 hit.DamageFlags = (byte)DamageFlags.NoSfx;
                 hit.Damage0 = new DamageEvent { EventId = 11, AttackerSlot = (byte)owner.SlotIndex,
                     AttackerGeneration = generation, Beam = (byte)BeamType.Missile,
@@ -188,7 +191,7 @@ internal static class SelfPredictionTests
                         "event-first actual Replay applies authority impulse once");
                 }
                 bool defer = NetDamage.HasUnclaimedSelfEvent((byte)BeamType.Missile);
-                uint damage = 20; DamageFlags flags = 0; var predictedImpulse = defer ? Vector3.Zero : Vector3.UnitY * .1f;
+                uint damage = 20; DamageFlags flags = 0; var predictedImpulse = defer ? Vector3.Zero : localImpulse;
                 uint shot = 701;
                 NetHitPrediction.NoteHit(owner, owner, ref flags, ref damage, BeamType.Missile,
                     launchFrame: 1, direction: predictedImpulse, shotId: shot,

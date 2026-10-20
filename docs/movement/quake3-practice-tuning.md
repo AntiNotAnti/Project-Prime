@@ -4,9 +4,13 @@ For normal practice and multiplayer, select **Movement: Quake III** in Match
 Rules; see the [fixed shared profile](quake3-movement.md). This page describes
 the separate editable offline JSON experiment.
 
+The shared profile v2 adds held hops and rocket jumping; this private draft
+keeps its original horizontal-only scope. Bots retain their selected shared
+match profile while the local human experiments privately.
+
 This playable offline preset targets Quake III / Quake Live-style strafe-jump
 speed building. Classic remains the default. Existing Momentum profile v1 and recorded behavior are unchanged. Normal shared
-matches now use protocol 60 for the separately identified Quake III selection. This draft is not
+matches now use protocol 62 for the separately identified Quake III selection. This draft is not
 an exact Quake physics port: Hunter jump timing, gravity, collision, alternate
 forms, abilities and the fixed 60 Hz simulation retain their native ownership.
 
