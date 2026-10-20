@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using MphRead.Mods.Import;
 using MphRead.Mods.Launcher;
+using MphRead.Mods.Launcher.RmlUi.Host;
+using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 
 internal static class NativeCharacterPreviewAcceptance
 {
@@ -15,6 +17,8 @@ internal static class NativeCharacterPreviewAcceptance
         {
             Requests(settings);
             CancellationOutcomes(settings);
+            SourcePreviewRequests(settings);
+            SourcePreviewPages(settings);
             using (var dirty = new NativeFullSettingsController(settings))
             {
                 string[] engine = dirty.Rows.Select(r => r.Read()).ToArray();
@@ -34,34 +38,51 @@ internal static class NativeCharacterPreviewAcceptance
             }
             using (var parts = new NativeFullSettingsController(settings))
             {
-                var source = sources.First(source => RetroCharacterPreviewExporter.BundleSpec(source.Id).Version == 3);
+                var source = sources.First(source => RetroCharacterPreviewExporter.BundleSpec(source.Id).Version == 4);
                 while (parts.CharacterPreviewId != source.Id) parts.CycleCharacterPreview();
                 parts.CheckCharacterPreview(); Wait(parts);
-                Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v2: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
-                    && parts.Status.Contains("full source animation resources are retained for Echoes", StringComparison.Ordinal)
+                Check(parts.Status.Contains("body v3: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
+                    && parts.Status.Contains("normal Echoes supports an animated diagnostic preview", StringComparison.Ordinal)
                     && parts.Status.Contains("playable animation/morph remain unqualified.", StringComparison.Ordinal),
-                    "complete verified synthetic v3 bundle reports part-v2 body and ball Ready with retained-resource and authoring-only qualification");
+                    "complete verified synthetic v4 bundle reports part-v3 body and ball Ready with explicit diagnostic-only and gameplay qualification limits");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
-                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources")})
+                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance")})
                 {
                     var installed = LocalImportBundle.Inspect(root, source.Id, spec);
                     string name = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + component.Item1;
                     File.Delete(installed.Files.Single(file => Path.GetFileName(file) == name));
                     parts.CheckCharacterPreview(); Wait(parts);
-                    Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v2: Incomplete", StringComparison.Ordinal)
+                    Check(parts.Status.Contains("body v3: Ready", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v3: Incomplete", StringComparison.Ordinal)
                         && parts.Status.Contains(component.Item2+" v1 Incomplete", StringComparison.Ordinal)
-                        && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
+                        && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
                         && parts.Status.Contains("playable animation/morph remain unqualified.", StringComparison.Ordinal),
-                        "missing required ball component leaves body Ready and identifies exact incomplete role without runtime qualification: "+component.Item2);
+                        "missing required ball component leaves body Ready and identifies exact incomplete role without playable qualification: "+component.Item2);
                     LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
                     parts.CheckCharacterPreview(); Wait(parts);
-                    Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v2: Ready", StringComparison.Ordinal),
-                        "complete republish repairs v3 synthetic component fixture before removal and snapshot checks: "+component.Item2);
+                    Check(parts.Status.Contains("body v3: Ready", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal),
+                        "complete republish repairs v4 synthetic component fixture before removal and snapshot checks: "+component.Item2);
                 }
+            }
+            using(var manifestOwner=new NativeFullSettingsController(settings))
+            {
+                const string normal="darksamus-echoes";
+                while(manifestOwner.CharacterPreviewId!=normal)manifestOwner.CycleCharacterPreview();
+                var spec=RetroCharacterPreviewExporter.BundleSpec(normal);
+                var installed=LocalImportBundle.Inspect(root,normal,spec);
+                File.Delete(installed.Files.Single(file=>Path.GetFileName(file)=="characters.json"));
+                manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
+                Check(manifestOwner.Status.Contains("body v3: Incomplete",StringComparison.Ordinal)
+                    &&manifestOwner.Status.Contains("source-preview-manifest v1 Incomplete",StringComparison.Ordinal)
+                    &&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                    "missing normal manifest identifies incomplete body without hiding verified ball components");
+                LocalImportBundle.Publish(root,spec,spec.RequiredComponents.ToDictionary(c=>c,c=>Encoding.UTF8.GetBytes("synthetic fixture: "+c)));
+                manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
+                Check(manifestOwner.Status.Contains("body v3: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                    "normal manifest repair restores complete synthetic inventory before removal checks");
             }
             var all = Snapshot(root);
             using (var remove = new NativeFullSettingsController(settings))
@@ -116,6 +137,142 @@ internal static class NativeCharacterPreviewAcceptance
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
+    private static void SourcePreviewRequests(MenuSettings settings)
+    {
+        using var owner=new NativeFullSettingsController(settings);
+        string[] engine=owner.Rows.Select(r=>r.Read()).ToArray();
+        var row=owner.Rows.Single(r=>r.Category=="Audio"&&r.Label=="Sfx Volume (%)");
+        Check(owner.Stage(row,row.Value=="65"?"35":"65")&&owner.Dirty,"source preview fixture stages a detached dirty draft");
+        string[] draft=owner.Rows.Select(r=>r.Value).ToArray();string id=owner.CharacterPreviewId;
+        owner.RequestCharacterSourcePreview();owner.CycleCharacterPreview();
+        Check(owner.CharacterPreviewId!=id&&owner.TakeCharacterSourcePreview(out string captured)&&captured==id
+            &&!owner.TakeCharacterSourcePreview(out _)&&owner.Dirty&&owner.Rows.Select(r=>r.Value).SequenceEqual(draft)
+            &&owner.Rows.Select(r=>r.Read()).SequenceEqual(engine),"read-only preview consumes captured canonical ID once after selection changes without committing dirty draft");
+        var pending=new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Set(owner,"_operation",pending.Task);owner.RequestCharacterSourcePreview();
+        Check(!owner.TakeCharacterSourcePreview(out _),"busy owner refuses source preview request/take");
+        Set(owner,"_operation",null!);owner.RequestCharacterSourcePreview();Set(owner,"_operation",pending.Task);
+        Check(!owner.TakeCharacterSourcePreview(out _),"work beginning after request fences preview consumption");
+        Set(owner,"_operation",null!);Check(owner.TakeCharacterSourcePreview(out _),"finished work preserves captured source request");
+        var binding=owner.Rows.First(r=>r.IsBinding);owner.BeginCapture(binding);owner.RequestCharacterSourcePreview();
+        Check(owner.Capturing&&!owner.TakeCharacterSourcePreview(out _),"active binding capture refuses source preview request");
+        owner.SuspendInput("fixture cancels capture");owner.RequestCharacterSourcePreview();owner.BeginCapture(binding);
+        Check(!owner.TakeCharacterSourcePreview(out _),"capture beginning after request still fences preview consumption");
+        owner.SuspendInput("fixture resumes draft");Check(owner.TakeCharacterSourcePreview(out _),"captured request resumes once capture ends");
+        owner.RequestCharacterSourcePreview();Set(owner,"Confirmation","invented outstanding confirmation");
+        Check(!owner.TakeCharacterSourcePreview(out _),"confirmation beginning after request fences preview consumption");
+        Set(owner,"Confirmation","");Check(owner.TakeCharacterSourcePreview(out _),"confirmation completion preserves the original request");
+        owner.RequestCharacterSourcePreview();Set(owner,"_videoBefore",LauncherPrefs.WindowMode);
+        Check(!owner.TakeCharacterSourcePreview(out _),"video confirmation beginning after request fences preview consumption");
+        owner.RequestCharacterSourcePreview();Set(owner,"_videoBefore",null!);
+        Check(owner.TakeCharacterSourcePreview(out _),"video trial completion preserves captured request without applying the draft");
+        Set(owner,"_videoBefore",LauncherPrefs.WindowMode);owner.RequestCharacterSourcePreview();
+        Check(!owner.TakeCharacterSourcePreview(out _),"active video trial refuses new preview request");
+        Set(owner,"_videoBefore",null!);Check(!owner.TakeCharacterSourcePreview(out _),"refused trial request is not queued for later");
+        Check(owner.Dirty&&owner.Rows.Select(r=>r.Value).SequenceEqual(draft)&&owner.Rows.Select(r=>r.Read()).SequenceEqual(engine),
+            "all preview request gates preserve original settings engine and dirty draft");
+        owner.Dispose();owner.RequestCharacterSourcePreview();Check(!owner.TakeCharacterSourcePreview(out _),"disposed controller cannot issue a source preview");
+        using var closed=new NativeFullSettingsController(settings);closed.RequestCharacterSourcePreview();Check(closed.Back(),"clean source-request controller closes");
+        Check(!closed.TakeCharacterSourcePreview(out _),"closed controller cannot consume a retained preview request");
+    }
+    private static void SourcePreviewPages(MenuSettings settings)
+    {
+        var native=new PreviewBridge();using var host=new RmlUiHost(native);
+        Check(host.Initialize(640,480,1,".",RmlUiRenderBackend.DrawList),"invented CPU bridge initializes actual managed preview page ownership");
+        using var pages=new RmlUiPageManager(host);
+        using(var page=new NativeFullSettingsPage(host,pages,settings))
+        {
+            page.Open();var token=page.Document;var controller=(NativeFullSettingsController)Get(page,"_controller")!;
+            string id=controller.CharacterPreviewId;
+            Check(!page.Handle(new(RmlUiIntentKind.SettingsAction,245,new(token.Generation,token.DocumentId+1000),1))
+                &&!page.TryTakeCharacterSourcePreview(out _),"stale document cannot enqueue preview action245");
+            Check(page.Handle(new(RmlUiIntentKind.SettingsAction,245,token,1)),"live native Settings accepts explicit preview action245");
+            controller.CycleCharacterPreview();
+            var modal=pages.OpenModal(new("preview-fixture-modal","own-modal.rml"));
+            Check(!page.TryTakeCharacterSourcePreview(out _),"covered Settings cannot consume captured preview request");
+            Check(pages.CloseModal()&&page.TryTakeCharacterSourcePreview(out string captured)&&captured==id
+                &&!page.TryTakeCharacterSourcePreview(out _),"foreground restoration consumes the original selection once");
+            controller.RequestCharacterSourcePreview();page.SuspendView();
+            Check(!page.TryTakeCharacterSourcePreview(out _),"retired Settings document cannot consume retained preview request");
+            page.ResumeView();
+            Check(page.Document!=token&&!page.Handle(new(RmlUiIntentKind.SettingsAction,245,token,2)),"old document intent stays stale after Settings recreates its view");
+        }
+        using(var restricted=new NativeFullSettingsPage(host,pages,settings,allowGameFiles:false))
+        {
+            restricted.Open();var controller=(NativeFullSettingsController)Get(restricted,"_controller")!;
+            Check(restricted.Handle(new(RmlUiIntentKind.SettingsAction,245,restricted.Document,1))
+                &&!restricted.TryTakeCharacterSourcePreview(out _)&&!controller.TakeCharacterSourcePreview(out _),
+                "Settings with game-file access disabled cannot route preview action245");
+            controller.RequestCharacterSourcePreview();Check(!restricted.TryTakeCharacterSourcePreview(out _),"game-file restriction fences even a direct pending controller request");
+        }
+        // Actual worker paths need no commercial data: canonical normal is absent,
+        // and Trooper has no supported runtime source profile.
+        foreach(string id in new[]{"darksamus-echoes","trooper-power"})
+        {
+            using var preview=new NativeCharacterSourcePreviewPage(host,pages,id,asModal:false);preview.Open();
+            Task task=(Task)Get(preview,"_load")!;Await(task);preview.Tick();
+            string status=(string)Get(preview,"_status")!;
+            Check(preview.Request==null&&Get(preview,"_selection")==null
+                &&status.Contains(id=="darksamus-echoes"?"Update the selected source bundle":"supports normal Echoes",StringComparison.Ordinal),
+                "missing/unsupported source returns bounded error with no render request: "+id);
+            Check(preview.Handle(new(RmlUiIntentKind.HunterCancel,0,preview.Document,1))&&preview.Closed,"Back remains usable after source load refusal: "+id);
+        }
+        using(var covered=new NativeCharacterSourcePreviewPage(host,pages,"trooper-power",asModal:false))
+        {
+            covered.Open();Task completed=(Task)Get(covered,"_load")!;Await(completed);
+            string prior=(string)Get(covered,"_status")!;pages.OpenModal(new("cover-preview","own-modal.rml"));
+            int publications=native.Publications;covered.Tick();
+            Check(ReferenceEquals(Get(covered,"_load"),completed)&&(string)Get(covered,"_status")! ==prior
+                &&covered.Request==null&&native.Publications==publications,"covered source page defers completed worker adoption and native publication");
+            pages.CloseModal();covered.Tick();
+            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains("supports normal Echoes",StringComparison.Ordinal),
+                "restored source page adopts only its own completed worker result");
+        }
+        foreach(string retirement in new[]{"back","dispose","dead-document"})
+        {
+            using var preview=new NativeCharacterSourcePreviewPage(host,pages,"trooper-power",asModal:false);preview.Open();
+            Await((Task)Get(preview,"_load")!);
+            Type resultType=preview.GetType().GetNestedType("LoadResult",BindingFlags.NonPublic)!;
+            object completion=Activator.CreateInstance(typeof(TaskCompletionSource<>).MakeGenericType(resultType))!;
+            Task held=(Task)completion.GetType().GetProperty("Task")!.GetValue(completion)!;Set(preview,"_load",held);
+            string prior=(string)Get(preview,"_status")!;
+            if(retirement=="back")preview.Back();
+            else if(retirement=="dispose")preview.Dispose();
+            else host.CloseDocument(preview.Document);
+            int publications=native.Publications;
+            object result=Activator.CreateInstance(resultType,BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic,null,new object?[]{null,"late detached worker result"},null)!;
+            completion.GetType().GetMethod("SetResult")!.Invoke(completion,new[]{result});preview.Tick();
+            Check(preview.Closed&&preview.Request==null&&Get(preview,"_selection")==null
+                &&(string)Get(preview,"_status")! ==prior&&native.Publications==publications,
+                "late worker completion cannot publish or adopt after "+retirement);
+        }
+    }
+    private static void Await(Task task)
+    {
+        Check(SpinWait.SpinUntil(()=>task.IsCompleted,TimeSpan.FromSeconds(5)),"source preview CPU worker completes within fixture bound");
+        if(task.IsFaulted)throw task.Exception!;
+    }
+    private sealed class PreviewBridge:IRmlUiNativeBridge
+    {
+        private readonly HashSet<ulong> documents=new();private readonly Dictionary<(ulong,string),string> fields=new();
+        private ulong next=1;private string focused="";internal int Publications;
+        public uint ProtocolVersion()=>1;public ulong Generation()=>1;public ulong HomeDocument()=>1;
+        public int Initialize(int w,int h,float density,string root)=>InitializeBackend(w,h,density,root,1);
+        public int InitializeBackend(int w,int h,float density,string root,int backend){documents.Add(1);return 1;}
+        public void Shutdown()=>documents.Clear();public void Resize(int w,int h,float density){}public void Update(){}public void Render(int w,int h){}
+        public int TakeIntent(ref RmlUiNativeIntent intent)=>0;public int TakeAction(byte[] bytes,int capacity)=>0;
+        public ulong OpenDocument(string path,int layer){ulong id=++next;documents.Add(id);return id;}
+        public int CloseDocument(ulong id)=>documents.Remove(id)?1:0;public int ShowDocument(ulong id,int show)=>documents.Contains(id)?1:0;
+        public int FocusDocument(ulong id,string element){if(!documents.Contains(id))return 0;focused=element;return 1;}
+        public int DocumentSetText(ulong id,string name,string value){if(!documents.Contains(id))return 0;Publications++;return 1;}
+        public int DocumentSetBool(ulong id,string name,int value){if(!documents.Contains(id))return 0;Publications++;return 1;}
+        public int DocumentSetField(ulong id,string name,string value){if(!documents.Contains(id))return 0;fields[(id,name)]=value;Publications++;return 1;}
+        public int DocumentReadField(ulong id,string name,byte[] bytes,int capacity)=>Copy(fields.GetValueOrDefault((id,name),""),bytes,capacity);
+        private static int Copy(string value,byte[] bytes,int capacity){byte[] encoded=Encoding.UTF8.GetBytes(value);int count=Math.Min(encoded.Length,Math.Min(bytes.Length,capacity)-1);if(count<0)return 0;encoded.AsSpan(0,count).CopyTo(bytes);bytes[count]=0;return count;}
+        public void SetText(string name,string value){}public void SetBool(string name,int value){}public void SetField(string name,string value){}public int ReadField(string name,byte[] bytes,int capacity)=>0;
+        public void SetLobbyAnchor(int slot,float x,float y){}public int Back()=>0;public int MouseMove(int x,int y,int modifiers)=>0;public int MouseButton(int button,int down,int modifiers)=>0;public int MouseWheel(float delta,int modifiers)=>0;public int Key(int key,int down,int modifiers)=>0;public int Text(uint codepoint)=>0;public void FocusLost(){}public int TextInputActive()=>0;
+        public int FocusedElement(byte[] bytes,int capacity)=>Copy(focused,bytes,capacity);public void SetClipboard(string text){}public int ReadClipboard(byte[] bytes,int capacity)=>0;public int TextInputState(ref RmlUiNativeTextInputState state)=>0;public int Composition(ulong generation,ulong document,ulong epoch,int stage,string text,int cursor,int selectionLength)=>0;public int HoveredElement(byte[] bytes,int capacity)=>0;
+    }
     private static void CancellationOutcomes(MenuSettings settings)
     {
         using var owner = new NativeFullSettingsController(settings);
@@ -159,7 +316,12 @@ internal static class NativeCharacterPreviewAcceptance
             "dispose retires pending picker and ignores late callback");
     }
     private static object? Get(object owner,string field) => owner.GetType().GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(owner);
-    private static void Set(object owner,string field,object value) => owner.GetType().GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(owner,value);
+    private static void Set(object owner,string field,object? value)
+    {
+        var member=owner.GetType().GetField(field,BindingFlags.Instance|BindingFlags.NonPublic);
+        if(member!=null)member.SetValue(owner,value);
+        else owner.GetType().GetProperty(field,BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public)!.SetValue(owner,value);
+    }
     private static void Wait(NativeFullSettingsController owner)
     {
         var timer = System.Diagnostics.Stopwatch.StartNew();

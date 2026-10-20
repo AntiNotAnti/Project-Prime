@@ -283,6 +283,7 @@
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
     <InternalsVisibleTo Include="external-import-check" />
+    <InternalsVisibleTo Include="retro-character-preview-check" />
     <InternalsVisibleTo Include="map-editor-check" />
     <InternalsVisibleTo Include="theatre-storage-check" />
     <InternalsVisibleTo Include="replay-sidecar-check" />

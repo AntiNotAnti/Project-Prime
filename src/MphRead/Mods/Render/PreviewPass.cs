@@ -296,6 +296,11 @@ namespace MphRead
         /// Build the preview's render items, after every entity has built
         /// theirs. Nothing else may add items while this runs.
         /// </summary>
+
+        internal void ModReleaseSourcePreview(object owner)
+        {
+            _preview?.ReleaseSourceStage(owner);
+        }
         private void ReleasePreviewItems()
         {
             foreach (var item in _previewItems)
@@ -429,6 +434,10 @@ namespace MphRead
                 SelectWorldShaderVariant();
                 RefreshTextureQuality();
                 ModStepLauncherPreview();
+                // Every draw synchronizes the optional source owner, including
+                // high-refresh frames without a native60Hz step.
+                if (_activePreview != null && !_activePreview.SyncSourceStage(Mods.Render.LauncherHunter.SourcePreviewRequest))
+                    return false;
                 int presentationSlot = LauncherPreviewSlot >= 0
                     && LauncherPreviewSlot < _launcherSlotNextStep.Length
                     ? LauncherPreviewSlot : -1;

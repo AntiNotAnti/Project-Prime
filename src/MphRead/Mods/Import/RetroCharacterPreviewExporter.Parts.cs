@@ -43,7 +43,7 @@ public static partial class RetroCharacterPreviewExporter
             + (part.State == ImportBundleState.Ready || inspection.ComponentStates == null ? "" : " (" + string.Join(", ", part.Components
                 .Where(c => c.State != ImportBundleState.Ready).Select(c => c.Role + " v" + c.Version + " " + c.State)) + ")")));
         return id + ": " + inspection.State + ". " + parts + ". " + inspection.Message
-            + ". Authoring only; full source animation resources are retained for Echoes; materials, first-person and playable animation/morph remain unqualified.";
+            + ". Source authoring bundle; normal Echoes supports an animated diagnostic preview. Materials, first-person and playable animation/morph remain unqualified.";
     }
 
     private static SourceCharacter Source(string id) => Sources.SingleOrDefault(s => s.Id == id)
@@ -53,8 +53,8 @@ public static partial class RetroCharacterPreviewExporter
     public static IReadOnlyList<SourcePart> PartsFor(string id)
     {
         SourceCharacter source = Source(id);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 2 : 1);
-        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 2 } } : new[] { body });
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 3 : 1);
+        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 3 } } : new[] { body });
     }
 
     public static string PartStem(string id, string part)
@@ -77,8 +77,12 @@ public static partial class RetroCharacterPreviewExporter
         return Source(id).Game == ExternalGameKind.Echoes ? legacy.Concat(new[]
         {
             new AuthoringComponent("skeleton-source", 1, stem + ".cinf.bin"),
-            new AuthoringComponent("animation-resources", 1, stem + ".animations.bin")
-        }).ToArray() : legacy;
+            new AuthoringComponent("animation-resources", 1, stem + ".animations.bin"),
+            new AuthoringComponent("source-rig-geometry", 1, stem + ".source.glb"),
+            new AuthoringComponent("generated-provenance", 1, stem + ".source.json")
+        }).Concat(id == "darksamus-echoes" && part == "body"
+            ? new[] { new AuthoringComponent("source-preview-manifest", 1, "characters.json") }
+            : Array.Empty<AuthoringComponent>()).ToArray() : legacy;
     }
 
     /// <summary>Receipt describes complete authoring parts, never gameplay readiness.</summary>
@@ -95,10 +99,10 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        string recipe = $"retro-character-preview-v3:{spec.Id}:{spec.Game}:parts-index-v1:"
+        string recipe = $"retro-character-preview-v4:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
-                $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-optional-part-graph"));
-        return new(spec.Id, 3, HashRecipe(recipe), fingerprint,
+                $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
+        return new(spec.Id, 4, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
     }
@@ -116,7 +120,8 @@ public static partial class RetroCharacterPreviewExporter
             throw new InvalidDataException("Incomplete Retro source part references: " + stem);
         byte[] cinfBytes = resource(refs.Cinf);
         RetroNativeSkeleton skeleton = RetroCharacterSource.ReadSkeleton(cinfBytes);
-        Cmdl model = Cmdl.Load(resource, refs.Cmdl, refs.Cskr);
+        byte[] cmdlBytes = resource(refs.Cmdl), cskrBytes = resource(refs.Cskr);
+        Cmdl model = Cmdl.Load(id => id == refs.Cmdl ? cmdlBytes : id == refs.Cskr ? cskrBytes : resource(id), refs.Cmdl, refs.Cskr);
         if (model.PositionCount < 3 || model.TriangleCount < 1 || model.PositionCount > MaxVertices
             || model.TriangleCount > MaxTriangles || model.Skin?.Count != model.PositionCount)
             throw new InvalidDataException("Incomplete or oversized skinned Retro source part: " + stem);
@@ -173,6 +178,27 @@ public static partial class RetroCharacterPreviewExporter
                 File.WriteAllBytes(Path.Combine(staging, cinfName), cinfBytes); Stage(cinfName);
                 byte[] archive = RetroCharacterAnimationArchive.Build(graph, cinfBytes, echoes: true, resource, cancellation);
                 File.WriteAllBytes(Path.Combine(staging, animationName), archive); Stage(animationName);
+                string geometryName = stem + ".source.glb", provenanceName = stem + ".source.json";
+                byte[] geometry = RetroCharacterSourceGlbWriter.Write(model, skeleton, cancellation);
+                File.WriteAllBytes(Path.Combine(staging, geometryName), geometry); Stage(geometryName);
+                byte[] provenance = GeneratedSourceProvenance(spec, part, refs, gameId, cmdlBytes, cskrBytes, cinfBytes,
+                    ancsBytes, archive, geometry, model, skeleton);
+                File.WriteAllBytes(Path.Combine(staging, provenanceName), provenance); Stage(provenanceName);
+                if (spec.Id == "darksamus-echoes" && part.Id == "body")
+                {
+                    File.WriteAllBytes(Path.Combine(staging, "characters.json"), JsonSerializer.SerializeToUtf8Bytes(new
+                    {
+                        format = 1, id = "generated-darksamus-echoes-diagnostic-v1", models = new[] { new
+                        {
+                            hunter = "Samus", part = "Biped", lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
+                            model = geometryName, characterId = "darksamus", skinSource = "MP2DarkSamus",
+                            provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
+                            sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
+                            boneMap = new Dictionary<string, string>()
+                        } }
+                    }));
+                    Stage("characters.json");
+                }
             }
             motion = motion with { SourceGraphProof = new(1, graphName,
                 RetroAnimationGraphProof.Sha(graph.Descriptor), rawName, part.Ancs,
@@ -198,4 +224,28 @@ public static partial class RetroCharacterPreviewExporter
         return new(part.Id, part.Version, part.Ancs, part.NativeName, refs, required,
             files.Except(required.Select(c => c.File), StringComparer.Ordinal).ToArray());
     }
+    private static byte[] GeneratedSourceProvenance(SourceCharacter spec, SourcePart part, RetroCharacterRefs refs,
+        string gameId, byte[] cmdl, byte[] cskr, byte[] cinf, byte[] ancs, byte[] archive, byte[] geometry,
+        Cmdl model, RetroNativeSkeleton skeleton)
+    {
+        string Sha(byte[] value) => Convert.ToHexStringLower(SHA256.HashData(value));
+        return JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            format = 2, kind = "generated-retro-source-rig-preview-v1", writerVersion = RetroCharacterSourceGlbWriter.Version,
+            materialPolicy = RetroCharacterSourceGlbWriter.MaterialPolicy, sourceBasis = "(-x,z,y)",
+            sourceCharacter = spec.Id, sourceNativeName = part.NativeName, sourceGameId = gameId, sourceCharacterId = spec.Id, sourcePart = part.Id,
+            characterId = "darksamus", skinSource = spec.Id == "darksamus-echoes" ? "MP2DarkSamus" : "MP2DarkSamusFinal",
+            nativeHunter = "Samus", presentationPart = part.Id == "body" ? "biped" : "alternateForm", visualOnly = true,
+            approvedForGameplay = false, multiplayerEnabled = false, playerSelectionEnabled = false,
+            firstPersonVerified = false, alternateFormVerified = false, sourceMotionRetargetVerified = false, devicePerformanceVerified = false,
+            sourceAncs = spec.AlternateForm != null && part.Id == "ball" ? part.Ancs : spec.Ancs,
+            sourceCmdl = refs.Cmdl, sourceCskr = refs.Cskr, sourceCinf = refs.Cinf,
+            sourceAncsSha256 = Sha(ancs), sourceCmdlSha256 = Sha(cmdl), sourceCskrSha256 = Sha(cskr), sourceCinfSha256 = Sha(cinf),
+            sourceAnimationArchiveSha256 = Sha(archive), sourceGlbSha256 = Sha(geometry),
+            sourcePositionCount = model.PositionCount, sourceTriangleCount = model.TriangleCount,
+            sourceMaterialCount = model.Materials.Length, sourceBoneCount = skeleton.Bones.Count,
+            sourceMaterialTriangleCounts = Enumerable.Range(0, model.Materials.Length).Select(m => model.TriangleMaterial.Count(v => v == m)).ToArray()
+        });
+    }
+
 }

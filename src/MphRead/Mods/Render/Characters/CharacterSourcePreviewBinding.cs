@@ -19,9 +19,18 @@ internal sealed class CharacterSourcePreviewBinding
  private CharacterSourceClip? _clip;
  internal CharacterSourceClip? SelectedSourceClip => _clip;
  private Matrix4[]? _pose;
+ internal Vector3 DiagnosticRootDisplacement { get; private set; }
+ private static Vector3 RootDisplacement(CharacterWeightedRenderModel model,IReadOnlyList<Matrix4> pose)
+ {
+  var rig=model.SourceRig!;
+  for(int i=0;i<rig.Nodes.Count;i++)
+   if(rig.Nodes[i].Parent<0&&rig.Nodes[i].Name=="source_bone_0_root")
+    return pose[i].Row3.Xyz-rig.Nodes[i].Local.Row3.Xyz;
+  return Vector3.Zero;
+ }
  private bool _released;
- private CharacterSourcePreviewBinding(Scene scene,Hunter hunter,Model nativeModel,CharacterModelPack pack,PrivateCharacterAppearance appearance,string? sourceMaterialAnchor=null,CharacterModelPart part=CharacterModelPart.Biped)
- {(_scene,_hunter,_nativeModel,_pack,_appearance)=(scene,hunter,nativeModel,pack,appearance);_part=part;_instance=new(sourceMaterialAnchor,part);}
+ private CharacterSourcePreviewBinding(Scene scene,Hunter hunter,Model nativeModel,CharacterModelPack pack,PrivateCharacterAppearance appearance,string? sourceMaterialAnchor=null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null)
+ {(_scene,_hunter,_nativeModel,_pack,_appearance)=(scene,hunter,nativeModel,pack,appearance);_part=part;_instance=new(sourceMaterialAnchor,part,stageOwner);}
  internal static bool TryCreate(Scene scene,Hunter hunter,Model nativeModel,CharacterModelPack pack,
   PrivateCharacterAppearance appearance,IReadOnlyList<Matrix4>? pose,out CharacterSourcePreviewBinding binding)
  {
@@ -32,9 +41,9 @@ internal sealed class CharacterSourcePreviewBinding
  // Explicit private source-material mode. A name selects an existing native draw
  // anchor; provenance and complete source identity are still verified by runtime.
  internal static bool TryCreateWithSourceMaterials(Scene scene,Hunter hunter,Model nativeModel,CharacterModelPack pack,
-  PrivateCharacterAppearance appearance,string nativeMaterialAnchor,out CharacterSourcePreviewBinding binding)
+  PrivateCharacterAppearance appearance,string nativeMaterialAnchor,out CharacterSourcePreviewBinding binding,object? stageOwner=null)
  {
-  binding=new(scene,hunter,nativeModel,pack,appearance,nativeMaterialAnchor);
+  binding=new(scene,hunter,nativeModel,pack,appearance,nativeMaterialAnchor,stageOwner:stageOwner);
   if(!string.IsNullOrWhiteSpace(nativeMaterialAnchor)&&binding.TrySetPose(null))return true;
   binding.Release();binding=null!;return false;
  }
@@ -56,13 +65,13 @@ internal sealed class CharacterSourcePreviewBinding
  internal bool TrySelectSourceClip(int ordinal)
  {
   if(_part!=CharacterModelPart.Biped||!TryResolve(out var model)||!CharacterModelRuntime.TryLoadSourceClip(_scene,_instance,model,ordinal,out var clip))return false;
-  try{var pose=clip.Sample(0).ToArray();model.UpdateSourcePreviewPalette(pose);_pose=pose;_clip=clip;return true;}
+  try{var pose=clip.Sample(0).ToArray();model.UpdateSourcePreviewPalette(pose);_pose=pose;_clip=clip;DiagnosticRootDisplacement=RootDisplacement(model,pose);return true;}
   catch(Exception e)when(e is InvalidDataException or InvalidOperationException or ArgumentException){return false;}
  }
  internal bool TrySetSourceTime(double seconds)
  {
   if(_part!=CharacterModelPart.Biped||_clip==null||!TryResolve(out var model)||!CharacterModelRuntime.IsSourceClipCurrent(_scene,_instance,model,_clip))return false;
-  try{var pose=_clip.Sample(seconds).ToArray();model.UpdateSourcePreviewPalette(pose);_pose=pose;return true;}
+  try{var pose=_clip.Sample(seconds).ToArray();model.UpdateSourcePreviewPalette(pose);_pose=pose;DiagnosticRootDisplacement=RootDisplacement(model,pose);return true;}
   catch(Exception e)when(e is InvalidDataException or InvalidOperationException or ArgumentException){return false;}
  }
  internal bool TrySetPose(IReadOnlyList<Matrix4>? pose)
@@ -72,7 +81,7 @@ internal sealed class CharacterSourcePreviewBinding
   // replacing the previous binding pose; draw-only input cannot change later.
   var captured=pose?.ToArray();
   if(!TryResolve(out var model))return false;
-  try{model.UpdateSourcePreviewPalette(captured);_pose=captured;_clip=null;return true;}
+  try{model.UpdateSourcePreviewPalette(captured);_pose=captured;_clip=null;DiagnosticRootDisplacement=captured==null?Vector3.Zero:RootDisplacement(model,captured);return true;}
   catch(Exception e)when(e is InvalidDataException or InvalidOperationException or ArgumentException){return false;}
  }
  private bool TryResolve(out CharacterWeightedRenderModel model)
@@ -89,5 +98,5 @@ internal sealed class CharacterSourcePreviewBinding
   try{model.UpdateSourcePreviewPalette(_pose);return true;}
   catch(Exception e)when(e is InvalidDataException or InvalidOperationException or ArgumentException){model=null!;return false;}
  }
- internal void Release(){if(_released)return;_released=true;CharacterModelRuntime.ReleaseSourcePreview(_scene,_instance);_pose=null;_clip=null;}
+ internal void Release(){if(_released)return;_released=true;CharacterModelRuntime.ReleaseSourcePreview(_scene,_instance);_pose=null;_clip=null;DiagnosticRootDisplacement=Vector3.Zero;}
 }

@@ -135,7 +135,7 @@ public static partial class RetroCharacterPreviewExporter
                 {
                     string name = spec.Id + ".parts.json";
                     string path = Path.Combine(staging, name);
-                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, 3, false,
+                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, 4, false,
                         parts.ToArray(), new[] { "source-materials", "first-person", "runtime-animation-and-morph" });
                     File.WriteAllText(path, JsonSerializer.Serialize(index));
                     staged.Add((path, Path.Combine(root, name)));
@@ -154,7 +154,8 @@ public static partial class RetroCharacterPreviewExporter
                     cancellation.ThrowIfCancellationRequested();
                     var parts = new Dictionary<string, byte[]>(StringComparer.Ordinal);
                     long total = 0;
-                    foreach (var file in staged.Where(x => Path.GetFileName(x.Temp).StartsWith(spec.Id + ".", StringComparison.Ordinal)))
+                    foreach (var file in staged.Where(x => Path.GetFileName(x.Temp).StartsWith(spec.Id + ".", StringComparison.Ordinal)
+                        || spec.Id == "darksamus-echoes" && Path.GetFileName(x.Temp) == "characters.json"))
                     {
                         cancellation.ThrowIfCancellationRequested();
                         long length = new FileInfo(file.Temp).Length;

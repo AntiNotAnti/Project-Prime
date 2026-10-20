@@ -14,6 +14,7 @@ internal static partial class RmlUiOpenGlSmoke
 {
     private static NativeFullSettingsPage? _fullSettings;
     private static NativeHudEditorPage? _hudEditor;
+    private static NativeCharacterSourcePreviewPage? _characterSourcePreview;
     private static bool _settingsReturnToPause, _hudPointerHeld;
 
     internal static bool OpenNativeCreateLobby()
@@ -49,6 +50,8 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static bool HandleFullSettings(in RmlUiIntent intent)
     {
+        if (_characterSourcePreview is { } source)
+        { source.Handle(intent); TickFullSettings(); return true; }
         if (_hudEditor is { } hud)
         {
             hud.Handle(intent); TickFullSettings(); return true;
@@ -63,6 +66,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static bool PrepareFullSettingsNavigation()
     {
+        if (_characterSourcePreview != null) { _characterSourcePreview.Back(); return false; }
         if (_hudEditor != null) { _hudEditor.Back(); return false; }
         return _fullSettings?.PrepareNavigation() ?? true;
     }
@@ -70,6 +74,12 @@ internal static partial class RmlUiOpenGlSmoke
     private static void TickFullSettings()
     {
         if (_fullSettings is not { } settings) return;
+        if (_characterSourcePreview is { } source)
+        {
+            source.Tick();
+            if (source.Closed) { _characterSourcePreview = null; source.Dispose(); settings.ResumeView(); }
+            return;
+        }
         if (_hudEditor is { } hud)
         {
             RefreshHudCanvas(hud);
@@ -93,6 +103,13 @@ internal static partial class RmlUiOpenGlSmoke
             try { next.Open(); _hudEditor = next; }
             catch { next.Dispose(); settings.ResumeView(); throw; }
         }
+        else if (settings.TryTakeCharacterSourcePreview(out string sourceId))
+        {
+            settings.SuspendView();
+            var next = new NativeCharacterSourcePreviewPage(_host!, _pages!, sourceId, settings.AsModal);
+            try { next.Open(); _characterSourcePreview = next; }
+            catch { next.Dispose(); settings.ResumeView(); throw; }
+        }
         else if (settings.TryTakeArenaImport()) StartNativeArenaPicker(settings);
         else if (settings.TryTakeGameFiles())
         {
@@ -108,6 +125,8 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void CloseFullSettings()
     {
+        var source = _characterSourcePreview; _characterSourcePreview = null;
+        source?.Dispose();
         var hud = _hudEditor; _hudEditor = null; _hudPointerHeld = false;
         var settings = _fullSettings; _fullSettings = null; _settingsReturnToPause = false;
         RetireNativeArenaPicker();
@@ -118,6 +137,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static bool BackFullSettings()
     {
+        if (_characterSourcePreview is { OwnsForeground: true }) { _characterSourcePreview.Back(); TickFullSettings(); return true; }
         if (_hudEditor is { OwnsForeground: true }) { _hudEditor.Back(); TickFullSettings(); return true; }
         if (_fullSettings is not { } settings || !(settings.OwnsForeground || settings.VisualEditorOpen)) return false;
         settings.Back(); TickFullSettings(); return true;

@@ -150,3 +150,7 @@ source-rig, lease and palette owners. Second Hunt reference
 `Import/Bodies/BodyImporter.cs`, `Campaign/NativeBody.cs`, `DarkSamusBody.cs` and
 `BodyArmCannon.cs`, supplies the source behavior reference. Its renderer and
 network authority are not transplanted.
+
+PR850 merged at `a9f4bbcd404c232f62a46bdc154afe3fdc12769a`. Concurrent
+CW-05k/l/m changes are outside the frozen2c7926792 whole-binary proof; the
+animation/importer/character ownership closure is unchanged at merge.

@@ -36,7 +36,11 @@ namespace MphRead.Mods.Render.Characters
         uint[] Indices,
         CharacterEmbeddedAlbedo? Albedo = null,
         CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false, int[]? JointPalette = null)
-    { internal int SourcePrimitiveOrdinal { get; init; } = -1; }
+    {
+        internal int SourcePrimitiveOrdinal { get; init; } = -1;
+        internal int SourceMaterialOrdinal { get; init; } = -1;
+        internal int[]? SourceTriangleIds { get; init; }
+    }
 
     internal sealed record CharacterWeightedJoint(
         string SourceNode,
@@ -172,7 +176,8 @@ namespace MphRead.Mods.Render.Characters
 
                 var primitives = new List<CharacterWeightedPrimitive>();
                 int totalVertices = 0;
-                int totalIndices = 0, totalDrawVertices = 0, totalDrawIndices = 0;
+                int totalIndices = 0, totalDrawVertices = 0, totalDrawIndices = 0, sourcePrimitiveOrdinal = 0;
+                var sourceTriangleIds = new HashSet<int>();
                 foreach (JsonElement node in skinnedNodes)
                 {
                     int meshIndex = node.GetProperty("mesh").GetInt32();
@@ -262,8 +267,26 @@ namespace MphRead.Mods.Render.Characters
                             maps = CharacterEmbeddedMaterialLoader.ReadMaterialMaps(root, materials, views, binary, materialIndex, albedo);
                             materialMaps.Add(materialIndex, maps);
                         }
+                        int[]? triangleIds = null;
+                        if (sourcePreview && primitive.TryGetProperty("extras", out var sourceExtras)
+                            && sourceExtras.TryGetProperty("sourceTriangleIds", out var ids))
+                        {
+                            if (ids.ValueKind != JsonValueKind.Array || ids.GetArrayLength() != indices.Length / 3
+                                || !sourceExtras.TryGetProperty("sourceMaterialOrdinal", out var ordinal)
+                                || ordinal.ValueKind != JsonValueKind.Number || !ordinal.TryGetInt32(out int originalMaterial) || originalMaterial != materialIndex)
+                                throw new InvalidDataException("Generated source primitive identity differs from its material/triangles.");
+                            triangleIds = new int[ids.GetArrayLength()]; int at = 0;
+                            foreach (var id in ids.EnumerateArray())
+                            {
+                                if (!id.TryGetInt32(out int original) || original < 0 || original >= MaximumIndices / 3 || !sourceTriangleIds.Add(original))
+                                    throw new InvalidDataException("Generated source triangle identity is invalid or duplicated.");
+                                triangleIds[at++] = original;
+                            }
+                        }
                         var decoded = new CharacterWeightedPrimitive(materialName, vertices, indices, albedo, maps,
-                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex));
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex))
+                        { SourcePrimitiveOrdinal = sourcePreview ? sourcePrimitiveOrdinal++ : -1,
+                            SourceMaterialOrdinal = sourcePreview ? materialIndex : -1, SourceTriangleIds = triangleIds };
                         if (sourcePreview)
                         {
                             var batches = CharacterSourceBatches.Partition(decoded, jointIndices);

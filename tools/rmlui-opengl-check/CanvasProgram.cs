@@ -6,6 +6,13 @@ internal static class CanvasProgram
 {
     private static int Main(string[] args)
     {
+        if (args.Length == 4 && args[1] == "--character-source-owned")
+        {
+            string[] size = args[3].Split('x');
+            if (size.Length != 2 || !int.TryParse(size[0], out int w) || !int.TryParse(size[1], out int h)
+                || w is < 320 or > 4096 || h is < 240 or > 4096) throw new ArgumentException("Invalid source preview viewport.");
+            return CharacterSourceGlAcceptance.Run(Path.GetFullPath(args[0]), Path.GetFullPath(args[2]), w, h);
+        }
         if (args.Length is < 1 or > 4) throw new ArgumentException("Pass runtime RmlUi assets and optional WIDTHxHEIGHT, --draw-list, --credits [WIDTHxHEIGHT], or --credits-owned OWNED_ROOT [WIDTHxHEIGHT].");
         if (args.Length == 2 && args[1] == "--draw-list") return CanvasDrawListAcceptance.Run(Path.GetFullPath(args[0]));
         bool legacy = args.Length >= 2 && args[1] == "--ending-legacy";
