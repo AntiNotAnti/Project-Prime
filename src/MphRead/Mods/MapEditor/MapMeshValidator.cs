@@ -34,8 +34,18 @@ public static class MapMeshValidator
             Vector3 Point(int i)=>new(mesh.Vertices[i][0],mesh.Vertices[i][1],mesh.Vertices[i][2]);
             Vector3 normal=Vector3.Zero;
             for(int c=0;c<face.Length;c++)normal+=Vector3.Cross(Point(face[c]),Point(face[(c+1)%face.Length]));
-            if(normal.LengthSquared()<1e-12f){result.Add(new(MapDiagnosticSeverity.Error,$"Face {f} has zero area.",Face:f));continue;}
-            normal=Vector3.Normalize(normal);
+            if (MapSourceVisualTriangle.Applies(mesh, face.Length))
+            {
+                OpenTK.Mathematics.Vector3 SourcePoint(int i) => new(mesh.Vertices[i][0],mesh.Vertices[i][1],mesh.Vertices[i][2]);
+                if (!MapSourceVisualTriangle.TryNormal(SourcePoint(face[0]),SourcePoint(face[1]),SourcePoint(face[2]),out var sourceNormal))
+                {result.Add(new(MapDiagnosticSeverity.Error,$"Face {f} has zero area.",Face:f));continue;}
+                normal=new(sourceNormal.X,sourceNormal.Y,sourceNormal.Z);
+            }
+            else
+            {
+                if(normal.LengthSquared()<1e-12f){result.Add(new(MapDiagnosticSeverity.Error,$"Face {f} has zero area.",Face:f));continue;}
+                normal=Vector3.Normalize(normal);
+            }
             if(face.Any(i=>MathF.Abs(Vector3.Dot(Point(i)-Point(face[0]),normal))>.001f))result.Add(new(MapDiagnosticSeverity.Warning,$"Face {f} is not planar; triangulate it.",Face:f));
             int drop=MathF.Abs(normal.X)>MathF.Abs(normal.Y)?0:1;if(MathF.Abs(normal.Z)>MathF.Abs(normal[drop]))drop=2;
             Vector2 Project(int i){var p=Point(i);return drop==0?new(p.Y,p.Z):drop==1?new(p.X,p.Z):new(p.X,p.Y);}

@@ -34,6 +34,7 @@ public static partial class MapMeshEditing
 
     public static int[] SplitEdge(MapMesh mesh, MapEdge edge, float percentage=.5f, int cuts=1)
     {
+        RequireEditableSourceChannels(mesh);
         RequireVertex(mesh,edge.A);RequireVertex(mesh,edge.B);
         if(!float.IsFinite(percentage)||percentage<=0||percentage>=1||cuts<1||cuts>64)throw new ArgumentOutOfRangeException(nameof(percentage));
         var uses=new MapMeshTopology(mesh).Uses(edge);
@@ -60,6 +61,7 @@ public static partial class MapMeshEditing
     }
     public static void DissolveEdge(MapMesh mesh, MapEdge edge)
     {
+        RequireEditableSourceChannels(mesh);
         EnsureChannels(mesh);var uses=new MapMeshTopology(mesh).Uses(edge);
         if(uses.Count!=2 || uses[0].From==uses[1].From)throw new InvalidOperationException("Dissolve requires two consistently wound adjacent faces.");
         var first=uses[0];var second=uses[1];
@@ -77,6 +79,7 @@ public static partial class MapMeshEditing
     }
     public static void MergeVertices(MapMesh mesh, IEnumerable<int> vertices, string target="Center", Vector3? cursor=null)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected=vertices.Distinct().ToArray();if(selected.Length<2)throw new InvalidOperationException("Select at least two vertices.");
         foreach(int i in selected)RequireVertex(mesh,i);EnsureChannels(mesh);
         int keep=target=="Last"?selected[^1]:selected[0];
@@ -99,11 +102,13 @@ public static partial class MapMeshEditing
     }
     public static void CollapseEdge(MapMesh mesh, MapEdge edge, string target="Center", Vector3? cursor=null)
     {
+        RequireEditableSourceChannels(mesh);
         if(new MapMeshTopology(mesh).Uses(edge).Count==0)throw new InvalidOperationException("Select an existing edge.");
         MergeVertices(mesh,new[]{edge.A,edge.B},target,cursor);
     }
     public static void MergeByDistance(MapMesh mesh, IEnumerable<int> vertices, float distance)
     {
+        RequireEditableSourceChannels(mesh);
         if(!float.IsFinite(distance)||distance<=0)throw new ArgumentOutOfRangeException(nameof(distance));
         // Merge groups in one remap, retaining original indices until all groups have been processed.
         int[] selected=vertices.Distinct().Order().ToArray();foreach(int i in selected)RequireVertex(mesh,i);
@@ -129,6 +134,7 @@ public static partial class MapMeshEditing
     }
     public static void ConnectVertices(MapMesh mesh, int a, int b)
     {
+        RequireEditableSourceChannels(mesh);
         RequireVertex(mesh,a);RequireVertex(mesh,b);EnsureChannels(mesh);
         int face=mesh.Faces.FindIndex(f=>f.Contains(a)&&f.Contains(b));
         if(face<0)throw new InvalidOperationException("Vertices must share a face.");
@@ -142,6 +148,7 @@ public static partial class MapMeshEditing
     }
     public static int RipVertex(MapMesh mesh,int vertex,int face)
     {
+        RequireEditableSourceChannels(mesh);
         RequireVertex(mesh,vertex);RequireFace(mesh,face);int corner=Array.IndexOf(mesh.Faces[face],vertex);
         if(corner<0)throw new InvalidOperationException("The active face does not contain the vertex.");
         int index=mesh.Vertices.Count;mesh.Vertices.Add((float[])mesh.Vertices[vertex].Clone());mesh.Faces[face][corner]=index;return index;
@@ -167,6 +174,7 @@ public static partial class MapMeshEditing
     }
     public static void ExtrudeRegion(MapMesh mesh,IEnumerable<int> faces,float distance)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected=Selection(mesh,faces);if(!float.IsFinite(distance)||MathF.Abs(distance)<1e-5f)throw new ArgumentOutOfRangeException(nameof(distance));
         var topology=new MapMeshTopology(mesh);var set=selected.ToHashSet();var normals=new Dictionary<int,Vector3>();
         foreach(int f in selected)foreach(int v in mesh.Faces[f])normals[v]=normals.GetValueOrDefault(v)+Normal(mesh,mesh.Faces[f]);
@@ -184,6 +192,7 @@ public static partial class MapMeshEditing
     }
     public static void InsetRegion(MapMesh mesh,IEnumerable<int> faces,float ratio)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected=Selection(mesh,faces);if(!float.IsFinite(ratio)||ratio<=0||ratio>=.95f)throw new ArgumentOutOfRangeException(nameof(ratio));
         var topology=new MapMeshTopology(mesh);var set=selected.ToHashSet();var pending=set.ToHashSet();
         while(pending.Count>0)
@@ -203,6 +212,7 @@ public static partial class MapMeshEditing
     }
     public static void BevelEdge(MapMesh mesh,MapEdge edge,float width,int segments=1,int? material=null)
     {
+        RequireEditableSourceChannels(mesh);
         if(!float.IsFinite(width)||width<=0||segments<1||segments>8)throw new ArgumentOutOfRangeException(nameof(width));
         EnsureChannels(mesh);var topology=new MapMeshTopology(mesh);var uses=topology.Uses(edge);
         if(uses.Count!=2||uses[0].From==uses[1].From)throw new InvalidOperationException("Bevel requires a manifold edge with consistent winding.");
@@ -254,15 +264,17 @@ public static partial class MapMeshEditing
     }
     public static MapMesh DuplicateFaces(MapMesh mesh,IEnumerable<int> faces)
     {
+        RequireEditableSourceChannels(mesh);
         int[] selected=Selection(mesh,faces);var copy=Clone(mesh);copy.Id=Guid.NewGuid();copy.Label=mesh.Label+" Selection";
         copy.Faces=selected.Select(f=>(int[])mesh.Faces[f].Clone()).ToList();copy.FaceMaterials=selected.Select(f=>Material(mesh,f)).ToList();copy.FaceTexcoords=selected.Select(f=>CloneUv(mesh.FaceTexcoords[f])).ToList();
         copy.FaceUv=selected.Select((f,i)=>(f,i)).Where(x=>mesh.FaceUv.ContainsKey(x.f)).ToDictionary(x=>x.i,x=>mesh.FaceUv[x.f]);Compact(copy);return copy;
     }
     public static MapMesh Separate(MapMesh mesh,IEnumerable<int> faces)
-    {var selected=Selection(mesh,faces);var copy=DuplicateFaces(mesh,selected);RemoveFaces(mesh,selected);Compact(mesh);return copy;}
+    {RequireEditableSourceChannels(mesh);var selected=Selection(mesh,faces);var copy=DuplicateFaces(mesh,selected);RemoveFaces(mesh,selected);Compact(mesh);return copy;}
     public static MapMesh Join(IEnumerable<MapMesh> meshes,float texScale=16)
     {
         var sources=meshes.ToArray();if(sources.Length==0)throw new InvalidOperationException("Select meshes first.");
+        foreach (var source in sources) RequireEditableSourceChannels(source);
         var result=Clone(sources[0]);result.Transform=new();result.Uv=new();result.FaceUv.Clear();result.Vertices.Clear();result.Faces.Clear();result.FaceMaterials.Clear();result.FaceTexcoords.Clear();
         foreach(var source in sources)
         {
@@ -276,6 +288,7 @@ public static partial class MapMeshEditing
     }
     public static void Fill(MapMesh mesh,IEnumerable<MapEdge> edges)
     {
+        RequireEditableSourceChannels(mesh);
         EnsureChannels(mesh);var selected=edges.ToHashSet();var loops=new MapMeshTopology(mesh).OpenBoundaries().Where(loop=>Enumerable.Range(0,loop.Length).All(i=>selected.Contains(new(loop[i],loop[(i+1)%loop.Length])))).ToArray();
         if(loops.Length==0)throw new InvalidOperationException("Select a complete, unbranched boundary loop.");
         foreach(var loop in loops)
@@ -288,6 +301,7 @@ public static partial class MapMeshEditing
     }
     public static void Triangulate(MapMesh mesh,IEnumerable<int> faces)
     {
+        RequireEditableSourceChannels(mesh);
         foreach(int f in Selection(mesh,faces).OrderDescending())
         {
             var ring=mesh.Faces[f];if(ring.Length==3)continue;var uv=mesh.FaceTexcoords[f];var projection=mesh.FaceUv.GetValueOrDefault(f);int material=Material(mesh,f);
@@ -311,6 +325,7 @@ public static partial class MapMeshEditing
     }
     public static void RecalculateWinding(MapMesh mesh)
     {
+        RequireEditableSourceChannels(mesh);
         var topology=new MapMeshTopology(mesh);var flip=new Dictionary<int,bool>();
         foreach(var island in topology.FaceIslands())
         {

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +14,7 @@ namespace MphRead.Mods.MapGen
     {
         // Bump when compiler output or build-relevant defaults change.
         public const int CurrentCompilerVersion = 10;
+        public const int SourceGeometryCompilerVersion = 11;
 
         public static MapBuildFingerprint Create(MapDefinition definition)
         {
@@ -22,7 +24,7 @@ namespace MphRead.Mods.MapGen
             var dependencies = MapDependencyAnalyzer.Analyze(definition);
             string Select(string kind) => HashText(JsonSerializer.Serialize(
                 System.Linq.Enumerable.Where(dependencies, d => d.Kind == kind)));
-            return new(CurrentCompilerVersion, definition.FormatVersion, recipe,
+            return new(definition.HasSourceGeometry ? SourceGeometryCompilerVersion : CurrentCompilerVersion, definition.FormatVersion, recipe,
                 Select("source"), Select("textures"), HashText(JsonSerializer.Serialize(dependencies)));
         }
 
@@ -55,7 +57,7 @@ namespace MphRead.Mods.MapGen
             {
                 var manifest = JsonSerializer.Deserialize<MapBuildManifest>(File.ReadAllText(outputs.Manifest));
                 if (manifest?.Fingerprint != MapBuildFingerprint.Create(definition)
-                    || manifest.OutputHashes?.Length != 5) return false;
+                    || manifest.OutputHashes?.Length != outputs.Files.Count()) return false;
                 int index = 0;
                 foreach (string file in outputs.Files)
                 {

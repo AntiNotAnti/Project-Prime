@@ -46,6 +46,8 @@ public static class MapStudioResourceCommands
         var ids=MapObjects.All(document.Project.Definition).Where(o=>document.Selection.Contains(o.Id)
             &&o.Value is MapBrush or MapGeometry{Locked:false}).Select(o=>o.Id).ToArray();
         if(ids.Length==0)return false;
+        foreach (var mesh in document.Project.Definition.Geometry.OfType<MapMesh>().Where(mesh => ids.Contains(mesh.Id)))
+            MapMeshEditing.RequireEditableSourceChannels(mesh);
         document.EditObjects("Assign material",ids,d=>{
             foreach(var geometry in d.Geometry){geometry.Material=material;if(geometry is MapMesh mesh)for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=material;}
             foreach(var brush in d.Brushes)brush.Material=material;

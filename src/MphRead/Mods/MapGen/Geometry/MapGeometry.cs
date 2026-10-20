@@ -71,6 +71,13 @@ namespace MphRead.Mods.MapGen
         public List<float[]> ControlPoints { get; set; } = new();
     }
 
+    public sealed class MapSourceUvFace
+    {
+        public string Contract { get; set; } = Import.EchoesWorldGeometrySource.CoordinateContract;
+        public float[][] Base { get; set; } = Array.Empty<float[]>();
+        public float[][] Lightmap { get; set; } = Array.Empty<float[]>();
+    }
+
     /// <summary>
     /// General authored polygon mesh. Unlike ConvexBrush this may be open or
     /// concave; each face is compiled independently. FaceMaterials is optional
@@ -93,5 +100,7 @@ namespace MphRead.Mods.MapGen
         /// vertex. Null entries use MapUv projection instead.
         /// </summary>
         public List<float[][]?> FaceTexcoords { get; set; } = new();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<MapSourceUvFace?>? SourceUvFaces { get; set; }
     }
 }

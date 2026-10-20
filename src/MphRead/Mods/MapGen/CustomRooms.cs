@@ -245,7 +245,8 @@ namespace MphRead.Mods.MapGen
                 // is how the camera ends up stuck behind a wall
                 multiplayer: true) { MaterialMapId = def.MapId,
                     AuthoredMaterials = def.Materials.Select(m => (m.Id, m.Name)).ToArray(),
-                    SourceBankMaterials = Mods.Render.Materials.SourceBankMaterialSnapshot.Capture(def) };
+                    SourceBankMaterials = Mods.Render.Materials.SourceBankMaterialSnapshot.Capture(def),
+                    SourceGeometry = MapSourceGeometryReadSpec.Capture(def, RuntimePath(prefix)) };
         }
 
         private static ColorRgb ToColor(int[] values)

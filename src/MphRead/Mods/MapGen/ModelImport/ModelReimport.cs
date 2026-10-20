@@ -47,10 +47,19 @@ public static class ModelReimport
     private static int FaceMaterial(MapMesh mesh, int index) => index < mesh.FaceMaterials.Count ? mesh.FaceMaterials[index] : mesh.Material;
     private static string FaceUvHash(MapMesh mesh, int index) => Hash(index < mesh.FaceTexcoords.Count ? mesh.FaceTexcoords[index] : null!);
 
+    internal static void RequireWritableSourceMeshes(MapDefinition definition, ImportedModel imported, MapModelSource? previous)
+    {
+        if (imported.Meshes.Any(mesh => mesh.SourceUvFaces != null)
+            || previous != null && definition.Geometry.OfType<MapMesh>().Any(mesh => mesh.SourceUvFaces != null
+                && previous.Objects.Any(item => item.Id == mesh.Id)))
+            throw new InvalidOperationException("Source-coordinate meshes cannot be replaced by model import or reimport.");
+    }
+
     public static MapModelSource Apply(MapDefinition definition, ImportedModel imported, string path,
         string sourceHash, ModelImportSettings settings, Guid? sourceId = null)
     {
         var previous = sourceId.HasValue ? definition.ModelSources.Single(s => s.Id == sourceId) : null;
+        RequireWritableSourceMeshes(definition, imported, previous);
         string normalized = NormalizedHash(imported);
         if (previous != null && previous.NormalizedHash == normalized && previous.Source == path && previous.Settings == settings && previous.SourceHash == sourceHash)
             return previous;

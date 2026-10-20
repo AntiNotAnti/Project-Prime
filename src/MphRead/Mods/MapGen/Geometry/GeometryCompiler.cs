@@ -85,8 +85,16 @@ namespace MphRead.Mods.MapGen
                 Vector3[] points = indices[faceIndex].Select(i => vertices[i]).ToArray();
                 Vector3 normal = Vector3.Zero;
                 for (int i = 0; i < points.Length; i++) normal += Vector3.Cross(points[i]-points[0], points[(i+1)%points.Length]-points[0]);
-                if (normal.LengthSquared < 1e-10f) throw new MapAuthoringException("FP-MAP-013", "Degenerate geometry face.");
-                normal.Normalize();
+                if (geometry is MapMesh sourceTriangle && MapSourceVisualTriangle.Applies(sourceTriangle, points.Length))
+                {
+                    if (!MapSourceVisualTriangle.TryNormal(points[0], points[1], points[2], out normal))
+                        throw new MapAuthoringException("FP-MAP-013", "Degenerate source visual triangle.");
+                }
+                else
+                {
+                    if (normal.LengthSquared < 1e-10f) throw new MapAuthoringException("FP-MAP-013", "Degenerate geometry face.");
+                    normal.Normalize();
+                }
                 // Primitive/convex geometry is authored as a closed volume and
                 // can be oriented outward from its center. General MapMesh
                 // geometry may be open or concave, so its face winding is
@@ -100,8 +108,28 @@ namespace MphRead.Mods.MapGen
                 if (geometry is MapConvexBrush && (vertices.Any(p => Vector3.Dot(normal, p-points[0]) > .001)
                     || points.Any(p => Math.Abs(Vector3.Dot(normal, p-points[0])) > .001)))
                     throw new MapAuthoringException("FP-MAP-013", "Brush faces must be planar and convex.");
+                MapSourceUvSnapshot? sourceUv = null;
+                if (geometry is MapMesh { SourceUvFaces: { } sourceFaces } sourceMesh)
+                {
+                    if (sourceFaces.Count != indices.Count || sourceMesh.CollisionOnly
+                        || sourceMesh.FaceTexcoords?.Count > 0 || sourceMesh.FaceUv?.Count > 0)
+                        throw new MapAuthoringException("FP-MAP-SOURCE-UV", "Source coordinates require exactly one nullable entry per visible mesh face and no legacy UV overrides.");
+                    if (sourceFaces[faceIndex] is { } pair)
+                    {
+                        static bool Valid(float[][]? values, int count) => values?.Length == count
+                            && values.All(value => value?.Length == 2 && value.All(float.IsFinite));
+                        if (pair.Contract != Import.EchoesWorldGeometrySource.CoordinateContract
+                            || !Valid(pair.Base, points.Length) || !Valid(pair.Lightmap, points.Length))
+                            throw new MapAuthoringException("FP-MAP-SOURCE-UV", "Source coordinates require the supported contract and two finite float pairs per face corner.");
+                        sourceUv = new MapSourceUvSnapshot(pair.Contract,
+                            pair.Base.Select(v => new Vector2(v[0], v[1])).ToArray(),
+                            pair.Lightmap.Select(v => new Vector2(v[0], v[1])).ToArray());
+                    }
+                }
                 Vector2[] coords;
-                if (geometry.QuakeFaces is { } quakeFaces)
+                if (geometry is MapMesh { SourceUvFaces: not null })
+                    coords = new Vector2[points.Length]; // Native fallback has no source texture binding.
+                else if (geometry.QuakeFaces is { } quakeFaces)
                 {
                     MapQuakeFace source = quakeFaces[faceIndex];
                     try
@@ -153,7 +181,7 @@ namespace MphRead.Mods.MapGen
                     && faceIndex < mesh.FaceMaterials.Count)
                     material = mesh.FaceMaterials[faceIndex];
                 result.Add(new BuiltFace(points,coords,normal,material + materialOffset,geometry.Shade * (.7f+.3f*Math.Max(0,normal.Y)))
-                { Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
+                { SourceUv = sourceUv, Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
                     ReflectBeams = (geometry as MapMesh)?.ReflectBeams ?? false,
                     IgnorePlayers = (geometry as MapMesh)?.IgnorePlayers ?? false,
                     IgnoreBeams = (geometry as MapMesh)?.IgnoreBeams ?? false,

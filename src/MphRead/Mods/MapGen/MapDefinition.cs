@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -32,7 +33,10 @@ namespace MphRead.Mods.MapGen
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? LocalSourceFingerprint { get; set; }
         [JsonIgnore]
+        public bool HasSourceGeometry => Geometry?.OfType<MapMesh>().Any(mesh => mesh?.SourceUvFaces != null) == true;
+        [JsonIgnore]
         public bool RequiresPrivateSource => LocalSourceOnly || LocalSourceFingerprint != null
+            || HasSourceGeometry
             || Materials?.Exists(material => material?.AlbedoBank != null) == true
             || Assets?.Exists(asset => asset?.Kind == "source-texture-bank") == true;
         public string? Author { get; set; }

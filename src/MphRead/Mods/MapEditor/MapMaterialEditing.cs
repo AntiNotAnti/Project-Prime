@@ -32,6 +32,9 @@ public static class MapMaterialEditing
     public static void Replace(MapDefinition definition, int source, int target)
     {
         if (source < 0 || source >= definition.Materials.Count || target < 0 || target >= definition.Materials.Count) throw new ArgumentOutOfRangeException();
+        if (source != target)
+            foreach (var mesh in definition.Geometry.OfType<MapMesh>().Where(mesh => mesh.Material == source || mesh.FaceMaterials.Contains(source)))
+                MapMeshEditing.RequireEditableSourceChannels(mesh);
         Remap(definition, i => i == source ? target : i);
     }
     public static void DeleteUnused(MapDefinition definition, int material)

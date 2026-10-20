@@ -29,7 +29,7 @@ namespace MphRead.Mods.MapGen
                 else if (snapshot.Import == null) map = MapBuilder.Build(snapshot, cancellation);
                 else lock (ContentReadLock) map = Q3Import.Build(snapshot, false, cancellation);
                 MapPacker.ApplyCollision(map, snapshot, verbose: false);
-                map.SourceDefinition = definition;
+                map.SourceDefinition = definition.HasSourceGeometry ? MapProjectSerializer.Clone(snapshot) : definition;
                 cancellation.ThrowIfCancellationRequested();
                 MapBudgetValidator.Analyze(map, result);
                 // Keep successfully compiled geometry available to editor

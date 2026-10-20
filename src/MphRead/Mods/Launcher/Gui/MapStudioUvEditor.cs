@@ -43,7 +43,7 @@ internal sealed partial class MapStudioScreen
         });
         void EditUv(string label, Action<MapMesh> action)
         {
-            try { _document.EditObjects(label, new[] { id }, d => action((MapMesh)MapObjects.Find(d,id)!.Value)); }
+            try { MapMeshEditing.RequireEditableSourceChannels(mesh); _document.EditObjects(label, new[] { id }, d => action((MapMesh)MapObjects.Find(d,id)!.Value)); }
             catch (Exception ex) { Failure(ex); }
         }
         AddButton(panel, "Fit UV to 64 × 64", () => EditUv("Fit UV", m => MapMeshEditing.FitUv(m,faces,texScale)));
@@ -76,9 +76,8 @@ internal sealed partial class MapStudioScreen
         AddButton(panel, "Flip U", () => Change("Flip U", new(-1, 1), Vector2.Zero, 0));
         AddButton(panel, "Flip V", () => Change("Flip V", new(1, -1), Vector2.Zero, 0));
         AddButton(panel, "Convert to explicit UV", () => Change("Explicit UV", Vector2.One, Vector2.Zero, 0));
-        AddButton(panel, "Reset to projected UV", () => _document.EditObjects("Projected UV", new[] { id }, d =>
+        AddButton(panel, "Reset to projected UV", () => EditUv("Projected UV", target =>
         {
-            var target = (MapMesh)MapObjects.Find(d, id)!.Value;
             foreach (int face in faces) if (face < target.FaceTexcoords.Count) target.FaceTexcoords[face] = null;
         }));
     }
