@@ -195,7 +195,7 @@ internal static class MapSourceGeometryOwnedProbe
             {
                 var mesh = new MapMesh { Id = Stable(definition.MapId.ToString("N") + "/material/" + group.Key + "/chunk/" + start),
                     Label = "Source visual material " + group.Key, Material = group.Key, Solid = false,
-                    SourceUvFaces = candidate ? new List<MapSourceUvFace?>() : null };
+                    SourceUvFaces = new List<MapSourceUvFace?>() };
                 var local = new Dictionary<int, int>();
                 foreach (int triangle in indices.Skip(start).Take(FacesPerMesh))
                 {
@@ -221,7 +221,7 @@ internal static class MapSourceGeometryOwnedProbe
                             Base = corners.Select(c => new[] { c.BaseU, c.BaseV }).ToArray(),
                             Lightmap = corners.Select(c => new[] { c.LightmapU, c.LightmapV }).ToArray() });
                     }
-                    else mesh.FaceTexcoords.Add(new[] { new float[2], new float[2], new float[2] });
+                    else mesh.SourceUvFaces!.Add(null);
                 }
                 definition.Geometry.Add(mesh);
             }

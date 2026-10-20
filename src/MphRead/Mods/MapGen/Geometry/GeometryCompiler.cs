@@ -85,8 +85,16 @@ namespace MphRead.Mods.MapGen
                 Vector3[] points = indices[faceIndex].Select(i => vertices[i]).ToArray();
                 Vector3 normal = Vector3.Zero;
                 for (int i = 0; i < points.Length; i++) normal += Vector3.Cross(points[i]-points[0], points[(i+1)%points.Length]-points[0]);
-                if (normal.LengthSquared < 1e-10f) throw new MapAuthoringException("FP-MAP-013", "Degenerate geometry face.");
-                normal.Normalize();
+                if (geometry is MapMesh sourceTriangle && MapSourceVisualTriangle.Applies(sourceTriangle, points.Length))
+                {
+                    if (!MapSourceVisualTriangle.TryNormal(points[0], points[1], points[2], out normal))
+                        throw new MapAuthoringException("FP-MAP-013", "Degenerate source visual triangle.");
+                }
+                else
+                {
+                    if (normal.LengthSquared < 1e-10f) throw new MapAuthoringException("FP-MAP-013", "Degenerate geometry face.");
+                    normal.Normalize();
+                }
                 // Primitive/convex geometry is authored as a closed volume and
                 // can be oriented outward from its center. General MapMesh
                 // geometry may be open or concave, so its face winding is
@@ -119,7 +127,7 @@ namespace MphRead.Mods.MapGen
                     }
                 }
                 Vector2[] coords;
-                if (sourceUv != null)
+                if (geometry is MapMesh { SourceUvFaces: not null })
                     coords = new Vector2[points.Length]; // Native fallback has no source texture binding.
                 else if (geometry.QuakeFaces is { } quakeFaces)
                 {

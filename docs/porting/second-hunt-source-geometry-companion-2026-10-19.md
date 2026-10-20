@@ -26,9 +26,15 @@ the coordinate field alone makes a map private even if outer flags are stripped.
 The initial profile requires a persistent map ID, authored visible meshes and
 unanimated procedural-white source materials with no active image/bank channels.
 Q3, native-room and model-source mixing is refused. A material cannot mix
-ordinary and source-coordinate visible faces. Existing collision and geometric
-validity checks remain in force; this format does not repair source geometry
-or infer playable collision. Nullable ordinary faces can use separate materials.
+ordinary and source-coordinate visible faces. Existing collision checks and ordinary geometric
+validity tolerances remain in force; this format does not repair source geometry
+or infer playable collision. Nullable unqualified faces can use separate materials; every declared source-profile
+face emits zero native UVs. For non-solid, non-collision source triangles only,
+normal calculation uses origin-relative double intermediates and requires finite,
+strictly positive area. It retains tiny source triangles without changing their
+positions, winding or UVs; exact collinear triangles are still refused. Ordinary,
+solid, collision-only and non-triangle tolerance rules remain unchanged. This
+computed normal is the native fallback's normal, not original source lighting.
 
 The packer collects pairs at the actual vertex emission call, after spatial
 partitioning, material ordering, fan expansion and vertex-budget splitting.
@@ -40,8 +46,8 @@ zero. A declared/built source-presence mismatch is refused.
 
 A source map adds `<prefix>_SourceGeometry.bin` as its sixth output. Ordinary
 maps retain the five-output record constructor/deconstructor, five manifest
-hashes and compiler version10. Source builds use compiler version11 and
-component profile1. All model/companion bytes are admitted before replacing any
+hashes and compiler version 10. Source builds use compiler version 11 and
+component profile 1. All model/companion bytes are admitted before replacing any
 output; the complete manifest is published last. Cache checks and installation
 include the conditional sixth file. Installation refuses mismatched source and
 destination output contracts before changing destination files.
@@ -54,8 +60,8 @@ The little-endian PPSG v1 layout is:
 | 96-byte sorted entry | Native display-list/material ID, emitted corner/triangle/quad counts, contiguous payload range, exact raw native command SHA256, coordinate payload SHA256 |
 | Payload | Four float32 values per emitted corner: BASE U/V and lightmap U/V |
 
-Limits are65535 entries,65000 corners per native list,1200000 source corners,
-64MiB per component and256MiB per bound native model. Authoring preflights the
+Limits are 65,535 entries, 65,000 corners per native list, 1,200,000 source corners,
+64 MiB per component and 256 MiB per bound native model. Authoring preflights the
 expanded source-corner budget. Encoding admits aggregate extents before output
 allocation, then copies and validates exactly the indexed values it writes.
 Decoding validates all ranges, counts, finite values, digests and native command
@@ -96,7 +102,9 @@ Mac fallback is used. No physical Android/device acceptance is claimed.
 Source rendering is not activated. Remaining work includes a complete arena
 recipe, a separately qualified BASE/lightmap material pair and sampler policy,
 optional secondary GPU UV layout, source shader semantics, lighting policy,
-unsupported-material fallback tiers and arena mechanics/physics acceptance.
+unsupported-material fallback tiers and arena mechanics/physics acceptance. Native
+positions still use the existing signed16 fixed-point packing; the companion
+preserves full-float UVs and does not claim full-float native position fidelity.
 The source parser's common-opaque-candidate flag is not shader qualification.
 
 Removing the source-coordinate field restores ordinary authoring/output shape

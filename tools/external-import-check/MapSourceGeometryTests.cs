@@ -32,6 +32,7 @@ internal static class MapSourceGeometryTests
             LegacyAndCache(primary, root);
             RuntimeGeneration(root);
             AllocationBounds(primary);
+            TinyVisualTriangles();
             Console.WriteLine($"MAP SOURCE GEOMETRY PASS {checks} synthetic checks; final native emission/immutable transport only, no source media or renderer activation.");
         }
         finally { Directory.Delete(root, recursive: true); }
@@ -67,6 +68,12 @@ internal static class MapSourceGeometryTests
             if (code == InstructionCode.TEXCOORD) { Check(args[0] == 0, "source native fallback UV remains explicitly zero"); nativeCorners++; }
         });
         Check(nativeCorners == tags.Length, "independent native command walk has exactly companion corner cardinality");
+        int ordinaryCorners = 0;
+        Read.VisitRenderInstructions(generated.Model, lists[1], (code, args) => {
+            if (code == InstructionCode.TEXCOORD) { Check(args[0] == 0, "nullable unsupported face in source profile also has zero native fallback UV"); ordinaryCorners++; }
+        });
+        Check(ordinaryCorners == 3 && snapshot.Entries.All(e => e.DlistId != 1),
+            "unsupported nullable face retains native geometry without inventing a source coordinate snapshot");
         var captured = MapBuildSnapshot.Capture(generated.Definition);
         var compiled = MapBuilder.Build(generated.Definition);
         mesh.SourceUvFaces![0]!.Base[0][0] = 999;
@@ -401,6 +408,76 @@ internal static class MapSourceGeometryTests
             expected, "encoder serializes its validated indexed snapshot, not caller enumeration or a later reread");
         Check(changing.IndexReads == expected.Length, "coordinate list indexers are read exactly once before serialization");
         Console.WriteLine($"MAP SOURCE GEOMETRY ALLOCATION PASS: impossible inventory allocated {allocated} bytes before refusal.");
+    }
+
+    private static void TinyVisualTriangles()
+    {
+        static MapMesh Tiny(float origin) => new() {
+            Id = Guid.NewGuid(), Solid = false,
+            Vertices = new() { new[] {origin,origin,origin}, new[] {origin+.0001f,origin,origin}, new[] {origin,origin+.0001f,origin} },
+            Faces = new() { new[] {0,1,2} }, SourceUvFaces = new() { Pair(10,3) }
+        };
+        foreach (float origin in new[] { 0f,1000f })
+        {
+            MapMesh mesh = Tiny(origin); string before = JsonSerializer.Serialize(mesh);
+            var sourcePoints = mesh.Vertices.Select(v => new OpenTK.Mathematics.Vector3(v[0],v[1],v[2])).ToArray();
+            Check(MapSourceVisualTriangle.Applies(mesh,3)
+                && MapSourceVisualTriangle.TryNormal(sourcePoints[0],sourcePoints[1],sourcePoints[2],out var normal)
+                && float.IsFinite(normal.LengthSquared) && Math.Abs(normal.LengthSquared-1) < .000001f
+                && normal == OpenTK.Mathematics.Vector3.UnitZ,
+                "finite positive tiny source visual triangle has a stable unit fallback normal at origin " + origin);
+            Check(!MapMeshValidator.Validate(mesh).Any(p => p.Severity == MapDiagnosticSeverity.Error),
+                "mesh validator admits exact nonzero source triangle despite legacy area/Newell cancellation at " + origin);
+            BuiltFace face = GeometryCompiler.Compile(mesh,16).Single();
+            Check(face.Normal == OpenTK.Mathematics.Vector3.UnitZ && face.SourceUv != null
+                && face.Texcoords.All(v => v == OpenTK.Mathematics.Vector2.Zero),
+                "compiler retains positive tiny source face with zero native UV and detached paired coordinates");
+            for (int i = 0; i < 3; i++)
+            {
+                Check(Bits(face.Points[i].X) == Bits(mesh.Vertices[i][0]) && Bits(face.Points[i].Y) == Bits(mesh.Vertices[i][1])
+                    && Bits(face.Points[i].Z) == Bits(mesh.Vertices[i][2]), "tiny source position float bits/winding unchanged corner " + i);
+                var expected = Uv(10+i);
+                Check(Bits(face.SourceUv!.Base[i].X) == Bits(expected.BaseU) && Bits(face.SourceUv.Base[i].Y) == Bits(expected.BaseV)
+                    && Bits(face.SourceUv.Lightmap[i].X) == Bits(expected.LightmapU) && Bits(face.SourceUv.Lightmap[i].Y) == Bits(expected.LightmapV),
+                    "tiny source paired UV float bits unchanged corner " + i);
+            }
+            Check(JsonSerializer.Serialize(mesh) == before, "tiny visual normal admission does not repair or mutate authored positions/UV/winding");
+            MapMesh reversed = Tiny(origin); reversed.Faces[0] = new[] {0,2,1};
+            Check(GeometryCompiler.Compile(reversed,16).Single().Normal == -OpenTK.Mathematics.Vector3.UnitZ,
+                "tiny source helper preserves authored reversed winding rather than orienting a surface automatically");
+            foreach (string policy in new[] { "legacy","solid","collision" })
+            {
+                MapMesh refused = Tiny(origin);
+                if (policy == "legacy") refused.SourceUvFaces = null;
+                else if (policy == "solid") refused.Solid = true;
+                else refused.CollisionOnly = true;
+                Check(!MapSourceVisualTriangle.Applies(refused,3), "source tiny policy does not apply to " + policy);
+                Check(MapMeshValidator.Validate(refused).Any(p => p.Severity == MapDiagnosticSeverity.Error),
+                    "original mesh validator area threshold still refuses tiny " + policy + " triangle");
+                Expect<MapAuthoringException>(() => GeometryCompiler.Compile(refused,16), "original compiler threshold still refuses tiny " + policy + " triangle");
+            }
+            MapMesh unbound = Tiny(origin); unbound.SourceUvFaces![0] = null;
+            BuiltFace unsupported = GeometryCompiler.Compile(unbound,16).Single();
+            Check(unsupported.SourceUv == null && unsupported.Normal == OpenTK.Mathematics.Vector3.UnitZ
+                && unsupported.Texcoords.All(v => v == OpenTK.Mathematics.Vector2.Zero),
+                "explicit visual source profile preserves unsupported null-pair triangle with normal/zero native UV but no source snapshot");
+        }
+        var a = OpenTK.Mathematics.Vector3.Zero; var b = OpenTK.Mathematics.Vector3.One;
+        foreach (var c in new[] { new OpenTK.Mathematics.Vector3(2), a,
+            new OpenTK.Mathematics.Vector3(float.NaN,1,0), new OpenTK.Mathematics.Vector3(1,float.PositiveInfinity,0),
+            new OpenTK.Mathematics.Vector3(1,0,float.NegativeInfinity) })
+            Check(!MapSourceVisualTriangle.TryNormal(a,b,c,out _), "exact collinear/zero/nonfinite source normal still refused");
+        MapMesh collinear = Tiny(0); collinear.Vertices[2] = new[] {.0002f,0f,0f};
+        Check(MapMeshValidator.Validate(collinear).Any(p => p.Severity == MapDiagnosticSeverity.Error), "collinear source profile remains a mesh validation error");
+        Expect<MapAuthoringException>(() => GeometryCompiler.Compile(collinear,16), "collinear source profile cannot enter built geometry");
+        var quad = new MapMesh {
+            Id = Guid.NewGuid(), Solid = false,
+            Vertices = new() { new[] {0f,0f,0f}, new[] {.0001f,0f,0f}, new[] {.0001f,.0001f,0f}, new[] {0f,.0001f,0f} },
+            Faces = new() { new[] {0,1,2,3} }, SourceUvFaces = new() { Pair(10,4) }
+        };
+        Check(!MapSourceVisualTriangle.Applies(quad,4)
+            && MapMeshValidator.Validate(quad).Any(p => p.Severity == MapDiagnosticSeverity.Error), "source declaration does not relax nontriangle area policy");
+        Expect<MapAuthoringException>(() => GeometryCompiler.Compile(quad,16), "nontriangle compiler threshold remains unchanged");
     }
 
     private sealed class ContradictoryCoordinates : IReadOnlyList<EchoesSourceCoordinates>
