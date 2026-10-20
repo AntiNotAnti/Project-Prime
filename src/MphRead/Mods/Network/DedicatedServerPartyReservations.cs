@@ -21,6 +21,9 @@ public sealed partial class DedicatedServer
     private readonly List<PartyValidation> _partyValidations = new();
     private readonly Dictionary<string,PartyGroup> _partyGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<LobbyQueueConnection,double> _partyRequestAfter = new();
+    private readonly List<LobbyQueueConnection> _partyExpiredRequestKeys = new(16);
+    private readonly List<PartyValidation> _partyValidationScan = new(8);
+    private readonly List<KeyValuePair<string, PartyGroup>> _partyGroupScan = new(8);
 
     private sealed class PartyWork
     {
@@ -334,8 +337,11 @@ public sealed partial class DedicatedServer
     private void MaintainPartyReservations(double now)
     {
         _partyWorks.RemoveAll(w => w.Task.IsCompleted);
-        foreach (var budget in _partyRequestAfter.ToArray())
-            if (now >= budget.Value + 10) _partyRequestAfter.Remove(budget.Key);
+        _partyExpiredRequestKeys.Clear();
+        foreach (var budget in _partyRequestAfter)
+            if (now >= budget.Value + 10) _partyExpiredRequestKeys.Add(budget.Key);
+        foreach (var key in _partyExpiredRequestKeys) _partyRequestAfter.Remove(key);
+        _partyExpiredRequestKeys.Clear();
         if (PartyReservationsEnabled && CareerReportOutbox.Enabled && !_controlPlaneOnlyForTests && _waitlist != null)
         {
             _partyBackend ??= new(SocialMembershipHttp,
@@ -346,14 +352,19 @@ public sealed partial class DedicatedServer
                 _partyCapabilityWork = BeginPartyWork(_partyBackend.CapabilityAsync, 3);
         }
         else _partyCapability = false;
-        foreach (var validation in _partyValidations.ToArray())
+        _partyValidationScan.Clear();
+        _partyValidationScan.AddRange(_partyValidations);
+        foreach (var validation in _partyValidationScan)
             if (validation.Work.Task.IsCompleted || now >= validation.Deadline || !CurrentPartyReceiver(validation.Receiver))
             {
                 _partyValidations.Remove(validation);
                 if (!validation.Work.Task.IsCompleted) validation.Work.Stop();
                 CompletePartyValidation(validation, now);
             }
-        foreach (var pair in _partyGroups.ToArray())
+        _partyValidationScan.Clear();
+        _partyGroupScan.Clear();
+        foreach (var pair in _partyGroups) _partyGroupScan.Add(pair);
+        foreach (var pair in _partyGroupScan)
         {
             PartyGroup group = pair.Value;
             bool exists = _waitlist != null && _waitlist.TryGetGroup(group.Queue, out _);
@@ -418,6 +429,7 @@ public sealed partial class DedicatedServer
                 && group.Members.All(m => !m.Admitted || m.Acknowledged || now >= m.AcknowledgeUntil))
             { _waitlist!.CancelGroup(group.Queue, now); _partyGroups.Remove(pair.Key); }
         }
+        _partyGroupScan.Clear();
     }
     private bool CurrentPartyQueue(QueuePeer peer, double now)
         => peer.PartyRequest.Length != 0 && _partyGroups.TryGetValue(peer.PartyRequest, out var group)
@@ -428,5 +440,6 @@ public sealed partial class DedicatedServer
         foreach (var work in _partyWorks) work.Stop();
         _partyWorks.Clear(); _partyValidations.Clear(); _partyGroups.Clear(); _partyRequestAfter.Clear(); _partyCapability = false;
         _partyCapabilityWork = null; _partyBackend = null; _verifiedSocialPeers.Clear();
+        _partyExpiredRequestKeys.Clear(); _partyValidationScan.Clear(); _partyGroupScan.Clear();
     }
 }
