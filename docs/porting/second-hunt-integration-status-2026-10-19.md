@@ -14,7 +14,7 @@ The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
 Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
-current main advanced to 67 through concurrent custom-weapon work in PR819.
+current main advanced to 69 through concurrent custom-weapon and Traversal work.
 Our slices add no wire change.
 
 ## Completed and merged slices
@@ -38,6 +38,7 @@ Our slices add no wire change.
 | [824](https://github.com/AntiNotAnti/Project-Prime/pull/824) | Private model-bound paired-UV companion, final compiler emission and immutable runtime adoption | `da443dc9e86c7bb51402ce0024797379497f1d10` |
 | [826](https://github.com/AntiNotAnti/Project-Prime/pull/826) | Bounded detached original credits/results source document | `d948432362e5cfb969ed7573945d14fe22e40e5d` |
 | [828](https://github.com/AntiNotAnti/Project-Prime/pull/828) | Bounded animation duration metadata and pure original ending timeline | `6366ce762a692a3b2bcf0bf61e3920c095f15b78` |
+| [830](https://github.com/AntiNotAnti/Project-Prime/pull/830) | Optional fixed-step campaign timing and immutable ending facts | `1c8ea00a0b3ae779638ecba50a78b9696438e038` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -86,7 +87,7 @@ transport, with no source shader/arena/mechanics activation. Details are in the
 | SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles | HD/cannon/runtime animation parts; qualified Overcharged runtime cosmetic; Trooper wall-cling/drone/blaster; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
 | SH-06 | Fenced create-lobby handoff, cancellation/retry, preference acceptance and serialized local start ownership | Directory-owned grouped search, mode/region/content query, pre-allocation ballot, telemetry and dedicated handoff | Real deployment/HMAC/account/server-child/load/reconnect; existing leader-admitted party reservations are not grouped search |
 | SH-07 | Reproducible binary/hardware/settings/map/workload provenance, strict paired comparator and actual GL functional capture | Controlled experiments and any justified opt-in runtime improvement | Achieved pacing, variance, latency and error tolerances; current draw-CPU evidence is not FPS improvement |
-| SH-08 | Existing campaign travel/endings/movie lifetime retained; optional merged native room detail; bounded original credits/results source and animation durations; pure 30 Hz ending timeline; optional cumulative 60 Hz campaign time records and captured result facts | Original cockpit/ship presentation; original animated credits/results and required records; any unimplemented map behavior | Full story/travel/save paths, physical touch/controller, upper-door/connector marker travel and platform captures |
+| SH-08 | Existing campaign travel/endings/movie lifetime retained; optional merged native room detail; bounded original credits/results source and animation durations; pure 30 Hz ending timeline; bounded model/animation admission and exact-byte CPU decoding; optional cumulative 60 Hz campaign time records and captured result facts | Original cockpit/ship presentation; original animated credits/results and required records; any unimplemented map behavior | Full story/travel/save paths, physical touch/controller, upper-door/connector marker travel and platform captures |
 | SH-09 | Source/performance/material/provenance feasibility memo | Future research only; not a dependency of other phases | No Prime4 importer or playable-support claim |
 | SH-10 | Repeated frozen Mac source-free/import/UDP/replay checks, Android compile/AOT builds, owned-media probes and scoped actual GL checks | Finish engineering above before full final qualification | Windows access, Linux, physical Android/controller/touch, story/soak/deployment and controlled performance signoff |
 
