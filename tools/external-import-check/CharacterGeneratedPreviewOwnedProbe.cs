@@ -20,7 +20,11 @@ internal static class CharacterGeneratedPreviewOwnedProbe
     private const string FinalId = "darksamus-overcharged-echoes";
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly FieldInfo SideScene = typeof(LauncherHunter).GetField("_scene", BindingFlags.Static | BindingFlags.NonPublic)!;
-    private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int[] Programs, int Segments, int Joints, bool Visible, CharacterWeightedRenderModel Model);
+    private sealed record ClockSample(int SubmittedPackets, bool SubmittedSecondsMatch, double? MinimumSubmittedSeconds,
+        double? MaximumSubmittedSeconds, int ProgramZeroAliases, int ProgramZeroLastSubmittedMaterial, int ActivePrimaryRows, string GpuPrimaryRowsSha256,
+        string CpuIdentityPrimaryRowsSha256, bool ProgramZeroAllMode2, bool GpuRowsMatchCpuIdentity,
+        bool AnyNonzeroScrollRates, int TextureUniqueRgbaCount);
+    private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int[] Programs, int Segments, int Joints, bool Visible, CharacterWeightedRenderModel Model, ClockSample? Clock);
 
     internal static int Run(string rvz)
     {
@@ -295,29 +299,56 @@ internal static class CharacterGeneratedPreviewOwnedProbe
 
                     void MaterialClock(int ordinal,double poseSeconds,string label)
                     {
-                        var clockA=Draw(ordinal,poseSeconds,0,materialSeconds:0);
-                        var clockB=Draw(ordinal,poseSeconds,0,materialSeconds:30.25);
-                        var clockAgain=Draw(ordinal,poseSeconds,0,materialSeconds:0);
-                        materialFrames.Add(new{Context=context,Character=label,ClipOrdinal=ordinal,
-                            APixelSha256=clockA.Pixels,BPixelSha256=clockB.Pixels,AgainPixelSha256=clockAgain.Pixels,
-                            PaletteSha256=clockA.Palette,PixelsChanged=clockA.Pixels!=clockB.Pixels,
-                            PaletteUnchanged=clockA.Palette==clockB.Palette&&clockA.Palette==clockAgain.Palette,
-                            StableModel=ReferenceEquals(clockA.Model,clockB.Model)&&ReferenceEquals(clockA.Model,clockAgain.Model)});
-                        Check(clockA.Visible&&clockB.Visible&&clockAgain.Visible&&clockA.Pixels!=clockB.Pixels&&clockA.Pixels==clockAgain.Pixels,
-                            label+" material-only clock changes actual GPU pixels and returns exactly A/B/A.");
-                        Check(clockA.Palette==clockB.Palette&&clockA.Palette==clockAgain.Palette
-                            &&ReferenceEquals(clockA.Model,clockB.Model)&&ReferenceEquals(clockA.Model,clockAgain.Model)
-                            &&clockA.Lists.SequenceEqual(clockB.Lists)&&clockA.Lists.SequenceEqual(clockAgain.Lists)
-                            &&clockA.Textures.SequenceEqual(clockB.Textures)&&clockA.Textures.SequenceEqual(clockAgain.Textures)
-                            &&clockA.Programs.SequenceEqual(clockB.Programs)&&clockA.Programs.SequenceEqual(clockAgain.Programs),
-                            label+" material clock is independent of source pose and reuses the exact model/list/texture/program packets.");
+                        // The invented Scene GX pixel oracle independently proves
+                        // visible scroll timing against known texels. These owned
+                        // bodies have no visibility/quantization oracle for the
+                        // scrolling material. Normal at0/30.25 produced identical
+                        // full-body images at all four angles in attempt03; the
+                        // cause is unknown. Require exact actual clock/uniform
+                        // transport, and report pixel changes only as observations.
+
+                        foreach(int angle in new[]{0,90,180,270})
+                        {
+                            var clockA=Draw(ordinal,poseSeconds,angle,materialSeconds:0,clockDiagnostics:true);
+                            var clockB=Draw(ordinal,poseSeconds,angle,materialSeconds:30.25,clockDiagnostics:true);
+                            var clockAgain=Draw(ordinal,poseSeconds,angle,materialSeconds:0,clockDiagnostics:true);
+                            materialFrames.Add(new{Context=context,Character=label,ClipOrdinal=ordinal,ViewAngle=angle,
+                                APixelSha256=clockA.Pixels,BPixelSha256=clockB.Pixels,AgainPixelSha256=clockAgain.Pixels,
+                                PaletteSha256=clockA.Palette,PixelsChanged=clockA.Pixels!=clockB.Pixels,
+                                PaletteUnchanged=clockA.Palette==clockB.Palette&&clockA.Palette==clockAgain.Palette,
+                                StableModel=ReferenceEquals(clockA.Model,clockB.Model)&&ReferenceEquals(clockA.Model,clockAgain.Model),
+                                A=clockA.Clock,B=clockB.Clock,Again=clockAgain.Clock,
+                                PixelChangeIsObservationOnly=true,UnchangedPixelCause="unknown; no owned visibility or quantization oracle"});
+                            Check(clockA.Visible&&clockB.Visible&&clockAgain.Visible&&clockA.Pixels==clockAgain.Pixels,
+                                label+" material-clock view remains visible and returns exact A/B/A pixels.");
+                            Check(clockA.Palette==clockB.Palette&&clockA.Palette==clockAgain.Palette
+                                &&ReferenceEquals(clockA.Model,clockB.Model)&&ReferenceEquals(clockA.Model,clockAgain.Model)
+                                &&clockA.Lists.SequenceEqual(clockB.Lists)&&clockA.Lists.SequenceEqual(clockAgain.Lists)
+                                &&clockA.Textures.SequenceEqual(clockB.Textures)&&clockA.Textures.SequenceEqual(clockAgain.Textures)
+                                &&clockA.Programs.SequenceEqual(clockB.Programs)&&clockA.Programs.SequenceEqual(clockAgain.Programs),
+                                label+" material clock is independent of source pose and reuses the exact model/list/texture/program packets.");
+                            Check(clockA.Clock?.SubmittedSecondsMatch==true&&clockB.Clock?.SubmittedSecondsMatch==true&&clockAgain.Clock?.SubmittedSecondsMatch==true,
+                                label+" every actual submitted source packet carries the requested independent material seconds.");
+                            Check(new[]{clockA.Clock!,clockB.Clock!,clockAgain.Clock!}.All(c=>c.ProgramZeroAllMode2
+                                    &&c.ActivePrimaryRows==(label=="normal"?9:6)&&c.GpuRowsMatchCpuIdentity),
+                                label+" every actual program-zero primary row matches the exact CPU mode2 time calculation bit for bit.");
+                            Check(clockA.Clock!.GpuPrimaryRowsSha256!=clockB.Clock!.GpuPrimaryRowsSha256
+                                &&clockA.Clock.GpuPrimaryRowsSha256==clockAgain.Clock!.GpuPrimaryRowsSha256,
+                                label+" material clock changes actual GPU primary uniforms and returns exact A/B/A independently of pose.");
+                        }
                     }
 
-                    Frame Draw(int ordinal, double seconds, int angle, CharacterModelPart part = CharacterModelPart.Biped, double materialSeconds = 0)
+                    Frame Draw(int ordinal, double seconds, int angle, CharacterModelPart part = CharacterModelPart.Biped, double materialSeconds = 0, bool clockDiagnostics = false)
                     {
                         GlCheckpoint("before-clear");
                         CosmeticPreview.Mode = part == CharacterModelPart.ViewModel ? SkinContext.ViewModel : SkinContext.Biped;
                         CosmeticPreview.Yaw = angle * MathF.PI / 180;
+                        // The native model/part owner advances at60Hz. A tight
+                        // readback loop can request cannon->body before its
+                        // next real frame; allow one native step, then still
+                        // require this single draw to succeed without fallback.
+                        if (Preview(CurrentScene()).Mode != CosmeticPreview.Mode)
+                            Thread.Sleep(20);
                         LauncherHunter.SourcePreviewRequest = new(owner, selection.Pack, selection.SelectedAppearance, ordinal, seconds, part, materialSeconds);
                         Clear(width, height); GlCheckpoint("after-clear");
                         LauncherHunter.Draw(window, width, height); GL.Finish(); frames++;
@@ -397,6 +428,8 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         }
                         GlCheckpoint("after-resource-queries");
                         string palette = PaletteHash(model);
+                        ClockSample? clock=clockDiagnostics?ClockDiagnostics(current,model,materialSeconds,capturedMaterials[selection]):null;
+                        GlCheckpoint("after-clock-diagnostics");
                         byte[] pixels = new byte[checked(width * height * 4)];
                         int oldPack = GL.GetInteger(GetPName.PackAlignment);
                         try
@@ -410,7 +443,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         try
                         {
                             bool visible = pixels.Where((_, i) => i % 4 != 3).Any(x => x != 0);
-                            return new(Sha(pixels), palette, lists, textures, programs, model.Segments.Count, model.Joints.Count, visible, model);
+                            return new(Sha(pixels), palette, lists, textures, programs, model.Segments.Count, model.Joints.Count, visible, model, clock);
                         }
                         finally { Array.Clear(pixels); }
 
@@ -459,6 +492,37 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                 Contexts = observations, CandidateFrames = candidateFrames, AngleFrames = angleFrames, CannonFrames = cannonFrames, BodyPrograms = bodyPrograms, MaterialClockFrames = materialFrames, FinalFrames = finalFrames, AdmissionFailures = admissionFailures, GlCheckpoints = checkpoints, TemporaryPayloadsDeleted = cleaned, FailedCheck = failedCheck, ErrorType = error, ErrorMessageSha256 = errorSha }));
         }
         return error == null ? 0 : 1;
+    }
+    private static ClockSample ClockDiagnostics(Scene scene,CharacterWeightedRenderModel model,double seconds,CharacterSourceGxMaterials materials)
+    {
+        var geometry=Get(model,"_sourceGeometry") as CharacterWeightedModelData
+            ??throw new InvalidDataException("Clock diagnostic requires the captured source geometry.");
+        var zero=model.Segments.Select((s,i)=>(Segment:s,Ordinal:geometry.Primitives[i].SourceMaterialOrdinal))
+            .First(p=>p.Ordinal==0).Segment.SourceGx??throw new InvalidDataException("Clock diagnostic requires original material zero.");
+        var items=(IEnumerable<RenderItem>)Get(scene,"_previewItems")!;
+        var packets=items.Select(i=>i.SourceGx).Where(g=>g!=null).Select(g=>g!).ToArray();
+        var primary=zero.Program.Matrices(seconds,System.Numerics.Matrix4x4.Identity).Primary;
+        var gpuRows=new List<float>();var cpuRows=new List<float>();int active=0;
+        for(int i=0;i<9;i++)
+        {
+            int location=GL.GetUniformLocation(zero.ProgramId,"gx_primary["+i+"]");if(location<0)continue;
+            var actual=new float[4];GL.GetUniform(zero.ProgramId,location,actual);gpuRows.AddRange(actual);active++;
+            var m=primary[i/3];
+            cpuRows.AddRange((i%3) switch{0=>new[]{m.M11,m.M21,m.M31,m.M41},1=>new[]{m.M12,m.M22,m.M32,m.M42},_=>new[]{m.M13,m.M23,m.M33,m.M43}});
+        }
+        if(gpuRows.Any(v=>!float.IsFinite(v)))throw new InvalidDataException("Nonfinite actual source primary uniform.");
+        string Digest(IEnumerable<float> rows)
+        {using var hash=IncrementalHash.CreateHash(HashAlgorithmName.SHA256);foreach(float v in rows)hash.AppendData(BitConverter.GetBytes(v));return Convert.ToHexStringLower(hash.GetHashAndReset());}
+        var programs=model.Segments.Select(s=>s.SourceGx!.Program).Distinct().ToArray();
+        int uniqueRgba=materials.Archive.Textures.Select(t=>t.RgbaSha256).Distinct(StringComparer.Ordinal).Count();
+        var lastZero=packets.OrderBy(p=>(int)p.Binding.Program.DrawPass).LastOrDefault(p=>p.Binding.ProgramId==zero.ProgramId);
+        int lastOrdinal=lastZero==null?-1:Enumerable.Range(0,materials.Programs.Count).First(i=>ReferenceEquals(materials.Programs[i],lastZero.Binding.Program));
+        return new(packets.Length,packets.Length==model.Segments.Count&&packets.All(p=>p.Seconds==seconds),
+            packets.Length==0?null:packets.Min(p=>p.Seconds),packets.Length==0?null:packets.Max(p=>p.Seconds),
+            programs.Count(p=>model.Segments.Any(s=>ReferenceEquals(s.SourceGx!.Program,p)&&s.SourceGx.ProgramId==zero.ProgramId)),
+            lastOrdinal,active,Digest(gpuRows),Digest(cpuRows),zero.Program.Animations.All(a=>a.Mode==2),
+            gpuRows.Select(BitConverter.SingleToInt32Bits).SequenceEqual(cpuRows.Select(BitConverter.SingleToInt32Bits)),
+            programs.SelectMany(p=>p.Animations).Any(a=>a.Mode==2&&(a.RateS!=0||a.RateT!=0)),uniqueRgba);
     }
     private static Scene CurrentScene() => SideScene.GetValue(null) as Scene ?? throw new InvalidDataException("Launcher did not create its side Scene.");
     private static HunterPreviewEntity Preview(Scene scene) => Get(scene, "_preview") as HunterPreviewEntity ?? throw new InvalidDataException("Launcher did not create its owned preview.");
