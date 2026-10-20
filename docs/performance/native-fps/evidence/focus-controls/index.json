@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "sourceSha": "9c1aabc1b59fba5b34451304093503f28dba5c24",
+  "status": "PASS_DIAGNOSTIC_FOCUS_ISOLATION",
+  "scope": "Same-binary synthetic pose input/control, not OS focus/performance/physical latency acceptance",
+  "files": [
+    {
+      "path": "build-focus-result.json.gz",
+      "rawSha256": "428ffbffc5cb5e0a18cb7f91de1c6187ca1d88c8434146e8b94fbe30ddcdc573",
+      "gzipSha256": "f33ac932450abe06a47f7dcbba99f50f02589f12c90099a0ddccb5d783b74acc",
+      "rawBytes": 397,
+      "gzipBytes": 282,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "focus-controls-result.json.gz",
+      "rawSha256": "8ef06f14d20d2a5a55803430d860d8da019d11ee9c6896a52571de92e456fdf9",
+      "gzipSha256": "80e3e5ff6b280b6f273ef13217a03e2e19d12d1c8d9ad49a4685a915a5f3f3c4",
+      "rawBytes": 1357,
+      "gzipBytes": 347,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "focus-source-manifest.json.gz",
+      "rawSha256": "56c373f588d321aac076b24c9fbd34612d95a1a5e3232a7490f6c2ddd0a5626a",
+      "gzipSha256": "a3044808eeda2ba8b07752d8d3186ef17031d53a3ef535f5d45299aa8a4b044d",
+      "rawBytes": 333551,
+      "gzipBytes": 101227,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "isolated-60/result.json.gz",
+      "rawSha256": "1c383f8c6f3c68037cfc935368a2cc1be5862ac8bfb805a1d79a56a94b38df5d",
+      "gzipSha256": "7cbcc19ef2cd15490fae75aba4f9821e41b4fd1747b99eb2627eef9e90025b05",
+      "rawBytes": 3690037,
+      "gzipBytes": 223968,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "isolated-60/run.log.gz",
+      "rawSha256": "f4fd6a5f00c12ac6dd52dd1da916c32188e4dbd391b1ea12929e91774a836004",
+      "gzipSha256": "a7dc1e87d08fe773a8f74157eaee4960d7e7843686625979b75c7760d5a2eeab",
+      "rawBytes": 3184,
+      "gzipBytes": 1022,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "legacy-60/result.json.gz",
+      "rawSha256": "74085f247004b48d5758326d8ea773bc6b849e1126c505ddc8494adebaec4109",
+      "gzipSha256": "76017a5e4be9005c75126663b8d57d2ed696fe09ff013639a864259e131a71f6",
+      "rawBytes": 637242,
+      "gzipBytes": 52804,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "legacy-60/run.log.gz",
+      "rawSha256": "73b4889737d469d8144c70819a6ad186d13509e95b7f662a7e53a322e96309af",
+      "gzipSha256": "aab046dcaa3442a6455a1580907dea632c300262ec5acd665189adf63ea5ca64",
+      "rawBytes": 4728,
+      "gzipBytes": 1294,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "none-144/result.json.gz",
+      "rawSha256": "87d011a3374390ab116bb266625d6332d4a026c39495a759592c8a73dc935dd3",
+      "gzipSha256": "3caa4889796e6ee0ba07634e8f10c1146548d2e9b9fa1c9ee97f182e94a3fbaa",
+      "rawBytes": 4457308,
+      "gzipBytes": 260406,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "none-144/run.log.gz",
+      "rawSha256": "841000d0070186f5bc8f913ce678c7fb9ff6a77fac98b51839de811fe12778be",
+      "gzipSha256": "f00ba53337e54a986ffba81acf045d665cf0bd39eb7cfc30a8b5e96a5df3ef2d",
+      "rawBytes": 3182,
+      "gzipBytes": 1025,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "none-60/result.json.gz",
+      "rawSha256": "4da95d72e646c548b0e7bcb90d096849737f5ed52937c3a851d48e7c30566e49",
+      "gzipSha256": "47966c10bb693db0bb762b55eb762f252226204558efa7728b0c3edd884995df",
+      "rawBytes": 3689676,
+      "gzipBytes": 223916,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "none-60/run.log.gz",
+      "rawSha256": "af0708f6ad0ee9c43dcac98e73061512adfcf7f498f9527154b1f3c93e9216ea",
+      "gzipSha256": "aa4bffacac753563593dd65325dcca48a35acc7e3b5bd1d80854ac308d1de644",
+      "rawBytes": 3178,
+      "gzipBytes": 1019,
+      "encoding": "utf-16"
+    }
+  ]
+}
