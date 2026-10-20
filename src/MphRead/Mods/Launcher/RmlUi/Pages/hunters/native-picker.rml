@@ -12,46 +12,56 @@
     <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
     <div class="hunter-grid">
         <div id="native_hunter_picker" class="hunter-picker">
-            <div class="section-title">PLAYABLE HUNTERS</div>
-            <div id="hunter_switch_hint" class="hint">Choose a Hunter for your next deployment.</div>
-            <div class="hunter-choices">
-                <button id="hunter_choice0" data-action="hunter:select:0">SAMUS</button>
-                <button id="hunter_choice1" data-action="hunter:select:1">KANDEN</button>
-                <button id="hunter_choice2" data-action="hunter:select:2">TRACE</button>
-                <button id="hunter_choice3" data-action="hunter:select:3">SYLUX</button>
-                <button id="hunter_choice4" data-action="hunter:select:4">NOXUS</button>
-                <button id="hunter_choice5" data-action="hunter:select:5">SPIRE</button>
-                <button id="hunter_choice6" data-action="hunter:select:6">WEAVEL</button>
+            <div id="native_hunter_options" class="hunter-options">
+                <div class="section-title">PLAYABLE HUNTERS</div>
+                <div id="hunter_switch_hint" class="hint">Choose a Hunter for your next deployment.</div>
+                <div class="hunter-choices">
+                    <button id="hunter_choice0" data-action="hunter:select:0">SAMUS</button>
+                    <button id="hunter_choice1" data-action="hunter:select:1">KANDEN</button>
+                    <button id="hunter_choice2" data-action="hunter:select:2">TRACE</button>
+                    <button id="hunter_choice3" data-action="hunter:select:3">SYLUX</button>
+                    <button id="hunter_choice4" data-action="hunter:select:4">NOXUS</button>
+                    <button id="hunter_choice5" data-action="hunter:select:5">SPIRE</button>
+                    <button id="hunter_choice6" data-action="hunter:select:6">WEAVEL</button>
+                </div>
+                <div class="section-title">SUIT COLOR</div>
+                <div class="hunter-suits">
+                    <button id="hunter_suit0" data-action="hunter:suit:0">SUIT 1</button>
+                    <button id="hunter_suit1" data-action="hunter:suit:1">SUIT 2</button>
+                    <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
+                    <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
+                </div>
+                <div class="section-title">EQUIPPED LOADOUT // COSMETICS</div>
+                <div class="hunter-cosmetic-actions">
+                    <div class="hunter-cosmetic-option">
+                        <button id="hunter_skin" data-action="hunter:skin-next">SKIN // DEFAULT</button>
+                        <div id="hunter_skin_description" class="hint cosmetic-description" role="status"></div>
+                    </div>
+                    <div class="hunter-cosmetic-option">
+                        <button id="hunter_armor" data-action="hunter:armor-next">ARMOR EFFECT // NONE</button>
+                        <div id="hunter_armor_description" class="hint cosmetic-description" role="status"></div>
+                    </div>
+                    <div class="section-title">INSTA-GIB BEAM EFFECTS</div>
+                    <div class="hunter-cosmetic-option">
+                        <button id="hunter_beam" data-action="hunter:beam-next">INSTA-GIB BEAM // ION FRACTURE 2.0</button>
+                        <div id="hunter_beam_description" class="hint cosmetic-description" role="status"></div>
+                    </div>
+                    <button id="hunter_beam_color" data-action="hunter:beam-color-next">BEAM COLOR // ORIGINAL</button>
+                    <div class="hint cosmetic-description">Cycle the beam and color, then EQUIP COSMETICS. These effects are Insta-Gib only and save on this device.</div>
+                    <div class="hunter-cosmetic-option">
+                        <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
+                        <div id="hunter_death_description" class="hint cosmetic-description" role="status"></div>
+                    </div>
+                </div>
+                <div id="hunter_cosmetics_state" class="hint">UNSAVED COSMETIC DRAFT</div>
+                <p id="hunter_cosmetics_visibility" class="hint" role="group">Team-colored panels stay visible in team matches. First-person effects are reduced to keep your aim clear.</p>
+                <div class="hunter-actions">
+                    <button id="hunter_cosmetics_save" data-action="hunter:cosmetics-save">EQUIP COSMETICS</button>
+                    <button id="hunter_cosmetics_reset" data-action="hunter:cosmetics-reset">DISCARD COSMETIC DRAFT</button>
+                    <button id="hunter_loadout_default" data-action="hunter:loadout-default">RESET LOADOUT</button>
+                </div>
             </div>
-            <div class="section-title">SUIT COLOR</div>
-            <div class="hunter-suits">
-                <button id="hunter_suit0" data-action="hunter:suit:0">SUIT 1</button>
-                <button id="hunter_suit1" data-action="hunter:suit:1">SUIT 2</button>
-                <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
-                <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
-            </div>
-            <div class="section-title">EQUIPPED LOADOUT // COSMETICS</div>
-            <div class="hunter-cosmetic-actions">
-                <button id="hunter_skin" data-action="hunter:skin-next">SKIN // DEFAULT</button>
-                <div id="hunter_skin_description" class="hint cosmetic-description" role="status"></div>
-                <button id="hunter_armor" data-action="hunter:armor-next">ARMOR EFFECT // NONE</button>
-                <div id="hunter_armor_description" class="hint cosmetic-description" role="status"></div>
-                <div class="section-title">INSTA-GIB BEAM EFFECTS</div>
-                <button id="hunter_beam" data-action="hunter:beam-next">INSTA-GIB BEAM // ION FRACTURE 2.0</button>
-                <div id="hunter_beam_description" class="hint cosmetic-description" role="status"></div>
-                <button id="hunter_beam_color" data-action="hunter:beam-color-next">BEAM COLOR // ORIGINAL</button>
-                <div class="hint cosmetic-description">Cycle the beam and color, then EQUIP COSMETICS. These effects are Insta-Gib only and save on this device.</div>
-                <button id="hunter_death" data-action="hunter:death-next">DEATH PRESENTATION // CLASSIC</button>
-                <div id="hunter_death_description" class="hint cosmetic-description" role="status"></div>
-            </div>
-            <div id="hunter_cosmetics_state" class="hint">UNSAVED COSMETIC DRAFT</div>
-            <p id="hunter_cosmetics_visibility" class="hint" role="group">Team-colored panels stay visible in team matches. First-person effects are reduced to keep your aim clear.</p>
-            <div class="hunter-actions">
-                <button id="hunter_cosmetics_save" data-action="hunter:cosmetics-save">EQUIP COSMETICS</button>
-                <button id="hunter_cosmetics_reset" data-action="hunter:cosmetics-reset">DISCARD COSMETIC DRAFT</button>
-                <button id="hunter_loadout_default" data-action="hunter:loadout-default">RESET LOADOUT</button>
-            </div>
-            <div class="hunter-actions">
+            <div class="hunter-actions hunter-equip-actions action_bar">
                 <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP HUNTER / SUIT</button>
                 <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD ALL CHANGES</button>
                 <button id="hunter_full" data-action="hunter:open">FULL HUNTER LICENSE</button>

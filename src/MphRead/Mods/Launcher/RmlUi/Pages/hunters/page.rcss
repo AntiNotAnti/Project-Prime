@@ -54,3 +54,27 @@ body { background-color: transparent; }
   .native-hunter-panel .hunter-preview-space { min-height:64dp; }
   .native-hunter-panel .native-hunter-preview-controls button { width:30%; min-height:16dp; font-size:9dp; padding:1dp 3dp; }
 }
+
+/* The selection draft owns one scroll region; Equip and Back never scroll
+   away. The engine still renders inside native_hunter_preview's actual box. */
+.native-hunter-panel .hunter-picker { display:flex; flex-direction:column; overflow:visible; min-height:0; }
+.hunter-options { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+.native-hunter-panel .hunter-equip-actions { flex-shrink:0; border-top:1dp #285274; padding-top:8dp; }
+.native-hunter-panel .hunter-equip-actions > button { flex:1; min-width:42%; white-space:normal; }
+.native-hunter-panel .hunter-cosmetic-actions { display:flex; flex-wrap:wrap; }
+.hunter-cosmetic-option { width:49%; min-width:0; margin-right:1%; }
+.native-hunter-panel .hunter-cosmetic-option > button { display:block; width:100%; white-space:normal; }
+.native-hunter-panel .hunter-cosmetic-actions > .section-title { width:100%; }
+.native-hunter-panel .hunter-cosmetic-actions > button { width:99%; }
+.native-hunter-panel .hunter-preview .native-hunter-preview-controls button { flex:1; min-width:21%; margin:0 4dp 4dp 0; white-space:normal; }
+@media (max-width:900dp) { .hunter-cosmetic-option { width:99%; } }
+body.touch-targets .native-hunter-panel .hunter-preview { overflow:hidden; }
+body.touch-targets .native-hunter-panel .native-hunter-preview-controls { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
+body.touch-targets .native-hunter-panel .hunter-preview-space { flex:1; }
+
+/* On short touch windows the pinned draft commands themselves can exceed the
+   column height. Let that whole column scroll, preserving every 48dp target. */
+@media (max-height:500dp) {
+    body.touch-targets .native-hunter-panel .hunter-picker { display:block; overflow-y:auto; overflow-x:hidden; }
+    body.touch-targets .native-hunter-panel .hunter-options { overflow-y:visible; height:auto; }
+}

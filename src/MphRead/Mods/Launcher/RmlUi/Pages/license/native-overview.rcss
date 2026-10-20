@@ -129,3 +129,32 @@ body { margin:0; background-color:rgba(0,7,12,78%); }
  .card_stat { min-height:18dp; }
 }
 
+
+/* One intentional scroll viewport covers the spread; a second scroller in
+   Details previously competed for wheel/controller focus. Keep footer pinned. */
+#native_license { left:50%; right:auto; transform:translateX(-50%); width:92%; max-width:1440dp; top:4%; bottom:4%; height:auto; max-height:none; padding:16dp; }
+.license_heading { margin-bottom:12dp; }
+#native_license_details { height:auto; overflow-y:visible; padding-right:4dp; }
+.native_license_stats > div { min-height:56dp; padding:8dp; }
+.native_license_footer { margin-top:8dp; padding-top:8dp; flex-wrap:wrap; }
+#native_license_card { width:40%; }
+#native_license_details { width:58%; }
+@media (min-width:1400dp) { .native_license_stats > div { width:31%; } }
+@media (max-width:900dp) {
+    .license_spread { display:flex; }
+    #native_license_card { width:40%; }
+    #native_license_details { width:58%; margin:0 0 0 2%; }
+    .card_header span { display:none; }
+    .card_identity { flex-direction:column; align-items:flex-start; }
+    .card_holder { margin:8dp 0 0; width:100%; }
+    #native_license .card_tabs { flex-wrap:wrap; }
+    #native_license .card_tabs button { flex:1; min-width:30%; }
+}
+@media (max-width:640dp) {
+    .license_spread { display:block; }
+    #native_license_card, #native_license_details { width:100%; margin:0 0 12dp; }
+    .card_identity { flex-direction:row; align-items:center; }
+    .card_holder { margin:0 0 0 8dp; width:auto; }
+    #native_license .card_tabs button { min-width:18%; }
+    #native_license #native_license_status { flex:0 0 100%; margin:0 0 4dp; }
+}
