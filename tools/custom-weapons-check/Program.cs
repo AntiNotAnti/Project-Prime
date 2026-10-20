@@ -180,6 +180,7 @@ ReadinessChecks.Run(Check);
 SourceBoundaryChecks.Run(Check);
 ResultTransportChecks.Run(Check);
 ControlRequestChecks.Run(Check);
+ClientControlSubmissionChecks.Run(Check);
 InputCarrierChecks.Run(Check);
 ReplicaDeliveryChecks.Run(Check);
 ReplicaConsumerChecks.Run(Check);
