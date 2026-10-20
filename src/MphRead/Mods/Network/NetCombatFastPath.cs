@@ -4,7 +4,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
-internal enum CombatFastMode : byte { Off, Shadow }
+internal enum CombatFastMode : byte { Off, Shadow, Paid }
 internal enum FastPaymentKnowledge : byte { Missing, Reserved, Paid }
 internal readonly record struct FastPaymentFact(FastPaymentKnowledge Knowledge,
     bool WeaponMatches, CombatAckEntry Outcome);
@@ -38,7 +38,8 @@ internal readonly record struct CombatFastRow(ShotPaymentKey Key, FastProbeStage
     uint LegalFrame, uint GeometryFrame, byte Weapon, CombatFastDecision Decision,
     int Attempts, bool Compared, bool Agrees, int ActualDebit, int ActualHealth,
     int Payments, int Terminals, FastClaimShape Request = default, bool Corrected = false, int PreHealth = 0,
-    CombatAckEntry ActualOutcome = default, int TerminalDisagreements = 0, FastNativeEvidence NativeEvidence = default);
+    CombatAckEntry ActualOutcome = default, int TerminalDisagreements = 0, FastNativeEvidence NativeEvidence = default,
+    bool PaidBypass = false);
 
 // Pure decisions over separately authenticated facts. A paid receipt is not a
 // new legal-hit certificate. Fresh claims never bypass the existing ordering
@@ -48,7 +49,7 @@ internal static class CombatFastDecisionFunction
     internal static CombatFastDecision Receipt(in HitClaimPacket claim, in FastPaymentFact paid,
         in ShotProofDecision proof)
     {
-        if (claim.ShotId == 0 || claim.ComponentId == 0 || claim.VictimSlot >= 8)
+        if (claim.ClaimId == 0 || claim.ShotId == 0 || claim.ComponentId == 0 || claim.VictimSlot >= 8)
             return new(FastDecisionState.LegacyRequired, FastDecisionReason.InvalidIdentity);
         if (claim.Beam is not ((byte)BeamType.PowerBeam) and not ((byte)BeamType.Imperialist)
             || claim.ComponentId != 1 || NetShotProof.Kind(claim.Flags) != 1
@@ -98,13 +99,16 @@ internal static class NetCombatFastPath
 {
     internal const int PerShooter = 1024;
     internal static CombatFastMode Mode { get; set; } =
-        Environment.GetEnvironmentVariable("PRIME_COMBAT_FASTPATH") == "shadow" ? CombatFastMode.Shadow : CombatFastMode.Off;
-    internal static bool ShadowEnabled => Mode == CombatFastMode.Shadow;
+        Environment.GetEnvironmentVariable("PRIME_COMBAT_FASTPATH") switch {
+            "shadow" => CombatFastMode.Shadow, "paid" => CombatFastMode.Paid, _ => CombatFastMode.Off };
+    internal static bool ShadowEnabled => Mode is CombatFastMode.Shadow or CombatFastMode.Paid;
+    internal static bool PaidEnabled => Mode == CombatFastMode.Paid;
     private static bool Active => ShadowEnabled && NetHitClaims.Arbitrating;
     private static CombatFastRow[,]? _rows;
     private static CombatFastRow[,] Rows => _rows ??= new CombatFastRow[8, PerShooter];
     private static readonly int[] Counts = new int[8];
     internal static long Overflow, Invalid, UnjoinedTerminal;
+    internal static long PaidReceipts;
     [ThreadStatic] private static (int Slot, ushort Id, ShotPaymentKey Key, FastClaimShape Shape)? _request;
     [ThreadStatic] private static TimedShotCertificate? _emitting;
     [ThreadStatic] private static bool _emissionBound;
@@ -170,11 +174,11 @@ internal static class NetCombatFastPath
         if (Counts[slot] == PerShooter) { Overflow++; return; }
         Rows[slot, Counts[slot]++] = row;
     }
-    private static void ObserveClaim(int slot, in HitClaimPacket claim, bool ready = false)
+    private static CombatFastDecision ObserveClaim(int slot, in HitClaimPacket claim, bool ready = false)
     {
-        if (!Active) return;
+        if (!Active) return default;
         var key = NetShotProof.PaymentKey(slot, claim);
-        if (!Valid(key)) { Invalid++; return; }
+        if (!Valid(key)) { Invalid++; return default; }
         var paid = NetCombatPayments.Inspect(key, claim.Beam);
         var proof = paid.Knowledge == FastPaymentKnowledge.Paid ? default : NetShotProof.Evaluate(slot, claim);
         var decision = CombatFastDecisionFunction.Receipt(claim, paid, proof);
@@ -182,8 +186,15 @@ internal static class NetCombatFastPath
             decision = new(FastDecisionState.LegacyRequired, FastDecisionReason.OrderingDeferred);
         Add(new(key, ready ? FastProbeStage.ClaimReady : FastProbeStage.ClaimArrival, NetSession.NetFrame, claim.AckFrame, claim.Beam,
             decision, 1, false, false, 0, 0, 0, 0, FastClaimShape.From(claim)));
+        return decision;
     }
-    internal static void ClaimReady(int slot, in HitClaimPacket claim) => ObserveClaim(slot, claim, ready: true);
+    internal static CombatFastDecision ClaimReady(int slot, in HitClaimPacket claim) => ObserveClaim(slot, claim, ready: true);
+    internal static void PaidReceipt(int slot, in HitClaimPacket claim)
+    {
+        PaidReceipts++;
+        int at = Find(NetShotProof.PaymentKey(slot, claim), FastProbeStage.ClaimReady, FastClaimShape.From(claim));
+        if (at >= 0) Rows[slot, at] = Rows[slot, at] with { PaidBypass = true };
+    }
     internal static void NativeBefore(PlayerEntity victim, BeamProjectileEntity beam, in NativeImpactWitness witness)
     {
         if (!Active) return;
@@ -354,20 +365,20 @@ internal static class NetCombatFastPath
             Decision = new { row.Decision.State, row.Decision.Reason, row.Decision.Damage,
                 Paid = ExportOutcome(row.Decision.Paid) },
             row.Attempts, row.Compared, row.Agrees, row.ActualDebit, row.ActualHealth,
-            row.Payments, row.Terminals, row.Corrected, row.PreHealth, row.TerminalDisagreements,
+            row.Payments, row.Terminals, row.Corrected, row.PreHealth, row.TerminalDisagreements, row.PaidBypass,
             NativeEvidence = ExportNative(row.NativeEvidence),
             ActualOutcome = ExportOutcome(row.ActualOutcome),
             Request = new { row.Request.Id, row.Request.Weapon, row.Request.Flags, row.Request.Damage,
                 row.Request.Frame, row.Request.AckFrame, row.Request.LaunchFrame,
                 Point = Vector(row.Request.Point), Direction = Vector(row.Request.Direction) }
         });
-        return new { Schema=1, Mode, PerShooter, Rows=export, Overflow, Invalid, UnjoinedTerminal,
+        return new { Schema=1, Mode, PerShooter, Rows=export, Overflow, Invalid, UnjoinedTerminal, PaidReceipts,
             fastEligible=eligible, fastWouldPay=pay, fastWouldReject=reject, missingSource=missing,
             headMismatch=head, wallMismatch=wall, orderingDeferred=ordering, familyUnsupported=unsupported,
             wouldDoublePay=doublePay, wouldAlterTrade=trade, Compared=compared, Disagreements=disagree, Uncompared=uncompared, CorrectedExcluded=corrected,
-            Scope="Read-only Shadow. Paid duplicates and native-ordered first-segment Imperialist contacts only; fresh claims retain legacy ordering. Native pre-damage legal frame is distinct from retained geometric frame. No early claim family is certified. Missing/overflow/uncompared observations cannot certify parity." };
+            Scope="Shadow observes; Paid returns only exact already-paid primary direct receipts before redundant validation. No new payment, fresh-claim early settlement or native enforcement. Native pre-damage legal frame is distinct from retained geometric frame. Missing/overflow/uncompared observations cannot certify parity." };
     }
     // Only explicit test setup resets process evidence. Gameplay lifecycle must
     // never erase unresolved joins or turn an overflow into an apparent PASS.
-    internal static void ResetEvidenceForTests() { Array.Clear(Rows); Array.Clear(Counts); Overflow=Invalid=UnjoinedTerminal=0; _request=null; _emitting=null; _emissionBound=false; }
+    internal static void ResetEvidenceForTests() { Array.Clear(Rows); Array.Clear(Counts); Overflow=Invalid=UnjoinedTerminal=PaidReceipts=0; _request=null; _emitting=null; _emissionBound=false; }
 }

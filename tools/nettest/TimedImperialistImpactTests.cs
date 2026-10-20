@@ -383,6 +383,224 @@ internal static class TimedImperialistImpactTests
         }
     }
 
+    private sealed record PaidReceiptArm(string Control, CombatFastMode Mode, int Before,
+        int AfterNative, int AfterClaims, uint NativeSequence, uint FinalSequence,
+        long Payments, long FastFirst, long FastRetry, long Corrections,
+        CombatAckEntry NativeOutcome, CombatAckEntry FinalOutcome, byte[] FirstAck, byte[] RetryAck,
+        uint Rng1Before, uint Rng2Before, uint Rng1After, uint Rng2After,
+        string Scores, string Semantics, string[] Replay, CombatFastRow[] Rows);
+
+    private static byte[] AckBytes(in CombatAckEntry outcome)
+    { var bytes = new byte[CombatAckEntry.Size]; outcome.Write(bytes); return bytes; }
+
+    private static CombatAckEntry ReceivePaidClaim(in HitClaimPacket claim)
+    {
+        ushort id = claim.ClaimId;
+        var answers = new List<CombatAckEntry>();
+        var saved = NetHitClaims.CombatAckSink;
+        NetHitClaims.CombatAckSink = (slot, entries) => {
+            foreach (var entry in entries)
+                if (slot == 0 && entry.ClaimId == id) answers.Add(entry);
+        };
+        try
+        {
+            var bytes = new byte[1 + HitClaimPacket.Size]; bytes[0] = 1; claim.Write(bytes.AsSpan(1));
+            NetHitClaims.Receive(0, bytes);
+            for (int i = 0; i <= 2 * NetHitClaims.MaxGraceFrames + 2 && answers.Count == 0; i++)
+            { NetHitClaims.Tick(); if (answers.Count == 0) Frame(unchecked(NetSession.NetFrame + 1)); }
+            Check(answers.Count == 1 && answers[0].ShotId == claim.ShotId,
+                "serialized paid claim produces exactly one correlated full terminal ACK");
+            return answers[0];
+        }
+        finally { NetHitClaims.CombatAckSink = saved; }
+    }
+
+    private static PaidReceiptArm PaidReceiptSceneArm(string room, string control,
+        BeamType weapon, bool nativeHead, bool claimHead, CombatFastMode mode)
+    {
+        NetCombatFastPath.Mode = mode; NetCombatFastPath.ResetEvidenceForTests();
+        Menu.PreviousSaveSlot = Menu.SaveSlot;
+        Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
+        using var f = new Fixture(room, Hunter.Samus, balanced: false, head: nativeHead,
+            timedMode: TimedGrantProofMode.Shadow);
+        Check(NetHitClaims.Arbitrating, control + " real authority arbitrates paid receipts");
+        int before = f.Victim.Health;
+        uint rng1 = f.Scene.Random.Rng1, rng2 = f.Scene.Random.Rng2;
+        long payments = NetCombatPayments.LifetimePayments;
+        long corrections = NetHitClaims.HeadshotCorrections;
+        int semanticStart = f.Scene.MatchEvents.Bus.Events.Count;
+        var replay = new List<string>();
+        void Capture(ReplayTimelineRecord record) => replay.Add(JsonSerializer.Serialize(new {
+            record.RecordingFrame, record.ServerTick, record.Kind, record.Marker,
+            Bytes = Convert.ToHexString(record.Payload) }));
+        ReplayCapture.Recorder.Accepted += Capture;
+        try
+        {
+            var emitted = f.Emit(weapon);
+            // Imperialist catches up inside the accepted drain. Power Beam is
+            // allowed to execute its actual stock Process until collision; no
+            // damage call, payment reservation, ACK or physical witness is seeded.
+            for (int i = 0; i < 60 && f.Victim.Health == before && emitted.Beam.Lifespan > 0; i++)
+                emitted.Beam.Process();
+            var claim = emitted.Claim; claim.ClaimId = 1;
+            var key = NetShotProof.PaymentKey(0, claim);
+            Check(f.Victim.Health < before && NetCombatPayments.LifetimePayments - payments == 1
+                && NetCombatPayments.TryGet(key, claim.Beam, out _),
+                control + " actual accepted stock collision pays the exact native component once");
+            Check(NetCombatPayments.TryGet(key, claim.Beam, out var native)
+                && native.Accepted && native.DamageApplied == before - f.Victim.Health
+                && native.DamageSequence != 0 && native.HealthAfter == f.Victim.Health
+                && native.Flags.HasFlag(CombatAckFlags.Headshot) == nativeHead,
+                control + " native ledger supplies material body/head outcome, health and sequence");
+            int afterNative = f.Victim.Health;
+            uint nativeSequence = NetDamage.Sequence(1);
+            Check(nativeSequence == native.DamageSequence,
+                control + " immutable native outcome names the actual damage sequence");
+            // The claim is a declared claimant input, including deliberate
+            // mismatches. Frame1001 is real placed-body history in this fixture;
+            // the accepted Imperialist launch/ACK stamp remains unchanged.
+            claim.AckFrame = weapon == BeamType.Imperialist ? 1001u : claim.AckFrame;
+            claim.Damage = nativeHead == claimHead ? native.DamageApplied
+                : checked((ushort)(claimHead ? emitted.Beam.HeadshotDamage : emitted.Beam.Damage));
+            if (claimHead) claim.Flags |= HitClaimPacket.FlagHeadshot;
+            else claim.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
+            Check(NetUnlagged.PositionAt(1, claim.AckFrame, claim.VictimGeneration,
+                claim.VictimLifeId, out var historical)
+                && NetHitClaims.WithinClaimRadius(historical, claim.HitPoint, claim.Beam),
+                control + " claimant point uses actual retained eligible victim history");
+            Console.WriteLine("FAST_PAID_NATIVE " + JsonSerializer.Serialize(new {
+                Control = control, Mode = mode, Weapon = weapon, NativeHead = nativeHead,
+                ClaimHead = claimHead, Before = before, After = afterNative,
+                NativeAck = Convert.ToHexString(AckBytes(native)), NativeSequence = nativeSequence,
+                Scope = "Actual accepted stock beam Process and native payment; claimant fields are declared fixture inputs." }));
+            long fastBefore = NetCombatFastPath.PaidReceipts;
+            var first = ReceivePaidClaim(claim);
+            long fastFirst = NetCombatFastPath.PaidReceipts - fastBefore;
+            int afterFirst = f.Victim.Health;
+            uint firstSequence = NetDamage.Sequence(1);
+            Check(NetCombatPayments.TryGet(key, claim.Beam, out var final),
+                control + " exact paid ledger remains available after first claim");
+            var expected = final; expected.ClaimId = claim.ClaimId; expected.Result = first.Result;
+            Check(AckBytes(first).SequenceEqual(AckBytes(expected)),
+                control + " first terminal copies every immutable paid material field");
+            var retry = ReceivePaidClaim(claim);
+            long fastRetry = NetCombatFastPath.PaidReceipts - fastBefore;
+            Check(AckBytes(retry).SequenceEqual(AckBytes(first))
+                && f.Victim.Health == afterFirst && NetDamage.Sequence(1) == firstSequence
+                && NetCombatPayments.TryGet(key, claim.Beam, out var afterRetry)
+                && AckBytes(afterRetry).SequenceEqual(AckBytes(final)),
+                control + " byte-exact cached retry preserves material, health, sequence and ledger");
+            Check(NetCombatPayments.LifetimePayments - payments == 1,
+                control + " claims and retry never create another component payment");
+            if (nativeHead == claimHead)
+                Check(first.Result == HitVerdictPacket.ResultDuplicate
+                    && AckBytes(native).SequenceEqual(AckBytes(final))
+                    && afterFirst == afterNative && firstSequence == nativeSequence
+                    && NetHitClaims.HeadshotCorrections == corrections,
+                    control + " matching paid receipt only acknowledges existing native state");
+            else if (claimHead)
+                Check(first.Result == (byte)CombatAckResult.Corrected
+                    && final.Flags.HasFlag(CombatAckFlags.Headshot)
+                    && final.DamageApplied == claim.Damage && before - afterFirst == claim.Damage
+                    && afterFirst < afterNative && firstSequence != nativeSequence
+                    && NetHitClaims.HeadshotCorrections - corrections == 1,
+                    control + " body-to-head fallback retains exactly one legacy difference correction");
+            else
+                Check(first.Result == HitVerdictPacket.ResultDuplicate
+                    && AckBytes(native).SequenceEqual(AckBytes(final))
+                    && afterFirst == afterNative && firstSequence == nativeSequence
+                    && NetHitClaims.HeadshotCorrections == corrections,
+                    control + " head-to-body fallback preserves original native head payment");
+            string scores = JsonSerializer.Serialize(new {
+                Health = new[] { f.Owner.Health, f.Victim.Health, f.Other.Health },
+                f.Scene.GameState.Points, f.Scene.GameState.TeamPoints, f.Scene.GameState.Kills,
+                f.Scene.GameState.TeamKills, f.Scene.GameState.Deaths, f.Scene.GameState.TeamDeaths,
+                f.Scene.GameState.ShotsFired, f.Scene.GameState.ShotsHit,
+                f.Scene.GameState.MatchDamageDealt, f.Scene.GameState.MatchDamageTaken,
+                f.Scene.GameState.KillStreak, f.Scene.GameState.HeadshotKills });
+            return new(control, mode, before, afterNative, f.Victim.Health, nativeSequence,
+                NetDamage.Sequence(1), NetCombatPayments.LifetimePayments - payments, fastFirst, fastRetry,
+                NetHitClaims.HeadshotCorrections - corrections, native, final, AckBytes(first), AckBytes(retry),
+                rng1, rng2, f.Scene.Random.Rng1, f.Scene.Random.Rng2, scores,
+                JsonSerializer.Serialize(f.Scene.MatchEvents.Bus.Events.Skip(semanticStart).ToArray()),
+                replay.ToArray(), NetCombatFastPath.CaptureRows());
+        }
+        finally { ReplayCapture.Recorder.Accepted -= Capture; }
+    }
+
+    internal static int RunPaidReceiptScene(string profile, string room)
+    {
+        var oldFast = NetCombatFastPath.Mode; var oldTimed = NetTimedShotProof.Mode;
+        var oldProof = NetShotProof.Mode; bool oldEnabled = NetHitClaims.Enabled;
+        bool oldPlayback = NetFireEvents.AcceptedPlaybackEnabled, oldScript = NetTestScript.Enabled;
+        uint oldRng1 = Rng.Rng1, oldRng2 = Rng.Rng2;
+        int oldPreviousSaveSlot = Menu.PreviousSaveSlot;
+        try
+        {
+            _checks = 0; NetHitClaims.Enabled = true;
+            var controls = new[] {
+                ("powerbeam-body", BeamType.PowerBeam, false, false),
+                ("powerbeam-head", BeamType.PowerBeam, true, true),
+                ("imperialist-body", BeamType.Imperialist, false, false),
+                ("imperialist-head", BeamType.Imperialist, true, true),
+                ("imperialist-body-claimed-head", BeamType.Imperialist, false, true),
+                ("imperialist-head-claimed-body", BeamType.Imperialist, true, false) };
+            foreach (var (control, weapon, nativeHead, claimHead) in controls)
+            {
+                var off = PaidReceiptSceneArm(room, control, weapon, nativeHead, claimHead, CombatFastMode.Off);
+                var paid = PaidReceiptSceneArm(room, control, weapon, nativeHead, claimHead, CombatFastMode.Paid);
+                Console.WriteLine("FAST_PAID_SCENE " + JsonSerializer.Serialize(new {
+                    Schema = 1, Control = control, Weapon = weapon, NativeHead = nativeHead,
+                    ClaimHead = claimHead, Profile = profile,
+                    Off = off with { Replay = off.Replay.Select(Digest).ToArray() },
+                    Paid = paid with { Replay = paid.Replay.Select(Digest).ToArray() },
+                    Scope = "Six declared actual native stock-contact fixtures; Off/Paid serialized claim and exact cached retry parity. No UDP, early unpaid settlement, timing or all-family certificate." }));
+                Check(off.Before == paid.Before && off.AfterNative == paid.AfterNative
+                    && off.AfterClaims == paid.AfterClaims && off.NativeSequence == paid.NativeSequence
+                    && off.FinalSequence == paid.FinalSequence && off.Payments == 1 && paid.Payments == 1,
+                    control + " exact Off/Paid health, sequence and single native payment parity");
+                Check(AckBytes(off.NativeOutcome).SequenceEqual(AckBytes(paid.NativeOutcome))
+                    && AckBytes(off.FinalOutcome).SequenceEqual(AckBytes(paid.FinalOutcome))
+                    && off.FirstAck.SequenceEqual(paid.FirstAck) && off.RetryAck.SequenceEqual(paid.RetryAck),
+                    control + " all23 paid outcome and terminal ACK bytes agree across modes");
+                Check(off.Rng1Before == paid.Rng1Before && off.Rng2Before == paid.Rng2Before
+                    && off.Rng1After == paid.Rng1After && off.Rng2After == paid.Rng2After,
+                    control + " both gameplay RNG words agree across full native and claim execution");
+                Check(off.Scores == paid.Scores && off.Semantics == paid.Semantics
+                    && off.Replay.Length > 0 && off.Replay.SequenceEqual(paid.Replay),
+                    control + " all player health, score arrays, semantic events and nonempty replay bytes agree");
+                long expectedFast = nativeHead == claimHead ? 1 : 0;
+                Check(off.FastFirst == 0 && off.FastRetry == 0 && paid.FastFirst == expectedFast
+                    && paid.FastRetry == expectedFast && off.Corrections == paid.Corrections,
+                    control + " only matching first receipts bypass; retry cache and mismatches never increment bypass");
+                var ready = paid.Rows.Where(row => row.Stage == FastProbeStage.ClaimReady).ToArray();
+                Check(off.Rows.Length == 0 && ready.Length == 1,
+                    control + " disabled capture is empty and admitted first claim has one exact ready row");
+                Check(nativeHead == claimHead
+                    ? ready[0].Decision.State == FastDecisionState.VerifiedPaid
+                        && ready[0].Compared && ready[0].Agrees
+                    : ready[0].Decision.State == FastDecisionState.LegacyRequired
+                        && ready[0].Decision.Reason == FastDecisionReason.HeadMismatch,
+                    control + " admitted decision distinguishes exact paid material from strict head mismatch");
+                Check(NetCombatFastPath.Overflow == 0 && NetCombatFastPath.Invalid == 0
+                    && NetCombatFastPath.UnjoinedTerminal == 0,
+                    control + " finite capture has no overflow, invalid identity or unjoined terminal");
+            }
+            Console.WriteLine($"PASS: {_checks} actual native paid-receipt Off/Paid assertions across six controls.");
+            Console.WriteLine("SCOPE: accepted stock Power Beam/Imperialist body/head Process, native immutable paid ledger, serialized first claims and byte-identical retries; declared resource/health/placement/head-mismatch inputs. NOT_RUN: authenticated UDP, fresh unpaid rescue fast path, posthumous/trade/all-family certification, GL/audio or performance.");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        finally
+        {
+            NetCombatFastPath.Mode = oldFast; NetTimedShotProof.Mode = oldTimed;
+            NetShotProof.Mode = oldProof; NetHitClaims.Enabled = oldEnabled;
+            NetFireEvents.AcceptedPlaybackEnabled = oldPlayback; NetTestScript.Enabled = oldScript;
+            Menu.PreviousSaveSlot = oldPreviousSaveSlot;
+            Rng.SetRng1(oldRng1); Rng.SetRng2(oldRng2);
+        }
+    }
+
     internal static int RunScene(string profile, string room)
     {
         var oldMode = NetTimedShotProof.Mode; var oldProof = NetShotProof.Mode;

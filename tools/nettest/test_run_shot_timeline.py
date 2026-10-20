@@ -50,6 +50,18 @@ class ShotTimelineDispatchTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             runner.parse_args(base + ['--combat-fastpath', 'eligible'])
 
+    def test_paid_mode_is_authority_only_and_requires_declared_evidence(self):
+        args = self.args(True); args.combat_fastpath = 'paid'
+        inherited = {'PRIME_COMBAT_FASTPATH': 'paid'}
+        self.assertEqual(runner.child_environment(args, 'server', Path('/private/profile'), inherited)['PRIME_COMBAT_FASTPATH'], 'paid')
+        self.assertNotIn('PRIME_COMBAT_FASTPATH', runner.child_environment(args, 'peer-0', Path('/private/profile'), inherited))
+        base = ['--build', '.', '--paths', 'paths.txt', '--source', 'fixture', '--out', '/private/fresh']
+        with self.assertRaises(SystemExit): runner.parse_args(base + ['--combat-fastpath', 'paid'])
+        parsed = runner.parse_args(base + ['--combat-fastpath', 'paid', '--shot-timeline', '--claim-receipts'])
+        self.assertTrue(parsed.paid_receipt_latency)
+        parsed = runner.parse_args(base + ['--combat-fastpath', 'shadow', '--shot-timeline', '--claim-receipts', '--paid-receipt-latency'])
+        self.assertTrue(parsed.paid_receipt_latency)
+
 
 if __name__ == '__main__':
     unittest.main()
