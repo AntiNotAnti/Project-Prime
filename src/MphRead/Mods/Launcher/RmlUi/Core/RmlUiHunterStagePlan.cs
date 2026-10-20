@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
@@ -10,6 +8,7 @@ public readonly record struct RmlUiStageHunter(
     bool Ready, bool Local, string Name)
 {
     public int Identity => (NetSlot + 1) * 65536 + Generation;
+    public int Team { get; init; } = -1;
 }
 
 /// <summary>
@@ -22,6 +21,8 @@ public sealed record RmlUiHunterStagePlan(
     Hunter HomeHunter, int HomeSuit, RmlUiStageHunter[] Formation)
 {
     public int Count => Formation.Length;
+    public ushort MatchId { get; init; }
+    public ulong AuthorityEpoch { get; init; }
     public static RmlUiHunterStagePlan Build(HubSnapshot hub,
         RmlUiLobbyView lobby, RmlUiAdminSnapshot? authoritative)
     {
@@ -41,22 +42,24 @@ public sealed record RmlUiHunterStagePlan(
             return new(files, true, lobby.Starting, hero, suit,
                 Array.Empty<RmlUiStageHunter>());
 
-        var found = new List<RmlUiStageHunter>(8);
-        var slots = new HashSet<byte>();
-        foreach (RmlUiAdminPlayer player in authoritative.Players)
+        // Use the same duplicate rejection and local-first order as the labels
+        // and team controls, including malformed authoritative snapshots.
+        RmlUiAdminPlayer[] players = RmlUiLobbyDisplayOrder.Ordered(authoritative);
+        var ordered = new RmlUiStageHunter[players.Length];
+        for (int i = 0; i < players.Length; i++)
         {
-            if (player.Slot >= 8 || player.Generation == 0
-                || (uint)player.Hunter >= 7 || player.Suit > 3
-                || !slots.Add(player.Slot)) continue;
-            found.Add(new(player.Slot, player.Generation, player.Hunter,
+            var player = players[i];
+            ordered[i] = new(player.Slot, player.Generation, player.Hunter,
                 player.Suit, player.Ready,
-                player.Slot == authoritative.LocalSlot, player.Name ?? ""));
-            if (found.Count == 8) break;
+                player.Slot == authoritative.LocalSlot, player.Name ?? "")
+            {
+                Team = authoritative.TeamCount is > 0 and <= 4
+                    && player.Team >= 0 && player.Team < authoritative.TeamCount ? player.Team : -1
+            };
         }
         // Stable ordering and the exact formation geometry are shared with
         // the native shader and the RML lobby nameplates.
-        RmlUiStageHunter[] ordered = found.OrderByDescending(x => x.Local)
-            .ThenBy(x => x.NetSlot).Take(8).ToArray();
-        return new(files, true, lobby.Starting, hero, suit, ordered);
+        return new(files, true, lobby.Starting, hero, suit, ordered)
+        { MatchId = authoritative.MatchId, AuthorityEpoch = authoritative.AuthorityEpoch };
     }
 }

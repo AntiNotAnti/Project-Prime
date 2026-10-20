@@ -1164,8 +1164,28 @@ var badStage = stageRoster with
         stageRoster.Players[0] with { Slot = 6, Suit = 8 }
     }).ToArray()
 };
-Check(RmlUiHunterStagePlan.Build(stageHub, stageLobby, badStage).Count == 3,
-    "duplicate slots, invalid suit and generation are rejected before rendering");
+var rejectedStage = RmlUiHunterStagePlan.Build(stageHub, stageLobby, badStage);
+Check(rejectedStage.Count == 2 && rejectedStage.Formation.All(player => player.NetSlot != 4)
+    && rejectedStage.Formation.Select(player => player.NetSlot).SequenceEqual(
+        RmlUiLobbyDisplayOrder.Ordered(badStage).Select(player => player.Slot)),
+    "all ambiguous duplicate-slot occupants are rejected and stage order matches native labels");
+Check(stage.MatchId == stageRoster.MatchId && stage.AuthorityEpoch == stageRoster.AuthorityEpoch,
+    "stage forwards authoritative match and epoch to scope reused preview identities");
+Check(stage.Formation[0].Team == 0 && stage.Formation[1].Team == 1 && stage.Formation[2].Team == 1,
+    "valid authoritative teams reach platform accents independently of suit indices");
+var invalidTeamStage = RmlUiHunterStagePlan.Build(stageHub, stageLobby, stageRoster with
+{
+    Players = stageRoster.Players.Select(player => player with { Team = 2 }).ToArray()
+});
+Check(invalidTeamStage.Count == 3 && invalidTeamStage.Formation.All(player => player.Team == -1),
+    "team equal to authoritative team count cannot fabricate platform membership");
+foreach (byte invalidTeamCount in new byte[] { 0, 5 })
+{
+    var unassignedTeamStage = RmlUiHunterStagePlan.Build(stageHub, stageLobby,
+        stageRoster with { TeamCount = invalidTeamCount });
+    Check(unassignedTeamStage.Count == 3 && unassignedTeamStage.Formation.All(player => player.Team == -1),
+        "absent or invalid authoritative team count leaves accents unassigned: " + invalidTeamCount);
+}
 Check(RmlUiHunterStagePlan.Build(stageHub with { GameFilesReady = false },
     stageLobby, stageRoster) is { Lobby: true, GameFilesReady: false, Count: 0 },
     "when game assets are missing, the lobby keeps its stage but never touches model GL");
