@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MphRead.Mods.CustomWeapons;
 
 namespace MphRead.Mods.Network;
 
@@ -29,7 +30,15 @@ internal sealed class NetTimedGrants
     internal const uint Duration = 1800, Retention = 1024;
     internal const int SpawnCapacity = 128, GrantCapacity = 512, ObservationCapacity = 16384;
     private readonly record struct Spawn(TimedPowerUp Type, bool Taken);
-    private readonly record struct ObservationKey(ShotKey Life, uint Source);
+    private readonly record struct TimedGrantLifeIdentity(ulong Epoch, ushort Match, int Slot,
+        ushort Generation, ushort Life)
+    {
+        internal static TimedGrantLifeIdentity From(ShotKey life)
+            => new(life.AuthorityEpoch, life.MatchId, life.ShooterSlot, life.Generation, life.LifeId);
+        internal static TimedGrantLifeIdentity From(WeaponOwnerContext owner)
+            => new(owner.AuthorityEpoch, owner.MatchId, owner.Slot, owner.Generation, owner.Life);
+    }
+    private readonly record struct ObservationKey(TimedGrantLifeIdentity Life, uint Source);
     private readonly record struct Observation(uint Authority, TimedGrantAnswer Double,
         TimedGrantAnswer Cloak, TimedGrantAnswer DeathAlt);
     private struct Clock { internal bool Set; internal uint Source, Authority; }
@@ -161,7 +170,7 @@ internal sealed class NetTimedGrants
     {
         Advance(authorityFrame);
         if (!ValidLife(life) || _lives[life.ShooterSlot] != life) return;
-        var key = new ObservationKey(life, sourceFrame);
+        var key = new ObservationKey(TimedGrantLifeIdentity.From(life), sourceFrame);
         if (_observations.ContainsKey(key)) return; // first application is immutable
         if (_observations.Count == ObservationCapacity) { CapacityRefused++; return; }
         ref Clock clock = ref _clocks[life.ShooterSlot];
@@ -194,8 +203,26 @@ internal sealed class NetTimedGrants
         answer = new(TimedGrantKnowledge.Unavailable);
         authorityFrame = 0;
         life = life with { ShotId = 0 };
-        if ((uint)type >= 3 || !ValidLife(life)
-            || !_observations.TryGetValue(new(life, sourceFrame), out var sample)) return false;
+        return ValidLife(life) && TryReadObservation(TimedGrantLifeIdentity.From(life), sourceFrame,
+            type, out answer, out authorityFrame);
+    }
+
+    internal bool TryReadObservation(WeaponOwnerContext owner, uint sourceFrame, TimedPowerUp type,
+        out TimedGrantAnswer answer, out uint authorityFrame)
+    {
+        answer = new(TimedGrantKnowledge.Unavailable);
+        authorityFrame = 0;
+        return owner.IsValid && owner.AuthorityEpoch == _epoch && owner.MatchId == _match
+            && TryReadObservation(TimedGrantLifeIdentity.From(owner), sourceFrame, type,
+                out answer, out authorityFrame);
+    }
+
+    private bool TryReadObservation(TimedGrantLifeIdentity life, uint sourceFrame, TimedPowerUp type,
+        out TimedGrantAnswer answer, out uint authorityFrame)
+    {
+        answer = new(TimedGrantKnowledge.Unavailable);
+        authorityFrame = 0;
+        if ((uint)type >= 3 || !_observations.TryGetValue(new(life, sourceFrame), out var sample)) return false;
         answer = type switch
         {
             TimedPowerUp.DoubleDamage => sample.Double,
@@ -210,15 +237,7 @@ internal sealed class NetTimedGrants
     internal TimedGrantAnswer GrantedAt(ShotKey life, uint shotSourceFrame, TimedPowerUp type, uint now)
     {
         Advance(now);
-        life = life with { ShotId = 0 };
-        if (!ValidLife(life) || !_observations.TryGetValue(new(life, shotSourceFrame), out var sample))
-            return new(TimedGrantKnowledge.Unavailable);
-        return type switch
-        {
-            TimedPowerUp.DoubleDamage => sample.Double,
-            TimedPowerUp.Cloak => sample.Cloak,
-            TimedPowerUp.DeathAlt => sample.DeathAlt,
-            _ => new(TimedGrantKnowledge.Unavailable)
-        };
+        TryReadObservation(life, shotSourceFrame, type, out var answer, out _);
+        return answer;
     }
 }
