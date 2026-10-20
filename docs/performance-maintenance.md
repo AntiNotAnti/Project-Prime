@@ -136,3 +136,44 @@ A public CI runner cannot execute the real client benchmark from this repository
 because Project Prime intentionally ships no cartridge data. The benchmark and
 comparator are therefore release/local gates run against a legally prepared test
 installation rather than a synthetic no-assets substitute.
+
+## Bounded native frame capture
+
+Desktop diagnostics can extend the existing GL frame/pass profiler with a bounded
+raw capture. Normal releases leave it disabled:
+
+```sh
+PROJECT_PRIME_GL_FRAME_CAPTURE=/absolute/new/frame-capture.json ProjectPrime -room 'MP3 PROVING GROUND' -players 8 -fpscap unlimited
+```
+
+The file is created only when the scene ends or the window unloads. Existing
+files are preserved (an export error is printed); use a fresh path per run. Do
+not use a capture file as a live log. The first 240 simulation ticks are warmup.
+Default capacity is 262,144 value records; set `PROJECT_PRIME_GL_FRAME_CAPACITY`
+(up to 1,048,576) before process start for longer/high-rate sessions. Overflow
+retains the earliest chronological records and reports droppedRecords. Any drop
+makes a complete-run performance comparison ineligible. A scene ending stops
+capture for that process; map/focus/seek/context/reset interruptions fence interval
+continuity, preserving earlier completed records in numbered segments.
+
+Schema 2 `glframe-capture` preserves the old `onePercentLowEstimateFps` reciprocal
+p99 label and adds `trueOnePercentLowFps`, calculated as 1000 divided by the mean
+of the slowest ceil(N/100) intervals. p99.9 is absent until 1,000 samples. Long,
+uncontended native runs are required for qualification. Present return timestamps
+measure application completions, not panel scanout. The software input-poll-entry
+to Present-return value is a proxy: it excludes hardware/OS event queue latency,
+uses the latest pointer/aim poll entry, and does not establish photon latency or
+NVIDIA Reflex. The installed low-latency provider remains null.
+
+The capture includes inclusive CPU pass timings, fixed-step duration/counts,
+UI, allocations, GC observations, upload bytes/orphans, swap duration and raw
+intervals. Unattributed gap includes OpenTK scheduling and other uninstrumented
+work; it is not measured sleep or GPU time. Dominant observed scopes may identify
+simulation, GL CPU, UI, texture-upload CPU or swap. GC coincidence and mixed/unknown
+frames remain `unknown/mixed`. Inclusive pass values must never be summed.
+
+No capture sample performs JSON serialization, sorting or file writes. Legacy
+240-frame profiling streams are suppressed while raw capture is active, even
+with `-glprofile`; omit `-glgpu` and separate attribution/readbacks from performance
+controls. CPU-only synthetic allocation checks do not prove end-to-end overhead.
+The capture reports that overhead as UNVERIFIED until native A/A validates it.

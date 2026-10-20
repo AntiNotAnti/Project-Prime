@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "test": "native-baseline-smoke",
+  "exitCode": 0,
+  "status": "PASS",
+  "performanceQualification": "NOT_RUN",
+  "exclusions": [
+    "Concurrent native display-pose captures from another chat",
+    "Concurrent compilation of diagnostics candidate"
+  ],
+  "sourceBase": "c0e7e01de",
+  "rawResultSha256": "a8764454fa2350e8e542d94a8bd8ee9293cd5f03b8d395ebe817a1cf74cba0e8",
+  "rawResult": "artifacts/native-fps/baseline-smoke/result.json",
+  "loadedClientMvid": "52beb804-a03f-4829-a9f6-f0a302b71316",
+  "observedWorkload": {
+    "schemaVersion": 1,
+    "scope": "Observed existing offline bot workload; no replay/input trace was executed; no build/source attestation.",
+    "eligibleNormalTiming": true,
+    "failure": null,
+    "mode": "offline",
+    "phase": "entry",
+    "inputExecution": "frozen-device-snapshots-with-bot-ai",
+    "replayExecuted": false,
+    "seedAssignmentReadback": {
+      "rng1": 12345,
+      "rng2": 98765
+    },
+    "measurementStartRng": {
+      "rng1": 2527680714,
+      "rng2": 3498967168
+    },
+    "measurementEndRng": {
+      "rng1": 1303488401,
+      "rng2": 2826673749
+    },
+    "measurementStartTick": 240,
+    "measurementEndTick": 480,
+    "startRoster": [
+      {
+        "slot": 0,
+        "hunter": "Samus",
+        "bot": true
+      },
+      {
+        "slot": 1,
+        "hunter": "Kanden",
+        "bot": true
+      },
+      {
+        "slot": 2,
+        "hunter": "Trace",
+        "bot": true
+      },
+      {
+        "slot": 3,
+        "hunter": "Sylux",
+        "bot": true
+      },
+      {
+        "slot": 4,
+        "hunter": "Noxus",
+        "bot": true
+      },
+      {
+        "slot": 5,
+        "hunter": "Spire",
+        "bot": true
+      },
+      {
+        "slot": 6,
+        "hunter": "Weavel",
+        "bot": true
+      },
+      {
+        "slot": 7,
+        "hunter": "Samus",
+        "bot": true
+      }
+    ],
+    "endRoster": [
+      {
+        "slot": 0,
+        "hunter": "Samus",
+        "bot": true
+      },
+      {
+        "slot": 1,
+        "hunter": "Kanden",
+        "bot": true
+      },
+      {
+        "slot": 2,
+        "hunter": "Trace",
+        "bot": true
+      },
+      {
+        "slot": 3,
+        "hunter": "Sylux",
+        "bot": true
+      },
+      {
+        "slot": 4,
+        "hunter": "Noxus",
+        "bot": true
+      },
+      {
+        "slot": 5,
+        "hunter": "Spire",
+        "bot": true
+      },
+      {
+        "slot": 6,
+        "hunter": "Weavel",
+        "bot": true
+      },
+      {
+        "slot": 7,
+        "hunter": "Samus",
+        "bot": true
+      }
+    ],
+    "clientBinary": {
+      "name": "ProjectPrime",
+      "sha256": "99802433fa3760b47a49738e0f64b4603833baea9c4597a58d73e81b3bfd1552",
+      "mvid": "52beb804-a03f-4829-a9f6-f0a302b71316"
+    },
+    "harnessBinary": {
+      "name": "native-render-check",
+      "sha256": "dbca3d81277141c70d8f0ec64ef884cd994cf14c22f0a9cceb23464a8fef30d2",
+      "mvid": "16cec028-1d67-4dc8-a12f-570229213a1c"
+    }
+  },
+  "complete": true,
+  "metricsIntentionallyNotUsed": true
+}
