@@ -4,7 +4,8 @@ try
     if (args.Length == 2 && args[0] == "--probe-timeline") return OwnedTimelineProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-render") return OwnedRenderProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-bitmaps") return OwnedBitmapProbe.Run(args[1]);
-    if (args.Length != 0) throw new ArgumentException("Use no arguments for generated fixtures, --probe OWNED_MPH_ROOT for source metadata, or --probe-timeline OWNED_MPH_ROOT for pure timeline metadata, or --probe-render OWNED_MPH_ROOT for model/animation admission metadata, or --probe-bitmaps OWNED_MPH_ROOT for CPU bitmap/font metadata.");
+    if (args.Length == 2 && args[0] == "--probe-widgets") return OwnedRenderProbe.Run(args[1], sampleWidgets: true);
+    if (args.Length != 0) throw new ArgumentException("Use no arguments for generated fixtures, --probe OWNED_MPH_ROOT for source metadata, or --probe-timeline OWNED_MPH_ROOT for pure timeline metadata, or --probe-render OWNED_MPH_ROOT for model/animation admission metadata, or --probe-bitmaps OWNED_MPH_ROOT for CPU bitmap/font metadata, or --probe-widgets OWNED_MPH_ROOT for CPU widget geometry.");
     CreditsFixtures.Run();
     AnimationDurationFixtures.Run();
     CreditsTimelineFixtures.Run();
@@ -14,6 +15,7 @@ try
     CreditsMutationFixtures.Run();
     CreditsBitmapFixtures.Run();
     CreditsTextFixtures.Run();
+    CreditsWidgetFixtures.Run();
     return 0;
 }
 catch (Exception error)
