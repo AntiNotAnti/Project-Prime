@@ -44,6 +44,31 @@ namespace MphRead.Entities
         {
             position = Position;
             facing = _facingVector;
+            // First-person must remain immediate for input latency, but in
+            // third-person the local Hunter itself becomes visible. Before
+            // this branch the owner was pinned to a 60Hz body transform while
+            // the camera was interpolating its translation at 120/240Hz.
+            // Read the already captured authoritative transform at precisely
+            // the camera's presentation alpha, never touching gameplay state.
+            // EntityBase's lifetime guard automatically rebases on respawn,
+            // teleport, network seat/life changes and morph transitions.
+            if (IsMainPlayer && _scene.ModThirdPersonCameraActive
+                && !_scene.Services.IsReplica
+                && FrameTiming.Active && FrameTiming.HighRefreshPresentation
+                && CameraType == CameraType.First
+                && !IsAltForm && !IsMorphing && !IsUnmorphing
+                && ModTrySampleCapturedDrawTransform(out Matrix4 thirdPersonBody,
+                    out _))
+            {
+                position = thirdPersonBody.Row3.Xyz;
+                Vector3 interpolatedFacing = thirdPersonBody.Row2.Xyz;
+                if (float.IsFinite(interpolatedFacing.X)
+                    && float.IsFinite(interpolatedFacing.Y)
+                    && float.IsFinite(interpolatedFacing.Z)
+                    && interpolatedFacing.LengthSquared > 0.000001f)
+                    facing = interpolatedFacing.Normalized();
+                return;
+            }
             if (!InterpolateDrawTransform) return;
             if (!_scene.Services.IsReplica && (!FrameTiming.Active || !FrameTiming.HighRefreshPresentation)) return;
             Matrix4 pose = ReplayDrawTransform;
@@ -107,6 +132,15 @@ namespace MphRead.Entities
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation;
             bool ordinaryOfflineActor = ordinaryOfflinePresentation
                 && (drawPosition != Position || drawFacing != _facingVector);
+            // The live local Hunter's interpolated mesh is draw-only, just
+            // like an offline remote Hunter. Restore the canonical skeleton
+            // and muzzle anchors after submission so neither combat nor
+            // the next render frame can inherit the visual-only pose.
+            bool localThirdPersonActor = IsMainPlayer && _scene.ModThirdPersonCameraActive
+                && !_scene.Services.IsReplica
+                && FrameTiming.Active && FrameTiming.HighRefreshPresentation
+                && (drawPosition != Position || drawFacing != _facingVector);
+            bool isolateLocalOrOfflineActor = ordinaryOfflineActor || localThirdPersonActor;
             bool forceNetworkVisibility = ModForceNetworkVisibility(
                 _scene.Services.IsReplica, Mods.Network.NetSession.Active,
                 SlotIndex, Mods.Network.NetHooks.LocalSlot,
@@ -311,7 +345,7 @@ namespace MphRead.Entities
                     Matrix4 transform = ModBuildBipedDrawTransform(drawPosition, drawFacing,
                         fallbackLateral, scale, bottom, out float angle);
                     float canonicalAngle = angle;
-                    Matrix4 canonicalBody = ordinaryOfflineActor
+                    Matrix4 canonicalBody = isolateLocalOrOfflineActor
                         ? ModBuildBipedDrawTransform(Position, _facingVector,
                             fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
@@ -334,7 +368,7 @@ namespace MphRead.Entities
                     // Node interpolation can remain fractional when float actor
                     // interpolation rounds exactly to the current world pose.
                     // These canonical owners must not inherit either sample.
-                    bool isolateBipedAnchors = ordinaryOfflineActor
+                    bool isolateBipedAnchors = isolateLocalOrOfflineActor
                         || (ordinaryOfflinePresentation && interpolatedPose);
                     try
                     {
