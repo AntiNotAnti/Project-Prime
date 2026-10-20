@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using MphRead;
 using MphRead.Mods;
@@ -28,13 +30,24 @@ internal static class EndingGlAcceptance
             var story = CampaignGlFixture.Save();
             story.FoundOctoliths = 0xff;
             story.Stats.Deaths = 12; story.Stats.HunterKills = 34; story.Stats.EnemyKills = 567;
+            story.Stats.CampaignTime = new CampaignTimeRecords.Record
+            {
+                Version = CampaignTimeRecords.CurrentVersion,
+                PlayTicks = 443099, GoreaFirstTicks = 3929, GoreaSecondTicks = 3571
+            };
             CampaignEndingSummary complete = CampaignEndingSummary.Capture(2,
                 CampaignNavigation.GoreaSecondRoomId, story, _ => 93)!.Value with { SaveCommitted = true };
+            Check(complete.PlayTicks == 443099 && complete.GoreaTicks == 7500,
+                "ending captures exact nullable tick scalars before native presentation");
             var audio = new SilentAudio();
             page = new NativeCampaignEndingPage(host, pages, complete, audio);
             page.Open();
             var document = page.Document;
             story.Stats.Deaths = 999; story.Stats.EnemyKills = 999; story.FoundOctoliths = 0;
+            story.Stats.CampaignTime.PlayTicks = 0;
+            story.Stats.CampaignTime.GoreaFirstTicks = 0;
+            story.Stats.CampaignTime.GoreaSecondTicks = 0;
+            story.Stats.CampaignTime.Version = 999;
             Settle(200);
             Check(page.Receipt == complete && !page.Closed && !page.TryTakeReturn(out _),
                 "opening presents a detached receipt without returning or retaining mutable save data");
@@ -45,7 +58,7 @@ internal static class EndingGlAcceptance
                 "native heading and final encounter use captured ending kind");
             Check(semantic.ContainsText("SAVE SLOT 02") && semantic.ContainsText("SAVE COMMITTED"),
                 "native slot and save result use captured receipt");
-            Check(semantic.ContainsText("COMPLETION  93%\nOCTOLITHS  8/8\nDEATHS  12\nHUNTER KILLS  34\nENEMY KILLS  567")
+            Check(semantic.ContainsText("COMPLETION  93%\nTOTAL TIME  2h 03m\nGOREA TIME  2m 05s\nOCTOLITHS  8/8\nDEATHS  12\nHUNTER KILLS  34\nENEMY KILLS  567")
                 && !semantic.ContainsText("999"),
                 "all native totals match exact capture despite later synthetic save mutation");
             Check(semantic.ContainsText(Credits.Summary) && semantic.ContainsText(Credits.Author)
@@ -54,6 +67,9 @@ internal static class EndingGlAcceptance
             Check(audio.Starts == 1 && audio.Sequence == CampaignAudioCatalog.Sequence(CampaignAudioPage.EndingResults)
                 && audio.Sequence == SeqId.RESULTS && audio.Ticks > 0 && audio.Cues == 1,
                 "existing ending audio lifecycle is pumped through injected silent sink only");
+            Check(page.Receipt.PlayTicks == 443099 && page.Receipt.GoreaTicks == 7500,
+                "native receipt timing remains captured after source clock mutation");
+            CheckSummaryLayout("complete-known-time", semantic);
             Capture("complete-summary");
             host.Input.PointerMoved(width / 2d, height * 0.7d);
             host.Input.PointerWheel(-1000); Settle(450);
@@ -85,12 +101,30 @@ internal static class EndingGlAcceptance
                 && !page.Handle(new(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Adventure, document, ulong.MaxValue)),
                 "disposal and retired intent neither replay return nor stop unrelated audio");
 
+            CampaignEndingSummary unavailable = new(1, CampaignEndingKind.Complete, true,
+                100, 8, 0, 0, 0) { PlayTicks = null, GoreaTicks = null };
+            var unavailableAudio = new SilentAudio();
+            page = new NativeCampaignEndingPage(host, pages, unavailable, unavailableAudio);
+            page.Open(); Settle(200);
+            semantic = NativeSemanticReadback.Read(host, page.Document);
+            Check(semantic.ContainsText("COMPLETION  100%\nTOTAL TIME  NOT AVAILABLE\nGOREA TIME  NOT AVAILABLE\nOCTOLITHS  8/8\nDEATHS  0\nHUNTER KILLS  0\nENEMY KILLS  0")
+                && !semantic.ContainsText("TOTAL TIME  0h 00m") && !semantic.ContainsText("GOREA TIME  0m 00s"),
+                "body-init unknown timing stays explicitly unavailable even for a complete ending");
+            CheckSummaryLayout("complete-unknown-time", semantic);
+            Capture("complete-unknown-time");
+            Check(page.Back() && page.TryTakeReturn(out returned) && returned == unavailable
+                && returned.PlayTicks == null && returned.GoreaTicks == null,
+                "unknown timing survives exact native return unchanged");
+            page.Dispose();
+            Check(unavailableAudio.Stops == 1, "unknown timing fixture stops only its silent audio");
+
             var unfinishedSave = CampaignGlFixture.Save();
             unfinishedSave.FoundOctoliths = 0x3f;
             unfinishedSave.Stats.Deaths = 42;
             CampaignEndingSummary incomplete = CampaignEndingSummary.Capture(3,
                 CampaignNavigation.GoreaFirstRoomId, unfinishedSave,
-                _ => throw new InvalidOperationException("synthetic unavailable completion"))!.Value;
+                _ => throw new InvalidOperationException("synthetic unavailable completion"))!.Value
+                with { PlayTicks = 219719, GoreaTicks = 7500 };
             var incompleteAudio = new SilentAudio();
             page = new NativeCampaignEndingPage(host, pages, incomplete, incompleteAudio);
             page.Open(); Settle(200);
@@ -99,8 +133,11 @@ internal static class EndingGlAcceptance
                 && semantic.Label("campaign_ending_result") == "GOREA BATTLE INCOMPLETE"
                 && semantic.ContainsText("SAVE NOT REQUESTED"),
                 "unfinished capture preserves actual encounter and uncommitted save status");
-            Check(semantic.ContainsText("COMPLETION  NOT AVAILABLE\nOCTOLITHS  6/8\nDEATHS  42\nHUNTER KILLS  0\nENEMY KILLS  0"),
+            Check(semantic.ContainsText("COMPLETION  NOT AVAILABLE\nTOTAL TIME  1h 01m\nGOREA TIME  INCOMPLETE\nOCTOLITHS  6/8\nDEATHS  42\nHUNTER KILLS  0\nENEMY KILLS  0"),
                 "unavailable completion is explicit and missing activity is not invented");
+            Check(!semantic.ContainsText("GOREA TIME  2m 05s") && page.Receipt.GoreaTicks == 7500,
+                "bad ending presents incomplete despite a known captured Gorea observation");
+            CheckSummaryLayout("incomplete-known-time", semantic);
             Capture("incomplete-unknown-completion");
             Check(page.Back() && !page.Back() && page.TryTakeReturn(out returned)
                 && returned == incomplete && !page.TryTakeReturn(out _),
@@ -156,6 +193,37 @@ internal static class EndingGlAcceptance
                 received = true;
             }
             Check(received, "native return emits expected stable Adventure route"); Settle(180);
+        }
+        void CheckSummaryLayout(string name, NativeSemanticReadback semantic)
+        {
+            var document = page!.Document;
+            var bounds = new Dictionary<string, float[]>();
+            float[] Bounds(string id)
+            {
+                Check(host.TryGetElementBounds(document, id, out float x, out float y, out float w, out float h)
+                    && float.IsFinite(x) && float.IsFinite(y) && float.IsFinite(w) && float.IsFinite(h)
+                    && w > 0 && h > 0, "native ending layout resolves finite positive bounds: " + id);
+                return bounds[id] = new[] { x, y, w, h };
+            }
+            var scroll = Bounds("campaign_ending_scroll");
+            var totals = Bounds("campaign_ending_totals");
+            var credits = Bounds("campaign_ending_credits");
+            var button = Bounds("campaign_ending_continue");
+            Check(scroll[0] >= 0 && scroll[1] >= 0 && scroll[0] + scroll[2] <= width + 1
+                && scroll[1] + scroll[3] <= height + 1, "ending scroll viewport stays within framebuffer");
+            Check(totals[0] >= scroll[0] - 1 && totals[0] + totals[2] <= scroll[0] + scroll[2] + 1
+                && totals[1] >= scroll[1] - 1 && totals[1] + totals[3] <= scroll[1] + scroll[3] + 1,
+                "expanded timing totals fit fully inside the initial scroll viewport");
+            Check(totals[3] >= 7 * 18 && credits[1] >= totals[1] + totals[3],
+                "seven totals lines reserve native height and do not overlap credits");
+            Check(button[0] >= 0 && button[1] >= 0 && button[0] + button[2] <= width + 1
+                && button[1] + button[3] <= height + 1 && button[1] + button[3] <= scroll[1] + 1,
+                "return action stays visible above expanded scroll content");
+            File.WriteAllText(Path.Combine(output, $"synthetic-{name}-layout-{width}x{height}.json"),
+                JsonSerializer.Serialize(new { SyntheticOnly = true, Width = width, Height = height,
+                    ExpectedTotalsLines = 7, page.Receipt.PlayTicks, page.Receipt.GoreaTicks,
+                    Totals = semantic.Label("campaign_ending_totals"), Bounds = bounds },
+                    new JsonSerializerOptions { WriteIndented = true }));
         }
         void Capture(string name)
         {

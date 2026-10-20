@@ -54,6 +54,9 @@ namespace MphRead.Mods.Launcher.Gui
                     + (result.SaveCommitted ? "PROGRESS SAVED" : "SAVE NOT REQUESTED"),
                     12, result.SaveCommitted ? PrimeTheme.TextSecondaryBrush : PrimeTheme.WarningBrush, data: true),
                 PrimeChrome.Text($"COMPLETION: {completion}\n"
+                    + $"TOTAL TIME: {CampaignTimeRecords.FormatTotal(result.PlayTicks)}\n"
+                    + "GOREA TIME: " + (result.Kind == CampaignEndingKind.Complete
+                        ? CampaignTimeRecords.FormatGorea(result.GoreaTicks) : "INCOMPLETE") + "\n"
                     + $"OCTOLITHS: {result.Octoliths} / 8\n"
                     + $"DEATHS: {result.Deaths}\n"
                     + $"HUNTERS / GUARDIANS DEFEATED: {result.HunterKills}\n"

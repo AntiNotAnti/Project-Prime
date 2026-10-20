@@ -5,7 +5,11 @@ namespace MphRead.Mods.Launcher.Core;
 
 /// <summary>Detached values from the ending receipt, never a mutable campaign save.</summary>
 public readonly record struct NativeCampaignEndingReport(byte Slot, bool Complete, bool SaveCommitted,
-    int? CompletionPercent, int Octoliths, uint Deaths, uint HunterKills, uint EnemyKills);
+    int? CompletionPercent, int Octoliths, uint Deaths, uint HunterKills, uint EnemyKills)
+{
+    public long? PlayTicks { get; init; }
+    public long? GoreaTicks { get; init; }
+}
 
 public readonly record struct NativeCampaignEndingSnapshot(long Revision, NativeCampaignEndingReport Report, bool Closed);
 
