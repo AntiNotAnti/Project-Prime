@@ -30,6 +30,11 @@ namespace MphRead.Mods.Network
         public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
         {
             reason = "";
+            if (match.RiftlineM7Available)
+            {
+                reason = "Riftline M7 match availability is not enabled in this protocol.";
+                return LobbyResultCode.InvalidConfiguration;
+            }
             if (!MatchModifierRules.Validate(match, out reason, allowRetiredEnhanced)) return LobbyResultCode.InvalidConfiguration;
             if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
                 || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
