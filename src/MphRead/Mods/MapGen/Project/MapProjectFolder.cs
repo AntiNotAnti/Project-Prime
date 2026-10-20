@@ -55,6 +55,7 @@ public static class MapProjectFolder
             {
                 if(material.Texture is {} texture)material.Texture=paths[texture];
                 if(material.Albedo is {} albedo)material.Albedo=paths[albedo];
+                if(material.AlbedoBank is {} bank)bank.Bank=paths[bank.Bank];
                 if(material.Normal is {} normal)material.Normal=paths[normal];
                 if(material.SpecularRoughness is {} specular)material.SpecularRoughness=paths[specular];
                 if(material.Emissive is {} emissive)material.Emissive=paths[emissive];

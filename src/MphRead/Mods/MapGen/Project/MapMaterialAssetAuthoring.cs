@@ -14,6 +14,8 @@ internal static class MapMaterialAssetAuthoring
         if (definition.BundlePath != null) throw new IOException("Save this package as an editable project before changing packaged material art.");
         MapMaterial material = definition.Materials.FirstOrDefault(m => m.Id == materialId)
             ?? throw new InvalidDataException("Material no longer exists.");
+        if (material.AlbedoBank != null)
+            throw new InvalidOperationException("Source-bank material channels are read-only; use a local material override.");
         string? previous = Get(material, channel);
         if (source == null)
         {

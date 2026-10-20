@@ -18,7 +18,7 @@ internal static class MapMaterialAssetRegistry
         try
         {
             foreach (MapDefinition definition in CustomRooms.Definitions)
-                if (Resolve(definition, key, includeCompanions) is { } resolved) return resolved;
+                if (Resolve(definition, key, includeCompanions, allowSourceBanks: false) is { } resolved) return resolved;
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
             or ArgumentException or InvalidOperationException)
@@ -44,6 +44,8 @@ internal static class MapMaterialAssetRegistry
 
         foreach (var pair in model.AuthoredMaterialScopes)
         {
+            if (model.SourceBankMaterials?.Resolve(new MaterialAssetKey(pair.Value + "/recolor/0")) != null)
+                continue;
             string[] parts = pair.Value.Split('/');
             if (parts.Length != 4 || parts[0] != "map" || parts[2] != "material"
                 || !Guid.TryParseExact(parts[1], "N", out Guid mapId)
@@ -84,7 +86,7 @@ internal static class MapMaterialAssetRegistry
     }
 
     internal static ResolvedMaterial? Resolve(MapDefinition definition, MaterialAssetKey key,
-        bool includeCompanions = true)
+        bool includeCompanions = true, bool allowSourceBanks = true)
     {
         if (definition.MapId == Guid.Empty || !key.Value.StartsWith($"map/{definition.MapId:N}/", StringComparison.Ordinal))
             return null;
@@ -111,6 +113,8 @@ internal static class MapMaterialAssetRegistry
             string recolorText = key.Value[prefix.Length..];
             if (!Int32.TryParse(recolorText, out int recolor) || recolor < 0) return null;
             bool nativeFlipbook = material.Animation?.FlipbookFrames?.Count > 0;
+            if (material.AlbedoBank != null)
+                return allowSourceBanks ? SourceBankMaterialSnapshot.Capture(definition)?.Resolve(key) : null;
             var resolved = new ResolvedMaterial(key,
                 nativeFlipbook ? null : Image(material.Albedo),
                 includeCompanions ? Image(material.Normal) : null,

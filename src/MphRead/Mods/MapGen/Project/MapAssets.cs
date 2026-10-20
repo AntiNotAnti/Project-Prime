@@ -31,6 +31,18 @@ namespace MphRead.Mods.MapGen
         public static byte[] Read(MapDefinition definition,string relative)
         {
             MapPackageReader.CanonicalName(relative);
+            if(definition.Assets.Any(a=>a?.Path==relative&&a.Kind=="source-texture-bank"))
+            {
+                if(definition.BundlePath!=null)throw new InvalidDataException("Source banks cannot be read from a map package.");
+                return Mods.Render.Materials.SourceBankMaterialSnapshot.WithRead(
+                    Path.GetFullPath(definition.BaseDirectory??CustomRooms.MapDirectory),relative,stream=>
+                    {
+                        int length=checked((int)stream.Length);
+                        byte[] bytes=new byte[length];stream.ReadExactly(bytes);
+                        if(stream.ReadByte()!=-1||stream.Length!=length)throw new InvalidDataException("Source bank changed while reading.");
+                        return bytes;
+                    });
+            }
             if(definition.BundlePath!=null)return MapBundle.ReadEntry(definition.BundlePath,relative)??throw new InvalidDataException("Missing map asset: "+relative);
             string root=Path.GetFullPath(definition.BaseDirectory??CustomRooms.MapDirectory);
             string full=Path.GetFullPath(Path.Combine(root,relative));
@@ -108,9 +120,17 @@ namespace MphRead.Mods.MapGen
                     if(asset.Kind=="audio"&&ext is not(".wav" or ".ogg" or ".mp3"))throw new InvalidDataException("Music must be WAV, OGG or MP3.");
                     if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tga" or ".ktx2" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
                     if(asset.Kind=="preview"&&ext!=".png")throw new InvalidDataException("Preview must be PNG.");
-                    if(asset.Kind is not("audio" or "texture" or "preview"))throw new InvalidDataException("Unknown asset kind.");
+                    if(asset.Kind=="source-texture-bank" && (ext!=".bin" || definition.BundlePath!=null))throw new InvalidDataException("Source banks require private loose .bin assets.");
+                    if(asset.Kind is not("audio" or "texture" or "preview" or "source-texture-bank"))throw new InvalidDataException("Unknown asset kind.");
                     if(checkFiles)
                     {
+                        if(asset.Kind=="source-texture-bank")
+                        {
+                            Mods.Render.Materials.SourceBankMaterialSnapshot.WithRead(
+                                Path.GetFullPath(definition.BaseDirectory??CustomRooms.MapDirectory), asset.Path,
+                                EchoesSourceTextureBank.Inspect);
+                            continue;
+                        }
                         byte[] bytes=Read(definition,asset.Path);
                         if(asset.Kind=="preview"&&(bytes.Length<24||!bytes.AsSpan(0,8).SequenceEqual(new byte[]{137,80,78,71,13,10,26,10})
                             ||System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(16)) is <1 or >4096
@@ -162,8 +182,31 @@ namespace MphRead.Mods.MapGen
                 if(audio.Music!=null&&audio.GameMusic!=null)result.Error("FP-MAP-021","Choose custom music or game music, not both.");
                 if(audio.GameMusic!=null&&(!Enum.TryParse<MusicId>(audio.GameMusic,true,out var music)||!Enum.IsDefined(music)))result.Error("FP-MAP-021","Unknown game music reference.");
             }
+            Mods.Render.Materials.SourceBankMaterialSnapshot? sourceBanks = null;
+            bool capturedSourceBanks = false;
             foreach(var material in definition.Materials)
             {
+                if(material?.ProceduralWhite==true && material.Texture!=null)
+                    result.Error("FP-MAP-001","Choose a procedural fallback or a baked native texture.",material.Id);
+                if(material?.AlbedoBank!=null)
+                {
+                    try
+                    {
+                        Mods.Render.Materials.SourceBankMaterialSnapshot.ValidateReference(definition,material);
+                        if(checkFiles)
+                        {
+                            if(!capturedSourceBanks)
+                            {
+                                sourceBanks=Mods.Render.Materials.SourceBankMaterialSnapshot.Capture(definition);
+                                capturedSourceBanks=true;
+                            }
+                            var key=Mods.Render.Materials.MaterialAssetKey.Authored(definition.MapId,material.Id);
+                            sourceBanks!.Resolve(key)!.Albedo!.ReadRgba(Mods.Render.TextureAssetClass.World,Mods.Render.TextureAssetChannel.Albedo);
+                        }
+                    }
+                    catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+                    {result.Error("FP-MAP-001",ex.Message,material.Id);}
+                }
                 if(material?.Texture is {} texture)
                 {
                     if(!paths.Contains(texture)||!texture.EndsWith(".tex",StringComparison.OrdinalIgnoreCase))result.Error("FP-MAP-001","Custom materials must reference a baked texture asset.",material.Id);

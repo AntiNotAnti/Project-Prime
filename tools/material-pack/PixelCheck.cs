@@ -172,7 +172,7 @@ internal static class PixelCheck
                 Render("opaque-accept-full",new[] { new ColorRgba((byte)255,(byte)0,(byte)0,(byte)255) },1,1,null,opaquePass:true);
                 Expected("opaque-reject-half",0,0,255); Expected("opaque-accept-full",255,0,0);
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-                File.WriteAllText(output,JsonSerializer.Serialize(new { Backend=backend, Renderer=G.GetString(StringName.Renderer), Version=version, Modern=modern, Width=96,Height=96,Alpha=alpha,Images=results }));
+                File.WriteAllText(output,JsonSerializer.Serialize(new { Backend=backend, Renderer=G.GetString(StringName.Renderer), Version=version, Width=96,Height=96,Alpha=alpha,Images=results }));
                 Console.WriteLine($"MATERIAL PIXELS PASS actual={G.GetString(StringName.Renderer)} {version} output={output}");
             }
             finally { scene.UnloadGl(); G.BindFramebuffer(FramebufferTarget.Framebuffer,0); G.DeleteFramebuffer(target); G.DeleteTexture(color); G.DeleteRenderbuffer(depth); }

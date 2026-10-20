@@ -525,7 +525,10 @@ namespace MphRead.Mods.Launcher.Gui
                     + $"|flip:{String.Join(",", motion.FlipbookFrames ?? new System.Collections.Generic.List<string>())}"
                     + $"|hold:{motion.FlipbookHoldFrames}|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
                 : "|uv:off";
-            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}|alpha:{material.Alpha}|two:{material.TwoSided}{animation}{stamp}";
+            string sourceBank = material.AlbedoBank is { } bank
+                ? $"|bank:{bank.Bank}/{bank.BankSha256}/{bank.ResourceId}/{bank.RgbaSha256}/{bank.Width}/{bank.Height}" : "";
+            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}|alpha:{material.Alpha}|two:{material.TwoSided}{animation}{stamp}{sourceBank}"
+                + (material.ProceduralWhite ? "|procedural-white" : "");
         }
         internal void ShowStatus(string message)=>_status.Text=message;
         private static TextBlock Text(string text)=>new(){Text=text,Foreground=GuiTheme.TextBrush,TextWrapping=TextWrapping.Wrap};

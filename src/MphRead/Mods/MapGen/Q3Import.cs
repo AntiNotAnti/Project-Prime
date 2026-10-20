@@ -802,11 +802,18 @@ namespace MphRead.Mods.MapGen
         private static IReadOnlyList<(int, int)> GetTextureSizes(MapDefinition def)
         {
             if (def.Materials.Count == 0) return Array.Empty<(int, int)>();
-            Model source = Read.GetRoomModelInstance(def.TextureSource).Model;
-            Recolor recolor = source.Recolors[0];
+            Model? source = null;
             var results = new List<(int, int)>();
             foreach (MapMaterial material in def.Materials)
             {
+                if (material.ProceduralWhite) { results.Add((8, 8)); continue; }
+                if (material.Texture is { } path)
+                {
+                    var own = MapTexturePack.Load(MapAssets.Read(def, path), path).Entries.Single();
+                    results.Add((own.Width, own.Height)); continue;
+                }
+                source ??= Read.GetRoomModelInstance(def.TextureSource).Model;
+                Recolor recolor = source.Recolors[0];
                 Material srcMaterial = source.Materials[material.SourceMaterial];
                 Texture texture = recolor.Textures[srcMaterial.TextureId];
                 results.Add((texture.Width, texture.Height));
