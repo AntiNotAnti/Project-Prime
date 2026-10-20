@@ -4,7 +4,7 @@ Implemented: persisted Auto, Touch, AimOnly and Off modes in existing TouchSetti
 
 SH-02 is opt-in through Controls / Touch overlay / Direct Weapon Selection (controls.txt: touch_direct_weapon_selection). Its hit targets share the actual HUD sprite transform with drawing, including profile scale/offset, icon scale, pen-zone placement and aspect. One selecting pointer owns the ring; earlier aim and third fingers cannot take it. Release on the existing WEAPON completion edge uses canonical equip validation; unavailable/no-ammo/outside targets have no selection. Cancel/lifecycle releases clear capture. The default remains false until device qualification.
 
-SH-01B finding: Project already accumulates raw gesture movement for the next simulation sample and has no upstream ten-frame hold. Existing immediate behavior, DPI sensitivity, zoom/inversion and native morph sampling are retained. No invented Direct/Classic setting was added: a separately verified DS-response option and physical latency comparison remain incomplete.
+SH-01B finding: Project already accumulates raw gesture movement for the next simulation sample and has no upstream ten-frame hold. Existing immediate behavior, DPI sensitivity, zoom/inversion and native morph sampling are retained. The later [SH-01B follow-up](second-hunt-stylus-evidence-2026-10-19.md) adds an optional Classic timing response while retaining Direct as default; physical latency/device qualification remains incomplete.
 
 ## Local evidence
 

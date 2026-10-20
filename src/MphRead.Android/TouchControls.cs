@@ -141,6 +141,8 @@ namespace MphRead.Droid
         }
 
         private readonly object _lock = new object();
+        private readonly StylusAimResponse _stylusResponse = new();
+        private bool _responseApplies = true;
 
         // Renderers enumerate a stable publication while settings may rebuild
         // instances on the game thread. Geometry objects remain managed.
@@ -967,7 +969,7 @@ namespace MphRead.Droid
         /// applied. Density still belongs to button sizing, tap slop and gesture
         /// thresholds; it does not belong in relative camera motion.
         /// </summary>
-        public (float X, float Y) TakeAimDelta(bool preservePresentation = true)
+        public (float X, float Y) TakeAimDelta(bool preservePresentation = true, bool useStylusResponse = true)
         {
             lock (_lock)
             {
@@ -975,8 +977,16 @@ namespace MphRead.Droid
                 AdvanceAimPresentationLocked(now);
                 float x = _aimDeltaX;
                 float y = _aimDeltaY;
+                float sourceX = x, sourceY = y;
                 _aimDeltaX = 0;
                 _aimDeltaY = 0;
+                _responseApplies = useStylusResponse;
+                if (preservePresentation && useStylusResponse)
+                    (x, y) = _stylusResponse.Sample(TouchSettings.StylusResponse,
+                        _aimPointer != -1 || _fireAimPointer != -1, x, y);
+                else _stylusResponse.Reset();
+                if (useStylusResponse && TouchSettings.StylusResponse == TouchStylusResponse.Classic)
+                    preservePresentation = false;
 
                 if (preservePresentation)
                 {
@@ -994,7 +1004,7 @@ namespace MphRead.Droid
                     ResetAimPresentationLocked();
                 }
 
-                Mods.Input.AimInputSourceTracker.Pointer(x, y, true, now);
+                Mods.Input.AimInputSourceTracker.Pointer(sourceX, sourceY, true, now);
                 return (x, y);
             }
         }
@@ -1009,6 +1019,11 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                if (_responseApplies && TouchSettings.StylusResponse == TouchStylusResponse.Classic)
+                {
+                    ResetAimPresentationLocked();
+                    return (0, 0);
+                }
                 AdvanceAimPresentationLocked(Environment.TickCount64);
                 return (_aimPresentationOffsetX, _aimPresentationOffsetY);
             }
@@ -1533,6 +1548,7 @@ namespace MphRead.Droid
                     }
                     float dx = x - _aimLastX;
                     float dy = y - _aimLastY;
+                    (dx, dy) = StylusAimResponse.BoundDelta(dx, dy);
                     _aimDeltaX += dx;
                     _aimDeltaY += dy;
                     QueueAimPresentationLocked(dx, dy, presentAt);
@@ -1550,6 +1566,7 @@ namespace MphRead.Droid
                     CheckSwipeBoost(_fireAimSwipe, x, y, eventTime);
                     float dx = x - _fireAimLastX;
                     float dy = y - _fireAimLastY;
+                    (dx, dy) = StylusAimResponse.BoundDelta(dx, dy);
                     _aimDeltaX += dx;
                     _aimDeltaY += dy;
                     QueueAimPresentationLocked(dx, dy, presentAt);
@@ -1612,6 +1629,7 @@ namespace MphRead.Droid
                 {
                     _aimPointer = -1;
                     _aimDown = false;
+                    if (_fireAimPointer == -1) _stylusResponse.Reset();
                     _aimSwipe.Reset();
                     long up = Environment.TickCount64;
                     if (!AimOnlyLocked && !_tapMoved && up - _tapDownTime <= TapMaxMs)
@@ -1639,6 +1657,7 @@ namespace MphRead.Droid
                 if (pointerId == _fireAimPointer)
                 {
                     _fireAimPointer = -1;
+                    if (_aimPointer == -1) _stylusResponse.Reset();
                     _fireAimSwipe.Reset();
                 }
                 if (pointerId == _wheelPointer)
@@ -1659,6 +1678,8 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                _stylusResponse.Reset();
+                _responseApplies = true;
                 _buttonPointers.Clear();
                 _buttonInstancePointers.Clear();
                 _held.Clear();

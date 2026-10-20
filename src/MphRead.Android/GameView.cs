@@ -1968,7 +1968,8 @@ namespace MphRead.Droid
                 }
                 else
                 {
-                    (float X, float Y) delta = _controls.TakeAimDelta();
+                    (float X, float Y) delta = _controls.TakeAimDelta(useStylusResponse:
+                        !main.IsAltForm && !main.IsMorphing && !main.IsUnmorphing);
                     _input.MovePointer(delta.X * AimScale, delta.Y * AimScale);
                 }
             }
