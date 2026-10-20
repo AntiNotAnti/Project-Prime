@@ -78,15 +78,35 @@ internal static class OpenGlPassProfiler
         internal int PaletteFloats;
         internal float PaletteScale;
     }
+    private static bool FrameCaptureEnabled
+    {
+        get
+        {
+#if !MPHREAD_SERVER && !ANDROID
+            return OpenGlFrameProfiler.Capturing;
+#else
+            return false;
+#endif
+        }
+    }
+    internal static double FrameMilliseconds(OpenGlCpuPass pass)
+        => _state is { Active: true } s && s.Seen[(int)pass]
+            ? s.Ticks[(int)pass] * 1000.0 / Stopwatch.Frequency : 0;
+    internal static long FrameCounter(OpenGlFrameCounter counter)
+        => _state is { Active: true } s ? s.Counters[(int)counter] : 0;
+
     internal static void BeginFrame()
     {
-        if (!OpenGlSubmissionProfiler.Enabled) return;
+        if (!OpenGlSubmissionProfiler.Enabled && !FrameCaptureEnabled) return;
         State s = _state ??= new State();
         if (s.Active) CancelFrame();
         Array.Clear(s.Ticks); Array.Clear(s.Seen); Array.Clear(s.Counters);
         s.PaletteSource = null;
-        OpenGlDrawAttribution.BeginFrame();
-        OpenGlUniformAttribution.BeginFrame();
+        if (!FrameCaptureEnabled)
+        {
+            OpenGlDrawAttribution.BeginFrame();
+            OpenGlUniformAttribution.BeginFrame();
+        }
 #if !MPHREAD_SERVER && !ANDROID
         GraphicsApi.BeginLegacyUniformSample();
 #endif
@@ -241,6 +261,9 @@ internal static class OpenGlPassProfiler
         s.Active = false;
         s.PaletteSource = null;
         if (allocated < 0) { CancelFrame(); return; }
+        // Capture mode takes its correlated snapshot before EndFrame. Do not
+        // serialize/sort legacy windows or feed unrelated attribution streams.
+        if (FrameCaptureEnabled) return;
         OpenGlDrawAttribution.EndFrame();
         OpenGlUniformAttribution.EndFrame();
         s.Allocations.Add(allocated);

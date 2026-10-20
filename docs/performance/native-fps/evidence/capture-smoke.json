@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "test": "native-capture-window-lifecycle",
+  "exitCode": 0,
+  "status": "PASS",
+  "performanceQualification": "NOT_RUN",
+  "reason": "Concurrent other-chat rendering; deliberately includes window/focus transitions",
+  "loadedClient": {
+    "assemblyMvid": "7d579d3c-5819-469b-a6d6-9c159867a61c",
+    "assemblySha256": "4c8fab28f53d917bb21c7798a61f618928e41c042ee8caa93e30221a620d5b9b",
+    "imageKind": "assembly",
+    "os": "macOS 27.0.1",
+    "machine": "Jarretts-MBP",
+    "vendor": "Apple",
+    "renderer": "Apple M4 Pro",
+    "glVersion": "2.1 Metal - 91.7",
+    "room": "MP3 PROVING GROUND",
+    "width": 1920,
+    "height": 1080,
+    "cap": 144,
+    "vsync": "Off",
+    "renderScale": 100,
+    "shadows": "Off",
+    "gpuTiming": "UNVERIFIED",
+    "lowLatencyProvider": "none; null provider",
+    "warmupSimulationTicks": 240,
+    "profiling": true,
+    "flags": {
+      "PROJECT_PRIME_GL_FRAME_CAPACITY": "8192",
+      "PROJECT_PRIME_GL_FRAME_CAPTURE": "/Users/jarrett/.codex/worktrees/native-fps-plan/Prime Hunters Online/artifacts/native-fps/capture-smoke/frames.json"
+    }
+  },
+  "samples": 1297,
+  "droppedRecords": 0,
+  "cancellationEvents": 970,
+  "observedSegments": [
+    392,
+    396,
+    402,
+    970
+  ],
+  "windowStateTransitions": 2,
+  "focusTransitions": 3,
+  "visibilityTransitions": 3,
+  "legacyWindowLogRecords": 0,
+  "rawCapture": "artifacts/native-fps/capture-smoke/frames.json",
+  "rawCaptureSha256": "eff2184bb8a8fc4f1dbc70cd0896de6084e409c5ff91fb83568069598785a242",
+  "rawResultSha256": "80715f1a0aa77466e684f94f75bcdca1f434164f3ab35c2ba397e2f90867f30e"
+}

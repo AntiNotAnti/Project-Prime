@@ -71,11 +71,15 @@ internal static class OpenGlSubmissionProfiler
         || Array.Exists(Environment.GetCommandLineArgs(), arg =>
             arg.Equals("-gllegacystate", StringComparison.OrdinalIgnoreCase));
 
-    internal static bool Enabled => _enabled;
+    internal static bool Enabled => _enabled
+#if !MPHREAD_SERVER && !ANDROID
+        && !OpenGlFrameProfiler.Capturing
+#endif
+        ;
 
     internal static bool BeginWorldGraph()
     {
-        if (!_enabled || _active)
+        if (!Enabled || _active)
             return false;
         _lists = _vboDraws = _immediate = _textureBinds = _programBinds = 0;
         _retainedBatchedDraws = _retainedSavedDraws = 0;

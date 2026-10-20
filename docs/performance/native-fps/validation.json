@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "source": "FPS-01",
+  "build": {
+    "command": "dotnet build tools/native-render-check -c Release",
+    "exitCode": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "checks": {
+    "frame-capture-check": "PASS: arithmetic, bounds, attribution, export, allocation seam",
+    "native-fps analyzer": "PASS: 7 tests",
+    "OpenGL modernization": "PASS: 22 tests",
+    "OpenGL visual tooling": "PASS: 6 tests",
+    "native-render tooling": "PASS: 113 tests; 4 skipped",
+    "display-pose-check": "PASS: 77268 checks",
+    "native final-composite-check": "PASS: Apple M4 Pro GL 2.1",
+    "frametimingcheck": "PASS",
+    "renderbackendcheck": "PASS",
+    "rendergraphcheck": "PASS",
+    "native window-cycle capture": "PASS: 1297 records, zero drops, no legacy hot-path log records"
+  },
+  "performanceQualification": "NOT_RUN: no uncontended Mac A/A",
+  "windows": "Pending user-requested RTX 5080 campaign",
+  "linux": "NOT_RUN",
+  "android": "NOT_RUN: physical device unavailable",
+  "ci": "Not awaited per explicit user instruction"
+}
