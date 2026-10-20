@@ -21,7 +21,8 @@ internal sealed record RmlUiAndroidLauncherOptions(Task<string> AssetRoot, strin
     Action<GameView, RmlUiAndroidLauncherRequest<RmlUiAndroidLocalLaunchRequest>> OfflineRequested,
     Action<GameView, Guid, bool> Closed,
     Action<GameView, RmlUiAndroidLocalWitness> SceneRetired,
-    Func<GameView, Guid, RmlUiAdventureSaveChange, CancellationToken, Task<RmlUiAdventureSaveResult>> SaveChangeRequested);
+    Func<GameView, Guid, RmlUiAdventureSaveChange, CancellationToken, Task<RmlUiAdventureSaveResult>> SaveChangeRequested,
+    Func<GameView, Guid, RmlUiOfflineRulesChange, Action<RmlUiOfflineRules?>, CancellationToken, Task<RmlUiOfflineRulesSaveResult>> RuleChangeRequested);
 
 /// <summary>Configured local launcher only, rendered by the existing GameView EGL owner.</summary>
 internal sealed class RmlUiAndroidLauncherSession
@@ -29,6 +30,8 @@ internal sealed class RmlUiAndroidLauncherSession
     private readonly RmlUiAndroidDrawListSession _session = new();
     private readonly RmlUiAndroidLauncherOptions _options;
     private readonly GameView _view;
+    private readonly RmlUiOfflineRulesCache _rules;
+    private readonly CancellationTokenSource _ruleSaveStop = new();
     private RmlUiPageManager? _manager;
     private RmlUiLauncherPages? _pages;
     private RmlUiMenuController? _controller;
@@ -51,7 +54,7 @@ internal sealed class RmlUiAndroidLauncherSession
     internal Guid Lifetime => Admission.Current.Lifetime;
     internal void NotifySceneRetired(RmlUiAndroidLocalWitness witness) => _options.SceneRetired(_view, witness);
     internal RmlUiAndroidLauncherSession(GameView view, RmlUiAndroidLauncherOptions options)
-        => (_view, _options) = (view, options);
+        => (_view, _options, _rules) = (view, options, new(options.Rules));
     internal void RequestBack() => Interlocked.Exchange(ref _back, 1);
     internal void SuspendInput() => Input.Suspend();
     internal void SetFocused(bool focused)
@@ -60,7 +63,7 @@ internal sealed class RmlUiAndroidLauncherSession
         if (!focused) SuspendInput();
     }
     internal void RequestStop()
-    { Volatile.Write(ref _stop, 1); Admission.Retire(); SuspendInput(); }
+    { Volatile.Write(ref _stop, 1); _ruleSaveStop.Cancel(); Admission.Retire(); SuspendInput(); }
     internal bool IsCurrent(RmlUiAndroidLauncherRequest<RmlUiAndroidLocalLaunchRequest> witness)
         => OwnsInput && Admission.IsCurrent(witness);
     internal bool TryAccept(RmlUiAndroidLauncherRequest<RmlUiAndroidLocalLaunchRequest> witness, LaunchPlan plan)
@@ -102,6 +105,11 @@ internal sealed class RmlUiAndroidLauncherSession
                 throw new InvalidOperationException("A local launcher cannot replace the current network or replay owner.");
             if (!_opened) Open(width, height, density);
             if (Volatile.Read(ref _stop) != 0) { DisposeOwner(); return false; }
+            if (_rules.Read() == null)
+            {
+                Console.WriteLine("[android/rmlui] local settings owner unavailable; returning to the existing launcher");
+                CloseToLegacy(quit: false); return false;
+            }
             if (Volatile.Read(ref _focused) == 0 && !_inputSuspended) SurfaceLost();
             else if (Volatile.Read(ref _focused) != 0 && _inputSuspended) SurfaceReady();
             if (_disposed) return false;
@@ -258,7 +266,14 @@ internal sealed class RmlUiAndroidLauncherSession
         public RmlUiLobbyView Lobby() => new(false, false, false, false, false, false, false,
             "", "", "", "", "", 8, Array.Empty<RmlUiLobbyPlayer>());
         public IReadOnlyList<string> BuiltInArenaKeys() => owner._options.Rooms;
-        public RmlUiOfflineRules? ReadOfflineRules() => owner._options.Rules;
+        public RmlUiOfflineRules? ReadOfflineRules() => owner.CanManageSaves(owner.Lifetime) ? owner._rules.Read() : null;
+        public bool OfflineRuleSavesAreAsync => true;
+        public async Task<RmlUiOfflineRulesSaveResult> SaveOfflineRulesAsync(RmlUiOfflineRulesChange change, CancellationToken token)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, owner._ruleSaveStop.Token);
+            return await owner._options.RuleChangeRequested(owner._view, owner.Lifetime, change,
+                owner._rules.Publish, linked.Token).ConfigureAwait(false);
+        }
         public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)
         {
             if (!GameFiles.Ready || !request.ValidateForm(owner._options.Rooms)) return Task.FromResult("INVALID OR UNAVAILABLE LOCAL MATCH");

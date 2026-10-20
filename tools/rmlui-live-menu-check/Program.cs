@@ -54,6 +54,18 @@ if (args.Contains(NativeSettingsAcceptance.ChildArgument))
     return;
 }
 
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+// Source-linked async ownership checks intentionally avoid unrelated fixtures
+// that reflect the prebuilt engine via the controller assembly identity.
+if (args.Contains("--offline-rules-async"))
+{
+    OfflineRulesAsyncAcceptance.Run(); // Includes linked offline UI dispatcher checks.
+    AdventureSaveAsyncAcceptance.Run();
+    AndroidWorkAcceptance.Run();
+    return;
+}
+#endif
+
 LobbyHunterCardsAcceptance.Run(Check);
 
 var services = new Stub();
@@ -1161,6 +1173,7 @@ services.AdminState = null;
 HomePartyAcceptance.Run();
 LobbyBotAcceptance.Run();
 OfflineRulesAcceptance.Run();
+OfflineRulesAsyncAcceptance.Run();
 AdventureSaveAcceptance.Run();
 TheatreWorkAcceptance.Run();
 PartyConnectionAcceptance.Run();
@@ -1216,6 +1229,9 @@ sealed class Stub : IRmlUiMenuServices
     public int OfflineValidations, OfflineLaunches;
     public RmlUiOfflineRules? OfflineRules = new("7", "7:00", "3:00", "medium", 0);
     public bool FailOfflineRulesSave;
+    public bool OfflineRulesAsync;
+    public RmlUiOfflineRulesCache? OfflineRulesCache;
+    public Func<RmlUiOfflineRulesChange,CancellationToken,Task<RmlUiOfflineRulesSaveResult>>? AsyncOfflineRuleSave;
     public int OfflineRulesSaveAttempts, OfflineRulesSaves;
     public TaskCompletionSource<RmlUiReplayEntry[]> TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<string> TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1354,7 +1370,10 @@ sealed class Stub : IRmlUiMenuServices
         OfflineLaunches++;
         return true;
     }
-    public RmlUiOfflineRules? ReadOfflineRules() => OfflineRules;
+    public RmlUiOfflineRules? ReadOfflineRules() => OfflineRulesCache is {} cache ? cache.Read() : OfflineRules;
+    public bool OfflineRuleSavesAreAsync => OfflineRulesAsync;
+    public Task<RmlUiOfflineRulesSaveResult> SaveOfflineRulesAsync(RmlUiOfflineRulesChange change,CancellationToken token)
+        => AsyncOfflineRuleSave?.Invoke(change,token) ?? Task.FromResult(new RmlUiOfflineRulesSaveResult(change,false,"FAKE ASYNC RULE OWNER UNAVAILABLE",null));
     public bool SaveOfflineRules(RmlUiOfflineRules expected, RmlUiOfflineRules next, out string error)
     {
         OfflineRulesSaveAttempts++;

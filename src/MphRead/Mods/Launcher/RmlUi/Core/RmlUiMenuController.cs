@@ -145,6 +145,9 @@ public interface IRmlUiMenuServices
     RmlUiOfflineRules? ReadOfflineRules() => null;
     bool SaveOfflineRules(RmlUiOfflineRules expected, RmlUiOfflineRules next, out string error)
     { error = "LOCAL RULES ARE UNAVAILABLE ON THIS PLATFORM"; return false; }
+    bool OfflineRuleSavesAreAsync => false;
+    Task<RmlUiOfflineRulesSaveResult> SaveOfflineRulesAsync(RmlUiOfflineRulesChange change, CancellationToken token)
+        => Task.FromResult(new RmlUiOfflineRulesSaveResult(change, false, "LOCAL RULES OWNER UNAVAILABLE", null));
     AimTrainerDefinition TrainingDefaults() => AimTrainerDefinition.Default;
     bool LaunchTraining(AimTrainerDefinition drill, Hunter hunter, int suit) => false;
     RmlUiAdventureSlot[] ReadAdventureSlots() => Array.Empty<RmlUiAdventureSlot>();
@@ -196,7 +199,7 @@ public sealed record RmlUiMenuSnapshot(long Revision,
 /// </summary>
 public sealed class RmlUiMenuController : IDisposable
 {
-    private enum Job { Browse, Quick, Join, Create, Offline, TheatreRead, TheatreWatch, TheatreWork, AdventureSave }
+    private enum Job { Browse, Quick, Join, Create, Offline, TheatreRead, TheatreWatch, TheatreWork, AdventureSave, OfflineRulesSave }
     private readonly record struct Completion(long Epoch, Job Kind, object? Data, string? Error);
     private sealed record PartyJoinCompletion(NativePartyJoinTarget Target, RmlUiJoinResult Result);
     private sealed record SocialJoinCompletion(NativeSocialJoinTarget Target, RmlUiJoinResult Result,
@@ -217,6 +220,7 @@ public sealed class RmlUiMenuController : IDisposable
     private RmlUiTrainingDraft? _training;
     private RmlUiAdventureDraft? _adventure;
     private RmlUiAdventureSaveChange? _adventureSaveInFlight;
+    private RmlUiOfflineRulesChange? _offlineRulesSaveInFlight;
     private RmlUiTheatreIndex? _theatre;
     private RmlUiReplayEntry? _watchInFlight;
     private bool _watchEditorInFlight;
@@ -349,7 +353,9 @@ public sealed class RmlUiMenuController : IDisposable
         if (_adventureSaveInFlight.HasValue && kind is RmlUiIntentKind.Navigate or RmlUiIntentKind.AdventureRefresh)
             CancelAdventureSave();
         if (_offlineRules != null && (_offline == null || _services.Lobby().Active))
-        { _offlineRules = null; Dirty(); }
+        { if (_offlineRulesSaveInFlight.HasValue) Cancel(); _offlineRules = null; Dirty(); }
+        if (_offlineRulesSaveInFlight.HasValue && kind is not
+            (RmlUiIntentKind.OfflineCancelRules or RmlUiIntentKind.Quit)) return false;
         if (_offlineRules != null && kind is not (RmlUiIntentKind.OfflineRuleToggle
             or RmlUiIntentKind.OfflineDamage or RmlUiIntentKind.OfflineApplyRules
             or RmlUiIntentKind.OfflineCancelRules or RmlUiIntentKind.Quit)) return false;
@@ -684,6 +690,8 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineCancelRules:
                 if (_offlineRules == null) return false;
+                if (_offlineRulesSaveInFlight.HasValue)
+                { Cancel(); Status("RULE SAVE REQUEST RETIRED // REOPEN RULES TO VERIFY; A COMMITTED WRITE IS NOT UNDONE"); }
                 _offlineRules = null; Dirty(); return true;
             case RmlUiIntentKind.OfflineRuleToggle:
                 if (_offlineRules == null || !_offlineRules.Toggle(argument)) return false;
@@ -694,6 +702,15 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.OfflineApplyRules:
                 if (_offlineRules == null || _offline == null || _services.Lobby().Active) return false;
                 if (!_offlineRules.Validate(offlinePoints, offlineLimit, offlineGoal)) { Dirty(); return false; }
+                if (_services.OfflineRuleSavesAreAsync)
+                {
+                    var ruleChange = new RmlUiOfflineRulesChange(_offlineRules.Mode, _offlineRules.Original, _offlineRules.Draft);
+                    Begin(Job.OfflineRulesSave, "LOCAL RULES SAVE PENDING",
+                        async token => await _services.SaveOfflineRulesAsync(ruleChange, token).ConfigureAwait(false));
+                    _offlineRulesSaveInFlight = ruleChange;
+                    _offlineRules.Failed("LOCAL RULES SAVE PENDING // CANCEL REMAINS AVAILABLE");
+                    Dirty(); return true;
+                }
                 if (!_services.SaveOfflineRules(_offlineRules.Original, _offlineRules.Draft, out string localError))
                 { _offlineRules.Failed(localError); Dirty(); return false; }
                 _offline.SetLowTier(_offlineRules.Draft.Enabled(8));
@@ -864,7 +881,7 @@ public sealed class RmlUiMenuController : IDisposable
         Owner();
         PollMapCatalog();
         if (_offlineRules != null && (_offline == null || _services.Lobby().Active))
-        { _offlineRules = null; Dirty(); }
+        { if (_offlineRulesSaveInFlight.HasValue) Cancel(); _offlineRules = null; Dirty(); }
         while (_completed.TryDequeue(out Completion item))
         {
             // An older cancelled join must never end ownership of a newer one.
@@ -884,6 +901,28 @@ public sealed class RmlUiMenuController : IDisposable
             _busy = false;
             _work = null;
             _activeMenuJob = null;
+            if (item.Kind == Job.OfflineRulesSave)
+            {
+                var expected = _offlineRulesSaveInFlight;
+                _offlineRulesSaveInFlight = null;
+                if (_offlineRules != null && _offline != null && expected is { } change)
+                {
+                    var result = item.Data as RmlUiOfflineRulesSaveResult;
+                    bool exact = item.Error == null && result?.Change == change;
+                    bool verified = exact && result!.Success && result.Current == change.Next
+                        && _services.ReadOfflineRules() == change.Next;
+                    if (verified)
+                    { _offline.SetLowTier(change.Next.Enabled(8)); _offlineRules = null; Status("LOCAL MATCH RULES SAVED"); }
+                    else
+                    {
+                        string error = exact && !result!.Success && !String.IsNullOrWhiteSpace(result.Status)
+                            ? result.Status : "RULE SAVE OUTCOME UNVERIFIED // REOPEN RULES TO VERIFY";
+                        if (error.Length > 220) error = error[..220];
+                        _offlineRules.Failed(error); Status(error);
+                    }
+                }
+                continue;
+            }
             if (item.Kind == Job.AdventureSave)
             {
                 var expected = _adventureSaveInFlight;
@@ -1657,7 +1696,8 @@ public sealed class RmlUiMenuController : IDisposable
         {
             Publish(new(epoch, kind, null, kind == Job.TheatreWork
                 ? "REPLAY FILE OPERATION FAILED // REFRESH TO VERIFY FILE STATE"
-                : kind == Job.AdventureSave ? "SAVE CHANGE OUTCOME UNVERIFIED // REFRESH SAVES" : e.Message));
+                : kind == Job.AdventureSave ? "SAVE CHANGE OUTCOME UNVERIFIED // REFRESH SAVES"
+                : kind == Job.OfflineRulesSave ? "RULE SAVE OUTCOME UNVERIFIED // REOPEN RULES TO VERIFY" : e.Message));
         }
         finally { cts.Dispose(); }
     }
@@ -1683,6 +1723,7 @@ public sealed class RmlUiMenuController : IDisposable
         _watchInFlight = null;
         _watchEditorInFlight = false;
         _adventureSaveInFlight = null;
+        _offlineRulesSaveInFlight = null;
         _epoch++;
         try { _work?.Cancel(); }
         catch (ObjectDisposedException) { /* A completed worker retired its CTS. */ }
@@ -1945,6 +1986,7 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("offline_training_open", _offline != null && _trainingOptionsOpen && !lobby.Active);
         Flag("offline_arena_open", _offline?.ArenaOpen == true);
         Flag("offline_rules_open", _offline != null && _offlineRules != null && !lobby.Active);
+        Flag("offline_rules_busy", _offlineRulesSaveInFlight.HasValue);
         Text("offline_rules_error", _offlineRules?.Error ?? "");
         Flag("offline_point_goal_visible", _offlineRules?.PointGoalVisible == true);
         Flag("offline_time_limit_visible", _offlineRules?.TimeLimitVisible == true);
