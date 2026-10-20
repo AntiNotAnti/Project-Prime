@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MphRead.Entities;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
@@ -587,13 +588,20 @@ namespace MphRead
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.Disable(EnableCap.AlphaTest);
-            for (int i = 0; i < _previewItems.Count; i++)
+            _sourceGxPreviewView = view; _sourceGxPreviewProjection = projection;
+            try
             {
-                // FX test against the hunter, but must not occlude later glow
-                // layers with their transparent footprint. Match the world FX pass.
-                GL.DepthMask(_previewItems[i].Type == RenderItemType.Mesh);
-                RenderItem(_previewItems[i]);
+                // Stable source material passes. Native-only previews preserve
+                // their original order, state and submission path.
+                IEnumerable<RenderItem> items = _previewItems.Any(p => p.SourceGx != null)
+                    ? _previewItems.OrderBy(p => (int?)p.SourceGx?.Binding.Program.DrawPass ?? 0) : _previewItems;
+                foreach (var item in items)
+                {
+                    GL.DepthMask(item.Type == RenderItemType.Mesh);
+                    RenderItem(item);
+                }
             }
+            finally { _sourceGxPreviewView = _sourceGxPreviewProjection = null; }
             GL.DepthMask(true);
             if (_activePreview != null
                 && _activePreview.Mode == Mods.Cosmetics.SkinContext.Biped

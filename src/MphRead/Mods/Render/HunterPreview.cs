@@ -139,9 +139,11 @@ namespace MphRead.Mods.Render
 
         private object? _sourceStageOwner;
         private CharacterModelPack? _sourceStagePack;
+        private PrivateCharacterAppearance? _sourceStageAppearance, _sourceStageAttemptAppearance;
         private CharacterModelPart _sourceStagePart, _sourceStageAttemptPart;
         private object? _sourceStageAttemptOwner;
         private CharacterModelPack? _sourceStageAttemptPack;
+        private double _sourceMaterialSeconds;
         private Matrix4 _sourceStageFit = Matrix4.Identity;
         private Matrix4 _sourceStageRestFit = Matrix4.Identity;
         internal void ReleaseSourceStage(object owner)
@@ -150,18 +152,19 @@ namespace MphRead.Mods.Render
         {
             if (request == null)
             { if (_sourceStageOwner != null || _sourceStageAttemptOwner != null) ClearSourceRigPreview(); return true; }
-            if (!double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
-                || request.Appearance != CharacterSourcePreviewSelection.Appearance
+            if (!double.IsFinite(request.MaterialSeconds) || request.MaterialSeconds < 0
+                || !double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
+                || !PrivateCharacterAppearance.TryCreate(Hunter.Samus, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
                 || _hunter != Hunter.Samus || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
                 || Mode != (request.Part == CharacterModelPart.Biped ? Mods.Cosmetics.SkinContext.Biped : Mods.Cosmetics.SkinContext.ViewModel)
                 || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != 32 || request.Seconds != 0)) return false;
-            if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part)
+            if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part || _sourceStageAppearance != request.Appearance)
             {
                 // A refused publication must not rehash/recompile the same
                 // generation every frame. Reopening creates a fresh owner.
-                if (ReferenceEquals(_sourceStageAttemptOwner, request.Owner) && ReferenceEquals(_sourceStageAttemptPack, request.Pack) && _sourceStageAttemptPart == request.Part) return false;
+                if (ReferenceEquals(_sourceStageAttemptOwner, request.Owner) && ReferenceEquals(_sourceStageAttemptPack, request.Pack) && _sourceStageAttemptPart == request.Part && _sourceStageAttemptAppearance == request.Appearance) return false;
                 ClearSourceRigPreview();
-                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part;
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part; _sourceStageAttemptAppearance = request.Appearance;
                 var uniqueMaterials = _model.Model.Materials.GroupBy(m => m.Name).Where(g => g.Count() == 1).Select(g => g.Single());
                 // The native gun starts with invisible flash/glow materials.
                 // Use a solid existing sampler/draw anchor for the diagnostic
@@ -176,11 +179,12 @@ namespace MphRead.Mods.Render
                     ? TrySetSourceMaterialRigPreview(request.Pack, request.Appearance, anchor, request.Owner)
                     : TrySetSourceCannonPreview(request.Pack, request.Appearance, anchor, request.Owner);
                 if (!attached) return false;
-                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part;
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part; _sourceStageAttemptAppearance = request.Appearance;
                 if (!TryGetSourceRigPreview(out var source)) return false;
-                _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack; _sourceStagePart = request.Part;
+                _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack; _sourceStagePart = request.Part; _sourceStageAppearance = request.Appearance;
                 _sourceStageRestFit = source.DiagnosticPreviewFit;
             }
+            _sourceMaterialSeconds = request.MaterialSeconds;
             if (request.Part == CharacterModelPart.ViewModel)
             { _sourceStageFit = _sourceStageRestFit; return true; }
             if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return false;
@@ -192,7 +196,7 @@ namespace MphRead.Mods.Render
         }
 
         internal void ClearSourceRigPreview()
-        { _sourceRigPreview?.Release(); _sourceRigPreview = null; _sourceStageOwner = null; _sourceStagePack = null; _sourceStageAttemptOwner = null; _sourceStageAttemptPack = null; _sourceStageFit = Matrix4.Identity; _sourceStageRestFit = Matrix4.Identity; }
+        { _sourceRigPreview?.Release(); _sourceRigPreview = null; _sourceStageOwner = null; _sourceStagePack = null; _sourceStageAttemptOwner = null; _sourceStageAttemptPack = null; _sourceStageFit = Matrix4.Identity; _sourceStageRestFit = Matrix4.Identity; _sourceStageAppearance = _sourceStageAttemptAppearance = null; _sourceMaterialSeconds = 0; }
 
         internal bool TryGetSourceRigPreview(out CharacterWeightedRenderModel model)
         {
@@ -446,6 +450,8 @@ namespace MphRead.Mods.Render
                         _model, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                     bool authoredTexture = segment.AlbedoBinding.HasValue
                         && bindingOverride == authoredAlbedo;
+                    var previousGx = _scene.SourceGxSubmission;
+                    _scene.SourceGxSubmission = segment.SourceGx == null ? null : new(segment.SourceGx, _sourceMaterialSeconds);
                     var previousMaterial = _scene.CosmeticMaterialSubmission;
                     _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
                         _model, material, segment.NativeMaterialIndex);
@@ -469,6 +475,7 @@ namespace MphRead.Mods.Render
                     }
                     finally
                     {
+                        _scene.SourceGxSubmission = previousGx;
                         _scene.CosmeticMaterialSubmission = previousMaterial;
                     }
                 }

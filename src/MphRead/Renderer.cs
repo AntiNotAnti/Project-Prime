@@ -4861,6 +4861,7 @@ namespace MphRead
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
             item.WeightedSkinning = false;
+            item.SourceGx = null;
             item.RetainedRoomOwned = false;
             item.RetainedGpuVisibilityEligible = false;
             item.RetainedBoundsMin = Vector3.Zero;
@@ -5010,6 +5011,7 @@ namespace MphRead
                     item.PaletteOverride = null;
                 }
             }
+            StampSourceGxSubmission(item);
             AddRenderItem(item);
         }
 
@@ -5899,6 +5901,7 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
+            if (item.SourceGx != null) { DrawSourceGxRenderItem(item); return; }
             int sourcePass = Mods.Render.OpenGlPassProfiler.CurrentPass;
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
             using (Mods.Render.OpenGlDrawAttribution.Measure(item, sourcePass, geometry: false))

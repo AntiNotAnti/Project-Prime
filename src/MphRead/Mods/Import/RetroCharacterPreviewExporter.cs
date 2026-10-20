@@ -160,7 +160,7 @@ public static partial class RetroCharacterPreviewExporter
                         long length = new FileInfo(file.Temp).Length;
                         if (length is <= 0 or > LocalImportBundle.MaxComponentBytes || (total += length) > LocalImportBundle.MaxBundleBytes)
                             throw new InvalidDataException("Source character bundle exceeds its private component budget.");
-                        parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
+                        parts.Add(Path.GetFileName(file.Final), File.ReadAllBytes(file.Temp));
                     }
                     yield return new(BundleSpec(spec.Id, edition),parts);
                 }

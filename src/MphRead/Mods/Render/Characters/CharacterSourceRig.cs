@@ -12,7 +12,7 @@ using V = OpenTK.Mathematics.Vector3;
 using NVector4 = System.Numerics.Vector4;
 namespace MphRead.Mods.Render.Characters;
 
-internal readonly record struct CharacterSourceCacheKey(object Pack,string Path,string Sha256,PrivateCharacterAppearance Appearance,long Generation,CharacterModelPart Part=CharacterModelPart.Biped,string? PresentationRecipeSha256=null,string? SourceGraphProofSha256=null,string? SourceAnimationArchiveSha256=null);
+internal readonly record struct CharacterSourceCacheKey(object Pack,string Path,string Sha256,PrivateCharacterAppearance Appearance,long Generation,CharacterModelPart Part=CharacterModelPart.Biped,string? PresentationRecipeSha256=null,string? SourceGraphProofSha256=null,string? SourceAnimationArchiveSha256=null,string? SourceMaterialArchiveSha256=null,string? SourceMaterialPolicy=null);
 internal sealed record CharacterSourceNode(string Name,int Parent,M Local);
 internal sealed class CharacterSourceRig
 {
