@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Formats.Collision;
@@ -87,9 +91,9 @@ internal static class TimedImperialistImpactTests
         internal readonly Vector3 Base, Direction;
         private uint _shot;
         internal Fixture(string room, Hunter hunter, bool balanced, bool head, int competitor = 0,
-            Hunter sourceHunter = Hunter.Samus)
+            Hunter sourceHunter = Hunter.Samus, TimedGrantProofMode timedMode = TimedGrantProofMode.Enforce)
         {
-            NetShotProof.Mode = ShotProofMode.Shadow; NetTimedShotProof.Mode = TimedGrantProofMode.Enforce;
+            NetShotProof.Mode = ShotProofMode.Shadow; NetTimedShotProof.Mode = timedMode;
             NetFireEvents.AcceptedPlaybackEnabled = true; NetTestScript.Enabled = false;
             var roster = RosterPacket.Create(); roster.MatchId = 1; roster.AuthorityEpoch = 1;
             roster.Revision = 1; roster.Count = 3;
@@ -159,7 +163,8 @@ internal static class TimedImperialistImpactTests
             return checked((byte)(Scene.WeaponRules[(int)weapon + (affinity ? 9 : 0)].FullCharge * 2));
         }
         internal (TimedShotCertificate Shot, BeamProjectileEntity Beam, HitClaimPacket Claim) Emit(
-            BeamType weapon = BeamType.Imperialist, byte charge = 0, bool rewind = true)
+            BeamType weapon = BeamType.Imperialist, byte charge = 0, bool rewind = true,
+            bool malformedDoubleHint = false, bool requireTrusted = true, Action? beforeAcceptedDrain = null)
         {
             for (uint i = 1; i <= charge; i++)
             { Frame(1000 + i); Submit(Packet(null, NetSession.NetFrame, weapon, down: true)); NetHooks.TryApplyRemoteInput(Owner, 0); }
@@ -172,17 +177,22 @@ internal static class TimedImperialistImpactTests
             uint ack = weapon == BeamType.Imperialist && rewind ? 1000u : source;
             Frame(source); NetSession.BroadcastSnapshot();
             uint modifiers = Weapons.GetAffinityBeam(Owner.Hunter) == weapon ? FireEvent.AffinityStateBit : 0;
+            if (malformedDoubleHint) modifiers |= FireEvent.DoubleStateBit;
             var fire = new FireEvent(++_shot, source, ack, 0, charge == 0 ? FireEventKind.PressFire : FireEventKind.ReleaseFire, (byte)weapon,
                 charge, modifiers, FireEvent.FlagPose, Base + Vector3.UnitY * .5f,
                 Direction, Direction, Direction, SourceLife: NetPlayerLifecycle.Get(0));
-            Submit(Packet(fire, source)); NetHooks.TryApplyRemoteInput(Owner, 0);
+            Submit(Packet(fire, source));
+            beforeAcceptedDrain?.Invoke();
+            NetHooks.TryApplyRemoteInput(Owner, 0);
             var key = ShotKey.For(0, fire.ShotId);
             Check(NetFireEvents.CaptureLedger(0).TryGet(key, out var admitted, out var disposition, out _)
                 && admitted.Fire == fire && disposition == ShotDisposition.Fired,
                 "actual private admitted drain owns native terminal");
             var beam = Owner.EquipInfo.Beams.Single(b => b.ModLaunchKey == key && b.ModComponentId != 0);
-            Check(NetTimedShotProof.TryGet(key, fire.SourceFrame, out var shot) && shot.TrustedSource
-                && shot.Components == 1, "actual completed certificate retains verified native source and component");
+            Check(NetTimedShotProof.TryGet(key, fire.SourceFrame, out var shot) && (!requireTrusted || shot.TrustedSource)
+                && shot.Components == 1, requireTrusted
+                    ? "actual completed certificate retains verified native source and component"
+                    : "actual completed certificate retains a component without requiring supported source proof");
             var claim = new HitClaimPacket { MatchId = key.MatchId, AuthorityEpoch = key.AuthorityEpoch,
                 ShooterGeneration = key.Generation, ShooterLifeId = key.LifeId, VictimSlot = 1,
                 VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLifeId = NetPlayerLifecycle.Get(1),
@@ -192,6 +202,185 @@ internal static class TimedImperialistImpactTests
             return (shot, beam, claim);
         }
         public void Dispose() { _sim.Stop(); NetSession.Stop(); }
+    }
+
+    private sealed record FastArm(string Case, CombatFastMode Mode, int Before, int After,
+        long Payments, uint Rng1Before, uint Rng2Before, uint Rng1After, uint Rng2After,
+        string Scores, string Semantics, string[] Replay, CombatFastRow[] Rows, object FastCapture);
+    private static string Digest(string value)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static FastArm FastSceneArm(string room, string control, CombatFastMode mode)
+    {
+        NetCombatFastPath.Mode = mode; NetCombatFastPath.ResetEvidenceForTests();
+        // Both words are set before constructing/loading either arm. Do not
+        // reset after setup: setup and shot RNG differences must stay visible.
+        // LoadGame otherwise resets ONLY the first arm to native defaults when
+        // the console save-slot sentinel still differs. Declare no save-slot
+        // transition in either arm; Scene's constructor copies these words into
+        // its owned Random before BuildPlayers/AddRoom/OnLoad consumes them.
+        Menu.PreviousSaveSlot = Menu.SaveSlot;
+        Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
+        using var f = new Fixture(room, Hunter.Samus, balanced: control == "balanced",
+            head: control == "head", timedMode: TimedGrantProofMode.Shadow);
+        if (control == "health-one") f.Victim.Health = 1;
+        if (control == "spawn-immunity")
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", Hidden)!.SetValue(f.Victim, (ushort)20);
+        if (control == "ordinary-timer")
+            typeof(PlayerEntity).GetField("_damageInvulnTimer", Hidden)!.SetValue(f.Victim, (ushort)20);
+        if (control == "alt") f.Victim.ModForceForm(true);
+        // A declared native flag at the contact seam, with no AI controller or
+        // bot update, isolates exclusion of bot damage rules from this subset.
+        if (control == "bot") f.Victim.IsBot = true;
+        int before = f.Victim.Health;
+        uint rng1 = f.Scene.Random.Rng1, rng2 = f.Scene.Random.Rng2;
+        int semanticStart = f.Scene.MatchEvents.Bus.Events.Count;
+        long payments = NetCombatPayments.LifetimePayments;
+        var replay = new List<string>();
+        void Capture(ReplayTimelineRecord record) => replay.Add(JsonSerializer.Serialize(new {
+            record.RecordingFrame, record.ServerTick, record.Kind, record.Marker,
+            Bytes = Convert.ToHexString(record.Payload) }));
+        ReplayCapture.Recorder.Accepted += Capture;
+        try
+        {
+            Action? beforeAcceptedDrain = null;
+            if (control == "current-alt-after-history")
+                beforeAcceptedDrain = () => {
+                    Check(!f.Victim.IsAltForm && NetUnlagged.TryHistoricalPose(f.Victim, 1001, out var pose)
+                        && !pose.AltForm,
+                        "form control starts with actual retained frame1001 biped before accepted catch-up");
+                    // Declared current-form change only. The ordinary native
+                    // rewind must recover the earlier biped without changing
+                    // the live alt flag; no history cells or poses are injected.
+                    f.Victim.ModForceForm(true);
+                    Check(f.Victim.IsAltForm && !f.Victim.IsMorphing && !f.Victim.IsUnmorphing,
+                        "form control enters actual current alt before the accepted drain");
+                };
+            var emitted = f.Emit(malformedDoubleHint: control == "malformed-double",
+                requireTrusted: control != "balanced", beforeAcceptedDrain: beforeAcceptedDrain);
+            Check(emitted.Shot.Damage.FirstSegmentKnown && emitted.Shot.Damage.FirstCollisionFrame == 1001,
+                control + "/" + mode + " uses actual accepted historical first segment");
+            if (control == "malformed-double")
+                Check(emitted.Shot.DoubleHintAgrees == false,
+                    "malformed modifier control actually disagrees with independently retained funding");
+            if (control == "current-alt-after-history")
+            {
+                bool retained = NetUnlagged.TryHistoricalPose(f.Victim, 1001, out var pose);
+                Console.WriteLine("FAST_SHADOW_FORM_CONTROL " + JsonSerializer.Serialize(new {
+                    Mode = mode, CurrentAlt = f.Victim.IsAltForm, HistoricalFrame = 1001,
+                    HistoricalPoseAvailable = retained, HistoricalAlt = retained ? (bool?)pose.AltForm : null,
+                    Before = before, After = f.Victim.Health,
+                    Scope = "Declared current form change after actual native biped history; no injected history or controller." }));
+                Check(f.Victim.IsAltForm && retained && !pose.AltForm,
+                    "native catch-up restores current alt while exact frame1001 remains biped");
+            }
+            string scores = JsonSerializer.Serialize(new {
+                f.Scene.GameState.Points, f.Scene.GameState.TeamPoints, f.Scene.GameState.Kills,
+                f.Scene.GameState.TeamKills, f.Scene.GameState.Deaths, f.Scene.GameState.TeamDeaths,
+                f.Scene.GameState.ShotsFired, f.Scene.GameState.ShotsHit,
+                f.Scene.GameState.MatchDamageDealt, f.Scene.GameState.MatchDamageTaken,
+                f.Scene.GameState.KillStreak, f.Scene.GameState.HeadshotKills });
+            string semantics = JsonSerializer.Serialize(f.Scene.MatchEvents.Bus.Events.Skip(semanticStart).ToArray());
+            return new(control, mode, before, f.Victim.Health,
+                NetCombatPayments.LifetimePayments - payments, rng1, rng2,
+                f.Scene.Random.Rng1, f.Scene.Random.Rng2, scores, semantics, replay.ToArray(),
+                NetCombatFastPath.CaptureRows(), NetCombatFastPath.Capture());
+        }
+        finally { ReplayCapture.Recorder.Accepted -= Capture; }
+    }
+
+    internal static int RunFastShadowScene(string room)
+    {
+        var oldFast = NetCombatFastPath.Mode; var oldMode = NetTimedShotProof.Mode;
+        var oldProof = NetShotProof.Mode;
+        bool oldPlayback = NetFireEvents.AcceptedPlaybackEnabled, oldScript = NetTestScript.Enabled;
+        uint oldRng1 = Rng.Rng1, oldRng2 = Rng.Rng2;
+        int oldPreviousSaveSlot = Menu.PreviousSaveSlot;
+        try
+        {
+            _checks = 0;
+            foreach (string control in new[] { "body", "head", "health-one", "ordinary-timer",
+                "spawn-immunity", "balanced", "alt", "bot", "malformed-double", "current-alt-after-history" })
+            {
+                var off = FastSceneArm(room, control, CombatFastMode.Off);
+                var shadow = FastSceneArm(room, control, CombatFastMode.Shadow);
+                // Persist diagnostic observations to stdout before assertions so
+                // a missing positive seam is visible even in a failing run.
+                Console.WriteLine("FAST_SHADOW_SCENE " + JsonSerializer.Serialize(new {
+                    Schema = 1, Control = control, LegacyProof = "Shadow", TimedGrantProof = "Shadow",
+                    Seeds = new uint[] { 8128, 0x8128a5a5 },
+                    SeedScope = "Before Scene construction; identical no-save-slot-transition setup; no post-setup reseed.",
+                    Off = new { off.Before, off.After, off.Payments, off.Rng1Before, off.Rng2Before,
+                        off.Rng1After, off.Rng2After, ScoreSha256 = Digest(off.Scores),
+                        SemanticSha256 = Digest(off.Semantics), ReplayRecords = off.Replay.Length,
+                        ReplaySha256 = Digest(string.Join("\n", off.Replay)), off.FastCapture },
+                    Shadow = new { shadow.Before, shadow.After, shadow.Payments,
+                        shadow.Rng1Before, shadow.Rng2Before, shadow.Rng1After, shadow.Rng2After,
+                        ScoreSha256 = Digest(shadow.Scores), SemanticSha256 = Digest(shadow.Semantics),
+                        ReplayRecords = shadow.Replay.Length,
+                        ReplaySha256 = Digest(string.Join("\n", shadow.Replay)), shadow.FastCapture },
+                    Scope = "Controlled asset fixture with declared source inventory, health, placements and negative flags; actual canonical carrier/private drain/native collision/TakeDamage. No UDP or early claim settlement certificate." }));
+                Check(off.Before == shadow.Before && off.After == shadow.After && off.Payments == shadow.Payments,
+                    control + " exact Off/Shadow native health and component-payment parity");
+                Check(off.Rng1Before == shadow.Rng1Before && off.Rng2Before == shadow.Rng2Before
+                    && off.Rng1After == shadow.Rng1After && off.Rng2After == shadow.Rng2After,
+                    control + " both seeded gameplay RNG words agree before and after real native execution");
+                Check(off.Scores == shadow.Scores && off.Semantics == shadow.Semantics,
+                    control + " exact score/counter arrays and semantic events agree");
+                Check(off.Replay.Length > 0 && off.Replay.SequenceEqual(shadow.Replay),
+                    control + " emitted canonical replay record metadata and payload bytes agree exactly");
+                Check(off.Rows.Length == 0, control + " disabled fast capture observes no candidate rows");
+                Check(NetCombatFastPath.Overflow == 0 && NetCombatFastPath.Invalid == 0,
+                    control + " shadow capture is bounded and complete for this controlled contact");
+                var native = shadow.Rows.Where(row => row.Stage == FastProbeStage.NativePreDamage).ToArray();
+                Check(native.Length == 1 && native[0].Key.Shot.ShotId != 0 && native[0].Key.Victim == 1,
+                    control + " actual native seam produces one exact selected-victim contact observation");
+                var row = native[0];
+                if (control is "body" or "head" or "health-one" or "ordinary-timer")
+                {
+                    Check(row.Decision.State == FastDecisionState.VerifiedNative && row.Decision.WouldPay
+                        && row.Compared && row.Agrees && !row.Corrected && row.Payments == 1
+                        && shadow.Payments == 1 && row.Decision.Damage.HealthDebit == (uint)(shadow.Before - shadow.After)
+                        && row.ActualDebit == shadow.Before - shadow.After,
+                        control + " positive verified native would-pay matches actual debit and exactly one commit");
+                    Check(row.Decision.Damage.Head == (control == "head"),
+                        control + " actual native body/head flag remains exact");
+                    if (control == "health-one")
+                        Check(row.Decision.Damage.NominalDamage > 1 && row.Decision.Damage.HealthDebit == 1
+                            && row.Decision.Damage.Lethal && shadow.After == 0,
+                            "actual one-health native death preserves distinct nominal and paid damage");
+                }
+                else if (control == "spawn-immunity")
+                    Check(row.Decision.WouldReject && row.Decision.Damage.Reason == FastDamageReason.SpawnProtected
+                        && row.Compared && row.Agrees && row.Payments == 0 && shadow.Payments == 0
+                        && shadow.Before == shadow.After,
+                        "actual native spawn-protection call independently predicts refusal without payment");
+                else if (control == "current-alt-after-history")
+                    Check(row.NativeEvidence.SourceVerified && row.NativeEvidence.GeometryVerified
+                        && !row.NativeEvidence.VictimGates.Biped
+                        && row.Decision.State == FastDecisionState.LegacyRequired
+                        && row.Decision.Reason == FastDecisionReason.DamageUnavailable
+                        && row.Decision.Damage.Status == FastDamageAvailability.Unavailable
+                        && row.Decision.Damage.Reason == FastDamageReason.UnsupportedContext
+                        && !row.Decision.Eligible && !row.Decision.WouldPay && !row.Decision.WouldReject
+                        && shadow.Before > shadow.After && shadow.Payments == 1 && row.Payments == 1,
+                        "verified historical biped contact still pays natively but current alt cannot acquire a fast certificate");
+                else
+                    Check(!row.Decision.Eligible && !row.Decision.WouldPay && !row.Decision.WouldReject,
+                        control + " unsupported or unfunded context falls back without a legal-damage certificate");
+            }
+            Console.WriteLine($"PASS: {_checks} controlled asset fast Off/Shadow native assertions; no all-fallback positive acceptance.");
+            Console.WriteLine("SCOPE: declared asset fixture, actual accepted carrier and first native historical collision. Exact observed native health/payments, score arrays, semantic events, both RNG words and emitted replay records compared. NOT_RUN: UDP, graphics/audio, posthumous source lifecycle, cross-shooter trade/frontier, fresh claim fast settlement, later flight and other weapon/effect families.");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        finally
+        {
+            NetCombatFastPath.Mode = oldFast; NetTimedShotProof.Mode = oldMode; NetShotProof.Mode = oldProof;
+            NetFireEvents.AcceptedPlaybackEnabled = oldPlayback; NetTestScript.Enabled = oldScript;
+            Menu.PreviousSaveSlot = oldPreviousSaveSlot;
+            Rng.SetRng1(oldRng1); Rng.SetRng2(oldRng2);
+        }
     }
 
     internal static int RunScene(string profile, string room)

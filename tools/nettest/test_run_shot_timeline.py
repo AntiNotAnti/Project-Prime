@@ -33,6 +33,23 @@ class ShotTimelineDispatchTests(unittest.TestCase):
         self.assertFalse(runner.parse_args(base).shot_timeline)
         self.assertTrue(runner.parse_args(base + ['--shot-timeline']).shot_timeline)
 
+    def test_fast_shadow_is_declared_and_authority_only(self):
+        args = self.args()
+        inherited = {'PRIME_COMBAT_FASTPATH': 'shadow', 'PATH': '/bin'}
+        self.assertNotIn('PRIME_COMBAT_FASTPATH', runner.child_environment(args, 'server', Path('/private/profile'), inherited))
+        args.combat_fastpath = 'shadow'
+        server = runner.child_environment(args, 'server', Path('/private/profile'), inherited)
+        self.assertEqual(server['PRIME_COMBAT_FASTPATH'], 'shadow')
+        self.assertNotIn('PRIME_COMBAT_FASTPATH', runner.child_environment(args, 'peer-0', Path('/private/profile'), inherited))
+        self.assertEqual(server['PATH'], '/bin')
+
+    def test_fast_shadow_cli_defaults_off_and_cannot_enable_settlement(self):
+        base = ['--build', '.', '--paths', 'paths.txt', '--source', 'fixture', '--out', '/private/fresh']
+        self.assertEqual(runner.parse_args(base).combat_fastpath, 'off')
+        self.assertEqual(runner.parse_args(base + ['--combat-fastpath', 'shadow']).combat_fastpath, 'shadow')
+        with self.assertRaises(SystemExit):
+            runner.parse_args(base + ['--combat-fastpath', 'eligible'])
+
 
 if __name__ == '__main__':
     unittest.main()

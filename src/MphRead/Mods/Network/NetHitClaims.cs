@@ -1355,6 +1355,7 @@ namespace MphRead.Mods.Network
                     break;
                 }
                 HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
+                using var fastRequest = NetCombatFastPath.Request(shooterSlot, claim);
                 Received++;
                 NetCampaignEvidence.ClaimReceived();
                 NetCampaignEvidence.TimelineClaim("claim-received", shooterSlot, claim);
@@ -1520,6 +1521,7 @@ namespace MphRead.Mods.Network
                 }
                 if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
                 { DuplicateHere++; Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: continuousPaid); continue; }
+                NetCombatFastPath.ClaimReady(shooterSlot, claim);
                 byte immediate = Judge(shooterSlot, claim);
                 var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
                 if (TryPaidOutcome(shooterSlot, claim, out var paid)
@@ -2754,6 +2756,10 @@ namespace MphRead.Mods.Network
                 NetTimedCampaignJoin.Terminal(slot, NetTimedCampaignJoin.TryRequestKey(slot, id, out var requested)
                     ? requested : remember && _seenIds[slot, at] == id
                         && _seenKeys[slot, at].ShotId == answer.ShotId ? _seenKeys[slot, at] : null, answer);
+            if (NetCombatFastPath.TryRequest(slot, id, out var fastKey))
+                NetCombatFastPath.Terminal(fastKey, answer);
+            else if (remember && _seenIds[slot, at] == id && _seenKeys[slot, at].ShotId == answer.ShotId)
+                NetCombatFastPath.Terminal(_seenPaymentKeys[slot, at], answer);
             if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
             if (_verdictCount[slot] >= VerdictCapacity) return;
             _verdicts[slot, _verdictCount[slot]++] = answer;

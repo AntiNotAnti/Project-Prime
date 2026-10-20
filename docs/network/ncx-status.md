@@ -13,9 +13,9 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | --- | --- | --- |
 | NCX-00 | Exact-source baseline, ownership and capability audit | Complete; 23 reference routes pass, characterized fidelity failure retained |
 | NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Complete scoped measurement; 31 routes, positive keyed pixels, three Prime controls, seven requested cadence observations and 18 A/A cases; native failures/unsupported comparisons retained |
-| NCX-02 | Canonical causal payment identity and definitive terminal results | Complete; pinned causal receipts, typed retirement, native parity and315exact UDP deliveries |
-| NCX-03 | Bounded shadow fast-decision layer | Ready after NCX-02 merge |
-| NCX-04 | Certified narrow-family fast settlement | Pending NCX-03 evidence |
+| NCX-02 | Canonical causal payment identity and definitive terminal results | Complete; pinned causal receipts, typed retirement, native parity and 315 exact UDP deliveries |
+| NCX-03 | Bounded shadow fast-decision layer | Complete scoped shadow; 30 routes, 95 Python checks, 10 native controls and 131 final-source UDP paid comparisons; retained shutdown failure |
+| NCX-04 | Certified narrow-family fast settlement | Ready for exact already-paid receipts only; fresh claims remain legacy |
 | NCX-05 | Independently certified family extensions and explicit fallbacks | Pending NCX-04 |
 | NCX-06 | Prediction retirement and confirmation presentation | Pending NCX-05 |
 | NCX-07 | Same-shot victim and observer confirmed-impact fidelity | Pending NCX-06 |
@@ -39,3 +39,12 @@ defined in the plan, including rendered pixels, paired statistics and physical d
 NCX-01 merged as [PR #754](https://github.com/AntiNotAnti/Project-Prime/pull/754),
 `33cb131a3f616bd61cb341b3688c7c2a825c0257`. CI was queued/running at the explicit immediate
 merge request; those checks are not reported as PASS.
+
+NCX-02 merged as [PR #757](https://github.com/AntiNotAnti/Project-Prime/pull/757),
+`5d68d2ee8cfbf592c698c24139f99a8222dbe10b`. CI was queued/running at the immediate
+merge request; those checks are not reported as PASS.
+
+NCX-03 qualification is recorded in [ncx-shadow.md](ncx-shadow.md) and
+[the exact-source manifest](../../tools/nettest/baselines/ncx-shadow.json).
+The source08 impaired post-drain graceful-close failure remains FAIL and is
+tracked for NCX-09; it does not become a passing resilience or release gate.

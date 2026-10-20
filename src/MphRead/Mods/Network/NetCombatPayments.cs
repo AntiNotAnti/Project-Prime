@@ -50,6 +50,15 @@ internal static class NetCombatPayments
         { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
         outcome = default; return false;
     }
+    // A read does not reserve, refresh, retire or correct the existing ledger.
+    internal static FastPaymentFact Inspect(in ShotPaymentKey key, byte weapon)
+    {
+        int at = Find(key);
+        if (at < 0) return default;
+        ref readonly var entry = ref Entries[key.Shot.ShooterSlot, at];
+        return new(entry.Paid ? FastPaymentKnowledge.Paid : FastPaymentKnowledge.Reserved,
+            entry.Weapon == weapon, entry.Outcome);
+    }
     internal readonly struct Reservation : IDisposable
     {
         private readonly int _slot, _at;
@@ -65,6 +74,7 @@ internal static class NetCombatPayments
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
             NetCampaignEvidence.TimelinePayment("payment-committed", _key, entry.Weapon, outcome: outcome, claimId: claimId);
+            NetCombatFastPath.Payment(_key, outcome);
             NetSelfSplash.RecordPayment(_key, outcome);
             if (NetCampaignEvidence.Enabled)
             {
@@ -128,6 +138,7 @@ internal static class NetCombatPayments
         if (at < 0 || !Entries[key.Shot.ShooterSlot, at].Paid) return;
         outcome.ShotId = key.Shot.ShotId;
         Entries[key.Shot.ShooterSlot, at].Outcome = outcome;
+        NetCombatFastPath.Correct(key);
         if (NetCampaignEvidence.Enabled)
             NetTimedCampaignJoin.Payment(key, Entries[key.Shot.ShooterSlot, at].Weapon,
                 Entries[key.Shot.ShooterSlot, at].Frame, outcome, 0, outcome.ClaimId, correction: true);

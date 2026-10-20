@@ -88,6 +88,7 @@ public partial class PlayerEntity
                 flags, NodeRef, _scene, out emission);
             if (result != BeamResultFlags.NoSpawn)
             {
+                NetCombatFastPath.Emitted(emission);
                 NetCampaignEvidence.Committed(this, fire);
                 _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired,
                     this, weapon: fire.Weapon);

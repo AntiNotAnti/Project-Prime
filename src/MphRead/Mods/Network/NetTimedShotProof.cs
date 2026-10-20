@@ -124,7 +124,7 @@ internal static class NetTimedShotProof
         // Enforcement is exercised by controlled fixtures only until the
         // per-family fallback and live/replay acceptance gates are closed.
         { "shadow" => TimedGrantProofMode.Shadow, _ => TimedGrantProofMode.Off };
-    internal static bool Active => Mode != TimedGrantProofMode.Off && NetSession.Active && NetSession.IsAuthority;
+    internal static bool Active => (Mode != TimedGrantProofMode.Off || NetCombatFastPath.ShadowEnabled) && NetSession.Active && NetSession.IsAuthority;
     internal static bool Eligible(PlayerEntity player) => Active && !player.SceneServices.IsReplica
         && player.OwningScene.GameState.Multiplayer && (uint)player.SlotIndex < 8;
     private static TimedShotCertificateStore? _store;
