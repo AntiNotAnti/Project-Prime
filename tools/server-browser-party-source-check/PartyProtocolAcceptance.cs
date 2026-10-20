@@ -20,7 +20,8 @@ internal static class PartyProtocolAcceptance
                 ("PartyReservationRequest",80), ("PartyReservationState",81), ("PartyReservationAction",82),
                 ("CustomWeaponManifest",83), ("CustomWeaponReady",84), ("CustomWeaponReadyConfirmed",85),
                 ("CustomWeaponAction",86), ("CustomWeaponReceipt",87), ("CustomWeaponContact",88),
-                ("CustomWeaponResultAck",89), ("CustomWeaponState",90)
+                ("CustomWeaponResultAck",89), ("CustomWeaponState",90),
+                ("CustomWeaponControl",91), ("CustomWeaponControlDenied",92)
             };
             foreach (var added in approved)
                 Check(Enum.TryParse<PacketType>(added.Name,out var type) && (byte)type == added.Id,
@@ -52,6 +53,7 @@ internal static class PartyProtocolAcceptance
         }
         var protocol62Hello=Convert.FromHexString("393E040302010807060504030201");
         Check(!QueueHelloPacket.TryRead(protocol62Hello,out _),"literal protocol62 QueueHello refused by current live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("393F040302010807060504030201"),out _),"literal protocol63 QueueHello refused by current live admission");
         var hello=new QueueHelloPacket(NetConfig.ProtocolVersion,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
         Check(Convert.ToHexString(h)=="39"+NetConfig.ProtocolVersion.ToString("X2")+"040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"current QueueHello preserves historical payload bytes and changes only its version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);
