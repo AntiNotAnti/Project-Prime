@@ -24,6 +24,7 @@ public sealed class CampaignCreditsTimeline : IDisposable
     }
     private readonly int _owner = Environment.CurrentManagedThreadId;
     private readonly CampaignCreditsFrameTable _frames;
+    private readonly CampaignCreditsSource.Document _document;
     private readonly Dictionary<int, CampaignCreditsSource.Page> _pages = new();
     private readonly bool _goodEnding;
     private CampaignCreditsSource.Page _page = null!;
@@ -39,7 +40,7 @@ public sealed class CampaignCreditsTimeline : IDisposable
         ArgumentNullException.ThrowIfNull(document); ArgumentNullException.ThrowIfNull(frames);
         if (document.MarmSha256 != frames.MarmSha256 || document.TextSha256 != frames.TextSha256
             || document.Widgets.Count != frames.Frames.Count) throw new InvalidDataException("Credits frame table belongs to another source document.");
-        _frames = frames; _goodEnding = goodEnding;
+        _document = document; _frames = frames; _goodEnding = goodEnding;
         foreach (var page in document.Pages) _pages.Add(page.Index, page);
         foreach (var page in document.Pages)
         {
@@ -80,6 +81,11 @@ public sealed class CampaignCreditsTimeline : IDisposable
             items[i] = new(i, rt.State, rt.Code, rt.Frame, rt.DelayFx, rt.Started, rt.Started ? Visual(i, rt.Code) : null);
         }
         return new(_page.Index, _pending, _pageFrame, _settledFrame, _closed, _failure, Array.AsReadOnly(items));
+    }
+    internal bool UsesSource(CampaignCreditsSource.Document document, CampaignCreditsFrameTable frames, bool goodEnding)
+    {
+        VerifyOwner();
+        return ReferenceEquals(_document, document) && ReferenceEquals(_frames, frames) && _goodEnding == goodEnding;
     }
     public bool Tick()
     {
