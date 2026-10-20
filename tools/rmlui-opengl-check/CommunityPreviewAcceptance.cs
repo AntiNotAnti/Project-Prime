@@ -232,7 +232,7 @@ internal static class CommunityPreviewAcceptance
         }
     }
 
-    private static byte[] PatternPng(int width, int height)
+    internal static byte[] PatternPng(int width, int height)
     {
         using var output = new MemoryStream();
         output.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });

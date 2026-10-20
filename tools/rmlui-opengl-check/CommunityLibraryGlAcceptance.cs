@@ -36,6 +36,17 @@ internal static class CommunityLibraryGlAcceptance
         {
             Wait(() => Has("SYNTHETIC PUBLIC ARENA"), "public library readback");
             CheckListPaging(1);
+            Wait(() => host.TryGetElementBounds(parent, "native_community_thumbnail0", out _, out _, out _, out _),
+                "real card thumbnail publishes from explicit synthetic PNG source");
+            Frame();
+            Check(host.TryGetElementBounds(parent, "native_community_thumbnail0", out var tx, out var ty, out var tw, out var th),
+                "native thumbnail image has visible measured bounds");
+            byte[] pixel = new byte[4];
+            GL.ReadPixels((int)(tx + tw / 2), height - 1 - (int)(ty + th / 2), 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            Check(Math.Abs(pixel[0] - 16) <= 3 && Math.Abs(pixel[1] - 16) <= 3 && Math.Abs(pixel[2] - 96) <= 6,
+                "actual card framebuffer samples the synthetic128x64 RGB texture rather than an empty or fallback surface");
+            Capture("thumbnail-ready-synthetic-pattern");
             Activate("native_community_copy_link", RmlUiIntentKind.CommunityDetailAction, 6);
             string expectedLink = new Uri(MapCommunityClient.ValidateBaseAddress(NetworkMapIdentity.ConfiguredDownloadSource()),
                 "packages/" + Fixture.Hash).AbsoluteUri;
@@ -229,9 +240,16 @@ internal static class CommunityLibraryGlAcceptance
 
     private sealed record FavoriteCommand(string Hash, bool Favorite, object? Witness);
     private sealed class Fixture : INativeCommunityLibraryReader, INativeCommunityInstaller, INativeCommunityCreatorAuthority,
-        INativeCommunityRevisionsAuthority, INativeCommunityTransfersAuthority
+        INativeCommunityRevisionsAuthority, INativeCommunityTransfersAuthority, INativeCommunityPreviewSource
     {
         internal static readonly string Hash = new('a', 64);
+        private readonly byte[] _preview = CommunityPreviewAcceptance.PatternPng(128, 64);
+        public Task<byte[]?> ReadPreviewAsync(string exactHash, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (exactHash != Hash) throw new InvalidOperationException("Unexpected synthetic exact preview hash");
+            return Task.FromResult<byte[]?>(_preview);
+        }
         internal object Witness = new();
         internal bool HoldFavorite, HoldRead, FailPrivate;
         internal int InstallCalls, HistoryCalls, Mutations;

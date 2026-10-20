@@ -94,6 +94,22 @@ internal static partial class NativeHunterStageGlAcceptance
         void Click(string id, RmlUiIntentKind kind, int argument)
         {
             host.DiscardIntents(); Check(host.FocusDocument(document, id), "actual identity control can focus: " + id); Settle();
+            if (id.StartsWith("hunter_choice", StringComparison.Ordinal) || id == "hunter_random")
+            {
+                // RmlUi animates focus scrolling. A fixed60ms delay can leave a
+                // card centre above the clipped viewport after the wheel test.
+                // Wait for the whole target and a stable measured position.
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                int stable = 0; var previous = Rect(id);
+                while (watch.ElapsedMilliseconds < 1500 && stable < 3)
+                {
+                    Thread.Sleep(16); host.Update(); var current = Rect(id); var clip = Rect("identity_cards");
+                    bool contained = current.Y >= clip.Y - 1 && current.Bottom <= clip.Bottom + 1;
+                    stable = contained && Math.Abs(current.Y - previous.Y) < .1f ? stable + 1 : 0;
+                    previous = current;
+                }
+                Check(stable >= 3, "focused identity card fully settles inside its actual scroll viewport: " + id);
+            }
             var b = Rect(id); double x = b.X + b.W / 2, y = b.Y + b.H / 2;
             host.Input.PointerMoved(x, y); host.Input.PointerButton(0, x, y, true); host.Input.PointerButton(0, x, y, false); host.Update();
             Check(host.TryTakeIntent(out var intent) && intent.Document == document && intent.Kind == kind && intent.Argument == argument
