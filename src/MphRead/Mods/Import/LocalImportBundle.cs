@@ -35,8 +35,20 @@ public static class LocalImportBundle
     private static bool Hex(string? text, int length) => text?.Length == length && text.All(Uri.IsHexDigit);
     private static bool Id(string? text) => text is { Length: > 0 and <= 80 }
         && text.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-');
-    private static bool ComponentId(string? text) => text is { Length: <= 100 }
-        && text.EndsWith(".json", StringComparison.Ordinal) && Id(text[..^5]);
+    private static bool ComponentId(string? text)
+    {
+        if (text is not { Length: > 0 and <= 100 }) return false;
+        string[] segments = text.Split('.');
+        if (segments.Length < 2 || segments[^1] is not ("json" or "obj" or "bin" or "glb")) return false;
+        foreach (string segment in segments)
+            if (segment.Length == 0 || !segment.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-'))
+                return false;
+        // These flat names are device paths on Windows even with an extension.
+        string name = segments[0];
+        return name is not ("con" or "prn" or "aux" or "nul")
+            && !(name.Length == 4 && (name.StartsWith("com", StringComparison.Ordinal)
+                || name.StartsWith("lpt", StringComparison.Ordinal)) && name[3] is >= '1' and <= '9');
+    }
     private static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
     private static void CheckSpec(ImportBundleSpec spec)
@@ -131,9 +143,35 @@ public static class LocalImportBundle
         { return new(ImportBundleState.Failed, ex.Message, null, Array.Empty<string>()); }
     }
 
+    /// <summary>
+    /// Withdraw discovery atomically while retaining the receipt and immutable
+    /// generation bytes for existing consumers. A later Publish can reinstall.
+    /// Cancellation after the rename is a completed removal, never a rollback.
+    /// </summary>
+    public static bool Remove(string root, string id, CancellationToken cancellation = default)
+    {
+        string folder = BundleRoot(root, id);
+        cancellation.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(folder);
+        string lockPath = Path.Combine(folder, "writer.lock");
+        CheckPath(lockPath, root);
+        using var lease = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1);
+        string pointer = Path.Combine(folder, "current.json");
+        CheckPath(pointer, root);
+        cancellation.ThrowIfCancellationRequested();
+        if (!File.Exists(pointer)) return false;
+        string retired = Path.Combine(folder, "retired-" + Guid.NewGuid().ToString("N") + ".json");
+        CheckPath(retired, root);
+        cancellation.ThrowIfCancellationRequested();
+        // Same-directory rename is the sole commit. Keep the permanent lock
+        // and all generations so open scene/Studio paths remain valid.
+        File.Move(pointer, retired);
+        return true;
+    }
+
     public static IReadOnlyList<string> Publish(string root, ImportBundleSpec spec,
         IReadOnlyDictionary<string, byte[]> replacements, CancellationToken cancellation = default,
-        IProgress<ImportPublishStage>? progress = null)
+        IProgress<ImportPublishStage>? progress = null, bool replaceAllComponents = false)
     {
         CheckSpec(spec);
         if (replacements.Count is < 1 or > MaxComponents) throw new InvalidDataException("Invalid private component count.");
@@ -148,7 +186,7 @@ public static class LocalImportBundle
         progress?.Report(ImportPublishStage.Checking);
         var old = Inspect(root, spec.Id, spec with { RequiredComponents = Array.Empty<string>() });
         var bytes = new SortedDictionary<string, byte[]>(StringComparer.Ordinal);
-        if (old.State == ImportBundleState.Ready)
+        if (!replaceAllComponents && old.State == ImportBundleState.Ready)
             foreach (string file in old.Files)
             {
                 cancellation.ThrowIfCancellationRequested();

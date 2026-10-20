@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Threading;
 using MphRead.Mods.Import.Retro;
 using MphRead.Mods.Platform;
 
@@ -45,8 +47,8 @@ public static class RetroCharacterPreviewExporter
         try
         {
             IReadOnlyList<string> files = ExportFromOwnedGame(sourcePath);
-            Console.WriteLine("[retro-character] Wrote " + files.Count +
-                " private OBJ, CINF skeleton, skin-weight and sparse motion sidecars:");
+            Console.WriteLine("[retro-character] Published " + files.Count +
+                " private character preview bundles. Selected OBJ paths:");
             foreach (string file in files) Console.WriteLine("[retro-character] " + file);
             Console.WriteLine("[retro-character] Not installed as a playable Hunter; no files were uploaded.");
             return 0;
@@ -61,8 +63,11 @@ public static class RetroCharacterPreviewExporter
     }
 
     public static IReadOnlyList<string> ExportFromOwnedGame(string sourcePath,
-        string? destinationRoot = null)
+        string? destinationRoot = null, CancellationToken cancellation = default,
+        IProgress<ImportPublishStage>? progress = null, IReadOnlyCollection<string>? selectedIds = null)
     {
+        cancellation.ThrowIfCancellationRequested();
+        progress?.Report(ImportPublishStage.Checking);
         using GameCubeDiscReader disc = GameCubeDiscReader.Open(sourcePath);
         string root = Path.GetFullPath(destinationRoot ?? DefaultRoot);
         if (Directory.Exists(root) &&
@@ -71,16 +76,20 @@ public static class RetroCharacterPreviewExporter
 
         // A preview must be sourced from the exact pinned media edition.
         // SHA1 here is an upstream recipe identity, not a security signature.
+        var selected = Sources.Where(x => x.Game == disc.Game && (selectedIds == null || selectedIds.Contains(x.Id, StringComparer.Ordinal))).ToArray();
+        if (selected.Length == 0 || selectedIds != null && (selectedIds.Count != selected.Length || selectedIds.Distinct(StringComparer.Ordinal).Count() != selectedIds.Count))
+            throw new InvalidDataException("Choose supported character previews from this source edition.");
         var required = ExternalSourceRequirements.For(disc.Game);
         foreach (var archive in required)
         {
+            cancellation.ThrowIfCancellationRequested();
             if (ExternalSourceRequirements.Verify(disc, archive).Status != ExternalArchiveStatus.Verified)
                 throw new InvalidDataException("User-owned disc source does not match the pinned archive recipe: " +
                     archive.Path);
         }
 
         var paks = new List<RetroPakReader>();
-        string staging = Path.Combine(root, ".staging-" + Guid.NewGuid().ToString("N"));
+        string staging = Path.Combine(Path.GetTempPath(), "prime-character-stage-" + Guid.NewGuid().ToString("N"));
         try
         {
             foreach (ExternalArchiveRequirement archive in required)
@@ -88,6 +97,7 @@ public static class RetroCharacterPreviewExporter
 
             byte[] Resource(uint id)
             {
+                cancellation.ThrowIfCancellationRequested();
                 foreach (RetroPakReader pak in paks)
                     if (pak.Contains(id)) return pak.ReadResource(id);
                 throw new InvalidDataException("Missing required local character resource " +
@@ -96,8 +106,9 @@ public static class RetroCharacterPreviewExporter
 
             Directory.CreateDirectory(staging);
             var staged = new List<(string Temp, string Final)>();
-            foreach (SourceCharacter spec in Sources.Where(x => x.Game == disc.Game))
+            foreach (SourceCharacter spec in selected)
             {
+                cancellation.ThrowIfCancellationRequested();
                 byte[] ancsBytes = Resource(spec.Ancs);
                 RetroCharacterRefs refs = RetroCharacterSource.FindCharacter(
                     ancsBytes, spec.NativeName);
@@ -168,19 +179,47 @@ public static class RetroCharacterPreviewExporter
             if (staged.Count == 0)
                 throw new InvalidDataException("No supported Retro characters in the supplied source.");
 
-            // Every body/skeleton is parsed before the first file is published.
-            // Individual final moves are atomic, and a failed source never
-            // emits an incomplete OBJ. No assets are pushed to network/CDN.
-            foreach ((string from, string to) in staged)
-                File.Move(from, to, overwrite: true);
-            return staged.Where(x => x.Final.EndsWith(".obj", StringComparison.Ordinal))
-                .Select(x => x.Final).ToArray();
+            // Each appearance is a complete immutable generation. Parse all
+            // selected appearances before publishing any; Update all commits
+            // one independent appearance at a time, never half a model/rig.
+            var installed = new List<string>();
+            foreach (SourceCharacter spec in selected)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                var parts = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                long total = 0;
+                foreach (var file in staged.Where(x => Path.GetFileName(x.Temp).StartsWith(spec.Id + ".", StringComparison.Ordinal)))
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    long length = new FileInfo(file.Temp).Length;
+                    if (length is <= 0 or > LocalImportBundle.MaxComponentBytes || (total += length) > LocalImportBundle.MaxBundleBytes)
+                        throw new InvalidDataException("Source character bundle exceeds its private component budget.");
+                    parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
+                }
+                var files = LocalImportBundle.Publish(root, BundleSpec(spec.Id), parts, cancellation, progress, replaceAllComponents: true);
+                installed.Add(files.Single(path => path.EndsWith(".obj", StringComparison.Ordinal)));
+            }
+            return installed.AsReadOnly();
         }
         finally
         {
             foreach (RetroPakReader pak in paks) pak.Dispose();
-            if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+            try { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>Receipt describes authoring previews only, never gameplay readiness.</summary>
+    public static ImportBundleSpec BundleSpec(string sourceCharacterId)
+    {
+        var spec = Sources.SingleOrDefault(s => s.Id == sourceCharacterId)
+            ?? throw new InvalidDataException("Unknown canonical source character preview.");
+        string source = string.Join("\n", ExternalSourceRequirements.For(spec.Game)
+            .OrderBy(a => a.Path, StringComparer.Ordinal).Select(a => a.Path + ":" + a.ExpectedSha1));
+        string fingerprint = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(source)));
+        string recipe = $"retro-character-preview-v1:{spec.Id}:{spec.Game}:{spec.Ancs:x8}:{spec.NativeName}:obj-skeleton-weights-motions-optional-graph";
+        return new(spec.Id, 1, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(recipe))), fingerprint,
+            new[] { spec.Id + ".obj", spec.Id + ".skeleton.json", spec.Id + ".weights.json", spec.Id + ".motions.json" });
     }
 
     /// <summary>OBJ vertex, normal, UV and indexed-triangle handoff for

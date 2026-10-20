@@ -125,6 +125,7 @@ internal static class NativeSettingsAcceptance
         LegacyControllerAlternatives(settings);
         HudEditorDraft();
         VideoRollback(settings);
+        NativeCharacterPreviewAcceptance.Run(settings);
         Persistence(root, settings);
     }
 

@@ -72,9 +72,94 @@ internal static class LocalImportBundleTests
             var before = File.ReadAllBytes(pointer);
             Expect<InvalidDataException>(() => LocalImportBundle.Publish(root, spec, new Dictionary<string, byte[]> { ["../escape.json"] = new byte[] { 1 } }), "unsafe import path");
             Check(File.ReadAllBytes(pointer).SequenceEqual(before), "unsafe request leaves old pointer");
-            Console.WriteLine("IMPORT BUNDLE PASS: integrity/states, required parts, cancellation/fault rollback, immutable updates, coalescing and cross-process lease");
+            VerifyComponentNames(root);
+            VerifyRemoval(root);
+            var completeSpec = new ImportBundleSpec("complete-refresh", 1, new string('a',64), new string('b',40), new[]{"body.obj"});
+            LocalImportBundle.Publish(root,completeSpec,new Dictionary<string,byte[]>{["body.obj"]=new byte[]{1},["optional.bin"]=new byte[]{2}});
+            LocalImportBundle.Publish(root,completeSpec,new Dictionary<string,byte[]>{["body.obj"]=new byte[]{3}},replaceAllComponents:true);
+            var refreshed=LocalImportBundle.Inspect(root,completeSpec.Id,completeSpec);
+            Check(refreshed.State==ImportBundleState.Ready && refreshed.Files.Count==1 && refreshed.Files[0].EndsWith("body.obj"),
+                "complete selected refresh cannot retain a stale optional component");
+            Console.WriteLine("IMPORT BUNDLE PASS: integrity/states, required parts, bounded flat artifacts, cancellation/fault rollback, immutable updates, coalescing, retained removal and writer lease");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static void VerifyComponentNames(string root)
+    {
+        string[] names = { "body.obj", "body.skeleton.json", "body.weights.json", "body.ancs.bin", "body.source-rig.glb",
+            "lod0.material.2.json", new string('a', 96) + ".obj" };
+        var spec = new ImportBundleSpec("artifact-fixture", 1, new string('c', 64), new string('d', 40), names);
+        var parts = names.ToDictionary(name => name, name => Encoding.UTF8.GetBytes("synthetic fixture: " + name));
+        var installed = LocalImportBundle.Publish(root, spec, parts);
+        var ready = LocalImportBundle.Inspect(root, spec.Id, spec);
+        Check(ready.State == ImportBundleState.Ready && ready.Receipt!.Schema == 1
+            && ready.Files.Count == names.Length, "supported artifact names retain schema 1");
+        Check(installed.All(file => names.Contains(Path.GetFileName(file))), "artifacts stay flat in their generation");
+        string pointer = Path.Combine(root, LocalImportBundle.StorageDirectory, spec.Id, "current.json");
+        byte[] before = File.ReadAllBytes(pointer);
+        var receipt = ready.Receipt!;
+        foreach (string invalid in new[] { "", ".json", "body..json", "body.obj.", "body/mesh.obj", "body\\mesh.bin",
+            "../body.glb", "/body.json", "C:/body.json", "body:mesh.obj", "Body.obj", "body.GLB", "body mesh.obj",
+            "bödy.obj", "body.exe", "body.json.exe", "con.obj", "aux.bin", "nul.json", "lpt1.glb", "com9.obj",
+            new string('a', 97) + ".obj" })
+        {
+            Expect<InvalidDataException>(() => LocalImportBundle.Publish(root, spec,
+                new Dictionary<string, byte[]> { [invalid] = new byte[] { 1 } }), "unsafe artifact replacement: " + invalid);
+            Expect<InvalidDataException>(() => LocalImportBundle.Publish(root,
+                spec with { RequiredComponents = new[] { invalid } }, parts), "unsafe artifact requirement: " + invalid);
+            Check(File.ReadAllBytes(pointer).SequenceEqual(before), "unsafe artifact leaves old receipt");
+            File.WriteAllBytes(pointer, JsonSerializer.SerializeToUtf8Bytes(receipt with
+            { Components = new[] { receipt.Components[0] with { Id = invalid } } }));
+            Check(LocalImportBundle.Inspect(root, spec.Id, spec).State == ImportBundleState.Failed,
+                "unsafe artifact receipt rejected: " + invalid);
+            File.WriteAllBytes(pointer, before);
+        }
+    }
+
+    private static void VerifyRemoval(string root)
+    {
+        var spec = new ImportBundleSpec("removal-fixture", 1, new string('e', 64), new string('f', 40), new[] { "body.obj" });
+        var parts = new Dictionary<string, byte[]> { ["body.obj"] = Encoding.UTF8.GetBytes("synthetic immutable body") };
+        var installed = LocalImportBundle.Publish(root, spec, parts);
+        string folder = Path.Combine(root, LocalImportBundle.StorageDirectory, spec.Id);
+        string pointer = Path.Combine(folder, "current.json"), lockPath = Path.Combine(folder, "writer.lock");
+        string source = Path.Combine(root, "unmanaged-source.bin");
+        File.WriteAllText(source, "source remains private and untouched");
+        byte[] before = File.ReadAllBytes(pointer);
+        using (var cancelled = new CancellationTokenSource())
+        {
+            cancelled.Cancel();
+            Expect<OperationCanceledException>(() => LocalImportBundle.Remove(root, spec.Id, cancelled.Token), "cancel removal");
+        }
+        Check(File.ReadAllBytes(pointer).SequenceEqual(before)
+            && !Directory.EnumerateFiles(folder, "retired-*.json").Any(), "cancel removal retains current receipt");
+        using (var held = new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            Expect<IOException>(() => LocalImportBundle.Remove(root, spec.Id), "remove shares game/Studio writer lease");
+        Check(File.ReadAllBytes(pointer).SequenceEqual(before), "busy removal retains current receipt");
+
+        // A scene can keep its file open throughout withdrawal and reinstallation.
+        using var live = new FileStream(installed[0], FileMode.Open, FileAccess.Read, FileShare.Read);
+        Check(LocalImportBundle.Remove(root, spec.Id), "remove installed bundle");
+        Check(!File.Exists(pointer) && !LocalImportBundle.HasReceipt(root, spec.Id)
+            && LocalImportBundle.Inspect(root, spec.Id, spec).State == ImportBundleState.NotInstalled,
+            "removed receipt no longer discovered");
+        string retired = Directory.GetFiles(folder, "retired-*.json").Single();
+        Check(File.ReadAllBytes(retired).SequenceEqual(before), "withdrawal retains exact receipt bytes");
+        Check(File.Exists(lockPath) && File.Exists(installed[0])
+            && File.ReadAllText(source) == "source remains private and untouched", "remove retains lock, generation and source");
+        using (var reader = new StreamReader(live, Encoding.UTF8, leaveOpen: true))
+            Check(reader.ReadToEnd() == "synthetic immutable body", "live generation remains readable");
+        Check(!LocalImportBundle.Remove(root + Path.DirectorySeparatorChar, spec.Id)
+            && Directory.GetFiles(folder, "retired-*.json").Length == 1, "repeated removal harmless");
+
+        var reinstalled = LocalImportBundle.Publish(root, spec, parts);
+        Check(LocalImportBundle.Inspect(root, spec.Id, spec).State == ImportBundleState.Ready
+            && reinstalled.SequenceEqual(installed) && File.Exists(retired), "reinstall reuses immutable generation and retains retired receipt");
+        Check(LocalImportBundle.Remove(root, spec.Id)
+            && Directory.GetFiles(folder, "retired-*.json").Length == 2, "each withdrawal retains a unique receipt");
+        Expect<InvalidDataException>(() => LocalImportBundle.Remove(root, "../escape"), "invalid removal ID");
+        Check(!LocalImportBundle.Remove(root, "absent-fixture"), "remove absent bundle harmless");
     }
 
     public static void VerifyRealEchoesSource(string source)
