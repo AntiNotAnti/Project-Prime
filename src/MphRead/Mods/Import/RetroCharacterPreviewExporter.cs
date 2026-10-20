@@ -18,7 +18,7 @@ namespace MphRead.Mods.Import;
 /// only in the user's own application data; this is not a character gameplay
 /// install, network pack, or native animated skin.
 /// </summary>
-public static class RetroCharacterPreviewExporter
+public static partial class RetroCharacterPreviewExporter
 {
     public const int MaxVertices = 2_000_000;
     public const int MaxTriangles = 500_000;
@@ -26,6 +26,7 @@ public static class RetroCharacterPreviewExporter
     public sealed record SourceCharacter(
         string Id, ExternalGameKind Game, uint Ancs, string NativeName)
     {
+        public SourcePart? AlternateForm { get; init; }
         public string DisplayName => Id switch
         {
             "darksamus-echoes"=>"Dark Samus (Echoes)",
@@ -37,14 +38,16 @@ public static class RetroCharacterPreviewExporter
     }
     public static IReadOnlyList<SourceCharacter> Sources { get; } = Array.AsReadOnly(new[]
     {
-        new SourceCharacter("darksamus-echoes", ExternalGameKind.Echoes, 0x39900a11, "Dark_Samus"),
+        new SourceCharacter("darksamus-echoes", ExternalGameKind.Echoes, 0x39900a11, "Dark_Samus")
+            { AlternateForm = new("ball", 0x654a3f97, "Dark_Samus_MorphBall", 1) },
         new SourceCharacter("trooper-power", ExternalGameKind.MetroidPrime, 0x8169653a, "power_trooper"),
         new SourceCharacter("trooper-ice", ExternalGameKind.MetroidPrime, 0x8169653a, "ice_trooper"),
         new SourceCharacter("trooper-wave", ExternalGameKind.MetroidPrime, 0x8169653a, "wave_trooper"),
         new SourceCharacter("trooper-plasma", ExternalGameKind.MetroidPrime, 0x8169653a, "plasma_trooper"),
         // A distinct source body in the same verified ANCS, never an alias of
         // Dark_Samus or a playable/native-Hunter registration.
-        new SourceCharacter("darksamus-overcharged-echoes", ExternalGameKind.Echoes, 0x39900a11, "Battle_3"),
+        new SourceCharacter("darksamus-overcharged-echoes", ExternalGameKind.Echoes, 0x39900a11, "Battle_3")
+            { AlternateForm = new("ball", 0x654a3f97, "Dark_Samus_MorphBall", 1) },
     });
 
     public static string DefaultRoot => Path.Combine(AppPaths.UserDataDirectory,
@@ -122,72 +125,21 @@ public static class RetroCharacterPreviewExporter
             foreach (SourceCharacter spec in selected)
             {
                 cancellation.ThrowIfCancellationRequested();
-                byte[] ancsBytes = Resource(spec.Ancs);
-                RetroCharacterRefs refs = RetroCharacterSource.FindCharacter(
-                    ancsBytes, spec.NativeName);
-                if (refs.Cmdl == 0 || refs.Cskr == 0 || refs.Cinf == 0)
-                    throw new InvalidDataException("Incomplete Retro character resource references: " + spec.Id);
-                RetroNativeSkeleton skeleton =
-                    RetroCharacterSource.ReadSkeleton(Resource(refs.Cinf));
-                Cmdl model = Cmdl.Load(Resource, refs.Cmdl, refs.Cskr);
-                if (model.PositionCount < 3 || model.TriangleCount < 1 ||
-                    model.PositionCount > MaxVertices || model.TriangleCount > MaxTriangles ||
-                    model.Skin?.Count != model.PositionCount)
-                    throw new InvalidDataException("Incomplete or oversized skinned Retro body: " + spec.Id);
-
-                string obj = spec.Id + ".obj";
-                string json = spec.Id + ".skeleton.json";
-                string stagedObj = Path.Combine(staging, obj);
-                using (var writer = new StreamWriter(stagedObj, false,
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), 65536))
-                    WriteObj(model, writer);
-                if (new FileInfo(stagedObj).Length > MaxOutputBytes)
-                    throw new InvalidDataException("OBJ source preview is too large: " + spec.Id);
-                string stagedSkeleton = Path.Combine(staging, json);
-                File.WriteAllText(stagedSkeleton, JsonSerializer.Serialize(new
+                var parts = new List<AuthoringPart>();
+                foreach (SourcePart part in PartsFor(spec.Id))
                 {
-                    spec.Id, SourceGameId = disc.GameId, Refs = refs,
-                    SourceCharacter = spec.NativeName,
-                    BoneCount = skeleton.Bones.Count,
-                    Bones = skeleton.Bones.Values.OrderBy(b => b.Id)
-                        .Select(b => new { b.Id, b.Parent, b.Name, Position = new[] { b.X, b.Y, b.Z } })
-                        .ToArray(),
-                    Notes = "Local preview: needs rig retargeting, animation, materials, gun and alt form before gameplay."
-                }));
-                // Optional sparse pose samples are authored from the same
-                // validated local disc. Blends stay explicitly unresolved;
-                // no unsupported ANIM is substituted with a guessed pose.
-                RetroMotionPreview.Inventory motion = RetroMotionPreview.FromLocalSource(
-                    ancsBytes, Resource, disc.Game == ExternalGameKind.Echoes);
-                // Retain the SAME source resource snapshot, not a second importer.
-                // Raw proof is not a graph evaluator or animation acceptance claim.
-                var graphResult=RetroAnimationGraphProof.CaptureOptional(ancsBytes,disc.GameId,spec.Ancs,spec.Id,spec.NativeName,refs);
-                if(graphResult.Graph is { } graph)
-                {
-                    string graphName=spec.Id+".ancs-graph.json",rawName=graph.Metadata.SourceSnapshotFile;
-                    string stagedGraph=Path.Combine(staging,graphName),stagedRaw=Path.Combine(staging,rawName);
-                    File.WriteAllBytes(stagedGraph,graph.Descriptor);File.WriteAllBytes(stagedRaw,graph.SourceSnapshot);
-                    staged.Add((stagedGraph,Path.Combine(root,graphName)));staged.Add((stagedRaw,Path.Combine(root,rawName)));
-                    motion=motion with{SourceGraphProof=new(1,graphName,RetroAnimationGraphProof.Sha(graph.Descriptor),rawName,
-                        spec.Ancs,graph.Metadata.SourceAncsSha256,graph.Metadata.SourceAncsBytes)};
+                    cancellation.ThrowIfCancellationRequested();
+                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged));
                 }
-                else motion=motion with{SourceGraphAbsence="animation-set-absent"};
-                string motionName = spec.Id + ".motions.json";
-                string stagedMotion = Path.Combine(staging, motionName);
-                File.WriteAllText(stagedMotion, JsonSerializer.Serialize(motion));
-                if (new FileInfo(stagedMotion).Length > RetroMotionPreview.MaxAnimationResourceBytes)
-                    throw new InvalidDataException("Motion preview exceeds bounded sidecar output.");
-                staged.Add((stagedObj, Path.Combine(root, obj)));
-                staged.Add((stagedSkeleton, Path.Combine(root, json)));
-                staged.Add((stagedMotion, Path.Combine(root, motionName)));
-                string weightsName = spec.Id + ".weights.json";
-                string stagedWeights = Path.Combine(staging, weightsName);
-                using (FileStream weightsFile = new(stagedWeights, FileMode.CreateNew, FileAccess.Write,
-                    FileShare.None, 65536))
-                    RetroCharacterSkinWeights.Write(model, weightsFile);
-                if (new FileInfo(stagedWeights).Length > MaxOutputBytes)
-                    throw new InvalidDataException("Source skin weights exceed the private sidecar budget.");
-                staged.Add((stagedWeights, Path.Combine(root, weightsName)));
+                if (spec.AlternateForm != null)
+                {
+                    string name = spec.Id + ".parts.json";
+                    string path = Path.Combine(staging, name);
+                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, 2, false,
+                        parts.ToArray(), new[] { "source-materials", "first-person", "runtime-animation-and-morph" });
+                    File.WriteAllText(path, JsonSerializer.Serialize(index));
+                    staged.Add((path, Path.Combine(root, name)));
+                }
             }
             if (staged.Count == 0)
                 throw new InvalidDataException("No supported Retro characters in the supplied source.");
@@ -214,7 +166,7 @@ public static class RetroCharacterPreviewExporter
                 }
             }
             return LocalImportBundle.PublishSequential(root,PrepareUpdates(),cancellation,progress)
-                .Where(path=>path.EndsWith(".obj",StringComparison.Ordinal)).ToArray();
+                .Where(path=>selected.Any(spec=>Path.GetFileName(path)==spec.Id+".obj")).ToArray();
         }
         finally
         {
@@ -222,19 +174,6 @@ public static class RetroCharacterPreviewExporter
             try { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
-    }
-
-    /// <summary>Receipt describes authoring previews only, never gameplay readiness.</summary>
-    public static ImportBundleSpec BundleSpec(string sourceCharacterId)
-    {
-        var spec = Sources.SingleOrDefault(s => s.Id == sourceCharacterId)
-            ?? throw new InvalidDataException("Unknown canonical source character preview.");
-        string source = string.Join("\n", ExternalSourceRequirements.For(spec.Game)
-            .OrderBy(a => a.Path, StringComparer.Ordinal).Select(a => a.Path + ":" + a.ExpectedSha1));
-        string fingerprint = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(source)));
-        string recipe = $"retro-character-preview-v1:{spec.Id}:{spec.Game}:{spec.Ancs:x8}:{spec.NativeName}:obj-skeleton-weights-motions-optional-graph";
-        return new(spec.Id, 1, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(recipe))), fingerprint,
-            new[] { spec.Id + ".obj", spec.Id + ".skeleton.json", spec.Id + ".weights.json", spec.Id + ".motions.json" });
     }
 
     /// <summary>OBJ vertex, normal, UV and indexed-triangle handoff for

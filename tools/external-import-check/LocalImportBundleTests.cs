@@ -72,6 +72,7 @@ internal static class LocalImportBundleTests
             var before = File.ReadAllBytes(pointer);
             Expect<InvalidDataException>(() => LocalImportBundle.Publish(root, spec, new Dictionary<string, byte[]> { ["../escape.json"] = new byte[] { 1 } }), "unsafe import path");
             Check(File.ReadAllBytes(pointer).SequenceEqual(before), "unsafe request leaves old pointer");
+            VerifyComponentStates(root);
             VerifyComponentNames(root);
             VerifyRemoval(root);
             VerifySymlinkPaths(root);
@@ -86,6 +87,70 @@ internal static class LocalImportBundleTests
             Console.WriteLine("IMPORT BUNDLE PASS: integrity/states, required parts, bounded flat artifacts, cancellation/fault rollback, immutable updates, coalescing, retained removal and writer lease");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static void VerifyComponentStates(string root)
+    {
+        string[] names = { "a.json", "b.json", "c.json" };
+        var spec = new ImportBundleSpec("component-states-fixture", 1, new string('a', 64), new string('b', 40), names);
+        var parts = names.ToDictionary(name => name, name => Encoding.UTF8.GetBytes("synthetic component: " + name));
+        LocalImportBundle.Publish(root, spec, parts);
+        var ready = LocalImportBundle.Inspect(root, spec.Id, spec);
+        Check(ready.State == ImportBundleState.Ready && ready.Receipt != null && ready.Files.Count == names.Length,
+            "component-state fixture starts with a complete playable bundle");
+        Check(ready.ComponentStates != null && ready.ComponentStates.Count == names.Length
+            && names.All(name => ready.ComponentStates.Single(component => component.Id == name).State == ImportBundleState.Ready),
+            "Ready inspection reports every verified component as Ready");
+        var originalStates = ready.ComponentStates!.ToArray();
+        Check(ready.ComponentStates is IList<ImportBundleComponentInspection> { IsReadOnly: true },
+            "Ready component-state view is read-only through its collection interface");
+        var stateList = (IList<ImportBundleComponentInspection>)ready.ComponentStates!;
+        Expect<NotSupportedException>(() => stateList[0] = new("replacement.json", ImportBundleState.Failed, "caller mutation"),
+            "component-state view rejects index replacement");
+        Expect<NotSupportedException>(() => stateList.Add(new("extra.json", ImportBundleState.Ready, "caller mutation")),
+            "component-state view rejects added inventory");
+        Expect<NotSupportedException>(() => stateList.Clear(), "component-state view rejects clearing inventory");
+        Check(ready.ComponentStates!.SequenceEqual(originalStates), "rejected mutations preserve Ready component states");
+
+        string pointer = Path.Combine(root, LocalImportBundle.StorageDirectory, spec.Id, "current.json");
+        var receipt = ready.Receipt!;
+        string generation = Path.Combine(Path.GetDirectoryName(pointer)!, receipt.Generation);
+        File.Delete(Path.Combine(generation, "b.json"));
+        var missing = LocalImportBundle.Inspect(root, spec.Id, spec);
+        Check(missing.State == ImportBundleState.Incomplete && missing.Files.Count == 0 && missing.Receipt != null,
+            "one missing component withholds every playable file but retains incomplete inventory");
+        Check(missing.ComponentStates?.Count == names.Length
+            && missing.ComponentStates.Single(component => component.Id == "b.json").State == ImportBundleState.Incomplete
+            && new[] { "a.json", "c.json" }.All(name => missing.ComponentStates.Single(component => component.Id == name).State == ImportBundleState.Ready),
+            "missing component does not erase verified Ready siblings");
+
+        // Also cover a required component absent from the receipt rather than its generation.
+        File.WriteAllBytes(Path.Combine(generation, "b.json"), parts["b.json"]);
+        var absentInventory = LocalImportBundle.Inspect(root, spec.Id, spec with { RequiredComponents = names.Append("d.json").ToArray() });
+        Check(absentInventory.State == ImportBundleState.Incomplete && absentInventory.Files.Count == 0
+            && absentInventory.Receipt != null && absentInventory.ComponentStates?.Count == names.Length + 1
+            && absentInventory.ComponentStates.Single(component => component.Id == "d.json").State == ImportBundleState.Incomplete
+            && names.All(name => absentInventory.ComponentStates.Single(component => component.Id == name).State == ImportBundleState.Ready),
+            "absent required inventory reports Incomplete beside all verified Ready components");
+
+        // Equal-length corruption exercises the digest check, not merely the file-size guard.
+        byte[] corrupt = (byte[])parts["a.json"].Clone(); corrupt[0] ^= 1;
+        File.WriteAllBytes(Path.Combine(generation, "a.json"), corrupt);
+        File.Delete(Path.Combine(generation, "b.json"));
+        foreach (var order in new[] { receipt.Components, receipt.Components.Reverse().ToArray() })
+        {
+            File.WriteAllBytes(pointer, JsonSerializer.SerializeToUtf8Bytes(receipt with { Components = order }));
+            var mixed = LocalImportBundle.Inspect(root, spec.Id, spec);
+            Check(mixed.State == ImportBundleState.Failed && mixed.Files.Count == 0 && mixed.Receipt == null,
+                "corrupt plus missing fails closed regardless of receipt order: " + order[0].Id);
+            Check(mixed.ComponentStates?.Count == names.Length
+                && mixed.ComponentStates.Single(component => component.Id == "a.json").State == ImportBundleState.Failed
+                && mixed.ComponentStates.Single(component => component.Id == "b.json").State == ImportBundleState.Incomplete
+                && mixed.ComponentStates.Single(component => component.Id == "c.json").State == ImportBundleState.Ready,
+                "mixed failure retains exact per-component states regardless of receipt order: " + order[0].Id);
+        }
+        Check(ready.ComponentStates!.SequenceEqual(originalStates), "later inspection failures cannot mutate an earlier Ready snapshot");
+        Console.WriteLine("IMPORT COMPONENT STATES PASS: read-only Ready snapshot, missing siblings, absent requirements, order-independent fail-closed corruption");
     }
 
     private static void VerifyDetachedPublicationPaths(string root)

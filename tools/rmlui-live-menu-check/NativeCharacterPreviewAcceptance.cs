@@ -32,6 +32,33 @@ internal static class NativeCharacterPreviewAcceptance
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
                 LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
             }
+            using (var parts = new NativeFullSettingsController(settings))
+            {
+                var source = sources.First(source => RetroCharacterPreviewExporter.BundleSpec(source.Id).Version == 2);
+                while (parts.CharacterPreviewId != source.Id) parts.CycleCharacterPreview();
+                parts.CheckCharacterPreview(); Wait(parts);
+                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("ball v1: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
+                    && parts.Status.Contains("are unqualified.", StringComparison.Ordinal),
+                    "complete v2 preview status reports body and ball Ready with authoring-only qualification");
+                var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
+                var installed = LocalImportBundle.Inspect(root, source.Id, spec);
+                string ballGeometry = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + ".obj";
+                File.Delete(installed.Files.Single(file => Path.GetFileName(file) == ballGeometry));
+                parts.CheckCharacterPreview(); Wait(parts);
+                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("ball v1: Incomplete", StringComparison.Ordinal)
+                    && parts.Status.Contains("geometry v1 Incomplete", StringComparison.Ordinal)
+                    && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
+                    && parts.Status.Contains("are unqualified.", StringComparison.Ordinal),
+                    "missing ball geometry leaves body Ready and identifies incomplete ball geometry without runtime qualification");
+                LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
+                parts.CheckCharacterPreview(); Wait(parts);
+                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("ball v1: Ready", StringComparison.Ordinal),
+                    "complete republish repairs the v2 fixture before removal and snapshot checks");
+            }
             var all = Snapshot(root);
             using (var remove = new NativeFullSettingsController(settings))
             {
