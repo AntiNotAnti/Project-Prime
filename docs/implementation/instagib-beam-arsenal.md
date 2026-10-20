@@ -148,3 +148,30 @@ that depends on each player's locally configured original game assets.
 Compare actual Imperialist vs Insta-Gib frame captures (first person,
 third person, near walls and 8-player combat) before declaring visual
 acceptance.
+
+## First-person muzzle connection repair (2026-10-20)
+
+Insta-Gib used the same recorded Imperialist projectile spawn position as
+the normal sniper beam, but its custom camera-facing textured rail tapered to
+**12% width** at the muzzle and sampled U=0, the texture's translucent border.
+With the new IMP-sized rail this could look like a small gap from the barrel.
+
+The central 3-layer rail now starts at its full **unchanged Imperialist-scale**
+width, samples an interior longitudinal texel for immediate visibility and
+retains the existing fade, palette, variants and shot collision endpoint.
+Decorative orbiting strands continue to taper separately.
+
+For a locally owned, live first-person Hunter (not 3P, spectator, replay,
+killcam or remote), the scene may add a brief <=0.12-second, depth-tested,
+world-space joining segment from the same late-latched, FOV-remapped muzzle
+pose used by continuous beam presentation. The segment ends just into the
+recorded ray, is accepted only for finite nearby offsets <=0.6 world units
+and is never used to move the actual ray, hit position or damage. Invalid
+poses and point-blank hits retain the simple centered short cap.
+
+Regression checks cover the untapered central rail, nonzero head texture
+coordinates, animated signature taper retention, short valid first-person
+join, malformed/untrusted pose rejection and the bound on its lifetime.
+Actual first-person and third-person muzzle screenshots at multiple FOV,
+30/60/144/240 Hz and close-wall shots remain GPU acceptance, not something
+proven by these headless geometry tests.
