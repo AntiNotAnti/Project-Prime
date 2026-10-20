@@ -34,8 +34,8 @@ internal static class CustomMatchPolicyChecks
             &&!Native.RiftlineM7Available&&(Native.Rules&MatchModifierFlags.RiftlineM7Available)==0,
             "native/default match definitions never opt into M7 availability");
         check((uint)MatchModifierFlags.RiftlineM7Available==262144
-            &&MovementModelRules.KnownModifierMask==524287&&NetConfig.ProtocolVersion==73,
-            "protocol73 retains availability bit18 while preserving every earlier modifier ID");
+            &&MovementModelRules.KnownModifierMask==524287&&NetConfig.ProtocolVersion==74,
+            "protocol74 retains availability bit18 while preserving every earlier modifier ID");
         var requested=Native with{RiftlineM7Available=true};
         check(requested.Rules==(Native.Rules|MatchModifierFlags.RiftlineM7Available)
             &&requested.ModifierSummary.Contains("Riftline M7",StringComparison.Ordinal),
@@ -127,7 +127,7 @@ internal static class CustomMatchPolicyChecks
             "native MatchState70 body retains exact reviewed69 bytes");
         check(CustomReplayBoundary.FirstFrozenAvailabilityProtocol==70,
             "custom replay bootstrap boundary follows frozen availability protocol70 independently of the current live version");
-        foreach(byte nativeProtocol in new byte[]{59,69,70,71})
+        foreach(byte nativeProtocol in new byte[]{59,69,70,71,72,73,74})
         {
             byte[] recordedMatch=nativeProtocol<60?nativeMatch.AsSpan(0,1+MatchStatePacket.Protocol59Size).ToArray():nativeMatch;
             var nativeMetadata=new ReplayMetadata{ProtocolVersion=nativeProtocol,FormatVersion=6,TimedShotCertificates=true,
@@ -164,6 +164,17 @@ internal static class CustomMatchPolicyChecks
             check(currentMetadata.RecordedMovementModel==null
                 &&Refused(()=>{var encoded=ReplayFormatV3.EncodeMetadata(currentMetadata);ReplayFormatV3.DecodeMetadata(71,encoded,6);}),
                 "protocol71 metadata retains the custom archive boundary: "+(PacketType)packet[0]);
+            foreach(byte nativeProtocol in new byte[]{72,73,74})
+            {
+                check(Refused(()=>{ReplayIdentityCompatibility.Convert(packet,nativeProtocol);}),
+                    "reviewed native protocol retains custom replay conversion refusal: "+nativeProtocol);
+                var reviewedMetadata=new ReplayMetadata{ProtocolVersion=nativeProtocol,FormatVersion=6,TimedShotCertificates=true,
+                    TickRate=60,RoomKey=Native.RoomKey,Mode=GameMode.Battle,BuildVersion="fixture",BuildId="fixture",
+                    Bootstrap=new ReplayBootstrap{Packets=new[]{packet}}};
+                check(reviewedMetadata.RecordedMovementModel==null
+                    &&Refused(()=>{var encoded=ReplayFormatV3.EncodeMetadata(reviewedMetadata);ReplayFormatV3.DecodeMetadata(nativeProtocol,encoded,6);}),
+                    "reviewed native protocol retains the stable custom archive boundary: "+nativeProtocol);
+            }
         }
         var destination=new ReplayReplicaState();destination.Accept(nativeMatch,0);var original=destination.CaptureCheckpoint();
         byte[] forged=original.Bytes.ToArray();

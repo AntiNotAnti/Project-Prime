@@ -88,10 +88,12 @@ namespace MphRead.Entities
         private void UpdateCameraFirst()
         {
             Vector3 position = Position;
+            _modTraversalCameraWalkBob = 0;
             if (!_field6D0)
             {
+                _modTraversalCameraWalkBob = MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
                 position.Y += (IsAltForm ? Fixed.ToFloat(Values.AimYOffset) : ModBipedEyeOffset)
-                    + MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
+                    + _modTraversalCameraWalkBob;
             }
             if (_timeStanding < 9 * 2) // todo: FPS stuff
             {
@@ -102,6 +104,7 @@ namespace MphRead.Entities
             if (_camSwitchTimer < switchTime)
             {
                 float pct = _camSwitchTimer / (float)switchTime;
+                _modTraversalCameraWalkBob *= pct;
                 CameraInfo.Position = _field544 + (position - _field544) * pct;
                 Vector3 target = CameraInfo.Position + _facingVector;
                 CameraInfo.Target = Position + (target - Position) * pct;

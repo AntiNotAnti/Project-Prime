@@ -1,0 +1,1829 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "status": "PASS",
+  "protocol": 74,
+  "profileVersion": 4,
+  "baseline": {
+    "baseSha": "8cbc4c0779b87a5f802e57c64a03b8c4f1a5cfd5",
+    "protocol": 72,
+    "profileVersion": 3,
+    "checks": 89013,
+    "productionOverlayFiles": 0,
+    "summary": [
+      {
+        "hunter": "Samus",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Kanden",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Spire",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Noxus",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Trace",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Sylux",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      },
+      {
+        "hunter": "Weavel",
+        "heldMetrics": {
+          "slideTicks": 48,
+          "windowTicks": 48,
+          "windowSimulationSecondsAt60Hz": 0.8,
+          "distance": 4.2175884,
+          "entrySpeed": 7.199707,
+          "firstSpeed": 7.103711,
+          "finalWindowSpeed": 3.780043,
+          "minimumWindowSpeed": 3.780043,
+          "actualForwardHeld": 48,
+          "animationClips": [
+            "WalkForward"
+          ]
+        }
+      }
+    ]
+  },
+  "candidate": {
+    "snapshot": "candidate01-managed-plus-visual02-tool-fix",
+    "baseSha": "790f8e1283694a5a243ce6bae68180af7d69e076",
+    "protocol": 74,
+    "profileVersion": 4,
+    "sourceManifestSha256": "378a914982457ea02c23327a9555a0fd08723583efd3d0501a58d3049aaa833e",
+    "overlaySha256": "faf4d1f9605454153d97f3dcb440e4cb96802536a77e2a70f56b2e3c6b189021",
+    "additionalSourceDeltas": {
+      "tools/native-render-check/TraversalGaitRenderCheck.cs": {
+        "sha256": "cbac5ab6431a4cfd146e50671b829373fcb68b0f75cbe71a896806ff0a45d27b",
+        "bytes": 8539
+      },
+      "tools/group-reservation-check/check_registry.py": {
+        "sha256": "88372ac727fb3d0cc5031d2eff199bd73acb434fc475f5a61bc1b0fdfd4320e7",
+        "bytes": 2004
+      }
+    },
+    "baselinePreserved": true,
+    "managedResults": {
+      "snapshot": "candidate01",
+      "baseSha": "790f8e1283694a5a243ce6bae68180af7d69e076",
+      "protocol": 74,
+      "sourceManifestSha256": "378a914982457ea02c23327a9555a0fd08723583efd3d0501a58d3049aaa833e",
+      "buildExitCode": 0,
+      "binaries": {
+        "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+        "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+      },
+      "tests": [
+        {
+          "name": "stance-rules",
+          "exitCode": 0
+        },
+        {
+          "name": "stance",
+          "exitCode": 0
+        },
+        {
+          "name": "traversal-rules",
+          "exitCode": 0
+        },
+        {
+          "name": "native-baseline",
+          "exitCode": 0
+        },
+        {
+          "name": "replay-metadata",
+          "exitCode": 0
+        },
+        {
+          "name": "replay-compatibility",
+          "exitCode": 0
+        },
+        {
+          "name": "architecture",
+          "exitCode": 0
+        },
+        {
+          "name": "profile",
+          "exitCode": 0
+        },
+        {
+          "name": "telemetry",
+          "exitCode": 0
+        }
+      ],
+      "sourceBinaryLeaseUnchanged": true
+    },
+    "custom": {
+      "snapshot": "candidate01",
+      "buildExitCode": 0,
+      "exitCode": 0,
+      "binarySha256": "10d38b256f16f308ccbd8d06bc783c1fe21c049cea349990e4503d3f0b80d899",
+      "sourceBinaries": {
+        "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+        "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+      },
+      "sourceBinariesUnchanged": true,
+      "outputDirectory": "existing nettest Release output; normal project defaults, no fixture-feature overrides"
+    },
+    "extra": {
+      "tests": [
+        {
+          "name": "source-manifest",
+          "exitCode": 0
+        },
+        {
+          "name": "registry",
+          "exitCode": 0
+        },
+        {
+          "name": "hud-check",
+          "exitCode": 0
+        },
+        {
+          "name": "rmlui-runtime-check",
+          "exitCode": 0
+        },
+        {
+          "name": "rmlui-live-menu-check",
+          "exitCode": 0
+        },
+        {
+          "name": "historical71-profile3",
+          "exitCode": 0,
+          "archiveSha256": "fd6d21c75f3fade0b1b0f568401d52b0b8072dc3192354882777e13231cf12fb",
+          "archiveUnchanged": true
+        }
+      ],
+      "binaries": {
+        "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+        "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+      },
+      "binariesUnchanged": true
+    },
+    "history": {
+      "tests": [
+        {
+          "name": "stance-network",
+          "exitCode": 0
+        },
+        {
+          "name": "protocol58",
+          "exitCode": 0
+        },
+        {
+          "name": "historical61",
+          "exitCode": 0,
+          "archiveSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+          "archiveUnchanged": true
+        },
+        {
+          "name": "historical62",
+          "exitCode": 0,
+          "archiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+          "archiveUnchanged": true
+        },
+        {
+          "name": "historical68",
+          "exitCode": 0,
+          "archiveSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+          "archiveUnchanged": true
+        },
+        {
+          "name": "historical69",
+          "exitCode": 0,
+          "archiveSha256": "e5c68d47c4aed0d9edc209952b80968642b83f9cadcbf29f2e1f533e3dee97c6",
+          "archiveUnchanged": true
+        }
+      ],
+      "binaries": {
+        "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+        "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+      },
+      "binariesUnchanged": true
+    },
+    "online": {
+      "sourceSnapshot": "candidate01",
+      "baseSha": "790f8e1283694a5a243ce6bae68180af7d69e076",
+      "sourceManifestSha256": "378a914982457ea02c23327a9555a0fd08723583efd3d0501a58d3049aaa833e",
+      "binaries": {
+        "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+        "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+      },
+      "archiveSha256": "d038adf03fd285d297e84eeb8288ee8fa0e9fb127b7a96e5d34afccf87292a35",
+      "scope": "real Windows UDP authority plus two independent scripted human owner processes and one authority native AI bot; actual lobby bot admission/start; real recording and passive replay; no physical device or rendered UI acceptance"
+    },
+    "preservedFailures": [
+      "visual01 compile ErrorCode ambiguity",
+      "visual02 native UNIT4_RM1 forward126 body visibility",
+      "online wrapper stale provenance filename after all0; corrected collection only"
+    ]
+  },
+  "candidateSourceFiles": {
+    "src/MphRead/Entities/Players/PlayerCamera.cs": "9a3946228fe16acd42a2e0b85c177aaac35e8cfe36e313adc3a19d86c1d0f04a",
+    "src/MphRead/Entities/Players/PlayerDraw.cs": "59c20fecce57f1f42ed5e0b13963d4d995ab29d07af4d9ce2603cf9fdbf24897",
+    "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "ba7b21235ba994ac83d06d3505f557723a42db28a378aea1ae64571d986fe931",
+    "src/MphRead/Entities/Players/PlayerTraversalGait.cs": "57e563496227948263fb1a9baa9d9ae41536aab50bb5f2557cd61c83e8b0b1ff",
+    "src/MphRead/Entities/Players/PlayerTraversalPose.cs": "b6ae0f842199e9e13ff574546105d09483aaa7d890712c8465dcc54fea35fb6e",
+    "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": "5d73c9eaf1ca03dea09f4e397f8a13704d5c017af895a84a50b95cb1a43fc9ae",
+    "src/MphRead/Entities/Players/PlayerTraversalStance.cs": "2b28556f2bee6cbdf869641227740cdb077074291fd5ba554b9137ef8da22fb3",
+    "src/MphRead/Mods/Movement/MovementModel.cs": "713187195990f1901b86184f34055c8492a010474ff62156ea950fe6430d773c",
+    "src/MphRead/Mods/Movement/TraversalGaitPresentation.cs": "b3befc1dafbb78e0e23b838fa00369c5da39e9556712563c06c086e042b40c9f",
+    "src/MphRead/Mods/Movement/TraversalMovementProfileV4.cs": "6a51ac7886d1660c21f14fcd76f49b2b45b92df0f89d4ffa748b73892933c018",
+    "src/MphRead/Mods/Network/NetLobbyTest.cs": "db920e88992fa91065af7826cfff39ba6275edb9501c2682edd79cd815daddd1",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "639b26bc032522c56327c6458641a71a310d4737b7071cd2b36dd73377f38c97",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "e89f6b1404595a62cb3f918bb8bab5fd44ece8b4813da1a503627c670a3804b2",
+    "src/MphRead/Mods/Network/ReplayFormatV3.cs": "6b1d529a8cdee61c786e6878907b996a3f591dd1fbd8020c7a84038bd6aab0b3",
+    "src/MphRead/Mods/Network/ReplayMetadata.cs": "5fdace1e0fce9c3e18f870d8a5235477d946a71aa9b9be3ea04a988900fa5280",
+    "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "0ee62cdf7e48cd6af061109826fa4fda92c22c891fb4b60887e653a5499677a1",
+    "tools/custom-weapons-check/CustomMatchPolicyChecks.cs": "431db0c1715bb0531aea275bd9833f6d37ba52dc39a01fcf9e0e4eaff51a1bbf",
+    "tools/native-render-check/Program.cs": "6b69e2a5ac156eab71311d79693aad3767849e0a7a45eb0589f33fee7182a63f",
+    "tools/native-render-check/TraversalGaitRenderCheck.cs": "cbac5ab6431a4cfd146e50671b829373fcb68b0f75cbe71a896806ff0a45d27b",
+    "tools/nettest/ContinuousTargetTests.cs": "b099e9e5ac9fd0180dbb21ceab7eb8d4a66b5b5188903cbaa79a8fc779cfcfb6",
+    "tools/nettest/EnhancedRetirementTests.cs": "ad6f1b4d013d3f5cbe1bd08f703b607260b56ccbc0eba76f51a1068e5cfb87cc",
+    "tools/nettest/MomentumBotAuthorityTests.cs": "6d9b384d3aae5b558d2f56156d1344795696ef7cb0f5f5a8c250d87410cea3d5",
+    "tools/nettest/MomentumOnlineSceneTests.cs": "52c5b26a9570d6875df21432f5a0926099d3cc4a5e49e5a9d1f7b497fb8fe54c",
+    "tools/nettest/MomentumReplayMetadataTests.cs": "501b5afe98dcf38e3420e7ab466bcddc28036a736175d56136e5b1152087ba29",
+    "tools/nettest/MomentumReplaySceneTests.cs": "4b8ee282f7afcf0d801f2b40bb54bdda33e34b439174e78999f3536439c02f22",
+    "tools/nettest/MomentumRulesTests.cs": "3b944367a2c3b9c20ff4a080215d3b2dde0df729f81777c698a8ea8a401ab81c",
+    "tools/nettest/MovementValidationTests.cs": "9a2e6ad458a00f468b17e5de2d24a7d7919443621e023c91ca460129303abaf4",
+    "tools/nettest/NetArchitectureTests.cs": "6ba4baf4cd973af65ea6752664bf1bdd5a0c211ec9d4d63cfd4cd992138399e9",
+    "tools/nettest/PickupProtocolTests.cs": "b15db77252d24b2061ce53f6631b55a66b767bce995164833862b3b9912602a5",
+    "tools/nettest/PlayerNameChatTests.cs": "05eb7a0acaa3a46d108535def7ff110d7693832e6f3622f68bf7e14652e697e3",
+    "tools/nettest/Protocol17Tests.cs": "8382432e4b94b34de653fa9fd43d58341d69f0c925df8bb6440ed16b4635b806",
+    "tools/nettest/Quake3AdvancedRulesTests.cs": "5e8611dd07eff2a3cdd80721fddc47b1d402bf97d0f7523fe18d31e51c79be7a",
+    "tools/nettest/Quake3ReplayCompatibilityTests.cs": "2137611e3c0289e82cba4e541cca4e95a5439569d71d86dfd9f5ddfe05fafd88",
+    "tools/nettest/Quake3RulesTests.cs": "cc645a58b67e3e3d9d4aba251e98e5b7527427823f68691d3b6d3c4543c587f2",
+    "tools/nettest/ReplayProtocol58Tests.cs": "6ad16b9cdaa60ad8f2b93279efc5d2a31b6206e9535d329c330ad65f4f5c317b",
+    "tools/nettest/TraversalCrouchGaitTests.cs": "17672bd7226d016f274f14514543dc0624f0f7112acae05aa3e124d44b3bd796",
+    "tools/nettest/TraversalCrouchPoseTests.cs": "b64c9a1d22fb2ee17bf415f91120e4ec2affb86a4cdf00aa3b90546a33e42d69",
+    "tools/nettest/TraversalRulesTests.cs": "ee97330a7fb2ac01d66e9f3c2f11b0e5d59bc7452b611bd7ef15e9ea0fdcf998",
+    "tools/nettest/TraversalSceneTests.cs": "8b170a4998730388b15dff2291fde643c20705a6d1edbcda0fc481bddc56c443",
+    "tools/nettest/TraversalStanceNetworkTests.cs": "9b4b2a1605c6b2544e429a6eb1d02a2ec4bf3687741a576202d55920d78e92fb",
+    "tools/nettest/TraversalStanceSceneTests.cs": "a3f75822b2a838a9ef907a1d4456d8f7fdafa712952c18934714c38c448d1f67",
+    "tools/nettest/TraversalStanceTests.cs": "54f1bca4d243f00b35c337b66a97e8e93315646d880c221ec1aa2b26e99aee13",
+    "tools/rmlui-live-menu-check/Program.cs": "994137d17a01df5c9a5e6a38e4e078306393e666315f79930fd28deeb38f74e2",
+    "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "644b56f9d337ce650ecbd8be2f95460e01a0661e73b5ed428bd9872a7ff5df0e",
+    "tools/group-reservation-check/check_registry.py": "88372ac727fb3d0cc5031d2eff199bd73acb434fc475f5a61bc1b0fdfd4320e7"
+  },
+  "sourceFilesVerifiedAgainstTestedSnapshot": true,
+  "measuredCandidate": {
+    "stanceAssertions": 89569,
+    "stanceRuleAssertions": 1926,
+    "nativeGoldenCases": 56,
+    "customContracts": 16907,
+    "heldForwardSlideTicks": 72,
+    "heldForwardSeconds": 1.2,
+    "heldForwardDistance": 6.6445,
+    "entrySpeed": 7.199707,
+    "finalSlideSpeed": 4.1870885,
+    "crouchWalkSpeed": 3.5998535,
+    "addedSpeedImpulse": false
+  },
+  "nativeVisual": {
+    "snapshot": "candidate01",
+    "toolRevision": "gait01",
+    "baseSha": "790f8e1283694a5a243ce6bae68180af7d69e076",
+    "sourceManifestSha256": "378a914982457ea02c23327a9555a0fd08723583efd3d0501a58d3049aaa833e",
+    "binaries": {
+      "ProjectPrime.dll": "f1fdc99279caaf6ccbc374aa3821bfb1f90c95061c73f7b3f9cd9f29c6ddeb69",
+      "nettest.dll": "79a7471920a2b7f1ddc88265cbbcdfb89d397c00d6ab13eaa852f04eac76940f"
+    },
+    "diagnosticSha256": "c92f4d46022e6152f4f2e27d37f04e68a8046376dcd3b012a68737521e278f4e",
+    "exitCode": 0,
+    "leaseUnchanged": true,
+    "results": {
+      "status": "PASS",
+      "scope": "Windows native continuous 60 Hz renderer; actual Ctrl+W/S/A/D full walk cycles and running held-W+Ctrl slide; external camera follows actual body; frozen body-hidden negative controls and exact RGB repeats; no actor state writes; no perfect world foot-plant claim",
+      "scheduler": "production FrameTiming.Advance; presentation generation fence preserved",
+      "segments": [
+        {
+          "name": "forward",
+          "durationSeconds": 2.0166666666666666,
+          "distance": 3.4303288497030735,
+          "completedCycles": 1.0502304935671751,
+          "pictures": 10,
+          "start": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "end": [
+            1.0794251,
+            0.5,
+            -19.638115
+          ]
+        },
+        {
+          "name": "backward",
+          "durationSeconds": 2.066666666666667,
+          "distance": 3.9815572140505537,
+          "completedCycles": 1.055164724436301,
+          "pictures": 10,
+          "start": [
+            1.0794251,
+            0.5,
+            -19.638115
+          ],
+          "end": [
+            2.2239296,
+            0.5,
+            -22.668262
+          ]
+        },
+        {
+          "name": "left",
+          "durationSeconds": 2.816666666666667,
+          "distance": 3.476763376966119,
+          "completedCycles": 1.0512482898124935,
+          "pictures": 18,
+          "start": [
+            2.2239296,
+            0.5,
+            -22.668262
+          ],
+          "end": [
+            4.006668,
+            0.5,
+            -21.04338
+          ]
+        },
+        {
+          "name": "right",
+          "durationSeconds": 1.9333333333333333,
+          "distance": 3.139402371365577,
+          "completedCycles": 1.0600837430541203,
+          "pictures": 9,
+          "start": [
+            4.006668,
+            0.5,
+            -21.04338
+          ],
+          "end": [
+            1.0781312,
+            0.5,
+            -22.140419
+          ]
+        },
+        {
+          "name": "held-forward-slide",
+          "durationSeconds": 1.5,
+          "distance": 5.271860912442207,
+          "completedCycles": 0,
+          "pictures": 7,
+          "start": [
+            1.0781312,
+            0.5,
+            -22.140419
+          ],
+          "end": [
+            -1.0007577,
+            0.5,
+            -17.687082
+          ]
+        }
+      ],
+      "continuousPresentationGeneration": 1,
+      "glVendor": "NVIDIA Corporation",
+      "glRenderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+      "glVersion": "4.6.0 NVIDIA 617.42",
+      "clientMvid": "d401a3cb-a014-4987-8f66-185fe666ea0e",
+      "room": "MP3 PROVING GROUND"
+    },
+    "captureGroups": 55,
+    "pngCount": 165,
+    "imageHashes": [
+      {
+        "label": "gait-standing",
+        "enabled": {
+          "file": "gait-standing.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7BCB5EA3A46CAFE959BDEBB398AEDFB1EF11CD52FF110934112BB48FF5DA3CCD",
+          "pngSha256": "E93769FFAE6E00FA8D13D44E66D8CCB9AA45EB9FFDB59A384DEFA48AAA664361"
+        },
+        "hidden": {
+          "file": "gait-standing-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "836EC302B1869374668196BFBE2383C44EC888E5DE6752F8845FE62458A9291C",
+          "pngSha256": "95EF5BA4C5FBE346B541ACBCD2942EB98904FEC596C1EC82D400A776AB86D92C"
+        },
+        "repeat": {
+          "file": "gait-standing-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7BCB5EA3A46CAFE959BDEBB398AEDFB1EF11CD52FF110934112BB48FF5DA3CCD",
+          "pngSha256": "E93769FFAE6E00FA8D13D44E66D8CCB9AA45EB9FFDB59A384DEFA48AAA664361"
+        }
+      },
+      {
+        "label": "gait-forward-066",
+        "enabled": {
+          "file": "gait-forward-066.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1FD92E6691775BFC454F1E128C30C54A8C2D0AF6CE298669991BA25105D475F4",
+          "pngSha256": "11B4717FF39A9E749D3D7F10E1DAE2EA12140B1B80A11F4730917E6E088868F6"
+        },
+        "hidden": {
+          "file": "gait-forward-066-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "60CCDA93A598E3EA91F6B4268D4328C2B30AF4C7F86E794778214C4308CBBD67",
+          "pngSha256": "613E11EDAA9B33DAC658BBA9D9A730C1B0C3B6B6B93790A98A398653387C6C07"
+        },
+        "repeat": {
+          "file": "gait-forward-066-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1FD92E6691775BFC454F1E128C30C54A8C2D0AF6CE298669991BA25105D475F4",
+          "pngSha256": "11B4717FF39A9E749D3D7F10E1DAE2EA12140B1B80A11F4730917E6E088868F6"
+        }
+      },
+      {
+        "label": "gait-forward-072",
+        "enabled": {
+          "file": "gait-forward-072.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9F1173BA1E416C652ADEE1322EEF03B6AB24F524D441BFD1F651A89211E1F69A",
+          "pngSha256": "F0D01DDB5620AB0D607F236DEE9621164B09F3037B416FDBE050B9934DE46CB7"
+        },
+        "hidden": {
+          "file": "gait-forward-072-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "26DE8A234FAEF35B196E4811349073395ABCF4AFDD43D8C86E677C9D726F2A3C",
+          "pngSha256": "69F32E1421D3FCED3F7114ADECD72DAF3567A654068205312AB15C382A7DA71A"
+        },
+        "repeat": {
+          "file": "gait-forward-072-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9F1173BA1E416C652ADEE1322EEF03B6AB24F524D441BFD1F651A89211E1F69A",
+          "pngSha256": "F0D01DDB5620AB0D607F236DEE9621164B09F3037B416FDBE050B9934DE46CB7"
+        }
+      },
+      {
+        "label": "gait-forward-078",
+        "enabled": {
+          "file": "gait-forward-078.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BE394B304B5B3831400602F184B22EEA4D8D3AAE2F0A3E3A974C97CD54E483CE",
+          "pngSha256": "47E1483A968A4425528D346E28BF2934F1AB44DE49A07B303CD2F1C08496115F"
+        },
+        "hidden": {
+          "file": "gait-forward-078-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "2DA452E98D4FE7FB21B353DAE3B7FFDD1FF80753C10E84519931FAF4AF2578A9",
+          "pngSha256": "1BC9276B3BFD7515EFD2F028A8E832EF66A547D9AED450C83FAE705D2143E664"
+        },
+        "repeat": {
+          "file": "gait-forward-078-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BE394B304B5B3831400602F184B22EEA4D8D3AAE2F0A3E3A974C97CD54E483CE",
+          "pngSha256": "47E1483A968A4425528D346E28BF2934F1AB44DE49A07B303CD2F1C08496115F"
+        }
+      },
+      {
+        "label": "gait-forward-084",
+        "enabled": {
+          "file": "gait-forward-084.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "3CD2F85022CAD1F74100612A118836021FF963FE90F6004FAC9180F5EF5FFC03",
+          "pngSha256": "4127F90127A4E11E5862446BE74B6DE327A92E56E4DA785F34DFF4F27DCCCD66"
+        },
+        "hidden": {
+          "file": "gait-forward-084-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F9C830DDA69A5BA9EA60949428C689E80286C42AE48A47947CC606690C210664",
+          "pngSha256": "F86547744A0CE5F4A0460CE0DC196307746628B5BF217381D7567597FFDA4216"
+        },
+        "repeat": {
+          "file": "gait-forward-084-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "3CD2F85022CAD1F74100612A118836021FF963FE90F6004FAC9180F5EF5FFC03",
+          "pngSha256": "4127F90127A4E11E5862446BE74B6DE327A92E56E4DA785F34DFF4F27DCCCD66"
+        }
+      },
+      {
+        "label": "gait-forward-090",
+        "enabled": {
+          "file": "gait-forward-090.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "86B68ADF834F1B8AC3298782298146439DF3BC3E3EFDD2831C8BD5B86D1D3565",
+          "pngSha256": "1243E40DA3DDE2B62528DB8163F8A5C1EBD79BA97B61899FC4D4D7DB348300CB"
+        },
+        "hidden": {
+          "file": "gait-forward-090-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "922BD9C305DBAA37DE9E678FDD15E7FCD17411A3107C3EBC93DE677A0A81D57D",
+          "pngSha256": "EB242BC5FFCB23C0079E143D1218CB8F2392C1FBA3A0BB7DC59B7D34EC05D4DE"
+        },
+        "repeat": {
+          "file": "gait-forward-090-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "86B68ADF834F1B8AC3298782298146439DF3BC3E3EFDD2831C8BD5B86D1D3565",
+          "pngSha256": "1243E40DA3DDE2B62528DB8163F8A5C1EBD79BA97B61899FC4D4D7DB348300CB"
+        }
+      },
+      {
+        "label": "gait-forward-096",
+        "enabled": {
+          "file": "gait-forward-096.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F3C5CF7A35EA0AE4D193EEF3C8AD9B2C07696C7E61D259D3E978B8CD0B795043",
+          "pngSha256": "D30E523C5F08F78A0410D83ECE1957585B6DDCEB4525A4901DD0870B444857C1"
+        },
+        "hidden": {
+          "file": "gait-forward-096-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "41648E0C3D530A4525F07B2F021B48C94A5E5A27CEE27620EE70EAA37AA73828",
+          "pngSha256": "6B7F6A937073FCFFFC2C853FB60B61286F991D5613000564EA2B1A4EA6FCA7AA"
+        },
+        "repeat": {
+          "file": "gait-forward-096-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F3C5CF7A35EA0AE4D193EEF3C8AD9B2C07696C7E61D259D3E978B8CD0B795043",
+          "pngSha256": "D30E523C5F08F78A0410D83ECE1957585B6DDCEB4525A4901DD0870B444857C1"
+        }
+      },
+      {
+        "label": "gait-forward-102",
+        "enabled": {
+          "file": "gait-forward-102.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F1C8C7A901F3BB5FB6A3B208CFAB213C83E22B2EE87A4DB46FD28696440F416B",
+          "pngSha256": "7B267ED5D0BD297F7C40A4EAF9459D8BB11B06EACD44B2D588722E188547383B"
+        },
+        "hidden": {
+          "file": "gait-forward-102-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "5C5000541900994D49D57C8E154DA44D026B48339CCADFB2C9FE8044BB3ECF62",
+          "pngSha256": "0C82766059C327FD2C4B1E8C746D2CE78CE4EA16B94628C21EB7C37DE097288E"
+        },
+        "repeat": {
+          "file": "gait-forward-102-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F1C8C7A901F3BB5FB6A3B208CFAB213C83E22B2EE87A4DB46FD28696440F416B",
+          "pngSha256": "7B267ED5D0BD297F7C40A4EAF9459D8BB11B06EACD44B2D588722E188547383B"
+        }
+      },
+      {
+        "label": "gait-forward-108",
+        "enabled": {
+          "file": "gait-forward-108.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "612F78B6BA5DDCD9F4CFA2CD32EE4AF91AD8FC3E01838DF16C93224BDAC366D5",
+          "pngSha256": "F3589260FF1FA4B9983AF61158AF45414A433E69DA4F4BD63F0E9D1EEAA2EEB1"
+        },
+        "hidden": {
+          "file": "gait-forward-108-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "97529FCF74AFE5A4B3765D9515A307B0573FE582891EBEAF555CDD98D647EAFA",
+          "pngSha256": "A95963396278981D349D79CDB5C4AEB839F4F8E8597D2A2DA3C9BDC9C419589E"
+        },
+        "repeat": {
+          "file": "gait-forward-108-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "612F78B6BA5DDCD9F4CFA2CD32EE4AF91AD8FC3E01838DF16C93224BDAC366D5",
+          "pngSha256": "F3589260FF1FA4B9983AF61158AF45414A433E69DA4F4BD63F0E9D1EEAA2EEB1"
+        }
+      },
+      {
+        "label": "gait-forward-114",
+        "enabled": {
+          "file": "gait-forward-114.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "111E750A43236A26F4182C8A24CCA6C515760864E62DBB3F9C7EB5B824B7C03B",
+          "pngSha256": "D4ED2C1CBDD17A9FF6F7CB9BDF60F9025A3109C137A617ABFEF9DF35788A7CC7"
+        },
+        "hidden": {
+          "file": "gait-forward-114-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8332D14B88C587F2ED5765941DFCF0DD22C84C0FEFA32BCE809F892F981E8410",
+          "pngSha256": "D09801FF104075AE4BEB2CD086858162A6595CDCBF31A1C2E396FE445D5DAE76"
+        },
+        "repeat": {
+          "file": "gait-forward-114-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "111E750A43236A26F4182C8A24CCA6C515760864E62DBB3F9C7EB5B824B7C03B",
+          "pngSha256": "D4ED2C1CBDD17A9FF6F7CB9BDF60F9025A3109C137A617ABFEF9DF35788A7CC7"
+        }
+      },
+      {
+        "label": "gait-forward-120",
+        "enabled": {
+          "file": "gait-forward-120.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "FC0200ABFF4971E11B7BF5C76267B855885E9819DD2B4118692C7FCB79FE092F",
+          "pngSha256": "47A600014D1FF23BFFBB413521D4D29952DB21861446E3C921021447DA5C66D0"
+        },
+        "hidden": {
+          "file": "gait-forward-120-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0B10B11FCFE3273F8EFC7EABCCCBC3C66B58F39037A43A186823C28A2D8A580C",
+          "pngSha256": "734653B703E2EA948DFCD328D9011B80247CEB91E5FECCC4B96033F5C7D2B7AE"
+        },
+        "repeat": {
+          "file": "gait-forward-120-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "FC0200ABFF4971E11B7BF5C76267B855885E9819DD2B4118692C7FCB79FE092F",
+          "pngSha256": "47A600014D1FF23BFFBB413521D4D29952DB21861446E3C921021447DA5C66D0"
+        }
+      },
+      {
+        "label": "gait-backward-066",
+        "enabled": {
+          "file": "gait-backward-066.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "EFC26152114E8867F8712FCF7B9FF20939D251C6A72FC9C91800DB3F116E75FA",
+          "pngSha256": "1D7278BAA6797EE2480F986386525D43DBA59A746D1258BCED7FEB953CB11B80"
+        },
+        "hidden": {
+          "file": "gait-backward-066-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0DC662A26DB912911DCACDDD345991465AA5726272BEE402EF992C0F07F91801",
+          "pngSha256": "4EAEC2EEE5D2E4177CF808517264FF0799A22CBDFACA570F467359DAE1BF25E3"
+        },
+        "repeat": {
+          "file": "gait-backward-066-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "EFC26152114E8867F8712FCF7B9FF20939D251C6A72FC9C91800DB3F116E75FA",
+          "pngSha256": "1D7278BAA6797EE2480F986386525D43DBA59A746D1258BCED7FEB953CB11B80"
+        }
+      },
+      {
+        "label": "gait-backward-072",
+        "enabled": {
+          "file": "gait-backward-072.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1E2C8660EB261827C8E0A8FCA22A071498AF67E91784BF5B548E77F91C14C43F",
+          "pngSha256": "327391A355518676ECF6BDF3820011FFCE180D5760DC4096E5E2BD7E6FC5211C"
+        },
+        "hidden": {
+          "file": "gait-backward-072-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "ADD0F8A17129C80EE8FB4281EA9FA73F006B5EEAE94297ED040B902F839B208D",
+          "pngSha256": "ED79B00F70766D46E356D1EE1E71C0CA955C31FE29DEA6FFF24E69135CD1CC1C"
+        },
+        "repeat": {
+          "file": "gait-backward-072-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1E2C8660EB261827C8E0A8FCA22A071498AF67E91784BF5B548E77F91C14C43F",
+          "pngSha256": "327391A355518676ECF6BDF3820011FFCE180D5760DC4096E5E2BD7E6FC5211C"
+        }
+      },
+      {
+        "label": "gait-backward-078",
+        "enabled": {
+          "file": "gait-backward-078.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7366DB6E3B94F9CA5D5DD194C8789CFD4D3982B5F889F6A99842F7FA5790B1F4",
+          "pngSha256": "9E304162CB074662C7262229B8D05AB778D72EB67FE25F2CE0BEB26721C44673"
+        },
+        "hidden": {
+          "file": "gait-backward-078-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "41E8B7E15E4E45E4D77B6085A8B0EC6E380F7EF4DB2506BF0D218DCFC6E924F2",
+          "pngSha256": "8B792027D6B667DF2682C71C0063A0FCBA74115832A72EF92F4D613A2216AB0F"
+        },
+        "repeat": {
+          "file": "gait-backward-078-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7366DB6E3B94F9CA5D5DD194C8789CFD4D3982B5F889F6A99842F7FA5790B1F4",
+          "pngSha256": "9E304162CB074662C7262229B8D05AB778D72EB67FE25F2CE0BEB26721C44673"
+        }
+      },
+      {
+        "label": "gait-backward-084",
+        "enabled": {
+          "file": "gait-backward-084.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "34E63C6C1B3E0CAF5384C7852867A1F2C3F09F7F0BF8215270E4604CEE3DBF72",
+          "pngSha256": "DB684D2682137CCC53A25EBCC9408A4E8B523DE212C1B48D13B90B5C586FF850"
+        },
+        "hidden": {
+          "file": "gait-backward-084-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "72D9CC673256A434FA51A5E7EAB5D58BD4E1CFF3B98A200857A8EEF5E32167D1",
+          "pngSha256": "F5620B423425089E1E7110E4F5D662457366D636CBF585BFAE820851B792476F"
+        },
+        "repeat": {
+          "file": "gait-backward-084-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "34E63C6C1B3E0CAF5384C7852867A1F2C3F09F7F0BF8215270E4604CEE3DBF72",
+          "pngSha256": "DB684D2682137CCC53A25EBCC9408A4E8B523DE212C1B48D13B90B5C586FF850"
+        }
+      },
+      {
+        "label": "gait-backward-090",
+        "enabled": {
+          "file": "gait-backward-090.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "434F8D84E6674336E2E8F299B9D3D4EF1E9D267AAA5F3BE792AEE59DDC463C4E",
+          "pngSha256": "B1BE527703B74930B09F6E634025EA5943C82B8084BBB8FF5DD0ABC1036592AD"
+        },
+        "hidden": {
+          "file": "gait-backward-090-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A70C71087B2809A766C690B0A4C037B6F971F177549C25169E364668A48F07A2",
+          "pngSha256": "CC92FBEB7C32776B68480AED5950DF99ED4CDA96ACA9CCD4C901167A238D13E0"
+        },
+        "repeat": {
+          "file": "gait-backward-090-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "434F8D84E6674336E2E8F299B9D3D4EF1E9D267AAA5F3BE792AEE59DDC463C4E",
+          "pngSha256": "B1BE527703B74930B09F6E634025EA5943C82B8084BBB8FF5DD0ABC1036592AD"
+        }
+      },
+      {
+        "label": "gait-backward-096",
+        "enabled": {
+          "file": "gait-backward-096.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "986918EE1014805313E249E298D8B1CBC7EE695A28B0844AC0218CB7A5D64C37",
+          "pngSha256": "FD79448120F9A198EBD5029AA180BE0C05409221A97AB68065917065FF79024C"
+        },
+        "hidden": {
+          "file": "gait-backward-096-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "D872E72E864947BC324BC4156E040B7B0A2FFFEA65149BDEC0E73F04800B146E",
+          "pngSha256": "0C4BEF4FBE4DD1FE14A74247E54E045A3950B59483B1B7A820A206ABDC023D60"
+        },
+        "repeat": {
+          "file": "gait-backward-096-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "986918EE1014805313E249E298D8B1CBC7EE695A28B0844AC0218CB7A5D64C37",
+          "pngSha256": "FD79448120F9A198EBD5029AA180BE0C05409221A97AB68065917065FF79024C"
+        }
+      },
+      {
+        "label": "gait-backward-102",
+        "enabled": {
+          "file": "gait-backward-102.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A6964DEC08526E68E8D7A2DE2704924902EE7C3927830BCDE58DF423FF33BD4F",
+          "pngSha256": "8DA170CD7038D721EE8377DB38F2D177FEB43D633348DC187727327B1C5F1537"
+        },
+        "hidden": {
+          "file": "gait-backward-102-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "91D4C664C872B5BE1C3D72375CD874CA0003CDCED1B0A7DB04570BCBE383FCFE",
+          "pngSha256": "E23501A3E38671BAB08F899E808317BB8466BC0AA78D2632BDDB2A34302CC6EF"
+        },
+        "repeat": {
+          "file": "gait-backward-102-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A6964DEC08526E68E8D7A2DE2704924902EE7C3927830BCDE58DF423FF33BD4F",
+          "pngSha256": "8DA170CD7038D721EE8377DB38F2D177FEB43D633348DC187727327B1C5F1537"
+        }
+      },
+      {
+        "label": "gait-backward-108",
+        "enabled": {
+          "file": "gait-backward-108.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8E742C57FA2569BD202ACDB16A14AF4E0CC7075CC9D751A734A5205BC967132F",
+          "pngSha256": "284A4142C23F6534BB6BEF02D0F115DF90D0FC8FF784CE296FFB9A596379120E"
+        },
+        "hidden": {
+          "file": "gait-backward-108-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "D457A79AAAEA168B26096E6D3982EFE447C45DEDE65D1D485BA37A93FC2A67C0",
+          "pngSha256": "A53D1CF1159D5FCB568123119200CA3D23599A15F6F98F303EB9B072AEC8120C"
+        },
+        "repeat": {
+          "file": "gait-backward-108-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8E742C57FA2569BD202ACDB16A14AF4E0CC7075CC9D751A734A5205BC967132F",
+          "pngSha256": "284A4142C23F6534BB6BEF02D0F115DF90D0FC8FF784CE296FFB9A596379120E"
+        }
+      },
+      {
+        "label": "gait-backward-114",
+        "enabled": {
+          "file": "gait-backward-114.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "919E15A706BB45622334078A0BC7BB83623B4049FE43462B0315368935B89B29",
+          "pngSha256": "3ADB99DB0E044ABDD6D8909BF0605C7FDFE5CF521FC9F8105076B42D5DB84DAD"
+        },
+        "hidden": {
+          "file": "gait-backward-114-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0E9F59D6CFB6EB7D6C66FC156F4E6A6CD0822F840803FEE3F2D3ADBB4BAD74B4",
+          "pngSha256": "71676827322509B3C11C45E757CCE9D7230E8C47D50C18E4D51EF3885D9C87B8"
+        },
+        "repeat": {
+          "file": "gait-backward-114-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "919E15A706BB45622334078A0BC7BB83623B4049FE43462B0315368935B89B29",
+          "pngSha256": "3ADB99DB0E044ABDD6D8909BF0605C7FDFE5CF521FC9F8105076B42D5DB84DAD"
+        }
+      },
+      {
+        "label": "gait-backward-120",
+        "enabled": {
+          "file": "gait-backward-120.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "665A5122D609C43410FEA1477238DB478747AECDE4DEE33012F0E4ED95FB2BCD",
+          "pngSha256": "E03CBE7AA4AB4119A69BFC0D817916DABEF6ABDD8A495508604FB69CCB1ECD56"
+        },
+        "hidden": {
+          "file": "gait-backward-120-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "559A4CE2770B00014F0034BAF5206B5CD8ABB71A25A3A16E2B9D307B4D78FA53",
+          "pngSha256": "8714942BA0CF1C21D256AEA990299C28AA5B36820358F858E5BC0D9F1B8D7496"
+        },
+        "repeat": {
+          "file": "gait-backward-120-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "665A5122D609C43410FEA1477238DB478747AECDE4DEE33012F0E4ED95FB2BCD",
+          "pngSha256": "E03CBE7AA4AB4119A69BFC0D817916DABEF6ABDD8A495508604FB69CCB1ECD56"
+        }
+      },
+      {
+        "label": "gait-left-066",
+        "enabled": {
+          "file": "gait-left-066.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "164C4170C995F06968DCBF3A516BCB1F8FC44D81587695E1A335C2FB561DA7F7",
+          "pngSha256": "78EA68834919CC94F81E99214B419638FC71965DC63247B1058B2301527011E7"
+        },
+        "hidden": {
+          "file": "gait-left-066-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "14120D7F498AD8E377BCA1DF27938C44218E8072DD47AF7F265D1200BF365437",
+          "pngSha256": "3A7603D2C2697300D77F058604B5859C977367BDDD7D4478B77AAFB94B91182E"
+        },
+        "repeat": {
+          "file": "gait-left-066-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "164C4170C995F06968DCBF3A516BCB1F8FC44D81587695E1A335C2FB561DA7F7",
+          "pngSha256": "78EA68834919CC94F81E99214B419638FC71965DC63247B1058B2301527011E7"
+        }
+      },
+      {
+        "label": "gait-left-072",
+        "enabled": {
+          "file": "gait-left-072.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BA9FA27322DDEA441A2FF5E2D5FADD1DD99DCB08694914CCE781749A6484C180",
+          "pngSha256": "1BEED48C4918F1E04F67292CFF460BC82010E0ED044E7800F6A3ACF0ED241175"
+        },
+        "hidden": {
+          "file": "gait-left-072-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "67066220B833DC04D52F795B0541C937CF4B0EA5F39EA846142C6E0742DDA53E",
+          "pngSha256": "DD8D384AC19D56B7ACD602C782EB7EBB5357D6001B3A4A94077C81647214A2B2"
+        },
+        "repeat": {
+          "file": "gait-left-072-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BA9FA27322DDEA441A2FF5E2D5FADD1DD99DCB08694914CCE781749A6484C180",
+          "pngSha256": "1BEED48C4918F1E04F67292CFF460BC82010E0ED044E7800F6A3ACF0ED241175"
+        }
+      },
+      {
+        "label": "gait-left-078",
+        "enabled": {
+          "file": "gait-left-078.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BAEDA8192B98A87AF22E8CB1DF7156A2D172DED93C26F301D8691D2B9699C1B4",
+          "pngSha256": "C23C50B36A6584050F1488450DF3DCD661D7599A1D42A27846ADAC1F68C4AFE2"
+        },
+        "hidden": {
+          "file": "gait-left-078-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A08CEF181977D64DB1DA47C63003A997DE4C1CBA5DB2B4B49CF9E0595D23E60F",
+          "pngSha256": "0107D6C98A03D02A1CA464F19255DB1F5DFFCCE4F14C1D8DE0894F8A7A63CDC6"
+        },
+        "repeat": {
+          "file": "gait-left-078-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BAEDA8192B98A87AF22E8CB1DF7156A2D172DED93C26F301D8691D2B9699C1B4",
+          "pngSha256": "C23C50B36A6584050F1488450DF3DCD661D7599A1D42A27846ADAC1F68C4AFE2"
+        }
+      },
+      {
+        "label": "gait-left-084",
+        "enabled": {
+          "file": "gait-left-084.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "38C24750AB8476184D6C36A27AC862F3C156A0D13A0D0A737636DB3088CFA543",
+          "pngSha256": "C1DD99766F1C5DF4ECFBE642AB45FC38DF828867C2B4E652D17C404B75B4F2FC"
+        },
+        "hidden": {
+          "file": "gait-left-084-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "6856A4EBDFD092FE56CED1694903509D8471BA207AE8D1232178074DE2565555",
+          "pngSha256": "5EB77D7B71A8E0F60FBB0CABE4388A5AD145177A9BF8EB66480E24E0C41CB929"
+        },
+        "repeat": {
+          "file": "gait-left-084-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "38C24750AB8476184D6C36A27AC862F3C156A0D13A0D0A737636DB3088CFA543",
+          "pngSha256": "C1DD99766F1C5DF4ECFBE642AB45FC38DF828867C2B4E652D17C404B75B4F2FC"
+        }
+      },
+      {
+        "label": "gait-left-090",
+        "enabled": {
+          "file": "gait-left-090.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "98E65F6BDF07A29040B8E63DB76FC5F6CB25FBF80860F4AA4D007641CC9698AF",
+          "pngSha256": "4F78554E8DBEA65FACAD8CCDDD007706EE0376045F1811AD83CF9AA589DB7992"
+        },
+        "hidden": {
+          "file": "gait-left-090-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F43411BBBE99940F2516C51C6B65290F29C5022B7696CD76EC2B0E665EF3BAB7",
+          "pngSha256": "AF2A72AA4AE461CE5BC35018CD9979B6B5915CA7FB1843488CD698313B7C60EE"
+        },
+        "repeat": {
+          "file": "gait-left-090-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "98E65F6BDF07A29040B8E63DB76FC5F6CB25FBF80860F4AA4D007641CC9698AF",
+          "pngSha256": "4F78554E8DBEA65FACAD8CCDDD007706EE0376045F1811AD83CF9AA589DB7992"
+        }
+      },
+      {
+        "label": "gait-left-096",
+        "enabled": {
+          "file": "gait-left-096.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0CD0F84C4F301350C5D0F4F8308FE9C16CCB8F46BD1C88679DB4B5E1E6991EC7",
+          "pngSha256": "135C66CAFA27DDAED00BDF60661D6D1FD8B820A87F8EE37D30F21F47DB0F5F0C"
+        },
+        "hidden": {
+          "file": "gait-left-096-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8A4D5950AEB5340ABD6A72AE1145BC227AEC7F34713F907E84645AE1AA5029D8",
+          "pngSha256": "D909B793FF806494EE215418EA53EA99F4F0386616FDDC83FB5690F8E9CF2CD9"
+        },
+        "repeat": {
+          "file": "gait-left-096-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0CD0F84C4F301350C5D0F4F8308FE9C16CCB8F46BD1C88679DB4B5E1E6991EC7",
+          "pngSha256": "135C66CAFA27DDAED00BDF60661D6D1FD8B820A87F8EE37D30F21F47DB0F5F0C"
+        }
+      },
+      {
+        "label": "gait-left-102",
+        "enabled": {
+          "file": "gait-left-102.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "5CA25C1626145BE41D4BF8C5E72F297DC460B88E5033D23CAADFC3BBFA42237C",
+          "pngSha256": "E558B75B224C2AC6EA998ED934186AA4D5E5E6B908C41EFDC763505B4ED8735F"
+        },
+        "hidden": {
+          "file": "gait-left-102-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9CE566F88E47FC786F67686338F5F82245C919C18F4F2857F3DD9453DF825C76",
+          "pngSha256": "360F12B078610273F667DA5E8A12526B3124B63B5B2043E457FDA4B69BCE5D4E"
+        },
+        "repeat": {
+          "file": "gait-left-102-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "5CA25C1626145BE41D4BF8C5E72F297DC460B88E5033D23CAADFC3BBFA42237C",
+          "pngSha256": "E558B75B224C2AC6EA998ED934186AA4D5E5E6B908C41EFDC763505B4ED8735F"
+        }
+      },
+      {
+        "label": "gait-left-108",
+        "enabled": {
+          "file": "gait-left-108.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "262A302C0FA0E3C3D06F7286B737B8F3D7FFD4A15E869D03577B8D06C2592F67",
+          "pngSha256": "572B372E446E1385B7C462C4F6EE2F691094DC8FFCF16009F55B9C1B1B7DBC7C"
+        },
+        "hidden": {
+          "file": "gait-left-108-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8F80E9AC55AA991C6C97E2F9808D8CD72B0E11AC3C8F0A86D8AB2D21CD5E84CF",
+          "pngSha256": "5BDB50AAEB81D8220BA9F344B5CFEA40104B5B580209AB49BC092787E2587C47"
+        },
+        "repeat": {
+          "file": "gait-left-108-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "262A302C0FA0E3C3D06F7286B737B8F3D7FFD4A15E869D03577B8D06C2592F67",
+          "pngSha256": "572B372E446E1385B7C462C4F6EE2F691094DC8FFCF16009F55B9C1B1B7DBC7C"
+        }
+      },
+      {
+        "label": "gait-left-114",
+        "enabled": {
+          "file": "gait-left-114.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "C1CC5AE5C5636AEDAD03DFD070ACA520E08D0AC5896ED369B4D1204C47B9FBF8",
+          "pngSha256": "81C850ADF38AB1B6DB805F8570E81C447E2FA4ED9E2CD8FB673E5AC0C1774DE0"
+        },
+        "hidden": {
+          "file": "gait-left-114-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9A5FEA3C1F500ECD1F2DBD40C800ED0B453C2E92ABE017CCEE4DAC5012F4D56A",
+          "pngSha256": "BC941364435558E9C3B231BCE69EACD04A5679EA9A6FE9A791C3BC4B340CD33E"
+        },
+        "repeat": {
+          "file": "gait-left-114-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "C1CC5AE5C5636AEDAD03DFD070ACA520E08D0AC5896ED369B4D1204C47B9FBF8",
+          "pngSha256": "81C850ADF38AB1B6DB805F8570E81C447E2FA4ED9E2CD8FB673E5AC0C1774DE0"
+        }
+      },
+      {
+        "label": "gait-left-120",
+        "enabled": {
+          "file": "gait-left-120.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A0848A1EB210FC32E7B911477A719546175BEB63AE55F101E67789119A1D5945",
+          "pngSha256": "8EC529B9331FB6AAEED2569AA9F11E7218C1005D1F0136D8A208F9D2C5D2B061"
+        },
+        "hidden": {
+          "file": "gait-left-120-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "EC79E9775B429C148D3C753CC8C060D4CDE44BD72F4F4E25B42B917267E61B9F",
+          "pngSha256": "8019888A9C248A239E6C23B3BE8109907E9742602F4F5725406A528A0D3BF09F"
+        },
+        "repeat": {
+          "file": "gait-left-120-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A0848A1EB210FC32E7B911477A719546175BEB63AE55F101E67789119A1D5945",
+          "pngSha256": "8EC529B9331FB6AAEED2569AA9F11E7218C1005D1F0136D8A208F9D2C5D2B061"
+        }
+      },
+      {
+        "label": "gait-left-126",
+        "enabled": {
+          "file": "gait-left-126.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "46E1AC2DB068ECA5D39595028CA673011D3B8A5AB964B1792D5C6899E096DF04",
+          "pngSha256": "E46E1593F861958C8055408E9FE538B609FB50EA3F042E36AE3FA9893A49A9EA"
+        },
+        "hidden": {
+          "file": "gait-left-126-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "148A035FBB7CF8BD1403458E0D570C04F143713506C836AF77A5A6B98285BE87",
+          "pngSha256": "7344D149E307FF678A3D4ECD5165537F8C57B60DAF84C06B27703B53006387BA"
+        },
+        "repeat": {
+          "file": "gait-left-126-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "46E1AC2DB068ECA5D39595028CA673011D3B8A5AB964B1792D5C6899E096DF04",
+          "pngSha256": "E46E1593F861958C8055408E9FE538B609FB50EA3F042E36AE3FA9893A49A9EA"
+        }
+      },
+      {
+        "label": "gait-left-132",
+        "enabled": {
+          "file": "gait-left-132.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "07C11845C6FC0A7E7EB3403981140584A860343697FB1A8311D7FFAE3CCF54B3",
+          "pngSha256": "3B0051306805C04F75C1A1A9A7F9FB2C6B03CBE1896F092487C1A6AF3EA3D1DB"
+        },
+        "hidden": {
+          "file": "gait-left-132-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "FF1696D1524DF6DFD9A244EC64EC7E4ACD22084C3D84B10290D6F31131677348",
+          "pngSha256": "947BC89DB6F2EE4C36D037D0C9AFAB14D71E90AC6290566734904ED72B6A45A5"
+        },
+        "repeat": {
+          "file": "gait-left-132-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "07C11845C6FC0A7E7EB3403981140584A860343697FB1A8311D7FFAE3CCF54B3",
+          "pngSha256": "3B0051306805C04F75C1A1A9A7F9FB2C6B03CBE1896F092487C1A6AF3EA3D1DB"
+        }
+      },
+      {
+        "label": "gait-left-138",
+        "enabled": {
+          "file": "gait-left-138.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F2C5C8B5268B38F6D4347ACA8AA5DD678641F33FB912B841185F31D29BE4406F",
+          "pngSha256": "BB601F88DCE444C5A0409FE3BA5EAE2A17C5E28D5EDF957D1C4E441DF181204B"
+        },
+        "hidden": {
+          "file": "gait-left-138-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BECB16FDFE0E634554341C8C5B186D0316270A4F04FBAE27AAC8820AB72D65CD",
+          "pngSha256": "EB111D91ADCCD9A44C792BCEC33B0B6E6A568456C1734C180151AF599C45BA39"
+        },
+        "repeat": {
+          "file": "gait-left-138-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F2C5C8B5268B38F6D4347ACA8AA5DD678641F33FB912B841185F31D29BE4406F",
+          "pngSha256": "BB601F88DCE444C5A0409FE3BA5EAE2A17C5E28D5EDF957D1C4E441DF181204B"
+        }
+      },
+      {
+        "label": "gait-left-144",
+        "enabled": {
+          "file": "gait-left-144.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0CD5DB58695015CD3945789E4397A352F464C89C69C0E7892B2E79E85F4B7471",
+          "pngSha256": "DF7D704E7143B89C556733B2487FDBC553A184F555517F8446F6F06D7F586521"
+        },
+        "hidden": {
+          "file": "gait-left-144-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "30FF605EA7E792F514F4AED5577FBF792CD0A90F1D6CB34F0E44E86BC9FD2B40",
+          "pngSha256": "09386DFB9C3C00696AE9BBF8F5981797FD56A234B5E2281D0A0A94D616CB8921"
+        },
+        "repeat": {
+          "file": "gait-left-144-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "0CD5DB58695015CD3945789E4397A352F464C89C69C0E7892B2E79E85F4B7471",
+          "pngSha256": "DF7D704E7143B89C556733B2487FDBC553A184F555517F8446F6F06D7F586521"
+        }
+      },
+      {
+        "label": "gait-left-150",
+        "enabled": {
+          "file": "gait-left-150.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "295DE4164393D8E323469A388E9066194059272F97257A2A9437F8555352E358",
+          "pngSha256": "90E656E1AB366227F91AB2CB6A00B0AE0E524ED83E5C35F8185FD462C1A77499"
+        },
+        "hidden": {
+          "file": "gait-left-150-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "FA5EF645AC3A22214E770D06D3238BEBB7ADD36ECC6ED7BD8DA6A491D80C2F07",
+          "pngSha256": "0F95B631E349860A544ACCDFB0AFEE4995B6058398FF9B4ABD6EE86F9390C7AC"
+        },
+        "repeat": {
+          "file": "gait-left-150-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "295DE4164393D8E323469A388E9066194059272F97257A2A9437F8555352E358",
+          "pngSha256": "90E656E1AB366227F91AB2CB6A00B0AE0E524ED83E5C35F8185FD462C1A77499"
+        }
+      },
+      {
+        "label": "gait-left-156",
+        "enabled": {
+          "file": "gait-left-156.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "01BF0E4159305F98EE08A29E7D92379F970EF27B9946C3B3773CEF15167F1913",
+          "pngSha256": "A72580EA4DA0B1243F3AA73EABF47418A38DA62895972F63C7D7DA801759E5D6"
+        },
+        "hidden": {
+          "file": "gait-left-156-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "90672678213DC2A40492FE5C4CF9EB96EB051F1E1FD28C46BD83422ADB895818",
+          "pngSha256": "39053DCE73DED4EC198D9C007589ABDDDFB7CA2C395F37E1171D2B035396389E"
+        },
+        "repeat": {
+          "file": "gait-left-156-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "01BF0E4159305F98EE08A29E7D92379F970EF27B9946C3B3773CEF15167F1913",
+          "pngSha256": "A72580EA4DA0B1243F3AA73EABF47418A38DA62895972F63C7D7DA801759E5D6"
+        }
+      },
+      {
+        "label": "gait-left-162",
+        "enabled": {
+          "file": "gait-left-162.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1C71FFCFC34FBFE43DF012B77B2126E6D7249AB70432A523564F6573DD452A5F",
+          "pngSha256": "61E7ED83941DA71F845AA3F07524917B6B269768AEFE7291F88392C00D1D73A3"
+        },
+        "hidden": {
+          "file": "gait-left-162-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "359A96984235A8769B2B97AEE0B04E6E947EC615D75E4418CCE7911F6AA1FEDD",
+          "pngSha256": "9BB7303AD63E9AEC8CF650F871E04D846712FF1B96C9C8E214DF4B27A368B911"
+        },
+        "repeat": {
+          "file": "gait-left-162-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1C71FFCFC34FBFE43DF012B77B2126E6D7249AB70432A523564F6573DD452A5F",
+          "pngSha256": "61E7ED83941DA71F845AA3F07524917B6B269768AEFE7291F88392C00D1D73A3"
+        }
+      },
+      {
+        "label": "gait-left-168",
+        "enabled": {
+          "file": "gait-left-168.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "09424604373564D6C2673EB39C5D861CAF2C4B30B051640FD80F612B3A1B92FE",
+          "pngSha256": "DDB08810746CCBF364B2E33AD82BF93B5D7C876D1E580777121466BBB6358ED2"
+        },
+        "hidden": {
+          "file": "gait-left-168-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "38ECCE0E7257A2A249959A8291926C099554E050DBA01471DBCF5C7FA375869A",
+          "pngSha256": "13223FCC9535AEE05435BD083CFFE36CB3754809C3DCA51A2489333578ECAA92"
+        },
+        "repeat": {
+          "file": "gait-left-168-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "09424604373564D6C2673EB39C5D861CAF2C4B30B051640FD80F612B3A1B92FE",
+          "pngSha256": "DDB08810746CCBF364B2E33AD82BF93B5D7C876D1E580777121466BBB6358ED2"
+        }
+      },
+      {
+        "label": "gait-right-066",
+        "enabled": {
+          "file": "gait-right-066.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8E4BBAE39FAC5ED723A3CAB5397EB0A45AB56C728B6137A4ABF3BEE7467B7051",
+          "pngSha256": "667F51993E818B32DF141607E6B1BF566CF6DDF0745D0E57D053EB06F56DAD27"
+        },
+        "hidden": {
+          "file": "gait-right-066-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "82186C61BC4E7011D4ADCD7F1FFA1A60226D52E74313CAED18010CA07F42BD28",
+          "pngSha256": "41774FEF9B0B88D591809E099F96C4A8C255A83A83B797EBF3CA2BF842BDFDA0"
+        },
+        "repeat": {
+          "file": "gait-right-066-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "8E4BBAE39FAC5ED723A3CAB5397EB0A45AB56C728B6137A4ABF3BEE7467B7051",
+          "pngSha256": "667F51993E818B32DF141607E6B1BF566CF6DDF0745D0E57D053EB06F56DAD27"
+        }
+      },
+      {
+        "label": "gait-right-072",
+        "enabled": {
+          "file": "gait-right-072.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B1F035694404101C546C13E1551B9E211DD4FBE8F3CEC3CA509278868F2452F2",
+          "pngSha256": "C453628BC4528C434184D109DCF1A459416B0A21D15560F38B9E8D1B89FDC4F8"
+        },
+        "hidden": {
+          "file": "gait-right-072-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "803D4165AB7CAE31190BB148BCEFCCA39C110C4114155141EA49AFC3494DB8C7",
+          "pngSha256": "D56E849FDE27259B8C8ED063A555E54D3A2D57C8B75B3B1CB1AF0346134A7D88"
+        },
+        "repeat": {
+          "file": "gait-right-072-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B1F035694404101C546C13E1551B9E211DD4FBE8F3CEC3CA509278868F2452F2",
+          "pngSha256": "C453628BC4528C434184D109DCF1A459416B0A21D15560F38B9E8D1B89FDC4F8"
+        }
+      },
+      {
+        "label": "gait-right-078",
+        "enabled": {
+          "file": "gait-right-078.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B4961C736D8155BDD38B6DE85E6893071F76DE9D697C0FD17F2731DC568E75C7",
+          "pngSha256": "57D23F6720C32E48748497AA384C80213CE2B8860A4B22FB567F8B5D4824F6A0"
+        },
+        "hidden": {
+          "file": "gait-right-078-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "C099BE16F58FA504E22AC74F4C93C8F132C126BEE125036ACB2828427B0D5DD0",
+          "pngSha256": "C47F432568A6D08A0D260E4628BB2F844442267640BA13EF91CEDB7421275505"
+        },
+        "repeat": {
+          "file": "gait-right-078-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B4961C736D8155BDD38B6DE85E6893071F76DE9D697C0FD17F2731DC568E75C7",
+          "pngSha256": "57D23F6720C32E48748497AA384C80213CE2B8860A4B22FB567F8B5D4824F6A0"
+        }
+      },
+      {
+        "label": "gait-right-084",
+        "enabled": {
+          "file": "gait-right-084.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9690EAE3F509ADEC7073B2E17EB49D9108F7E005E43D4B7F99E56FD0AC9A8E10",
+          "pngSha256": "B7AB1653E6A5F000F1B3282DE6ED35543090593086E88C6888EB6BED95B4CA98"
+        },
+        "hidden": {
+          "file": "gait-right-084-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "91E674B022DE090C060987C5089599EF0CA9DF51523EBB8EB2430CCCE8CD21AE",
+          "pngSha256": "63200357689B2C51C2C1C742DDC72E71346AC7B74E2E83587833E25CF02CE02B"
+        },
+        "repeat": {
+          "file": "gait-right-084-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "9690EAE3F509ADEC7073B2E17EB49D9108F7E005E43D4B7F99E56FD0AC9A8E10",
+          "pngSha256": "B7AB1653E6A5F000F1B3282DE6ED35543090593086E88C6888EB6BED95B4CA98"
+        }
+      },
+      {
+        "label": "gait-right-090",
+        "enabled": {
+          "file": "gait-right-090.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "E6801A192B826EBE9260B78EDB511F3332BB2F707C48932AD476D4D6CF1990F5",
+          "pngSha256": "A968093B038324753559865B08BFF7C8148C391B24270E1BCB19DD7FAECDD809"
+        },
+        "hidden": {
+          "file": "gait-right-090-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F7320813FC2CC2167E059FD9822CA4076D964F1B2A4C761E36340C6D1177A755",
+          "pngSha256": "BB4E908133A6D411F4EB65452FA253C1E11A0F909687C1814B06ABD1ACB0C504"
+        },
+        "repeat": {
+          "file": "gait-right-090-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "E6801A192B826EBE9260B78EDB511F3332BB2F707C48932AD476D4D6CF1990F5",
+          "pngSha256": "A968093B038324753559865B08BFF7C8148C391B24270E1BCB19DD7FAECDD809"
+        }
+      },
+      {
+        "label": "gait-right-096",
+        "enabled": {
+          "file": "gait-right-096.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "6FA2663083EDF640220CD0339084EDFDC16EF0B236826C6507CE5E177461418C",
+          "pngSha256": "E13AE96713217EEA7E80B2320D0BF8D2EF984AB08DF658A9281570E3ECEB29E5"
+        },
+        "hidden": {
+          "file": "gait-right-096-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "A4173DF51F254D101E7F4B1E0BEFB3B81796D02177225A216F5BDC8A6CF128DC",
+          "pngSha256": "6446CD6B2CC4D9D44BF68C80AFF135B330D199514F6A2156B17782758317E34E"
+        },
+        "repeat": {
+          "file": "gait-right-096-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "6FA2663083EDF640220CD0339084EDFDC16EF0B236826C6507CE5E177461418C",
+          "pngSha256": "E13AE96713217EEA7E80B2320D0BF8D2EF984AB08DF658A9281570E3ECEB29E5"
+        }
+      },
+      {
+        "label": "gait-right-102",
+        "enabled": {
+          "file": "gait-right-102.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7C2EC5E99C635781D72260201E50DF6D744577F17C1DC6D90CB7FB687CEA45A6",
+          "pngSha256": "3E852F9663800D86B4C24C2E9564165A6A8FB46E2D7EF30BC892C6CE695464C6"
+        },
+        "hidden": {
+          "file": "gait-right-102-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "54A4BF8CA35D1E25556548C4CE84A871987C31C407C3F3A5AACF2113F3812199",
+          "pngSha256": "D15518A951693473934A7FD5540155FA9C54DEA52E84D2069FB270C8C9E0BB71"
+        },
+        "repeat": {
+          "file": "gait-right-102-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7C2EC5E99C635781D72260201E50DF6D744577F17C1DC6D90CB7FB687CEA45A6",
+          "pngSha256": "3E852F9663800D86B4C24C2E9564165A6A8FB46E2D7EF30BC892C6CE695464C6"
+        }
+      },
+      {
+        "label": "gait-right-108",
+        "enabled": {
+          "file": "gait-right-108.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1DD476317E678515F066195706112D84E1034CF7EB78052C9CC7D4C23961A346",
+          "pngSha256": "DA9C4348E6D7E47D09BECDBA23BEDD10058CB68F6CDB9E28AE4CDADA23F04C43"
+        },
+        "hidden": {
+          "file": "gait-right-108-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "3B549E5A6A5178EC31297080C8C380F42C2CC02862BE422992D10688F14D6F9F",
+          "pngSha256": "3D852AC7234627A169239B546C4E42EF851BCFEDF58B1966FD6068A278D3FA6B"
+        },
+        "repeat": {
+          "file": "gait-right-108-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "1DD476317E678515F066195706112D84E1034CF7EB78052C9CC7D4C23961A346",
+          "pngSha256": "DA9C4348E6D7E47D09BECDBA23BEDD10058CB68F6CDB9E28AE4CDADA23F04C43"
+        }
+      },
+      {
+        "label": "gait-right-114",
+        "enabled": {
+          "file": "gait-right-114.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "607CDC4E0B2633D5D3C4D0908637884248A78F033FCF183845CEC0BC783962AB",
+          "pngSha256": "E43F957C5BFE8A70D20193B314931B0B41FA09F3F588473492EB6F11E6DB393F"
+        },
+        "hidden": {
+          "file": "gait-right-114-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "683440FB0646A530BBF50CDFA103C9A52417CC247F3D6ADC1A017A7A8B3ECF51",
+          "pngSha256": "E94D8C5192A0E14359EDBF756044BC2A28CCC8801DAB7241B719177C72263BEF"
+        },
+        "repeat": {
+          "file": "gait-right-114-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "607CDC4E0B2633D5D3C4D0908637884248A78F033FCF183845CEC0BC783962AB",
+          "pngSha256": "E43F957C5BFE8A70D20193B314931B0B41FA09F3F588473492EB6F11E6DB393F"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-078",
+        "enabled": {
+          "file": "gait-held-forward-slide-078.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "6055B4B6DEF4FA6F08286305774F9779E1B9E1144836E60AC26C438D5FF305BB",
+          "pngSha256": "34E675E59186CD837B305FE30C8ECA53ED5DCD7264FAF226FC13FA87D28A9C2E"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-078-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "68432B282D6309D985280C3B5F230AF8915EA6396965578A8B4FA3BB9A20EAA2",
+          "pngSha256": "2C35345B3D24AB978B90B0B4FB91FF0F492A4096A993940322EB04B0855C214F"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-078-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "6055B4B6DEF4FA6F08286305774F9779E1B9E1144836E60AC26C438D5FF305BB",
+          "pngSha256": "34E675E59186CD837B305FE30C8ECA53ED5DCD7264FAF226FC13FA87D28A9C2E"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-080",
+        "enabled": {
+          "file": "gait-held-forward-slide-080.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7351E7D67CD7E0F64BD7EEB790630B5C95E8899EB72985B281F2830D9A6846E0",
+          "pngSha256": "B692C7D04E69005852E0DA86C495261EA9E275467AAC64E5F37CB2877542D1E1"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-080-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "83A66872BFB3F90D2D79DF2AEB6FC53F6A4398A5F37831FD194F4AF2204A0CFB",
+          "pngSha256": "24E0CE8021D2BD7237ED86E77DB8A2073B2204FF72041A4F0D0F94CA8927585D"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-080-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "7351E7D67CD7E0F64BD7EEB790630B5C95E8899EB72985B281F2830D9A6846E0",
+          "pngSha256": "B692C7D04E69005852E0DA86C495261EA9E275467AAC64E5F37CB2877542D1E1"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-082",
+        "enabled": {
+          "file": "gait-held-forward-slide-082.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F724196166C4F94872F3E45769CE30FF8096C231FF959E0FB509A964B2D91368",
+          "pngSha256": "7B709A0A5FF0303F73496CD93A25C95E74762E27A6531A523B80AF4DEDDA3ED5"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-082-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "36F8B0239C4B9BD1D2D79C8BE37F123D9EBD2A44F4A1E9663BF5BD39C9DE7198",
+          "pngSha256": "87C9CB56566339B6ED7C29C898B33537801428529BA3CD674572C853660508C3"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-082-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F724196166C4F94872F3E45769CE30FF8096C231FF959E0FB509A964B2D91368",
+          "pngSha256": "7B709A0A5FF0303F73496CD93A25C95E74762E27A6531A523B80AF4DEDDA3ED5"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-084",
+        "enabled": {
+          "file": "gait-held-forward-slide-084.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B356FFD1D251A93B0DCD6961478A28A54D700BA9AC8C95B700CD45D99EC4C3B2",
+          "pngSha256": "5E52173690637EDB75C1B101A95059AA4A3A0509DDE7491BF786AE5E1D627575"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-084-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "AB60F6B79E75C977EA88551B87917C15D7715B3D71D6DD2761743F77B8F81104",
+          "pngSha256": "A40919EC534D820E5BE8AAB03DD5AF563B2048BEC181F4BE163DCA544DE40F73"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-084-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "B356FFD1D251A93B0DCD6961478A28A54D700BA9AC8C95B700CD45D99EC4C3B2",
+          "pngSha256": "5E52173690637EDB75C1B101A95059AA4A3A0509DDE7491BF786AE5E1D627575"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-086",
+        "enabled": {
+          "file": "gait-held-forward-slide-086.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "E48491AAD30A402AD413702169534A6F0E309CBC0F40BC6591CCD082C081EBD9",
+          "pngSha256": "2CCCDF5A1CE9CF7D21679EFAD3B3993BF005347C80332DDE10D3ED99F5119CC9"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-086-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "E8F122F942271C69C8CFF1BDC4CACA959D6D135964DBEB026A3E2E76402AD530",
+          "pngSha256": "B6C0452CFD0015F9E9C92D23E8B5CDD4102AE975CAFC642AB47DAB35EB6ECE1F"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-086-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "E48491AAD30A402AD413702169534A6F0E309CBC0F40BC6591CCD082C081EBD9",
+          "pngSha256": "2CCCDF5A1CE9CF7D21679EFAD3B3993BF005347C80332DDE10D3ED99F5119CC9"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-088",
+        "enabled": {
+          "file": "gait-held-forward-slide-088.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "43A561F4CD824891BD3F55BCE0B8AB8A6C5939C208FE80FAFF24819D671ABDC9",
+          "pngSha256": "F82CECB415DF7A4D705DBEBCE1CE86B3A315ACFE339DD241F825139F1776CAC1"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-088-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "034F8F1101E742AAA5C9A1D6D062C9CA460B5B2DF6AF540DFEB50ACEE3C1CF11",
+          "pngSha256": "0FF7DC660B2C6944D391CE88A79CBCDE3364CA0D4999122A783D9E78E245EA44"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-088-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "43A561F4CD824891BD3F55BCE0B8AB8A6C5939C208FE80FAFF24819D671ABDC9",
+          "pngSha256": "F82CECB415DF7A4D705DBEBCE1CE86B3A315ACFE339DD241F825139F1776CAC1"
+        }
+      },
+      {
+        "label": "gait-held-forward-slide-090",
+        "enabled": {
+          "file": "gait-held-forward-slide-090.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F9B0C9B255C150234A60FA272A7FF5CDBB911BD90B0ACD8F01E1EB0F166F285A",
+          "pngSha256": "550CBAEF09CD14D106B05CD46C611426F63E2AAF04BDF70B1B4BAE48EE0B4D2B"
+        },
+        "hidden": {
+          "file": "gait-held-forward-slide-090-body-hidden.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "BA3F87F30EA0BD4650FB8F1FC7873C9B13E8C9E47C88E9FC55BC3B2F6542F69D",
+          "pngSha256": "295435D1FB54D81B5314755D7FE64844C21CB1BF697480CEFB88BDB1CDB8069D"
+        },
+        "repeat": {
+          "file": "gait-held-forward-slide-090-repeat.png",
+          "width": 960,
+          "height": 540,
+          "rgbSha256": "F9B0C9B255C150234A60FA272A7FF5CDBB911BD90B0ACD8F01E1EB0F166F285A",
+          "pngSha256": "550CBAEF09CD14D106B05CD46C611426F63E2AAF04BDF70B1B4BAE48EE0B4D2B"
+        }
+      }
+    ],
+    "rootInspection": "Forward, backward, strafe and held-forward slide images inspected locally; compact steps and distinct steady glide visible, no obvious limb distortion."
+  },
+  "replay": {
+    "checks": 116975,
+    "frames": 2400,
+    "recordedProtocol": 74,
+    "recordedProfileVersion": 4,
+    "snapshotStanceChecks": 7200,
+    "crouchedFrames": 401
+  },
+  "cleanup": {
+    "ownedInteractiveTasksRemoved": [
+      "MovementGaitGL-20261020-01",
+      "MovementGaitGL-20261020-02",
+      "MovementGaitGL-20261020-03"
+    ],
+    "ownedRuntimeProcesses": 0,
+    "cleanupScope": "owned QA task/process only; no source/archive/log/cache deletion"
+  },
+  "limitations": [
+    "Measured warmed gait-clock loop allocates zero managed bytes; no whole-frame timing claim.",
+    "Scripted keyboard/rendering is not physical input feel or other-platform qualification.",
+    "Shortened native foot trajectories are not world-space foot locks.",
+    "Raw extracted assets/screenshots, endpoints and absolute local paths are excluded."
+  ],
+  "hostedCi": "Observed status reported on the PR; merge does not wait for CI/review."
+}
