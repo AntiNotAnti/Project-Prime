@@ -239,18 +239,31 @@ internal static class DisplayPoseIntegrationTests
                 BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(scene, true);
             Matrix4 originalWorld = local.Transform;
+            // Simulate the very same 60Hz movement snapshots in the camera's
+            // existing display history. Body-minus-camera should stay constant
+            // for all repeated draw calls, even across a fast one-unit step.
+            local.CameraInfo.Position = Vector3.UnitY;
+            local.CameraInfo.ModResetDrawState();
+            local.CameraInfo.Position = Vector3.UnitX + Vector3.UnitY;
+            local.CameraInfo.ModCaptureDrawState();
             for (int i = 0; i < 4; i++)
             {
                 local.ModGetDrawActorPose(out Vector3 smoothBody,
                     out Vector3 smoothFacing);
+                Vector3 smoothEye = local.CameraInfo.ModGetDrawPosition(
+                    FrameTiming.PresentationAlpha, fenceLiveClock: true);
                 Check(Near(smoothBody, .5f) && smoothFacing == Vector3.UnitZ
+                    && (smoothEye - smoothBody - Vector3.UnitY).LengthSquared < 0.0000001f
                     && local.Position == Vector3.UnitX && local.Transform == originalWorld,
-                    "high-refresh local third-person body samples captured pose without mutating gameplay");
+                    "120Hz high-speed local biped/shadow and camera share one draw phase without simulation writes");
             }
             FrameTiming.FrameRateCap = 240;
             local.ModGetDrawActorPose(out Vector3 at240, out _);
-            Check(Near(at240, .5f),
-                "240Hz third-person local body shares same phase as 120Hz camera");
+            Vector3 camera240 = local.CameraInfo.ModGetDrawPosition(
+                FrameTiming.PresentationAlpha, fenceLiveClock: true);
+            Check(Near(at240, .5f)
+                && (camera240 - at240 - Vector3.UnitY).LengthSquared < 0.0000001f,
+                "240Hz third-person local body and camera stay phase-locked");
             FrameTiming.FrameRateCap = 60;
             local.ModGetDrawActorPose(out Vector3 at60, out _);
             Check(at60 == local.Position,
