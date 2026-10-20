@@ -43,6 +43,8 @@ internal static class CustomAuthoritySceneChecks
         internal readonly WeaponOwnerContext Owner;
         internal readonly BeamProjectileEntity[] Pool;
         private uint _sequence;
+        internal long StepFailures => _sim.StepFailures;
+        internal void Step() => _sim.Step();
         internal Fixture()
         {
             var roster = RosterPacket.Create(); roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 2;
@@ -193,7 +195,7 @@ internal static class CustomAuthoritySceneChecks
         public void Dispose()
         { try { NetUnlagged.AbortShot(); Root.Dispose(); } finally { try { _sim.Stop(); } finally { NetSession.Stop(); } } }
     }
-    internal static int Run(string data)
+    internal static int Run(string data,bool sourceOnly = false)
     {
         _checks = 0;
         string directory = Directory.GetCurrentDirectory();
@@ -201,6 +203,7 @@ internal static class CustomAuthoritySceneChecks
         int maximum = NetUnlagged.MaxRewindFrames, players = PlayerEntity.MaxPlayers;
         bool geometry = NetDynamicGeometryHistory.ProductionEnabled, shadow = NetDynamicGeometryHistory.ShadowEnabled;
         bool force = MapAudit.ForceEveryone, script = NetTestScript.Enabled, claims = NetHitClaims.Enabled;
+        bool acceptedPlayback = NetFireEvents.AcceptedPlaybackEnabled;
         var proof = NetShotProof.Mode; var timed = NetTimedShotProof.Mode;
         try
         {
@@ -209,6 +212,15 @@ internal static class CustomAuthoritySceneChecks
             NetShotProof.Mode = ShotProofMode.Off; NetTimedShotProof.Mode = TimedGrantProofMode.Off;
             NetDynamicGeometryHistory.ProductionEnabled = true; NetDynamicGeometryHistory.ShadowEnabled = false;
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
+            if (sourceOnly)
+            {
+                NetFireEvents.AcceptedPlaybackEnabled = true;
+                SourceFacts(); SourceInputPhase(); AutomaticSourceInputPhase(); NativeSourceInputBarrier(false); NativeSourceInputBarrier(true);
+                DisposeDuringSourceInputPhase(); RejectedSourceInputs(); FrozenSourceCancelsReload();
+                Console.WriteLine($"PASS {_checks} real engine source observation checks.");
+                Console.WriteLine("SCOPE: actual authority placement/control validation and post-control/pre-projectile observation barrier; native input carriers seeded through AcceptSlotIntent. NOT_RUN: endpoint authentication, custom action admission, missing-source recovery, modifiers, local/bot source parity or custom transport.");
+                return 0;
+            }
             DamageAndSequence(); HeadAndScore(); ProtectedContact(); TurretContact(); MissingHistoryAndCapacity();
             Trade(false); Trade(true); RespawnAndReplacement(); LateImpactTrade(); SharedCounterBoundaries(); CanonicalReplayFrontier();
             RulesRetirement(); StreamRetirement(); SceneCleanup(); AdvanceAllocation(); RetainedLifeBudget();
@@ -226,7 +238,8 @@ internal static class CustomAuthoritySceneChecks
                 NetUnlagged.MaxRewindFrames = maximum; PlayerEntity.MaxPlayers = players;
                 NetDynamicGeometryHistory.ProductionEnabled = geometry; NetDynamicGeometryHistory.ShadowEnabled = shadow;
                 NetTestScript.Enabled = script; NetShotProof.Mode = proof; NetTimedShotProof.Mode = timed;
-                NetHitClaims.Enabled = claims; MapAudit.ForceEveryone = force; Directory.SetCurrentDirectory(directory);
+                NetHitClaims.Enabled = claims; NetFireEvents.AcceptedPlaybackEnabled = acceptedPlayback;
+                MapAudit.ForceEveryone = force; Directory.SetCurrentDirectory(directory);
             }
         }
     }
@@ -674,5 +687,272 @@ internal static class CustomAuthoritySceneChecks
         Check(f.Root.BindLife(f.Shooter,1257,true) && !f.Root.TryGetOutcome(first.Contact.Key,out _)
             && f.Root.TryState(f.Shooter,out var fresh) && fresh.Magazine == 4 && fresh.Phase == CustomWeaponPhase.Unequipped,
             "expired retained life releases capacity for previously refused native life without premature eviction");
+    }
+
+    private static IntentPacket SourcePacket(PlayerEntity player,uint source,Vector3 aim)
+    {
+        var life = ShotKey.For(player.SlotIndex,0);
+        return new IntentPacket { MatchId = life.MatchId,AuthorityEpoch = life.AuthorityEpoch,
+            SlotGeneration = life.Generation,LifeId = life.LifeId,Frame = source,AckFrame = source-1,
+            Position = player.Position,Aim = aim,WeaponSelect = 255,Buttons = IntentButtons.InPlayState };
+    }
+    private static WeaponOwnerContext SourceOwner(PlayerEntity player)
+    {
+        var key = ShotKey.For(player.SlotIndex,0);
+        return new(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+    }
+    private static void SourceFacts()
+    {
+        using var f = new Fixture(); var p = f.Shooter;
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(p,GunAnimation.Idle);
+        Check(p.ModTryCaptureCustomPrecombatFacts(Vector3.UnitX*3,out var initial) && initial.CanUseWeapon
+            && initial.Body == p.Position && initial.Aim == Vector3.UnitX,"source helper captures explicit normalized accepted aim without native cached aim");
+        var originalLoad = p.LoadFlags; var flags1 = p.Flags1; var flags2 = p.Flags2;
+        void Denied(string label)
+            => Check(p.ModTryCaptureCustomPrecombatFacts(Vector3.UnitX,out var facts) && !facts.CanUseWeapon,
+                "restricted source is valid geometry with explicit denied permission: " + label);
+        p.LoadFlags &= ~LoadFlags.Active; Denied("inactive"); p.LoadFlags = originalLoad;
+        p.LoadFlags &= ~LoadFlags.Spawned; Denied("not spawned"); p.LoadFlags = originalLoad;
+        p.Health = 0; Denied("dead"); p.Health = 200;
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(p,flags2 | PlayerFlags2.Spectating);
+        Denied("spectator"); typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(p,flags2);
+        Field(p,"_frozenTimer",(ushort)1); Denied("frozen"); Field(p,"_frozenTimer",(ushort)0);
+        Field(p,"_field6D0",true); Denied("input disabled"); Field(p,"_field6D0",false);
+        foreach (var flag in new[] { PlayerFlags1.Morphing,PlayerFlags1.Unmorphing })
+        { typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(p,flags1 | flag); Denied(flag.ToString()); }
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(p,flags1);
+        p.ModForceForm(true); Denied("alt form"); p.ModForceForm(false);
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.ScanVisor))!.SetValue(p,true);
+        Denied("scan visor"); typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.ScanVisor))!.SetValue(p,false);
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(p,GunAnimation.UpDown);
+        Denied("gun transition"); typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(p,GunAnimation.Idle);
+        Field(p,"_disruptedTimer",(ushort)1); Denied("disrupted"); Field(p,"_disruptedTimer",(ushort)0);
+        typeof(SceneGameState).GetProperty(nameof(SceneGameState.MenuPause))!.SetValue(f.Scene.GameState,true);
+        Denied("menu pause"); typeof(SceneGameState).GetProperty(nameof(SceneGameState.MenuPause))!.SetValue(f.Scene.GameState,false);
+        typeof(SceneGameState).GetProperty(nameof(SceneGameState.DialogPause))!.SetValue(f.Scene.GameState,true);
+        Denied("dialog pause"); typeof(SceneGameState).GetProperty(nameof(SceneGameState.DialogPause))!.SetValue(f.Scene.GameState,false);
+        var match = f.Scene.GameState.MatchState; f.Scene.GameState.MatchState = MatchState.Ending;
+        Denied("match not in progress"); f.Scene.GameState.MatchState = match;
+        int ammo = p.EquipInfo.Ammo; ushort cooldown = p.TimeSinceShot; var weapon = p.CurrentWeapon;
+        Vector3 cachedAim = p.ModGunVector;
+        foreach (var aim in new[] { Vector3.Zero,new Vector3(float.NaN,0,0),new Vector3(float.PositiveInfinity,0,0) })
+            Check(!p.ModTryCaptureCustomPrecombatFacts(aim,out _),"invalid source aim cannot become observation");
+        Vector3 position = p.Position;
+        try
+        {
+            p.Position = new(float.NaN,position.Y,position.Z);
+            Check(!p.ModTryCaptureCustomPrecombatFacts(Vector3.UnitX,out _),"nonfinite actual body cannot become source observation");
+        }
+        finally { p.Position = position; }
+        Check(p.ModTryCaptureCustomPrecombatFacts(Vector3.UnitX,out var restored) && restored.CanUseWeapon,
+            "restoring source restrictions returns valid facts without mutating native resources");
+        Check(p.EquipInfo.Ammo == ammo && p.TimeSinceShot == cooldown && p.CurrentWeapon == weapon && p.ModGunVector == cachedAim,
+            "read-only source helper leaves native ammunition cooldown weapon and cached aim unchanged");
+    }
+
+    private static (ShotKey Key,IntentPacket Shooter,IntentPacket Victim) NativeSourceInput(Fixture f)
+    {
+        Frame(1001); Fixture.Clean(f.Shooter,200); Fixture.Clean(f.Victim,50);
+        Check(f.Root.BindLife(f.Victim,1001,true),"native barrier fixture binds second independent source history");
+        // Explicit native inventory fixture only. No natural pickup or source-proof
+        // admission is claimed; the carrier, ledger, factory and impact are real.
+        f.Shooter.ModArmWeapon(BeamType.Imperialist);
+        foreach (var player in new[] { f.Shooter,f.Victim })
+        {
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(player,GunAnimation.Idle);
+            foreach (var beam in player.EquipInfo.Beams) { beam.Destroy(); f.Scene.RemoveEntity(beam); }
+        }
+        Vector3 aim = f.Aim();
+        var shooter = SourcePacket(f.Shooter,1001,aim);
+        shooter.WeaponSelect = (byte)BeamType.Imperialist;
+        shooter.Buttons |= IntentButtons.Shoot | IntentButtons.ZoomedState;
+        shooter.HasFireEvents = true; shooter.FireEventCount = 1;
+        shooter.FireEvents[0] = new FireEvent(1,1001,1000,0,FireEventKind.PressFire,
+            (byte)BeamType.Imperialist,0,FireEvent.ScopedStateBit,FireEvent.FlagPose,
+            f.Shooter.Position+Vector3.UnitY*.4f,aim,aim,aim,SourceLife:NetPlayerLifecycle.Get(0));
+        shooter.ShotInputCount = 2;
+        shooter.ShotInputs[1] = ShotInputHistory.Sample((byte)BeamType.Imperialist,false,false,true);
+        shooter.ShotInputs[0] = ShotInputHistory.Sample((byte)BeamType.Imperialist,true,true,true);
+        var victim = SourcePacket(f.Victim,1001,-Vector3.UnitZ);
+        Check(NetSession.AcceptSlotIntent(0,shooter) && NetSession.AcceptSlotIntent(1,victim),
+            "actual lifecycle intake accepts native firing carrier and second actor input");
+        return (ShotKey.For(0,1),shooter,victim);
+    }
+
+    private static void NativeSourceInputBarrier(bool abort)
+    {
+        using var f = new Fixture(); var input = NativeSourceInput(f);
+        var ledger = NetFireEvents.CaptureLedger(0);
+        Check(ledger.TryGet(input.Key,out _,out var disposition,out _) && disposition == ShotDisposition.Pending,
+            "real native event is Pending before source input pass; abort=" + abort);
+        Check(f.Root.BeginSourceInputPhase(),"native firing fixture begins source phase; abort=" + abort);
+        NetHooks.TryApplyRemoteInput(f.Shooter,0);
+        Check(ledger.TryGet(input.Key,out _,out disposition,out _) && disposition == ShotDisposition.Pending && f.Victim.Health == 50,
+            "first actor's accepted native projectile remains Pending while later actor input is unobserved");
+        NetHooks.TryApplyRemoteInput(f.Victim,1);
+        Check(ledger.TryGet(input.Key,out _,out disposition,out _) && disposition == ShotDisposition.Pending
+            && !f.Root.TryGetSourceObservation(f.Owner,1001,out _) && !f.Root.TryGetSourceObservation(SourceOwner(f.Victim),1001,out _),
+            "complete real input pass retains native Pending and publishes no partial source history");
+        f.Root.CompleteSourceInputPhase(capture: !abort);
+        Check(ledger.TryGet(input.Key,out _,out disposition,out var reason) && disposition == ShotDisposition.Fired,
+            "barrier completion drains actual native ledger to Fired; abort=" + abort + " reason=" + reason);
+        Check(f.Shooter.EquipInfo.Beams.Any(b=>b.ModLaunchKey == input.Key && b.ModCustomShot == null && b.Equip != null
+                && !ReferenceEquals(b.Equip,f.Shooter.EquipInfo) && !f.Pool.Contains(b)),
+            "deferred native drain uses actual projectile factory and detached equipment outside custom pool");
+        Check(f.Victim.Health == 0 && NetDamage.Sequence(f.Victim.SlotIndex) != 0 && f.Root.PositivePayments == 0,
+            "actual deferred native precision impact kills target through canonical native damage only");
+        var victimOwner = SourceOwner(f.Victim);
+        if (abort)
+        {
+            Check(!f.Root.TryGetSourceObservation(f.Owner,1001,out _) && !f.Root.TryGetSourceObservation(victimOwner,1001,out _),
+                "aborted source phase drains native fire without publishing either staged observation");
+        }
+        else
+        {
+            Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var first) && first.Input.ReportedAim == input.Shooter.Aim
+                && first.Body == input.Shooter.Position && first.CanUseWeapon,
+                "native firing actor source freezes accepted body aim and permission before actual drain");
+            Check(f.Root.TryGetSourceObservation(victimOwner,1001,out var second) && second.Body == input.Victim.Position
+                && second.CanUseWeapon && !f.Victim.ModIsInPlay,
+                "later actor source was frozen alive before lower-index native shot killed that actor");
+            f.Shooter.ModPlaceAt(input.Shooter.Position+Vector3.UnitY); Field(f.Shooter,"_frozenTimer",(ushort)60);
+            Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var unchangedFirst) && unchangedFirst == first
+                && f.Root.TryGetSourceObservation(victimOwner,1001,out var unchangedSecond) && unchangedSecond == second,
+                "both pre-projectile observations stay immutable after native death movement and freeze");
+        }
+        Check(f.Root.BeginSourceInputPhase(),"completed or aborted barrier releases ownership for fresh phase");
+        f.Root.CompleteSourceInputPhase(capture:false);
+        Check(ledger.TryGet(input.Key,out _,out disposition,out _) && disposition == ShotDisposition.Fired,
+            "empty subsequent abort cannot replay or erase completed native emission");
+    }
+
+    private static void DisposeDuringSourceInputPhase()
+    {
+        using var f = new Fixture(); var input = NativeSourceInput(f); var runtime = f.Root;
+        var ledger = NetFireEvents.CaptureLedger(0);
+        Check(runtime.BeginSourceInputPhase(),"scene disposal fixture begins pending source phase");
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); NetHooks.TryApplyRemoteInput(f.Victim,1);
+        Check(ledger.TryGet(input.Key,out _,out var before,out _) && before == ShotDisposition.Pending,
+            "scene disposal starts with real native emission still deferred");
+        f.Scene.DoCleanup();
+        runtime.CompleteSourceInputPhase();
+        Check(f.Scene.CustomCombat == null && !runtime.IsEligible && !runtime.BeginSourceInputPhase()
+            && !runtime.TryGetSourceObservation(f.Owner,1001,out _),
+            "actual scene disposal discards staged source history and prevents phase restart");
+        var accepted = (Array)typeof(CustomAuthorityCombatAdapter).GetField("_acceptedInputs",Hidden)!.GetValue(runtime)!;
+        Check(!(bool)typeof(CustomAuthorityCombatAdapter).GetField("_inputPhase",Hidden)!.GetValue(runtime)!
+            && (byte)typeof(CustomAuthorityCombatAdapter).GetField("_deferredNativeDrains",Hidden)!.GetValue(runtime)! == 0
+            && accepted.Cast<object?>().All(value=>value == null),
+            "disposed phase retains no actor tokens or deferred native ownership");
+        Check(!ledger.TryGet(input.Key,out _,out var after,out _) || after != ShotDisposition.Fired,
+            "post-disposal completion cannot emit the previously pending native shot");
+    }
+    private static void SourceInputPhase()
+    {
+        using var f = new Fixture(); Frame(1001);
+        Check(f.Root.BindLife(f.Victim,1001,true),"second actual actor binds independent source history");
+        var shooter = SourcePacket(f.Shooter,1001,Vector3.UnitX);
+        var victim = SourcePacket(f.Victim,1001,-Vector3.UnitZ);
+        Check(NetSession.AcceptSlotIntent(0,shooter) && NetSession.AcceptSlotIntent(1,victim),"actual lifecycle carrier intake accepts two source inputs");
+        Check(f.Root.BeginSourceInputPhase() && !f.Root.BeginSourceInputPhase(),"source phase begins once without reentrant reset");
+        Check(NetHooks.TryApplyRemoteInput(f.Shooter,0) && NetHooks.TryApplyRemoteInput(f.Victim,1),"actual remote placement and control paths own both actors");
+        Check(!f.Root.TryGetSourceObservation(f.Owner,1001,out _),"staged input has no observation before complete phase barrier");
+        f.Root.CompleteSourceInputPhase();
+        var targetOwner = SourceOwner(f.Victim);
+        Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var first) && first.Input.ReportedAim == Vector3.UnitX
+            && first.Aim == Vector3.UnitX && first.Body == shooter.Position && first.ObservedWorldFrame == 1001,
+            "frozen source retains actual accepted position and explicit current input aim");
+        Check(f.Root.TryGetSourceObservation(targetOwner,1001,out var target) && target.Aim == -Vector3.UnitZ,
+            "complete phase freezes every accepted actor source");
+        f.Shooter.ModPlaceAt(shooter.Position+Vector3.UnitY); Field(f.Shooter,"_frozenTimer",(ushort)60);
+        f.Shooter.Health = 1;
+        Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var unchanged) && unchanged == first,
+            "subsequent engine movement freeze and health changes cannot rewrite original source");
+        Field(f.Shooter,"_frozenTimer",(ushort)0); Frame(1002);
+        Check(f.Root.BeginSourceInputPhase(),"next source phase begins");
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+        Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var duplicate) && duplicate == first,
+            "reconsumed same accepted input cannot refresh source age or recapture facts");
+        Frame(1065); Check(f.Root.TryGetSourceObservation(f.Owner,1001,out _),"first source observation remains available at exact64-tick age");
+        Frame(1066); Check(!f.Root.TryGetSourceObservation(f.Owner,1001,out _),"reconsumption cannot keep observation alive beyond64 ticks");
+    }
+    private static void AutomaticSourceInputPhase()
+    {
+        using var f = new Fixture(); Frame(1001);
+        Check(f.Root.BindLife(f.Victim,1001,true),"automatic renderer fixture binds second actor source life");
+        var shooter = SourcePacket(f.Shooter,1001,Vector3.UnitX);
+        var victim = SourcePacket(f.Victim,1001,-Vector3.UnitZ);
+        Check(NetSession.AcceptSlotIntent(0,shooter) && NetSession.AcceptSlotIntent(1,victim),
+            "automatic renderer fixture submits actual accepted input carriers without opening a manual phase");
+        long failures = f.StepFailures;
+        f.Step();
+        Check(f.StepFailures == failures,"actual ServerSim/Scene simulation step completes without swallowed step failure");
+        Check(f.Root.TryGetSourceObservation(f.Owner,1001,out var first) && first.Body == shooter.Position
+            && first.Aim == shooter.Aim && first.ObservedWorldFrame == NetSession.NetFrame
+            && f.Root.TryGetSourceObservation(SourceOwner(f.Victim),1001,out var second)
+            && second.Body == victim.Position && second.Aim == victim.Aim,
+            "production Renderer hooks automatically freeze both remote inputs during the real simulation step");
+        Check(f.Root.BeginSourceInputPhase(),"automatic renderer completion leaves no live input barrier");
+        f.Root.CompleteSourceInputPhase(capture:false);
+    }
+    private static void RejectedSourceInputs()
+    {
+        foreach (string invalid in new[] { "zero position","nonfinite position","zero aim","wrong life","frozen placement","stale arrival" })
+        {
+            using var f = new Fixture(); Frame(1001); var packet = SourcePacket(f.Shooter,1001,Vector3.UnitX);
+            if (invalid == "zero position") packet.Position = Vector3.Zero;
+            if (invalid == "nonfinite position") packet.Position = new(float.NaN,0,0);
+            if (invalid == "zero aim") packet.Aim = Vector3.Zero;
+            if (invalid == "wrong life") packet.LifeId++;
+            bool accepted = NetSession.AcceptSlotIntent(0,packet);
+            if (invalid == "wrong life") Check(!accepted,"actual lifecycle intake refuses wrong source life");
+            else Check(accepted,"source carrier reaches actual engine geometry guards: " + invalid);
+            if (invalid == "frozen placement") Field(f.Shooter,"_frozenTimer",(ushort)1);
+            if (invalid == "stale arrival") Frame(1032);
+            Check(f.Root.BeginSourceInputPhase(),"rejection fixture opens actual source phase");
+            NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+            bool trustedDenial = invalid is "zero position" or "frozen placement";
+            Check(!f.Root.TryGetSourceObservation(f.Owner,1001,out _) && f.Root.TryState(f.Shooter,out var state)
+                && state.Tick == (trustedDenial ? 1001u : 1000u)
+                && (!trustedDenial || state.Phase == CustomWeaponPhase.Unequipped),
+                "unsuccessful source geometry never mints pose; only valid fresh raw input advances denied permission: " + invalid);
+        }
+    }
+
+    private static void FrozenSourceCancelsReload()
+    {
+        using var f = new Fixture(); f.Fire(); Frame(1001);
+        var reload = f.Process(f.Action(CustomWeaponActionKind.Reload));
+        Check(reload.Result == WeaponActionResult.Accepted && f.Root.TryState(f.Shooter,out var reloading)
+            && reloading.Phase == CustomWeaponPhase.Reloading && reloading.Magazine == 3 && reloading.Reserve == 16,
+            "explicit trusted action fixture starts one-round reload before real frozen source interruption");
+        Frame(1002); Field(f.Shooter,"_frozenTimer",(ushort)60);
+        var frozen = SourcePacket(f.Shooter,1002,Vector3.UnitX);
+        Check(NetSession.AcceptSlotIntent(0,frozen) && f.Root.BeginSourceInputPhase(),
+            "real fresh lifecycle input enters frozen-placement source phase");
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+        Check(!f.Root.TryGetSourceObservation(f.Owner,1002,out _) && f.Root.TryState(f.Shooter,out var interrupted)
+            && interrupted.Phase == CustomWeaponPhase.Unequipped && interrupted.ReloadCompleteTick == 0
+            && interrupted.Magazine == 3 && interrupted.Reserve == 16,
+            "frozen placement supplies trusted negative permission that cancels reload without accepted pose or ammo transfer");
+        Field(f.Shooter,"_frozenTimer",(ushort)0); Frame(1003);
+        Check(f.Root.BeginSourceInputPhase(),"thaw fixture begins reconsumption phase");
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+        Check(!f.Root.TryGetSourceObservation(f.Owner,1002,out _),
+            "reconsuming thawed actor cannot promote previously denied source frame into accepted geometry");
+        Frame(1140);
+        typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.GunAnimation))!.SetValue(f.Shooter,GunAnimation.Idle);
+        var resumed = SourcePacket(f.Shooter,1140,Vector3.UnitX);
+        Check(NetSession.AcceptSlotIntent(0,resumed) && f.Root.BeginSourceInputPhase(),
+            "new real biped source input resumes after original reload deadline");
+        NetHooks.TryApplyRemoteInput(f.Shooter,0); f.Root.CompleteSourceInputPhase();
+        Check(f.Root.TryGetSourceObservation(f.Owner,1140,out var source) && source.CanUseWeapon
+            && f.Root.TryState(f.Shooter,out var projected) && projected.Magazine == 3 && projected.Reserve == 16
+            && projected.ReloadCompleteTick == 0,
+            "new accepted source preserves earlier freeze cancellation past reload deadline");
+        var optic = f.Process(f.Action(CustomWeaponActionKind.Optic,optic:1));
+        Check(optic.Result == WeaponActionResult.Accepted && f.Root.TryState(f.Shooter,out var committed)
+            && committed.Magazine == 3 && committed.Reserve == 16 && committed.ReloadCompleteTick == 0,
+            "later committed trusted action cannot complete reload canceled by actual frozen engine input");
     }
 }
