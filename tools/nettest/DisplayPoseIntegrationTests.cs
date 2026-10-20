@@ -229,6 +229,46 @@ internal static class DisplayPoseIntegrationTests
             Check(localBody == local.Position && Near(remoteBody, .5f)
                 && remoteFacing == Vector3.UnitZ,
                 "Draw-used actor selector shares the offline body/alt/shadow pose while local first-person stays current");
+
+            // The same real local actor is visible in the host-enabled third-
+            // person match. The 60Hz body used to jump ahead of its interpolated
+            // camera during fast movement. Exercise the actual Draw selector,
+            // not a stand-in lerp: it must consume the same captured 60Hz pose
+            // as other entities while first-person keeps its immediate policy.
+            typeof(Scene).GetProperty(nameof(Scene.ModThirdPersonCameraActive),
+                BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(scene, true);
+            Matrix4 originalWorld = local.Transform;
+            for (int i = 0; i < 4; i++)
+            {
+                local.ModGetDrawActorPose(out Vector3 smoothBody,
+                    out Vector3 smoothFacing);
+                Check(Near(smoothBody, .5f) && smoothFacing == Vector3.UnitZ
+                    && local.Position == Vector3.UnitX && local.Transform == originalWorld,
+                    "high-refresh local third-person body samples captured pose without mutating gameplay");
+            }
+            FrameTiming.FrameRateCap = 240;
+            local.ModGetDrawActorPose(out Vector3 at240, out _);
+            Check(Near(at240, .5f),
+                "240Hz third-person local body shares same phase as 120Hz camera");
+            FrameTiming.FrameRateCap = 60;
+            local.ModGetDrawActorPose(out Vector3 at60, out _);
+            Check(at60 == local.Position,
+                "60Hz third-person local body stays immediate without added latency");
+            FrameTiming.FrameRateCap = 120;
+            PlayerFlags1 liveFlags = local.Flags1;
+            Flags.SetValue(local, liveFlags | PlayerFlags1.Morphing);
+            local.ModGetDrawActorPose(out Vector3 morphBody, out _);
+            Check(morphBody == local.Position, "morph never smears local biped history into alt form");
+            Flags.SetValue(local, liveFlags);
+            local.ModResetDrawState();
+            local.ModGetDrawActorPose(out Vector3 freshLife, out _);
+            Check(freshLife == local.Position, "spawn reset fences stale third-person body history");
+            scene.ModResetThirdPersonSpawnCamera(local);
+            local.ModGetDrawActorPose(out Vector3 restoredFirst, out _);
+            Check(restoredFirst == local.Position
+                && !scene.ModThirdPersonCameraActive,
+                "third-person spawn reset returns to canonical until next eligible draw");
             FrameTiming.FrameRateCap = 60;
             remote.ModGetDrawActorPose(out Vector3 sixtyBody, out Vector3 sixtyFacing);
             Check(sixtyBody == remote.Position && sixtyFacing == remote.FacingVector,
