@@ -10,7 +10,7 @@ namespace MphRead.Mods.Render.Characters;
 
 internal sealed record CharacterSourcePreviewClipChoice(int Ordinal, string Name, double Duration);
 internal sealed record CharacterSourceStageRequest(object Owner, CharacterModelPack Pack,
-    PrivateCharacterAppearance Appearance, int ClipOrdinal, double Seconds);
+    PrivateCharacterAppearance Appearance, int ClipOrdinal, double Seconds, CharacterModelPart Part = CharacterModelPart.Biped);
 
 // CPU-only capture at one explicit Preview boundary. A retained generation is
 // never switched underneath a playing clip; reopening rechecks discovery.
@@ -61,6 +61,13 @@ internal sealed class CharacterSourcePreviewSelection
             _ = clip.Sample(0);
             clips.Add(new(rootClip.Ordinal, rootClip.Name, temporal.Duration));
         }
+        // The current recipe publishes body and derived cannon atomically.
+        // Verify the distinct ViewModel capability before publishing controls.
+        if (!pack.TryResolvePrivate(Hunter.Samus, Appearance, CharacterModelPart.ViewModel, 0, out var cannon)
+            || !pack.TryCreateSourcePreviewLease(cannon, out var cannonLease) || cannonLease.SourceCannon?.IsGenerated != true)
+            throw new InvalidDataException("Update the import to include its qualified generated cannon recipe.");
+        var cannonGeometry = CharacterWeightedModelLoader.LoadSourcePreview(cannon, cannonLease);
+        _ = CharacterSourceClip.Load(cannonLease, cannon, cannonGeometry.SourceRig!, 32).Sample(0);
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
         return new(pack, state.Receipt.Generation, clips.ToArray());

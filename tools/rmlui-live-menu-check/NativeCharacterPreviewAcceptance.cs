@@ -72,17 +72,20 @@ internal static class NativeCharacterPreviewAcceptance
                 const string normal="darksamus-echoes";
                 while(manifestOwner.CharacterPreviewId!=normal)manifestOwner.CycleCharacterPreview();
                 var spec=RetroCharacterPreviewExporter.BundleSpec(normal);
+                foreach (var component in new[] { ("characters.json", "source-preview-manifest v2"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1") })
+                {
                 var installed=LocalImportBundle.Inspect(root,normal,spec);
-                File.Delete(installed.Files.Single(file=>Path.GetFileName(file)=="characters.json"));
+                File.Delete(installed.Files.Single(file=>Path.GetFileName(file)==component.Item1));
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
-                Check(manifestOwner.Status.Contains("body v3: Incomplete",StringComparison.Ordinal)
-                    &&manifestOwner.Status.Contains("source-preview-manifest v1 Incomplete",StringComparison.Ordinal)
+                Check(manifestOwner.Status.Contains("body v4: Incomplete",StringComparison.Ordinal)
+                    &&manifestOwner.Status.Contains(component.Item2+" Incomplete",StringComparison.Ordinal)
                     &&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
                     "missing normal manifest identifies incomplete body without hiding verified ball components");
                 LocalImportBundle.Publish(root,spec,spec.RequiredComponents.ToDictionary(c=>c,c=>Encoding.UTF8.GetBytes("synthetic fixture: "+c)));
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
-                Check(manifestOwner.Status.Contains("body v3: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
-                    "normal manifest repair restores complete synthetic inventory before removal checks");
+                Check(manifestOwner.Status.Contains("body v4: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                    "normal component repair restores complete synthetic inventory before removal checks");
+                }
             }
             var all = Snapshot(root);
             using (var remove = new NativeFullSettingsController(settings))

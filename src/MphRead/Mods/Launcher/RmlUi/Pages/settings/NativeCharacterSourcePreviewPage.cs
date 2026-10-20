@@ -33,8 +33,10 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal bool OwnsForeground => !_disposed && !Closed && _host.IsAlive(Document) && _pages.Top == Document
         && _host.CurrentInputDocument == Document && _host.IsVisible(Document);
     internal LauncherHunterPreviewSnapshot Preview => _preview.Current();
+    private bool Cannon => _preview.Current().Mode == Mods.Cosmetics.SkinContext.ViewModel;
     internal CharacterSourceStageRequest? Request => OwnsForeground && _selection != null
-        ? new(_owner, _selection.Pack, CharacterSourcePreviewSelection.Appearance, _selection.Clips[_clip].Ordinal, _seconds) : null;
+        ? new(_owner, _selection.Pack, CharacterSourcePreviewSelection.Appearance, Cannon ? 32 : _selection.Clips[_clip].Ordinal, Cannon ? 0 : _seconds,
+            Cannon ? CharacterModelPart.ViewModel : CharacterModelPart.Biped) : null;
 
     internal NativeCharacterSourcePreviewPage(RmlUiHost host, RmlUiPageManager pages, string id, bool asModal)
         => (_host, _pages, _id, _asModal) = (host, pages, id, asModal);
@@ -67,7 +69,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
             }
         }
         long now = Stopwatch.GetTimestamp();
-        if (_selection != null && !_paused && _stamp != 0)
+        if (_selection != null && !Cannon && !_paused && _stamp != 0)
         {
             double duration = _selection.Clips[_clip].Duration;
             double delta = Stopwatch.GetElapsedTime(_stamp, now).TotalSeconds;
@@ -80,12 +82,17 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
         _host.VerifyOwnerThread();
         if (!OwnsForeground || intent.Document != Document || !_pages.Accept(intent)) return false;
         if (intent.Kind == RmlUiIntentKind.HunterCancel) { Back(); return true; }
-        if (intent.Kind == RmlUiIntentKind.HunterRotate) _preview.Rotate(intent.Argument);
+        if (intent.Kind == RmlUiIntentKind.HunterPreviewMode)
+        {
+            if (intent.Argument is not (0 or 1)) return false;
+            _preview.SelectMode(intent.Argument);
+        }
+        else if (intent.Kind == RmlUiIntentKind.HunterRotate) _preview.Rotate(intent.Argument);
         else if (intent.Kind == RmlUiIntentKind.HunterZoom) _preview.Zoom(intent.Argument);
         else if (intent.Kind == RmlUiIntentKind.HunterPreviewReset) { _preview.Reset(); _seconds = 0; }
         else if (intent.Kind == RmlUiIntentKind.SettingsAction && intent.Argument is >= 246 and <= 249)
         {
-            if (_selection == null) return true;
+            if (_selection == null || Cannon) return true;
             if (intent.Argument is 246 or 247)
             { _clip = (_clip + (intent.Argument == 246 ? -1 : 1) + _selection.Clips.Count) % _selection.Clips.Count; _seconds = 0; }
             else if (intent.Argument == 248) _paused = !_paused;
@@ -97,22 +104,23 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal void ReportDraw(bool drawn)
     {
         if (_selection != null) _host.SetText(Document, "source_render_status", drawn
-            ? "ANIMATED SOURCE GEOMETRY // DIAGNOSTIC MATERIAL COLORS"
+            ? Cannon ? "FIXED SOURCE CANNON CUT // DIAGNOSTIC MATERIAL COLORS" : "ANIMATED SOURCE GEOMETRY // DIAGNOSTIC MATERIAL COLORS"
             : GameFiles.Ready ? "Source render unavailable. Reopen this viewer to retry; Back remains usable." : "Configure original game files to use the shared 3D preview.");
     }
     internal void Back() { if (!OwnsForeground) return; Closed = true; LauncherHunter.ReleaseSourcePreview(_owner); }
     private void Refresh()
     {
         if (!_host.IsAlive(Document)) return;
-        string clip = _selection == null ? "No source clip loaded" : "CLIP " + (_clip + 1) + "/" + _selection.Clips.Count + " // " + _selection.Clips[_clip].Name;
+        string clip = _selection == null ? "No source clip loaded" : Cannon ? "CANNON // MISSILE BARRAGE // FIXED FRAME ZERO" : "CLIP " + (_clip + 1) + "/" + _selection.Clips.Count + " // " + _selection.Clips[_clip].Name;
         _pages.Present(Document, ++_revision, new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
             ["source_status"] = RmlUiBindingValue.FromText(_status), ["source_clip"] = RmlUiBindingValue.FromText(clip),
             ["source_pause"] = RmlUiBindingValue.FromText(_paused ? "PLAY" : "PAUSE"),
-            ["source_phase"] = RmlUiBindingValue.FromText(_seconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " seconds"),
-            ["disabled:source_prev"] = RmlUiBindingValue.FromBoolean(_selection == null),
-            ["disabled:source_next"] = RmlUiBindingValue.FromBoolean(_selection == null),
-            ["disabled:source_pause"] = RmlUiBindingValue.FromBoolean(_selection == null)
+            ["source_phase"] = RmlUiBindingValue.FromText((Cannon ? 0 : _seconds).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " seconds"),
+            ["disabled:source_restart"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),
+            ["disabled:source_prev"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),
+            ["disabled:source_next"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon),
+            ["disabled:source_pause"] = RmlUiBindingValue.FromBoolean(_selection == null || Cannon)
         });
     }
     public void Dispose()

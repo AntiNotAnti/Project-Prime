@@ -135,7 +135,7 @@ public static partial class RetroCharacterPreviewExporter
                 {
                     string name = spec.Id + ".parts.json";
                     string path = Path.Combine(staging, name);
-                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, 4, false,
+                    var index = new AuthoringPartsIndex(1, spec.Id, disc.GameId, BundleSpec(spec.Id).Version, false,
                         parts.ToArray(), new[] { "source-materials", "first-person", "runtime-animation-and-morph" });
                     File.WriteAllText(path, JsonSerializer.Serialize(index));
                     staged.Add((path, Path.Combine(root, name)));

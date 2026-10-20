@@ -48,9 +48,9 @@ internal sealed class CharacterSourcePreviewBinding
   binding.Release();binding=null!;return false;
  }
  internal static bool TryCreateSourceCannon(Scene scene,Hunter hunter,Model nativeModel,CharacterModelPack pack,
-  PrivateCharacterAppearance appearance,string nativeMaterialAnchor,out CharacterSourcePreviewBinding binding)
+  PrivateCharacterAppearance appearance,string nativeMaterialAnchor,out CharacterSourcePreviewBinding binding,object? stageOwner=null)
  {
-  binding=new(scene,hunter,nativeModel,pack,appearance,nativeMaterialAnchor,CharacterModelPart.ViewModel);
+  binding=new(scene,hunter,nativeModel,pack,appearance,nativeMaterialAnchor,CharacterModelPart.ViewModel,stageOwner);
   if(!string.IsNullOrWhiteSpace(nativeMaterialAnchor)&&binding.TryResolve(out var model)&&model.SourceCannon!=null)return true;
   binding.Release();binding=null!;return false;
  }

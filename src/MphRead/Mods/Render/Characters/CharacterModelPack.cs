@@ -366,7 +366,7 @@ namespace MphRead.Mods.Render.Characters
                 if(graphPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceGraphProof==null||entry.SourceGraphProofSha256==null||entry.SourceMotionManifest==null))
                     throw new InvalidDataException("Raw graph binding requires explicit source-only Biped proof/motion references; no graph evaluator.");
                 bool archivePreview=entry.SourceAnimationArchive!=null||entry.SourceAnimationArchiveSha256!=null;
-                if(archivePreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceAnimationArchive==null
+                if(archivePreview&&(!sourcePreview||!(entry.Part==CharacterModelPart.Biped||entry.Part==CharacterModelPart.ViewModel&&entry.SourceCannonReceipt!=null&&entry.SourceCannonSha256!=null)||entry.SourceAnimationArchive==null
                     ||entry.SourceAnimationArchiveSha256==null||graphPreview))
                     throw new InvalidDataException("Imported animation archive requires a complete exclusive source-rig Biped binding.");
                 bool cannonPreview=entry.SourceCannonReceipt!=null||entry.SourceCannonSha256!=null;
