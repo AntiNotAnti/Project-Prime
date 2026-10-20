@@ -14,6 +14,7 @@ internal static class NativeCharacterPreviewAcceptance
         try
         {
             Requests(settings);
+            CancellationOutcomes(settings);
             using (var dirty = new NativeFullSettingsController(settings))
             {
                 string[] engine = dirty.Rows.Select(r => r.Read()).ToArray();
@@ -83,6 +84,28 @@ internal static class NativeCharacterPreviewAcceptance
             }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+    private static void CancellationOutcomes(MenuSettings settings)
+    {
+        using var owner = new NativeFullSettingsController(settings);
+        var partial = new ImportBundleBatchCanceledException(new[] { "trooper-power" },
+            new OperationCanceledException("synthetic second-appearance cancellation"), CancellationToken.None);
+        var pending = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Set(owner, "_operation", pending.Task);
+        owner.Tick(false); Check(owner.Busy, "held import remains pending before cancellation result");
+        pending.SetException(partial); owner.Tick(false);
+        Check(!owner.Busy && owner.Status == partial.Message && owner.Status.Contains("trooper-power", StringComparison.Ordinal)
+            && !owner.Status.Contains("Previous bundle is unchanged", StringComparison.Ordinal),
+            "partial Update-all cancellation displays exact committed appearance outcome");
+        var failure = new ImportBundleBatchException(new[] { "trooper-power" }, new IOException("synthetic later preparation failure"));
+        pending = new(TaskCreationOptions.RunContinuationsAsynchronously); Set(owner,"_operation",pending.Task);
+        pending.SetException(failure); owner.Tick(false);
+        Check(!owner.Busy && owner.Status == "Operation failed: " + failure.Message && owner.Status.Contains("trooper-power", StringComparison.Ordinal),
+            "later batch failure retains already-committed appearance in displayed outcome");
+        pending = new(TaskCreationOptions.RunContinuationsAsynchronously); Set(owner,"_operation",pending.Task);
+        pending.SetException(new OperationCanceledException("synthetic precommit cancellation")); owner.Tick(false);
+        Check(!owner.Busy && owner.Status == "Local import cancelled. Previous bundle is unchanged.",
+            "single-bundle precommit cancellation retains unchanged-bundle message");
     }
     private static void Requests(MenuSettings settings)
     {

@@ -24,7 +24,7 @@ public sealed record ImportBundleInspection(ImportBundleState State, string Mess
 /// receipt is replaced, after every component verifies. Old generations remain
 /// available to running scenes/Studio; this owner never uploads or packages them.
 /// </summary>
-public static class LocalImportBundle
+public static partial class LocalImportBundle
 {
     public const int MaxComponents = 64;
     public const long MaxComponentBytes = 64 * 1024 * 1024;
@@ -59,33 +59,57 @@ public static class LocalImportBundle
             || spec.RequiredComponents.Distinct(StringComparer.OrdinalIgnoreCase).Count() != spec.RequiredComponents.Length) throw new InvalidDataException("Invalid private import recipe identity.");
     }
 
+    private static string NormalizePath(string path)
+    {
+        string full = Path.GetFullPath(path);
+        if (!OperatingSystem.IsMacOS()) return full;
+        // macOS exposes these system directories through fixed aliases. Do
+        // not resolve arbitrary user aliases or a retargeted system alias.
+        foreach (string alias in new[] { "/var", "/tmp", "/etc" })
+        {
+            if (full != alias && !full.StartsWith(alias + "/", StringComparison.Ordinal)) continue;
+            string? target = new DirectoryInfo(alias).LinkTarget;
+            string expected = "/private" + alias;
+            if (target != null && Path.GetFullPath(Path.Combine("/", target)) == expected)
+                return expected + full[alias.Length..];
+        }
+        return full;
+    }
+
     // Follow no existing symlink, including one above the chosen root. Lock
     // files are permanent: unlinking a held lock would permit a second writer.
     private static void CheckPath(string path, string root)
     {
-        string boundary = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        for (string? part = Path.GetFullPath(path); part != null; part = Path.GetDirectoryName(part))
+        string boundary = Path.TrimEndingDirectorySeparator(NormalizePath(root));
+        string candidate = NormalizePath(path);
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        string prefix = Path.EndsInDirectorySeparator(boundary) ? boundary : boundary + Path.DirectorySeparatorChar;
+        if (!candidate.Equals(boundary, comparison) && !candidate.StartsWith(prefix, comparison))
+            throw new InvalidDataException("Private import path escaped its root.");
+        for (string? part = candidate; part != null; part = Path.GetDirectoryName(part))
         {
-            if ((File.Exists(part) || Directory.Exists(part))
-                && (File.GetAttributes(part) & FileAttributes.ReparsePoint) != 0)
+            FileAttributes attributes;
+            try { attributes = File.GetAttributes(part); }
+            catch (FileNotFoundException) { continue; }
+            catch (DirectoryNotFoundException) { continue; }
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("Private import paths cannot contain symbolic links.");
-            if (part == boundary) return;
         }
-        throw new InvalidDataException("Private import path escaped its root.");
     }
 
     private static string BundleRoot(string root, string id)
     {
         if (!Id(id)) throw new InvalidDataException("Invalid private bundle ID.");
-        string result = Path.Combine(Path.GetFullPath(root), StorageDirectory, id);
+        string result = Path.Combine(NormalizePath(root), StorageDirectory, id);
         CheckPath(result, root);
         return result;
     }
 
     public static bool HasReceipt(string root, string id)
     {
-        if (!Id(id)) throw new InvalidDataException("Invalid private bundle ID.");
-        return File.Exists(Path.Combine(Path.GetFullPath(root), StorageDirectory, id, "current.json"));
+        string pointer = Path.Combine(BundleRoot(root, id), "current.json");
+        CheckPath(pointer, root);
+        return File.Exists(pointer);
     }
 
     public static ImportBundleInspection Inspect(string root, string id, ImportBundleSpec? required = null)
@@ -204,6 +228,7 @@ public static class LocalImportBundle
                 bytes.Add(name, content);
             }
         long pendingBytes = bytes.Values.Sum(b => b.LongLength);
+        var changedNames = new List<string>(replacements.Count);
         foreach (var part in replacements)
         {
             if (!ComponentId(part.Key) || part.Value == null || part.Value.LongLength is <= 0 or > MaxComponentBytes)
@@ -212,6 +237,7 @@ public static class LocalImportBundle
             if (pendingBytes > MaxBundleBytes) throw new InvalidDataException("Private bundle exceeds its budget.");
             // Detach from the caller before validation/publication.
             bytes[part.Key] = (byte[])part.Value.Clone();
+            changedNames.Add(part.Key);
         }
         if (spec.RequiredComponents.Any(name => !bytes.ContainsKey(name)))
             throw new InvalidDataException("Required private bundle component is missing.");
@@ -281,7 +307,7 @@ public static class LocalImportBundle
             // This is the sole publication point. Cancellation after it is a
             // completed import; do not roll back or mutate an old generation.
             AtomicFile.Write(Path.Combine(folder, "current.json"), pointerBytes);
-            return replacements.Keys.Select(name => Path.Combine(destination, name)).ToArray();
+            return changedNames.Select(name => Path.Combine(destination, name)).ToArray();
         }
         finally
         {

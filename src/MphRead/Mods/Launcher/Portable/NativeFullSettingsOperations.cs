@@ -17,7 +17,7 @@ internal sealed partial class NativeFullSettingsController
     internal void CancelArenaImport()
     {
         try { _arenaCancellation?.Cancel(); } catch (ObjectDisposedException) { }
-        Status = "Cancelling local import; the previous bundle stays active.";
+        Status = "Cancelling local import; completed publications stay active.";
     }
     private sealed class ArenaProgress(Action<Import.ImportPublishStage> report) : IProgress<Import.ImportPublishStage>
     { public void Report(Import.ImportPublishStage stage) => report(stage); }
@@ -100,7 +100,7 @@ internal sealed partial class NativeFullSettingsController
             return;
         }
         try{Status=_operation.GetAwaiter().GetResult();}
-        catch(OperationCanceledException){Status="Local import cancelled. Previous bundle is unchanged.";}
+        catch(OperationCanceledException ex){Status=ex is Import.ImportBundleBatchCanceledException ? ex.Message : "Local import cancelled. Previous bundle is unchanged.";}
         catch(Exception ex){Status="Operation failed: "+ex.Message;}
         _operation=null;
         _arenaCancellation=null;

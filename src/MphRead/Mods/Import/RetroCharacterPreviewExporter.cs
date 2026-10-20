@@ -182,24 +182,26 @@ public static class RetroCharacterPreviewExporter
             // Each appearance is a complete immutable generation. Parse all
             // selected appearances before publishing any; Update all commits
             // one independent appearance at a time, never half a model/rig.
-            var installed = new List<string>();
-            foreach (SourceCharacter spec in selected)
+            IEnumerable<ImportBundleUpdate> PrepareUpdates()
             {
-                cancellation.ThrowIfCancellationRequested();
-                var parts = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                long total = 0;
-                foreach (var file in staged.Where(x => Path.GetFileName(x.Temp).StartsWith(spec.Id + ".", StringComparison.Ordinal)))
+                foreach (SourceCharacter spec in selected)
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    long length = new FileInfo(file.Temp).Length;
-                    if (length is <= 0 or > LocalImportBundle.MaxComponentBytes || (total += length) > LocalImportBundle.MaxBundleBytes)
-                        throw new InvalidDataException("Source character bundle exceeds its private component budget.");
-                    parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
+                    var parts = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                    long total = 0;
+                    foreach (var file in staged.Where(x => Path.GetFileName(x.Temp).StartsWith(spec.Id + ".", StringComparison.Ordinal)))
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        long length = new FileInfo(file.Temp).Length;
+                        if (length is <= 0 or > LocalImportBundle.MaxComponentBytes || (total += length) > LocalImportBundle.MaxBundleBytes)
+                            throw new InvalidDataException("Source character bundle exceeds its private component budget.");
+                        parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
+                    }
+                    yield return new(BundleSpec(spec.Id),parts);
                 }
-                var files = LocalImportBundle.Publish(root, BundleSpec(spec.Id), parts, cancellation, progress, replaceAllComponents: true);
-                installed.Add(files.Single(path => path.EndsWith(".obj", StringComparison.Ordinal)));
             }
-            return installed.AsReadOnly();
+            return LocalImportBundle.PublishSequential(root,PrepareUpdates(),cancellation,progress)
+                .Where(path=>path.EndsWith(".obj",StringComparison.Ordinal)).ToArray();
         }
         finally
         {

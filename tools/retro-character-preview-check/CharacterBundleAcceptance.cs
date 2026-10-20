@@ -34,7 +34,8 @@ internal static class CharacterBundleAcceptance
 
     internal static void ProbeOwnedSource(string source)
     {
-        string root = Path.Combine(Path.GetTempPath(), "prime-owned-character-bundle-" + Guid.NewGuid().ToString("N"));
+        string temporary = OperatingSystem.IsMacOS() && Directory.Exists("/private/tmp") ? "/private/tmp" : Path.GetTempPath();
+        string root = Path.Combine(temporary, "prime-owned-character-bundle-" + Guid.NewGuid().ToString("N"));
         byte[] sourceBefore = HashFile(source);
         Console.WriteLine("Owned source SHA256 before: " + Convert.ToHexStringLower(sourceBefore));
         try
@@ -54,7 +55,14 @@ internal static class CharacterBundleAcceptance
                     && inspected.Files.All(f => Path.GetDirectoryName(f) == folder), "same immutable generation body/rig/motions/optional graph " + id);
                 // Optional ANCS graph must retain its exact raw snapshot sibling.
                 string graph = Path.Combine(folder, id + ".ancs-graph.json");
-                if (File.Exists(graph)) Check(inspected.Files.Any(f => f.EndsWith(".bin", StringComparison.Ordinal)), "graph retains raw ANCS snapshot " + id);
+                if (File.Exists(graph))
+                {
+                    string snapshot = Path.Combine(folder, id + ".ancs.bin");
+                    Check(inspected.Files.Contains(snapshot), "graph retains raw ANCS snapshot " + id);
+                    var proof = RetroAnimationGraphProof.Verify(File.ReadAllBytes(graph), File.ReadAllBytes(snapshot));
+                    Check(proof.SourceCharacterId == id && !proof.NamedGraphSemanticsAccepted && proof.UninterpretedSetBytesPreservedInSnapshot,
+                        "exact raw graph proof retained without named-semantic claim " + id);
+                }
             }
             var original = Snapshot(root);
             Check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source, root).SequenceEqual(files), "repeat import reuses immutable generation paths");

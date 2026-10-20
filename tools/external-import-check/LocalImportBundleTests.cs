@@ -74,6 +74,9 @@ internal static class LocalImportBundleTests
             Check(File.ReadAllBytes(pointer).SequenceEqual(before), "unsafe request leaves old pointer");
             VerifyComponentNames(root);
             VerifyRemoval(root);
+            VerifySymlinkPaths(root);
+            VerifyMacSystemAliases();
+            VerifyDetachedPublicationPaths(root);
             var completeSpec = new ImportBundleSpec("complete-refresh", 1, new string('a',64), new string('b',40), new[]{"body.obj"});
             LocalImportBundle.Publish(root,completeSpec,new Dictionary<string,byte[]>{["body.obj"]=new byte[]{1},["optional.bin"]=new byte[]{2}});
             LocalImportBundle.Publish(root,completeSpec,new Dictionary<string,byte[]>{["body.obj"]=new byte[]{3}},replaceAllComponents:true);
@@ -83,6 +86,99 @@ internal static class LocalImportBundleTests
             Console.WriteLine("IMPORT BUNDLE PASS: integrity/states, required parts, bounded flat artifacts, cancellation/fault rollback, immutable updates, coalescing, retained removal and writer lease");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static void VerifyDetachedPublicationPaths(string root)
+    {
+        var spec = new ImportBundleSpec("detached-return-fixture", 1, new string('a', 64), new string('b', 40), new[] { "body.obj" });
+        var replacements = new Dictionary<string, byte[]> { ["body.obj"] = new byte[] { 1 }, ["body.skeleton.json"] = new byte[] { 2 } };
+        string[] expected = replacements.Keys.ToArray();
+        var published = LocalImportBundle.Publish(root, spec, replacements, progress: new Progress(stage =>
+        {
+            if (stage != ImportPublishStage.BeforeCommit) return;
+            replacements.Clear();
+            replacements.Add("../escape.json", new byte[] { 3 });
+        }));
+        var inspection = LocalImportBundle.Inspect(root, spec.Id, spec);
+        Check(inspection.State == ImportBundleState.Ready && published.All(File.Exists)
+            && published.Select(Path.GetFileName).SequenceEqual(expected)
+            && inspection.Receipt!.Components.Select(component => component.Id).Order().SequenceEqual(expected.Order()),
+            "post-clone caller mutation cannot change committed return paths or receipt inventory");
+    }
+
+    private static void VerifySymlinkPaths(string root)
+    {
+        string physical = Path.Combine(root, "symlink-target"), alias = Path.Combine(root, "user-alias");
+        Directory.CreateDirectory(physical);
+        try { Directory.CreateSymbolicLink(alias, physical); }
+        catch (Exception ex) when (OperatingSystem.IsWindows() && ex is UnauthorizedAccessException or IOException)
+        {
+            Console.WriteLine("IMPORT BUNDLE SKIP: symbolic-link fixture requires Windows symbolic-link permission.");
+            return;
+        }
+        var spec = new ImportBundleSpec("symlink-fixture", 1, new string('a', 64), new string('b', 40), new[] { "body.obj" });
+        var parts = new Dictionary<string, byte[]> { ["body.obj"] = new byte[] { 1, 2, 3 } };
+        var installed = LocalImportBundle.Publish(physical, spec, parts);
+        string pointer = Path.Combine(physical, LocalImportBundle.StorageDirectory, spec.Id, "current.json");
+        byte[] before = File.ReadAllBytes(pointer);
+        foreach (string rejectedRoot in new[] { alias, alias + Path.DirectorySeparatorChar, Path.Combine(alias, "chosen-root") })
+        {
+            Expect<InvalidDataException>(() => LocalImportBundle.Publish(rejectedRoot, spec, parts), "reject root/ancestor alias publication");
+            Expect<InvalidDataException>(() => LocalImportBundle.Remove(rejectedRoot, spec.Id), "reject root/ancestor alias removal");
+            Expect<InvalidDataException>(() => LocalImportBundle.HasReceipt(rejectedRoot, spec.Id), "reject root/ancestor alias discovery");
+            Check(LocalImportBundle.Inspect(rejectedRoot, spec.Id, spec).State == ImportBundleState.Failed,
+                "root/ancestor alias inspection fails closed");
+        }
+        Check(!Directory.Exists(Path.Combine(physical, "chosen-root")), "ancestor alias cannot create redirected output");
+        Check(File.ReadAllBytes(pointer).SequenceEqual(before) && File.Exists(installed[0]),
+            "rejected aliases preserve real receipt and generation");
+
+        // Missing targets must not hide reparse points from File.Exists checks.
+        string dangling = Path.Combine(root, "dangling-alias");
+        Directory.CreateSymbolicLink(dangling, Path.Combine(root, "missing-target"));
+        Expect<InvalidDataException>(() => LocalImportBundle.Publish(Path.Combine(dangling, "child"), spec, parts),
+            "reject dangling ancestor alias");
+
+        // Validate ancestry inside the storage tree too, including a linked receipt.
+        string retained = pointer + ".retained";
+        File.Move(pointer, retained);
+        try
+        {
+            File.CreateSymbolicLink(pointer, retained);
+            Check(LocalImportBundle.Inspect(physical, spec.Id, spec).State == ImportBundleState.Failed, "reject symlink receipt");
+            Expect<InvalidDataException>(() => LocalImportBundle.Remove(physical, spec.Id), "cannot retire symlink receipt");
+        }
+        finally { File.Delete(pointer); File.Move(retained, pointer); }
+    }
+
+    private static void VerifyMacSystemAliases()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var spec = new ImportBundleSpec("system-alias-fixture", 1, new string('a', 64), new string('b', 40), new[] { "body.json" });
+        var parts = new Dictionary<string, byte[]> { ["body.json"] = new byte[] { 1 } };
+        foreach (string alias in new[] { "/var", "/tmp", "/etc" })
+        {
+            string? target = new DirectoryInfo(alias).LinkTarget;
+            string expected = "/private" + alias;
+            if (target == null || Path.GetFullPath(Path.Combine("/", target)) != expected) continue;
+            // Read-only absence probes exercise /etc without requiring system writes.
+            string missing = Path.Combine(alias, "prime-nonexistent-bundle-" + Guid.NewGuid().ToString("N"));
+            Check(LocalImportBundle.Inspect(missing, spec.Id, spec).State == ImportBundleState.NotInstalled,
+                "known macOS system alias accepts ordinary absent root: " + alias);
+        }
+        string? temporaryTarget = new DirectoryInfo("/tmp").LinkTarget;
+        if (temporaryTarget == null || Path.GetFullPath(Path.Combine("/", temporaryTarget)) != "/private/tmp") return;
+        string temporary = Path.Combine("/tmp", "prime-system-alias-bundle-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var installed = LocalImportBundle.Publish(temporary + Path.DirectorySeparatorChar, spec, parts);
+            Check(installed.All(path => path.StartsWith("/private/tmp/", StringComparison.Ordinal)), "known system alias returns normalized generation paths");
+            Check(LocalImportBundle.HasReceipt(temporary, spec.Id)
+                && LocalImportBundle.Inspect(temporary, spec.Id, spec).State == ImportBundleState.Ready,
+                "known macOS temp alias remains discoverable and readable");
+            Check(LocalImportBundle.Remove(temporary, spec.Id), "known macOS temp alias remains removable");
+        }
+        finally { if (Directory.Exists(temporary)) Directory.Delete(temporary, true); }
     }
 
     private static void VerifyComponentNames(string root)
