@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MphRead.Mods.Render;
 using MphRead.Mods.Cosmetics;
 using MphRead.Mods.Sound;
@@ -119,6 +120,58 @@ internal static class InstagibIonFractureTests
         Check((InstagibIonFracture.HelixDisplacement(Vector3.UnitX, Vector3.UnitY,
             8f, 0.25f, 0.45f, 0) - strandA).LengthSquared == 0f,
             "helix is deterministic and independent of draw frame RNG");
+        // Geometry and animation must remain distinct after the textured core
+        // is shared across all nine styles. Tests must fail if effects become
+        // mere recolors or if an edit accidentally freezes their movement.
+        var nonDefault = CosmeticCatalog.BeamEffects
+            .Where(b => b.Style != BeamFxStyle.IonFracture).ToArray();
+        Check(nonDefault.Length == 8, "all eight non-default motion identities are defined");
+        var signatures = new System.Collections.Generic.List<float[]>();
+        var right = Vector3.UnitX;
+        var up = Vector3.UnitY;
+        foreach (var beam in nonDefault)
+        {
+            var profile = InstagibIonFracture.SignatureFor(beam.Style);
+            Check(profile.Width > 0.02f && profile.Width <= 0.10f
+                && profile.Opacity > 0.1f && profile.Opacity <= 1f
+                && profile.Reach >= 25f && profile.Reach <= 60f,
+                "signature budgets are bounded and visible");
+            var fingerprint = new System.Collections.Generic.List<float>();
+            bool animated = false;
+            foreach (float u in new[] { 0.13f, 0.31f, 0.48f, 0.67f, 0.83f })
+            {
+                Vector3 first = InstagibIonFracture.SignatureOffset(
+                    beam.Style, u, 0.12f, 0, right, up);
+                Vector3 second = InstagibIonFracture.SignatureOffset(
+                    beam.Style, u, 0.55f, 0, right, up);
+                Vector3 opposite = InstagibIonFracture.SignatureOffset(
+                    beam.Style, u, 0.12f, 1, right, up);
+                Check(float.IsFinite(first.X) && float.IsFinite(first.Y) && float.IsFinite(first.Z)
+                    && first.Length <= 0.6f && opposite.Length <= 0.6f,
+                    "signature motion stays finite and inside visual half-width");
+                Check((first - InstagibIonFracture.SignatureOffset(
+                    beam.Style, u, 0.12f, 0, right, up)).LengthSquared == 0f,
+                    "signature is pure and deterministic without frame RNG");
+                animated |= (first - second).LengthSquared > 0.00002f;
+                fingerprint.Add(first.X); fingerprint.Add(first.Y);
+                fingerprint.Add(second.X); fingerprint.Add(second.Y);
+                fingerprint.Add(opposite.X); fingerprint.Add(opposite.Y);
+            }
+            Check(animated, beam.DisplayName + " animates over lifetime");
+            signatures.Add(fingerprint.ToArray());
+        }
+        for (int i = 0; i < signatures.Count; i++)
+            for (int j = i + 1; j < signatures.Count; j++)
+            {
+                float distinct = 0f;
+                for (int k = 0; k < signatures[i].Length; k++)
+                {
+                    float delta = signatures[i][k] - signatures[j][k];
+                    distinct += delta * delta;
+                }
+                Check(distinct > 0.004f, "beam " + i + " and " + j
+                    + " have different geometric motion, not just colors");
+            }
         var world = new InstagibIonFracture();
         Check(world.Count == 0, "new scene owns empty pool");
         world.Clear();
