@@ -92,7 +92,11 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         // a later favorable pose. Duplicate carriers are inert.
                         if (result!=CustomObservationResult.Duplicate) _delivery?.SourceObserved(this,token.Input);
                     }
-            if (capture && IsEligible && _inputWorld==Now) _delivery?.AfterSourcePhase(this);
+            if (capture && IsEligible && _inputWorld==Now)
+            {
+                _delivery?.AfterSourcePhase(this);
+                foreach (var life in _current) life?.Journal?.SealNativeSelection();
+            }
         }
         finally
         {
