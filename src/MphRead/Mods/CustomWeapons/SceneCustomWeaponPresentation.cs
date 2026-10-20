@@ -73,8 +73,8 @@ public partial class Scene
             int slot=player.SlotIndex;if((uint)slot>=8)continue;
             WeaponStateSnapshot state=default;bool known=false,selected=false;
             if(!online&&OfflineWeapons?.TryPeek(player,out state,out selected)==true)known=true;
-            else if(ready&&slot==NetSession.LocalSlot&&NetSession.CustomWeaponInputProjection is {} local
-                &&NetSession.CustomWeaponPresentationState is {} own&&own.State.Owner==local.Owner)
+            else if(ready&&slot==NetSession.LocalSlot&&NetSession.CustomWeaponInputProjection is {HasWeapon:true} local
+                &&NetSession.CustomWeaponPresentationState is {HasWeapon:true} own&&own.State.Owner==local.Owner)
             {known=true;state=own.State;selected=local.Selected;}
             else if(ready&&publicState&&_customPresentationSlots![slot] is {Occupied:true,HasWeapon:true,Spectating:false} other
                 &&NetPlayerLifecycle.Matches(slot,other.Generation,other.Life)&&other.State.Owner.Life==other.Life)

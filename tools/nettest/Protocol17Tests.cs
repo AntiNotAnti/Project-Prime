@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 71, "current protocol train is 71");
+            Check(NetConfig.ProtocolVersion == 72, "current protocol train is 72");
             var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
             var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
             var decodedRefusal=RefusedPacket.Read(refusalBytes);
@@ -72,8 +72,8 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 71 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol71 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70 })
+            Check(bytes[3] == 72 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol72 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
