@@ -6,6 +6,8 @@ using OpenTK.Mathematics;
 
 if (args.Length == 3 && args[0] == "--wheel-native-hold-gl") return StockPickupGlChecks.Run(args[1],args[2],wheel:true,acquireWhileHeld:true);
 if (args.Length == 3 && args[0] == "--wheel-gl") return StockPickupGlChecks.Run(args[1],args[2],wheel:true);
+if (args.Length == 2 && args[0] == "--knowledge-input-client-scene") return CustomKnowledgeInputClientSceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--knowledge-authority-scene") return CustomKnowledgeAuthoritySceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--empty-life-scene") return CustomEmptyLifeSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--cycle-scene") return CustomWeaponCycleSceneChecks.Run(args[1]);
 if (args.Length == 3 && args[0] == "--pickup-gl") return StockPickupGlChecks.Run(args[1],args[2]);
@@ -226,6 +228,7 @@ CustomWeaponCycleChecks.Run(Check);
 CustomWeaponWheelChecks.Run(Check);
 CustomPickupKnowledgeChecks.Run(Check);
 CustomEmptyInventoryChecks.Run(Check);
+CustomKnowledgeCarriageChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
 Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

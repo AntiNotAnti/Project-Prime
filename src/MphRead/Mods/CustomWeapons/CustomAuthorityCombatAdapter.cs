@@ -134,12 +134,13 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     internal bool ObserveSource(WeaponOwnerContext owner,uint verifiedSourceFrame,bool canUseWeapon)
         => IsEligible && _current[owner.Slot] is { } life && life.Owner == owner
             && life.Journal?.ObserveSource(owner,verifiedSourceFrame,Now,canUseWeapon) == true;
-    internal CustomQueueResult Offer(in CustomWeaponAction action)
+    internal CustomQueueResult Offer(in CustomWeaponAction action,CustomResourceKnowledge knowledge=default)
     {
         if (!IsEligible || !action.IsValid || _current[action.Slot] is not { Journal: not null } life || life.Owner != action.Owner)
             return CustomQueueResult.Foreign;
-        if (_delivery!=null && !_delivery.HasActionReservation(action)) return CustomQueueResult.Backpressure;
-        return life.Journal.Offer(action,Now);
+        if (_delivery!=null && (!_delivery.HasActionReservation(action)
+            ||!_delivery.TryKnowledge(action,out var reserved)||!reserved.Matches(knowledge))) return CustomQueueResult.Backpressure;
+        return life.Journal.Offer(action,Now,knowledge);
     }
     internal bool TryProcess(PlayerEntity player,out CustomActionReceipt receipt)
     {
@@ -154,7 +155,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if(next.Kind==CustomWeaponActionKind.Fire&&_delivery.MayExecute(next)&&!_delivery.TryPrepareAudience(next))return false;
         }
         if (!life.Journal.TryProcessNext(Now,this,this,out receipt)) return false;
-        if (_delivery?.Publish(receipt)==false)
+        if (!life.Journal.TryKnowledge(receipt.Action,out var knowledge)||_delivery?.Publish(receipt,knowledge)==false)
         { life.Journal.Retire(WeaponCancellation.RulesChanged); throw new InvalidOperationException("Reserved custom receipt publication failed."); }
         return true;
     }
@@ -182,7 +183,16 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         receipt=default;
         return request.IsValid && Find(request.Owner)?.Journal is { } journal
-            && journal.TryGetReceipt(request.Sequence,out receipt) && request.Matches(receipt.Action);
+            && journal.TryGetReceipt(request.Sequence,out receipt) && request.Matches(receipt.Action)
+            &&journal.TryKnowledge(receipt.Action,out var knowledge)&&knowledge.Matches(request.Knowledge);
+    }
+    internal bool HasRetainedControlConflict(in CustomControlRequest request)
+    {
+        if(!request.IsValid||Find(request.Owner)?.Journal is not {} journal)return false;
+        if(journal.TryGetReceipt(request.Sequence,out var receipt))
+            return !request.Matches(receipt.Action)||!journal.TryKnowledge(receipt.Action,out var knowledge)
+                ||!knowledge.Matches(request.Knowledge);
+        return journal.TryGetUnobserved(request.Sequence,out var denied)&&denied.Request!=request;
     }
     internal bool TryUnobservedControl(in CustomControlRequest request,out CustomUnobservedControl denied)
     {

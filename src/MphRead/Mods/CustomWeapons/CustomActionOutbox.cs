@@ -19,6 +19,7 @@ internal sealed class CustomActionOutbox
         internal readonly byte[] ReceiptBytes=new byte[CustomReceiptMessage.Size],ContactBytes=new byte[CustomContactMessage.Size];
         internal CustomWeaponAction Action;
         internal CustomControlRequest? Control;
+        internal CustomResourceKnowledge Knowledge;
         internal ulong InputFence;
         internal uint ControlWorld;
         internal double SourceTime;
@@ -33,7 +34,7 @@ internal sealed class CustomActionOutbox
         internal void Clear()
         {
             Action=default; ReceiptToken=ContactToken=0;
-            Control=null; InputFence=0; ControlWorld=0; SourceTime=0; Denied=false;
+            Control=null; Knowledge=default; InputFence=0; ControlWorld=0; SourceTime=0; Denied=false;
             Active=ReceiptReady=ReceiptSent=ReceiptAcked=ContactExpected=ContactReady=ContactSent=ContactAcked=false;
             Created=ReceiptDue=ContactDue=0; EmittedWorld=0;
         }
@@ -66,19 +67,20 @@ internal sealed class CustomActionOutbox
     private void Free(Entry entry) { entry.Clear(); Count--; }
     private void MaybeFree(Entry entry)
     { if (entry.ReceiptAcked && (!entry.ContactExpected || entry.ContactAcked)) Free(entry); }
-    internal CustomOutboxOffer Reserve(in CustomWeaponAction action,double now)
+    internal CustomOutboxOffer Reserve(in CustomWeaponAction action,double now)=>Reserve(action,default,now);
+    internal CustomOutboxOffer Reserve(in CustomWeaponAction action,CustomResourceKnowledge knowledge,double now)
     {
         if (!Time(now)) return CustomOutboxOffer.Closed;
-        if (!action.IsValid || action.Bootstrap!=_wire.Bootstrap || action.Manifest!=_wire.Manifest.Digest
+        if (!action.IsValid || !knowledge.IsValid || action.Bootstrap!=_wire.Bootstrap || action.Manifest!=_wire.Manifest.Digest
             || action.Slot!=_wire.Slot || action.Weapon.Value!=10) return CustomOutboxOffer.Foreign;
-        if (Find(action) is { } prior) return prior.Control==null && prior.Action==action ? CustomOutboxOffer.Duplicate:CustomOutboxOffer.Conflict;
+        if (Find(action) is { } prior) return prior.Control==null && prior.Action==action && prior.Knowledge.Matches(knowledge) ? CustomOutboxOffer.Duplicate:CustomOutboxOffer.Conflict;
         if (Count==Capacity) return CustomOutboxOffer.Full;
         int tokens=action.Kind==CustomWeaponActionKind.Fire ? 2:1;
         if (_token > ulong.MaxValue-(ulong)tokens) { Close(); return CustomOutboxOffer.Closed; }
         foreach (var entry in _entries)
             if (!entry.Active)
             {
-                entry.Action=action; entry.Created=now; entry.ReceiptDue=entry.ContactDue=now;
+                entry.Action=action; entry.Knowledge=knowledge; entry.Created=now; entry.ReceiptDue=entry.ContactDue=now;
                 entry.ReceiptToken=++_token; entry.ContactExpected=tokens==2;
                 if (entry.ContactExpected) entry.ContactToken=++_token;
                 entry.Active=true; Count++; return CustomOutboxOffer.Reserved;
@@ -99,7 +101,7 @@ internal sealed class CustomActionOutbox
         foreach (var entry in _entries)
             if (!entry.Active)
             {
-                entry.Control=request; entry.InputFence=inputFence; entry.ControlWorld=authorityFrame??_wire.Bootstrap.AuthorityFrame;
+                entry.Control=request; entry.Knowledge=request.Knowledge; entry.InputFence=inputFence; entry.ControlWorld=authorityFrame??_wire.Bootstrap.AuthorityFrame;
                 entry.SourceTime=sourceNow??now;
                 entry.Created=now; entry.ReceiptDue=entry.ContactDue=now;
                 entry.ReceiptToken=++_token; entry.ContactExpected=tokens==2;
@@ -124,6 +126,12 @@ internal sealed class CustomActionOutbox
             || entry.Control!=request) return false;
         if (entry.Action.IsValid) return entry.Action==action;
         entry.Action=action; return true;
+    }
+    internal bool TryKnowledge(in CustomWeaponAction action,out CustomResourceKnowledge knowledge)
+    {
+        knowledge=default;
+        if(_closed||Find(action) is not {} entry||entry.Action!=action)return false;
+        knowledge=entry.Knowledge;return true;
     }
     internal bool HasControlWitness(in CustomWeaponAction action)
         => !_closed && Find(action) is { ReceiptReady:false,Control:not null } entry && entry.Action==action;
@@ -161,10 +169,11 @@ internal sealed class CustomActionOutbox
     {
         if (Find(action) is { ReceiptReady:false,ContactReady:false } entry && entry.Action==action) Free(entry);
     }
-    internal bool Publish(in CustomActionReceipt receipt)
+    internal bool Publish(in CustomActionReceipt receipt)=>Publish(receipt,default);
+    internal bool Publish(in CustomActionReceipt receipt,CustomResourceKnowledge knowledge)
     {
-        if (_closed || Find(receipt.Action) is not { ReceiptReady:false } entry || entry.Action!=receipt.Action) return false;
-        var message=new CustomReceiptMessage(entry.ReceiptToken,receipt);
+        if (_closed || Find(receipt.Action) is not { ReceiptReady:false } entry || entry.Action!=receipt.Action||!entry.Knowledge.Matches(knowledge)) return false;
+        var message=new CustomReceiptMessage(entry.ReceiptToken,receipt,knowledge);
         if (!CustomCombatResults.Valid(message,_wire.Manifest,_definition)) return false;
         bool noEmission=receipt.Emission is CustomEmissionDisposition.NotAttempted or CustomEmissionDisposition.NoSpawn;
         if (noEmission && entry.ContactReady) return false;

@@ -33,9 +33,9 @@ internal readonly record struct CustomResultAck(WorldBootstrapIdentity Bootstrap
         if (!value.IsValid) return false; ack=value; return true;
     }
 }
-internal readonly record struct CustomReceiptMessage(ulong Token,CustomActionReceipt Receipt)
+internal readonly record struct CustomReceiptMessage(ulong Token,CustomActionReceipt Receipt,CustomResourceKnowledge Knowledge=default)
 {
-    internal const int Size=209;
+    internal const int Size=209+CustomResourceKnowledge.Size;
     internal CustomResultAck Ack => new(Receipt.Action.Bootstrap,Receipt.Action.Manifest,Receipt.Action.Slot,
         Receipt.Action.Life,Receipt.Action.Weapon,Receipt.Action.Sequence,CustomResultKind.Receipt,Token);
 }
@@ -47,9 +47,9 @@ internal readonly record struct CustomContactMessage(WorldBootstrapIdentity Boot
 }
 internal readonly record struct CustomStateMessage(WorldBootstrapIdentity Bootstrap,WeaponDigest Manifest,WeaponRuntimeId Weapon,
     uint AuthorityFrame,uint Revision,uint SettledSequence,WeaponRuntimeId Selected,uint CommittedSource,WeaponStateSnapshot State,
-    bool HasWeapon=true)
+    bool HasWeapon=true,CustomResourceKnowledge Knowledge=default,uint GrantWorld=0,uint EffectiveSource=0)
 {
-    internal const int Size=114;
+    internal const int Size=114+CustomResourceKnowledge.Size+8;
     internal static CustomStateMessage Empty(WorldBootstrapIdentity bootstrap,WeaponDigest manifest,WeaponRuntimeId weapon,
         uint world,uint revision,uint settled,uint committed,WeaponOwnerContext owner,WeaponDefinition definition)
         =>new(bootstrap,manifest,weapon,world,revision,settled,default,committed,
@@ -108,7 +108,7 @@ internal static class CustomCombatResults
     internal static bool Valid(in CustomReceiptMessage message,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
         var receipt=message.Receipt; var action=receipt.Action;
-        if (message.Token==0 || !action.IsValid || !Resolves(action.Manifest,action.Weapon,manifest,definition)
+        if (message.Token==0 || !message.Knowledge.IsValid || !action.IsValid || !Resolves(action.Manifest,action.Weapon,manifest,definition)
             || Before(receipt.AuthorityFrame,action.Bootstrap.AuthorityFrame)
             || (byte)receipt.Disposition > (byte)CustomJournalDisposition.EngineFault
             || (byte)receipt.Result > (byte)WeaponActionResult.InvalidOptic || (byte)receipt.Emission > (byte)CustomEmissionDisposition.Uncertain
@@ -140,7 +140,7 @@ internal static class CustomCombatResults
     internal static void Write(in CustomReceiptMessage message,Span<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
         if (bytes.Length < CustomReceiptMessage.Size || !Valid(message,manifest,definition)) throw new ArgumentException("Consistent custom action result required.");
-        var receipt=message.Receipt; receipt.Action.Write(bytes); BinaryPrimitives.WriteUInt64LittleEndian(bytes[109..],message.Token);
+        var receipt=message.Receipt; receipt.Action.Write(bytes); message.Knowledge.Write(bytes[209..]); BinaryPrimitives.WriteUInt64LittleEndian(bytes[109..],message.Token);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[117..],receipt.AuthorityFrame); bytes[121]=(byte)receipt.Disposition;
         bytes[122]=(byte)receipt.Result; bytes[123]=(byte)receipt.Emission; bytes[124]=receipt.Source.HasValue ? (byte)7 : (byte)0;
         bytes.Slice(125,84).Clear();
@@ -156,7 +156,8 @@ internal static class CustomCombatResults
     {
         message=default;
         if (bytes.Length!=CustomReceiptMessage.Size || !CustomWeaponAction.TryRead(bytes[..109],out var action)
-            || !Resolves(action.Manifest,action.Weapon,manifest,definition) || bytes[124] is not (0 or 7)) return false;
+            || !Resolves(action.Manifest,action.Weapon,manifest,definition) || bytes[124] is not (0 or 7)
+            || !CustomResourceKnowledge.TryRead(bytes[209..],out var knowledge)) return false;
         CustomSourceCertificate? source=null; WeaponStateSnapshot? before=null,after=null;
         if (bytes[124]==0)
         { for (int i=125;i<209;i++) if (bytes[i]!=0) return false; }
@@ -169,7 +170,7 @@ internal static class CustomCombatResults
         }
         var value=new CustomReceiptMessage(BinaryPrimitives.ReadUInt64LittleEndian(bytes[109..]),new(action,
             BinaryPrimitives.ReadUInt32LittleEndian(bytes[117..]),(CustomJournalDisposition)bytes[121],(WeaponActionResult)bytes[122],
-            (CustomEmissionDisposition)bytes[123],source,before,after));
+            (CustomEmissionDisposition)bytes[123],source,before,after),knowledge);
         if (!Valid(value,manifest,definition)) return false; message=value; return true;
     }
     internal static bool Valid(in CustomContactMessage message,CustomWeaponManifest manifest,WeaponDefinition definition)
@@ -216,6 +217,9 @@ internal static class CustomCombatResults
             && Resolves(message.Manifest,message.Weapon,manifest,definition) && message.State.Owner.IsValid
             && message.State.Owner.MatchId==message.Bootstrap.Start.MatchId && message.State.Owner.AuthorityEpoch==message.Bootstrap.Start.AuthorityEpoch
             && message.State.Owner.Generation==message.Bootstrap.SlotGeneration && !Before(message.AuthorityFrame,message.Bootstrap.AuthorityFrame)
+            && message.Knowledge.IsValid
+            && (message.Knowledge.IsEmpty ? message.GrantWorld==0&&message.EffectiveSource==0
+                :message.HasWeapon&&!Before(message.AuthorityFrame,message.GrantWorld)&&!Before(message.State.Tick,message.EffectiveSource))
             && (!message.Selected.IsValid || message.Selected==message.Weapon) && SnapshotValid(message.State,message.State.Owner,definition)
             && (message.HasWeapon || !message.Selected.IsValid
                 && message.State==CustomStateMessage.EmptySnapshot(message.State.Owner,definition,message.CommittedSource))
@@ -228,18 +232,22 @@ internal static class CustomCombatResults
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[70..],message.AuthorityFrame); BinaryPrimitives.WriteUInt32LittleEndian(bytes[74..],message.Revision);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[78..],message.SettledSequence); BinaryPrimitives.WriteUInt16LittleEndian(bytes[82..],message.Selected.Value);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[84..],message.CommittedSource); WriteSnapshot(bytes[88..],message.State);
-        bytes[113]=message.HasWeapon?(byte)1:(byte)0;
+        bytes[113]=message.HasWeapon?(byte)1:(byte)0; message.Knowledge.Write(bytes[114..]);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes[138..],message.GrantWorld);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes[142..],message.EffectiveSource);
     }
     internal static bool TryReadState(ReadOnlySpan<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition,out CustomStateMessage message)
     {
         message=default;
         if (bytes.Length!=CustomStateMessage.Size || !CustomWeaponProtocol.ReadHeader(bytes,out var bootstrap,out var digest)
-            || bytes[65]>=8 || BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..])==0 || bytes[113]>1) return false;
+            || bytes[65]>=8 || BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..])==0 || bytes[113]>1
+            || !CustomResourceKnowledge.TryRead(bytes.Slice(114,CustomResourceKnowledge.Size),out var knowledge)) return false;
         ushort id=BinaryPrimitives.ReadUInt16LittleEndian(bytes[68..]),selected=BinaryPrimitives.ReadUInt16LittleEndian(bytes[82..]);
         if (id is < 10 or > 73 || selected!=0 && selected!=id || !Resolves(digest,new(id),manifest,definition)) return false;
         var owner=new WeaponOwnerContext(bootstrap.Start.MatchId,bootstrap.Start.AuthorityEpoch,bytes[65],bootstrap.SlotGeneration,BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..]));
         var value=new CustomStateMessage(bootstrap,digest,new(id),BinaryPrimitives.ReadUInt32LittleEndian(bytes[70..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[74..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(bytes[78..]),selected==0 ? default:new(selected),BinaryPrimitives.ReadUInt32LittleEndian(bytes[84..]),ReadSnapshot(bytes[88..],owner,definition),bytes[113]!=0);
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[78..]),selected==0 ? default:new(selected),BinaryPrimitives.ReadUInt32LittleEndian(bytes[84..]),ReadSnapshot(bytes[88..],owner,definition),bytes[113]!=0,knowledge,
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[138..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[142..]));
         if (!Valid(value,manifest,definition)) return false; message=value; return true;
     }
 }

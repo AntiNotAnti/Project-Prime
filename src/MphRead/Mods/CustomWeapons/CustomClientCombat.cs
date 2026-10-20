@@ -9,7 +9,7 @@ namespace MphRead.Mods.CustomWeapons;
 internal sealed class CustomClientCombat
 {
     private readonly record struct Seen(ulong Token,PacketType Type,WeaponDigest Digest);
-    private readonly record struct Pending(CustomWeaponAction Action,CustomControlRequest? Control,double Created,double Due)
+    private readonly record struct Pending(CustomWeaponAction Action,CustomControlRequest? Control,double Created,double Due,CustomResourceKnowledge Knowledge=default)
     {
         internal WeaponOwnerContext Owner => Control?.Owner ?? Action.Owner;
         internal uint Sequence => Control?.Sequence ?? Action.Sequence;
@@ -146,7 +146,8 @@ internal sealed class CustomClientCombat
             for (int i=0;i<_pending.Length;i++)
                 if (_pending[i] is { } pending && pending.Owner==action.Owner && pending.Sequence==action.Sequence)
                 {
-                    if (pending.Control is { } control ? !control.Matches(action):pending.Action!=action)
+                    if (pending.Control is { } control ? !control.Matches(action)||!control.Knowledge.Matches(message.Knowledge)
+                        :pending.Action!=action||!pending.Knowledge.Matches(message.Knowledge))
                     { Invalidated=true; return false; }
                     _pending[i]=null;
                 }
@@ -211,7 +212,7 @@ internal sealed class CustomClientCombat
                 return pending.Action==action;
         if (action.Sequence!=_submitted+1) return false;
         for (int i=0;i<_pending.Length;i++)
-            if (_pending[i]==null) { _pending[i]=new(action,null,now,now); _submitted=action.Sequence; _mode=1; return true; }
+            if (_pending[i]==null) { _pending[i]=new(action,null,now,now,state.Knowledge); _submitted=action.Sequence; _mode=1; return true; }
         return false;
     }
     // Player controls supply only intent. The current canonical projection owns
@@ -223,7 +224,7 @@ internal sealed class CustomClientCombat
         request=default;
         if (State is not {HasWeapon:true} state || _submitted==uint.MaxValue) return false;
         var candidate=new CustomControlRequest(state.Bootstrap,state.Manifest,state.State.Owner.Slot,state.State.Owner.Life,
-            state.Weapon,_submitted+1,kind,optic);
+            state.Weapon,_submitted+1,kind,optic,state.Knowledge);
         if (!Submit(candidate,now)) return false;
         request=candidate; return true;
     }
@@ -235,9 +236,9 @@ internal sealed class CustomClientCombat
             || request.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         foreach (var pending in _pending)
             if (pending is { } value && value.Owner==request.Owner && value.Sequence==request.Sequence) return value.Control==request;
-        if (request.Sequence!=_submitted+1) return false;
+        if (!request.Knowledge.Matches(state.Knowledge) || request.Sequence!=_submitted+1) return false;
         for (int i=0;i<_pending.Length;i++)
-            if (_pending[i]==null) { _pending[i]=new(default,request,now,now); _submitted=request.Sequence; _mode=2; return true; }
+            if (_pending[i]==null) { _pending[i]=new(default,request,now,now,request.Knowledge); _submitted=request.Sequence; _mode=2; return true; }
         return false;
     }
     internal bool TryNext(double now,out CustomWeaponAction action)
@@ -251,6 +252,13 @@ internal sealed class CustomClientCombat
             {
                 if (value.Control==null && now>=value.Due) { action=value.Action; return true; }
             }
+        return false;
+    }
+    internal bool TryActionKnowledge(in CustomWeaponAction action,out CustomResourceKnowledge knowledge)
+    {
+        knowledge=default;if(Invalidated)return false;
+        foreach(var pending in _pending)
+            if(pending is {Control:null} value&&value.Action==action){knowledge=value.Knowledge;return true;}
         return false;
     }
     internal void Sent(in CustomWeaponAction action,double now)
