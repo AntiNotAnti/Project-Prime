@@ -119,7 +119,7 @@ internal static class OfflineCharacterGlAcceptance
         Check(services.Validations==1&&services.Launches==1&&services.Saves==0
             &&ReferenceEquals(GameState.Current.Owner,priorOwner)
             &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only one permitted in-memory launch callback");
-        Check(GL.GetError()==ErrorCode.NoError,"native authored Offline acceptance finishes GL-clean");
+        Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"native authored Offline acceptance finishes GL-clean");
         Console.WriteLine($"OFFLINE CHARACTER NATIVE GL PASS {checks} checks; {translated} translated intents; actual framebuffer {width}x{height}; synthetic services, no media/captures/Scene/prefs writes");
         return 0;
 
