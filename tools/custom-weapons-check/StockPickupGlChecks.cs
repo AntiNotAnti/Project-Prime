@@ -127,24 +127,7 @@ internal static class StockPickupGlChecks
                 && !runtime.TryPeek(player, out _, out _) && (player.Position - center).WithY(0).Length > 2,
                 "camera setup remains outside pickup contact with no custom ownership");
 
-            var used = typeof(Scene).GetField("_usedRenderItems", Hidden)!;
-            int PickupBoxes()
-            {
-                int count = 0;
-                foreach (var item in (Queue<RenderItem>)used.GetValue(scene)!)
-                {
-                    if (item.Type != RenderItemType.Box || item.ItemCount != 8) continue;
-                    if (scene.CustomRifleModel is {} model)
-                    {
-                        for(byte material=0;material<6;material++)
-                            if(item.OverrideColor==model.Color(material)){count++;break;}
-                    }
-                    else if (item.OverrideColor == new Vector4(.12f, .8f, .95f, 1)
-                        || item.OverrideColor == new Vector4(.45f, .65f, .75f, 1)
-                        || item.OverrideColor == new Vector4(.4f, 1, .9f, 1)) count++;
-                }
-                return count;
-            }
+            int PickupBoxes()=>CustomPickupRenderChecks.CountStation(scene,scene.CustomRifleModel,center);
             void Draw(string? name, int expectedBoxes)
             {
                 Bound();
@@ -157,7 +140,7 @@ internal static class StockPickupGlChecks
                 bool owned = runtime.TryPeek(player, out var state, out bool selected);
                 ledger.TryState(0, out var itemBefore);
                 scene.OnDrawFrame(); Check(scene.OnRenderFrame(), "actual world renderer produces a picture");
-                Check(PickupBoxes() == expectedBoxes, "renderer owns the expected current original-model or fallback pickup box submissions");
+                Check(PickupBoxes() == expectedBoxes, "renderer owns the expected station-position original-model or fallback geometry, excluding held rifles");
                 Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "native pickup world draw has no GL error");
                 if (name != null)
                 {

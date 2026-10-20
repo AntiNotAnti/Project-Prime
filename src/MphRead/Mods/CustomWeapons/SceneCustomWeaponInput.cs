@@ -15,11 +15,11 @@ public partial class Scene
             if(!NetSession.Active)
             {
                 bool submitted=scene.OfflineWeapons?.SubmitInput(player,kind,optic,out sequence)==true;
-                if(submitted)scene._customFeedback?.Submitted(kind,sequence);
+                if(submitted){scene._customFeedback?.Submitted(kind,sequence);scene.SubmitCustomRiflePrediction(player,kind,sequence);}
                 return submitted;
             }
             if(!NetSession.TrySubmitCustomWeaponControl(kind,optic,out var request))return false;
-            sequence=request.Sequence;scene._customFeedback?.Submitted(kind,sequence);return true;
+            sequence=request.Sequence;scene._customFeedback?.Submitted(kind,sequence);scene.SubmitCustomRiflePrediction(player,kind,sequence);return true;
         }
     }
     private CustomWeaponInputController? _customInput;

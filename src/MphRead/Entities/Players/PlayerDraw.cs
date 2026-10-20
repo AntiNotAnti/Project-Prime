@@ -402,6 +402,7 @@ namespace MphRead.Entities
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
                                 overrideColor: brightSkin, outlineColor: outlineColor);
                         PaletteOverride = null;
+                        ModDrawCustomRifle(firstPerson: false,lod,alpha);
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
                             // Capture the visible cannon tip before returning
@@ -540,6 +541,7 @@ namespace MphRead.Entities
                             if (gunSample)
                                 ApplyHunterNodePose(_gunModel, transform, null);
                         }
+                        ModDrawCustomRifle(firstPerson: true,lod: 0,_curAlpha);
                         if (Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
                             var drawPos = new Vector3(0, 0, Fixed.ToFloat(Values.MuzzleOffset));
