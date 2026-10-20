@@ -4,8 +4,8 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.CustomWeapons;
 
-// Trusted server-owned per-peer dependency. No packet handler supplies it yet.
-// Global authority WorldIsReady is deliberately insufficient.
+// Trusted server-owned per-peer dependency. The live bridge checks actual peer
+// admission and an engine-consumed post-ready input; WorldIsReady is insufficient.
 internal readonly record struct CustomSourceReadyContext(CustomWeaponReady Ready,uint OpenedWorld,
     uint FirstSourceFrame,ulong PeerIncarnation);
 internal interface ICustomSourceReadiness
@@ -14,8 +14,8 @@ internal interface ICustomSourceReadiness
 }
 
 /// <summary>Developer remote-input admission using actual engine observations.
-/// Readiness remains an explicit trusted dependency until authenticated ingress
-/// owns it. No native shot identity, claimed damage or current pose fallback.</summary>
+/// Readiness is supplied by either the explicit fixture or live peer/source bridge.
+/// No native shot identity, claimed damage or current pose fallback.</summary>
 internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
 {
     private readonly CustomAuthorityCombatAdapter _root;

@@ -1079,6 +1079,7 @@ namespace MphRead.Mods.Network
                 throw new ProgramException($"the server could not load \"{entry.RoomKey}\"");
             }
             _sim = sim;
+            ConfigureCustomSourceCombat(sim.EvidenceScene!);
             // Spectator admission is known before world bootstrap. Apply it to
             // the authority scene now so ModBootstrapSpawn leaves those
             // occupied slots at LifeId 0 instead of constructing a body.
@@ -2556,7 +2557,8 @@ namespace MphRead.Mods.Network
                 connection?.MinimumRttMilliseconds,
                 peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
                     && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
-            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent)) return;
+            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent,out bool newCurrentCarrier)) return;
+            if (newCurrentCarrier) NoteCustomCurrentInput(packet,peer,intent);
             // Admit recovered shots from older carriers without replacing current movement/readiness.
             if (intent.LifeId != life)
             { peer.Telemetry.Intent(intent.Frame, NetIntentRejection.WrongLife); }

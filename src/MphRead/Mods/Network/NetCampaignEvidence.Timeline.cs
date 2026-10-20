@@ -9,7 +9,7 @@ internal readonly record struct ShotTimelineRow(string Stage, ShotKey Key,
     uint Component, uint Phase, byte Kind, byte Victim, ushort VictimGeneration,
     ushort VictimLife, ushort ClaimId, uint DamageEventId, uint SourceFrame,
     uint AckFrame, byte AckSubFrame, uint LocalFrame, uint AuthorityFrame,
-    long Timestamp, byte Weapon, int Value, int Result);
+    long Timestamp, byte Weapon, int Value, int Result, Replay.ReplayFidelityDiagnostics.Pose? Pose = null);
 
 internal sealed class ShotTimelineBuffer
 {
@@ -46,21 +46,24 @@ internal static partial class NetCampaignEvidence
         uint phase = 0, byte kind = 0, byte victim = 255, ushort victimGeneration = 0,
         ushort victimLife = 0, ushort claimId = 0, uint damageEventId = 0,
         uint sourceFrame = 0, uint ackFrame = 0, byte ackSubFrame = 0,
-        byte weapon = 255, int value = 0, int result = -1)
+        byte weapon = 255, int value = 0, int result = -1, Replay.ReplayFidelityDiagnostics.Pose? pose = null)
     {
         if (!TimelineEnabled) return;
         _shotTimeline ??= new ShotTimelineBuffer(EvidenceRowLimit);
         _shotTimeline.Add(new(stage, key, component, phase, kind, victim, victimGeneration,
             victimLife, claimId, damageEventId, sourceFrame, ackFrame, ackSubFrame,
             NetSession.NetFrame, NetSession.IsAuthority ? NetSession.NetFrame : NetSession.LastSnapshotFrame,
-            Stopwatch.GetTimestamp(), weapon, value, result));
+            Stopwatch.GetTimestamp(), weapon, value, result, pose));
     }
 
     internal static void TimelineFire(string stage, ShotKey key, in FireEvent fire)
     {
         if (!TimelineEnabled) return;
         Timeline(stage, key, phase: fire.Kind == FireEventKind.ContinuousTick ? fire.ContinuousPhase : 0, sourceFrame: fire.SourceFrame,
-            ackFrame: fire.AckFrame, ackSubFrame: fire.AckSubFrame, weapon: fire.Weapon);
+            ackFrame: fire.AckFrame, ackSubFrame: fire.AckSubFrame, weapon: fire.Weapon,
+            pose: fire.HasPose ? new(Replay.ReplayFidelityDiagnostics.Vector.From(fire.Origin),
+                Replay.ReplayFidelityDiagnostics.Vector.From(fire.Aim),
+                Replay.ReplayFidelityDiagnostics.Vector.From(fire.Direction), fire.Charge) : null);
     }
 
     internal static void TimelineIntentReceived(int slot, in IntentPacket intent)
@@ -111,7 +114,10 @@ internal static partial class NetCampaignEvidence
 
     internal static object CaptureShotTimeline() => new
     {
-        Schema = 1,
+        Schema = 2,
+        Provenance = new { Pose = "authored muzzle / pre-spread aim / final direction / charge; presentation evidence, never hit authority",
+            SourceAdmitted = "authority admission, not emitted or paid", SourceAuthored = "local authored input",
+            OwnerCamera = "not present; optional local owner capture is a separate presentation-only sidecar" },
         Enabled = TimelineEnabled,
         Clock = new { Domain = "ProcessStopwatch", Frequency = Stopwatch.Frequency },
         Rows = _shotTimeline?.Capture() ?? Array.Empty<ShotTimelineRow>(),

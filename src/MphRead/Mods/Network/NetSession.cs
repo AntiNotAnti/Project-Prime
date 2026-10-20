@@ -1412,7 +1412,13 @@ namespace MphRead.Mods.Network
         /// history behind it, is written once and applied to both.
         /// </summary>
         public static bool AcceptSlotIntent(int slot, IntentPacket intent)
+            => AcceptSlotIntent(slot,intent,out _);
+
+        // True still includes old-life recovery and duplicates for native
+        // callers. Only this additional result proves a new current carrier.
+        internal static bool AcceptSlotIntent(int slot, IntentPacket intent,out bool newCurrentCarrier)
         {
+            newCurrentCarrier = false;
             if (slot < 0 || slot >= RemoteIntents.Length || slot == LocalSlot)
             {
                 return false;
@@ -1443,6 +1449,7 @@ namespace MphRead.Mods.Network
             RemoteIntents[slot] = intent;
             RemoteIntentValid[slot] = true;
             RemoteIntentArrived[slot] = NetFrame;
+            newCurrentCarrier = true;
             IntentsReceived++;
             if (NetLog.Enabled && intent.Buttons.HasFlag(IntentButtons.Shoot))
                 NetShotDiagnostics.Trace("intent", ShotKey.For(slot, intent.AckFrame), (BeamType)intent.WeaponSelect,

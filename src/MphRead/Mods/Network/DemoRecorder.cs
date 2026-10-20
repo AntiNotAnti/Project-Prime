@@ -72,6 +72,7 @@ internal static class DemoRecorder
                 _origin = _lastFrame = world.Session.RecordingFrame;
                 _writer = new ReplayWritePump(CurrentPath!, metadata, _origin); _pending = false; _lastWriter = _writer;
                 _writer.EndFrame(0);
+                Replay.ReplayOwnerCapture.Begin();
             }
             if (_writer != null)
             {
@@ -97,16 +98,18 @@ internal static class DemoRecorder
             {
                 writer.Complete();
                 Finishing.Add((writer, CurrentPath!));
+                Replay.ReplayOwnerCapture.Finish(CurrentPath!, writer.Completion, () => writer.Error == null);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { Fail(ex); }
-        finally { _pending = false; _writer = null; CurrentPath = null; }
+        finally { Replay.ReplayOwnerCapture.Abort(); _pending = false; _writer = null; CurrentPath = null; }
     }
     private static void Fail(Exception error)
     {
         _lastError = "Recording interrupted; recover completed chunks from its .part file. " + error.Message;
         Console.WriteLine("[replay] " + LastError);
         Chat.ChatBox.System(_lastError);
+        Replay.ReplayOwnerCapture.Abort();
         _writer?.Abort(); _writer = null; _pending = false; CurrentPath = null;
     }
     internal static void RecordOwnSnapshot(ReadOnlySpan<byte> payload)
