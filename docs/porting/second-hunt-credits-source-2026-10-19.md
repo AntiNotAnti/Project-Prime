@@ -68,9 +68,46 @@ zero-required padding or a new pointer graph. The misleading existing
 
 ## Qualification
 
-The initial owned profile is AMHE1 English only. Other language/revision files
-are unqualified. Source-free fixtures and the opt-in metadata-only owned probe
-will qualify the frozen source before this slice is merged.
+Frozen source `9de1f683c75cdd1e3664d5655c907cc70d85d62f` includes main's
+concurrent Traversal merge; current protocol is 68. This reader changes no wire,
+replay, asset or save format. Two independent 5,935-file git archives remained
+byte-identical through 30 serial qualification commands. Windows SSH failed
+with authentication refusal, so the user-authorized Mac fallback was used.
+
+| Evidence | Result |
+| --- | --- |
+| Desktop / dedicated Release | Pass, zero warnings/errors |
+| Android Release/AOT | Pass, 119 assemblies, 25 existing XML-documentation warnings |
+| Signed APK | v2/v3 signatures pass; arm64-v8a and x86_64 include ProjectPrime AOT |
+| Credits generated fixtures | 239 pass; bounded malformed-pointer refusal allocates 912 bytes |
+| External import suites | Pass, including 2,126 source-companion, 952 material, 191 texture, 137 texture-bank and 128 material-bank checks |
+| Character contracts / owned body-ball probe | Pass; source RVZ hash unchanged |
+| Map editor / custom weapon contracts | 502 / 10,833 checks pass |
+| Historical replay suites and campaign map detail | Pass |
+| Movies, lifetime, endings, presentation, audio, journey, committed-save suites | Pass |
+
+The initial owned profile is AMHE1 English only; other revisions/languages
+remain unqualified. The opt-in metadata-only probe admits 9 pages, 74 items,
+213 states, 39 widgets, 48 strings, 25 existing paths and 18 actions including
+7 timers. Both input hashes and document identities match before/after:
+
+- MARM, 512,232 bytes: `1140e510b420a9da5f4547154f0c164511a697ccaf5a249c0652625806a9d059`
+- English text, 30,604 bytes: `742e6819be3e9f8b55be65e66cc8a4d9a8aefc0a93d2f1e4813bb663d262d114`
+
+The probe reads no model/animation payloads and writes no source content. Fresh
+isolated contexts were removed. Local ignored receipts are in
+`artifacts/sh-integration/credits-9de1f683c/{results,source-manifest,source-integrity-after-tests}.json`.
+
+| Frozen output | SHA256 |
+| --- | --- |
+| Desktop DLL | `19771899ee6d571134955c787c879d4b715470559c769ef32090f13f0ed6c0ad` |
+| Dedicated DLL | `9cee7d5ee326ad7249424ee8538493df1be77bfe1f264a4d9e3611acafe0eb8a` |
+| Signed APK | `bf96458f0f04e50a0227ba522b6cb489bfd1d51f07e8404aeeb8f7723db299b2` |
+
+The action-index regression and Windows-normalized path cases reproduced against
+predecessor DLLs before their fixes. The completed predecessor `8b9e31e19`
+qualification was superseded; it is not the final proof. No physical Android,
+controller, Windows runtime or credits playback acceptance is claimed.
 
 ## Disabled, remaining and rollback
 
