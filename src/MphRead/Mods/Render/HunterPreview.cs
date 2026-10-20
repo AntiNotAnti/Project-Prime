@@ -52,6 +52,26 @@ namespace MphRead.Mods.Render
             new Vector3(-0.35f, -0.30f, -0.89f), new Vector3(1f, 0.97f, 0.92f),
             new Vector3(0.60f, 0.20f, 0.77f), new Vector3(0.32f, 0.36f, 0.48f));
 
+        // The same entity also serves results screens over a live Scene.
+        // Keep their original light unless the launcher grants this frame's
+        // cinematic permission; never change shared room lighting or albedo.
+        private LightInfo CurrentLight
+        {
+            get
+            {
+                if (!Scene.LauncherPreview || !Scene.LauncherPreviewCinematicLighting)
+                    return _light;
+
+                Launcher.LauncherHunterTheme theme = Launcher.LauncherHunterTheme.For(_hunter);
+                return new LightInfo(
+                    new Vector3(-0.42f, -0.38f, -0.82f), new Vector3(0.98f, 0.99f, 1f),
+                    new Vector3(0.60f, 0.20f, 0.77f),
+                    new Vector3(0.28f + theme.Rim.R * 0.12f,
+                        0.34f + theme.Rim.G * 0.12f,
+                        0.44f + theme.Rim.B * 0.12f));
+            }
+        }
+
         /// <summary>Half a turn: these models are authored facing away.</summary>
         private static readonly Matrix4 _facing =
             Matrix4.CreateRotationY(MathHelper.DegreesToRadians(180));
@@ -402,7 +422,7 @@ namespace MphRead.Mods.Render
 
         protected override LightInfo GetLightInfo()
         {
-            return _light;
+            return CurrentLight;
         }
 
         /// <summary>
@@ -462,7 +482,7 @@ namespace MphRead.Mods.Render
                     try
                     {
                         _scene.AddRenderItem(material, weightedPolygonId, Alpha,
-                            emission, _light, Matrix4.Identity, WeightedPreviewTransform(weighted,presentationPose),
+                            emission, CurrentLight, Matrix4.Identity, WeightedPreviewTransform(weighted,presentationPose),
                             segment.ListId, segment.SourceJointPalette?.Count ?? weighted.Joints.Count,
                             segment.SourcePresentationPalette ?? weighted.MatrixPalette,
                             color, PaletteOverride, SelectionType.None,
@@ -509,7 +529,7 @@ namespace MphRead.Mods.Render
                         segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                 try
                 {
-                    _scene.AddRenderItem(material, polygonId, Alpha, emission, _light,
+                    _scene.AddRenderItem(material, polygonId, Alpha, emission, CurrentLight,
                         Matrix4.Identity, node.Animation, segment.ListId,
                         0, Array.Empty<float>(), color, PaletteOverride,
                         SelectionType.None, node.BillboardMode, _drawScale,
@@ -625,7 +645,7 @@ namespace MphRead.Mods.Render
                     && progress < _cosmetics.Death.HideBodyAt))
                 {
                     if (!TryDrawModernCharacter(pose))
-                        GetDrawItems(_model, 0, _light);
+                        GetDrawItems(_model, 0, CurrentLight);
                 }
             }
             finally

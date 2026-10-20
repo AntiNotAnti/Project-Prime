@@ -23,6 +23,12 @@ uniform float launch_amount;
 uniform vec4 hunter_weights_a;
 uniform vec4 hunter_weights_b;
 uniform vec4 slot_light[8];
+// Ready is stable authority; join/leave are short presentation-only envelopes.
+uniform vec4 slot_signal[8];
+uniform float detail_level;
+uniform float effect_strength;
+uniform float scene_blend;
+uniform float hero_reveal;
 uniform vec3 base_top;
 uniform vec3 base_mid;
 uniform vec3 base_bottom;
@@ -108,6 +114,35 @@ void main()
     float horizon = exp(-pow((uv.y - 0.52) * 4.8, 2.0));
     col += mix(activity_accent, hunter_halo, 0.35) * horizon * 0.087 * energy;
 
+    // Minimal keeps an anchored steel room and truthful pads, while skipping
+    // machinery, trigonometric motifs, shafts, haze and particle evaluation.
+    if (detail_level < 0.5)
+    {
+        float wall = box_mask(roomUv, vec2(0.24, 0.18), vec2(0.76, 0.72), 0.025);
+        col += vec3(0.024, 0.040, 0.052) * wall;
+        col *= 1.0 - smoothstep(0.62, 0.92, uv.y) * 0.32;
+        for (int slot = 7; slot >= 0; slot--)
+        {
+            if (lobby_mode < 0.5 && slot > 0) continue;
+            vec4 pad = lobby_mode > 0.5 ? lobby_pad_geometry[slot]
+                : (home_layout_mode > 0.5 ? home_pad_geometry[0] : vec4(0.5, 0.805, 0.235, 0.060));
+            float body = platform_fill_mask(uv, pad.xy, pad.zw);
+            float edge = platform_edge_mask(uv, pad.xy, pad.zw);
+            float occupied = lobby_mode > 0.5 ? slot_signal[slot].w : 1.0;
+            vec3 lightColor = lobby_mode > 0.5 ? slot_light[slot].rgb : hunter_rim;
+            col = mix(col, vec3(0.012, 0.025, 0.036), body * 0.88);
+            col += mix(vec3(0.045, 0.100, 0.135), lightColor, occupied)
+                * edge * (0.10 + occupied * 0.20);
+            if (lobby_mode > 0.5)
+                col += vec3(0.25, 0.88, 0.58) * edge * slot_signal[slot].x
+                    * smoothstep(0.0, 0.035, uv.y - pad.y) * 0.30;
+        }
+        col *= 1.0 - (1.0 - smoothstep(0.02, 0.37, uv.x)) * left_darken;
+        col *= 1.0 - smoothstep(0.78, 1.0, uv.x) * right_darken;
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+        return;
+    }
+
     // Distant central bay. It is intentionally broad and low-detail so Hunter
     // silhouettes remain the only detailed subject in the middle of the frame.
     float bay = box_mask(roomUv, vec2(0.225, 0.14), vec2(0.775, 0.72), 0.035);
@@ -149,9 +184,51 @@ void main()
     float gantryEdge = line(abs(roomUv.x - 0.5) - (0.244 + gantryTravel + (roomUv.y - 0.3) * 0.13), 0.0012);
     col += hunter_rim * gantryEdge * gantryGate * 0.16;
 
+    // Recessed maintenance rotors turn inside stationary steel housings.
+    // Their blades stay in the distant wall plane, clear of UI interaction.
+    if (detail_level >= 2.0)
+    {
+        for (int machine = 0; machine < 2; machine++)
+        {
+            float side = float(machine);
+            vec2 centre = vec2(0.315 + side * 0.370, 0.425 - side * 0.035);
+            vec2 local = (roomUv - centre) / vec2(0.052, 0.092);
+            float radius = length(local);
+            float housing = 1.0 - smoothstep(0.92, 1.05, radius);
+            col = mix(col, vec3(0.008, 0.019, 0.029), housing * 0.82);
+            float collar = line(radius - 0.90, 0.025);
+            float inner = line(radius - 0.68, 0.018);
+            float angle = atan(local.y, local.x) + time_value * (side < 0.5 ? 0.095 : -0.075);
+            float blades = pow(max(0.0, cos(angle * 6.0)), 5.0)
+                * smoothstep(0.15, 0.30, radius) * (1.0 - smoothstep(0.67, 0.78, radius));
+            vec3 metal = vec3(0.11, 0.17, 0.21);
+            col += metal * (collar * 0.46 + blades * 0.36) * structure_amount;
+            col += mix(activity_secondary, hunter_rim, 0.28) * inner * 0.17;
+            float hub = 1.0 - smoothstep(0.06, 0.14, radius);
+            col += vec3(0.22, 0.35, 0.41) * hub * 0.25;
+            // Cast casing shadow, not a model/world shadow-map substitute.
+            float bracket = box_mask(roomUv, centre + vec2(-0.060, 0.100),
+                centre + vec2(0.060, 0.112), 0.003);
+            col = mix(col, base_bottom * 0.70, bracket * 0.72);
+        }
+    }
+
+    // An overhead service carriage moves only along its authored gantry.
+    float railGate = box_mask(roomUv, vec2(0.29, 0.205), vec2(0.71, 0.248), 0.004);
+    col = mix(col, vec3(0.009, 0.022, 0.033), railGate * 0.72);
+    col += activity_accent * line(roomUv.y - 0.210, 0.001) * railGate * 0.18;
+    if (detail_level >= 3.0)
+    {
+        float carriageX = 0.5 + sin(time_value * 0.065) * 0.16;
+        float carriage = box_mask(roomUv, vec2(carriageX - 0.024, 0.214), vec2(carriageX + 0.024, 0.244), 0.002);
+        col = mix(col, vec3(0.060, 0.088, 0.106), carriage * 0.82);
+        col += activity_secondary * line(roomUv.y - 0.239, 0.0012) * carriage * 0.22;
+    }
+
     // Sequenced vertical power conduits: staggered cycles, restrained surges.
     float surge = pow(0.5 + 0.5 * sin(energy_time * 0.57), 8.0);
     for (int channel = 0; channel < 4; channel++) {
+        if (detail_level < 2.0 && channel >= 2) continue;
         float fi = float(channel);
         float cx = 0.285 + fi * 0.145;
         float travel = 0.5 + 0.5 * sin(energy_time * 0.7 - roomUv.y * 12.0 + fi * 1.6);
@@ -159,6 +236,7 @@ void main()
         col += mix(activity_secondary, hunter_rim, 0.7) * conduit * (0.035 + pow(travel, 5.0) * (0.26 + surge * 0.16));
     }
 
+    if (detail_level >= 2.0) {
     // Seven identities crossfade as weights; model textures are never tinted.
     float samus = hunter_weights_a.x;
     float kanden = hunter_weights_a.y;
@@ -178,6 +256,8 @@ void main()
         + sylux * electric * sideGate * 0.18 + samus * surge * 0.065
         + noxus * thermal * 0.030 + spire * thermal * smoothstep(0.4, 0.78, roomUv.y) * 0.13
         + weavel * tactical * sideGate * (0.18 + step(0.5, roomUv.x) * 0.15));
+
+    }
 
     // Vertical chamber ribs and recessed side panels.
     for (int i = 0; i < 7; i++)
@@ -224,7 +304,7 @@ void main()
     if (time_value > 0.0)
         pulse += sin(time_value * 0.55 + energy_time * 0.45) * 0.035;
     col += hunter_halo * hero * halo_strength * hero_light
-        * (0.215 + 0.090 * energy) * pulse;
+        * (0.120 + 0.060 * energy) * pulse;
 
     // Narrow rear rim column gives shoulders/head a clean edge without turning
     // the whole background into a glowing circle.
@@ -242,7 +322,7 @@ void main()
     float shaftB = max(0.0, 1.0 - abs((roomUv.x - 0.63) * 7.1 - (uv.y - 0.12) * 0.45));
     float shaftGate = (1.0 - smoothstep(0.20, 0.86, uv.y)) * smoothstep(0.04, 0.18, uv.y);
     col += activity_secondary * (shaftA + shaftB) * shaftGate
-        * 0.028 * beam_intensity * energy;
+        * 0.028 * beam_intensity * energy * effect_strength;
 
     // Floor plane and perspective grid.
     float floorMask = smoothstep(0.58, 0.78, uv.y);
@@ -259,14 +339,25 @@ void main()
     // Every lobby pad, real Hunter frame, and player plate reads the one
     // authored LauncherLobbyFormation table. There are no shader-local
     // guesses about the positions anymore.
+    // The service spine and rear deployment gantry reconfigure smoothly as
+    // navigation changes; actual roster/model ownership changes immediately.
+    float serviceSpine = line(abs(uv.x - 0.5) - (0.79 - uv.y) * 0.42, 0.0025);
+    float serviceGate = smoothstep(0.29, 0.43, uv.y)
+        * (1.0 - smoothstep(0.75, 0.83, uv.y));
+    col += activity_secondary * serviceSpine * serviceGate * scene_blend
+        * (0.12 + launch_amount * 0.20) * energy;
+    // Eight recessed occupancy lamps use current authority, without displaying
+    // a smoothed or fabricated player count or deployment countdown.
+    for (int lamp = 0; lamp < 8; lamp++)
+    {
+        float x = 0.395 + float(lamp) * 0.030;
+        float recess = box_mask(roomUv, vec2(x, 0.265), vec2(x + 0.015, 0.272), 0.001);
+        col = mix(col, vec3(0.009, 0.023, 0.031), recess * scene_blend);
+        col += mix(activity_secondary * 0.05, slot_light[lamp].rgb * 0.42, slot_signal[lamp].w)
+            * recess * scene_blend;
+    }
     if (lobby_mode > 0.5)
     {
-        // Team assembly changes the architecture, not just the roster UI.
-        // The V-shaped service spine communicates the multiplayer formation.
-        float serviceSpine = line(abs(uv.x - 0.5) - (0.79 - uv.y) * 0.42, 0.0035);
-        float serviceGate = smoothstep(0.29, 0.43, uv.y)
-            * (1.0 - smoothstep(0.75, 0.83, uv.y));
-        col += activity_secondary * serviceSpine * serviceGate * (0.13 + launch_amount * (0.18 + 0.10 * sin(uv.y * 40.0 - energy_time * 5.0))) * energy;
         for (int slot = 7; slot >= 0; slot--)
         {
             vec4 geometry = lobby_pad_geometry[slot];
@@ -297,7 +388,18 @@ void main()
             col += vec3(0.075, 0.118, 0.150) * raisedEdge * 0.18;
             vec3 activeLight = mix(activity_secondary * 0.28, slot_light[slot].rgb, occupied);
             float confirmation = slot_light[slot].a;
-            col += activeLight * lip * (0.034 + occupied * 0.20);
+            float ready = slot_signal[slot].x;
+            float joining = slot_signal[slot].y;
+            float leaving = slot_signal[slot].z;
+            col += activeLight * lip * (0.034 + occupied * (0.20 + ready * 0.10));
+            // A stable front-facing green marker remains after the confirmation
+            // pulse. It disappears on the exact frame authority withdraws ready.
+            col += vec3(0.25, 0.88, 0.58) * lip * ready
+                * smoothstep(0.05, 0.45, foot.y) * 0.40;
+            float wake = line(sqrt(q) - (1.0 - joining * 0.68), 0.022) * joining;
+            float fade = line(sqrt(q) - (0.45 + leaving * 0.48), 0.026) * leaving;
+            col += activeLight * wake * 0.30;
+            col += vec3(0.14, 0.29, 0.35) * fade * 0.22;
             col += vec3(0.075, 0.135, 0.170) * innerDish
                 * (0.014 + occupied * 0.017);
 
@@ -363,6 +465,11 @@ void main()
             * platformCore * floor_glow * 0.092;
         col += hunter_halo * platformEdge * floor_glow * 0.30;
         col += activity_secondary * platformEdge * floor_glow * 0.075;
+        // A short stabilization ring acknowledges a new Hunter without retaining
+        // the departed mesh, tinting textures or delaying selection/navigation.
+        float settling = 1.0 - hero_reveal;
+        float stabilize = line(sqrt(platformQ) - (0.25 + hero_reveal * 0.65), 0.024);
+        col += hunter_rim * stabilize * settling * 0.42;
         float ringA = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.20));
         float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
         float ringC = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.60));
@@ -376,6 +483,7 @@ void main()
             * serviceRings * floor_glow * 0.22;
     }
 
+    if (detail_level >= 2.0) {
     // Low chamber haze.
     float lowFog = smoothstep(0.52, 0.92, uv.y)
         * (1.0 - smoothstep(0.88, 1.0, uv.y));
@@ -400,7 +508,7 @@ void main()
     float shafts = exp(-pow((roomUv.x - 0.34 - drift + uv.y * 0.07) * 29.0, 2.0))
         + exp(-pow((roomUv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
     float reactorShaftGate = smoothstep(0.18, 0.30, uv.y) * (1.0 - smoothstep(0.64, 0.84, uv.y));
-    col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.34 * energy;
+    col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.18 * energy * effect_strength;
     // Slowly rising energy dust, with a soft halo around each bright core.
     vec2 dustUv = uv + vec2(sin(time_value * 0.09) * 0.008, time_value * 0.014);
     vec2 cells = floor(dustUv * vec2(64.0, 36.0));
@@ -414,6 +522,8 @@ void main()
         twinkle += 0.25 * sin(time_value * (0.7 + seed) + seed * 18.0);
     col += mix(activity_secondary, hunter_rim, 0.45)
         * mote * sparkle * twinkle * particle_amount * 1.15;
+
+    }
 
     // Adventure can warm the distance without recoloring the Hunter itself.
     col = mix(col, col * vec3(1.10, 0.97, 0.84), warmth * 0.30);

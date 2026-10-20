@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherPresentation.cs" Link="LauncherPresentation.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherEnvironmentBudget.cs" Link="LauncherEnvironmentBudget.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherMenuVisuals.cs" Link="LauncherMenuVisuals.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherLobbyFormation.cs" Link="LauncherLobbyFormation.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherBackdrop.cs" Link="LauncherBackdrop.cs" />
+  </ItemGroup>
+</Project>
