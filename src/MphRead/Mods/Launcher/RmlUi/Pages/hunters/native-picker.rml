@@ -7,8 +7,10 @@
 <body template="prime-shell">
 <div id="native_hunter_panel" class="hunter-panel native-hunter-panel">
     <div class="eyebrow">HUNTER SELECTION // NEXT DEPLOYMENT</div>
-    <h1 id="native_hunter_name">SELECT YOUR HUNTER</h1>
-    <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
+    <div class="hunter-heading">
+        <h1 id="native_hunter_name">SELECT YOUR HUNTER</h1>
+        <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
+    </div>
     <div class="hunter-grid">
         <div id="native_hunter_picker" class="hunter-picker">
             <div id="native_hunter_options" class="hunter-options">
@@ -105,12 +107,12 @@
                 <div id="hunter_cosmetics_state" class="hint" role="status">EQUIPPED LOADOUT</div>
                 <p id="hunter_cosmetics_visibility" class="hint" role="group"/>
                 <button id="hunter_full" data-action="hunter:open">LICENSE</button>
-                <button id="hunter_cancel" data-action="hunter:cancel">BACK</button>
                 <button id="hunter_loadout_default" data-action="hunter:loadout-default">RESET LOADOUT TO DEFAULT</button>
             </div>
             <div class="hunter-actions hunter-equip-actions action_bar">
                 <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP LOADOUT</button>
                 <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD</button>
+                <button id="hunter_cancel" data-action="hunter:cancel">BACK</button>
             </div>
         </div>
         <div id="native_hunter_preview_panel" class="hunter-preview">

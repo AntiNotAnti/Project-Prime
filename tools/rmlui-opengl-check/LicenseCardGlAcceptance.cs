@@ -299,10 +299,12 @@ internal static class LicenseCardGlAcceptance
                 && host.TryGetElementBounds(document, "native_license_card", out float cx, out float cy, out float cw, out float ch)
                 && cx >= lx && cy >= ly && cx + cw <= lx + lw + 1 && cy + ch <= ly + lh + 1,
                 "entire original card remains within the compact responsive overlay");
-            float density = (float)typeof(RmlUiHost).GetField("_density",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(host)!;
-            if (height / density > 755)
-                Check(lh <= 681 * density, "tall viewport uses the compact 680dp license height");
+            // The responsive spread uses the available viewport. A former
+            // 680dp cap is no longer its contract; the sheet and its persistent
+            // commands must remain fully visible independently of spread scroll.
+            Bounds(document, "native_license");
+            Bounds(document, "native_license_refresh");
+            Bounds(document, "native_license_account");
         }
         void VerifyUnverifiedCard()
         {

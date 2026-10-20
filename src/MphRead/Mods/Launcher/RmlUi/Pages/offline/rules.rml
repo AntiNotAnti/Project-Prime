@@ -5,8 +5,9 @@
     <link type="text/rcss" href="offline.rcss" />
 </head>
 <body template="prime-dialog">
-    <div class="offline_dialog">
+    <div class="offline_dialog offline_dialog_config">
         <h1>MATCH RULES</h1>
+        <div id="offline_rules_body" class="offline_dialog_body">
         <p>Apply saves the rules for future local matches. Cancel discards this draft.</p>
         <div class="offline_rule_columns">
             <div class="offline_panel">
@@ -38,6 +39,7 @@
             </div>
         </div>
         <div id="offline_rules_error" class="offline_error" data-prime-text="{{offline_rules_error}}" />
+        </div>
         <div class="offline_actions"><button id="offline_rules_cancel" data-action="offline:cancel-rules" class="offline_action">CANCEL</button><button id="offline_rules_apply" data-action="offline:apply-rules" class="offline_action primary" data-prime-disabled="offline_rules_busy">APPLY RULES</button></div>
     </div>
 </body>

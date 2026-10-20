@@ -120,6 +120,12 @@
 body.touch-targets .lobby_roster_row { min-height:52dp; }
 body.touch-targets #lobby_chat_panel { height:148dp; }
 body.touch-targets .lobby_chat_compose, body.touch-targets #lobby_chat_input, body.touch-targets #lobby_chat_send { height:48dp; }
+/* Fractional UI scales round roster text upward. Budget for all eight rows at
+   standard 720dp height by giving history less space, preserving compose size. */
+@media (min-height:601dp) and (max-height:760dp) {
+    #lobby_chat_panel { height:112dp; }
+    body.touch-targets #lobby_chat_panel { height:148dp; }
+}
 /* On very short surfaces the roster header and chat can exceed the available
    column height. Scroll the whole column rather than shrinking rows to zero. */
 @media (max-height:440dp) {
