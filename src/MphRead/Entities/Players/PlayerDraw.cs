@@ -644,7 +644,7 @@ namespace MphRead.Entities
         private void UpdateHunterBipedPose(Model model, Node spineNode, Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount, bool visualGait)
         {
-            AnimationInfo lowerInfo = visualGait ? ModCrouchLowerPose(model, out lower) : _bipedModel1.AnimInfo;
+            AnimationInfo lowerInfo = _bipedModel1.AnimInfo;
             AnimationInfo upperInfo = _bipedModel2.AnimInfo;
             // Procedural legs must not relax or retime the native weapon arm.
             // Walking, shot, charge and ability upper curves keep their aim pose.
@@ -652,8 +652,13 @@ namespace MphRead.Entities
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
             try
             {
-                model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One,
-                    lowerInfo, lower);
+                if (visualGait)
+                {
+                    AnimationInfo neutral = ModCrouchLowerPose(model, out var neutralSample);
+                    model.AnimateNodesBlended(0, lowerInfo, lower, neutral, neutralSample,
+                        Math.Max(ModCrouchWalkAmount, ModSlideVisualAmount));
+                }
+                else model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lowerInfo, lower);
             }
             finally
             {

@@ -93,10 +93,10 @@ public partial class PlayerEntity
         }
         var left = Leg(model, skeleton.Left, drop, forward, FootTarget(skeleton.Left, skeleton.LeftFoot),
             shift, walkingGait, walkAmount > 0 ? walk.Normal : null,
-            Matrix.Vec3MultMtx4(skeleton.LeftFoot, world));
+            Matrix.Vec3MultMtx4(skeleton.LeftFoot, world), Math.Max(walkAmount, slide));
         var right = Leg(model, skeleton.Right, drop, forward, FootTarget(skeleton.Right, skeleton.RightFoot),
             shift, walkingGait, walkAmount > 0 ? walk.Normal : null,
-            Matrix.Vec3MultMtx4(skeleton.RightFoot, world));
+            Matrix.Vec3MultMtx4(skeleton.RightFoot, world), Math.Max(walkAmount, slide));
         for (int index = 0; index < model.Nodes.Count; index++)
         {
             Node node = model.Nodes[index];
@@ -127,7 +127,7 @@ public partial class PlayerEntity
 
     private static (Matrix4 Hip, Matrix4 Knee, Matrix4 Foot) Leg(Model model, int[] bones, float drop,
         Vector3 forward, Vector3 targetAnkle, Vector3 shift = default, bool constrain = false,
-        Vector3? floorNormal = null, Vector3 floorPoint = default)
+        Vector3? floorNormal = null, Vector3 floorPoint = default, float constraintAmount = 1)
     {
         Vector3 hip = model.Nodes[bones[0]].Animation.Row3.Xyz;
         Vector3 knee = model.Nodes[bones[1]].Animation.Row3.Xyz;
@@ -144,21 +144,42 @@ public partial class PlayerEntity
         Vector3 planar = (targetAnkle - lowered).WithY(0);
         float horizontalReach = MathF.Sqrt(MathF.Max(0, maximum * maximum - vertical * vertical));
         if (constrain && planar.LengthSquared > horizontalReach * horizontalReach && planar.LengthSquared > 1e-12f)
-            targetAnkle = new Vector3(lowered.X, targetAnkle.Y, lowered.Z)
-                + planar.Normalized() * horizontalReach;
+            targetAnkle = Vector3.Lerp(targetAnkle, new Vector3(lowered.X, targetAnkle.Y, lowered.Z)
+                + planar.Normalized() * horizontalReach, constraintAmount);
         // Retain some of the animated leg's bend plane for natural asymmetric
         // stances; near-straight legs keep the stable body-forward fallback.
         Vector3 axis = ankle - hip;
-        if (!floorNormal.HasValue && axis.LengthSquared > 1e-8f)
+        if (axis.LengthSquared > 1e-8f)
         {
             axis.Normalize();
             Vector3 animatedPole = knee - hip - axis * Vector3.Dot(knee - hip, axis);
             if (animatedPole.LengthSquared > 1e-6f && Vector3.Dot(animatedPole, forward) > 0)
                 forward = (forward * .8f + animatedPole.Normalized() * .2f).Normalized();
         }
-        Vector3 target = floorNormal is { } normal
-            ? ModCrouchKneeAboveFloor(lowered, targetAnkle, thigh, shin, forward, normal, floorPoint)
-            : ModCrouchKnee(lowered, targetAnkle, thigh, shin, forward);
+        Vector3 target = ModCrouchKnee(lowered, targetAnkle, thigh, shin, forward);
+        if (floorNormal is { } normal)
+        {
+            Vector3 clear = ModCrouchKneeAboveFloor(lowered, targetAnkle, thigh, shin, forward, normal, floorPoint);
+            if (constraintAmount >= 1) target = clear;
+            else
+            {
+                // Turn around the fixed hip/ankle circle instead of linearly
+                // pulling a knee through the leg. Floor correction fades with
+                // the same envelope as the neutral lower pose and foot target.
+                Vector3 line = targetAnkle - lowered;
+                float distance = line.Length;
+                if (distance > 1e-6f)
+                {
+                    line /= distance;
+                    float along = Math.Clamp((thigh * thigh - shin * shin + distance * distance) / (2 * distance), -thigh, thigh);
+                    Vector3 center = lowered + line * along;
+                    Vector3 pole = target - center, desired = clear - center;
+                    float angle = MathF.Atan2(Vector3.Dot(line, Vector3.Cross(pole, desired)), Vector3.Dot(pole, desired));
+                    float turn = angle * constraintAmount;
+                    target = center + pole * MathF.Cos(turn) + Vector3.Cross(line, pole) * MathF.Sin(turn);
+                }
+            }
+        }
         return (MoveBone(hip, lowered, knee - hip, target - lowered),
             MoveBone(knee, target, ankle - knee, targetAnkle - target),
             Matrix4.CreateTranslation(targetAnkle - ankle));

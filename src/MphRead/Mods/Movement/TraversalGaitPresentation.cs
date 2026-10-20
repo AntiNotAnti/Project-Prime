@@ -9,7 +9,7 @@ namespace MphRead.Mods.Movement;
 internal struct TraversalGaitPresentation
 {
     internal const float WalkingBobScale = .3f;
-    private bool _ready;
+    private bool _ready, _inferredGlide;
     private ulong _frame;
     private Vector3 _position;
     private float _previousBob, _bob, _previousGunBob, _gunBob;
@@ -34,8 +34,14 @@ internal struct TraversalGaitPresentation
         // caller. Held or batched snapshot positions must not pulse this level.
         float speed = acceptedSpeed ?? distance * FrameTiming.SimulationHz;
         bool validSpeed = float.IsFinite(speed) && speed >= 0;
-        Gliding = sliding || continuous && walking && validSpeed
-            && speed > TraversalMovementProfileV4.CrouchSpeed * 1.05f;
+        // Accepted remote speed can straddle the entry threshold in adjacent
+        // snapshots. Retire an inferred glide at walking speed, so that narrow
+        // band cannot restart both cosmetic envelopes every other capture.
+        float threshold = TraversalMovementProfileV4.CrouchSpeed
+            * (acceptedSpeed.HasValue && _inferredGlide ? 1 : 1.05f);
+        bool inferred = continuous && walking && validSpeed && speed > threshold;
+        _inferredGlide = acceptedSpeed.HasValue && inferred;
+        Gliding = sliding || inferred;
         _ready = true; _frame = frame; _position = position;
         _bob = bob; _gunBob = gunBob;
     }

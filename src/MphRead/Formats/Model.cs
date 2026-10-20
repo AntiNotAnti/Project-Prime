@@ -625,6 +625,76 @@ namespace MphRead
             }
         }
 
+        // Cosmetic cross-clip blend. Interpolate local rotations before hierarchy
+        // composition, never matrix elements: that would shear feet and shorten
+        // limbs. Native/canonical sampling and exact endpoints use AnimateNodes.
+        internal void AnimateNodesBlended(int index, AnimationInfo from,
+            Mods.Render.AnimationSamples.Sample? fromSample, AnimationInfo to,
+            Mods.Render.AnimationSamples.Sample? toSample, float amount)
+        {
+            if (amount <= 0)
+            { AnimateNodes(index, false, Matrix4.Identity, Vector3.One, from, fromSample); return; }
+            if (amount >= 1)
+            { AnimateNodes(index, false, Matrix4.Identity, Vector3.One, to, toSample); return; }
+            AnimateNodesBlended(index, from, fromSample, to, toSample, amount, Matrix4.Identity, Matrix4.Identity);
+        }
+
+        private void AnimateNodesBlended(int index, AnimationInfo from,
+            Mods.Render.AnimationSamples.Sample? fromSample, AnimationInfo to,
+            Mods.Render.AnimationSamples.Sample? toSample, float amount, Matrix4 fromParent, Matrix4 toParent)
+        {
+            for (int i = index; i != -1;)
+            {
+                Node node = Nodes[i];
+                Matrix4 first = Matrix4.Identity, second = Matrix4.Identity;
+                bool fromCurve = false, toCurve = false;
+                if (from.Node.Group is { } firstGroup && firstGroup.Animations.TryGetValue(node.Name, out var firstCurve))
+                { first = AnimateNode(firstGroup, firstCurve, Vector3.One, from.NodeFrame, fromSample); fromCurve = true; }
+                if (to.Node.Group is { } secondGroup && secondGroup.Animations.TryGetValue(node.Name, out var secondCurve))
+                { second = AnimateNode(secondGroup, secondCurve, Vector3.One, to.NodeFrame, toSample); toCurve = true; }
+                bool inherit = node.ParentIndex != -1 && !node.AnimIgnoreParent;
+                Matrix4 firstWorld = fromCurve && inherit ? first * fromParent : first;
+                Matrix4 secondWorld = toCurve && inherit ? second * toParent : second;
+                Matrix4 transform;
+                if (fromCurve != toCurve)
+                    // Missing native curves do not inherit a parent. Retain each
+                    // endpoint's own hierarchy instead of popping at weight 0/1.
+                    transform = BlendAffineNode(firstWorld, secondWorld, amount);
+                else
+                {
+                    transform = BlendLocalNode(first, second, amount);
+                    if (fromCurve && inherit) transform *= Nodes[node.ParentIndex].Animation;
+                }
+                node.Animation = transform;
+                if (node.ChildIndex != -1 && !node.AnimIgnoreChild)
+                    AnimateNodesBlended(node.ChildIndex, from, fromSample, to, toSample, amount, firstWorld, secondWorld);
+                // Match the native lower-channel post-transform order exactly.
+                if (node.AfterTransform.HasValue) node.Animation = node.AfterTransform.Value * node.Animation;
+                else if (node.BeforeTransform.HasValue) node.Animation *= node.BeforeTransform.Value;
+                i = node.NextIndex;
+            }
+        }
+
+        internal static Matrix4 BlendLocalNode(Matrix4 from, Matrix4 to, float amount)
+        {
+            if (amount <= 0) return from;
+            if (amount >= 1) return to;
+            Vector3 firstScale = from.ExtractScale(), secondScale = to.ExtractScale();
+            // Native lower curves have positive scale. A collapsed/reflected
+            // optional rig cannot be decomposed into that representation safely.
+            if (firstScale.X <= 1e-8f || firstScale.Y <= 1e-8f || firstScale.Z <= 1e-8f
+                || secondScale.X <= 1e-8f || secondScale.Y <= 1e-8f || secondScale.Z <= 1e-8f
+                || from.Determinant <= 0 || to.Determinant <= 0)
+                return BlendAffineNode(from, to, amount);
+            return Matrix4.CreateScale(Vector3.Lerp(firstScale, secondScale, amount))
+                * Matrix4.CreateFromQuaternion(Quaternion.Slerp(from.ExtractRotation(), to.ExtractRotation(), amount).Normalized())
+                * Matrix4.CreateTranslation(Vector3.Lerp(from.Row3.Xyz, to.Row3.Xyz, amount));
+        }
+
+        private static Matrix4 BlendAffineNode(Matrix4 from, Matrix4 to, float amount)
+            => new(Vector4.Lerp(from.Row0, to.Row0, amount), Vector4.Lerp(from.Row1, to.Row1, amount),
+                Vector4.Lerp(from.Row2, to.Row2, amount), Vector4.Lerp(from.Row3, to.Row3, amount));
+
         // todo: merge this into one that works for everything
         public void AnimateNodes2(int index, bool useNodeTransform, Matrix4 parentTansform, Vector3 scale, AnimationInfo info)
             => AnimateNodes2(index, useNodeTransform, parentTansform, scale, info, null);
