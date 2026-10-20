@@ -78,6 +78,14 @@ try
   Reject(()=>VerifyFile(path,change),"real source pack part/LOD/catalog/path/receipt boundary");
  Reject(()=>VerifyFile(path,null,j=>j["approvedForGameplay"]=true),"actual provenance cannot invent gameplay acceptance");
  Reject(()=>VerifyFile(path,null,j=>j["sourceGlbSha256"]=new string('a',64)),"actual provenance detects GLB hash mismatch");
+ foreach(var change in new Action<JsonObject>[] {
+  j=>j["models"]![0]!["sourceAnimationArchive"]="darksamus-echoes.animations.bin",
+  j=>j["models"]![0]!["sourceAnimationArchiveSha256"]=CharacterSourceAnimationArchive.QualifiedArchiveSha256,
+  j=>{j["models"]![0]!["sourceAnimationArchive"]="other.animations.bin";j["models"]![0]!["sourceAnimationArchiveSha256"]=new string('a',64);},
+  j=>{j["models"]![0]!["sourceAnimationArchive"]="darksamus-echoes.animations.bin";j["models"]![0]!["sourceAnimationArchiveSha256"]=CharacterSourceAnimationArchive.QualifiedArchiveSha256;j["models"]![0]!["poseSource"]="native";},
+  j=>{j["models"]![0]!["sourceAnimationArchive"]="darksamus-echoes.animations.bin";j["models"]![0]!["sourceAnimationArchiveSha256"]=CharacterSourceAnimationArchive.QualifiedArchiveSha256;j["models"]![0]!["sourceGraphProof"]="legacy.json";}})
+  Reject(()=>VerifyFile(path,change),"full animation archive pair/profile/exclusive source-rig boundary");
+ Check((lease.CacheKey with{SourceAnimationArchiveSha256=new string('a',64)})!=lease.CacheKey,"archive content identity participates in source cache key");
  foreach(float phase in new[]{0f,.125f,.5f,1f,2f,5f})
  {
   var locals=fixture.Locals.Select((m,i)=>phase==0||i==0?m:Matrix4x4.CreateRotationZ(MathF.Sin(i*.17f+phase)*.1f)*m).ToArray();
