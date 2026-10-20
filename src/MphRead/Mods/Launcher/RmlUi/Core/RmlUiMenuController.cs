@@ -1667,7 +1667,9 @@ public sealed class RmlUiMenuController : IDisposable
         _studioReplayPath = null;
         _activeMenuJob = null;
         _setupResume = SetupResume.None;
-        _joining = false;
+        // Preserve the existing pending lifetime of ordinary joins. Created
+        // allocations now have exact client ownership and can retire immediately.
+        if (_randomSearch || _creating) _joining = false;
         _creating = false;
         _randomSearch = false;
         _services.CancelRandomJoin();

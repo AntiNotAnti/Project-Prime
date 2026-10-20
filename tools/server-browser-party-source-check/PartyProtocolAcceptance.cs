@@ -15,7 +15,20 @@ internal static class PartyProtocolAcceptance
             Check(NetConfig.ProtocolVersion==64,"actual DLL uses protocol 64");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
-            Check(Enum.GetNames<PacketType>().Length==84,"only six approved registry names added");
+            var approved = new (string Name, byte Id)[]
+            {
+                ("PartyReservationRequest",80), ("PartyReservationState",81), ("PartyReservationAction",82),
+                ("CustomWeaponManifest",83), ("CustomWeaponReady",84), ("CustomWeaponReadyConfirmed",85),
+                ("CustomWeaponAction",86), ("CustomWeaponReceipt",87), ("CustomWeaponContact",88),
+                ("CustomWeaponResultAck",89), ("CustomWeaponState",90)
+            };
+            foreach (var added in approved)
+                Check(Enum.TryParse<PacketType>(added.Name,out var type) && (byte)type == added.Id,
+                    "explicitly approved packet identity " + added.Name);
+            var expected = baseline.RootElement.GetProperty("packet_types").EnumerateObject().Select(p => p.Name)
+                .Concat(approved.Select(p => p.Name)).ToHashSet(StringComparer.Ordinal);
+            Check(Enum.GetNames<PacketType>().ToHashSet(StringComparer.Ordinal).SetEquals(expected),
+                "only explicitly approved registry names added");
             Check((byte)PacketType.PartyReservationRequest==80&&(byte)PacketType.PartyReservationState==81&&(byte)PacketType.PartyReservationAction==82,"actual DLL exact new IDs");
             Check((byte)PacketType.CustomWeaponManifest==83&&(byte)PacketType.CustomWeaponReady==84&&(byte)PacketType.CustomWeaponReadyConfirmed==85,"upstream custom readiness IDs retained");
         }
@@ -37,8 +50,10 @@ internal static class PartyProtocolAcceptance
             var priorBytes=Convert.FromHexString(priorHex);
             Check(!QueueHelloPacket.TryRead(priorBytes,out _),"prior Quake III QueueHello refused by exact live protocol");
         }
-        var hello=new QueueHelloPacket(62,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
-        Check(Convert.ToHexString(h)=="393E040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"protocol62 QueueHello changes only the reviewed version byte");
+        var protocol62Hello=Convert.FromHexString("393E040302010807060504030201");
+        Check(!QueueHelloPacket.TryRead(protocol62Hello,out _),"literal protocol62 QueueHello refused by current live admission");
+        var hello=new QueueHelloPacket(NetConfig.ProtocolVersion,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
+        Check(Convert.ToHexString(h)=="39"+NetConfig.ProtocolVersion.ToString("X2")+"040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"current QueueHello preserves historical payload bytes and changes only its version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);
         Check(Convert.ToHexString(j)=="3B0807060504030201","legacy QueueJoin literal bytes unchanged");
         var request=new PartyReservationRequestPacket(1,PartyReservationPurpose.MemberAttach,1,uint.MaxValue,2,

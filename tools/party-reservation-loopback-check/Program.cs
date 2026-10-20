@@ -32,6 +32,10 @@ internal static class Program
             Check(Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA") is {Length:>0},"private user data is explicit");
             Check(Environment.GetEnvironmentVariable("PROJECT_PRIME_CAREER_SERVER_KEY")==ClosedBackend.Reporter,
                 "only explicit noncredential fixture reporter is enabled");
+            Check(Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_URL")=="https://closed.invalid/",
+                "only explicit closed backend origin is authorized");
+            Check(Environment.GetEnvironmentVariable("PROJECT_PRIME_SUPABASE_KEY")=="sb_publishable_fixture_only",
+                "only explicit noncredential fixture API key is enabled");
             foreach(int cohort in new[]{2,4,8})for(int round=0;round<6;++round)Success(cohort,round);
             HeldActivationCancel(); CancelBeforeClaim(); ClaimCancellation(); RetiredClaim(); InvalidWire(); BootstrapBudget(); Fifo();
             Console.WriteLine($"PASS {_checks} actual-DLL loopback control integration assertions;2/4/8 local participants x6 requests; real UDP/transport/Peer/Welcome/TakeAdmission, closed HTTP only; no live backend/assets/physical devices");
@@ -242,10 +246,10 @@ internal static class Program
         internal PartyReservationStatePacket? Latest=>States.Count==0?null:States[^1];
         private bool disposed;
         internal WirePeer(IPEndPoint endpoint,uint id,bool hello=true)
-        {Endpoint=endpoint;Id=id;Transport.AnswerPingsImmediately();if(hello){var b=new byte[6];b[0]=57;b[1]=255;BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(2),id);Send(PacketType.Hello,b);}}
+        {Endpoint=endpoint;Id=id;Transport.AnswerPingsImmediately();if(hello){var b=new byte[6];b[0]=NetConfig.ProtocolVersion;b[1]=255;BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(2),id);Send(PacketType.Hello,b);}}
         internal void Send(PacketType type,byte[] bytes)=>Transport.Send(Endpoint,type,bytes);
         internal void Request(PartyReservationRequestPacket request){var bytes=new byte[request.EncodedSize];request.Write(bytes);Send(PacketType.PartyReservationRequest,bytes);}
-        internal void QueueHello(ulong nonce){var p=new QueueHelloPacket(57,Id,nonce);var bytes=new byte[p.EncodedSize];p.Write(bytes);Send(PacketType.QueueHello,bytes);}
+        internal void QueueHello(ulong nonce){var p=new QueueHelloPacket(NetConfig.ProtocolVersion,Id,nonce);var bytes=new byte[p.EncodedSize];p.Write(bytes);Send(PacketType.QueueHello,bytes);}
         internal void Drain(){if(disposed)return;foreach(var packet in Transport.Drain()){if(packet.Type==PacketType.Welcome)Slot=packet.Payload[0];if(packet.Type==PacketType.PartyReservationState&&PartyReservationStatePacket.TryRead(packet.Payload,out var s))States.Add(s);}}
         public void Dispose(){if(disposed)return;disposed=true;Send(PacketType.Bye,Array.Empty<byte>());Transport.Dispose();}
     }
