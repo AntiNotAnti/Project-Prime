@@ -69,6 +69,59 @@ namespace MphRead.Mods.Render
         }
 
         /// <summary>
+        /// Match a rendered shoulder reticle to the local view's late-latched
+        /// rotation and previous/current translation. A cached 60Hz muzzle-to-
+        /// aim line is correct for the authoritative shot, but projecting its
+        /// fixed *world* endpoint from a camera that has consumed newer
+        /// pointer input makes the HUD reticle race to the screen edge and
+        /// spring back on the next 60Hz update. That is perceived as doubling
+        /// or ghosting during high-speed turns.
+        ///
+        /// Convert the canonical ray into simulation-camera space and then
+        /// back into this picture's camera basis. Preserve its collision
+        /// distance and muzzle parallax, but NEVER use this presentation ray
+        /// for firing, aiming authority, targets, or replay recording.
+        ///
+        /// The renderer already computes inverted draw rotation for light,
+        /// billboards and culling. Accept it directly to avoid a per-HUD
+        /// inverse or quaternion operation.
+        /// </summary>
+        internal static bool TryProjectDrawRay(Vector3 muzzle, Vector3 direction,
+            float collisionDistance, Vector3 simulationEye, Vector3 drawnNativeEye,
+            Matrix4 simulationView, Matrix4 drawInverseRotation, Matrix4 drawView,
+            Matrix4 projection, out Vector2 reticle)
+        {
+            reticle = new Vector2(.5f, .5f);
+            if (!Finite(muzzle) || !Finite(direction) || !Finite(simulationEye)
+                || !Finite(drawnNativeEye) || !float.IsFinite(collisionDistance)
+                || collisionDistance < 0f || collisionDistance > TraceRange + .001f)
+                return false;
+
+            Vector3 local = Matrix.Vec3MultMtx3(direction, simulationView);
+            Vector3 rotated = Matrix.Vec3MultMtx3(local, drawInverseRotation);
+            float lengthSquared = rotated.LengthSquared;
+            if (!Finite(rotated) || !float.IsFinite(lengthSquared)
+                || lengthSquared <= .000001f)
+                return false;
+            rotated /= MathF.Sqrt(lengthSquared);
+
+            // The native eye already blends body translation at high refresh.
+            // Slide the muzzle by the exact same amount rather than letting
+            // the 60Hz cannon origin oscillate against a smoothly moving view.
+            Vector3 projectedMuzzle = muzzle + drawnNativeEye - simulationEye;
+            Vector3 contact = projectedMuzzle + rotated * collisionDistance;
+            if (TryProject(contact, drawView, projection, out reticle))
+                return true;
+
+            // Contact can be behind the camera when a Hunter fires into an
+            // immediately adjacent wall. A ray farther in the *same visual
+            // direction* gives the HUD a stable indication; do not switch to
+            // the native reticle timeline halfway through the frame.
+            Vector3 far = projectedMuzzle + rotated * TraceRange;
+            return TryProject(far, drawView, projection, out reticle);
+        }
+
+        /// <summary>
         /// The original 15% ease-per-frame is display-rate dependent (at 240Hz
         /// it relaxes four times as fast). This reproduces 0.15 at 60Hz while
         /// granting the same total ease after one simulated 60Hz interval.
