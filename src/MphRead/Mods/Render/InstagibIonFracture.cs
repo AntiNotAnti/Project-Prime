@@ -123,6 +123,97 @@ namespace MphRead.Mods.Render
             return true;
         }
 
+        /// <summary>
+        /// Pure, reproducible motion envelopes for each non-default signature.
+        /// A non-zero transverse shape is visible for most of the rail's
+        /// lifetime, unlike one brief near-impact particle burst.
+        /// The envelope goes to zero at both ends, preserving muzzle/impact
+        /// positions and never changing the weapon's actual collision ray.
+        /// </summary>
+        internal static Vector3 SignatureOffset(BeamFxStyle style, float progress,
+            float normalizedAge, int strand, Vector3 right, Vector3 up)
+        {
+            float u = Math.Clamp(progress, 0f, 1f);
+            float t = Math.Clamp(normalizedAge, 0f, 1f);
+            float envelope = MathF.Sin(u * MathF.PI);
+            float sign = strand == 0 ? 1f : -1f;
+            float tau = MathF.Tau;
+            float travel = u * tau;
+            switch (style)
+            {
+                case BeamFxStyle.VoidRift:
+                    // Two void seams continuously fold inward and out.
+                    float tear = 0.15f + 0.11f * MathF.Cos(u * tau * 3.4f - t * 13f);
+                    return (right * (sign * tear)
+                        + up * (sign * 0.065f * MathF.Sin(travel * 5f + t * 9f)))
+                        * envelope;
+                case BeamFxStyle.QuantumSplit:
+                    // Diverging/converging ghost trajectories, magenta/cyan.
+                    float split = 0.13f + 0.28f * MathF.Sin(u * MathF.PI)
+                        * (0.70f + 0.30f * MathF.Sin(t * 15f + travel));
+                    return (right * (sign * split)
+                        + up * (0.095f * sign * MathF.Sin(travel * 2.1f + t * 17f)))
+                        * envelope;
+                case BeamFxStyle.AlimbicResonance:
+                    // A faceted six-sided energy cage, not another sine helix.
+                    float cell = MathF.Floor(u * 9f + t * 3.7f);
+                    float hex = (cell % 6f) * tau / 6f;
+                    return (right * (sign * 0.22f * MathF.Cos(hex))
+                        + up * (sign * 0.22f * MathF.Sin(hex)))
+                        * envelope;
+                case BeamFxStyle.OmegaPulse:
+                    // Three moving compression packets bulge down the lance.
+                    float wave = MathF.Max(0f, MathF.Sin(travel * 3f - t * 17f));
+                    float compression = 0.095f + 0.30f * wave * wave * wave * wave;
+                    return (right * (sign * compression)
+                        + up * (sign * 0.075f * MathF.Sin(travel * 3f - t * 17f)))
+                        * envelope;
+                case BeamFxStyle.ArcDisruptor:
+                    // Chopped zig-zag, with opposite-polarity discharges.
+                    float charge = MathF.Sin(travel * 8.3f - t * 28f);
+                    float crack = charge >= 0f ? 1f : -1f;
+                    return (right * (sign * 0.19f * crack)
+                        + up * (0.11f * MathF.Sin(travel * 11f - t * 20f + strand)))
+                        * envelope;
+                case BeamFxStyle.SolarSpear:
+                    // Two incandescent flame tongues twist independently.
+                    float flare = travel * 4.4f - t * 15f + strand * MathF.PI;
+                    float billow = 0.18f + 0.055f * MathF.Sin(travel * 13f + t * 23f);
+                    return (right * MathF.Cos(flare) + up * MathF.Sin(flare))
+                        * billow * envelope;
+                case BeamFxStyle.CryoShatter:
+                    // Polygonal crystalline facets advancing in hard steps.
+                    float facet = u * 7.7f + t * 4.1f + strand * 0.5f;
+                    float triangle = 1f - 4f * MathF.Abs((facet - MathF.Floor(facet)) - 0.5f);
+                    return (right * (sign * 0.21f * triangle)
+                        + up * (sign * 0.10f * (1f - MathF.Abs(triangle))))
+                        * envelope;
+                case BeamFxStyle.PhantomTrace:
+                    // Two slowly drifting holographic afterimages.
+                    float drift = 0.16f + 0.19f * t
+                        + 0.035f * MathF.Sin(travel * 3f - t * 9f);
+                    return (right * (sign * drift)
+                        + up * (0.055f * sign * MathF.Sin(travel * 2.3f + t * 7f)))
+                        * envelope;
+                default:
+                    return Vector3.Zero;
+            }
+        }
+
+        internal readonly record struct SignatureStyle(float Width, float Opacity, float Reach);
+        internal static SignatureStyle SignatureFor(BeamFxStyle style) => style switch
+        {
+            BeamFxStyle.VoidRift => new(0.058f, 0.88f, 44f),
+            BeamFxStyle.QuantumSplit => new(0.050f, 0.83f, 55f),
+            BeamFxStyle.AlimbicResonance => new(0.044f, 0.91f, 45f),
+            BeamFxStyle.OmegaPulse => new(0.068f, 0.92f, 56f),
+            BeamFxStyle.ArcDisruptor => new(0.044f, 0.88f, 48f),
+            BeamFxStyle.SolarSpear => new(0.060f, 0.90f, 60f),
+            BeamFxStyle.CryoShatter => new(0.052f, 0.92f, 50f),
+            BeamFxStyle.PhantomTrace => new(0.037f, 0.44f, 60f),
+            _ => new(0.031f, 0.95f, 36f)
+        };
+
         // Caps decorative draw submissions in 8-player spam. Every shot
         // retains its actual depth-tested center rail even after the optional
         // accent budget is exhausted. Prioritize fresh, nearby shots.
@@ -246,6 +337,34 @@ namespace MphRead.Mods.Render
                     DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up,
                         reach, samples, 0.031f, 4f, bright, look.Spiral,
                         phase, strand, fraction);
+            }
+
+            // Every beam has its own persistent motion grammar, not just a
+            // different color on the same thick rail. Even Low detail retains
+            // one characteristic moving strand; Medium/High render the pair.
+            // The original Ion Fracture helix above remains untouched.
+            if (textured && !reducedMotion
+                && lance.Style != BeamFxStyle.IonFracture
+                && quality != CosmeticEffectQuality.Off)
+            {
+                SignatureStyle signature = SignatureFor(lance.Style);
+                float reach = MathF.Min(length, signature.Reach);
+                int strands = quality == CosmeticEffectQuality.Low ? 1 : 2;
+                int samples = quality == CosmeticEffectQuality.High ? 57
+                    : quality == CosmeticEffectQuality.Medium ? 37 : 21;
+                Vector3 secondary = lance.Style is BeamFxStyle.QuantumSplit
+                    or BeamFxStyle.AlimbicResonance or BeamFxStyle.ArcDisruptor
+                    or BeamFxStyle.SolarSpear or BeamFxStyle.CryoShatter
+                        ? lance.Secondary
+                        : Vector3.Lerp(lance.Color, Vector3.One, 0.27f);
+                for (int strand = 0; strand < strands; strand++)
+                {
+                    Vector3 tint = strand == 0 ? secondary : lance.Color;
+                    DrawTexturedRibbon(scene, lance.Start, axis, camera, right, up,
+                        reach, samples, signature.Width, 4f, tint,
+                        look.Spiral * signature.Opacity, 0f, strand, fraction,
+                        signatureStyle: lance.Style);
+                }
             }
 
             if (reducedMotion || quality == CosmeticEffectQuality.Off) return;
@@ -479,7 +598,7 @@ namespace MphRead.Mods.Render
         private void DrawTexturedRibbon(Scene scene, Vector3 origin, Vector3 axis,
             Vector3 camera, Vector3 right, Vector3 up, float reach, int samples,
             float width, float widthReach, Vector3 color, float alpha,
-            float phase, int strand, float age)
+            float phase, int strand, float age, BeamFxStyle? signatureStyle = null)
         {
             if (_trailTexture <= 0 || reach <= 0.05f || alpha <= 0.004f) return;
             int count = samples * 4;
@@ -489,7 +608,9 @@ namespace MphRead.Mods.Render
                 float t = i / (float)(samples - 1);
                 float s = reach * (strand < 0 ? t * t : t);
                 Vector3 centre = axis * s;
-                if (strand >= 0)
+                if (signatureStyle.HasValue)
+                    centre += SignatureOffset(signatureStyle.Value, t, age, strand, right, up);
+                else if (strand >= 0)
                     centre += HelixDisplacement(right, up, s, age, phase, strand);
                 Vector3 side = Vector3.Cross(axis, camera - origin - centre);
                 if (side.LengthSquared < 0.000001f) side = right;
