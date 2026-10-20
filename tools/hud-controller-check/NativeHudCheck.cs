@@ -54,7 +54,46 @@ internal static class NativeHudCheck
                     Check(host.FocusDocument(page.Document,id),"focus "+id);host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
                     Check(host.TryTakeIntent(out var intent)&&intent.Kind==kind&&page.HandleIntent(intent),"real DOM action "+id);Check(!host.TryTakeIntent(out _),"one native activation emitted");
                 }
-                for(int i=0;i<14;i++){Activate("hud_pick"+i,RmlUiIntentKind.HudElement);Check(controller.Snapshot().Selected==i,"all registered HUD elements remain editable");}
+                for(int i=0;i<HudProfileDefaults.ElementIds.Length;i++){Activate("hud_pick"+i,RmlUiIntentKind.HudElement);Check(controller.Snapshot().Selected==i,"all registered HUD elements remain editable");}
+                Activate("hud_pick14",RmlUiIntentKind.HudElement);
+                int movementIndex=HudProfileDefaults.MovementTelemetryIndex;
+                const string movementId=HudProfileDefaults.MovementTelemetryId;
+                var movementSnapshot=controller.Snapshot();
+                var movementBefore=movementSnapshot.Elements[movementIndex].Bounds;
+                Check(movementSnapshot.Selected==movementIndex&&movementSnapshot.Elements[movementIndex].Selected
+                    &&movementSnapshot.Elements[movementIndex].Id==movementId,
+                    "real native movement picker selects its registered preview rectangle");
+                host.Update();
+                Check(bounds(page.Document.DocumentId,"hud_element14",out _,out _,out float movementWidth,out float movementHeight)!=0
+                    &&movementWidth>0&&movementHeight>0
+                    &&Math.Abs(movementWidth-movementBefore.Width)<=2*viewport.Item3+1
+                    &&Math.Abs(movementHeight-movementBefore.Height)<=2*viewport.Item3+1,
+                    "native movement preview dimensions match the shared editor bounds");
+                float movementX=controller.CopyDraft().Elements[movementId].OffsetX;
+                Activate("hud_nudge_right",RmlUiIntentKind.HudAction);
+                var movementNudged=controller.Snapshot().Elements[movementIndex].Bounds;
+                Check(controller.CopyDraft().Elements[movementId].OffsetX==movementX+1
+                    &&movementNudged.X>movementBefore.X&&movementNudged.Width==movementBefore.Width,
+                    "real native movement nudge changes its draft and preview position only");
+                Activate("hud_undo",RmlUiIntentKind.HudAction);
+                Check(controller.CopyDraft().Elements[movementId].OffsetX==movementX
+                    &&controller.Snapshot().Elements[movementIndex].Bounds==movementBefore,
+                    "real native movement undo restores exact draft and preview bounds");
+                host.SetField(page.Document,"hud_x","100");host.SetField(page.Document,"hud_y","-220");
+                host.SetField(page.Document,"hud_scale","1.5");host.SetField(page.Document,"hud_opacity",".4");
+                host.SetField(page.Document,"hud_color","#44AAFF");
+                Activate("hud_apply_layout",RmlUiIntentKind.HudAction);
+                var movementApplied=controller.CopyDraft().Elements[movementId];
+                var movementAfter=controller.Snapshot().Elements[movementIndex];
+                Check(movementApplied.OffsetX==100&&movementApplied.OffsetY==-220&&movementApplied.Scale==1.5f
+                    &&movementApplied.Opacity==.4f&&movementApplied.Color=="#44AAFF"
+                    &&movementAfter.Selected&&movementAfter.Opacity==.4f&&movementAfter.Color=="#44AAFF"
+                    &&Math.Abs(movementAfter.Bounds.Width-movementBefore.Width*1.5f)<.01f,
+                    "real native movement layout fields apply placement, scale, opacity and color to preview and draft");
+                Activate("hud_undo",RmlUiIntentKind.HudAction);
+                Check(controller.CopyDraft().Elements[movementId].Scale==1
+                    &&controller.Snapshot().Elements[movementIndex].Bounds==movementBefore,
+                    "native movement layout edit remains one reversible authoring action");
                 Activate("hud_pick1",RmlUiIntentKind.HudElement);float before=controller.CopyDraft().Elements["core.health"].OffsetX;
                 Activate("hud_nudge_right",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before+1,"native nudge reaches detached shared layout");
                 Activate("hud_undo",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before,"native undo reverses the layout edit");
@@ -63,7 +102,7 @@ internal static class NativeHudCheck
                 Check(page.KeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Z,RmlUiInputModifiers.Command)
                     &&controller.CopyDraft().Elements["core.health"].OffsetX==before,"Command undo uses authoring history on canvas");
                 Check(page.KeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C,RmlUiInputModifiers.Control)
-                    &&HudProfileStore.Parse(host.ReadClipboard()).Elements.Count==14,"canvas copy exports full validated profile through native clipboard");
+                    &&HudProfileStore.Parse(host.ReadClipboard()).Elements.Count==HudProfileDefaults.ElementIds.Length,"canvas copy exports full validated profile through native clipboard");
                 Check(host.FocusDocument(page.Document,"hud_name")&&!page.KeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C,RmlUiInputModifiers.Control),"editable text fields retain native clipboard ownership");
                 string json="{\"name\":\"λ Prime\",\"padding\":\""+String.Concat(Enumerable.Repeat("λ😀",1000))+"\"}";
                 host.SetField(page.Document,"hud_json",json);
@@ -81,7 +120,7 @@ internal static class NativeHudCheck
                 Check(page.Close()&&cancellation.IsCancellationRequested&&host.FocusedElement()=="activity_selector","closing retires native lifetime and restores home focus");
                 Check(!page.HandleIntent(new(RmlUiIntentKind.HudAction,(int)HudEditorAction.Use,document,ulong.MaxValue)),"retired document cannot submit another draft");
             }
-            Console.WriteLine($"HUD NATIVE PASS {checks} checks (actual DOM/14 elements/shared preview texture/large Unicode textarea/lifetimes; four viewport-density combinations).");
+            Console.WriteLine($"HUD NATIVE PASS {checks} checks (actual DOM/registered elements/shared preview texture/large Unicode textarea/lifetimes; four viewport-density combinations).");
         }
         finally{NativeLibrary.Free(module);try{Directory.Delete(directory,true);}catch(IOException){}}
     }

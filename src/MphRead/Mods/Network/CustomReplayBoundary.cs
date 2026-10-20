@@ -8,6 +8,9 @@ namespace MphRead.Mods.Network;
 // packet admission before a foreground scene exists, without retaining a scene.
 internal static class CustomReplayBoundary
 {
+    // Frozen availability first became a live rule in protocol70. A later bump
+    // cannot make those unsupported custom archives inspectable as native ones.
+    internal const int FirstFrozenAvailabilityProtocol = 70;
     private static bool _ownerlessSelected;
     internal const string Error = "Replay recording and killcams are unavailable in custom weapon scenes. Start a fresh native scene to record.";
 

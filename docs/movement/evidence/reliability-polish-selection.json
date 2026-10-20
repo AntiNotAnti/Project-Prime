@@ -1,0 +1,1623 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "protocol": 71,
+  "profileVersions": {
+    "Native": 0,
+    "Momentum": 1,
+    "Quake3": 3,
+    "Traversal": 3
+  },
+  "platform": "Windows x64, .NET 10.0.401",
+  "baseline": {
+    "baseSha": "c2b386a8eeea41e85cd679a543666aca7baf034e",
+    "protocol": 70,
+    "coreSha256": "28c0e65dd9f2b5e44c21c70a81b42052569f658fadb93ebd5e8dd1764bd6c576",
+    "productionOverlayFiles": 0,
+    "status": "PASS",
+    "checks": 5323,
+    "actualMissiles": 49,
+    "scope": "actual offline local human under multiplayer Battle rules; raw keyboard/pointer and native missile/floor lifecycle; no AI or transport claim"
+  },
+  "physicsAndLiveSnapshot": {
+    "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+    "snapshot": "integration02",
+    "phase": "rocket-V3-candidate",
+    "sourceManifestSha256": "3a9374f696b6bca86260f70731d1c6c9dc1a349aea84a47ece3e0f10f24c6724",
+    "sourceFiles": 71,
+    "overlaySha256": "2ed7ea2a99df1d3ffbb9d7ccd3fff2f2787c4cd9f5b695255b8d785e4fdf10ef",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+      "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "caseResults": [
+      {
+        "name": "rocket-launch",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-telemetry-hud",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-profile",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-math",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance-network",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "self-splash-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-self-splash",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance-authority",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      }
+    ],
+    "additionalResults": {
+      "authoring-ui-results-integration02.json": [
+        {
+          "tool": "hud-check",
+          "args": [],
+          "exitCode": 0,
+          "binarySha256": "f592b8d9f1de583c9fd118a680686b452951edd7be4244bf5f4fd90ed3f30d4c",
+          "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+        },
+        {
+          "tool": "hud-controller-check",
+          "args": [],
+          "exitCode": 0,
+          "binarySha256": "9c97f8bc761ea321906609bece6811976af15631c08095cddfb764102090f7b7",
+          "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+        },
+        {
+          "tool": "rmlui-runtime-check",
+          "args": [],
+          "exitCode": 0,
+          "binarySha256": "e9200eb600a2d62c54e6aebd850640716c2aafa07892c7898d198642a4a29ad9",
+          "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+        },
+        {
+          "tool": "rmlui-live-menu-check",
+          "args": [],
+          "exitCode": 0,
+          "binarySha256": "42ba977053c3af339efaf678fdc154f951bf4613ea313eb67e7f0f4bda04af00",
+          "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+        }
+      ],
+      "custom-results-integration02.json": {
+        "snapshot": "integration02",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "binarySha256": "9c10e76de31c400f6675a319e86b76ed3980d18f93bc7ba81107047249a5b38d",
+        "sourceBinaries": {
+          "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+          "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+        },
+        "sourceBinariesUnchanged": true,
+        "outputDirectory": "existing nettest Release output; normal project defaults, no fixture-feature overrides"
+      },
+      "historical-results-integration02.json": [
+        {
+          "sourceSnapshot": "integration02",
+          "binaries": {
+            "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+            "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+          },
+          "protocol": 61,
+          "inputSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+          "exitCode": 0
+        },
+        {
+          "sourceSnapshot": "integration02",
+          "binaries": {
+            "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+            "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+          },
+          "protocol": 62,
+          "inputSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+          "exitCode": 0
+        },
+        {
+          "sourceSnapshot": "integration02",
+          "binaries": {
+            "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+            "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+          },
+          "protocol": 68,
+          "inputSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+          "exitCode": 0
+        },
+        {
+          "sourceSnapshot": "integration02",
+          "binaries": {
+            "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+            "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+          },
+          "protocol": 69,
+          "inputSha256": "e5c68d47c4aed0d9edc209952b80968642b83f9cadcbf29f2e1f533e3dee97c6",
+          "exitCode": 0
+        }
+      ]
+    },
+    "liveProvenance": {
+      "sourceSnapshot": "integration02",
+      "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+      "sourceManifestSha256": "3a9374f696b6bca86260f70731d1c6c9dc1a349aea84a47ece3e0f10f24c6724",
+      "binaries": {
+        "ProjectPrime.dll": "6090077e5beed69d59355643c7aa4f31a706058f966cc31ac037fb2b20981a9f",
+        "nettest.dll": "d328051550c5b2ba8eca5a08fa8000da7c8cf82001710e5dcac1fcd300c69f90"
+      },
+      "archiveSha256": "fd6d21c75f3fade0b1b0f568401d52b0b8072dc3192354882777e13231cf12fb",
+      "scope": "real Windows UDP authority plus two independent scripted human owner processes and one authority native AI bot; actual lobby bot admission/start; real recording and passive replay; no physical device or rendered UI acceptance"
+    },
+    "passedCases": 18,
+    "failedCases": 0
+  },
+  "selectedPhysicsResults": {
+    "actualRocketChecks": 5413,
+    "actualMissiles": 49,
+    "stanceSceneChecks": 68790,
+    "nativeGoldenCases": 56,
+    "customContracts": 15098,
+    "hudAssertions": 991,
+    "controllerContracts": 44,
+    "replay": {
+      "checks": 116975,
+      "frames": 2400,
+      "recordedProtocol": 71,
+      "recordedProfileVersion": 3,
+      "snapshotStanceChecks": 7200,
+      "crouchedFrames": 400
+    },
+    "profileAllocationBytes": 0,
+    "profileAllocationIterations": 100000,
+    "hudTraversalAllocationBytes": 0
+  },
+  "limitations": [
+    "Timing observations and warmed allocation loops do not establish whole-frame performance.",
+    "Scripted Windows native rendering does not replace physical input/feel or other-platform playtesting.",
+    "Integration02 physics/live UDP uses its exact binary. Final managed delta is camera history/eye clamp; native bridge additionally admits the fifteenth HUD action. Diagnostic scheduler and explicit codec boundary changes are test-only.",
+    "Raw extracted assets, screenshots, endpoints and local paths are omitted."
+  ],
+  "preliminaryAttemptsRetained": [
+    "baseline fixture read-only input-setting compile failure",
+    "baseline fixture raw pointer travel insufficient for steep downward aim",
+    "owned Windows checkout needed long-path support",
+    "integration01 exposed historical protocol70 custom-bootstrap refusal skipped after live-version bump; immutable70+ boundary restored before successful integration02"
+  ],
+  "hostedCi": "Status recorded in pull request; merge does not wait for CI or review.",
+  "nativeHudRegression": {
+    "initialFailure": {
+      "snapshot": "integration03",
+      "exitCode": 3762504530,
+      "nativeLibrarySha256": "1f0d4023f619e87a1c5b969d415cbeb88beb690e32c15a4a6902b3c010bba2f4",
+      "diagnosticSha256": "cc6149ea0dedda6842a83a5392cdad269f44fa77ac08b5cac12cd145fa5b0e4b",
+      "binaries": {
+        "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+        "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+      },
+      "leaseUnchanged": true,
+      "scope": "Real native RmlUi DrawList DOM, no GPU window or physicaldevice qualification"
+    },
+    "cause": "Native C++ action parser retained old index<14 bound. Managed registry and DOM had correctly appended index14.",
+    "fix": "Bound15; rebuild existing pinned native bridge; rerun same real DOM assertions.",
+    "fixedRun": {
+      "snapshot": "integration03",
+      "nativeRevision": "native05",
+      "nativeBuildProvenanceSha256": "43d1b7fa6c63a6fec1857bed5782e31f8b9d7206993761ac3b3977a348b646a8",
+      "exitCode": 0,
+      "nativeLibrarySha256": "81bc1230659c6767034a4a2bb08ef7e06370c0630f0b4074d37b391c6b8d4261",
+      "diagnosticSha256": "cc6149ea0dedda6842a83a5392cdad269f44fa77ac08b5cac12cd145fa5b0e4b",
+      "binaries": {
+        "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+        "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+      },
+      "leaseUnchanged": true,
+      "scope": "Real native RmlUi DrawList DOM, no GPU window or physicaldevice qualification",
+      "checks": 476,
+      "viewportDensityCombinations": 4
+    },
+    "build": {
+      "nativeRevision": "native05",
+      "managedRuntimeSnapshot": "integration03",
+      "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+      "sourceManifestSha256": "65d12ae5a16fce71d3866d56697e27a3ab94b09598d73afe9efcca354fe1430a",
+      "cppSha256": "bcaf0f324ffd6dddd3696878966a18049fe15ae8408562611ff9271bc34bfcbf",
+      "pins": {
+        "RmlUi-6.3": "ba95ffe8bfb6370efb2cdcca927eaad4710c5413",
+        "freetype-VER-2-13-3": "42608f77f20749dd6ddc9e0536788eaad70ea4b5"
+      },
+      "freeTypeLibrarySha256": "71697221240df0cc22c16d92cd1f44ead6e2d077df449363c1a06387595b3553",
+      "cmakeVersion": "cmake version 4.3.1-msvc1",
+      "binaries": {
+        "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+        "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+      },
+      "oldFailedNativeDllSha256": "1f0d4023f619e87a1c5b969d415cbeb88beb690e32c15a4a6902b3c010bba2f4",
+      "phases": [
+        {
+          "phase": "configure",
+          "exitCode": 0
+        },
+        {
+          "phase": "build",
+          "exitCode": 0
+        },
+        {
+          "phase": "install",
+          "exitCode": 0
+        }
+      ],
+      "newNativeDllSha256": "81bc1230659c6767034a4a2bb08ef7e06370c0630f0b4074d37b391c6b8d4261",
+      "sourceBinaryLeaseUnchanged": true,
+      "settings": {
+        "generator": "Visual Studio 18 2026",
+        "architecture": "x64",
+        "configuration": "Release",
+        "runtime": "MultiThreaded",
+        "positionIndependentCode": true,
+        "gl2": true
+      }
+    },
+    "explicitCodecBoundaryCheck": {
+      "runtimeSnapshot": "integration03",
+      "nativeRevision": "native05",
+      "exitCode": 0,
+      "toolSha256": "20b7db5e04357a870cf9495ec6b0718ad4692fa5eb97a583b2346aa093b9fed8",
+      "sourceSha256": "53d53f7b76a5a8f3d96cc5c5514817ee8ac88df2989602c901f3666dc4eebf07",
+      "binaries": {
+        "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+        "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+      },
+      "leaseUnchanged": true
+    }
+  },
+  "nativeVisualSnapshot": {
+    "snapshot": "integration03",
+    "toolRevision": "visual04",
+    "toolOverlayManifestSha256": "2bfcb617bfce545083e2385f8c7184fbc7c5abd8d1bc22bff1219586d3bdbff2",
+    "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+    "sourceManifestSha256": "8777e67fdaecafbd0d61fd8e88d79cdb443af4d24450aba1bb5328d12fd153a3",
+    "binaries": {
+      "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+      "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+    },
+    "diagnosticSha256": "19435c12015b366c7151102ba23beba985bfa1f606353a509b9cc90733644057",
+    "exitCode": 0,
+    "leaseUnchanged": true,
+    "results": {
+      "status": "PASS",
+      "scope": "Windows native renderer and actual Traversal Ctrl input; native spawn and intro skip; fixed external camera and frozen render-only body-hidden controls; no actor position/stance/pose/velocity writes; image capture only; OS focus observed with isolated frozen synthetic input, no OS-focus, frame timing or physical-device qualification",
+      "focusPolicy": "OS focus callbacks are recorded without invoking the production focus-loss handler; only this diagnostic owns the frozen synthetic keyboard",
+      "scheduler": "native continuous RenderWindow FrameTiming.Advance at configured 60 Hz; no debug single-step or generation override",
+      "continuousPresentationGeneration": 1,
+      "model": "Traversal",
+      "hunter": "Samus",
+      "standing": {
+        "Pixels": 19417,
+        "Left": 573,
+        "Bottom": 227,
+        "Right": 731,
+        "Top": 488,
+        "Height": 262
+      },
+      "crouched": {
+        "Pixels": 16424,
+        "Left": 573,
+        "Bottom": 220,
+        "Right": 731,
+        "Top": 396,
+        "Height": 177
+      },
+      "released": {
+        "Pixels": 19338,
+        "Left": 573,
+        "Bottom": 227,
+        "Right": 731,
+        "Top": 492,
+        "Height": 266
+      },
+      "transitionCompletedTicks": [
+        2,
+        4,
+        6,
+        8
+      ],
+      "bodyHeightJitterPixels": 6,
+      "transitionSamples": [
+        {
+          "Stage": 0,
+          "CompletedTicks": 0,
+          "VisualAmount": 0,
+          "CanonicalEyeOffset": 0.89990234,
+          "BodyHeight": 262
+        },
+        {
+          "Stage": 1,
+          "CompletedTicks": 2,
+          "VisualAmount": 0.25925928,
+          "CanonicalEyeOffset": 0.4099365,
+          "BodyHeight": 237
+        },
+        {
+          "Stage": 1,
+          "CompletedTicks": 4,
+          "VisualAmount": 0.7407408,
+          "CanonicalEyeOffset": 0.4099365,
+          "BodyHeight": 192
+        },
+        {
+          "Stage": 1,
+          "CompletedTicks": 6,
+          "VisualAmount": 1,
+          "CanonicalEyeOffset": 0.4099365,
+          "BodyHeight": 176
+        },
+        {
+          "Stage": 1,
+          "CompletedTicks": 8,
+          "VisualAmount": 1,
+          "CanonicalEyeOffset": 0.4099365,
+          "BodyHeight": 177
+        },
+        {
+          "Stage": 2,
+          "CompletedTicks": 2,
+          "VisualAmount": 0.74074066,
+          "CanonicalEyeOffset": 0.89990234,
+          "BodyHeight": 193
+        },
+        {
+          "Stage": 2,
+          "CompletedTicks": 4,
+          "VisualAmount": 0.25925916,
+          "CanonicalEyeOffset": 0.89990234,
+          "BodyHeight": 240
+        },
+        {
+          "Stage": 2,
+          "CompletedTicks": 6,
+          "VisualAmount": 0,
+          "CanonicalEyeOffset": 0.89990234,
+          "BodyHeight": 265
+        },
+        {
+          "Stage": 2,
+          "CompletedTicks": 8,
+          "VisualAmount": 0,
+          "CanonicalEyeOffset": 0.89990234,
+          "BodyHeight": 266
+        }
+      ],
+      "glVendor": "NVIDIA Corporation",
+      "glRenderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+      "glVersion": "4.6.0 NVIDIA 617.42",
+      "clientMvid": "cf4e2c66-3237-4b53-abf9-e933a7930e8e",
+      "room": "MP3 PROVING GROUND",
+      "pictures": [
+        {
+          "label": "standing",
+          "completedTicks": 0,
+          "transitionStage": 0,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 121,
+          "debugFrameAdvance": false,
+          "visualAmount": 0,
+          "canonicalEyeOffset": 0.89990234,
+          "nativeCameraPosition": [
+            2.291504,
+            1.3999023,
+            -22.847168
+          ],
+          "simulationFrame": 121,
+          "hunter": "Samus",
+          "ctrlHeld": false,
+          "crouched": false,
+          "collisionCrouched": false,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 1.0998535,
+          "silhouette": {
+            "Pixels": 19417,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 488,
+            "Height": 262
+          },
+          "enabled": {
+            "file": "standing.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "29E83052B954F0021984F2B22A2F8D4FC96289D950C650ABED04F44F9275C6C6",
+            "pngSha256": "28E59AEBFE6EAD4A0F7BCD4B629DC5076F23917A6EB70F3D19E5C25DC4DED6EB"
+          },
+          "hidden": {
+            "file": "standing-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "standing-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "29E83052B954F0021984F2B22A2F8D4FC96289D950C650ABED04F44F9275C6C6",
+            "pngSha256": "28E59AEBFE6EAD4A0F7BCD4B629DC5076F23917A6EB70F3D19E5C25DC4DED6EB"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "crouched-tick-2",
+          "completedTicks": 2,
+          "transitionStage": 1,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 123,
+          "debugFrameAdvance": false,
+          "visualAmount": 0.25925928,
+          "canonicalEyeOffset": 0.4099365,
+          "nativeCameraPosition": [
+            2.291504,
+            0.9099365,
+            -22.847168
+          ],
+          "simulationFrame": 123,
+          "hunter": "Samus",
+          "ctrlHeld": true,
+          "crouched": true,
+          "collisionCrouched": true,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 0.5399047,
+          "silhouette": {
+            "Pixels": 18786,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 463,
+            "Height": 237
+          },
+          "enabled": {
+            "file": "crouched-tick-2.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "F6B9BA21BF00FE819CCB6E337AC76FEEF48122BC59D2DCDFFF02B5EDED5A2A41",
+            "pngSha256": "B66E24DAA4CAF759208B27508DEE226BDC7198BA4B200A1A7C2DB1368975C18C"
+          },
+          "hidden": {
+            "file": "crouched-tick-2-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "crouched-tick-2-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "F6B9BA21BF00FE819CCB6E337AC76FEEF48122BC59D2DCDFFF02B5EDED5A2A41",
+            "pngSha256": "B66E24DAA4CAF759208B27508DEE226BDC7198BA4B200A1A7C2DB1368975C18C"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "crouched-tick-4",
+          "completedTicks": 4,
+          "transitionStage": 1,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 125,
+          "debugFrameAdvance": false,
+          "visualAmount": 0.7407408,
+          "canonicalEyeOffset": 0.4099365,
+          "nativeCameraPosition": [
+            2.291504,
+            0.9099365,
+            -22.847168
+          ],
+          "simulationFrame": 125,
+          "hunter": "Samus",
+          "ctrlHeld": true,
+          "crouched": true,
+          "collisionCrouched": true,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 0.5399047,
+          "silhouette": {
+            "Pixels": 17527,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 418,
+            "Height": 192
+          },
+          "enabled": {
+            "file": "crouched-tick-4.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "2F70CA4D3D0DF3394080C36F64A04743FE44514D8153FD7B42AB818C8A74766B",
+            "pngSha256": "698A988A8C91FEA3D66264DDDD7F28F56CACF3805CF480C83BD0E2DA48D27CD6"
+          },
+          "hidden": {
+            "file": "crouched-tick-4-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "crouched-tick-4-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "2F70CA4D3D0DF3394080C36F64A04743FE44514D8153FD7B42AB818C8A74766B",
+            "pngSha256": "698A988A8C91FEA3D66264DDDD7F28F56CACF3805CF480C83BD0E2DA48D27CD6"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "crouched-tick-6",
+          "completedTicks": 6,
+          "transitionStage": 1,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 127,
+          "debugFrameAdvance": false,
+          "visualAmount": 1,
+          "canonicalEyeOffset": 0.4099365,
+          "nativeCameraPosition": [
+            2.291504,
+            0.9099365,
+            -22.847168
+          ],
+          "simulationFrame": 127,
+          "hunter": "Samus",
+          "ctrlHeld": true,
+          "crouched": true,
+          "collisionCrouched": true,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 0.5399047,
+          "silhouette": {
+            "Pixels": 16412,
+            "Left": 573,
+            "Bottom": 220,
+            "Right": 731,
+            "Top": 395,
+            "Height": 176
+          },
+          "enabled": {
+            "file": "crouched-tick-6.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "865651FB857F37A697463C0761C46E928FA2AFDF9C6F61C13EFAC2D7E64DF817",
+            "pngSha256": "45712CA75D01BF431DC38B87C89DC0AE65B69FDE3B88131F0CE7A09DBFF6C8B2"
+          },
+          "hidden": {
+            "file": "crouched-tick-6-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "crouched-tick-6-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "865651FB857F37A697463C0761C46E928FA2AFDF9C6F61C13EFAC2D7E64DF817",
+            "pngSha256": "45712CA75D01BF431DC38B87C89DC0AE65B69FDE3B88131F0CE7A09DBFF6C8B2"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "crouched",
+          "completedTicks": 8,
+          "transitionStage": 1,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 129,
+          "debugFrameAdvance": false,
+          "visualAmount": 1,
+          "canonicalEyeOffset": 0.4099365,
+          "nativeCameraPosition": [
+            2.291504,
+            0.9099365,
+            -22.847168
+          ],
+          "simulationFrame": 129,
+          "hunter": "Samus",
+          "ctrlHeld": true,
+          "crouched": true,
+          "collisionCrouched": true,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 0.5399047,
+          "silhouette": {
+            "Pixels": 16424,
+            "Left": 573,
+            "Bottom": 220,
+            "Right": 731,
+            "Top": 396,
+            "Height": 177
+          },
+          "enabled": {
+            "file": "crouched.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "BA6EF51E8C71A24B7E2CAE1470A19AAACCB085FAEB2FF95F8687A1DAC5184109",
+            "pngSha256": "30322FB702E3784A2FBEE4AB983656898C57C3E3C4F20D907D55E18A53259634"
+          },
+          "hidden": {
+            "file": "crouched-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "crouched-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "BA6EF51E8C71A24B7E2CAE1470A19AAACCB085FAEB2FF95F8687A1DAC5184109",
+            "pngSha256": "30322FB702E3784A2FBEE4AB983656898C57C3E3C4F20D907D55E18A53259634"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "released-standing-tick-2",
+          "completedTicks": 2,
+          "transitionStage": 2,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 131,
+          "debugFrameAdvance": false,
+          "visualAmount": 0.74074066,
+          "canonicalEyeOffset": 0.89990234,
+          "nativeCameraPosition": [
+            2.291504,
+            1.3999023,
+            -22.847168
+          ],
+          "simulationFrame": 131,
+          "hunter": "Samus",
+          "ctrlHeld": false,
+          "crouched": false,
+          "collisionCrouched": false,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 1.0998535,
+          "silhouette": {
+            "Pixels": 17521,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 419,
+            "Height": 193
+          },
+          "enabled": {
+            "file": "released-standing-tick-2.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "8D84A78DF84F7254554A0372F7D9B5AAD8DF75992627B3C3B2D2B552DE4808F0",
+            "pngSha256": "2121DB8802151D414F539AA0AC1C3049B00CABAC54D11486061C826F1B6F0EDC"
+          },
+          "hidden": {
+            "file": "released-standing-tick-2-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "released-standing-tick-2-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "8D84A78DF84F7254554A0372F7D9B5AAD8DF75992627B3C3B2D2B552DE4808F0",
+            "pngSha256": "2121DB8802151D414F539AA0AC1C3049B00CABAC54D11486061C826F1B6F0EDC"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "released-standing-tick-4",
+          "completedTicks": 4,
+          "transitionStage": 2,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 133,
+          "debugFrameAdvance": false,
+          "visualAmount": 0.25925916,
+          "canonicalEyeOffset": 0.89990234,
+          "nativeCameraPosition": [
+            2.291504,
+            1.3999023,
+            -22.847168
+          ],
+          "simulationFrame": 133,
+          "hunter": "Samus",
+          "ctrlHeld": false,
+          "crouched": false,
+          "collisionCrouched": false,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 1.0998535,
+          "silhouette": {
+            "Pixels": 18730,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 466,
+            "Height": 240
+          },
+          "enabled": {
+            "file": "released-standing-tick-4.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "09A81C74B9FC33C7E257BF5AC33EFED0F25658A7FB428DFE8B9030F40481CA45",
+            "pngSha256": "C022337D0BAE9145743D97F45E69C542E914048BBE700B412C45A33147E15867"
+          },
+          "hidden": {
+            "file": "released-standing-tick-4-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "released-standing-tick-4-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "09A81C74B9FC33C7E257BF5AC33EFED0F25658A7FB428DFE8B9030F40481CA45",
+            "pngSha256": "C022337D0BAE9145743D97F45E69C542E914048BBE700B412C45A33147E15867"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "released-standing-tick-6",
+          "completedTicks": 6,
+          "transitionStage": 2,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 135,
+          "debugFrameAdvance": false,
+          "visualAmount": 0,
+          "canonicalEyeOffset": 0.89990234,
+          "nativeCameraPosition": [
+            2.291504,
+            1.3999023,
+            -22.847168
+          ],
+          "simulationFrame": 135,
+          "hunter": "Samus",
+          "ctrlHeld": false,
+          "crouched": false,
+          "collisionCrouched": false,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 1.0998535,
+          "silhouette": {
+            "Pixels": 19347,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 491,
+            "Height": 265
+          },
+          "enabled": {
+            "file": "released-standing-tick-6.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "CEB2DA58F0CD3C9EA8281A4A5577FEC6EE9010F1AF4E339671A2B9526F17B055",
+            "pngSha256": "7328216941DCC2D37366CE878A427601653C9F956CC757E6718C7D4C4FA91197"
+          },
+          "hidden": {
+            "file": "released-standing-tick-6-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "released-standing-tick-6-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "CEB2DA58F0CD3C9EA8281A4A5577FEC6EE9010F1AF4E339671A2B9526F17B055",
+            "pngSha256": "7328216941DCC2D37366CE878A427601653C9F956CC757E6718C7D4C4FA91197"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        },
+        {
+          "label": "released-standing",
+          "completedTicks": 8,
+          "transitionStage": 2,
+          "presentationGeneration": 1,
+          "clockActive": true,
+          "schedulerStepsThisFrame": 1,
+          "schedulerTotalSteps": 137,
+          "debugFrameAdvance": false,
+          "visualAmount": 0,
+          "canonicalEyeOffset": 0.89990234,
+          "nativeCameraPosition": [
+            2.291504,
+            1.3999023,
+            -22.847168
+          ],
+          "simulationFrame": 137,
+          "hunter": "Samus",
+          "ctrlHeld": false,
+          "crouched": false,
+          "collisionCrouched": false,
+          "actualPosition": [
+            2.291504,
+            0.5,
+            -22.847168
+          ],
+          "bottom": -0.5,
+          "top": 1.0998535,
+          "silhouette": {
+            "Pixels": 19338,
+            "Left": 573,
+            "Bottom": 227,
+            "Right": 731,
+            "Top": 492,
+            "Height": 266
+          },
+          "enabled": {
+            "file": "released-standing.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "AAE28984BD63D2B1C5FAC55842F7C82D9DCC0FE4932C83FEF5DB6F3F515EDDE3",
+            "pngSha256": "D9641970B25F39C2C5CE1625F9EB272ECCF03B7354D04399599822F7C158DC5E"
+          },
+          "hidden": {
+            "file": "released-standing-body-hidden.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "77268C27245330D3C868C912B7736EAF3B9131959787DD477F0283414C43EE46",
+            "pngSha256": "4374DF8672E4026427A11382768B7623334A2A612D12A3A45A9C9BD883B574FB"
+          },
+          "repeat": {
+            "file": "released-standing-repeat.png",
+            "width": 1280,
+            "height": 720,
+            "rgbSha256": "AAE28984BD63D2B1C5FAC55842F7C82D9DCC0FE4932C83FEF5DB6F3F515EDDE3",
+            "pngSha256": "D9641970B25F39C2C5CE1625F9EB272ECCF03B7354D04399599822F7C158DC5E"
+          },
+          "unstablePixels": 0,
+          "camera": [
+            -1.353878,
+            1.05,
+            -21.2006
+          ]
+        }
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 224,
+          "legacyListsRecognizedBefore": 224,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 244,
+          "buffersRecognizedBefore": 244,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 122,
+          "vertexArraysRecognizedBefore": 122,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 7,
+          "programsRecognizedBefore": 7,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 0,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 278,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 1,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 276,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 588432,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1006248,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 28,
+        "glyphBytesBefore": 7168,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 6,
+        "spriteBytesBefore": 1536,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      }
+    },
+    "pngCount": 27,
+    "rootInspection": "Standing, tick2/tick4 entering, crouched and released PNGs inspected locally; feet planted, no visible distortion; images remain local."
+  },
+  "status": "PASS",
+  "presentationSourceSnapshot": {
+    "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+    "sourceManifestSha256": "8777e67fdaecafbd0d61fd8e88d79cdb443af4d24450aba1bb5328d12fd153a3",
+    "overlaySha256": "3fc7849bd76c810ab031851bd21aa9963363d665d96ec4f8996840353e1817e6",
+    "productionFiles": {
+      "src/MphRead/Entities/BeamProjectileEntity.cs": "849bbb440edd1478050e08abeb381f47d6799de0258e50bd81cb4b278ae25bbe",
+      "src/MphRead/Entities/Players/PlayerCamera.cs": "4269de92e2035046c9221566fcfc28c625cc943fb9a08c9877ab6e3ab248d5aa",
+      "src/MphRead/Entities/Players/PlayerDraw.cs": "bda54785245cdadcfa783ebc2c5dfac91ba9e9a56af9425882379f58367da63e",
+      "src/MphRead/Entities/Players/PlayerEntity.cs": "b0a549c81ee3a63a3a098afef0ff5abfd97c50b0a7562e6c741c3e07705c2d4f",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "a953856656984b6ab6675609a4cbe1cf695faa4545dd8190c113c43307780cd2",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "cdcc486e303043c6f0fafdbe346079c31b1732937a7984668c373ba9bb440cbb",
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": "5707ed0fc5477e2c9ff07ac109492ec5782dcf6d45d036a57f4c816eef5bfb71",
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": "54ba182946f0e849b08f580c4b880f886fd2be8ad1701380f5c0348fc71a187d",
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": "3283bf9fa76d03d8e6f504566b3fade322bc6ff9d2532a5f83c70674f7376f94",
+      "src/MphRead/Formats/CollisionDetection.cs": "c3c1b88f75ce90e296179f3fbbe02e8146775709931b4cf77a7c47c799e31e20",
+      "src/MphRead/Mods/Launcher/Core/HudEditorController.cs": "8002f590889e5f63175f8c0e801a69701ddb66ec23bf4284b4b10f576bf6eaea",
+      "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioCanvas.cs": "5c2f646a9677405dbf46cc4fef33eba369874b36e2061ac0ff274993eb35f863",
+      "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs": "c541ac5b1012eecec5ac82eefba7bf668dd77395c3232136208dd26dc849432e",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs": "67ce78f5832a091a38db3a18f8dcbcb6ace91400eea34605c294ce97c2dce059",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rml": "61bd7c280761cf4ab9dca6ed737690735ade6e6d9400dc1c178782bbd6ab668a",
+      "src/MphRead/Mods/Movement/MovementModel.cs": "592eb4ef590887876cb66d5f2fcd060644e5775f5071e331d070ef48636bd3f6",
+      "src/MphRead/Mods/Movement/MovementTelemetryHud.cs": "c71a3f7a5816908fb57429d35f682f1c7d0c18a5a1c90b62833902ec5698e59d",
+      "src/MphRead/Mods/Movement/Quake3MovementProfileV3.cs": "65d5779c4f231ded6814cdec2def38cd4f90143e8c1df4a586971ac0490b546a",
+      "src/MphRead/Mods/Movement/TraversalCrouchPresentation.cs": "3bd36990a51953ce5eace0cb6a40715ba300048836cb4e7cab1a3180f234cd67",
+      "src/MphRead/Mods/Movement/TraversalMovementProfileV3.cs": "702dde39c63f8370fe2d04b815621110f703a5dc0ad030491417a8231b1e3af4",
+      "src/MphRead/Mods/Network/CustomReplayBoundary.cs": "0f817b0684afd227f91491edb46291198336e5f18f56e0e9ff69ee51d92025a2",
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": "a01d1fb7ee9495ccd15a072f5b8dbef497c1dce2496b06bc9e9abcc8f0b7255b",
+      "src/MphRead/Mods/Network/NetProtocol.cs": "d2442abf6985a5499110ba7b6838bbc862cea20741e81fc9840539ae278a2c58",
+      "src/MphRead/Mods/Network/NetSelfSplash.cs": "6657a5d1c2758e2e9807723d2c0059e05590bb3ffe983052a7acb2cb5fd0c8d5",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "494da0bcb3ca7873dbe374dce651475623798ba614f8db7c0c3756b867dcfaca",
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": "b825cdc9ab498c55ebaaee66d46114c616c7ed24c57892b0cf5e2b7c7b4cec4a",
+      "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "f9cf5ba0a562da66ccb9b6eea59d8bf9e0f9ec5cd0655d34002485fb9b1052c0",
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": "8860d4cf24ef1fe914a273ddea86128d96445b6b9cbf7798973c1a11af3a20b7",
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "d80c5256c5f5d6c83f7fd91a69a5ae4cc2170a65be157d4c701acf1358b8ac18",
+      "src/MphRead/Mods/Render/Hud/HudProfileDefaults.cs": "d8bddf0abe7aa734dc44de208a5631ded1be50eff1d3224a3e242e894ac62882",
+      "src/MphRead/Mods/Render/PlayerEntityHudLayout.cs": "dcc8498df3574288032194e8823c320e048ecea9e74d5adea0d143bcbbdd9414",
+      "src/MphRead/Renderer.cs": "98e57fd22660a3695908f70f2db51c1e18c0ed4470bb55d5811ce6f0b77f87b2"
+    }
+  },
+  "presentationManagedSnapshot": {
+    "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+    "snapshot": "integration03",
+    "phase": "final-presentation-camera-history",
+    "sourceManifestSha256": "8777e67fdaecafbd0d61fd8e88d79cdb443af4d24450aba1bb5328d12fd153a3",
+    "sourceFiles": 73,
+    "overlaySha256": "3fc7849bd76c810ab031851bd21aa9963363d665d96ec4f8996840353e1817e6",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+      "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "caseResults": [
+      {
+        "name": "traversal-stance-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-telemetry-hud",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-profile",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      }
+    ],
+    "passedCases": 10,
+    "failedCases": 0,
+    "cpuHudTools": [
+      {
+        "tool": "hud-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "f592b8d9f1de583c9fd118a680686b452951edd7be4244bf5f4fd90ed3f30d4c",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "hud-controller-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "868dc1d73b6220cf690fdeac425b297734da7dab99394a8d02dfae940bbeebef",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-runtime-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "e9200eb600a2d62c54e6aebd850640716c2aafa07892c7898d198642a4a29ad9",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-live-menu-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "4d0965593e930af116f2449a287f17c3fc4b4103f8d416ec23cda145b777e704",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      }
+    ],
+    "customContracts": {
+      "snapshot": "integration03",
+      "buildExitCode": 0,
+      "exitCode": 0,
+      "binarySha256": "e657f13b26e7d216e2c56575d7f7270aaffe80465681567db354a7c8f6297e6f",
+      "sourceBinaries": {
+        "ProjectPrime.dll": "39beb1c7a915d6e469fe0dfb920144025549928c2df06e60df4668a6f585f66c",
+        "nettest.dll": "8f7920c881d68e213eb00dd5da8423a57f25e276e9ef17e2616dc9800ddee913"
+      },
+      "sourceBinariesUnchanged": true,
+      "outputDirectory": "existing nettest Release output; normal project defaults, no fixture-feature overrides"
+    }
+  },
+  "presentationCompositeSource": {
+    "baseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+    "sourceManifests": {
+      "integration-manifest03.json": "8777e67fdaecafbd0d61fd8e88d79cdb443af4d24450aba1bb5328d12fd153a3",
+      "visual-tool04.json": "2bfcb617bfce545083e2385f8c7184fbc7c5abd8d1bc22bff1219586d3bdbff2",
+      "native-tool05.json": "65d12ae5a16fce71d3866d56697e27a3ab94b09598d73afe9efcca354fe1430a"
+    },
+    "files": {
+      "src/MphRead/Entities/BeamProjectileEntity.cs": "849bbb440edd1478050e08abeb381f47d6799de0258e50bd81cb4b278ae25bbe",
+      "src/MphRead/Entities/Players/PlayerCamera.cs": "4269de92e2035046c9221566fcfc28c625cc943fb9a08c9877ab6e3ab248d5aa",
+      "src/MphRead/Entities/Players/PlayerDraw.cs": "bda54785245cdadcfa783ebc2c5dfac91ba9e9a56af9425882379f58367da63e",
+      "src/MphRead/Entities/Players/PlayerEntity.cs": "b0a549c81ee3a63a3a098afef0ff5abfd97c50b0a7562e6c741c3e07705c2d4f",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "a953856656984b6ab6675609a4cbe1cf695faa4545dd8190c113c43307780cd2",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "cdcc486e303043c6f0fafdbe346079c31b1732937a7984668c373ba9bb440cbb",
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": "5707ed0fc5477e2c9ff07ac109492ec5782dcf6d45d036a57f4c816eef5bfb71",
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": "54ba182946f0e849b08f580c4b880f886fd2be8ad1701380f5c0348fc71a187d",
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": "3283bf9fa76d03d8e6f504566b3fade322bc6ff9d2532a5f83c70674f7376f94",
+      "src/MphRead/Formats/CollisionDetection.cs": "c3c1b88f75ce90e296179f3fbbe02e8146775709931b4cf77a7c47c799e31e20",
+      "src/MphRead/Mods/Launcher/Core/HudEditorController.cs": "8002f590889e5f63175f8c0e801a69701ddb66ec23bf4284b4b10f576bf6eaea",
+      "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioCanvas.cs": "5c2f646a9677405dbf46cc4fef33eba369874b36e2061ac0ff274993eb35f863",
+      "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs": "c541ac5b1012eecec5ac82eefba7bf668dd77395c3232136208dd26dc849432e",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs": "67ce78f5832a091a38db3a18f8dcbcb6ace91400eea34605c294ce97c2dce059",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rml": "61bd7c280761cf4ab9dca6ed737690735ade6e6d9400dc1c178782bbd6ab668a",
+      "src/MphRead/Mods/Movement/MovementModel.cs": "592eb4ef590887876cb66d5f2fcd060644e5775f5071e331d070ef48636bd3f6",
+      "src/MphRead/Mods/Movement/MovementTelemetryHud.cs": "c71a3f7a5816908fb57429d35f682f1c7d0c18a5a1c90b62833902ec5698e59d",
+      "src/MphRead/Mods/Movement/Quake3MovementProfileV3.cs": "65d5779c4f231ded6814cdec2def38cd4f90143e8c1df4a586971ac0490b546a",
+      "src/MphRead/Mods/Movement/TraversalCrouchPresentation.cs": "3bd36990a51953ce5eace0cb6a40715ba300048836cb4e7cab1a3180f234cd67",
+      "src/MphRead/Mods/Movement/TraversalMovementProfileV3.cs": "702dde39c63f8370fe2d04b815621110f703a5dc0ad030491417a8231b1e3af4",
+      "src/MphRead/Mods/Network/CustomReplayBoundary.cs": "0f817b0684afd227f91491edb46291198336e5f18f56e0e9ff69ee51d92025a2",
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": "a01d1fb7ee9495ccd15a072f5b8dbef497c1dce2496b06bc9e9abcc8f0b7255b",
+      "src/MphRead/Mods/Network/NetProtocol.cs": "d2442abf6985a5499110ba7b6838bbc862cea20741e81fc9840539ae278a2c58",
+      "src/MphRead/Mods/Network/NetSelfSplash.cs": "6657a5d1c2758e2e9807723d2c0059e05590bb3ffe983052a7acb2cb5fd0c8d5",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "494da0bcb3ca7873dbe374dce651475623798ba614f8db7c0c3756b867dcfaca",
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": "b825cdc9ab498c55ebaaee66d46114c616c7ed24c57892b0cf5e2b7c7b4cec4a",
+      "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "f9cf5ba0a562da66ccb9b6eea59d8bf9e0f9ec5cd0655d34002485fb9b1052c0",
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": "8860d4cf24ef1fe914a273ddea86128d96445b6b9cbf7798973c1a11af3a20b7",
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "d80c5256c5f5d6c83f7fd91a69a5ae4cc2170a65be157d4c701acf1358b8ac18",
+      "src/MphRead/Mods/Render/Hud/HudProfileDefaults.cs": "d8bddf0abe7aa734dc44de208a5631ded1be50eff1d3224a3e242e894ac62882",
+      "src/MphRead/Mods/Render/PlayerEntityHudLayout.cs": "dcc8498df3574288032194e8823c320e048ecea9e74d5adea0d143bcbbdd9414",
+      "src/MphRead/Renderer.cs": "98e57fd22660a3695908f70f2db51c1e18c0ed4470bb55d5811ce6f0b77f87b2",
+      "tools/custom-weapons-check/CustomMatchPolicyChecks.cs": "eb32db8933120cd905e6d5f8f816721d9311e6383dbaedd3da2c16222f711f21",
+      "tools/hud-check/Program.cs": "f41a48076ac4edde121b2fd850ab2104f38a169317749ad6821c87ba7916adff",
+      "tools/hud-controller-check/NativeHudCheck.cs": "dcf1e96c3d266136535318da0184d46b2b0c99033e6048de1bb6c1834cdf4273",
+      "tools/hud-controller-check/Program.cs": "4b38481959bc379ff588d17f4482ac99a449d340dc999580d6792ef66ce40af7",
+      "tools/native-render-check/TraversalCrouchRenderCheck.cs": "43d5f5b68b3dc9a1285c06503f5c5d7083be2b287f2f698ba6fb71b8fdabdf54",
+      "tools/nettest/ContinuousTargetTests.cs": "f3bcdd8a829da76be3020544f5d74c9b5e3a21721477fd3efe9999cfb38e32af",
+      "tools/nettest/EnhancedRetirementTests.cs": "c7218fed90341d921ee054b53daf83fddac0373ff0fe8bf04c6d21c36118be2d",
+      "tools/nettest/MomentumBotAuthorityTests.cs": "739dcd0131345251900edef756c8ab852803ad099e66859d62fac671c9642779",
+      "tools/nettest/MomentumOnlineSceneTests.cs": "781776fd7cde2a7fd9f4fc4d946c632c1629af542b848bd50e22f18e0df6467b",
+      "tools/nettest/MomentumReplayMetadataTests.cs": "65c246244911f030aa19058d363aad7745bd275108432c349082b0f2ee564426",
+      "tools/nettest/MomentumReplaySceneTests.cs": "f8c240989fed183cfbe92391fdf82d0bb47f216a483ed3d0337224cfac49acab",
+      "tools/nettest/MomentumRulesTests.cs": "badc997d98bd4a82307c9d6f81792d19e210ea14b086f8cc0abfc02163114842",
+      "tools/nettest/MovementTelemetryHudTests.cs": "590929f2f6df78c3ef3c522b3bf773affedc7e985a091caac5bf8597515b00ea",
+      "tools/nettest/MovementValidationTests.cs": "bea482262187b2efcd6a7f9ad53a6bb1ba8d5b5515bf29b5463293b16cf53794",
+      "tools/nettest/NetArchitectureTests.cs": "637116080a3005698b82db72d2d6304b79e35fd37f7933391a75f90ede26078f",
+      "tools/nettest/PickupProtocolTests.cs": "2544a9fb174b326f61adbac07f7dac4bb98b67971589a8209e6dae77a80aa271",
+      "tools/nettest/PlayerNameChatTests.cs": "aa88a39971ef53e9aec31a7c506acfe41e4d203c704cc9d9797c23f631064ecc",
+      "tools/nettest/Program.cs": "87ebfe7d295407b091127086b2c787514b7557f32db2db847cc4906b1d6e3e86",
+      "tools/nettest/Protocol17Tests.cs": "f5e30b983ffd48d34848c0fe168c68fc57ccfa76642ad7e2e0ed069717586f01",
+      "tools/nettest/Quake3AdvancedRulesTests.cs": "da1cd4ad1127ee58fe265ea1f95f4cb9736adbbd9d985ce63a870eb9070721b2",
+      "tools/nettest/Quake3AdvancedSceneTests.cs": "c6739d8e02b71166fbac00c6a9b7c2396c6a129bb7a6c9078bf116d58d19f9ee",
+      "tools/nettest/Quake3ReplayCompatibilityTests.cs": "f93d8f1f823c71b905f479df7c4a1f1816001b96971b6f2844743d0dd65b80e4",
+      "tools/nettest/Quake3RulesTests.cs": "db7dc671d1213e3425e2aa110ba3f98c97a02044e9c2fdd6aa8ed268d55ee2fc",
+      "tools/nettest/ReplayProtocol58Tests.cs": "497362a25fe98de815469d97b0b6d2e86efa899cca796a31e0e5e9e474f702ec",
+      "tools/nettest/RocketLaunchSceneTests.cs": "e740d607038a63e0fc235202ec7b2183c5adb6c1458116bbf3ee164a8cba3e97",
+      "tools/nettest/SelfSplashTests.cs": "11945f4ed5e994684a6401de1f18093bba6850d83fad3d5ea168d903f26776f5",
+      "tools/nettest/TraversalCrouchPoseTests.cs": "1a86b24fcd215f21a7724a1304cecc20750030be3a294148eb544595389b157d",
+      "tools/nettest/TraversalRulesTests.cs": "d769268fd5c178e1679ea9d375d67add3653a1e419900bfaa53819c3fa4b555d",
+      "tools/nettest/TraversalSceneTests.cs": "e57f694b44dc244d645d6990f50094c7738a20a46949465694943d8e454bb8de",
+      "tools/nettest/TraversalStanceNetworkTests.cs": "ddc5e74bab8fd6c92105481d5aa36776d2cbfa6efe0021479e20386d40948965",
+      "tools/nettest/TraversalStanceSceneTests.cs": "6fbf9323269e37c34908ee63910439e294869175b2bc01935422313df4e2432e",
+      "tools/nettest/TraversalStanceTests.cs": "b2afbb13a311a0569f074830ae65c383ce9e0340e2d7d84f22a13e7c1f027b35",
+      "tools/rmlui-live-menu-check/Program.cs": "b81cac5cccbef2022202acbe9a779e7ef9c1ee264e01698941fb6e918444751d",
+      "tools/rmlui-opengl-check/ReplayWindowAcceptance.OwnedHud.cs": "cf5e5fcd5903ba33f311a0638588c4c962e00917656a6d31a7fb3f52864ef482",
+      "tools/rmlui-runtime-check/Program.cs": "53d53f7b76a5a8f3d96cc5c5514817ee8ac88df2989602c901f3666dc4eebf07",
+      "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "d3c137de88dce76ce6749758b012c00ba759cd169784308008cbcd0391018439",
+      "native/rmlui-poc/projectprime_rmlui.cpp": "bcaf0f324ffd6dddd3696878966a18049fe15ae8408562611ff9271bc34bfcbf"
+    },
+    "sha256": "c0b2f7ddfacc0fd3144278bd153b7f12f87c4be0d95236f1f6a439542562d27e",
+    "managedAndTestSourceVerifiedAgainstLocal": true
+  },
+  "presentationSupplementalSource": {
+    "native/rmlui-poc/projectprime_rmlui.cpp": "bcaf0f324ffd6dddd3696878966a18049fe15ae8408562611ff9271bc34bfcbf",
+    "tools/native-render-check/TraversalCrouchRenderCheck.cs": "43d5f5b68b3dc9a1285c06503f5c5d7083be2b287f2f698ba6fb71b8fdabdf54",
+    "tools/rmlui-runtime-check/Program.cs": "53d53f7b76a5a8f3d96cc5c5514817ee8ac88df2989602c901f3666dc4eebf07"
+  },
+  "presentationCleanup": {
+    "runtimeSnapshot": "integration03",
+    "visualRevision": "visual04",
+    "nativeRevision": "native05",
+    "ownedRuntimeProcessCount": 0,
+    "ownedGlTaskCount": 0,
+    "taskName": "MovementPoseGL-20261020-04",
+    "taskRemoved": true,
+    "nativeDllPublishedOrDownloaded": false
+  },
+  "publicationSnapshot": {
+    "baseSha": "f99af4a6de1e5ee2222f9533c83afc7e708e5160",
+    "snapshot": "integration04",
+    "phase": "final-main-character-pickup-compatibility",
+    "sourceManifestSha256": "770d5f1c097a903611bc911777f9f88398ef162ef98f47ba16b77294b2c77ae8",
+    "sourceFiles": 75,
+    "overlaySha256": "9117e3d494da8ba1a70d400a554b38ca4d7ceaf1fad09ea06056929d1b49020d",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "546321b7c6429130bc7d39deb2f64627ec2d8cb4d46d7fdbef9ca2957386b8ad",
+      "nettest.dll": "a8e850703a14d00011469ef9a2d0a81d6148cb664c4942b72d67bf39a29026da"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "caseResults": [
+      {
+        "name": "rocket-launch",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-stance",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-telemetry-hud",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-profile",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58-replay",
+        "exitCode": 0
+      }
+    ],
+    "additionalResults": {
+      "custom-results-integration04.json": {
+        "snapshot": "integration04",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "binarySha256": "3c07eac4711980a2f61585cf0886346cc0222aae9a20b164053dd569ba8e8091",
+        "sourceBinaries": {
+          "ProjectPrime.dll": "546321b7c6429130bc7d39deb2f64627ec2d8cb4d46d7fdbef9ca2957386b8ad",
+          "nettest.dll": "a8e850703a14d00011469ef9a2d0a81d6148cb664c4942b72d67bf39a29026da"
+        },
+        "sourceBinariesUnchanged": true,
+        "outputDirectory": "existing nettest Release output; normal project defaults, no fixture-feature overrides"
+      },
+      "compatibility-results-integration04.json": {
+        "snapshot": "integration04",
+        "results": [
+          {
+            "name": "source-contract",
+            "exitCode": 0
+          },
+          {
+            "name": "client-smoke",
+            "exitCode": 0
+          }
+        ],
+        "binaries": {
+          "ProjectPrime.dll": "546321b7c6429130bc7d39deb2f64627ec2d8cb4d46d7fdbef9ca2957386b8ad",
+          "nettest.dll": "a8e850703a14d00011469ef9a2d0a81d6148cb664c4942b72d67bf39a29026da"
+        },
+        "leaseUnchanged": true
+      }
+    },
+    "liveProvenance": null,
+    "passedCases": 11,
+    "failedCases": 0,
+    "sourceReview": {
+      "baseSha": "f99af4a6de1e5ee2222f9533c83afc7e708e5160",
+      "priorBaseSha": "c4426b35fdbe8b656bfdafd92f14f64423186040",
+      "changedPriorFiles": [
+        "docs/movement/movement-modes.md",
+        "docs/movement/quake3-movement.md",
+        "docs/movement/traversal-movement.md",
+        "src/MphRead/Renderer.cs"
+      ],
+      "unchangedPriorFiles": [
+        "ARCHITECTURE-INVARIANTS.md",
+        "CLAUDE.md",
+        "src/MphRead/Entities/BeamProjectileEntity.cs",
+        "src/MphRead/Entities/Players/PlayerCamera.cs",
+        "src/MphRead/Entities/Players/PlayerDraw.cs",
+        "src/MphRead/Entities/Players/PlayerEntity.cs",
+        "src/MphRead/Entities/Players/PlayerInput.cs",
+        "src/MphRead/Entities/Players/PlayerMomentumMovement.cs",
+        "src/MphRead/Entities/Players/PlayerTraversalPose.cs",
+        "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs",
+        "src/MphRead/Entities/Players/PlayerTraversalStance.cs",
+        "src/MphRead/Formats/CollisionDetection.cs",
+        "src/MphRead/Mods/Launcher/Core/HudEditorController.cs",
+        "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioCanvas.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rml",
+        "src/MphRead/Mods/Movement/MovementModel.cs",
+        "src/MphRead/Mods/Movement/MovementTelemetryHud.cs",
+        "src/MphRead/Mods/Movement/Quake3MovementProfileV3.cs",
+        "src/MphRead/Mods/Movement/TraversalCrouchPresentation.cs",
+        "src/MphRead/Mods/Movement/TraversalMovementProfileV3.cs",
+        "src/MphRead/Mods/Network/CustomReplayBoundary.cs",
+        "src/MphRead/Mods/Network/NetLobbyTest.cs",
+        "src/MphRead/Mods/Network/NetProtocol.cs",
+        "src/MphRead/Mods/Network/NetSelfSplash.cs",
+        "src/MphRead/Mods/Network/PlayerEntityNetAim.cs",
+        "src/MphRead/Mods/Network/ReplayFormatV3.cs",
+        "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs",
+        "src/MphRead/Mods/Network/ReplayMetadata.cs",
+        "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs",
+        "src/MphRead/Mods/Render/Hud/HudProfileDefaults.cs",
+        "src/MphRead/Mods/Render/PlayerEntityHudLayout.cs",
+        "tools/custom-weapons-check/CustomMatchPolicyChecks.cs",
+        "tools/hud-check/Program.cs",
+        "tools/hud-controller-check/NativeHudCheck.cs",
+        "tools/hud-controller-check/Program.cs",
+        "tools/native-render-check/TraversalCrouchRenderCheck.cs",
+        "tools/nettest/ContinuousTargetTests.cs",
+        "tools/nettest/EnhancedRetirementTests.cs",
+        "tools/nettest/MomentumBotAuthorityTests.cs",
+        "tools/nettest/MomentumOnlineSceneTests.cs",
+        "tools/nettest/MomentumReplayMetadataTests.cs",
+        "tools/nettest/MomentumReplaySceneTests.cs",
+        "tools/nettest/MomentumRulesTests.cs",
+        "tools/nettest/MovementTelemetryHudTests.cs",
+        "tools/nettest/MovementValidationTests.cs",
+        "tools/nettest/NetArchitectureTests.cs",
+        "tools/nettest/PickupProtocolTests.cs",
+        "tools/nettest/PlayerNameChatTests.cs",
+        "tools/nettest/Program.cs",
+        "tools/nettest/Protocol17Tests.cs",
+        "tools/nettest/Quake3AdvancedRulesTests.cs",
+        "tools/nettest/Quake3AdvancedSceneTests.cs",
+        "tools/nettest/Quake3ReplayCompatibilityTests.cs",
+        "tools/nettest/Quake3RulesTests.cs",
+        "tools/nettest/ReplayProtocol58Tests.cs",
+        "tools/nettest/RocketLaunchSceneTests.cs",
+        "tools/nettest/SelfSplashTests.cs",
+        "tools/nettest/TraversalCrouchPoseTests.cs",
+        "tools/nettest/TraversalRulesTests.cs",
+        "tools/nettest/TraversalSceneTests.cs",
+        "tools/nettest/TraversalStanceNetworkTests.cs",
+        "tools/nettest/TraversalStanceSceneTests.cs",
+        "tools/nettest/TraversalStanceTests.cs",
+        "tools/rmlui-live-menu-check/Program.cs",
+        "tools/rmlui-opengl-check/ReplayWindowAcceptance.OwnedHud.cs",
+        "tools/rmlui-runtime-check/Program.cs",
+        "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs",
+        "native/rmlui-poc/projectprime_rmlui.cpp"
+      ]
+    },
+    "status": "PASS",
+    "proofAttribution": {
+      "integration02": "physics/UDP/current71record+historical61,62,68,69replays",
+      "integration03": "native476DOM/27continuousGLcaptures and finalcamera-history qualification",
+      "integration04": "latestf99base cleanbuild +11focusedtests +15156customcontracts +7sourceanchors +clientcompatibility"
+    },
+    "sourceFilesSha256": {
+      "native/rmlui-poc/projectprime_rmlui.cpp": "bcaf0f324ffd6dddd3696878966a18049fe15ae8408562611ff9271bc34bfcbf",
+      "src/MphRead/Entities/BeamProjectileEntity.cs": "849bbb440edd1478050e08abeb381f47d6799de0258e50bd81cb4b278ae25bbe",
+      "src/MphRead/Entities/Players/PlayerCamera.cs": "4269de92e2035046c9221566fcfc28c625cc943fb9a08c9877ab6e3ab248d5aa",
+      "src/MphRead/Entities/Players/PlayerDraw.cs": "bda54785245cdadcfa783ebc2c5dfac91ba9e9a56af9425882379f58367da63e",
+      "src/MphRead/Entities/Players/PlayerEntity.cs": "b0a549c81ee3a63a3a098afef0ff5abfd97c50b0a7562e6c741c3e07705c2d4f",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "a953856656984b6ab6675609a4cbe1cf695faa4545dd8190c113c43307780cd2",
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "cdcc486e303043c6f0fafdbe346079c31b1732937a7984668c373ba9bb440cbb",
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": "5707ed0fc5477e2c9ff07ac109492ec5782dcf6d45d036a57f4c816eef5bfb71",
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": "54ba182946f0e849b08f580c4b880f886fd2be8ad1701380f5c0348fc71a187d",
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": "3283bf9fa76d03d8e6f504566b3fade322bc6ff9d2532a5f83c70674f7376f94",
+      "src/MphRead/Formats/CollisionDetection.cs": "c3c1b88f75ce90e296179f3fbbe02e8146775709931b4cf77a7c47c799e31e20",
+      "src/MphRead/Mods/Launcher/Core/HudEditorController.cs": "8002f590889e5f63175f8c0e801a69701ddb66ec23bf4284b4b10f576bf6eaea",
+      "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioCanvas.cs": "5c2f646a9677405dbf46cc4fef33eba369874b36e2061ac0ff274993eb35f863",
+      "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs": "c541ac5b1012eecec5ac82eefba7bf668dd77395c3232136208dd26dc849432e",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs": "67ce78f5832a091a38db3a18f8dcbcb6ace91400eea34605c294ce97c2dce059",
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rml": "61bd7c280761cf4ab9dca6ed737690735ade6e6d9400dc1c178782bbd6ab668a",
+      "src/MphRead/Mods/Movement/MovementModel.cs": "592eb4ef590887876cb66d5f2fcd060644e5775f5071e331d070ef48636bd3f6",
+      "src/MphRead/Mods/Movement/MovementTelemetryHud.cs": "c71a3f7a5816908fb57429d35f682f1c7d0c18a5a1c90b62833902ec5698e59d",
+      "src/MphRead/Mods/Movement/Quake3MovementProfileV3.cs": "65d5779c4f231ded6814cdec2def38cd4f90143e8c1df4a586971ac0490b546a",
+      "src/MphRead/Mods/Movement/TraversalCrouchPresentation.cs": "3bd36990a51953ce5eace0cb6a40715ba300048836cb4e7cab1a3180f234cd67",
+      "src/MphRead/Mods/Movement/TraversalMovementProfileV3.cs": "702dde39c63f8370fe2d04b815621110f703a5dc0ad030491417a8231b1e3af4",
+      "src/MphRead/Mods/Network/CustomReplayBoundary.cs": "0f817b0684afd227f91491edb46291198336e5f18f56e0e9ff69ee51d92025a2",
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": "a01d1fb7ee9495ccd15a072f5b8dbef497c1dce2496b06bc9e9abcc8f0b7255b",
+      "src/MphRead/Mods/Network/NetProtocol.cs": "d2442abf6985a5499110ba7b6838bbc862cea20741e81fc9840539ae278a2c58",
+      "src/MphRead/Mods/Network/NetSelfSplash.cs": "6657a5d1c2758e2e9807723d2c0059e05590bb3ffe983052a7acb2cb5fd0c8d5",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "494da0bcb3ca7873dbe374dce651475623798ba614f8db7c0c3756b867dcfaca",
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": "b825cdc9ab498c55ebaaee66d46114c616c7ed24c57892b0cf5e2b7c7b4cec4a",
+      "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "f9cf5ba0a562da66ccb9b6eea59d8bf9e0f9ec5cd0655d34002485fb9b1052c0",
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": "8860d4cf24ef1fe914a273ddea86128d96445b6b9cbf7798973c1a11af3a20b7",
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "d80c5256c5f5d6c83f7fd91a69a5ae4cc2170a65be157d4c701acf1358b8ac18",
+      "src/MphRead/Mods/Render/Hud/HudProfileDefaults.cs": "d8bddf0abe7aa734dc44de208a5631ded1be50eff1d3224a3e242e894ac62882",
+      "src/MphRead/Mods/Render/PlayerEntityHudLayout.cs": "dcc8498df3574288032194e8823c320e048ecea9e74d5adea0d143bcbbdd9414",
+      "src/MphRead/Renderer.cs": "5e400e0752a425f8ff275ff34bd31d07540eb413d790c51a5466ff67bfbe4262",
+      "tools/custom-weapons-check/CustomMatchPolicyChecks.cs": "eb32db8933120cd905e6d5f8f816721d9311e6383dbaedd3da2c16222f711f21",
+      "tools/hud-check/Program.cs": "f41a48076ac4edde121b2fd850ab2104f38a169317749ad6821c87ba7916adff",
+      "tools/hud-controller-check/NativeHudCheck.cs": "dcf1e96c3d266136535318da0184d46b2b0c99033e6048de1bb6c1834cdf4273",
+      "tools/hud-controller-check/Program.cs": "4b38481959bc379ff588d17f4482ac99a449d340dc999580d6792ef66ce40af7",
+      "tools/native-render-check/TraversalCrouchRenderCheck.cs": "43d5f5b68b3dc9a1285c06503f5c5d7083be2b287f2f698ba6fb71b8fdabdf54",
+      "tools/nettest/ContinuousTargetTests.cs": "f3bcdd8a829da76be3020544f5d74c9b5e3a21721477fd3efe9999cfb38e32af",
+      "tools/nettest/EnhancedRetirementTests.cs": "c7218fed90341d921ee054b53daf83fddac0373ff0fe8bf04c6d21c36118be2d",
+      "tools/nettest/MomentumBotAuthorityTests.cs": "739dcd0131345251900edef756c8ab852803ad099e66859d62fac671c9642779",
+      "tools/nettest/MomentumOnlineSceneTests.cs": "781776fd7cde2a7fd9f4fc4d946c632c1629af542b848bd50e22f18e0df6467b",
+      "tools/nettest/MomentumReplayMetadataTests.cs": "65c246244911f030aa19058d363aad7745bd275108432c349082b0f2ee564426",
+      "tools/nettest/MomentumReplaySceneTests.cs": "f8c240989fed183cfbe92391fdf82d0bb47f216a483ed3d0337224cfac49acab",
+      "tools/nettest/MomentumRulesTests.cs": "badc997d98bd4a82307c9d6f81792d19e210ea14b086f8cc0abfc02163114842",
+      "tools/nettest/MovementTelemetryHudTests.cs": "590929f2f6df78c3ef3c522b3bf773affedc7e985a091caac5bf8597515b00ea",
+      "tools/nettest/MovementValidationTests.cs": "bea482262187b2efcd6a7f9ad53a6bb1ba8d5b5515bf29b5463293b16cf53794",
+      "tools/nettest/NetArchitectureTests.cs": "637116080a3005698b82db72d2d6304b79e35fd37f7933391a75f90ede26078f",
+      "tools/nettest/PickupProtocolTests.cs": "2544a9fb174b326f61adbac07f7dac4bb98b67971589a8209e6dae77a80aa271",
+      "tools/nettest/PlayerNameChatTests.cs": "aa88a39971ef53e9aec31a7c506acfe41e4d203c704cc9d9797c23f631064ecc",
+      "tools/nettest/Program.cs": "87ebfe7d295407b091127086b2c787514b7557f32db2db847cc4906b1d6e3e86",
+      "tools/nettest/Protocol17Tests.cs": "f5e30b983ffd48d34848c0fe168c68fc57ccfa76642ad7e2e0ed069717586f01",
+      "tools/nettest/Quake3AdvancedRulesTests.cs": "da1cd4ad1127ee58fe265ea1f95f4cb9736adbbd9d985ce63a870eb9070721b2",
+      "tools/nettest/Quake3AdvancedSceneTests.cs": "c6739d8e02b71166fbac00c6a9b7c2396c6a129bb7a6c9078bf116d58d19f9ee",
+      "tools/nettest/Quake3ReplayCompatibilityTests.cs": "f93d8f1f823c71b905f479df7c4a1f1816001b96971b6f2844743d0dd65b80e4",
+      "tools/nettest/Quake3RulesTests.cs": "db7dc671d1213e3425e2aa110ba3f98c97a02044e9c2fdd6aa8ed268d55ee2fc",
+      "tools/nettest/ReplayProtocol58Tests.cs": "497362a25fe98de815469d97b0b6d2e86efa899cca796a31e0e5e9e474f702ec",
+      "tools/nettest/RocketLaunchSceneTests.cs": "e740d607038a63e0fc235202ec7b2183c5adb6c1458116bbf3ee164a8cba3e97",
+      "tools/nettest/SelfSplashTests.cs": "11945f4ed5e994684a6401de1f18093bba6850d83fad3d5ea168d903f26776f5",
+      "tools/nettest/TraversalCrouchPoseTests.cs": "1a86b24fcd215f21a7724a1304cecc20750030be3a294148eb544595389b157d",
+      "tools/nettest/TraversalRulesTests.cs": "d769268fd5c178e1679ea9d375d67add3653a1e419900bfaa53819c3fa4b555d",
+      "tools/nettest/TraversalSceneTests.cs": "e57f694b44dc244d645d6990f50094c7738a20a46949465694943d8e454bb8de",
+      "tools/nettest/TraversalStanceNetworkTests.cs": "ddc5e74bab8fd6c92105481d5aa36776d2cbfa6efe0021479e20386d40948965",
+      "tools/nettest/TraversalStanceSceneTests.cs": "6fbf9323269e37c34908ee63910439e294869175b2bc01935422313df4e2432e",
+      "tools/nettest/TraversalStanceTests.cs": "b2afbb13a311a0569f074830ae65c383ce9e0340e2d7d84f22a13e7c1f027b35",
+      "tools/rmlui-live-menu-check/Program.cs": "b81cac5cccbef2022202acbe9a779e7ef9c1ee264e01698941fb6e918444751d",
+      "tools/rmlui-opengl-check/ReplayWindowAcceptance.OwnedHud.cs": "cf5e5fcd5903ba33f311a0638588c4c962e00917656a6d31a7fb3f52864ef482",
+      "tools/rmlui-runtime-check/Program.cs": "53d53f7b76a5a8f3d96cc5c5514817ee8ac88df2989602c901f3666dc4eebf07",
+      "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "d3c137de88dce76ce6749758b012c00ba759cd169784308008cbcd0391018439"
+    },
+    "customContractCount": 15156,
+    "sourceContractCount": 7,
+    "compatibility": {
+      "snapshot": "integration04",
+      "results": [
+        {
+          "name": "source-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "client-smoke",
+          "exitCode": 0
+        }
+      ],
+      "binaries": {
+        "ProjectPrime.dll": "546321b7c6429130bc7d39deb2f64627ec2d8cb4d46d7fdbef9ca2957386b8ad",
+        "nettest.dll": "a8e850703a14d00011469ef9a2d0a81d6148cb664c4942b72d67bf39a29026da"
+      },
+      "leaseUnchanged": true
+    },
+    "cleanup": {
+      "snapshot": "integration04",
+      "ownedRuntimeProcessCount": 0,
+      "ownedGlTaskCount": 0,
+      "cleanupVerified": true
+    },
+    "priorSourceReviewSha256": "230ca51cc0438c8167cf5666be58b457934768bdfe81a8888ed71a5fc2f5e9c1"
+  }
+}

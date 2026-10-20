@@ -37,8 +37,8 @@ internal static class TraversalStanceNetworkTests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 70 && (uint)IntentButtons.Crouch == 1u << 22
-                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol70 preserves distinct held and canonical stance bits");
+            Check(NetConfig.ProtocolVersion == 71 && (uint)IntentButtons.Crouch == 1u << 22
+                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol71 preserves distinct held and canonical stance bits");
             foreach (IntentButtons bits in new[] { IntentButtons.None, IntentButtons.Crouch, IntentButtons.CrouchedState, StanceBits })
             {
                 var carrier = new IntentPacket { Buttons = IntentButtons.InPlayState | bits, Aim = Vector3.UnitZ };
@@ -87,6 +87,7 @@ internal static class TraversalStanceNetworkTests
             Check(IntentPacket.Read(packet.AsSpan(at)).Buttons == intent.Buttons, "current intent preserves held and canonical stance independently");
             Check(ReplayIdentityCompatibility.Convert(packet, 69).SequenceEqual(packet), "protocol69 intent conversion is byte-exact");
             Check(ReplayIdentityCompatibility.Convert(packet, 70).SequenceEqual(packet), "protocol70 native intent conversion is byte-exact");
+            Check(ReplayIdentityCompatibility.Convert(packet, 71).SequenceEqual(packet), "protocol71 native intent conversion is byte-exact");
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
             {
                 var old = IntentPacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[at..]);
@@ -101,6 +102,7 @@ internal static class TraversalStanceNetworkTests
         {
             Check(ReplayIdentityCompatibility.Convert(packet, 69).SequenceEqual(packet), "protocol69 snapshot conversion is byte-exact");
             Check(ReplayIdentityCompatibility.Convert(packet, 70).SequenceEqual(packet), "protocol70 native snapshot conversion is byte-exact");
+            Check(ReplayIdentityCompatibility.Convert(packet, 71).SequenceEqual(packet), "protocol71 native snapshot conversion is byte-exact");
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
             {
                 byte[] normalized = ReplayIdentityCompatibility.Convert(packet, protocol).ToArray();

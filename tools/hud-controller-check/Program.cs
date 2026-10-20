@@ -67,7 +67,7 @@ using(var controller=new HudEditorController(original,backend))
     Check(code.StartsWith("PPCH1:")&&controller.Dispatch(HudEditorAction.ImportCrosshair,code),"actual crosshair share/import codec round trips");
     Check(!controller.Dispatch(HudEditorAction.ImportJson,"{\"schemaVersion\":99}")&&controller.Snapshot().Error.Contains("Unsupported HUD profile version"),"unsupported schema keeps detached draft and explains failure");
     controller.Dispatch(HudEditorAction.ExportJson);var exported=HudProfileStore.Parse(controller.Snapshot().JsonText);
-    Check(exported.Elements.Count==14&&exported.WeaponCrosshairs[0]!=null,"profile export preserves all elements and override data");
+    Check(exported.Elements.Count==HudProfileDefaults.ElementIds.Length&&exported.WeaponCrosshairs[0]!=null,"profile export preserves all elements and override data");
     controller.Dispatch(HudEditorAction.SaveNamed,name:"λ Prime");
     Check(backend.Saved?.Name=="λ Prime"&&HudProfiles.Generation==generation,"named save persists detached library profile without activation");
     controller.Dispatch(HudEditorAction.Use,name:"Project Prime");
@@ -115,6 +115,36 @@ using(var controller=new HudEditorController(original,backend))
     Property("/elements/core.health/contexts");
     Check(controller.Dispatch(HudEditorAction.PropertyApply,"Playing,Replay")&&controller.CopyDraft().Elements["core.health"].Contexts==(HudContext.Playing|HudContext.Replay),
         "context flags preserve arbitrary valid combinations independent of spacing");
+}
+using(var controller=new HudEditorController(original,new HudBoundary()))
+{
+    int index=HudProfileDefaults.MovementTelemetryIndex;
+    const string id=HudProfileDefaults.MovementTelemetryId;
+    Check(controller.SelectElement(index)&&controller.Snapshot().Elements[index].Id==id,
+        "movement telemetry appears as a selectable editor element");
+    var initial=controller.Bounds(index);
+    Check(controller.Dispatch(HudEditorAction.ApplyLayout,x:"100",y:"-220",scale:"1.5",opacity:".4",color:"#44AAFF"),
+        "movement layout accepts all existing editor appearance fields");
+    var authored=controller.CopyDraft().Elements[id];
+    Check(authored.OffsetX==100&&authored.OffsetY==-220&&authored.Scale==1.5f&&authored.Opacity==.4f&&authored.Color=="#44AAFF"
+        &&controller.Bounds(index)!=initial&&original.Elements[id].OffsetX==0,
+        "movement position and scale update shared bounds without mutating active settings");
+    controller.Dispatch(HudEditorAction.Undo);
+    Check(controller.Bounds(index)==initial,"movement undo restores original editor bounds");
+    controller.Dispatch(HudEditorAction.Redo);
+    Check(controller.CopyDraft().Elements[id].Scale==1.5f,"movement redo restores authored scale");
+    controller.Dispatch(HudEditorAction.ToggleVisible);
+    Check(!controller.CopyDraft().Elements[id].Enabled,"movement visibility uses normal editor enabled control");
+    controller.Dispatch(HudEditorAction.SaveNamed,name:"Movement layout");
+    controller.Dispatch(HudEditorAction.ResetElement);
+    Check(controller.CopyDraft().Elements[id].OffsetX==0&&controller.CopyDraft().Elements[id].Enabled,
+        "movement element reset restores original appearance");
+    controller.Dispatch(HudEditorAction.LoadNamed,name:"Movement layout");
+    Check(!controller.CopyDraft().Elements[id].Enabled&&controller.CopyDraft().Elements[id].Color=="#44AAFF"
+        &&controller.CopyDraft().Elements[id].OffsetX==100,"movement named profile load restores visibility, color and placement");
+    controller.Dispatch(HudEditorAction.Use,name:"Movement layout");
+    Check(controller.TryTakeAccepted(out var accepted)&&accepted.Elements[id].Opacity==.4f&&HudProfiles.Generation==generation,
+        "movement editor hands off saved presentation without publishing gameplay or active settings");
 }
 Console.WriteLine($"HUD CONTRACT PASS {checks} checks.");
 #if MPHREAD_RMLUI_GL_SMOKE

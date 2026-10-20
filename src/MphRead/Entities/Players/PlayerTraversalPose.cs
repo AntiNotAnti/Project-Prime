@@ -13,17 +13,20 @@ public partial class PlayerEntity
     // and keep the animated feet planted. Model axes/leg lengths are sampled
     // from its current animation, not copied from a particular Hunter asset.
     internal void ModApplyCrouchPose(Model model, Matrix4 world)
+        => ModApplyCrouchVisualPose(model, world, ModCrouched ? 1 : 0);
+
+    private void ModApplyCrouchVisualPose(Model model, Matrix4 world, float amount)
     {
-        if (!ModCrouched) return;
-        float drop = Fixed.ToFloat(Values.MaxPickupHeight) - ModBipedTop;
+        amount = Math.Clamp(amount, 0, 1);
+        if (amount <= 0) return;
+        float drop = (Fixed.ToFloat(Values.MaxPickupHeight) - ModBipedTopFor(true)) * amount;
         CrouchSkeleton skeleton = CrouchSkeletons.GetValue(model, value => new(value));
         if (!skeleton.Valid)
         {
             // Cosmetic replacement skeletons may lack the native leg names.
             // Match the accepted height without changing gameplay or assets.
-            float bottom = Position.Y + ModBipedBottom;
-            float ratio = (ModBipedTop - ModBipedBottom)
-                / (Fixed.ToFloat(Values.MaxPickupHeight) - ModBipedBottom);
+            float bottom = world.Row3.Y + ModBipedBottom;
+            float ratio = 1 - drop / (Fixed.ToFloat(Values.MaxPickupHeight) - ModBipedBottom);
             foreach (Node node in model.Nodes)
             {
                 Matrix4 pose = node.Animation;
@@ -59,6 +62,16 @@ public partial class PlayerEntity
         Vector3 knee = model.Nodes[bones[1]].Animation.Row3.Xyz;
         Vector3 ankle = model.Nodes[bones[2]].Animation.Row3.Xyz;
         Vector3 lowered = hip - Vector3.UnitY * drop;
+        // Retain some of the animated leg's bend plane for natural asymmetric
+        // stances; near-straight legs keep the stable body-forward fallback.
+        Vector3 axis = ankle - hip;
+        if (axis.LengthSquared > 1e-8f)
+        {
+            axis.Normalize();
+            Vector3 animatedPole = knee - hip - axis * Vector3.Dot(knee - hip, axis);
+            if (animatedPole.LengthSquared > 1e-6f && Vector3.Dot(animatedPole, forward) > 0)
+                forward = (forward * .8f + animatedPole.Normalized() * .2f).Normalized();
+        }
         Vector3 target = ModCrouchKnee(lowered, ankle, (knee - hip).Length, (ankle - knee).Length, forward);
         return (MoveBone(hip, lowered, knee - hip, target - lowered),
             MoveBone(knee, target, ankle - knee, ankle - target));

@@ -487,7 +487,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 45; ++index) if (action == std::string("hud:") + hud_actions[index]) {
         intent.kind = uint32_t(PrimeIntentKind::HudAction); intent.argument = index; return true;
     }
-    for (int index = 0; index < 14; ++index) if (action == "hud:element:" + std::to_string(index)) {
+    for (int index = 0; index < 15; ++index) if (action == "hud:element:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HudElement); intent.argument = index; return true;
     }
     for (int index = 0; index < 8; ++index) if (action == "hud:property:" + std::to_string(index)) {

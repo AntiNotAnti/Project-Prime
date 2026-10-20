@@ -67,6 +67,24 @@ internal static class MomentumReplayMetadataTests
         Check(Metadata(69, Match(MovementModel.Traversal), Session(MovementModel.Traversal)).RecordedMovementModel == MovementModel.Traversal
             && Metadata(69, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 2,
             "protocol69 Traversal metadata selects accepted-stance profile v2");
+        foreach (MovementModel model in new[] { MovementModel.Quake3, MovementModel.Traversal })
+        foreach (byte protocol in new byte[] { 70, 71 })
+        foreach (byte[][] packets in new[] { new[] { Match(model) }, new[] { Session(model) }, new[] { Match(model), Session(model) } })
+        {
+            int expectedProfile = protocol == 70 ? 2 : 3;
+            var metadata = Metadata(protocol, packets);
+            Check(metadata.RecordedMovementModel == model && metadata.RecordedMovementProfileVersion == expectedProfile,
+                $"recorded {model} protocol{protocol} bootstrap selects immutable profile{expectedProfile}");
+            var entry = new ReplayLibraryIndexEntry { HasMetadata = true, Room = Room, ProtocolVersion = protocol,
+                RecordedUtcTicks = DateTime.UtcNow.Ticks, RecordedMovementModel = model };
+            var cached = JsonSerializer.Deserialize<ReplayLibraryIndexEntry>(JsonSerializer.Serialize(entry))!;
+            Check(cached.ToRecording("unused.ppdemo").Metadata!.RecordedMovementProfileVersion == expectedProfile,
+                $"cached {model} protocol{protocol} attribution retains profile{expectedProfile} without synthesizing gameplay");
+        }
+        foreach (byte protocol in new byte[] { 60, 61, 62, 69, 70, 71 })
+            Check(Metadata(protocol, Match(MovementModel.Quake3)).RecordedMovementProfileVersion
+                == (protocol >= 71 ? 3 : protocol >= 62 ? 2 : 1),
+                "Quake III historical profile boundaries are selected by the recorded protocol");
         Check(Metadata(67, Match(MovementModel.Traversal)).RecordedMovementModel == null
             && Metadata(67, Session(MovementModel.Traversal)).RecordedMovementModel == null,
             "historical reserved Traversal bits cannot label replay metadata");

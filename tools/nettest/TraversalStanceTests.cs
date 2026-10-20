@@ -26,12 +26,19 @@ internal static class TraversalStanceTests
             Check(TraversalStance.HeightRatio == .65f && TraversalMovementProfileV2.ProfileVersion == 2
                 && TraversalMovementProfileV1.ProfileVersion == 1,
                 "new stance profile preserves immutable historical Traversal v1");
-            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 2,
-                "live Traversal selects stance profile two");
+            Check(MovementModelRules.ProfileVersion(MovementModel.Traversal) == 3,
+                "live Traversal selects profile three while historical stance profile two stays immutable");
             Check(TraversalMovementProfileV2.SlideTicks == 48
                 && TraversalMovementProfileV2.SlideMinimumSpeed == TraversalMovementProfileV2.GroundSpeed * 1.1f
                 && TraversalMovementProfileV2.CrouchSpeed == TraversalMovementProfileV2.GroundSpeed * .5f,
                 "reviewed finite slide window, earned entry threshold and crouch speed");
+            Check(TraversalMovementProfileV3.ProfileVersion == 3
+                && TraversalMovementProfileV3.SlideTicks == TraversalMovementProfileV2.SlideTicks
+                && TraversalMovementProfileV3.SlideEntryTicks == 6
+                && TraversalMovementProfileV3.SlideMinimumSpeed == TraversalMovementProfileV3.GroundSpeed * .9f
+                && TraversalMovementProfileV3.CrouchSpeed == TraversalMovementProfileV2.CrouchSpeed
+                && TraversalMovementProfileV3.Tuning == TraversalMovementProfileV2.Tuning,
+                "V3 admits earned running slides and a six-tick entry buffer without changing established solver coefficients");
             foreach (Hunter hunter in new[] { Hunter.Samus, Hunter.Kanden, Hunter.Spire, Hunter.Noxus,
                 Hunter.Trace, Hunter.Sylux, Hunter.Weavel })
             {
@@ -95,11 +102,16 @@ internal static class TraversalStanceTests
             foreach (bool sliding in new[] { false, true })
             {
                 Vector3 result = TraversalMovementProfileV2.Step(speed, input, true, sliding).Velocity;
+                Check(TraversalMovementProfileV3.Step(speed, input, true, sliding)
+                    == TraversalMovementProfileV2.Step(speed, input, true, sliding),
+                    "V3 crouch and slide solver results retain exact V2 coefficients and diagnostics");
                 Check(BitConverter.SingleToInt32Bits(result.Y) == BitConverter.SingleToInt32Bits(y),
                     "crouch and slide never change native jump/gravity bits");
                 if (!grounded) Check(result == TraversalMovementProfileV1.Step(speed, input).Velocity,
                     "crouch and slide introduce no airborne acceleration or jump boost");
             }
+            Check(TraversalMovementProfileV3.Step(speed, input) == TraversalMovementProfileV2.Step(speed, input),
+                "V3 standing movement remains exact V2 behavior");
         }
         foreach (float invalid in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity })
         {

@@ -122,6 +122,7 @@ namespace MphRead.NetTest
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
                     + "  --quake3-bot-authority <assets> [json] Test genuine authority AI under the fixed Quake III rule.\n"
                     + "  --quake3-scene <assets> [json]     Test normal Quake III rule simulation and native preservation.\n"
+                    + "  --rocket-launch-scene <assets> [json] Test real local missile input, flight, floor impact and spawn-protection timing.\n"
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
@@ -554,6 +555,13 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return MomentumBotAuthorityTests.Run(output, Mods.Movement.MovementModel.Quake3);
+            }
+            if (args.Length > 1 && args[0] == "--rocket-launch-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return RocketLaunchSceneTests.Run(output);
             }
             if (args.Length > 1 && args[0] == "--quake3-scene")
             {

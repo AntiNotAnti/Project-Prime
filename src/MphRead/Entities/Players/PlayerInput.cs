@@ -712,7 +712,7 @@ namespace MphRead.Entities
 
         private void ProcessBiped()
         {
-            if (_scene.MomentumOwnsPlayer(this))
+            if (IsBot && _scene.MomentumOwnsPlayer(this))
                 ModUpdateTraversalStance(Controls.Crouch.IsDown && (IsBot || _scene.DeveloperMomentumInputAllowed));
             if (IsMainPlayer && _scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
             {
@@ -996,7 +996,7 @@ namespace MphRead.Entities
                     }
                 }
             }
-            if (nativeJumpAccepted) ModUpdateTraversalStance(Controls.Crouch.IsDown, jumpAccepted: true);
+            if (nativeJumpAccepted) ModCancelTraversalSlide();
             bool momentumApplied = ProcessMovement(allowMomentum: true, nativeJumpAccepted: nativeJumpAccepted);
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             // Refresh replicated facing before building the camera and weapon.

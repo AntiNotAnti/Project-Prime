@@ -55,7 +55,7 @@ public partial class PlayerEntity
         && (IsBot || !_scene.DeveloperMomentumActive);
 
     private bool ModQuake3HeldJumpRequested => ModUsesQuake3Techniques
-        && ModMomentumEligible && Controls.Jump.IsDown && Flags1.TestFlag(PlayerFlags1.Standing)
+        && ModMomentumEligible && !ModSliding && Controls.Jump.IsDown && Flags1.TestFlag(PlayerFlags1.Standing)
         && !Flags1.TestFlag(PlayerFlags1.StandingPrevious);
 
     // Combat runs on authoritative puppet bodies too; do not require local
@@ -81,22 +81,22 @@ public partial class PlayerEntity
         bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
         bool traversal = !developerOwns && _scene.GameState.MovementModel == MovementModel.Traversal;
         MomentumTuning tuning = practice?.Tuning ?? (traversal ? ModCrouched
-            ? TraversalMovementProfileV2.CrouchTuning(ModSliding) : TraversalMovementProfileV2.Tuning
-            : quake3 ? Quake3MovementProfileV2.Tuning : MomentumProfileV1.Tuning);
+            ? TraversalMovementProfileV3.CrouchTuning(ModSliding) : TraversalMovementProfileV3.Tuning
+            : quake3 ? Quake3MovementProfileV3.Tuning : MomentumProfileV1.Tuning);
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
             Speed.Y, nativeJumpAccepted);
         var input = new MomentumInput(new Vector2(x, y),
             new Vector3(_field70, 0, _field74), new Vector3(-_field78, 0, -_field7C),
-            practice?.GroundSpeed ?? (traversal ? TraversalMovementProfileV1.GroundSpeed : quake3 ? Quake3MovementProfileV2.GroundSpeed : MomentumProfileV1.GroundSpeed),
+            practice?.GroundSpeed ?? (traversal ? TraversalMovementProfileV1.GroundSpeed : quake3 ? Quake3MovementProfileV3.GroundSpeed : MomentumProfileV1.GroundSpeed),
             MomentumProfileV1.UsesGroundFriction(contact), dt);
         Vector3 before = Speed;
         Vector3 horizontal = new(before.X * NativeVelocityUnitsPerSecond, 0,
             before.Z * NativeVelocityUnitsPerSecond);
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
-            : traversal ? TraversalMovementProfileV2.Step(horizontal, input, ModCrouched, ModSliding)
-            : quake3 ? Quake3MovementProfileV2.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
+            : traversal ? TraversalMovementProfileV3.Step(horizontal, input, ModCrouched, ModSliding)
+            : quake3 ? Quake3MovementProfileV3.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);

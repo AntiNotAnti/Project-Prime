@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using MphRead.Hud;
+using MphRead.Mods.Chat;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Hud;
@@ -83,6 +84,28 @@ public sealed class HudPreviewBitmap
             {
                 float unit=5.625f*transform.UnitScale*element.Bounds.Width/Math.Max(16,248*transform.UnitScale)*p.IconScale;
                 Sprite(canvas,HudElements.HunterObjects[state.PreviewHunter].WeaponIcon,Math.Max(0,state.CrosshairTarget-1),new(element.Bounds.X,element.Bounds.Y),unit,unit,alpha,false,ref warning);
+            }
+            else if(element.Index==HudProfileDefaults.MovementTelemetryIndex)
+            {
+                float unit=5.625f*transform.UnitScale*p.GlobalScale*p.Elements[element.Id].Scale;
+                float aspect=state.PreviewWidth/state.PreviewHeight*.75f;
+                Vector3 tint=HudColor.Parse(element.Color);
+                canvas.Rect(element.Bounds,new(.02f*tint.X,.07f*tint.Y,.11f*tint.Z,.65f*alpha));
+                void Text(float y,string text)
+                {
+                    float x=element.Bounds.X+4*unit*aspect;
+                    float pixel=.45f*unit*p.TextScale;
+                    foreach(char ch in text)
+                    {
+                        int glyph=ChatFont.Index(ch);if(glyph<0)continue;
+                        for(int row=0;row<ChatFont.Cell;row++)for(int column=0;column<ChatFont.Cell;column++)
+                            if(ChatFont.Pixels[glyph*64+row*8+column]!=0)
+                                canvas.Rect(new(x+column*pixel,y+row*pixel,pixel,pixel),new(220/255f*tint.X,243/255f*tint.Y,tint.Z,alpha));
+                        x+=ChatFont.Widths[glyph]*pixel*aspect;
+                    }
+                }
+                Text(element.Bounds.Y+2*unit,"SPEED 320.0 U/S");
+                Text(element.Bounds.Y+9*unit,"AIR EFF 85%");
             }
             else if(element.Index==4)DrawRadar(canvas,p,element,transform.UnitScale,alpha);
             else if(element.Index is 1 or 2 or 12 or 13)

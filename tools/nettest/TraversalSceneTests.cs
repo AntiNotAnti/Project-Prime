@@ -260,8 +260,8 @@ internal static class TraversalSceneTests
                         == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "horizontal solver preserves native Y bits");
                     Vector3 inputSpeed = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
                     Vector3 expected = model == MovementModel.Traversal
-                        ? TraversalMovementProfileV2.Step(inputSpeed, sample.Input, sample.Crouched, sample.Sliding).Velocity
-                        : Quake3MovementProfileV2.Step(inputSpeed, sample.Input).Velocity;
+                        ? TraversalMovementProfileV3.Step(inputSpeed, sample.Input, sample.Crouched, sample.Sliding).Velocity
+                        : Quake3MovementProfileV3.Step(inputSpeed, sample.Input).Velocity;
                     Near(sample.NativeVelocityAfter.X, expected.X / 30, "actual selected solver X");
                     Near(sample.NativeVelocityAfter.Z, expected.Z / 30, "actual selected solver Z");
                     solverGrounded = sample.Input.Grounded;
