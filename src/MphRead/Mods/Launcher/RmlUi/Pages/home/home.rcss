@@ -955,3 +955,43 @@ border-color: rgba(114,199,255,22%);
     #home_right_rail .session_header .eyebrow { font-size: 8dp; letter-spacing: 0dp; }
     #home_right_rail .session_name { font-size: 12dp; line-height: 15dp; }
 }
+
+/* Utility rails share the stage height; compact surfaces leave more room for
+   the live Hunter without shrinking text into tiny viewport fractions. */
+#home_left_rail { left:24dp; top:16dp; bottom:16dp; width:31%; max-width:380dp; }
+#home_right_rail { right:24dp; top:16dp; bottom:16dp; width:25%; max-width:300dp; }
+#home_left_rail #home_feature_rail { padding:12dp; margin-bottom:12dp; }
+#home_left_rail #activity_selector { min-height:88dp; }
+#home_left_rail .selector_art { width:56dp; min-height:86dp; padding-bottom:8dp; }
+#home_left_rail .selector_copy { padding:12dp; min-width:0; }
+#home_left_rail .selector_title { font-size:24dp; line-height:26dp; }
+#home_left_rail .selector_hint { margin-top:4dp; }
+#home_left_rail .selector_change { width:28dp; }
+#home_left_rail .selector_change_label { display:none; }
+#home_left_rail #deploy { min-height:64dp; padding:8dp 36dp 8dp 12dp; }
+#home_left_rail .deploy_label { font-size:26dp; line-height:28dp; }
+#home_left_rail .deploy_arrow { top:14dp; right:12dp; font-size:24dp; }
+#home_left_rail .drawer_item { min-height:52dp; padding:8dp; }
+#home_left_rail .drawer_item:hover, #home_left_rail .drawer_item:focus { padding-left:8dp; transform:none; }
+#home_left_rail #activity_drawer { padding:12dp; }
+#home_right_rail #session_panel { padding:12dp; margin-bottom:12dp; }
+#home_right_rail #home_social_rail { padding:12dp; }
+#hunter_caption { bottom:16dp; }
+@media (max-width:900dp) {
+    #home_left_rail { left:12dp; width:30%; max-width:280dp; }
+    #home_right_rail { right:12dp; width:25%; max-width:240dp; }
+    #home_left_rail .selector_art { display:none; }
+    #home_left_rail .selector_copy { padding:8dp; }
+    #home_left_rail .selector_title { font-size:20dp; line-height:22dp; }
+    #home_left_rail .deploy_label { font-size:20dp; line-height:22dp; }
+    #home_left_rail .home_feature_title { font-size:16dp; line-height:18dp; }
+    #home_left_rail .home_feature_summary { font-size:11dp; line-height:14dp; }
+    #home_right_rail #session_panel, #home_right_rail #home_social_rail { padding:8dp; }
+}
+@media (max-width:560dp) {
+    #home_left_rail { width:46%; left:8dp; }
+    #home_right_rail { width:44%; right:8dp; }
+    #home_left_rail .drawer_code, #home_left_rail .drawer_state { display:none; }
+    #home_left_rail .drawer_name { font-size:16dp; letter-spacing:0; }
+    #home_left_rail #activity_status { flex-wrap:wrap; }
+}
