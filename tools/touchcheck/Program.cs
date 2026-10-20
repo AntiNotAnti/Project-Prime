@@ -73,4 +73,66 @@ finally
 {
     InputSettings.AltSwipeSensitivity = sensitivity;
 }
+// A complete down/up event can arrive between game frames. Held-state
+// sampling loses it; the one-shot queue must retain each physical press.
+controls = new TouchControls();
+controls.ClipEnabled = true;
+controls.Layout(1920, 1080, 1);
+var clipButton = System.Linq.Enumerable.First(controls.Buttons, b => b.Action == TouchAction.Clip);
+void ClipDown(int id) => controls.PointerDown(id, clipButton.CentreX, clipButton.CentreY);
+void CheckClip(bool condition, string message)
+{
+    if (!condition) throw new InvalidOperationException(message);
+}
+ClipDown(100);
+controls.PointerUp(100);
+CheckClip(!controls.IsHeld(TouchAction.Clip) && controls.TakeClipPress(), "short clip tap lost");
+CheckClip(!controls.TakeClipPress(), "short clip tap repeated");
+ClipDown(101);
+ClipDown(102);
+CheckClip(controls.TakeClipPress() && controls.TakeClipPress() && !controls.TakeClipPress(),
+    "simultaneous clip fingers lost or repeated");
+controls.PointerUp(101);
+CheckClip(controls.IsHeld(TouchAction.Clip), "first release cancelled second finger");
+CheckClip(!controls.TakeClipPress(), "held clip repeated");
+controls.PointerUp(102);
+for (int i = 0; i < 100; i++) { ClipDown(200 + i); controls.PointerUp(200 + i); }
+int queued = 0;
+while (controls.TakeClipPress()) queued++;
+CheckClip(queued == 16, "clip queue did not enforce its bound");
+ClipDown(400);
+controls.ReleaseEverything();
+CheckClip(!controls.TakeClipPress(), "lifecycle reset retained clip request");
+ClipDown(401);
+controls.PointerUp(401);
+controls.ClipEnabled = false;
+CheckClip(!controls.TakeClipPress(), "disabled replay retained clip request");
+Console.WriteLine("TOUCHCHECK PASS: short taps, concurrent fingers, held non-repeat, bounded clip queue and cancellation");
+var savedLayout = MphRead.Mods.Input.TouchSettings.CopyLayout();
+float buttonScale = MphRead.Mods.Input.TouchSettings.ButtonScale;
+float stickScale = MphRead.Mods.Input.TouchSettings.StickScale;
+float opacity = MphRead.Mods.Input.TouchSettings.OverlayOpacity;
+try
+{
+    var control = MphRead.Mods.Input.TouchControl.Clip;
+    MphRead.Mods.Input.TouchSettings.SetLayout(control, .5f, .5f, 1f);
+    MphRead.Mods.Input.TouchSettings.ReadSetting("touch_layout_clip", "NaN,0.5,1");
+    CheckClip(!MphRead.Mods.Input.TouchSettings.CopyLayout().ContainsKey(control),
+        "nonfinite layout failed to fall back to default");
+    MphRead.Mods.Input.TouchSettings.ButtonScale = float.NaN;
+    MphRead.Mods.Input.TouchSettings.StickScale = float.PositiveInfinity;
+    MphRead.Mods.Input.TouchSettings.OverlayOpacity = float.NegativeInfinity;
+    CheckClip(MphRead.Mods.Input.TouchSettings.ButtonScale == 1f
+        && MphRead.Mods.Input.TouchSettings.StickScale == 1f
+        && MphRead.Mods.Input.TouchSettings.OverlayOpacity == 1f,
+        "nonfinite touch appearance settings did not use defaults");
+    Console.WriteLine("TOUCHCHECK PASS: nonfinite layout and appearance use usable defaults");
+}
+finally
+{
+    MphRead.Mods.Input.TouchSettings.ReplaceLayout(savedLayout);
+    MphRead.Mods.Input.TouchSettings.ButtonScale = buttonScale;
+    MphRead.Mods.Input.TouchSettings.StickScale = stickScale;
+    MphRead.Mods.Input.TouchSettings.OverlayOpacity = opacity;
+}
 return 0;

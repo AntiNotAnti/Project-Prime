@@ -70,6 +70,8 @@ namespace MphRead.Droid
     internal sealed class TouchButton
     {
         public TouchAction Action { get; }
+        public int InstanceId { get; }
+        internal TouchButtonInstance? Instance { get; set; }
 
         /// <summary>
         /// What is written on it *now*. Not fixed: a spectator's screen is
@@ -95,9 +97,10 @@ namespace MphRead.Droid
         /// </summary>
         public bool Visible { get; set; } = true;
 
-        public TouchButton(TouchAction action, string label)
+        public TouchButton(TouchAction action, string label, int instanceId = 0)
         {
             Action = action;
+            InstanceId = instanceId == 0 ? (int)action + 1 : instanceId;
             Label = label;
             _defaultLabel = label;
         }
@@ -192,6 +195,8 @@ namespace MphRead.Droid
         private bool _forceVisible;
 
         private readonly HashSet<TouchAction> _held = new HashSet<TouchAction>();
+        private readonly Dictionary<int, int> _buttonInstancePointers = new();
+        private int _instanceRevision = -1;
         private readonly Dictionary<int, TouchAction> _buttonPointers = new Dictionary<int, TouchAction>();
         private int _stickPointer = -1;
         private int _aimPointer = -1;
@@ -394,11 +399,14 @@ namespace MphRead.Droid
                         return false;
                     }
                     _clipEnabled = value;
+                    if (!value) _pendingClipPresses = 0;
                     return true;
                 });
             }
         }
         private bool _clipEnabled;
+        private const int MaxPendingClipPresses = 16;
+        private int _pendingClipPresses;
 
         /// <summary>
         /// The screen a spectator gets: the same dozen circles, most of them
@@ -590,8 +598,21 @@ namespace MphRead.Droid
         /// Which buttons are on the screen and what they say, from every
         /// piece of state that decides it. Called with the lock held.
         /// </summary>
+        private void RefreshInstancesLocked()
+        {
+            int revision = TouchSettings.InstanceRevision;
+            if (_instanceRevision == revision) return;
+            ReleaseEverything();
+            _buttons.RemoveAll(b => b.Instance.HasValue);
+            foreach (var instance in TouchSettings.ExtraInstances)
+                _buttons.Add(new TouchButton((TouchAction)instance.Action,
+                    TouchSettings.ShortLabel(instance.Action), instance.Id) { Instance = instance });
+            _instanceRevision = revision;
+        }
+
         private void ApplyLayoutLocked()
         {
+            RefreshInstancesLocked();
             foreach (TouchButton button in _buttons)
             {
                 bool visible;
@@ -686,7 +707,9 @@ namespace MphRead.Droid
                     && MphRead.Mods.Network.DemoPlayback.IsActive
                     && button.Action is TouchAction.Missile or TouchAction.WeaponMenu or TouchAction.Zoom;
                 button.Visible = visible
-                    && (replayTransport || TouchSettings.Shown(SettingOf(button.Action)));
+                    && (button.Instance is { } instance
+                        ? TouchSettings.ButtonsVisible && instance.Enabled
+                        : replayTransport || TouchSettings.Shown(SettingOf(button.Action)));
                 button.Relabel(label);
             }
         }
@@ -732,6 +755,7 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                ReleaseEverything();
                 // Position/scale/opacity settings may have changed while the
                 // settings UI covered the game. Re-resolve geometry even when
                 // Android did not resize the overlay.
@@ -868,6 +892,8 @@ namespace MphRead.Droid
 
         private void LayoutLocked(float width, float height, float density)
         {
+            if (Width != width || Height != height) ReleaseEverything();
+            RefreshInstancesLocked();
             Width = width;
             Height = height;
             Density = density <= 0 ? 1f : density;
@@ -878,12 +904,14 @@ namespace MphRead.Droid
 
             foreach (TouchButton button in _buttons)
             {
-                TouchButtonGeometry geometry = TouchSettings.Geometry(
-                    SettingOf(button.Action), width, height);
+                TouchButtonGeometry geometry = button.Instance is { } instance
+                    ? TouchSettings.InstanceGeometry(instance, width, height, TouchSettings.ButtonScale)
+                    : TouchSettings.Geometry(SettingOf(button.Action), width, height);
                 button.CentreX = geometry.X;
                 button.CentreY = geometry.Y;
                 button.Radius = geometry.Radius;
             }
+            ApplyLayoutLocked();
         }
 
         public bool IsHeld(TouchAction action)
@@ -891,6 +919,21 @@ namespace MphRead.Droid
             lock (_lock)
             {
                 return _held.Contains(action);
+            }
+        }
+
+        /// <summary>
+        /// Consume at most one queued physical clip press per game frame. A
+        /// short tap survives its release, and holding a finger never repeats.
+        /// Lifecycle cancellation discards queued presses with all other input.
+        /// </summary>
+        public bool TakeClipPress()
+        {
+            lock (_lock)
+            {
+                if (_pendingClipPresses == 0) return false;
+                _pendingClipPresses--;
+                return true;
             }
         }
 
@@ -1229,8 +1272,12 @@ namespace MphRead.Droid
             {
                 if (button.Visible && button.Contains(x, y))
                 {
+                    bool newPointer = !_buttonPointers.ContainsKey(pointerId);
                     _buttonPointers[pointerId] = button.Action;
+                    _buttonInstancePointers[pointerId] = button.InstanceId;
                     _held.Add(button.Action);
+                    if (newPointer && button.Action == TouchAction.Clip && _clipEnabled)
+                        _pendingClipPresses = Math.Min(MaxPendingClipPresses, _pendingClipPresses + 1);
                     // Both of the buttons that live under the aiming
                     // thumb drag the aim as well: keeping a target
                     // centred matters as much while scanning it as it
@@ -1493,11 +1540,12 @@ namespace MphRead.Droid
                 {
                     foreach (TouchButton button in _buttons)
                     {
-                        if (button.Action == action)
+                        if (_buttonInstancePointers.TryGetValue(pointerId, out int instanceId) && button.InstanceId == instanceId)
                         {
                             if (!button.Contains(x, y))
                             {
                                 _buttonPointers.Remove(pointerId);
+                                _buttonInstancePointers.Remove(pointerId);
                                 ReleaseAction(action);
                                 return true;
                             }
@@ -1559,6 +1607,7 @@ namespace MphRead.Droid
                     // sees the wheel close no longer reads a stale position.
                     _wheelPointer = -1;
                 }
+                _buttonInstancePointers.Remove(pointerId);
                 if (_buttonPointers.Remove(pointerId, out TouchAction action))
                 {
                     ReleaseAction(action);
@@ -1571,7 +1620,9 @@ namespace MphRead.Droid
             lock (_lock)
             {
                 _buttonPointers.Clear();
+                _buttonInstancePointers.Clear();
                 _held.Clear();
+                _pendingClipPresses = 0;
                 _stickPointer = -1;
                 _aimPointer = -1;
                 _aimDown = false;

@@ -28,7 +28,7 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
         _host=host;_pages=pages;_controller=controller;_kind=kind;
         string group=kind==0?"Touch layout":kind==1?"Stylus guide":"Outline colors";
         _rows=controller.Rows.Where(r=>r.Group==group&&(kind!=1||r.Label=="Guide position / width")).ToArray();
-        _before=_rows.ToDictionary(r=>r,r=>r.Value);
+        _before=(kind==0 ? controller.Rows.Where(r=>r.Group is "Touch layout" or "Touch buttons") : _rows).ToDictionary(r=>r,r=>r.Value);
         if(_rows.Length==0)throw new InvalidOperationException("Visual settings rows are unavailable.");
         _document=pages.OpenModal(new("native-settings-visual","pages/settings/native-visual-editor.rml","settings_visual_canvas"));
         Present();
@@ -38,15 +38,20 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
     private float[] Layout(int i)
     {
         if(_rows[i].Value!="default")return Tuple(_rows[i].Value);
-        var geometry=TouchSettings.DefaultGeometry(TouchSettings.Order[i].Control,1000,750);
+        var geometry=TouchSettings.DefaultGeometry(ActionOf(i),1000,750);
         return new[]{geometry.X/1000,geometry.Y/750,1f};
     }
+    private NativeSettingRow? ExtraAction(int i) => i < TouchSettings.Order.Length ? null
+        : _controller.Rows.FirstOrDefault(r=>r.Group=="Touch buttons" && r.Label=="Extra "+(i-TouchSettings.Order.Length+1)+" action");
+    private TouchControl ActionOf(int i) => i < TouchSettings.Order.Length ? TouchSettings.Order[i].Control
+        : Enum.TryParse<TouchControl>(ExtraAction(i)?.Value,out var action) ? action : TouchControl.Shoot;
+    private bool EnabledTarget(int i) => i < TouchSettings.Order.Length || ExtraAction(i)?.Value != "none";
     private bool Box(out float x,out float y,out float w,out float h)=>_host.TryGetElementBounds(_document,"settings_visual_canvas",out x,out y,out w,out h)&&w>0&&h>0;
     private (float X,float Y,float W,float H) Rect(int i,float w,float h)
     {
         var n=Layout(i);
         if(_kind==1)return(n[0]*w,n[1]*h,n[2]*w,n[2]*w*.75f);
-        var baseline=TouchSettings.DefaultGeometry(TouchSettings.Order[i].Control,w,h);
+        var baseline=TouchSettings.DefaultGeometry(ActionOf(i),w,h);
         float diameter=2*baseline.Radius*n[2];return(n[0]*w-diameter/2,n[1]*h-diameter/2,diameter,diameter);
     }
     internal bool PointerDown(float px,float py)
@@ -55,7 +60,7 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
         px-=x;py-=y;
         for(int i=_rows.Length-1;i>=0;i--)
         {
-            var r=Rect(i,w,h);if(px<r.X||py<r.Y||px>r.X+r.W||py>r.Y+r.H)continue;
+            var r=Rect(i,w,h);if(!EnabledTarget(i)||px<r.X||py<r.Y||px>r.X+r.W||py>r.Y+r.H)continue;
             _selected=i;var n=Layout(i);_grabX=px/w-n[0];_grabY=py/h-n[1];_drag=true;Present();return true;
         }
         return false;
@@ -76,7 +81,7 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
     {
         if(!OwnsForeground||intent.Document!=_document||intent.Kind!=RmlUiIntentKind.SettingsAction)return false;
         int a=intent.Argument;
-        if(!(a is >=32 and <64 or >=223 and <=231)||!_pages.Accept(intent))return false;
+        if(!(a is >=32 and <64 or >=223 and <=239)||!_pages.Accept(intent))return false;
         if(a is >=32 and <64)
         {if(a-32<_rows.Length&&CaptureColor()){_selected=a-32;_host.FocusDocument(_document,"settings_visual_pick_"+_selected);}}
         else switch(a)
@@ -90,6 +95,21 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
             case 229:if(CaptureColor()){_preview=true;_previewUntil=DateTime.UtcNow.AddSeconds(60);}break;
             case 230:_preview=false;break;
             case 231:CaptureColor();break;
+            case 236:
+                if(_kind==0)
+                {
+                    int next=Array.FindIndex(_rows,TouchSettings.Order.Length,r=>ExtraAction(Array.IndexOf(_rows,r))?.Value=="none");
+                    if(next>=0){var n=Layout(_selected);var action=ActionOf(_selected);_selected=next;
+                        _controller.Stage(ExtraAction(next)!,action.ToString());n[0]=Math.Clamp(n[0]+.06f,0,1);n[1]=Math.Clamp(n[1]+.06f,0,1);Stage(n);}
+                }break;
+            case 237:if(_kind==0&&ExtraAction(_selected) is { } remove)_controller.Stage(remove,"none");break;
+            case 238:
+                if(_kind==0&&ExtraAction(_selected) is { } reassign)
+                    _controller.Stage(reassign,((TouchControl)(((int)ActionOf(_selected)+1)%TouchSettings.Order.Length)).ToString());break;
+            case 239:
+                if(_kind==0&&_selected>=TouchSettings.Order.Length)
+                {var row=_controller.Rows.First(r=>r.Group=="Touch buttons"&&r.Label=="Extra "+(_selected-TouchSettings.Order.Length+1)+" enabled");
+                    _controller.Stage(row,(!bool.Parse(row.Value)).ToString());}break;
         }
         if(_kind==2&&(a is 225 or 226))_host.SetField(_document,"settings_visual_color",_rows[_selected].Value);
         Present();return true;
@@ -103,6 +123,7 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
         _host.SetText(_document,"settings_visual_help",_kind==0?"Drag a target to place it. Select a control to resize or reset. Changes remain in the Settings draft.":_kind==1?"Drag the DS touch-screen zone; resize with Smaller/Larger. Changes remain in the Settings draft.":"Edit #RRGGBB colors. Preview is native and temporary; game colors remain unchanged until Settings Apply.");
         _host.SetBool(_document,"visible:settings_visual_color_tools",_kind==2);
         _host.SetBool(_document,"visible:settings_visual_scale_tools",_kind!=2);
+        _host.SetBool(_document,"visible:settings_visual_instance_tools",_kind==0);
         _host.SetText(_document,"settings_visual_status",_kind==2?(_preview?"Native draft preview // "+Math.Max(0,(int)Math.Ceiling((_previewUntil-DateTime.UtcNow).TotalSeconds))+" seconds":"Saved color preview // changes remain staged"):_controller.Status);
         Box(out _,out _,out float w,out float h);
         for(int i=0;i<32;i++)
@@ -112,7 +133,8 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
             _host.SetText(_document,"settings_visual_pick_"+i,_rows[i].Label.Replace(" position / size",""));
             _host.SetBool(_document,"class:settings_visual_pick_"+i+":selected",i==_selected);
             _host.SetBool(_document,"class:settings_visual_target_"+i+":selected",i==_selected);
-            _host.SetText(_document,"settings_visual_target_label_"+i,_rows[i].Label.Replace(" position / size",""));
+            _host.SetText(_document,"settings_visual_target_label_"+i,_kind==0&&i>=TouchSettings.Order.Length
+                ? (EnabledTarget(i)?TouchSettings.ShortLabel(ActionOf(i)):"EMPTY") : _rows[i].Label.Replace(" position / size",""));
             if(_kind==2)
             {
                 float tw=Math.Max(40,w/8),th=Math.Max(40,h/3);float tx=i%8*tw,ty=i/8*th;

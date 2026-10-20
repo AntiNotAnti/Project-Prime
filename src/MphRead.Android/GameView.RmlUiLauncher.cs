@@ -224,7 +224,7 @@ internal sealed partial class GameView
                 loop._spectatorRequest = 0;
                 loop._dialogClickDown = loop._menuWasHeld = loop._spectateCycleHeld = loop._spectateViewHeld = false;
                 loop._replayPlayHeld = loop._replayBackHeld = loop._replayForwardHeld = loop._replayPausedShown = false;
-                loop._missileWasHeld = loop._chatWasHeld = loop._clipWasHeld = loop._keyboardShown = false;
+                loop._missileWasHeld = loop._chatWasHeld = loop._keyboardShown = false;
                 loop._uiPixels = Array.Empty<byte>(); loop._uiVersion = 0;
                 loop._presentationInputRevision = Mods.Input.GamepadContexts.Revision;
                 loop._onSoftKeyboard(false); AndroidUiOverlay.Visible = false;

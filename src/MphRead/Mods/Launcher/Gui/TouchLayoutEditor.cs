@@ -21,6 +21,8 @@ namespace MphRead.Mods.Launcher.Gui
     internal sealed class TouchLayoutEditor : Control
     {
         private readonly Dictionary<TouchControl, TouchButtonLayout> _layout;
+        private readonly List<TouchButtonInstance> _instances = new(TouchSettings.CopyInstances());
+        private int _selectedInstance;
         private readonly HashSet<TouchControl> _enabled = new();
         private readonly Dictionary<IPointer, Point> _touches = new();
 
@@ -57,6 +59,49 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         public TouchControl Selected => _selected;
+        public bool SelectedIsExtra => _selectedInstance != 0;
+        public TouchButtonInstance[] CopyInstances() => _instances.ToArray();
+        public void DuplicateSelected()
+        {
+            int id = TouchSettings.NextInstanceId(_instances);
+            if (id < 0) return;
+            var layout = LayoutOf(_selected);
+            _instances.Add(new(id, _selected, true, Math.Clamp(layout.X + .06f, 0, 1),
+                Math.Clamp(layout.Y + .06f, 0, 1), layout.Scale));
+            SelectInstance(id); Changed?.Invoke();
+        }
+        public void DeleteSelectedInstance()
+        {
+            if (_selectedInstance == 0) return;
+            _instances.RemoveAll(x => x.Id == _selectedInstance);
+            Select(TouchControl.Shoot); Changed?.Invoke();
+        }
+        public void SelectNextInstance()
+        {
+            if (_instances.Count == 0) return;
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            SelectInstance(_instances[(index + 1) % _instances.Count].Id);
+        }
+        public void ReassignSelected(TouchControl action)
+        {
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            if (index < 0) return;
+            _instances[index] = _instances[index] with { Action = action }; _selected = action;
+            Changed?.Invoke(); SelectionChanged?.Invoke(); InvalidateVisual();
+        }
+        public void ToggleSelectedInstance()
+        {
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            if (index < 0) return;
+            _instances[index] = _instances[index] with { Enabled = !_instances[index].Enabled };
+            Changed?.Invoke(); InvalidateVisual();
+        }
+        private void SelectInstance(int id)
+        {
+            var value = _instances.Find(x => x.Id == id);
+            _selectedInstance = id; _selected = value.Action;
+            SelectionChanged?.Invoke(); InvalidateVisual();
+        }
 
         public float ButtonScale
         {
@@ -89,10 +134,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Select(TouchControl control)
         {
-            if (_selected == control)
+            if (_selected == control && _selectedInstance == 0)
             {
                 return;
             }
+            _selectedInstance = 0;
             _selected = control;
             SelectionChanged?.Invoke();
             InvalidateVisual();
@@ -119,6 +165,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void ResetSelected()
         {
+            if (_selectedInstance != 0)
+            {
+                var g = TouchSettings.DefaultGeometry(_selected, 1920, 1080);
+                SetLayout(_selected, g.X / 1920, g.Y / 1080, 1);
+                SelectionChanged?.Invoke(); return;
+            }
             if (_layout.Remove(_selected))
             {
                 Changed?.Invoke();
@@ -129,11 +181,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void ResetAll()
         {
-            if (_layout.Count == 0)
+            if (_layout.Count == 0 && _instances.Count == 0)
             {
                 return;
             }
-            _layout.Clear();
+            _layout.Clear(); _instances.Clear(); _selectedInstance = 0;
             Changed?.Invoke();
             SelectionChanged?.Invoke();
             InvalidateVisual();
@@ -161,6 +213,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         private TouchButtonLayout LayoutOf(TouchControl control)
         {
+            if (_selectedInstance != 0 && control == _selected)
+            {
+                var instance = _instances.Find(x => x.Id == _selectedInstance);
+                return new(instance.X, instance.Y, instance.Scale);
+            }
             if (_layout.TryGetValue(control, out TouchButtonLayout custom))
             {
                 return custom;
@@ -183,12 +240,22 @@ namespace MphRead.Mods.Launcher.Gui
         private Point CentreOf(TouchControl control)
         {
             Rect surface = Surface;
-            TouchButtonGeometry geometry = GeometryOf(control);
+            TouchButtonGeometry geometry = _selectedInstance != 0
+                ? TouchSettings.InstanceGeometry(_instances.Find(x => x.Id == _selectedInstance),
+                    (float)surface.Width, (float)surface.Height, _buttonScale) : GeometryOf(control);
             return new Point(surface.X + geometry.X, surface.Y + geometry.Y);
         }
 
         private void SetLayout(TouchControl control, float x, float y, float scale)
         {
+            if (_selectedInstance != 0)
+            {
+                int index = _instances.FindIndex(v => v.Id == _selectedInstance);
+                if (index >= 0) _instances[index] = _instances[index] with
+                { X = Math.Clamp(x, 0, 1), Y = Math.Clamp(y, 0, 1),
+                    Scale = Math.Clamp(scale, TouchSettings.MinIndividualScale, TouchSettings.MaxIndividualScale) };
+                Changed?.Invoke(); InvalidateVisual(); return;
+            }
             _layout[control] = new TouchButtonLayout(
                 Math.Clamp(x, 0f, 1f),
                 Math.Clamp(y, 0f, 1f),
@@ -246,7 +313,7 @@ namespace MphRead.Mods.Launcher.Gui
                 TouchButtonGeometry geometry = GeometryOf(control);
                 Point centre = new Point(surface.X + geometry.X, surface.Y + geometry.Y);
                 bool enabled = _enabled.Contains(control);
-                bool selected = control == _selected;
+                bool selected = _selectedInstance == 0 && control == _selected;
                 using (context.PushOpacity(enabled ? 1 : 0.38))
                 {
                     IBrush fill = ButtonFill(enabled, selected);
@@ -260,6 +327,19 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            foreach (var instance in _instances)
+            {
+                var geometry = TouchSettings.InstanceGeometry(instance, (float)surface.Width, (float)surface.Height, _buttonScale);
+                var centre = new Point(surface.X + geometry.X, surface.Y + geometry.Y);
+                bool selected = instance.Id == _selectedInstance;
+                using (context.PushOpacity(instance.Enabled ? 1 : .38))
+                {
+                    context.DrawEllipse(ButtonFill(instance.Enabled, selected),
+                        new Pen(selected ? Brushes.Cyan : Brushes.LightSlateGray, selected ? 2 : 1), centre, geometry.Radius, geometry.Radius);
+                    DrawLabel(context, TouchSettings.ShortLabel(instance.Action) + " +", centre,
+                        Math.Max(7, geometry.Radius * .31), Brushes.White);
+                }
+            }
             string hint = $"{TouchSettings.LabelOf(_selected)}  •  drag to move  •  pinch to resize";
             var text = new FormattedText(hint, CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, new Typeface("monospace"), 11, Brushes.White);
@@ -279,9 +359,15 @@ namespace MphRead.Mods.Launcher.Gui
                 centre.Y - text.Height / 2));
         }
 
-        private TouchControl? Hit(Point point)
+        private int? Hit(Point point)
         {
             Rect surface = Surface;
+            for (int i = _instances.Count - 1; i >= 0; i--)
+            {
+                var geometry = TouchSettings.InstanceGeometry(_instances[i], (float)surface.Width, (float)surface.Height, _buttonScale);
+                double dx = point.X - surface.X - geometry.X, dy = point.Y - surface.Y - geometry.Y;
+                if (dx * dx + dy * dy <= (geometry.Radius + 7) * (geometry.Radius + 7)) return _instances[i].Id;
+            }
             for (int i = TouchSettings.Order.Length - 1; i >= 0; i--)
             {
                 TouchControl control = TouchSettings.Order[i].Control;
@@ -291,7 +377,7 @@ namespace MphRead.Mods.Launcher.Gui
                 double radius = geometry.Radius + 7;
                 if (dx * dx + dy * dy <= radius * radius)
                 {
-                    return control;
+                    return (int)control + 1;
                 }
             }
             return null;
@@ -386,15 +472,16 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
-            TouchControl? hit = Hit(point);
+            int? hit = Hit(point);
             if (hit.HasValue)
             {
-                Select(hit.Value);
+                if (hit.Value >= TouchSettings.FirstExtraInstanceId) SelectInstance(hit.Value);
+                else Select((TouchControl)(hit.Value - 1));
                 _dragPointer = e.Pointer;
                 _dragging = true;
                 // Preserve where the player grabbed the icon instead of
                 // teleporting its centre under the finger on first movement.
-                _dragGrabOffset = CentreOf(hit.Value) - point;
+                _dragGrabOffset = CentreOf(_selected) - point;
                 LockPageScroll();
                 e.Pointer.Capture(this);
                 e.Handled = true;

@@ -75,6 +75,7 @@ internal static class PreferenceText
         if (key is "clip_key" or "chat_key" || ReplayKeys.Contains(key))
             return value.Equals("none", StringComparison.OrdinalIgnoreCase) || Defined<Keys>(value);
         if (key == "stylus_zone_rect") return Vector(value);
+        if (key == TouchSettings.InstancesSettingKey) return TouchSettings.TryParseInstances(value, out _);
         if (key == "touch_buttons") return bool.TryParse(value, out _);
         if (key is "touch_button_scale" or "touch_stick_scale" or "touch_overlay_opacity") return Number(value);
         foreach ((TouchControl control, _) in TouchSettings.Order)
