@@ -175,8 +175,13 @@ internal static class MomentumBotAuthorityTests
                     Require(sample.Slot == 0 && sample.SimulationFrame == frame, "solver diagnostic identifies actual bot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "solver preserves native vertical bits");
                     Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
-                    var result = model == MovementModel.Quake3 ? Quake3MovementProfileV2.Step(incoming, sample.Input)
-                        : MomentumProfileV1.Step(incoming, sample.Input);
+                    var result = model switch
+                    {
+                        MovementModel.Traversal => TraversalMovementProfileV1.Step(incoming, sample.Input),
+                        MovementModel.Quake3 => Quake3MovementProfileV2.Step(incoming, sample.Input),
+                        MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
+                        _ => throw new InvalidOperationException("Classic must not reach the horizontal solver.")
+                    };
                     Require(sample.NativeVelocityAfter.X == result.Velocity.X / 30 && sample.NativeVelocityAfter.Z == result.Velocity.Z / 30,
                         "actual authority bot velocity equals its immutable match profile");
                     if (capturedIntent is { } packet)
@@ -232,7 +237,8 @@ internal static class MomentumBotAuthorityTests
             if (MovementModelRules.UsesMomentumSolver(model))
                 Require(solverDuringCameraSequence > 0, "Proving Ground presentation intro remains active while actual authority bot receives Momentum");
             Console.WriteLine($"MOMENTUM BOT AUTHORITY PASS {hunter} level={level} model={model} solver={solverSamples} intents={intents} moving={movingIntents} partial={partialAxes}");
-            return new { hunter = hunter.ToString(), level, model = model.ToString(), liveTicks, movingTicks, snapshots,
+            return new { hunter = hunter.ToString(), level, model = model.ToString(),
+                profileVersion = MovementModelRules.ProfileVersion(model), liveTicks, movingTicks, snapshots,
                 intents, movingIntents, negativeAxes, positiveAxes, partialAxes, solverSamples, exactIntentSolverComparisons, acceptedIntentMatches, capturePoseDiffersFromFrameEntry, snapshotPoseMatches, solverDuringCameraSequence, activeSceneTicks, ownedBotTicks, eligibleBotTicks, samples };
         }
         finally { ReplayCapture.Recorder.Accepted -= ObserveAccepted; NetBotInput.Sink = null; sim.Stop(); }

@@ -2,6 +2,7 @@ using System;
 using MphRead.Entities;
 using MphRead.Mods.Movement;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -15,6 +16,21 @@ internal readonly record struct MomentumStepSample(ulong SimulationFrame, int Sl
 
 public partial class Scene
 {
+    private bool? _traversalTrainingSurfaceRules;
+    private int _traversalTrainingRoom = int.MinValue;
+    internal bool TraversalTrainingSurfaces
+    {
+        get
+        {
+            if (_traversalTrainingRoom == RoomId && _traversalTrainingSurfaceRules.HasValue)
+                return _traversalTrainingSurfaceRules.Value;
+            _traversalTrainingRoom = RoomId;
+            int index = RoomId - CustomRooms.FirstId;
+            _traversalTrainingSurfaceRules = CustomRooms.FirstId >= 0 && index >= 0
+                && index < CustomRooms.Definitions.Count && CustomRooms.Definitions[index].TraversalTraining;
+            return _traversalTrainingSurfaceRules.Value;
+        }
+    }
     private bool _developerMomentumRequested, _developerMomentumRetired;
     private bool _developerMomentumDiagnostics, _developerMomentumInputBlocked = true;
     private MomentumPracticeTuning? _developerMomentumPracticeTuning;
@@ -24,6 +40,12 @@ public partial class Scene
     internal MomentumPracticeTuning? DeveloperMomentumPracticeTuning => _developerMomentumPracticeTuning;
     internal long DeveloperMomentumSteps { get; private set; }
     internal MomentumStepSample? LastMomentumStep { get; private set; }
+    private MovementTelemetrySample? _movementTelemetry;
+    private ulong _movementTelemetryFrame = ulong.MaxValue;
+    private float _movementTelemetryIncomingSquared, _movementTelemetryBestGain;
+    internal MovementTelemetrySample? MovementTelemetry => _movementTelemetryFrame == FrameCount
+        || _movementTelemetryFrame != ulong.MaxValue && _movementTelemetryFrame + 1 == FrameCount
+        ? _movementTelemetry : null;
 
     /// <summary>
     /// Private offline experiment, selected once after room setup and before the
@@ -73,7 +95,7 @@ public partial class Scene
                 ?? MovementModelRules.FromRules((MatchModifierFlags)(NetSession.ServerMatch?.RuleBits ?? 0)))
                 == GameState.MovementModel);
 
-    internal bool Quake3TechniquesActive => GameState.MovementModel == MovementModel.Quake3
+    internal bool Quake3TechniquesActive => GameState.MovementModel is MovementModel.Quake3 or MovementModel.Traversal
         && MomentumMovementActive;
 
     private bool MomentumSceneEligible() =>
@@ -113,6 +135,7 @@ public partial class Scene
     // or maintaining a second set of UI/focus conditions in the movement code.
     private void ModNoteMomentumInputAvailability(bool blocked)
     {
+        _movementTelemetry = null;
         if (!_developerMomentumRequested && !MovementModelRules.UsesMomentumSolver(GameState.MovementModel)) return;
         _developerMomentumInputBlocked = blocked;
         _ = MomentumMovementActive;
@@ -120,8 +143,35 @@ public partial class Scene
 
     internal void NoteDeveloperMomentumStep(in MomentumStepSample sample)
     {
+        if (!DeveloperMomentumActive && sample.Slot == Players.Main?.SlotIndex)
+        {
+            Vector2 before = new(sample.NativeVelocityBefore.X * PlayerEntity.NativeVelocityUnitsPerSecond,
+                sample.NativeVelocityBefore.Z * PlayerEntity.NativeVelocityUnitsPerSecond);
+            bool airborne = !sample.Input.Grounded;
+            float wishSpeed = sample.Input.DesiredSpeed * Math.Min(1, sample.Input.MoveAxes.Length);
+            float increment = Math.Min(sample.Tuning.AirWishSpeedCap,
+                sample.Tuning.AirAcceleration * wishSpeed * sample.Input.DeltaSeconds);
+            float bestProjection = Math.Min(before.Length,
+                Math.Max(0, Math.Min(wishSpeed, sample.Tuning.AirWishSpeedCap) - increment));
+            float bestGain = increment * increment + 2 * increment * bestProjection;
+            _movementTelemetryIncomingSquared = before.LengthSquared;
+            _movementTelemetryBestGain = airborne && wishSpeed > 0 ? bestGain : 0;
+            _movementTelemetryFrame = sample.SimulationFrame;
+            _movementTelemetry = new(0, -1, airborne);
+        }
         if (!_developerMomentumDiagnostics) return;
         if (DeveloperMomentumSteps < long.MaxValue) DeveloperMomentumSteps++;
         LastMomentumStep = sample;
+    }
+
+    internal void FinalizeMovementTelemetry(PlayerEntity player)
+    {
+        if (player.SlotIndex != Players.Main?.SlotIndex || _movementTelemetry is not { } sample
+            || _movementTelemetryFrame != FrameCount) return;
+        Vector2 velocity = new(player.Speed.X * PlayerEntity.NativeVelocityUnitsPerSecond,
+            player.Speed.Z * PlayerEntity.NativeVelocityUnitsPerSecond);
+        float efficiency = _movementTelemetryBestGain > 0
+            ? Math.Clamp((velocity.LengthSquared - _movementTelemetryIncomingSquared) / _movementTelemetryBestGain, 0, 1) : -1;
+        _movementTelemetry = sample with { Speed = velocity.Length, StrafeEfficiency = efficiency };
     }
 }

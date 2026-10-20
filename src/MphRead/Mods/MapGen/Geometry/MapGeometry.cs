@@ -32,6 +32,8 @@ namespace MphRead.Mods.MapGen
         public MapTransform Transform { get; set; } = new();
         public int Material { get; set; }
         public bool Solid { get; set; } = true;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool SurfSurface { get; set; }
         public bool Damaging { get; set; }
         public string Terrain { get; set; } = "Metal";
         public float Shade { get; set; } = 1;

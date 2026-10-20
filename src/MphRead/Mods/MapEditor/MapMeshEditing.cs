@@ -96,6 +96,7 @@ public static partial class MapMeshEditing
         var mesh=new MapMesh
         {
             Id=geometry.Id,Label=geometry.Label+" Mesh",Material=geometry.Material,Solid=geometry.Solid,
+            SurfSurface=geometry.SurfSurface,
             Damaging=geometry.Damaging,Terrain=geometry.Terrain,Shade=geometry.Shade,Layer=geometry.Layer,
             Hidden=geometry.Hidden,Locked=geometry.Locked,Transform=new(),Uv=geometry.Uv,
             CollisionOnly=(geometry as MapMesh)?.CollisionOnly??false,Slipperiness=(geometry as MapMesh)?.Slipperiness??0,ReflectBeams=(geometry as MapMesh)?.ReflectBeams??false,

@@ -47,6 +47,7 @@ public static class MapCollisionOptimizer
                     Damaging=face.Damaging,
                     Terrain=face.Terrain,
                     Slipperiness=face.Slipperiness,
+                    SurfSurface=face.SurfSurface,
                     Reflect=face.ReflectBeams,
                     Players=!face.IgnorePlayers,
                     Beams=!face.IgnoreBeams,

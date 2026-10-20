@@ -542,6 +542,8 @@ namespace MphRead.Formats.Collision
         Bit10 = 0x400,
         Bit11 = 0x800,
         Bit12 = 0x1000,
+        // Custom authored maps interpret this bit only with traversal-training opt-in.
+        TraversalSurfSurface = Bit12,
         IgnorePlayers = 0x2000,
         IgnoreBeams = 0x4000,
         IgnoreScan = 0x8000

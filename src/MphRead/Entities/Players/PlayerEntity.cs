@@ -2112,8 +2112,7 @@ namespace MphRead.Entities
             // damage. Claim/feedback paths already carry the authority's vector.
             BeamType impulseWeapon = beam?.Beam ?? (NetDamage.ApplyingClaim ? NetDamage.ClaimedBeam
                 : NetDamage.Replaying ? NetDamage.ReplayBeam : BeamType.None);
-            bool quake3RocketImpulse = attacker == this && ModQuake3RocketImpulseEligible
-                && impulseWeapon == BeamType.Missile
+            bool quake3RocketImpulse = attacker == this && ModMovementBlastWeaponEligible(impulseWeapon)
                 && !flags.TestAny(DamageFlags.Burn | DamageFlags.Halfturret | DamageFlags.Death)
                 && (beam == null || beam.ModCustomShot == null);
             if (quake3RocketImpulse && beam is { EnhancedDirectHit: false, SplashRadius: > 0 })

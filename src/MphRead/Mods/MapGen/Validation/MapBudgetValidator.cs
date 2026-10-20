@@ -11,6 +11,8 @@ namespace MphRead.Mods.MapGen
         public static void Analyze(BuiltMap map, MapValidationResult result)
         {
             result.Diagnostics.AddRange(map.ImportDiagnostics);
+            if (!map.Definition.TraversalTraining && map.Solid.Any(face => face.SurfSurface))
+                result.Error("FP-MAP-013", "Surf surfaces require traversal-training opt-in.");
             var solid = map.Solid.SelectMany(MapPacker.CollisionParts).ToArray();
             MapCollisionOptimizer.Result collision=MapCollisionOptimizer.Optimize(
                 MapCollisionOptimizer.FromFaces(map.Solid));

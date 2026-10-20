@@ -51,7 +51,7 @@ internal static class MomentumRulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1, "stable movement enum values");
-        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 67, "current protocol preserves v1 bit15 contract");
+        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 68, "current protocol preserves v1 bit15 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Momentum", "momentum", "MOMENTUM" })
@@ -59,12 +59,12 @@ internal static class MomentumRulesTests
         foreach (string text in new[] { "0", "1", "2", "255", "momentum-v1", "Native,Momentum", "unknown", " Native", "Momentum ", " " })
             Check(!MovementModelRules.TryParse(text, out _), "reject unknown movement spelling " + text);
         Check(new MatchDefinition().MovementModel == MovementModel.Native, "old/default match remains Native");
-        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
+        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal })
         {
             var match = Definition(model);
             Check(MovementModelRules.IsDefined(model), "known enum admitted");
             Check(MovementModelRules.FromRules(match.Rules) == model, "rule bit maps back to selected model");
-            Check((match.Rules & MatchModifierFlags.MomentumMovement) == MovementModelRules.Modifier(model), "one canonical movement modifier");
+            Check((match.Rules & (MatchModifierFlags.MomentumMovement | MatchModifierFlags.Quake3Movement | MatchModifierFlags.TraversalMovement)) == MovementModelRules.Modifier(model), "one canonical movement modifier");
             Check(LobbyRules.ValidateDefinition(match, out _) == LobbyResultCode.Ok, "ordinary mode accepted");
             Check(match.NormalizeLegacy().MovementModel == model, "normalization retains movement");
             Check((match with { Mode = GameMode.InstaGib }).NormalizeLegacy().MovementModel == model, "legacy normalization retains movement");
@@ -72,7 +72,7 @@ internal static class MomentumRulesTests
             Check(model == MovementModel.Momentum ? match.ModifierSummary.Contains("Momentum", StringComparison.OrdinalIgnoreCase)
                 : !match.ModifierSummary.Contains("Momentum", StringComparison.OrdinalIgnoreCase), "summary identifies selected Momentum only");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)4, (MovementModel)255 })
         {
             var bad = Definition(invalid);
             Check(!MovementModelRules.IsDefined(invalid), "unknown enum not defined");
@@ -93,7 +93,7 @@ internal static class MomentumRulesTests
     private static void Configuration()
     {
         var state = new SceneGameState(new ScenePlayerRegistry());
-        foreach (MovementModel model in new[] { MovementModel.Momentum, MovementModel.Native })
+        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal })
         {
             var match = Definition(model) with { ThirdPersonCamera = true };
             match.ApplyInitialConfiguration(state);
@@ -103,7 +103,7 @@ internal static class MomentumRulesTests
             match.ApplyModifiers(state);
             Check(state.MovementModel == model, "modifier path selects movement");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)4, (MovementModel)255 })
         {
             var good = Definition(MovementModel.Momentum) with { ThirdPersonCamera = true };
             good.ApplyInitialConfiguration(state);
@@ -118,7 +118,7 @@ internal static class MomentumRulesTests
     private static void Wire()
     {
         byte[] bytes = new byte[SessionStatePacket.Size];
-        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
+        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal })
         foreach (bool thirdPerson in new[] { false, true })
         {
             var state = State(Definition(model) with { ThirdPersonCamera = thirdPerson });
@@ -139,12 +139,12 @@ internal static class MomentumRulesTests
         Check(SessionStatePacket.TryRead(bytes, out var all, validateDefinition: false)
             && (uint)all.Match.Rules == 65535 && all.Match.MovementModel == MovementModel.Momentum && all.Match.ThirdPersonCamera,
             "all sixteen defined modifier bits structurally survive uint decoding");
-        foreach (uint unknown in new[] { 1u << 17, 1u << 31, 65535u | (1u << 17) })
+        foreach (uint unknown in new[] { 1u << 18, 1u << 31, 65535u | (1u << 18) })
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(SessionStatePacket.Protocol28Size), unknown);
             Check(!SessionStatePacket.TryRead(bytes, out _, validateDefinition: false), "unknown modifier bits rejected before definition validation");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)4, (MovementModel)255 })
         {
             Array.Fill(bytes, (byte)0xa5);
             var state = State(Definition(invalid));
@@ -155,8 +155,8 @@ internal static class MomentumRulesTests
             Configuration = State(Definition(MovementModel.Momentum) with { ThirdPersonCamera = true }) };
         byte[] commandBytes = new byte[LobbyCommandPacket.Size]; command.Write(commandBytes);
         Check(LobbyCommandPacket.TryRead(commandBytes, out var parsed) && parsed.Configuration.Match == command.Configuration.Match, "UpdateMatch command codec carries both high rule bits");
-        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 17);
-        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit16");
+        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 18);
+        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit18");
     }
 
     private static object? Invoke(object target, string name, params object?[] args)
@@ -344,7 +344,7 @@ internal static class MomentumRulesTests
                 && NetSession.ServerSession?.Match.MovementModel == MovementModel.Native
                 && bootstrap.MovementModel == MovementModel.Native,
                 "new authority epoch can legitimately reset match id and movement");
-            foreach (MovementModel selected in new[] { MovementModel.Native, MovementModel.Momentum })
+            foreach (MovementModel selected in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal })
             {
                 NetSession.Stop();
                 var matchFirst = State(Definition(selected));

@@ -529,7 +529,8 @@ namespace MphRead.Mods.MapGen
                     new[] { face.Points[0], face.Points[i], face.Points[i + 1] },
                     new[] { face.Texcoords[0], face.Texcoords[i], face.Texcoords[i + 1] },
                     face.Normal, face.Material, face.Shade)
-                { SourceUv = face.SourceUv is { } source ? new MapSourceUvSnapshot(source.Contract,
+                { SurfSurface = face.SurfSurface,
+                    SourceUv = face.SourceUv is { } source ? new MapSourceUvSnapshot(source.Contract,
                     new[] { source.Base[0], source.Base[i], source.Base[i + 1] },
                     new[] { source.Lightmap[0], source.Lightmap[i], source.Lightmap[i + 1] }) : null };
             }
@@ -622,6 +623,8 @@ namespace MphRead.Mods.MapGen
 
         private static byte[] BuildCollision(BuiltMap map)
         {
+            if (!map.Definition.TraversalTraining && map.Solid.Any(face => face.SurfSurface))
+                throw new MapAuthoringException("FP-MAP-013", "Surf surfaces require traversal-training opt-in.");
             var editors = new List<CollisionDataEditor>();
             foreach (BuiltFace face in map.Solid)
             {
@@ -638,6 +641,7 @@ namespace MphRead.Mods.MapGen
                         Damaging = face.Damaging,
                         Terrain = face.Terrain,
                         Slipperiness = face.Slipperiness,
+                        SurfSurface = face.SurfSurface,
                         Reflect = face.ReflectBeams,
                         // the editor states these the other way round: it asks
                         // whether a face is there for players, beams and the

@@ -1298,7 +1298,7 @@ namespace MphRead.Entities
                         }
                     }
                     Speed += result.Plane.Xyz * -dot;
-                    if (!v163 && !IsAltForm && result.Field0 != 1)
+                    if (!v163 && !IsAltForm && result.Field0 != 1 && !ModSurfContact(result))
                     {
                         float hMagSqr = Speed.X * Speed.X + Speed.Z * Speed.Z;
                         if (hMagSqr > 0)
@@ -1496,8 +1496,13 @@ namespace MphRead.Entities
                         Flags1 |= PlayerFlags1.OnLava;
                     }
                     // solid landing
-                    if (result.Field0 == 0 && result.Plane.Y > 0.5f)
+                    if (result.Field0 == 0 && result.Plane.Y > 0.5f && !ModSurfContact(result))
                     {
+                        if (ModTraversalActive)
+                        {
+                            _modRampSupport = result.Plane.Xyz;
+                            _modRampSupportFrame = _scene.FrameCount;
+                        }
                         Flags1 |= PlayerFlags1.Standing;
                         _timeSinceStanding = 0;
                         if (!Flags1.TestFlag(PlayerFlags1.StandingPrevious) || Flags1.TestFlag(PlayerFlags1.AltFormPrevious))

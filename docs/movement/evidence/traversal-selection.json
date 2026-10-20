@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "protocol": 68,
+  "model": "Traversal",
+  "profileVersion": 1,
+  "baseSha": "da443dc9e86c7bb51402ce0024797379497f1d10",
+  "platform": "Windows x64, .NET 10.0.401",
+  "regressionSnapshot": {
+    "baseSha": "da443dc9e86c7bb51402ce0024797379497f1d10",
+    "snapshot": "03",
+    "sourceManifestSha256": "25d76803f58b97c2cdefefc9018fa4d885e26885711bb9d8d4b0063fc87f2ba9",
+    "sourceFiles": 75,
+    "overlaySha256": "e0661e997834032b8e1b5cf3609a9e357a454cff152d786946645c21100921bb",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "4282293a831e4a2884b922c4b2505ed93594dd2186b85641a3f14fa64ff521c9",
+      "nettest.dll": "025ad53bed4baf34cfc6559fc4263a588ee9bbfbb541ea87d2b8de943bdd009f"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "caseResults": [
+      {
+        "name": "traversal-bot-authority",
+        "exitCode": 0
+      },
+      {
+        "name": "lifecycle-checkpoint",
+        "exitCode": 0
+      },
+      {
+        "name": "self-splash-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rocket-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-self-splash",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "traversal-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-telemetry-hud",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-advanced-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-scene",
+        "exitCode": 0
+      },
+      {
+        "name": "native-baseline",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "momentum-replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-shadow",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-advanced-rules",
+        "exitCode": 0
+      }
+    ],
+    "authoringUiResults": [
+      {
+        "tool": "map-editor-check",
+        "args": [
+          "--traversal-surfaces-only"
+        ],
+        "exitCode": 0,
+        "binarySha256": "66d91dad44605d1b218826845d722e56ac52d010dc2d2400734c12306d8bddc1",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-offline-rules-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "129d7927858f2106689d4f26e5b085abd4f8d8fb1230c23c31b93f6d1c47682d",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-live-menu-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "e4ebfac3601820c280894f669acc1856a1d6eff6f9dce64f54a670134491af5b",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      }
+    ],
+    "status": "18of18 nettest checks and3of3 CPU map/menu fixtures passed; optional external build pending disk recovery"
+  },
+  "finalSnapshot": {
+    "baseSha": "da443dc9e86c7bb51402ce0024797379497f1d10",
+    "snapshot": "04",
+    "sourceManifestSha256": "b2e1e354017322656c217584d807b75343866c3dd92690533b4f7c7906feb267",
+    "sourceFiles": 78,
+    "overlaySha256": "8956efdc7d49c05b0908306465c4a79ce217bbbd1dac457422b11a0ddd22ec70",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "65ff5e012cfc35dddfc9169c4c4973921d262bb2179907ab14962d3264aabbfd",
+      "nettest.dll": "ca69c646340b49bd7fabb98b1c91862b81f1b193f0021a25c448a301f218a39b"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "caseResults": [
+      {
+        "name": "traversal-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "architecture",
+        "exitCode": 0
+      }
+    ],
+    "authoringUiResults": [
+      {
+        "tool": "map-editor-check",
+        "args": [
+          "--traversal-surfaces-only"
+        ],
+        "exitCode": 0,
+        "binarySha256": "66d91dad44605d1b218826845d722e56ac52d010dc2d2400734c12306d8bddc1",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-offline-rules-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "129d7927858f2106689d4f26e5b085abd4f8d8fb1230c23c31b93f6d1c47682d",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      },
+      {
+        "tool": "rmlui-live-menu-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "e4ebfac3601820c280894f669acc1856a1d6eff6f9dce64f54a670134491af5b",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      }
+    ],
+    "historicalReplays": [
+      {
+        "sourceSnapshot": "04",
+        "binaries": {
+          "ProjectPrime.dll": "65ff5e012cfc35dddfc9169c4c4973921d262bb2179907ab14962d3264aabbfd",
+          "nettest.dll": "ca69c646340b49bd7fabb98b1c91862b81f1b193f0021a25c448a301f218a39b"
+        },
+        "protocol": 61,
+        "inputSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+        "exitCode": 0
+      },
+      {
+        "sourceSnapshot": "04",
+        "binaries": {
+          "ProjectPrime.dll": "65ff5e012cfc35dddfc9169c4c4973921d262bb2179907ab14962d3264aabbfd",
+          "nettest.dll": "ca69c646340b49bd7fabb98b1c91862b81f1b193f0021a25c448a301f218a39b"
+        },
+        "protocol": 62,
+        "inputSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+        "exitCode": 0
+      }
+    ],
+    "externalImportFixture": [
+      {
+        "tool": "external-import-check",
+        "args": [],
+        "exitCode": 0,
+        "binarySha256": "6c7c9ae59376b78ea1d3b920ac83135949dc38decdf51417358ca9072b961d3c",
+        "scope": "CPU authoring/controller fixture; no GL/physical-device acceptance"
+      }
+    ],
+    "liveProvenance": {
+      "sourceSnapshot": "04",
+      "baseSha": "da443dc9e86c7bb51402ce0024797379497f1d10",
+      "sourceManifestSha256": "b2e1e354017322656c217584d807b75343866c3dd92690533b4f7c7906feb267",
+      "binaries": {
+        "ProjectPrime.dll": "65ff5e012cfc35dddfc9169c4c4973921d262bb2179907ab14962d3264aabbfd",
+        "nettest.dll": "ca69c646340b49bd7fabb98b1c91862b81f1b193f0021a25c448a301f218a39b"
+      },
+      "archiveSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+      "scope": "real Windows UDP authority plus two independent scripted human owner processes and one authority native AI bot; actual lobby bot admission/start; real recording and passive replay; no physical device or rendered UI acceptance"
+    },
+    "liveProcessResults": {
+      "server": 0,
+      "owner0": 0,
+      "owner1": 0
+    },
+    "status": "snapshot04 strings-only rebuild with3focused checks, actual Traversal UDP recording and historical replay; functional18check snapshot03 retained"
+  },
+  "compiledSourceSha256": {
+    "maps/traversal-training/map.json": "245702373a8591317cd0c58209a2df1058834c1219a8ec8dc92f976066671fec",
+    "src/MphRead/Entities/Players/PlayerCollision.cs": "92f9510a0f1e16bab23ad82950d9e32c034525a69b4c57c86f4a97b5bcde98df",
+    "src/MphRead/Entities/Players/PlayerEntity.cs": "489e341fca13b2208caa2138027fe567367eb80cc5bbd41ecbb6425629e672c6",
+    "src/MphRead/Entities/Players/PlayerInput.cs": "7a9b7480bd5a0fed37b836f673599cd9e96ca3e476375dab4c7917164db7f9d3",
+    "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "9a0fffcc103b6b25ad6d25bc6c79da7d4e1c0a32da9e9643346ae81952c2c5d3",
+    "src/MphRead/Formats/Collision.cs": "ad11b84b4d1969b30a1490051b51ed51c2ee2fd34e491f3b73c3ae9b67601a12",
+    "src/MphRead/Mods/GameSettings.cs": "a3fb0022fef53dc4a5ace1e0a7fe767406884939aad3135f3c13ad30f3ce2128",
+    "src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs": "1bbc4cc74fcc9ad9e8d8840a399cc3c8fb09a7d26186a85f73721e8529d3a181",
+    "src/MphRead/Mods/Launcher/Gui/Workspaces/OfflineWorkspace.cs": "87d7991d3693d6b411d0586b7d15e362aa269d207877fd5b44512bca10cb49a8",
+    "src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiOfflineRuleEditor.cs": "e4d0315ee6a534771d067e38df6f7aadf828cd02a46febdf19ff42a91305c2cb",
+    "src/MphRead/Mods/MapEditor/MapMeshEditing.cs": "a4991463b25b119938e3a9da19f61ae1574a7f783f86c9e177377b16b488ac52",
+    "src/MphRead/Mods/MapEditor/MapMeshModeling.cs": "e83bd975da2d72ced216b414e2ba9d5f0da415f1538a0261e27751099f2a764e",
+    "src/MphRead/Mods/MapEditor/MapObjectPropertySchema.cs": "ffd5a248a8271d90f0090ea17df762534972e37e2034ac790c4a090d3bcc4e3c",
+    "src/MphRead/Mods/MapGen/BuiltMap.cs": "67d4e93a5ba37ed31f70d1f78aa5fdcc360ffd367b732b4c2d7cb5a7d6597098",
+    "src/MphRead/Mods/MapGen/CollisionObj.cs": "b413c6e85169ce6487d69ea0bcd9914a9ac8aea61d81416fb3165ea926d8c39d",
+    "src/MphRead/Mods/MapGen/Geometry/BezierPatchCompiler.cs": "9a1158a3ec355f37e81dc991d7cd0b95c15f720e457690dd2153cbf307ec1aa2",
+    "src/MphRead/Mods/MapGen/Geometry/GeometryCompiler.cs": "979457c24eda73e375b4bdd8f5b812872dfabd6e318ab9ca49dd6a5350477dd0",
+    "src/MphRead/Mods/MapGen/Geometry/MapGeometry.cs": "c0324d9c337941ab0d932a9aa85df4e53236683cf1e165d07dcd19db45499d46",
+    "src/MphRead/Mods/MapGen/MapCollisionHealer.cs": "449753b466651170502a6405e839149953b1fb9026b7f8a6f73b35032383248a",
+    "src/MphRead/Mods/MapGen/MapCollisionOptimizer.cs": "dfa500952d6f8ad1dab244099cc6ac0f958e1d883b6017529dbb43ac8a84277d",
+    "src/MphRead/Mods/MapGen/MapDefinition.cs": "9ebf1e33fe704a36ff1e335c2a3ead992f210a290bec2a43cf0c692820304667",
+    "src/MphRead/Mods/MapGen/MapPacker.cs": "b9df6b6a66edc891e17a9fa711a306e8395f7db90ee2403eda02a1ff73ef7777",
+    "src/MphRead/Mods/MapGen/ModelImport/ModelCollisionImport.cs": "0c67af453d699ab0bf74072e9940555d1a045306df8eed7d847127d54837c82f",
+    "src/MphRead/Mods/MapGen/ModelImport/ModelReimport.cs": "0d713c17e9c14382c64066e0a06f25ba24aaf1f518121fad59d7cc36f38f681e",
+    "src/MphRead/Mods/MapGen/Validation/MapBudgetValidator.cs": "ad3b6f2bc7e928134be743675bdd3e96dcbb8242fc2b6a163fa0606628953e75",
+    "src/MphRead/Mods/MapGen/Validation/MapValidator.cs": "2b3a8fbf3ad0c49d38e06cf56ab7aa7bbeee21e49e1f3fe404e6ca4bfe6ab51c",
+    "src/MphRead/Mods/ModEntry.cs": "3f15005f7e133cbfd76b9bf1ed6685e43f661868df19f140bcd371350e1123db",
+    "src/MphRead/Mods/Movement/MovementModel.cs": "4c58a266107ff13e62d7af6cfcd328a2e95b2679261e771b5d1e9904e785922a",
+    "src/MphRead/Mods/Movement/MovementTelemetryHud.cs": "8b2add317b4a23fae611ebf1d11e19c6c1f2f582cc5dcc4648a8d65b50da8096",
+    "src/MphRead/Mods/Movement/TraversalMovementProfileV1.cs": "3b77d5cf2fa0061dcdc315c16be2ed8349e7d05969621f456492f149803a5bfc",
+    "src/MphRead/Mods/Multiplayer/MatchModifierRules.cs": "ee70577e641e6b7f85983350d44aa94831eb34022746cc3fb91c48c539debcfe",
+    "src/MphRead/Mods/Network/MatchDefinition.cs": "601b4af7056c60331f4364b9401d6a7630f25426f6d5e963334cc42f24f56353",
+    "src/MphRead/Mods/Network/NetHitClaims.cs": "2cd6f6085e06f6989538032548ffc1c507fbbf67a37ed64f3fbad45f7081d3ad",
+    "src/MphRead/Mods/Network/NetLobbyTest.cs": "23dc209e793760771d09d2e535deade9295628e99aa692df9b56568fe9b01e5f",
+    "src/MphRead/Mods/Network/NetMovementValidationShadow.cs": "2732ed228edec0563c004161ba640502b1637b1ce56e5e72ed242197a95f088b",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "f4b18bb6207145d99f4d3e697da028a2769af9b8c2998295bfa745865f4790e6",
+    "src/MphRead/Mods/Network/NetSelfSplash.cs": "7a0f6f4cd901cefbf162b408637f47cb15c6a5f286839e24867c3fb4874ab662",
+    "src/MphRead/Mods/Network/ReplayFormatV3.cs": "00e24bd9116952e79292674f9321e4aefdc5f4184f198638143cb89c3eeac011",
+    "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "42b9dce16ceedbc94cb2293b8520c2cb91da59a3259d14ba4128d9ea68fff9e7",
+    "src/MphRead/Mods/Network/ReplayLibraryIndex.cs": "019710d645ce4e325015befc6fb5d1bf2e8f10d545cd075467189deeadcc6e2f",
+    "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "76c48106359b5373dcee0fe7c77c8710586912e72f7133964256df76e109f940",
+    "src/MphRead/Renderer.cs": "dd5f8e3ae1403441658e4600edd7613064c17849b9b93e818d773ce53c779f85",
+    "src/MphRead/SceneMomentumMovement.cs": "2fccfcbcad1d2fbe10e003318be0313821531e14aba92bdd8d77e47747023d9c",
+    "src/MphRead/Utility/RepackCollision.cs": "52eeddcb419df62bd997e574bfbddbb6856dee7e5903d0af1d60aa281f6235fd",
+    "tools/map-editor-check/Program.cs": "442ab2f103ffecb7a6ac1e448c6d65a031f3262ab5d196ae7b3fd8670fa6758f",
+    "tools/map-editor-check/TraversalSurfaceChecks.cs": "1adb574a8e60367e9f71272cfca32350bd7c6f34feaeed79f9a9a3d0567515d4",
+    "tools/nettest/ContinuousTargetTests.cs": "a41daa4e0c56d3f632feee020520fa7f276d3319f5d446b52032cb8dfea54687",
+    "tools/nettest/EnhancedRetirementTests.cs": "c8e2bd0417c46d18344283750523f407abae4066bccafb6c8f721b48a23846f6",
+    "tools/nettest/MomentumBotAuthorityTests.cs": "7093c74dcd1c16f5bba1a21d4f31bb1c027fa84370417be8c8cd53436fa52666",
+    "tools/nettest/MomentumOnlineSceneTests.cs": "370798120bc51d841c472e6740d0de3bf4401c07faa0ffb27f42ea7c12242ad7",
+    "tools/nettest/MomentumReplayMetadataTests.cs": "2287f03ee6d6aec55e2aed389cc4d228693fb36c36ace6c766a6195c9487b00e",
+    "tools/nettest/MomentumReplaySceneTests.cs": "6969dcab0e4b1b5c906d870ff619ece0ed441bfc2046edd21536d5ead4e0832c",
+    "tools/nettest/MomentumRulesTests.cs": "6ebdfbae98312b01947bd1b5dbc1143bfa1e3b1577a9d428f0d53af2e182287f",
+    "tools/nettest/MovementTelemetryHudTests.cs": "8541959fc3c7595764c90de7d10033a2dcfdec6b75e4a48caaba68d9beff8683",
+    "tools/nettest/MovementValidationTests.cs": "e669a487b94520fd94d8aeec567d594c86de729c34aa907d5ad01b24bde60b80",
+    "tools/nettest/NetArchitectureTests.cs": "68853a1f030af006693c23dd59130ba2bc9f14d0a9f11d14db24dab02375dcbd",
+    "tools/nettest/PickupProtocolTests.cs": "91d7cc4d0c433564e96853eda72be9564f45c87680500826f36b3cca7656e22f",
+    "tools/nettest/PlayerNameChatTests.cs": "d8a6b379e81135494a2457ba29d73fb5d2d2116d0deb357b3de1a4d62e4cdb25",
+    "tools/nettest/Program.cs": "aac99ac3aec58b58bc01d85aa6f8d03c5f8bad9be8b04b1614f17daa5c4fcbdd",
+    "tools/nettest/Protocol17Tests.cs": "54248b723d19861686dc75f6152ff89fa5f3cf0a9e63c3bcf545f0ba4bd41efa",
+    "tools/nettest/Quake3ReplayCompatibilityTests.cs": "b73451e4e4e365bfbec63eb29f9b0a674e443235ee4ce0ee83f3749c0f79fe6a",
+    "tools/nettest/Quake3RulesTests.cs": "1582e4dd16cb844176eb9ed9970cdf2e7d7b05c80089911ad73be21985726d3c",
+    "tools/nettest/ReplayProtocol58Tests.cs": "f918f19eb89bb4217f35d1374f735eef5f48ecc233d1234f5d1db8685bbb8abd",
+    "tools/nettest/SelfSplashTests.cs": "c454412a9abfe6ea3423bc8d30accaa4aed2b37e23b3532fa32a3777cac19126",
+    "tools/nettest/TraversalRulesTests.cs": "1b554e54dca9d4560925f62858ab5b6de4d3a572dcdd26f18b292515d0789175",
+    "tools/nettest/TraversalSceneTests.cs": "f63999cf9c1677f017d995d06a094b8dbfe5a8d5c8ab6fc3248849c3f32d4869",
+    "tools/rmlui-live-menu-check/OfflineRulesAcceptance.cs": "d471d26e9929e25e7eef719dfafadd8fc17a4f9d34c0060e78888b989839c4fa",
+    "tools/rmlui-live-menu-check/Program.cs": "e2797685d2fd16bb187659e1892360e4da1ad2056cf0c9e3ff2c17eb8c2ab9de",
+    "tools/rmlui-offline-rules-check/Program.cs": "78ca4ff78f0c14fe727ada0f45a15f63a0a6d609fa1f57cb125340edc2b27a3c",
+    "tools/rmlui-opengl-check/LobbyInteractionsGlAcceptance.cs": "a24465a4819a20f872369232941dc44cfd5160181981fc4784cab5cc33d47964",
+    "tools/rmlui-opengl-check/OfflineRulesGlAcceptance.cs": "0ba768602cbd805eb334e2ca3ad9a626dde879bec9d7ad9ca473aa96ffb8385b",
+    "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "80af3ea6b0dacf7196e442b94d99318829ac9257a434ce8d89475ff923d7a14a"
+  },
+  "results": {
+    "traversalSceneChecks": 82331,
+    "botAuthorityChecks": 273310,
+    "botScenes": 14,
+    "nativeGoldenTrajectories": 56,
+    "quake3SceneChecks": 24169,
+    "quake3AdvancedSceneChecks": 171054,
+    "selfSplashChecks": {
+      "Native": 665,
+      "Quake3": 668,
+      "Traversal": 671
+    },
+    "surfaceAuthoringChecks": 16,
+    "sourceGeometryChecks": 2126,
+    "pureTraversalChecks": 255,
+    "microbenchmark": {
+      "iterations": 100000,
+      "allocatedBytes": 0,
+      "snapshot03ElapsedMs": 12.993,
+      "timingBudgetAccepted": false
+    },
+    "newReplay": {
+      "sha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+      "protocol": 68,
+      "profileVersion": 1,
+      "frames": 2400,
+      "checks": 87551,
+      "players": 3,
+      "seeks": 9
+    },
+    "historicalReplayChecksPerArchive": 80101,
+    "ownerHeldHops": [
+      13,
+      20
+    ],
+    "ownerLegalJumps": [
+      17,
+      30
+    ],
+    "nativeDisplacementDiagnosticCounts": [
+      2,
+      5
+    ]
+  },
+  "limitations": [
+    "CPU scripted input and real localhost UDP; no physical input or rendered acceptance",
+    "Self-blast arbitration verified in admitted ServerSim and packet seams; live movement cohort does not qualify grenade combat",
+    "Native displacement diagnostics retained; trigger is not a movement acceptance threshold and scratch candidates are not response proof",
+    "Microbenchmark is an observation, not a frame-time budget pass",
+    "Mac builds and simulations intentionally not run",
+    "Crouch/power sliding is the next implementation slice"
+  ],
+  "earlierFailures": [
+    "Charged Magmaul test lacked verified hold/release source; fixture corrected without weakening production gates",
+    "Open surf polygons produced unbounded spawn halfspaces; authored closed wedges replace them",
+    "CPU menu fixture assumed three choices; updated to four",
+    "Optional source-geometry tool build exhausted Windows disk; only owned reproducible bin/obj outputs removed and retry passed"
+  ],
+  "ci": "Hosted CI will be observed after publication; merging does not wait for CI or review as requested."
+}

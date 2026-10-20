@@ -90,6 +90,7 @@ namespace MphRead.Mods.MapGen
         public bool Sky { get; set; }
 
         public int Slipperiness { get; set; }
+        public bool SurfSurface { get; set; }
         public bool ReflectBeams { get; set; }
         public bool IgnorePlayers { get; set; }
         public bool IgnoreBeams { get; set; }

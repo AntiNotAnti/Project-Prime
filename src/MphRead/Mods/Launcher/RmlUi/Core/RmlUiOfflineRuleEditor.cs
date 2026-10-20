@@ -105,7 +105,7 @@ public sealed class RmlUiOfflineRuleEditor
             || amount is < 0 or > 999 || !Duration(limit) || !Duration(goal))
         { Error = "USE A POINT GOAL FROM 0–999 AND DURATIONS AS m:ss"; return false; }
         if (!Movement.MovementModelRules.TryParse(Draft.MovementModel, out var movementModel))
-        { Error = "CHOOSE CLASSIC, MOMENTUM, OR QUAKE III MOVEMENT"; return false; }
+        { Error = "CHOOSE CLASSIC, MOMENTUM, QUAKE III, OR TRAVERSAL MOVEMENT"; return false; }
         var rules = new MatchDefinition { Mode = Mode, MovementModel = Mode == GameMode.SinglePlayer
                 ? Movement.MovementModel.Native : movementModel, InstaGib = Draft.Enabled(7),
             NoImperialist = Draft.Enabled(9), Fiesta = Draft.Enabled(6), BalancedMode = Draft.Enabled(10) };

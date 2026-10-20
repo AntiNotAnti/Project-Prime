@@ -82,8 +82,8 @@ internal static class NetSelfSplash
             beam.DamageDirType, beam.DamageDirMag, beam.Velocity,
             Metadata.DamageMultipliers[(int)owner.BeamEffectiveness[(int)beam.Beam]],
             Metadata.DamageLevels[owner.OwningScene.GameState.DamageLevel], NetSession.SlotDamageReduction[slot],
-            beam.ModEnhancedSelfJump, beam.Beam == BeamType.Missile && beam.ModCustomShot == null
-                && owner.ModQuake3RocketImpulseEligible,
+            beam.ModEnhancedSelfJump, beam.ModCustomShot == null
+                && owner.ModMovementBlastWeaponEligible(beam.Beam),
             owner.ModSelfSplashEligible && owner != excluded,
             owner.OwningScene.GameState.BalancedMode ? (byte)0 : NetHitClaims.AfflictionClaimFlags(beam.Afflictions));
         Observed++;

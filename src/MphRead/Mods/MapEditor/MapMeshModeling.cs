@@ -278,7 +278,7 @@ public static partial class MapMeshEditing
         var result=Clone(sources[0]);result.Transform=new();result.Uv=new();result.FaceUv.Clear();result.Vertices.Clear();result.Faces.Clear();result.FaceMaterials.Clear();result.FaceTexcoords.Clear();
         foreach(var source in sources)
         {
-            if(source.Solid!=result.Solid||source.CollisionOnly!=result.CollisionOnly||source.Terrain!=result.Terrain||source.Damaging!=result.Damaging||source.Shade!=result.Shade||source.Slipperiness!=result.Slipperiness||source.ReflectBeams!=result.ReflectBeams||source.IgnorePlayers!=result.IgnorePlayers||source.IgnoreBeams!=result.IgnoreBeams||source.IgnoreScan!=result.IgnoreScan)
+            if(source.Solid!=result.Solid||source.SurfSurface!=result.SurfSurface||source.CollisionOnly!=result.CollisionOnly||source.Terrain!=result.Terrain||source.Damaging!=result.Damaging||source.Shade!=result.Shade||source.Slipperiness!=result.Slipperiness||source.ReflectBeams!=result.ReflectBeams||source.IgnorePlayers!=result.IgnorePlayers||source.IgnoreBeams!=result.IgnoreBeams||source.IgnoreScan!=result.IgnoreScan)
                 throw new InvalidOperationException("Joined meshes must have matching collision, terrain, damage and shade settings.");
             var compiled=GeometryCompiler.Compile(source,texScale);int offset=result.Vertices.Count;
             result.Vertices.AddRange(Enumerable.Range(0,source.Vertices.Count).Select(i=>A(VertexWorld(source,i))));

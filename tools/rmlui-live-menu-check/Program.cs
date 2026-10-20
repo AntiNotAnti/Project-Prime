@@ -227,8 +227,11 @@ for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
     if (i == 17)
     {
         var beforeMovement = editor.Draft.Match.MovementModel;
-        Check(editor.Toggle(i) && editor.Toggle(i) && editor.Toggle(i)
-            && editor.Draft.Match.MovementModel == beforeMovement, "movement choice completes its three-way cycle");
+        Check(editor.Toggle(i) && editor.MovementLabel == "Momentum"
+            && editor.Toggle(i) && editor.MovementLabel == "Quake III"
+            && editor.Toggle(i) && editor.MovementLabel == "Traversal"
+            && editor.Toggle(i) && editor.Draft.Match.MovementModel == beforeMovement
+            && editor.MovementLabel == "Classic", "movement choice completes its four-way cycle");
     }
     else
     {
@@ -250,9 +253,13 @@ Check(movementEditor.Toggle(17) && movementEditor.IsOn(17)
     && movementEditor.MovementLabel == "Quake III"
     && movementEditor.Draft.Match.MovementModel == MovementModel.Quake3
     && movementEditor.Validate(out _)
+    && movementEditor.Toggle(17) && movementEditor.IsOn(17)
+    && movementEditor.MovementLabel == "Traversal"
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Traversal
+    && movementEditor.Validate(out _)
     && movementEditor.Toggle(17) && !movementEditor.IsOn(17)
     && movementEditor.MovementLabel == "Classic"
-    && movementEditor.Toggle(17), "movement editor cycles all three choices with valid Quake III draft");
+    && movementEditor.Toggle(17), "movement editor cycles all four choices with valid Quake III draft");
 Check(movementEditor.NextMode() && movementEditor.NextFormat()
     && movementEditor.TrySelectMap("MP2 HARVESTER", out _)
     && movementEditor.TrySetLimits("8:20", "10", out _)
@@ -261,6 +268,19 @@ Check(movementEditor.NextMode() && movementEditor.NextFormat()
 Check(movementEditor.Toggle(8) && !movementEditor.Validate(out string movementConflict)
     && movementConflict.Contains("Momentum") && movementEditor.Draft.Match.MovementModel == MovementModel.Momentum,
     "Balanced refuses Momentum without silently replacing either selection");
+var traversalEditor = new RmlUiRuleEditor(sourceRules with
+    { Match = sourceRules.Match with { MovementModel = MovementModel.Traversal, BalancedMode = true } });
+Check(!traversalEditor.Validate(out _) && traversalEditor.Draft.Match.MovementModel == MovementModel.Traversal,
+    "Balanced conflict preserves Traversal selection");
+Check(MovementModelRules.TryParse("Traversal", out var traversalParsed) && traversalParsed == MovementModel.Traversal
+    && MovementModelRules.FromRules(MatchModifierFlags.TraversalMovement) == MovementModel.Traversal
+    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 1
+    && new MatchDefinition().MovementModel == MovementModel.Native,
+    "Traversal model maps its fixed profile without changing Classic default");
+foreach (var conflicting in new[] { MatchModifierFlags.MomentumMovement, MatchModifierFlags.Quake3Movement })
+    Check(!MovementModelRules.ValidRules(conflicting | MatchModifierFlags.TraversalMovement)
+        && !MovementModelRules.IsDefined(MovementModelRules.FromRules(conflicting | MatchModifierFlags.TraversalMovement)),
+        "Traversal refuses multiple movement bits: " + conflicting);
 var unsupportedMovement = new RmlUiRuleEditor(sourceRules with
     { Match = sourceRules.Match with { MovementModel = (MovementModel)255 } });
 Check(unsupportedMovement.MovementLabel == "Unsupported" && !unsupportedMovement.Toggle(17)

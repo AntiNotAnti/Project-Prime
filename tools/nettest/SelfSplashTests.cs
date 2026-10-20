@@ -53,9 +53,50 @@ internal static class SelfSplashTests
     }
     private static int NativeWeaponIndex(BeamType weapon)
         => (int)weapon + (Weapons.GetAffinityBeam(_shooter.Hunter) == weapon ? 9 : 0);
+    private static bool AdditiveBlast(BeamType weapon) => weapon == BeamType.Missile
+        ? _model is MovementModel.Quake3 or MovementModel.Traversal
+        : weapon == BeamType.Magmaul && _model == MovementModel.Traversal;
+    private static BeamProjectileEntity EmitFloorBlast(BeamType weapon)
+    {
+        if (weapon != BeamType.Magmaul) return Emit(weapon, ray: -Vector3.UnitY);
+        byte charge = (byte)(_shooter.OwningScene.WeaponRules[NativeWeaponIndex(weapon)].FullCharge * 2);
+        // Strict unpaid rescue requires independently observed charge input.
+        // A Shadow-mode emitted projectile alone cannot certify a claimed hold.
+        // Advance fixture clocks with one accepted physical-input carrier per
+        // frame: reset, the asset's full hold duration, then release in Emit.
+        bool admitted = true;
+        for (int held = 0; held <= charge; held++)
+        {
+            if (held > 0) Frame(_frame + 1);
+            var carrier = new IntentPacket { MatchId = NetSession.CurrentMatchId,
+                AuthorityEpoch = NetSession.AuthorityEpoch,
+                SlotGeneration = NetPlayerLifecycle.Generation(_shooter.SlotIndex),
+                LifeId = NetPlayerLifecycle.Get(_shooter.SlotIndex), Frame = _frame, AckFrame = _frame,
+                Position = _shooter.Position, Aim = -Vector3.UnitY, WeaponSelect = (byte)weapon,
+                Buttons = IntentButtons.InPlayState | (held > 0 ? IntentButtons.Shoot : 0),
+                HasFireEvents = true, ShotInputCount = 1 };
+            carrier.ShotInputs[0] = ShotInputHistory.Sample((byte)weapon,
+                shoot: held > 0, physicalZoom: false, eligible: true);
+            admitted &= NetFireEvents.Accept(_shooter.SlotIndex, carrier);
+        }
+        Check(admitted, "charged Magmaul fixture supplies admitted reset and full-duration hold carriers");
+        Frame(_frame + 1); Record();
+        var beam = Emit(weapon, charge: charge, ray: -Vector3.UnitY, verifiedCharge: true);
+        var reason = NetShotProof.EmissionReason(beam.ModLaunchKey);
+        Check(reason == ShotProofReason.Verified,
+            $"charged Magmaul release has independently verified source and pose before strict self-splash validation reason={reason}");
+        return beam;
+    }
+    private static Vector3 ExpectedBlastVelocity(Vector3 incoming, Vector3 impulse, bool additive)
+    {
+        Vector3 result = incoming + impulse.WithY(0);
+        result.Y = additive || impulse.Y <= 0 ? incoming.Y + impulse.Y
+            : incoming.Y < .25f ? Math.Min(.25f, incoming.Y + impulse.Y) : incoming.Y;
+        return result;
+    }
     private static BeamProjectileEntity Emit(BeamType weapon = BeamType.Imperialist, byte charge = 0,
         uint modifiers = 0, Vector3? ray = null, bool preserve = false, Vector3? ownerAim = null, uint? sourceFrame = null,
-        bool? affinity = null)
+        bool? affinity = null, bool verifiedCharge = false)
     {
         if (!preserve) foreach (var old in _shooter.EquipInfo.Beams) old.Lifespan = 0;
         var direction = ray ?? _direction;
@@ -64,7 +105,8 @@ internal static class SelfSplashTests
         if (affinity ?? Weapons.GetAffinityBeam(_shooter.Hunter) == weapon)
             modifiers |= FireEvent.AffinityStateBit;
         else if (affinity.HasValue) modifiers &= ~FireEvent.AffinityStateBit;
-        var fire = new FireEvent(++_id, source, _frame, 0, FireEventKind.PressFire,
+        var fire = new FireEvent(++_id, source, _frame, 0,
+            verifiedCharge ? FireEventKind.ReleaseFire : FireEventKind.PressFire,
             (byte)weapon, charge, modifiers, FireEvent.FlagPose, _shooter.Position + Vector3.UnitY * .5f,
             direction, aim, aim, SourceLife: NetPlayerLifecycle.Get(_shooter.SlotIndex));
         var packet = new IntentPacket { MatchId = NetSession.CurrentMatchId, AuthorityEpoch = NetSession.AuthorityEpoch,
@@ -82,6 +124,12 @@ internal static class SelfSplashTests
                 shoot: true, physicalZoom: fire.ScopedAtFire, eligible: true);
             packet.Buttons |= IntentButtons.Shoot;
             if (fire.ScopedAtFire) packet.Buttons |= IntentButtons.Zoom;
+        }
+        else if (verifiedCharge)
+        {
+            packet.ShotInputCount = 1;
+            packet.ShotInputs[0] = ShotInputHistory.Sample((byte)weapon,
+                shoot: false, physicalZoom: false, eligible: true);
         }
         packet.FireEvents[0] = fire;
         NetShotProof.ObservePose(_shooter, packet);
@@ -139,14 +187,14 @@ internal static class SelfSplashTests
             Check(NetSelfSplash.Supports(weapon) == (weapon is BeamType.Missile or BeamType.Magmaul
                 or BeamType.Judicator or BeamType.OmegaCannon), $"constrained self policy weapon {weapon}");
     }
-    private static void ForgedClaims()
+    private static void ForgedClaims(BeamType weapon = BeamType.Missile)
     {
         foreach (string variant in new[] { "no-witness", "missing-shot", "wrong-component", "remote-offset", "direct", "NoBeam", "burn", "turret" })
         {
-            Prepare(); var beam = Emit(BeamType.Missile, ray: -Vector3.UnitY); var claim = SelfClaim(beam);
+            Prepare(); var beam = EmitFloorBlast(weapon); var claim = SelfClaim(beam);
             if (variant != "no-witness")
             {
-                Explode(beam);
+                if (weapon == BeamType.Magmaul) ExplodeAtRealFloor(beam); else Explode(beam);
                 Check(NetSelfSplash.Validate(0, claim, out var expected), "negative fixture starts from admitted source and actual terminal witness");
                 var exaggerated = claim; exaggerated.Damage = ushort.MaxValue; exaggerated.Direction = Vector3.One * 100;
                 Check(NetSelfSplash.Validate(0, exaggerated, out var derived) && derived == expected,
@@ -160,7 +208,7 @@ internal static class SelfSplashTests
             if (variant == "burn") claim.Flags |= HitClaimPacket.FlagBurning;
             if (variant == "turret") claim.Flags |= HitClaimPacket.FlagHalfturret;
             int health = _shooter.Health; var speed = _shooter.Speed;
-            Check(!NetSelfSplash.Validate(0, claim, out _), $"self claim rejects forged {variant}");
+            Check(!NetSelfSplash.Validate(0, claim, out _), $"{_model} {weapon} self claim rejects forged {variant}");
             Check(_shooter.Health == health && _shooter.Speed == speed, "self validation cannot author health or impulse");
         }
     }
@@ -303,9 +351,9 @@ internal static class SelfSplashTests
         }
         finally { state.Teams = teams; _victim.TeamIndex = victimTeam; }
     }
-    private static void SplitNativeHookRescue()
+    private static void SplitNativeHookRescue(BeamType weapon = BeamType.Missile)
     {
-        Prepare(); var beam = Emit(BeamType.Missile, ray: -Vector3.UnitY);
+        Prepare(); var beam = EmitFloorBlast(weapon);
         CollisionResult floor = default;
         Check(CollisionDetection.CheckBetweenPoints(beam.Position, beam.Position - Vector3.UnitY * 4,
             TestFlags.Beams, _shooter.OwningScene, ref floor), "split-hook fixture captures real floor collision");
@@ -314,9 +362,12 @@ internal static class SelfSplashTests
         // Deliberately isolate the native pre-owner-loop witness hook. This is not a claimed UDP miss.
         NetSelfSplash.Observe(beam, origin);
         var claim = SelfClaim(beam); claim.Damage = 1;
-        if (_model == MovementModel.Quake3) claim.Direction = Vector3.UnitY * .9f;
+        if (AdditiveBlast(weapon)) claim.Direction = Vector3.UnitY * .9f;
         Check(NetSelfSplash.Validate(0, claim, out var expected) && expected.Damage > claim.Damage,
             "split native pre-payment hook supplies strict source and server-derived splash outcome");
+        if (AdditiveBlast(weapon))
+            Check(expected.Impulse != claim.Direction,
+                $"{_model} {weapon} bounded claimant boost differs from independently derived authority impulse");
         var perturbed = claim; perturbed.HitPoint += Vector3.UnitY * .01f;
         Check(NetSelfSplash.Validate(0, perturbed, out var same) && same == expected,
             "inside-envelope client point cannot change canonical server-body damage or impulse");
@@ -325,8 +376,8 @@ internal static class SelfSplashTests
             && _shooter.Health == before - expected.Damage,
             "split-hook unpaid self rescue applies server-derived damage rather than claimed one");
         byte[] receipt = Bytes(_lastAck);
-        Check(Vector3.Distance(_shooter.Speed, speed + expected.Impulse) < .000001f,
-            "split-hook unpaid self rescue applies server-derived impulse");
+        Check(Vector3.Distance(_shooter.Speed, ExpectedBlastVelocity(speed, expected.Impulse, AdditiveBlast(weapon))) < .000001f,
+            $"{_model} {weapon} split-hook unpaid self rescue applies server-derived impulse and selected vertical semantics");
         int health = _shooter.Health; speed = _shooter.Speed; ushort sequence = NetDamage.Sequence(0);
         beam.OnCollision(floor, colWith: null);
         Check(_shooter.Health == health && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
@@ -337,11 +388,11 @@ internal static class SelfSplashTests
             && _shooter.Health == health && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
             "claim retry after rescued native collision preserves one payment and immutable receipt");
     }
-    private static void RocketImpulsePayments()
+    private static void RocketImpulsePayments(BeamType weapon = BeamType.Missile)
     {
         foreach (float incomingY in new[] { .4f, -.01f })
         {
-            Prepare(); var beam = Emit(BeamType.Missile, ray: -Vector3.UnitY);
+            Prepare(); var beam = EmitFloorBlast(weapon);
             CollisionResult floor = default;
             Check(CollisionDetection.CheckBetweenPoints(beam.Position, beam.Position - Vector3.UnitY * 4,
                 TestFlags.Beams, _shooter.OwningScene, ref floor), "rocket combat seam resolves actual room floor");
@@ -351,12 +402,13 @@ internal static class SelfSplashTests
             // damage calculation, authority witness and payment are production paths.
             Vector3 incoming = _direction * .06f + Vector3.UnitY * incomingY;
             _shooter.Speed = incoming;
-            Check(_shooter.ModQuake3RocketImpulseEligible == (_model == MovementModel.Quake3),
-                $"admitted {_model} rule owns rocket eligibility on authority puppet body");
+            bool additive = AdditiveBlast(weapon);
+            Check(_shooter.ModMovementBlastWeaponEligible(weapon) == additive,
+                $"admitted {_model} rule owns {weapon} blast eligibility on authority puppet body");
             NetSelfSplash.Observe(beam, origin);
             var claim = SelfClaim(beam);
             Check(NetSelfSplash.Validate(0, claim, out var expected), "pre-payment witness independently derives floor rocket outcome");
-            if (_model == MovementModel.Quake3)
+            if (additive)
                 Check(expected.Impulse.Y > .26f && expected.Impulse.Length <= Quake3MovementProfileV2.MaximumRocketImpulse + .000001f,
                     "actual floor rocket witness supplies bounded lift above native quarter-unit cap");
             int before = _shooter.Health;
@@ -365,26 +417,27 @@ internal static class SelfSplashTests
             Check(before - _shooter.Health == expected.Damage
                 && Vector3.Distance(state.HitDirection, expected.Impulse) < .000001f,
                 "actual native damage and recorded impulse equal independent pre-payment self witness");
-            Vector3 expectedSpeed = incoming + expected.Impulse.WithY(0);
-            expectedSpeed.Y = _model == MovementModel.Quake3 || expected.Impulse.Y <= 0
-                ? incoming.Y + expected.Impulse.Y
-                : incoming.Y < .25f ? Math.Min(.25f, incoming.Y + expected.Impulse.Y) : incoming.Y;
+            Vector3 expectedSpeed = ExpectedBlastVelocity(incoming, expected.Impulse, additive);
             Check(Vector3.Distance(_shooter.Speed, expectedSpeed) < .000001f,
-                $"{_model} actual floor rocket preserves horizontal momentum and {(incomingY > 0 ? "rising" : "falling")} vertical semantics");
-            Check(_model == MovementModel.Quake3 ? _shooter.Speed.Y > .25f
+                $"{_model} actual {weapon} floor blast preserves horizontal momentum and {(incomingY > 0 ? "rising" : "falling")} vertical semantics");
+            Check(additive ? _shooter.Speed.Y > .25f
                 : incomingY > 0 ? _shooter.Speed.Y == incomingY : _shooter.Speed.Y <= .25f,
-                $"{_model} actual floor rocket {(_model == MovementModel.Quake3 ? "adds uncapped lift" : "retains Classic vertical cap")}");
+                $"{_model} actual {weapon} floor blast {(additive ? "adds uncapped lift" : "retains Classic vertical cap")}");
             int health = _shooter.Health; var speed = _shooter.Speed; ushort sequence = NetDamage.Sequence(0);
             Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && _shooter.Health == health
                 && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
                 "floor rocket native payment cannot repay from exact self claim");
+            byte[] receipt = Bytes(_lastAck);
+            Check(Receive(claim) == HitVerdictPacket.ResultDuplicate && Bytes(_lastAck).SequenceEqual(receipt)
+                && _shooter.Health == health && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
+                $"{_model} {weapon} native-first claim retry preserves immutable receipt, health and velocity");
         }
     }
-    private static void StaleAndInvalidRocketWitnesses()
+    private static void StaleAndInvalidRocketWitnesses(BeamType weapon = BeamType.Missile)
     {
         foreach (string variant in new[] { "match", "epoch", "generation", "life", "victim-life", "launch", "nonfinite-point", "expired", "nonfinite-direction", "oversized-direction" })
         {
-            Prepare(); var beam = Emit(BeamType.Missile, ray: -Vector3.UnitY);
+            Prepare(); var beam = EmitFloorBlast(weapon);
             CollisionResult floor = default;
             Check(CollisionDetection.CheckBetweenPoints(beam.Position, beam.Position - Vector3.UnitY * 4,
                 TestFlags.Beams, _shooter.OwningScene, ref floor), "invalid witness fixture captures actual floor");
@@ -405,11 +458,11 @@ internal static class SelfSplashTests
             {
                 // The wire uses signed integers, so it cannot carry NaN. Probe
                 // the finite gate directly rather than claiming a codec outcome.
-                var gate = typeof(NetHitClaims).GetMethod(_model == MovementModel.Quake3
+                var gate = typeof(NetHitClaims).GetMethod(AdditiveBlast(weapon)
                     ? "ValidQuake3RocketCandidate" : "ValidClaimImpulse", BindingFlags.Static | BindingFlags.NonPublic)!;
-                object[] arguments = _model == MovementModel.Quake3
+                object[] arguments = AdditiveBlast(weapon)
                     ? new object[] { new Vector3(float.NaN, 0, 0) }
-                    : new object[] { (byte)BeamType.Missile, _shooter.Hunter, new Vector3(float.NaN, 0, 0) };
+                    : new object[] { (byte)weapon, _shooter.Hunter, new Vector3(float.NaN, 0, 0) };
                 Check(!(bool)gate.Invoke(null, arguments)! && _shooter.Health == health
                     && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
                     "direct candidate validator rejects unrepresentable nonfinite direction without mutation");
@@ -421,12 +474,12 @@ internal static class SelfSplashTests
                 byte result = Receive(claim);
                 Check(result != HitVerdictPacket.ResultApplied && result != HitVerdictPacket.ResultDuplicate
                     && _shooter.Health == health && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
-                    $"wire claim rejects {variant} candidate without paying valid unpaid witness");
+                    $"{_model} {weapon} wire claim rejects {variant} candidate without paying valid unpaid witness");
                 continue;
             }
             Check(!NetSelfSplash.Validate(0, claim, out _) && _shooter.Health == health
                 && _shooter.Speed == speed && NetDamage.Sequence(0) == sequence,
-                $"self rocket rejects {variant} witness without health or impulse mutation");
+                $"{_model} {weapon} self blast rejects {variant} witness without health or impulse mutation");
         }
     }
     private static void BurnOwnership()
@@ -550,8 +603,8 @@ internal static class SelfSplashTests
                 && MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) == model
                 && NetRoomChange.GameplayReady && !NetSession.FreezeGameplay,
                 "scene, admitted definition, MatchState and room readiness agree on selected movement");
-            Check(_shooter.OwningScene.Quake3TechniquesActive == (model == MovementModel.Quake3),
-                "actual foreground authority scene selects Q3 techniques only for admitted Q3 rule");
+            Check(_shooter.OwningScene.Quake3TechniquesActive == (model is MovementModel.Quake3 or MovementModel.Traversal),
+                "actual foreground authority scene selects Q3 techniques only for admitted Q3 or Traversal rule");
             NetFireEvents.AcceptedPlaybackEnabled = true; NetShotProof.Mode = ShotProofMode.Shadow; _frame = NetSession.NetFrame;
             foreach (var direction in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
                 if (NetDynamicGeometryHistory.TryTraceDistanceAtFrame(_shooter.OwningScene,
@@ -560,7 +613,10 @@ internal static class SelfSplashTests
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
             SelfPredictionTests.RunReplay(_shooter);
-            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); RocketImpulsePayments(); StaleAndInvalidRocketWitnesses(); BombLifecycleFence(); BurnOwnership();
+            SupportedPolicy(); ForgedClaims(); ActualExplosions(); JudicatorAffinityPolicy(); ProtectedAndReplacement(); MovingJumpAndSelfKill(); ChainedAndTeamSplash(); SplitNativeHookRescue(); RocketImpulsePayments(); StaleAndInvalidRocketWitnesses();
+            ForgedClaims(BeamType.Magmaul); RocketImpulsePayments(BeamType.Magmaul);
+            SplitNativeHookRescue(BeamType.Magmaul); StaleAndInvalidRocketWitnesses(BeamType.Magmaul);
+            BombLifecycleFence(); BurnOwnership();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0, "process evidence captures actual payments and suppressed repeats");

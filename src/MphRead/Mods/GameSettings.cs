@@ -183,7 +183,7 @@ namespace MphRead.Mods
             }
 
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
-                throw new ArgumentException("MovementModel must be Native, Momentum or Quake3.", nameof(settings));
+                throw new ArgumentException("MovementModel must be Native, Momentum, Quake3 or Traversal.", nameof(settings));
             if (!Multiplayer.MatchModifierRules.Validate(new Network.MatchDefinition
                 { MovementModel = movementModel, BalancedMode = settings.BalancedMode == "on" }, out string movementReason))
                 throw new ArgumentException(movementReason, nameof(settings));
