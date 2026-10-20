@@ -106,3 +106,6 @@
     .party-page .party_operations { flex-wrap:wrap; }
     .party-page .party_operations > .social_commands { margin:4dp 0 0; width:100%; }
 }
+@media (max-width: 900dp) {
+    .party-page .party_operations .party_fact_copy { flex:0 0 auto; width:100%; }
+}
