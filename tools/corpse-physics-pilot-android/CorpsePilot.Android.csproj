@@ -47,6 +47,7 @@
     <Compile Include="../corpse-physics-pilot/AffineBindingChecks.cs" Link="AffineBindingChecks.cs" />
     <Compile Include="../corpse-physics-pilot/HumanoidMapChecks.cs" Link="HumanoidMapChecks.cs" />
     <Compile Include="../corpse-physics-pilot/StaticMeshChecks.cs" Link="StaticMeshChecks.cs" />
+    <Compile Include="../corpse-physics-pilot/HumanoidFitChecks.cs" Link="HumanoidFitChecks.cs" />
     <Compile Include="$(SharedPilotBenchmark)" Link="PilotBenchmarks.cs" Condition="Exists('$(SharedPilotBenchmark)')" />
     <Compile Include="PilotSmoke.cs" Condition="!Exists('$(SharedPilotBenchmark)')" />
   </ItemGroup>
