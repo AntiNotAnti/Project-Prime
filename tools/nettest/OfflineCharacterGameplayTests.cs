@@ -127,8 +127,20 @@ internal static class OfflineCharacterGameplayTests
                 var editable = new RmlUiOfflineDraft(new[] { "synthetic-arena" }, Hunter.Samus, 0, 3, 1);
                 editable.Change(16); Check(editable.Change(changed) && !editable.Valid,
                     "editing mode/bots/hunter cannot leave an invalid practice draft launchable: " + changed);
-                Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.TrooperScoutDronePractice && !editable.Valid,
-                    "cycling wall-cling to drone cannot silently repair a changed invalid practice form");
+                Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.TrooperScoutDronePractice
+                    && editable.Current.Hunter == Hunter.Weavel && editable.Current.Mode == GameMode.Battle
+                    && editable.Current.Bots == 0 && editable.Valid,
+                    "explicit drone selection captures its required valid Weavel/Battle/zero-bot configuration");
+                Check(editable.Change(changed) && !editable.Valid,
+                    "independently editing mode/bots/hunter cannot leave drone practice launchable: " + changed);
+                var editedDrone = editable.Current;
+                Check(Refused(() => OfflineLaunch.Preview(settings, editedDrone.RoomKey, editedDrone.Mode, editedDrone.Hunter,
+                    editedDrone.Suit, editedDrone.Bots, editedDrone.BotLevel, editedDrone.Character)),
+                    "pure plan creation refuses an independently edited invalid drone draft");
+                var forgedDrone = drone with { Hunter = editedDrone.Hunter, Mode = editedDrone.Mode, Bots = editedDrone.Bots,
+                    MatchRules = drone.MatchRules with { Mode = editedDrone.Mode } };
+                Check(!OfflineMatchPreflight.TryAdmit(forgedDrone, out var editedReason) && !string.IsNullOrWhiteSpace(editedReason),
+                    "actual preflight independently refuses the same edited drone facts");
                 Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.Native && editable.Valid,
                     "the same ordinary draft edits remain usable after returning to Native");
             }
