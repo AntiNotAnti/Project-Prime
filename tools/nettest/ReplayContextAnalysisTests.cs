@@ -59,7 +59,7 @@ internal static class ReplayContextAnalysisTests
         for (byte i = 0; i < count; i++)
         {
             var player = new PlayerState { SlotIndex = i, SlotGeneration = i == 1 ? secondGeneration : (ushort)(i + 1), LifeId = 1,
-                Health = i == 0 ? health : i == 1 ? (ushort)0 : (ushort)100, Points = points[i], Team = i,
+                Health = i == 0 ? health : i == 1 || (opponentsFlags & PlayerState.FlagSpawned) == 0 ? (ushort)0 : (ushort)100, Points = points[i], Team = i,
                 Flags = i >= 2 ? opponentsFlags : (byte)(PlayerState.FlagActive | PlayerState.FlagSpawned), Facing = Vector3.UnitZ, Speed = i == 0 ? speed : Vector3.Zero };
             player.Write(bytes.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
         }
