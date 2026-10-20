@@ -122,7 +122,9 @@ internal static class NetCombatPayments
         if (source is BeamProjectileEntity { ModCustomShot: not null } custom)
             return new(custom.OwningScene == victim.OwningScene && (NetSession.Active
                 ? victim.OwningScene.CustomCombat?.OwnsDamage(victim,custom) == true
-                : victim.OwningScene.OfflineWeapons?.IsEligible == true));
+                : Mods.CustomWeapons.PirateBlasterDefinition.IsProfile(custom.ModCustomDefinition)
+                    ? victim.OwningScene.PirateBlaster?.TryReserveDamage(victim,custom) == true
+                    : victim.OwningScene.OfflineWeapons?.IsEligible == true));
         if (!NetHitClaims.Arbitrating || NetDamage.ApplyingClaim || NetDamage.Replaying
             || source is not BeamProjectileEntity beam || beam.Beam == BeamType.ShockCoil
             || beam.EnhancedMicroSeeker || Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus)

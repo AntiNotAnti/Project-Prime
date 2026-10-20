@@ -111,6 +111,9 @@ namespace MphRead.Entities
                 ProcessBiped();
                 ScoutDroneStep();
             }
+            // Current native aim is ready and form switching has settled. An
+            // accepted morph must cancel a paid tail in this same source step.
+            _scene.PirateBlaster?.CompleteInput(this);
         }
 
         private static readonly BeamType[] _weaponOrder = new BeamType[9]
@@ -275,7 +278,7 @@ namespace MphRead.Entities
                         TryEquipWeapon(BeamType.OmegaCannon, debug: true);
                     }
                 }
-                else if (Controls.AffinitySlot.IsPressed)
+                else if (Controls.AffinitySlot.IsPressed && _scene.PirateBlaster?.Available(this) != true)
                 {
                     BeamType weapon = _weaponSlots[2];
                     if (weapon != BeamType.None && CurrentWeapon != weapon)
@@ -283,7 +286,7 @@ namespace MphRead.Entities
                         TryEquipWeapon(weapon);
                     }
                 }
-                else if (ModApplyCustomCycle())
+                else if (ModApplyPirateCycle() || ModApplyCustomCycle())
                 {
                     // The scene already routed this acquired custom cycle edge.
                 }

@@ -108,15 +108,33 @@ internal static class OfflineCharacterGlAcceptance
             &&services.Captured is {Character:OfflineCharacterMode.TrooperScoutDroneCombatPractice,Hunter:Hunter.Weavel,Mode:GameMode.Battle,Bots:1},
             "combat completion delivers one exact captured request");
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
+        Check(Label("offline_character").Contains("TROOPER ARSENAL",StringComparison.Ordinal)
+            &&Label("offline_start")=="START ARSENAL PRACTICE"
+            &&controller.Tick().Bindings["offline_bots_value"].Text=="1 BOTS"
+            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("Native fallback gun and bolts",StringComparison.Ordinal)
+            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("60 shared UA each life",StringComparison.Ordinal)
+            &&services.Captured?.Character==OfflineCharacterMode.TrooperScoutDroneCombatPractice,
+            "fourth real click selects Arsenal with exact notice while delivered combat capture remains detached");
+        services.Pending=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch);
+        Check(controller.Busy&&services.Validations==4&&services.Launches==3
+            &&services.Captured is {Character:OfflineCharacterMode.TrooperArsenalPractice,Hunter:Hunter.Weavel,Mode:GameMode.Battle,Bots:1},
+            "Arsenal async validation captures explicit mode4 actor/match/one-opponent identity");
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,16),"busy Arsenal request cannot be replaced by later selection");
+        services.Pending.SetResult("");Settle(200);services.Pending=null;
+        Check(services.Validations==4&&services.Launches==4
+            &&services.Captured is {Character:OfflineCharacterMode.TrooperArsenalPractice,Hunter:Hunter.Weavel,Mode:GameMode.Battle,Bots:1},
+            "Arsenal validation completion delivers exact immutable request once");
+        Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         Check(Label("offline_character").Contains("NATIVE",StringComparison.Ordinal)
             &&controller.Tick().Bindings["offline_character_notice"].Text==""
-            &&services.Captured?.Character==OfflineCharacterMode.TrooperScoutDroneCombatPractice,
-            "fourth real click returns Native without mutating delivered combat capture");
+            &&services.Captured?.Character==OfflineCharacterMode.TrooperArsenalPractice,
+            "fifth real click returns Native without mutating delivered Arsenal capture");
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
 
-        foreach(var mechanics in new[]{OfflineCharacterMode.TrooperWallClingPractice,OfflineCharacterMode.TrooperScoutDronePractice,OfflineCharacterMode.TrooperScoutDroneCombatPractice})
+        foreach(var mechanics in new[]{OfflineCharacterMode.TrooperWallClingPractice,OfflineCharacterMode.TrooperScoutDronePractice,OfflineCharacterMode.TrooperScoutDroneCombatPractice,OfflineCharacterMode.TrooperArsenalPractice})
         {
-            Check(Label("offline_character").Contains(mechanics==OfflineCharacterMode.TrooperWallClingPractice?"TROOPER WALL-CLING":mechanics==OfflineCharacterMode.TrooperScoutDronePractice?"TROOPER SCOUT DRONE":"DRONE COMBAT PRACTICE",StringComparison.Ordinal),
+            Check(Label("offline_character").Contains(mechanics==OfflineCharacterMode.TrooperWallClingPractice?"TROOPER WALL-CLING":mechanics==OfflineCharacterMode.TrooperScoutDronePractice?"TROOPER SCOUT DRONE":mechanics==OfflineCharacterMode.TrooperScoutDroneCombatPractice?"DRONE COMBAT PRACTICE":"TROOPER ARSENAL",StringComparison.Ordinal),
                 "conflict fixtures exercise each actual selected practice state");
             foreach(var conflict in new[]{
                 new RmlUiOfflineRules("7","7:00","3:00","medium",1<<10),
@@ -138,13 +156,13 @@ internal static class OfflineCharacterGlAcceptance
             }
             services.Rules=null;
             Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch,expected:false);
-            Check(services.Validations==3&&services.Launches==3
+            Check(services.Validations==4&&services.Launches==4
                 &&controller.Tick().Bindings["offline_error"].Text.Contains("REOPEN OFFLINE SETUP",StringComparison.Ordinal),"missing current rule snapshot refuses actionably before a job");
             services.Rules=new("7","7:00","3:00","medium",0);
-            if(mechanics!=OfflineCharacterMode.TrooperScoutDroneCombatPractice)Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
+            if(mechanics!=OfflineCharacterMode.TrooperArsenalPractice)Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         }
 
-        Click("offline_character",RmlUiIntentKind.OfflineChoice,16); // combat -> Native
+        Click("offline_character",RmlUiIntentKind.OfflineChoice,16); // Arsenal -> Native
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16); // Native -> wall
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16); // wall -> drone
 
@@ -192,9 +210,9 @@ internal static class OfflineCharacterGlAcceptance
             "closed Aim Lab modal cannot restore training choices through the Battle route");
         Click("offline_back",RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Home);
         Check(!layout.HandleIntent(new(RmlUiIntentKind.OfflineChoice,16,closing,ulong.MaxValue-1),out var retired)||retired==default,"retired Offline document cannot mutate the live selection");
-        Check(services.Validations==3&&services.Launches==3&&services.Saves==0
+        Check(services.Validations==4&&services.Launches==4&&services.Saves==0
             &&ReferenceEquals(GameState.Current.Owner,priorOwner)
-            &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only three distinct permitted in-memory practice launch callbacks");
+            &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only four distinct permitted in-memory practice launch callbacks");
         Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"native authored Offline acceptance finishes GL-clean");
         Console.WriteLine($"OFFLINE CHARACTER NATIVE GL PASS {checks} checks; {translated} translated intents; actual framebuffer {width}x{height}; synthetic services, no media/captures/Scene/prefs writes");
         return 0;

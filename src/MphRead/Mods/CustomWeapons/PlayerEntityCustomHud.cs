@@ -13,6 +13,7 @@ public partial class PlayerEntity
     internal void ModPlayCustomEmptyCue()=>_scene.PlayCustomRifleCue(this,CustomRifleCue.Empty);
     private bool ModDrawCustomAmmo(bool classic)
     {
+        if (ModDrawPirateAmmo(classic)) return true;
         var hud=_scene.CustomWeaponHud(this);
         if(!hud.Visible)return false;
         if(IsAltForm||IsMorphing||IsUnmorphing)return true;

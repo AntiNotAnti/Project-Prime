@@ -7,14 +7,15 @@ using System.Text.Json;
 
 namespace MphRead.Mods.CustomWeapons;
 
-public enum WeaponBehavior : byte { SemiAutoPrecision = 1 }
+public enum WeaponBehavior : byte { SemiAutoPrecision = 1, PirateUaBurst = 2 }
 
 /// <summary>Validated, immutable schema-1 rules. Distances use 1/4096 world units;
 /// time uses authoritative 60 Hz ticks, spread uses millidegrees, optics use thousandths.</summary>
 public sealed class WeaponMechanics
 {
     public const int SchemaVersion = 1, BehaviorVersion = 1, MaxJsonBytes = 16384;
-    public WeaponBehavior Behavior => WeaponBehavior.SemiAutoPrecision;
+    private readonly bool _pirateBurst;
+    public WeaponBehavior Behavior => _pirateBurst ? WeaponBehavior.PirateUaBurst : WeaponBehavior.SemiAutoPrecision;
     public int BodyDamage { get; }
     public int HeadDamage { get; }
     public int MagazineCapacity { get; }
@@ -32,6 +33,21 @@ public sealed class WeaponMechanics
     private readonly int[] _optics;
     public IReadOnlyList<int> OpticMagnificationsMilli { get; }
     public string DefinitionHash { get; }
+
+    // Closed local profile; the public schema1 parser intentionally cannot
+    // import or advertise it as a precision rifle/network behavior.
+    internal static WeaponMechanics CreatePirateBurstV1() => new(pirateBurst: true);
+    private WeaponMechanics(bool pirateBurst)
+    {
+        if (!pirateBurst) throw new ArgumentException("Private burst profile required.");
+        _pirateBurst = true;
+        BodyDamage = 12; HeadDamage = 16;
+        ShotCooldownTicks = 40; ProjectileSpeed4096 = 8192; ProjectileRadius4096 = 409;
+        Range4096 = 0; LifetimeTicks = 510; MaxActiveProjectiles = 40;
+        // This profile has native UA, not a magazine, reload or optic state.
+        _optics = Array.Empty<int>(); OpticMagnificationsMilli = Array.AsReadOnly(_optics);
+        DefinitionHash = Convert.ToHexStringLower(SHA256.HashData(ToCanonicalBytes()));
+    }
 
     private WeaponMechanics(JsonElement root)
     {
@@ -102,6 +118,7 @@ public sealed class WeaponMechanics
     }
     public byte[] ToCanonicalBytes()
     {
+        if (_pirateBurst) return PirateBlasterDefinition.CanonicalBytes();
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream))
         {

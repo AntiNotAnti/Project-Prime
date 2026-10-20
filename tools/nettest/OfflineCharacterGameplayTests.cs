@@ -92,13 +92,25 @@ internal static class OfflineCharacterGameplayTests
                 && draft.CharacterNotice.Contains("Zoom for a laser", StringComparison.Ordinal)
                 && draft.CharacterNotice.Contains("No blaster or replays", StringComparison.Ordinal),
                 "combat notice exposes its actual fallback, controls and exclusions");
+            Check(draft.Change(16) && draft.Current.Character == OfflineCharacterMode.TrooperArsenalPractice
+                && (int)draft.Current.Character == 4 && draft.Current.Hunter == Hunter.Weavel
+                && draft.Current.Mode == GameMode.Battle && draft.Current.Bots == 1 && draft.Valid,
+                "fourth choice16 explicitly captures Arsenal with one native opponent");
+            RmlUiOfflineRequest capturedArsenal = draft.Current;
+            Check(draft.CharacterName == "TROOPER ARSENAL"
+                && draft.CharacterNotice.Contains("Native fallback gun and bolts", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("60 shared UA each life", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Private Blaster", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("No replays", StringComparison.Ordinal),
+                "Arsenal notice declares private Blaster, per-life shared UA and fallback presentation");
             Check(draft.Change(16) && draft.Current.Character == OfflineCharacterMode.Native && draft.CharacterNotice == "",
-                "fourth choice16 cycles back to Native without a persistent gameplay preference");
+                "fifth choice16 cycles back to Native without a persistent gameplay preference");
             Check(captured.Character == OfflineCharacterMode.TrooperWallClingPractice
                 && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice
                 && capturedCombat.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice && capturedCombat.Bots == 1
+                && capturedArsenal.Character == OfflineCharacterMode.TrooperArsenalPractice && capturedArsenal.Bots == 1
                 && new RmlUiOfflineDraft(new[] { "synthetic-arena" }, Hunter.Weavel, 0, 0, 0).Current.Character == OfflineCharacterMode.Native,
-                "captured wall/drone/combat requests are detached and a fresh draft never inherits mechanics");
+                "captured wall/drone/combat/Arsenal requests are detached and a fresh draft never inherits mechanics");
             var practice = OfflineLaunch.Preview(settings, captured.RoomKey, captured.Mode, captured.Hunter,
                 captured.Suit, captured.Bots, captured.BotLevel, captured.Character);
             Check(practice.OfflineCharacter == OfflineCharacterMode.TrooperWallClingPractice && practice.IsPlaytest
@@ -119,6 +131,17 @@ internal static class OfflineCharacterGameplayTests
             var combat = OfflineLaunch.Preview(settings, capturedCombat.RoomKey, capturedCombat.Mode, capturedCombat.Hunter,
                 capturedCombat.Suit, capturedCombat.Bots, capturedCombat.BotLevel, capturedCombat.Character);
             CombatPolicy(settings, capturedCombat, combat);
+            var arsenal = OfflineLaunch.Preview(settings, capturedArsenal.RoomKey, capturedArsenal.Mode, capturedArsenal.Hunter,
+                capturedArsenal.Suit, capturedArsenal.Bots, capturedArsenal.BotLevel, capturedArsenal.Character);
+            CombatPolicy(settings, capturedArsenal, arsenal, arsenal: true);
+            Check(CharacterGameplayRules.TrooperArsenalV1.UsesPirateBlaster
+                && CharacterGameplayRules.TrooperArsenalV1.UsesScoutDrone
+                && !CharacterGameplayRules.Native.UsesPirateBlaster && !CharacterGameplayRules.TrooperV1.UsesPirateBlaster
+                && !CharacterGameplayRules.TrooperDroneV1.UsesPirateBlaster && !CharacterGameplayRules.TrooperDroneCombatV1.UsesPirateBlaster,
+                "only explicit current-version Arsenal rule opts into private Blaster while old modes retain their exact abilities");
+            Check(!new CharacterGameplayRules(0, CharacterGameplayVariant.TrooperArsenalV1).UsesPirateBlaster
+                && !new CharacterGameplayRules(2, CharacterGameplayVariant.TrooperArsenalV1).UsesPirateBlaster,
+                "unsupported rule versions cannot activate private Blaster");
             Check(!OfflineRematch.TryPlan(drone, "another-synthetic-arena", out _), "drone practice is excluded from ordinary rematch");
             Check(!OfflineRematch.TryPlan(practice, "another-synthetic-arena", out _), "private practice playtest cannot enter ordinary results rematch");
             Check(OfflineRematch.TryPlan(ordinary, "another-synthetic-arena", out var rematch)
@@ -160,8 +183,12 @@ internal static class OfflineCharacterGameplayTests
                     && editable.Current.Hunter == Hunter.Weavel && editable.Current.Mode == GameMode.Battle
                     && editable.Current.Bots == 1 && editable.Valid,
                     "selecting combat after invalid drone edits restores required actor/match and one opponent");
+                Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.TrooperArsenalPractice
+                    && editable.Current.Hunter == Hunter.Weavel && editable.Current.Mode == GameMode.Battle
+                    && editable.Current.Bots == 1 && editable.Valid,
+                    "explicit Arsenal selection preserves required actor/match/one-opponent defaults");
                 Check(editable.Change(16) && editable.Current.Character == OfflineCharacterMode.Native && editable.Valid,
-                    "the same ordinary draft edits remain usable after the fourth Native cycle step");
+                    "the same ordinary draft edits remain usable after the fifth Native cycle step");
             }
 
             var refusedPlans = new[] {
@@ -192,7 +219,7 @@ internal static class OfflineCharacterGameplayTests
                 new MenuSettings { MovementModel = "Momentum" }, new MenuSettings { MovementModel = "Quake3" },
                 new MenuSettings { MovementModel = "Native", RiftlineM7Available = true } })
                 foreach (var mechanics in new[] { OfflineCharacterMode.TrooperWallClingPractice, OfflineCharacterMode.TrooperScoutDronePractice,
-                    OfflineCharacterMode.TrooperScoutDroneCombatPractice })
+                    OfflineCharacterMode.TrooperScoutDroneCombatPractice, OfflineCharacterMode.TrooperArsenalPractice })
                     Check(Refused(() => OfflineLaunch.Preview(conflict, "synthetic-arena", GameMode.Battle, Hunter.Weavel, 0, 0, 0,
                         mechanics)), "active conflicting saved rule refuses either pure practice preview before persistence");
             // The old EnhancedHunters string is an ignored compatibility field;
@@ -211,8 +238,12 @@ internal static class OfflineCharacterGameplayTests
                 OfflineCharacterMode.TrooperScoutDroneCombatPractice);
             Check(!ignoredCombat.MatchRules.EnhancedHunters && OfflineCharacterGameplay.TryAdmit(ignoredCombat, out _),
                 "combat keeps ignored Enhanced compatibility settings inactive too");
-            TransportAndPlaybackFence(practice, drone, combat);
-            Intents(); ReplayFence(practice); ReplayFence(drone); ReplayFence(combat);
+            var ignoredArsenal = OfflineLaunch.Preview(compatibility, "synthetic-arena", GameMode.Battle, Hunter.Weavel, 0, 1, 0,
+                OfflineCharacterMode.TrooperArsenalPractice);
+            Check(!ignoredArsenal.MatchRules.EnhancedHunters && OfflineCharacterGameplay.TryAdmit(ignoredArsenal, out _),
+                "Arsenal also keeps retired Enhanced compatibility settings inactive");
+            TransportAndPlaybackFence(practice, drone, combat, arsenal);
+            Intents(); ReplayFence(practice); ReplayFence(drone); ReplayFence(combat); ReplayFence(arsenal);
             Check(JsonSerializer.Serialize(settings) == settingsBefore && settings.RoomKey == "previous-room",
                 "preview and refused plans leave the caller settings snapshot unchanged");
             Check((LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.Bots, LauncherPrefs.BotLevel,
@@ -234,16 +265,18 @@ internal static class OfflineCharacterGameplayTests
 
     // Draft-only future combat coverage. All bot/difficulty values here are
     // raw inputs: Preview must refuse invalid values before its legacy clamps.
-    private static void CombatPolicy(MenuSettings settings, RmlUiOfflineRequest captured, LaunchPlan combat)
+    private static void CombatPolicy(MenuSettings settings, RmlUiOfflineRequest captured, LaunchPlan combat, bool arsenal = false)
     {
-        Check((int)OfflineCharacterMode.TrooperScoutDroneCombatPractice == 3 && combat.IsPlaytest
+        var expectedMode = arsenal ? OfflineCharacterMode.TrooperArsenalPractice : OfflineCharacterMode.TrooperScoutDroneCombatPractice;
+        var expectedRule = arsenal ? CharacterGameplayRules.TrooperArsenalV1 : CharacterGameplayRules.TrooperDroneCombatV1;
+        Check((int)expectedMode == (arsenal ? 4 : 3) && combat.OfflineCharacter == expectedMode && combat.IsPlaytest
             && combat.Kind == LaunchKind.Offline && combat.Hunter == Hunter.Weavel
             && combat.Mode == GameMode.Battle && combat.Bots == 1,
-            "new mode3 carries explicit private combat identity rather than inferring it from media");
-        Check(CharacterGameplayRules.TrooperDroneCombatV1.IsValidFor(Hunter.Weavel)
-            && !CharacterGameplayRules.TrooperDroneCombatV1.IsValidFor(Hunter.Samus)
-            && CharacterGameplayRules.TrooperDroneCombatV1 != CharacterGameplayRules.TrooperDroneV1
-            && CharacterGameplayRules.TrooperDroneCombatV1.UsesScoutDrone
+            "literal mode3/4 carries explicit private bot-practice identity rather than inferring it from media");
+        Check(expectedRule.IsValidFor(Hunter.Weavel)
+            && !expectedRule.IsValidFor(Hunter.Samus)
+            && expectedRule != CharacterGameplayRules.TrooperDroneV1
+            && expectedRule.UsesScoutDrone
             && CharacterGameplayRules.TrooperDroneV1.UsesScoutDrone
             && !CharacterGameplayRules.TrooperV1.UsesScoutDrone,
             "combat is distinct, finite and Weavel-only while retaining the shared drone owner");
@@ -259,7 +292,7 @@ internal static class OfflineCharacterGameplayTests
             var plan = OfflineLaunch.Preview(settings, request.RoomKey, request.Mode, request.Hunter,
                 request.Suit, request.Bots, request.BotLevel, request.Character);
             Check(plan.Bots == bots && plan.BotLevel == level && plan.IsPlaytest
-                && plan.OfflineCharacter == OfflineCharacterMode.TrooperScoutDroneCombatPractice
+                && plan.OfflineCharacter == expectedMode
                 && OfflineCharacterGameplay.TryAdmit(plan, out var reason) && reason == "",
                 "raw supported tuple survives Preview unchanged and shared policy admits it");
         }
@@ -268,7 +301,7 @@ internal static class OfflineCharacterGameplayTests
             captured with { BotLevel = -1 }, captured with { BotLevel = 4 },
             captured with { Suit = -1 }, captured with { Suit = 4 },
             captured with { Hunter = Hunter.Samus }, captured with { Mode = GameMode.BattleTeams },
-            captured with { Mode = GameMode.SinglePlayer }, captured with { Character = (OfflineCharacterMode)4 } })
+            captured with { Mode = GameMode.SinglePlayer }, captured with { Character = (OfflineCharacterMode)5 } })
         {
             Check(!bad.ValidateForm(new[] { "synthetic-arena" }), "malformed combat form refuses before launch");
             Check(Refused(() => OfflineLaunch.Preview(settings, bad.RoomKey, bad.Mode, bad.Hunter,
@@ -281,7 +314,7 @@ internal static class OfflineCharacterGameplayTests
             combat with { BotLevel = -1 }, combat with { BotLevel = 4 },
             combat with { IsPlaytest = false }, combat with { Hunter = Hunter.Samus },
             combat with { Mode = GameMode.BattleTeams }, combat with { Mode = GameMode.SinglePlayer },
-            combat with { OfflineCharacter = (OfflineCharacterMode)4 },
+            combat with { OfflineCharacter = (OfflineCharacterMode)5 },
             combat with { MatchRules = combat.MatchRules with { Mode = GameMode.Survival } },
             combat with { MatchRules = combat.MatchRules with { BalancedMode = true } },
             combat with { MatchRules = combat.MatchRules with { EnhancedHunters = true } },
@@ -297,6 +330,21 @@ internal static class OfflineCharacterGameplayTests
                 "forged combat facts fail shared admission before room lookup");
             Check(!OfflineMatchPreflight.TryAdmit(bad, out var preflight) && preflight == reason,
                 "central preflight preserves exact shared combat refusal");
+        }
+        if (arsenal)
+        {
+            foreach (var incompatible in new[] {
+                combat with { MatchRules = combat.MatchRules with { InstaGib = true } },
+                combat with { MatchRules = combat.MatchRules with { OneInTheChamber = true } },
+                combat with { MatchRules = combat.MatchRules with { Fiesta = true } },
+                combat with { MatchRules = combat.MatchRules with { NoImperialist = true } } })
+            {
+                Check(!OfflineCharacterGameplay.TryAdmit(incompatible, out var reason)
+                    && reason == "Trooper arsenal practice requires standard weapon and ammo rules.",
+                    "each Arsenal-only weapon/ammo modifier refuses the literal12/16/shared-UA policy");
+                Check(!OfflineMatchPreflight.TryAdmit(incompatible, out var preflight) && preflight == reason,
+                    "central preflight preserves the same Arsenal-only modifier refusal");
+            }
         }
         // The existing private modes deliberately do not acquire combat bots.
         foreach (var mode in new[] { OfflineCharacterMode.TrooperWallClingPractice, OfflineCharacterMode.TrooperScoutDronePractice })

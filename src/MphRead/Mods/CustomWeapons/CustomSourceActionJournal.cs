@@ -141,7 +141,8 @@ internal sealed partial class CustomSourceActionJournal
         if (!owner.IsValid || registry.IsDisposed || registry.Count != 9+manifest.Rows.Count)
             throw new ArgumentException("Verified life boundary and exact registry required.");
         foreach (var row in manifest.Rows)
-            if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity)
+            if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity
+                || entry.Custom.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision)
                 throw new ArgumentException("Manifest does not resolve exactly.", nameof(registry));
         if (pickupWorld is { } world && (!world.IsValid || world.Manifest != manifest.Digest
             || world.Start.MatchId != owner.MatchId || world.Start.AuthorityEpoch != owner.AuthorityEpoch))

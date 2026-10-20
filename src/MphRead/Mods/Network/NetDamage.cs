@@ -485,7 +485,9 @@ namespace MphRead.Mods.Network
             if (source is BeamProjectileEntity { ModCustomShot: not null } custom)
                 return custom.OwningScene != victim.OwningScene || (NetSession.Active
                     ? victim.OwningScene.CustomCombat?.TryEnterDamage(victim,custom) != true
-                    : victim.OwningScene.OfflineWeapons?.IsEligible != true);
+                    : Mods.CustomWeapons.PirateBlasterDefinition.IsProfile(custom.ModCustomDefinition)
+                        ? victim.OwningScene.PirateBlaster?.TryEnterDamage(victim,custom) != true
+                        : victim.OwningScene.OfflineWeapons?.IsEligible != true);
             if (!NetSession.Active || Replaying)
             {
                 return false;

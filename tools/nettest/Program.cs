@@ -52,6 +52,8 @@ namespace MphRead.NetTest
                     + "  --scout-drone-laser-geometry       Test source-free laser geometry landmarks.\n"
                     + "  --scout-drone-gl <assets> <json> Test actual native fallback actor/HUD/GL rendering.\n"
                     + "  --scout-drone-scene <assets> <json> Test actual offline Scout Drone mechanics.\n"
+                    + "  --pirate-blaster-scene <assets> <json> Test actual offline Pirate Blaster mechanics.\n"
+                    + "  --pirate-blaster-gl <assets> <json> Test actual offline Pirate Blaster GL presentation.\n"
                     + "  --character-wall-cling-scene <assets> <json> Test actual offline native arena traversal.\n"
                     + "  --scene-lifetime                  Test value-only scene diagnostics and eligible owner release.\n"
                     + "  --post-match-save                 Test post-match save byte parity, owner fencing and retry.\n"
@@ -194,6 +196,18 @@ namespace MphRead.NetTest
                 if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
                 { Console.Error.WriteLine("Usage: --scout-drone-scene <AMHE1 filesystem> <fresh result.json>"); return 1; }
                 return ScoutDroneSceneTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
+            if (args.Length > 0 && args[0] == "--pirate-blaster-gl")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --pirate-blaster-gl <AMHE1 filesystem> <fresh metadata.json>"); return 1; }
+                return PirateBlasterGlTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
+            }
+            if (args.Length > 0 && args[0] == "--pirate-blaster-scene")
+            {
+                if (args.Length != 3 || !System.IO.Directory.Exists(args[1]) || System.IO.File.Exists(args[2]))
+                { Console.Error.WriteLine("Usage: --pirate-blaster-scene <AMHE1 filesystem> <fresh result.json>"); return 1; }
+                return PirateBlasterSceneTests.Run(args[1], System.IO.Path.GetFullPath(args[2]));
             }
             if (args.Length > 0 && args[0] == "--character-wall-cling-scene")
             {

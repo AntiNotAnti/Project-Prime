@@ -20,7 +20,7 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
             && (Character == OfflineCharacterMode.Native
                 || Hunter == Hunter.Weavel && Mode == GameMode.Battle
                     && (Character is OfflineCharacterMode.TrooperWallClingPractice or OfflineCharacterMode.TrooperScoutDronePractice && Bots == 0
-                        || Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice))
+                        || Character is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice))
             && (uint)Hunter < 7 && Suit is >= 0 and <= 3
             && Bots is >= 0 and <= 7 && BotLevel is >= 0 and <= 3;
     }
@@ -165,12 +165,13 @@ public sealed class RmlUiOfflineDraft
                     OfflineCharacterMode.Native => OfflineCharacterMode.TrooperWallClingPractice,
                     OfflineCharacterMode.TrooperWallClingPractice => OfflineCharacterMode.TrooperScoutDronePractice,
                     OfflineCharacterMode.TrooperScoutDronePractice => OfflineCharacterMode.TrooperScoutDroneCombatPractice,
+                    OfflineCharacterMode.TrooperScoutDroneCombatPractice => OfflineCharacterMode.TrooperArsenalPractice,
                     _ => OfflineCharacterMode.Native
                 };
                 Current = Current with { Character = nextCharacter };
                 if (nextCharacter != OfflineCharacterMode.Native)
                     Current = Current with { Hunter = Hunter.Weavel,
-                        Bots = nextCharacter == OfflineCharacterMode.TrooperScoutDroneCombatPractice ? Math.Max(1, Current.Bots) : 0,
+                        Bots = nextCharacter is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice ? Math.Max(1, Current.Bots) : 0,
                         Mode = GameMode.Battle };
                 return true;
             default: return false;
@@ -197,12 +198,17 @@ public sealed class RmlUiOfflineDraft
         OfflineCharacterMode.TrooperWallClingPractice => "TROOPER WALL-CLING",
         OfflineCharacterMode.TrooperScoutDronePractice => "TROOPER SCOUT DRONE",
         OfflineCharacterMode.TrooperScoutDroneCombatPractice => "DRONE COMBAT PRACTICE",
+        OfflineCharacterMode.TrooperArsenalPractice => "TROOPER ARSENAL",
         _ => "UNKNOWN"
     };
     public string CharacterNotice => Current.Character == OfflineCharacterMode.Native ? ""
-        : !Valid ? Current.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice
+        : !Valid ? Current.Character == OfflineCharacterMode.TrooperArsenalPractice
+            ? "Trooper arsenal practice requires Weavel, Battle and zero to seven native opponents."
+            : Current.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice
             ? "Drone combat practice requires Weavel, Battle and zero to seven native opponents."
             : "Trooper practice requires Weavel, Battle and zero bots."
+        : Current.Character == OfflineCharacterMode.TrooperArsenalPractice
+            ? "Native fallback gun and bolts. Private Blaster: 60 shared UA each life; Fire for bursts, cycle to reselect. Wall-cling, drone and laser. No replays."
         : Current.Character is OfflineCharacterMode.TrooperScoutDronePractice or OfflineCharacterMode.TrooperScoutDroneCombatPractice
             ? "Native fallback models. Morph to split; Jump to hover, Alt Attack for a burst, Zoom for a laser. No blaster or replays."
             : "Weavel model and weapons. Jump into a tall wall to cling; Jump again to kick off. No drone, blaster or replays.";

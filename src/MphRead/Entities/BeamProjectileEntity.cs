@@ -128,6 +128,8 @@ namespace MphRead.Entities
             ModResolvedHitPointValid = Single.IsFinite(impactPoint.X)
                 && Single.IsFinite(impactPoint.Y) && Single.IsFinite(impactPoint.Z);
             using var nativeImpact = NetNativeImpactWitness.Enter(player, this, damage, flags, impactPoint);
+            using var pirateContact = Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition)
+                ? _scene.PirateBlaster?.EnterContact(this, player) : null;
             int before = player.Health;
             int turretBefore = flags.TestFlag(DamageFlags.Halfturret) ? player.Halfturret?.Health ?? 0 : 0;
             try
@@ -139,7 +141,9 @@ namespace MphRead.Entities
                     player.TakeDamage(damage, flags, direction, this);
                     NetCombatFastPath.NativeAfter(player, this, before);
                 }
-                if (ModCustomShot is { } accepted)
+                if (Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
+                    _scene.PirateBlaster?.Impact(this,player,before,turretBefore,flags,impactPoint);
+                else if (ModCustomShot is { } accepted)
                     _scene.OfflineWeapons?.Impact(accepted,player,before,turretBefore,flags,impactPoint);
             }
             finally { ModResolvedHitPoint = priorPoint; ModResolvedHitPointValid = priorValid; }
@@ -289,8 +293,9 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
-            if (ModCustomShot != null && _scene.OfflineWeapons?.IsEligible != true
-                && _scene.CustomCombat?.OwnsFlight(this) != true)
+            if (ModCustomShot != null && (Mods.CustomWeapons.PirateBlasterDefinition.IsProfile(ModCustomDefinition)
+                ? _scene.PirateBlaster?.OwnsFlight(this) != true
+                : _scene.OfflineWeapons?.IsEligible != true && _scene.CustomCombat?.OwnsFlight(this) != true))
             { Destroy(); return false; }
             if (!_scene.Services.IsReplica && _modAcceptedContinuousFrame == _scene.FrameCount)
                 return Lifespan > 0;
@@ -718,7 +723,8 @@ namespace MphRead.Entities
                             player = ((HalfturretEntity)colWith).Owner;
                         }
                         DamageFlags damageFlags = DamageFlags.NoDmgInvuln;
-                        if (ModCustomShot == null && player.BeamEffectiveness[(int)Beam] == Effectiveness.Zero)
+                        if ((ModCustomShot == null || Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
+                            && player.BeamEffectiveness[Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition) ? 0 : (int)Beam] == Effectiveness.Zero)
                         {
                             if (_scene.GameState.SinglePlayer && Owner == _scene.Players.Main)
                             {
@@ -744,7 +750,7 @@ namespace MphRead.Entities
                             if (!player.ModCollisionIsAltForm && Beam != BeamType.ShockCoil
                                 && anyRes.Position.Y - player.Position.Y >= player.ModBipedTop - 0.3f)
                             {
-                                if (Beam == BeamType.Imperialist || ModCustomDefinition != null)
+                                if (Beam == BeamType.Imperialist || ModCustomDefinition != null && !Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
                                 {
                                     isHeadshot = true;
                                 }
@@ -1101,6 +1107,12 @@ namespace MphRead.Entities
 
         private void PlayBeamHitSfx()
         {
+            if (Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
+            {
+                int fallback = Metadata.BeamSfx[0, (int)BeamSfx.Hit];
+                if (fallback >= 0) _soundSource.PlaySfx(fallback, noUpdate: true);
+                return;
+            }
             if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             StopHomingSfx();
@@ -1625,6 +1637,7 @@ namespace MphRead.Entities
                 }
                 MuzzleEffect = null;
             }
+            if (Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition)) _scene.PirateBlaster?.ForgetFlight(this);
             ModCustomShot = null;
             Owner = null;
             Effect = null;
@@ -1636,8 +1649,9 @@ namespace MphRead.Entities
         }
 
         private static bool _CannotEmitCustom(EntityBase owner, EquipInfo equip, Scene scene)
-            => scene.OfflineWeapons?.OwnsEmission(owner,equip) != true
-                && scene.CustomCombat?.OwnsEmission(owner,equip) != true;
+            => Mods.CustomWeapons.PirateBlasterDefinition.IsProfile(equip.CustomShot?.Definition)
+                ? scene.PirateBlaster?.OwnsEmission(owner,equip) != true
+                : scene.OfflineWeapons?.OwnsEmission(owner,equip) != true && scene.CustomCombat?.OwnsEmission(owner,equip) != true;
 
         private static BeamProjectileEntity ChooseBeamSlot(EquipInfo equip, EntityBase owner)
         {
@@ -2213,6 +2227,7 @@ namespace MphRead.Entities
                 beam.RicochetLossV = ricochetLossV;
                 beam.RicochetWeapon = ricochetWeapon;
                 beam.Equip = equip;
+                if (Mods.CustomWeapons.PirateBlasterDefinition.Is(beam.ModCustomDefinition)) scene.PirateBlaster?.RegisterFlight(beam);
                 if (owner.Type == EntityType.Player)
                 {
                     var ownerPlayer = (PlayerEntity)owner;
@@ -2864,6 +2879,14 @@ namespace MphRead.Entities
 
         private void SpawnCollisionEffect(CollisionResult colRes, bool noSplat)
         {
+            if (Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
+            {
+                var transform = GetTransformMatrix(GetCrossVector(colRes.Plane.Xyz), colRes.Plane.Xyz);
+                transform.Row3.Xyz = colRes.Position + colRes.Plane.Xyz / 8;
+                var fallback = BeamEffectEntity.Create(new BeamEffectEntityData(4, true, transform, colRes.EntityCollision), _scene);
+                if (fallback != null) _scene.AddEntity(fallback);
+                return;
+            }
             if (ModCustomShot != null) return; // No native-ID presentation for the developer prototype.
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             if (CollisionEffect != 255)

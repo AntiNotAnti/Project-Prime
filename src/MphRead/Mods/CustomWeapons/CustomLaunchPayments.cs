@@ -77,7 +77,8 @@ internal sealed class CustomLaunchPayments : IDisposable
             || registry.Count != 9+manifest.Rows.Count) throw new ArgumentException("Exact life/manifest and bounded storage required.");
         foreach (var row in manifest.Rows)
         {
-            if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity)
+            if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity
+                || entry.Custom.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision)
                 throw new ArgumentException("Registry must resolve the complete frozen manifest.");
             _definitions[row.RuntimeId.Value-10] = entry.Custom;
         }

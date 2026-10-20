@@ -586,6 +586,7 @@ namespace MphRead.Entities
             _models.Add(_doubleDmgModel);
             _models.Add(_octolithSimpleModel);
             ScoutDroneInitialize();
+            if (ModCharacterGameplay.UsesPirateBlaster) _scene.EnablePirateBlaster(this);
             _trailModel = _scene.GetModelInstance("trail");
             Material material = _trailModel.Model.Materials[0];
             _trailBindingId1 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
@@ -1120,6 +1121,7 @@ namespace MphRead.Entities
             ModResetDrawState();
             CameraInfo.ModResetDrawState();
             ModResetFirstPersonDrawState();
+            _scene.PirateBlaster?.Spawned(this);
         }
 
         public void InitEnemyHunter()
@@ -1940,7 +1942,8 @@ namespace MphRead.Entities
                 if (source.Type == EntityType.BeamProjectile)
                 {
                     beam = (BeamProjectileEntity)source;
-                    Effectiveness effectiveness = beam.ModCustomDefinition != null ? Effectiveness.Normal : BeamEffectiveness[(int)beam.Beam];
+                    Effectiveness effectiveness = Mods.CustomWeapons.PirateBlasterDefinition.Is(beam.ModCustomDefinition) ? BeamEffectiveness[0]
+                        : beam.ModCustomDefinition != null ? Effectiveness.Normal : BeamEffectiveness[(int)beam.Beam];
                     if (effectiveness == Effectiveness.Zero)
                     {
                         return;
@@ -2148,7 +2151,8 @@ namespace MphRead.Entities
                 damageKind: (byte)((beam?.EnhancedDirectHit == true ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
                     ? (uint)beam.ModContinuousPhase : 0);
-            if (flags.TestFlag(DamageFlags.Headshot) && beam?.ModCustomDefinition == null)
+            if (flags.TestFlag(DamageFlags.Headshot) && (beam?.ModCustomDefinition == null
+                || beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true))
                 _scene.MatchEvents.Headshot(_scene, attacker, this, beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam, beam?.ModLaunchKey);
             // The last point at which the damage is final and the death has
             // not been decided: a hit this machine's own player has landed is
@@ -2288,10 +2292,14 @@ namespace MphRead.Entities
                 {
                     // Custom offline impacts retain typed local facts; do not
                     // mislabel them as an alternate/native weapon semantic event.
+                    if (beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true)
+                        _scene.MatchEvents.PirateDeath(_scene, attacker, this, beam, flags);
                     if (beam?.ModCustomDefinition == null)
                     _scene.MatchEvents.Death(_scene, attacker, this,
                         beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
                         flags, beam?.ModLaunchKey ?? NetBurnSource.Current?.Key ?? (bomb != null ? bomb.ModOwnerKey : null), bomb != null, fromHalfturret);
+                    if (beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true)
+                        _scene.KillFeed.RecordPirate(_scene, attacker, this, beam, flags);
                     if (beam?.ModCustomDefinition == null)
                         _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
                 }
@@ -2413,6 +2421,7 @@ namespace MphRead.Entities
                 {
                     _health = 0;
                     ScoutDroneResetForLife();
+                    _scene.PirateBlaster?.Died(this);
                 }
                 UpdateZoom(false);
                 // the game stops the boost charge SFX here, but that SFX is empty

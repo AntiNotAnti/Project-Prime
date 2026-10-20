@@ -148,7 +148,8 @@ public sealed class CustomWeaponInventory
     {
         EnsureAlive();
         if (!_bound || identity.Kind != WeaponIdentityKind.Custom || _states.ContainsKey(identity)
-            || !_registry.TryResolve(identity, out var weapon) || weapon!.Custom == null) return false;
+            || !_registry.TryResolve(identity, out var weapon) || weapon!.Custom == null
+            || weapon.Custom.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision) return false;
         if (!AcceptTime(tick)) return false;
         _states.Add(identity, new WeaponRuntimeState(weapon.Custom,_owner,tick));
         return true;

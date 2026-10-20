@@ -70,14 +70,16 @@ internal static class CustomCombatResults
     }
     private static bool MatchesDefinition(in CustomManifestRow row,WeaponDefinition definition)
     {
-        if (row.ContentId!=definition.Identity.ContentId || definition.Identity.DefinitionHash is not { Length:64 } hash) return false;
+        if (definition.Mechanics.Behavior!=WeaponBehavior.SemiAutoPrecision
+            || row.ContentId!=definition.Identity.ContentId || definition.Identity.DefinitionHash is not { Length:64 } hash) return false;
         Span<byte> digest=stackalloc byte[32]; row.Mechanics.Write(digest);
         const string digits="0123456789abcdef";
         for (int i=0;i<32;i++) if (hash[i*2]!=digits[digest[i]>>4] || hash[i*2+1]!=digits[digest[i]&15]) return false;
         return true;
     }
     internal static bool SnapshotValid(in WeaponStateSnapshot state,WeaponOwnerContext owner,WeaponDefinition definition)
-        => state.Owner==owner && state.Weapon==definition.Identity && (byte)state.Phase <= (byte)CustomWeaponPhase.Reloading
+        => definition.Mechanics.Behavior==WeaponBehavior.SemiAutoPrecision
+            && state.Owner==owner && state.Weapon==definition.Identity && (byte)state.Phase <= (byte)CustomWeaponPhase.Reloading
             && state.Magazine >= 0 && state.Magazine <= definition.Mechanics.MagazineCapacity
             && state.Reserve >= 0 && state.Reserve <= definition.Mechanics.MaximumReserve && state.Reserve <= ushort.MaxValue
             && state.Optic >= 0 && state.Optic <= definition.Mechanics.OpticMagnificationsMilli.Count
