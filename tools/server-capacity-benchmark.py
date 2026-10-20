@@ -7,6 +7,7 @@ The harness never downloads data; local client CPU competes with server CPU,
 so measured capacity is a *co-located load test*, not a remote-client claim.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,6 +21,14 @@ STEP_RE = re.compile(r"(\d+) step\(s\), ([\d.]+) ms mean, ([\d.]+) ms p95, "
                      r"([\d.]+) ms p99, ([\d.]+) ms worst, (\d+) allocated bytes, "
                      r"(\d+) overrun, (\d+) dropped, (\d+) stall\(s\)"
                      r"(?:, (\d+) FAILED)?")
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for block in iter(lambda: file.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def read_proc(pid):
@@ -40,7 +49,7 @@ def summarize(values):
 
 def arm(args, count, root):
     folder = root / f"{count}-servers"
-    folder.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier arm.
     rotation = folder / "rotation.txt"
     rotation.write_text(f"{args.room} | Battle | 0 | 999\n")
     env = dict(os.environ)
@@ -141,9 +150,18 @@ def arm(args, count, root):
         verified = args.mode == "active" and all(
             p["lastServerStep"] is not None and p["lastServerStep"]["steps"] >= 60
             for p in per_process)
+        healthy = verified and all(
+            p["lastServerStep"]["droppedTicks"] == 0
+            and p["lastServerStep"]["stepFailures"] == 0
+            and p["lastServerStep"]["p99Milliseconds"] <= args.max_p99_ms
+            for p in per_process)
         result = dict(instances=count, seconds=args.seconds, mode=args.mode,
             clientsPerMatch=args.clients_per_match if args.mode == "active" else 0,
-            activeSimulationVerified=verified, colocatedClientLoad=args.mode == "active",
+            activeSimulationVerified=verified, healthySimulation=healthy,
+            stepP99BudgetMilliseconds=args.max_p99_ms,
+            serverBinarySha256=args.server_binary_hash,
+            clientBinarySha256=args.client_binary_hash if args.mode == "active" else None,
+            colocatedClientLoad=args.mode == "active",
             aggregateCpuPercent=summarize(aggregate_cpu),
             aggregateRssMiB=summarize(aggregate_rss), processes=per_process,
             host=dict(cpuCount=os.cpu_count(), platform=os.uname().sysname + " " + os.uname().release))
@@ -152,6 +170,9 @@ def arm(args, count, root):
         if args.mode == "active" and not verified:
             raise RuntimeError("active simulation not verified: missing step evidence; "
                                "increase --seconds or inspect server logs")
+        if args.mode == "active" and args.require_healthy and not healthy:
+            raise RuntimeError("simulated authority exceeded p99/dropped-step/failure guardrail; "
+                               "see per-arm summary and server logs")
         return result
     finally:
         for p in clients:
@@ -189,6 +210,10 @@ def main():
     parser.add_argument("--clients-per-match", type=int, default=2)
     parser.add_argument("--join-timeout", type=int, default=90)
     parser.add_argument("--warmup-seconds", type=float, default=10.0)
+    parser.add_argument("--max-p99-ms", type=float, default=16.67,
+                        help="maximum permitted per-step p99, used by --require-healthy")
+    parser.add_argument("--require-healthy", action="store_true",
+                        help="fail an active arm on missed deadlines/step failures/p99 overrun")
     parser.add_argument("--instances", default="1,2,4,8")
     parser.add_argument("--seconds", type=int, default=120)
     parser.add_argument("--sample-interval", type=float, default=1)
@@ -217,10 +242,15 @@ def main():
         if args.seconds < 35 or args.join_timeout <= 0 or args.warmup_seconds < 0:
             parser.error("active mode requires >=35 measured seconds and valid join/warmup windows")
     counts = sorted({int(v) for v in args.instances.split(",") if v.strip()})
-    if not counts or counts[0] < 1 or args.seconds < 1 or args.sample_interval <= 0:
+    if not counts or counts[0] < 1 or args.seconds < 1 or args.sample_interval <= 0 or args.max_p99_ms <= 0:
         parser.error("instances/seconds/sample-interval must be positive")
-    args.output.mkdir(parents=True, exist_ok=True)
+    args.output.mkdir(parents=True, exist_ok=False)
+    args.server_binary_hash = sha256(args.binary)
+    args.client_binary_hash = sha256(args.client_binary or args.binary) if args.mode == "active" else None
     results = [arm(args, count, args.output) for count in counts]
+    if sha256(args.binary) != args.server_binary_hash or (args.mode == "active"
+            and sha256(args.client_binary or args.binary) != args.client_binary_hash):
+        raise RuntimeError("server/client published binary changed during the capacity campaign")
     (args.output / "capacity-summary.json").write_text(json.dumps(
         dict(room=args.room, mode=args.mode, arms=results), indent=2) + "\n")
 
