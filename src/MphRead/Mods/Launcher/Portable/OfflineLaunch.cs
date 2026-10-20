@@ -42,6 +42,9 @@ namespace MphRead.Mods.Launcher
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel,
             OfflineCharacterMode character = OfflineCharacterMode.Native)
         {
+            if (character == OfflineCharacterMode.TrooperScoutDroneCombatPractice
+                && (hunter != Hunter.Weavel || suit is < 0 or > 3 || bots is < 0 or > 7 || botLevel is < 0 or > 3))
+                throw new ArgumentException("Drone combat practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty.");
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum or Quake3.", nameof(settings));
             var plan = new LaunchPlan

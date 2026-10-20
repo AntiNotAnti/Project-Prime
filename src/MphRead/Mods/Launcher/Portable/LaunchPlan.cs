@@ -57,7 +57,7 @@ namespace MphRead.Mods.Launcher
     /// <summary>Client-only identity carried through the persistent lobby; never serialized.</summary>
     public sealed record LobbyContext(string ServerName, string Endpoint, bool CreatedLocally = false);
 
-    public enum OfflineCharacterMode { Native, TrooperWallClingPractice, TrooperScoutDronePractice }
+    public enum OfflineCharacterMode { Native, TrooperWallClingPractice, TrooperScoutDronePractice, TrooperScoutDroneCombatPractice }
 
     public enum LaunchKind
     {

@@ -32,7 +32,9 @@ namespace MphRead.NetTest;
 // No reflection writes drone state, controls, health split, timers or shot counts.
 // This prototype uses the native turret model/sphere as its planted body and
 // Psycho Bit as its mobile fallback. It does not qualify the donor's standing
-// cylinder/headshots, imported presentation, laser, combat balance or online play.
+// cylinder/headshots, imported presentation, combat balance or online play.
+// Laser damage uses public native Spawn placement along an observed ray. Combat
+// population uses the actual MatchStart owner with native bot AI left untouched.
 internal static class ScoutDroneSceneTests
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -40,7 +42,7 @@ internal static class ScoutDroneSceneTests
     // Independent literal source-authored oracle: 19 twin volleys, not values
     // queried from production constants or copied state-machine arithmetic.
     private static readonly int[] VolleySteps = { 4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 132, 140, 148 };
-    private readonly record struct Input(bool Morph = false, bool Attack = false, bool Jump = false, bool Shoot = false, bool Forward = false);
+    private readonly record struct Input(bool Morph = false, bool Attack = false, bool Jump = false, bool Shoot = false, bool Forward = false, bool Zoom = false);
     private static readonly Action<KeyboardState, Keys, bool> SetKey = typeof(KeyboardState)
         .GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private static void Check(bool condition, string label, bool verbose = true)
@@ -57,7 +59,7 @@ internal static class ScoutDroneSceneTests
         internal KeyboardState Keyboard { get; }
         internal PlayerEntity Player => Scene.Players.Main;
         internal PlayerEntity? Target { get; }
-        internal Fixture(bool drone, string room, bool target = false)
+        internal Fixture(bool drone, string room, bool target = false, int? combatBots = null)
         {
             Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
             Keyboard = SyntheticInput.CreateKeyboard(); Scene? candidate = null;
@@ -66,36 +68,41 @@ internal static class ScoutDroneSceneTests
                 candidate = new Scene(new Vector2i(256, 192), Keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { }, lifetimeOwned: value => candidate = value);
                 Scene = candidate;
                 var plan = new LaunchPlan { Kind = LaunchKind.Offline, Hunter = Hunter.Weavel, RoomKey = room,
-                    Mode = GameMode.Battle, Bots = 0, IsPlaytest = true,
-                    OfflineCharacter = drone ? OfflineCharacterMode.TrooperScoutDronePractice : OfflineCharacterMode.Native,
+                    Mode = GameMode.Battle, Bots = combatBots ?? 0, BotLevel = 0, IsPlaytest = true,
+                    OfflineCharacter = combatBots.HasValue ? OfflineCharacterMode.TrooperScoutDroneCombatPractice
+                        : drone ? OfflineCharacterMode.TrooperScoutDronePractice : OfflineCharacterMode.Native,
                     MatchRules = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle, TimeLimitSeconds = 0, PointGoal = 10000 } };
                 plan.MatchRules.ApplyInitialConfiguration(Scene.GameState);
-                Scene.AddPlayer(Hunter.Weavel);
+                if (combatBots.HasValue) MatchStart.AddLocalPlayers(Scene, plan, teamPlay: true);
+                else Scene.AddPlayer(Hunter.Weavel);
                 Check(OfflineCharacterGameplay.TryBind(Scene, plan, out string reason), "actual offline plan admission/bind " + reason);
-                Check(Player.ModCharacterGameplay == (drone ? CharacterGameplayRules.TrooperDroneV1 : CharacterGameplayRules.Native)
+                Check(Player.ModCharacterGameplay == (combatBots.HasValue ? CharacterGameplayRules.TrooperDroneCombatV1
+                    : drone ? CharacterGameplayRules.TrooperDroneV1 : CharacterGameplayRules.Native)
                     && Scene.PrivateCharacterGameplayUnsupported == drone, "actual plan captures finite rule and private replay exclusion");
                 // Fixture-only positive firing target, added after the admitted
                 // zero-bot plan binds. This does not prove two-seat product admission.
                 if (target) { Scene.AddPlayer(Hunter.Samus); Target = Scene.Players.Items[1]; Target.IsBot = false; }
-                Scene.AddRoom(room, GameMode.Battle, playerCount: target ? 2 : 1);
+                Scene.AddRoom(room, GameMode.Battle, playerCount: combatBots.HasValue ? combatBots.Value + 1 : target ? 2 : 1);
                 Scene.OnLoad();
                 var inputMode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 inputMode.SetValue(Scene, Enum.Parse(inputMode.FieldType, "All"));
                 Scene.GameState.MatchTime = -1; Scene.GameState.PointGoal = 10000;
                 foreach (var actor in Scene.Players.Items)
                 {
+                    if (combatBots.HasValue && !ReferenceEquals(actor, Player)) continue; // native bot controls/AI untouched
                     foreach (var control in actor.Controls.All) { control.Type = ButtonType.Key; control.Key = Keys.Unknown; }
                     actor.IgnoreItemPickups = true;
                 }
                 Player.Controls.MoveUp.Key = Keys.W; Player.Controls.RollUp.Key = Keys.W; Player.Controls.Jump.Key = Keys.Space;
                 Player.Controls.Morph.Key = Keys.B; Player.Controls.AltAttack.Key = Keys.F; Player.Controls.Shoot.Key = Keys.Enter;
+                Player.Controls.Zoom.Key = Keys.Z;
                 Player.Controls.MouseAim = false; Player.Controls.KeyboardAim = true;
                 SetKey(Keyboard, Keys.Enter, true);
                 for (int i = 0; i < 600 && !Player.LoadFlags.TestFlag(LoadFlags.Spawned); i++) Scene.OnSimulationFrame();
                 SetKey(Keyboard, Keys.Enter, false);
                 Check(Player.LoadFlags.TestFlag(LoadFlags.Spawned), "actual native shoot-to-spawn completed");
                 Scene.CameraSequences.Current?.End();
-                for (int i = 0; i < 240; i++) Scene.OnSimulationFrame();
+                for (int i = 0; i < (combatBots.HasValue ? 1 : 240); i++) Scene.OnSimulationFrame();
                 Check(Player.ModIsInPlay && Player.Health > 0 && !Player.IsAltForm && !Player.IsBot && !NetSession.Active,
                     "fully initialized living offline Weavel");
                 Check(Player.ScoutDroneEnabled == drone, "explicit gameplay rule alone selects drone mechanics");
@@ -105,6 +112,7 @@ internal static class ScoutDroneSceneTests
         internal void Step(Input input = default, bool requireAlive = true)
         {
             SetKey(Keyboard, Keys.B, input.Morph); SetKey(Keyboard, Keys.F, input.Attack);
+            SetKey(Keyboard, Keys.Z, input.Zoom);
             SetKey(Keyboard, Keys.Space, input.Jump); SetKey(Keyboard, Keys.Enter, input.Shoot); SetKey(Keyboard, Keys.W, input.Forward);
             Scene.OnSimulationFrame();
             Check(!NetSession.Active && float.IsFinite(Player.Position.Y) && float.IsFinite(Player.Speed.Y), "finite offline actual simulation tick", verbose: false);
@@ -163,13 +171,21 @@ internal static class ScoutDroneSceneTests
             object capacity = DirectHookCapacityAndRetirement(room);
             object fences = RuntimeFences(room);
             object native = NativeWeavel(room);
+            int primaryChecks = _checks;
+            Check(primaryChecks == 4958, "original strict primary4958 assertions retained before laser extension");
+            object laserTimeline = LaserTimeline(room);
+            object laserExclusion = LaserMutualExclusion(room);
+            object laserCancellation = LaserCancellation(room);
+            object laserRay = LaserCurrentAimAndNativeDamage(room);
+            object combatPopulation = CombatPopulation(room);
+            object nativeBotCombat = NativeBotCombat(room);
             if (outputPath != null)
             {
                 string path = Path.GetFullPath(outputPath); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 File.WriteAllText(path, JsonSerializer.Serialize(new { scope = "owned AMHE1 initialized offline CPU Scene/input/collision; native turret/sphere body and Psycho Bit mobile fallback; synthetic inert target, public Spawn, health-cap setup and native freeze-timer injection explicitly identified",
-                    room, checks = _checks, bodyFirstRetirement, health, hover, burst, inputOrder, release, cancellation, body, pools, capacity, fences, native,
+                    room, checks = _checks, primaryChecks, laserTimeline, laserExclusion, laserCancellation, laserRay, combatPopulation, nativeBotCombat, bodyFirstRetirement, health, hover, burst, inputOrder, release, cancellation, body, pools, capacity, fences, native,
                     emittedFlightContract = "merge/freeze stop later emission and preserve existing native flight/impact; death, owner retirement and Scene cleanup retire flights",
-                    unqualified = new[] { "physical controls or graphics", "standing-cylinder/headshot donor parity", "ceiling/ledge/jump-pad traversal", "laser", "network/replay/career", "imported Trooper presentation or combat balance" } }, new JsonSerializerOptions { WriteIndented = true }));
+                    unqualified = new[] { "physical controls or graphics", "standing-cylinder/headshot donor parity", "ceiling/ledge/jump-pad traversal", "laser physical/render/audio parity", "network/replay/career", "imported Trooper presentation or combat balance" } }, new JsonSerializerOptions { WriteIndented = true }));
             }
             Console.WriteLine($"SCOUT DRONE SCENE PASS {_checks} assertions; scope is owned offline CPU mechanics with explicit native fallbacks.");
             return 0;
@@ -707,4 +723,360 @@ internal static class ScoutDroneSceneTests
         Check(!p.ScoutDroneEnabled && !f.Scene.PrivateCharacterGameplayUnsupported, "native split/lunge/merge never sets private drone replay exclusion");
         return new { ordinarySplit = true, nativeAltAttack = true, droneShots = 0, droneBursts = 0, ordinaryMerge = true };
     }
+    // Literal donor timeline; diagnostics observe actual
+    // production processing, never set aim, drone state or damage bookkeeping.
+    private static readonly int[] LaserPaymentFrames = { 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97, 101, 105, 109, 113 };
+    private static void StartLaser(Fixture f, bool attack = false)
+    {
+        var p = f.Player; int activations = p.DroneLasers;
+        f.Step(new Input(Zoom: true, Attack: attack));
+        Check(p.Controls.Zoom.IsPressed && p.DroneLasers == activations + 1
+            && p.DroneLaserFrame == 0 && p.DroneLaserProcessedFrame == -1 && !p.DroneLaserOn,
+            "real Zoom activation captures laser frame0 without processing timeline frame0 on entry");
+    }
+    private static object LaserTimeline(string room)
+    {
+        using var f = new Fixture(true, room); var p = f.Player; f.Split(); StartLaser(f);
+        int opportunities = p.DroneLaserOpportunities, sounds = p.DroneLaserSoundCount;
+        int shots = p.DroneShots; var paidAt = new List<int>(); int visible = 0;
+        // Release immediately after entry. All134 subsequent steps must finish.
+        for (int frame = 0; frame <= 133; frame++)
+        {
+            int before = p.DroneLaserOpportunities; f.Step();
+            bool scheduled = Array.IndexOf(LaserPaymentFrames, frame) >= 0;
+            Check(p.DroneLaserProcessedFrame == frame
+                && p.DroneLaserOpportunities - before == (scheduled ? 1 : 0),
+                "released laser processes exact literal opportunity frame" + frame, verbose: false);
+            if (scheduled) paidAt.Add(frame);
+            Check(p.DroneLaserOn == (frame >= 57 && frame <= 122),
+                "laser visibility includes57..122 only frame" + frame, verbose: false);
+            if (p.DroneLaserOn) visible++;
+            Check(p.DroneFireState == 0 && p.DroneShots == shots, "laser excludes primary emission", verbose: false);
+            if (frame < 133) Check(p.DroneLaserFrame == frame + 1 && p.DroneLaserCooldown == 0,
+                "134-step laser cannot finish or cool early", verbose: false);
+        }
+        Check(p.DroneLaserFrame == -1 && p.DroneLaserCooldown == 600 && !p.DroneLaserOn
+            && p.DroneLaserOrigin == Vector3.Zero && p.DroneLaserEnd == Vector3.Zero,
+            "frame133 completes full134-step laser and begins600 wait with hidden cleared geometry");
+        Check(p.DroneLaserOpportunities - opportunities == 15 && visible == 66
+            && paidAt.SequenceEqual(LaserPaymentFrames) && p.DroneLaserSoundCount - sounds == 1,
+            "exact15 opportunities/66 visible steps/one source sound request; no physical audio claim");
+        int activations = p.DroneLasers;
+        for (int elapsed = 1; elapsed < 600; elapsed++)
+        {
+            f.Step(new Input(Zoom: true));
+            Check(p.DroneLaserCooldown == 600 - elapsed && p.DroneLaserFrame == -1
+                && p.DroneLasers == activations && !p.DroneLaserOn,
+                "held Zoom cannot skip independent600-step wait", verbose: false);
+        }
+        f.Step(new Input(Zoom: true));
+        Check(p.DroneLaserCooldown == 0 && p.DroneLaserFrame == 0 && p.DroneLasers == activations + 1,
+            "held Zoom restarts exactly on subsequent wait step600");
+        return new { activationSeparate = true, processedFrames = 134, opportunities = paidAt,
+            visibleFrames = 66, fullWait = 600, releaseCompletes = true, heldRestart = true };
+    }
+    private static object LaserMutualExclusion(string room)
+    {
+        using var f = new Fixture(true, room); var p = f.Player; f.Split();
+        StartLaser(f, attack: true); int bursts = p.DroneBursts;
+        for (int frame = 0; frame < 134; frame++)
+        {
+            f.Step(new Input(Attack: true, Zoom: true));
+            Check(p.DroneBursts == bursts && p.DroneFireState == 0 && p.DroneShots == 0,
+                "simultaneous held inputs give folded laser priority and no primary overlap", verbose: false);
+        }
+        f.Step(new Input(Attack: true, Zoom: true));
+        Check(p.DroneFireState == 1 && p.DroneLaserFrame == -1 && p.DroneLaserCooldown == 599,
+            "primary may unfold while independent laser wait counts");
+        int activations = p.DroneLasers;
+        for (int n = 0; n < 32 + 150 + 24; n++)
+        {
+            f.Step(new Input(Attack: true, Zoom: true));
+            Check(p.DroneLasers == activations && p.DroneLaserFrame == -1,
+                "held Zoom cannot interrupt primary unfold/fire/fold", verbose: false);
+        }
+        Check(p.DroneCooldown == 120 && p.DroneLaserCooldown == 393,
+            "primary full cycle leaves independent120 and393 waits");
+        // No attack for393 more steps; Zoom stays held. Primary120 must expire
+        // while laser393 counts down, and laser entry must not alter that wait.
+        for (int n = 1; n <= 393; n++) f.Step(new Input(Zoom: true));
+        Check(p.DroneLaserFrame == 0 && p.DroneLaserCooldown == 0 && p.DroneCooldown == 0
+            && p.DroneLasers == activations + 1, "laser independent wait survives a complete primary cycle");
+        using (var other = new Fixture(true, room))
+        {
+            var q = other.Player; other.Split(); StartBurst(other); Unfold(other);
+            for (int n = 0; n < 150; n++) other.Step(new Input(Attack: true));
+            for (int n = 0; n < 24; n++) other.Step();
+            Check(q.DroneCooldown == 120 && q.DroneLaserCooldown == 0,
+                "independent-wait control starts with native primary120 and ready laser");
+            StartLaser(other);
+            Check(q.DroneCooldown == 119, "laser entry preserves counting primary wait119");
+            int initialBursts = q.DroneBursts;
+            for (int frame = 0; frame < 134; frame++)
+            {
+                other.Step(new Input(Attack: true));
+                Check(q.DroneCooldown == Math.Max(0, 118 - frame) && q.DroneBursts == initialBursts,
+                    "primary cooldown counts to zero during active laser without restarting primary", verbose: false);
+            }
+            Check(q.DroneCooldown == 0 && q.DroneLaserCooldown == 600,
+                "laser completion leaves its own600 wait and independently exhausted primary wait");
+        }
+        return new { simultaneousLaserPriority = true, primaryCannotBeInterrupted = true,
+            laserWaitDuringPrimary = 393, primaryWait = 120, independentWaits = true };
+    }
+    private static void LaserVisible(Fixture f)
+    {
+        StartLaser(f);
+        for (int frame = 0; frame <= 57; frame++) f.Step();
+        Check(f.Player.DroneLaserOn && f.Player.DroneLaserProcessedFrame == 57,
+            "cancellation fixture reaches actual first visible laser step57");
+    }
+    private static object LaserCancellation(string room)
+    {
+        var result = new List<object>();
+        foreach (string cause in new[] { "morph", "freeze", "death", "balanced", "enhanced", "momentum", "quake3", "side-scene" })
+        {
+            using var f = new Fixture(true, room); var p = f.Player; f.Split(); LaserVisible(f);
+            int opportunities = p.DroneLaserOpportunities;
+            if (cause == "morph")
+            {
+                f.Step(new Input(Morph: true, Zoom: true));
+                Check(p.Controls.Morph.IsPressed && !p.IsAltForm && p.DroneLaserCooldown == 600,
+                    "same-step real Morph cancels laser with full600 on merge entry");
+                f.Step(); Check(p.DroneLaserCooldown == 599, "merged laser wait first decrements on following tick599");
+            }
+            else if (cause == "freeze")
+            {
+                // Existing explicitly synthetic native freeze fixture; no laser state injection.
+                typeof(PlayerEntity).GetField("_frozenTimer", Hidden)!.SetValue(p, (ushort)90);
+                f.Step(new Input(Zoom: true));
+                Check(p.DroneLaserCooldown == 600, "native freeze cancels laser promptly with full600 wait");
+                f.Step(); Check(p.DroneLaserCooldown == 599, "frozen native tick advances independent laser wait");
+            }
+            else if (cause == "death")
+            {
+                p.TakeDamage(9999, DamageFlags.Death | DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln | DamageFlags.NoSfx, null, null);
+                f.Step(requireAlive: false);
+                Check(p.Health == 0, "native death remains authoritative on cancellation tick");
+            }
+            else
+            {
+                switch (cause)
+                {
+                    case "balanced": f.Scene.GameState.BalancedMode = true; break;
+                    case "enhanced": f.Scene.GameState.EnhancedHunters = true; break;
+                    case "momentum": f.Scene.GameState.MovementModel = MovementModel.Momentum; break;
+                    case "quake3": f.Scene.GameState.MovementModel = MovementModel.Quake3; break;
+                    case "side-scene": f.Scene.SideScene = true; break;
+                }
+                Check(!p.ScoutDroneEnabled && p.ModCharacterGameplay == CharacterGameplayRules.Native,
+                    cause + " actual lifecycle fence irreversibly retires laser owner");
+            }
+            Check(p.DroneLaserFrame == -1 && !p.DroneLaserOn && p.DroneLaserOrigin == Vector3.Zero
+                && p.DroneLaserEnd == Vector3.Zero && p.DroneLaserOpportunities == opportunities,
+                cause + " hides/clears ray and cancels later opportunities immediately");
+            if (cause is not ("morph" or "freeze")) Check(p.DroneLaserCooldown == 0,
+                cause + " life/owner retirement resets laser wait rather than retaining a live resource");
+            f.Scene.GameState.BalancedMode = false; f.Scene.GameState.EnhancedHunters = false;
+            f.Scene.GameState.MovementModel = MovementModel.Native; f.Scene.SideScene = false;
+            result.Add(new { cause, p.DroneLaserCooldown, hidden = !p.DroneLaserOn });
+        }
+        var cleanup = new Fixture(true, room); var owner = cleanup.Player;
+        try { cleanup.Split(); LaserVisible(cleanup); }
+        finally { cleanup.Dispose(); }
+        Check(owner.DroneLaserFrame == -1 && !owner.DroneLaserOn && owner.DroneLaserOrigin == Vector3.Zero
+            && owner.DroneLaserEnd == Vector3.Zero, "actual Scene cleanup hides and clears cached laser geometry");
+        return result;
+    }
+    private static bool FiniteRay(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
+    private static object LaserCurrentAimAndNativeDamage(string room)
+    {
+        using var f = new Fixture(true, room, target: true); var p = f.Player; var target = f.Target!;
+        f.Split(); StartLaser(f);
+        for (int frame = 0; frame <= 56; frame++) f.Step();
+        PointerInput.StylusMode = false; PointerInput.Reset(); PointerDevice.Reset();
+        p.Controls.MouseAim = true; p.Controls.KeyboardAim = false;
+        var mouse = (MouseState)typeof(Scene).GetField("_mouseState", Hidden)!.GetValue(f.Scene)!;
+        var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input", Hidden)!.GetValue(p)!;
+        var setPosition = typeof(MouseState).GetProperty("Position", Hidden | BindingFlags.Public)!.SetMethod!
+            .CreateDelegate<Action<MouseState, Vector2>>();
+        Vector3 previousAim = ReadCanonicalAim(p), beforePosition = p.Position;
+        setPosition(mouse, mouse.Position + new Vector2(16, 0)); f.Step();
+        Vector3 aim = ReadCanonicalAim(p);
+        Check(input.MouseDeltaX == 16 && (aim - previousAim).Length > .0001f && p.DroneLaserProcessedFrame == 57,
+            "first visible laser consumes actual same-step raw16px mouse aim");
+        Vector3 right = new(aim.Z, 0, -aim.X); right.Normalize(); Vector3 up = Vector3.Cross(aim, right).Normalized();
+        Vector3 expectedOrigin = beforePosition.AddY(Fixed.ToFloat(p.Values.AltColYPos)) + aim * .16f - up * .17f;
+        Check(p.DroneLaserOn && (p.DroneLaserOrigin - expectedOrigin).Length < .001f
+            && FiniteRay(p.DroneLaserOrigin) && FiniteRay(p.DroneLaserEnd),
+            "actual cached ray emitter follows CURRENT canonical aim at pre-movement position");
+        Check(p.DroneLaserPattern is >= 0 and <= 3 && p.DroneLaserDistance is >= 4 and <= 40,
+            "real activation captures finite admitted range and source pattern");
+        // Synthetic inert target placement along OBSERVED native ray, not a
+        // fabricated hit/payment or gameplay aim. No target health writes.
+        // Frame57 ray is reused only for setup;61 payment observes fresh geometry.
+        Vector3 span = p.DroneLaserEnd - p.DroneLaserOrigin;
+        Check(span.Length > 4, "actual owned-room first ray has at least4 units clear target placement range");
+        Vector3 midpoint = p.DroneLaserOrigin + span.Normalized() * 3;
+        Vector3 targetPosition = midpoint.AddY(-(target.ModBipedBottom + target.ModBipedTop) / 2);
+        target.Spawn(targetPosition, -aim, Vector3.UnitY, p.NodeRef, respawn: false);
+        target.IsBot = false; target.TeamIndex = p.TeamIndex + 1;
+        Check(target.ModIsInPlay && target.Health > 10 && !target.IsAltForm && !target.ModMatchSpawnProtectionActive,
+            "synthetic public native Spawn gives living unprotected inert opposing target on observed sweep path");
+        int before = target.Health, attempts = p.DroneLaserHitAttempts;
+        Vector3 targetSpawnPosition = target.Position;
+        int nativeSpawnInvulnerability = (ushort)typeof(PlayerEntity).GetField("_spawnInvulnTimer", Hidden)!.GetValue(target)!;
+        Check(nativeSpawnInvulnerability == 0 && !p.IsPrimeHunter && !f.Scene.GameState.InstaGib
+            && !f.Scene.GameState.OneInTheChamber,
+            "strict10-damage target fixture has native spawn invulnerability0 and ordinary Battle damage rules");
+        // Leave the actual target free to native gravity/collision; do not pin it.
+        // This is one bounded geometric opportunity, not promised all15 hits.
+        HistoricalBody bodyBeforePayment = default;
+        for (int frame = 58; frame <= 61; frame++)
+        {
+            if (frame == 61) bodyBeforePayment = NetHistoricalTrace.CurrentBody(target);
+            f.Step();
+        }
+        Console.WriteLine("SCOUT DRONE LASER NATIVE DAMAGE TRACE " + JsonSerializer.Serialize(new
+        {
+            processedFrame = p.DroneLaserProcessedFrame, p.DroneLaserPattern, p.DroneLaserDistance,
+            healthBefore = before, healthAfter = target.Health, attemptsBefore = attempts,
+            attemptsAfter = p.DroneLaserHitAttempts, nativeSpawnInvulnerability,
+            rayOrigin = new[] { p.DroneLaserOrigin.X, p.DroneLaserOrigin.Y, p.DroneLaserOrigin.Z },
+            rayEnd = new[] { p.DroneLaserEnd.X, p.DroneLaserEnd.Y, p.DroneLaserEnd.Z },
+            targetSpawn = new[] { targetSpawnPosition.X, targetSpawnPosition.Y, targetSpawnPosition.Z },
+            targetActual = new[] { target.Position.X, target.Position.Y, target.Position.Z },
+            target.ModBipedBottom, target.ModBipedTop,
+            prePaymentBodyPosition = new[] { bodyBeforePayment.Position.X, bodyBeforePayment.Position.Y, bodyBeforePayment.Position.Z },
+            syntheticSetup = "public native Spawn on observed frame57 ray; native gravity/collision retained"
+        }));
+        Check(p.DroneLaserHitAttempts == attempts + 1 && before - target.Health == 10,
+            "actual Scene sweep pays exactly one unmodified native10 damage at opportunity61");
+        Check(NetHistoricalTrace.Intersect(bodyBeforePayment, p.DroneLaserOrigin,
+            p.DroneLaserEnd, .1f, out _), "native pre-movement body snapshot confirms clipped payment ray meets actual target");
+        return new { currentAimQualified = true, syntheticObservedRayPlacement = true, opportunity = 61,
+            nativeDamage = before - target.Health, hitAttempts = p.DroneLaserHitAttempts - attempts,
+            targetNotPinned = true, all15HitsQualified = false, occlusionAndTeamModifiersQualified = false };
+    }
+    private static object CombatPopulation(string room)
+    {
+        var rows = new List<object>();
+        for (int bots = 0; bots <= 7; bots++)
+        {
+            // Real admitted local population owner called with teamPlay:true;
+            // combat mode must explicitly override it to FFA. No actor is added
+            // after binding, no IsBot/LoadFlags/AI controls are fabricated.
+            using var f = new Fixture(true, room, combatBots: bots); var registry = f.Scene.Players;
+            Check(registry.PlayerCount == bots + 1 && registry.PlayersCreated == bots + 1
+                && registry.MaxPlayers == Math.Max(4, bots + 1), "real MatchStart population exactly matches configured bots" + bots);
+            Check(!f.Player.IsBot && f.Player.ModCharacterGameplay == CharacterGameplayRules.TrooperDroneCombatV1
+                && f.Scene.PrivateCharacterGameplayUnsupported && !f.Scene.GameState.Teams,
+                "combat local human alone owns private rule with actual Battle FFA state");
+            var seenSpawn = new bool[bots + 1]; var positions = new Vector3[bots + 1]; bool observedAiMovement = false;
+            for (int slot = 0; slot <= bots; slot++) positions[slot] = registry.Items[slot].Position;
+            for (int step = 0; step < 600; step++)
+            {
+                foreach (var actor in registry.Items.Take(bots + 1))
+                {
+                    seenSpawn[actor.SlotIndex] |= actor.LoadFlags.TestFlag(LoadFlags.Spawned);
+                    if (actor.IsBot && (actor.Position - positions[actor.SlotIndex]).Length > .05f) observedAiMovement = true;
+                }
+                if (seenSpawn.All(x => x) && (bots == 0 || observedAiMovement)) break;
+                f.Scene.OnSimulationFrame(); // native AI/load/spawn controls; no local player liveness oracle during bot combat
+            }
+            for (int slot = 0; slot < registry.Items.Count; slot++)
+            {
+                var actor = registry.Items[slot]; bool admitted = slot <= bots;
+                Check(actor.LoadFlags.TestFlag(LoadFlags.Active) == admitted,
+                    "actual configured active prefix/inactive remainder slot" + slot + "/bots" + bots);
+                if (!admitted) continue;
+                Check(actor.TeamIndex == slot, "combat override retains unique native FFA team per active slot" + slot);
+                Check(seenSpawn[slot] && actor.AiData != null, "actual native initialized actor reached native spawn slot" + slot);
+                if (slot > 0) Check(actor.IsBot && actor.BotLevel == 0 && !actor.ScoutDroneEnabled
+                    && actor.ModCharacterGameplay == CharacterGameplayRules.Native && actor.DroneLasers == 0 && actor.DroneShots == 0,
+                    "native opponent keeps actual AI/level and cannot inherit private drone mechanics slot" + slot);
+            }
+            Check(bots == 0 || observedAiMovement, "native bot simulation produced bounded actual movement evidence");
+            rows.Add(new { bots, configuredActivePrefix = bots + 1, nativeSpawnObserved = seenSpawn,
+                nativeAiMovementObserved = observedAiMovement, forcedTeamRequest = true, actualFfa = !f.Scene.GameState.Teams });
+        }
+        return rows;
+    }
+
+    private static object NativeBotCombat(string room)
+    {
+        // Fresh admitted one-bot combat Scene: no actor added after binding,
+        // no AI/target/input/position/health overrides. The human only splits
+        // via real Morph and then remains idle under ordinary native damage.
+        using var f = new Fixture(true, room, combatBots: 1);
+        var p = f.Player; var bot = f.Scene.Players.Items[1]; var state = f.Scene.GameState;
+        f.Split(); var body = p.Halfturret;
+        Check(bot.IsBot && bot.ModCharacterGameplay == CharacterGameplayRules.Native
+            && p.ModCharacterGameplay == CharacterGameplayRules.TrooperDroneCombatV1 && !state.Teams,
+            "native bot combat arm begins with actual admitted opposing AI and private local human/body");
+        int firedBefore = state.ShotsFired[bot.SlotIndex], dealtBefore = state.MatchDamageDealt[bot.SlotIndex];
+        int takenBefore = state.MatchDamageTaken[p.SlotIndex], killsBefore = state.Kills[bot.SlotIndex];
+        int humanHealthBefore = p.Health, bodyHealthBefore = body.Health;
+        var targetPlayer = bot.AiData.GetType().GetField("_targetPlayer", Hidden)!;
+        var targetBody = bot.AiData.GetType().GetField("_targetHalfturret", Hidden)!;
+        bool liveNativeBeamObserved = false, nativeAcceptedFireAtPrivateOwner = false, paidOwnerDamage = false;
+        int firstAcceptedFrame = -1, firstNativeBeamFrame = -1, firstPrivateDamageFrame = -1, steps = 0;
+        int lastFired = firedBefore; var observedFlights = new HashSet<BeamProjectileEntity>();
+        for (steps = 1; steps <= 1800; steps++)
+        {
+            // Real unmodified AI runs; never re-spawn/restore/pin the human.
+            f.Scene.OnSimulationFrame();
+            bool aiTargetsPrivateOwner = ReferenceEquals(targetPlayer.GetValue(bot.AiData), p)
+                || ReferenceEquals(targetBody.GetValue(bot.AiData), body);
+            int fired = state.ShotsFired[bot.SlotIndex];
+            if (fired > lastFired)
+            {
+                if (firstAcceptedFrame < 0) firstAcceptedFrame = steps;
+                nativeAcceptedFireAtPrivateOwner |= aiTargetsPrivateOwner;
+            }
+            lastFired = fired;
+            foreach (var beam in bot.EquipInfo.Beams)
+            {
+                if (beam.Lifespan <= 0 || beam.Flags.TestFlag(BeamFlags.Collided)
+                    || !ReferenceEquals(beam.Owner, bot) || !SceneContains(f.Scene, beam)) continue;
+                liveNativeBeamObserved = true; observedFlights.Add(beam);
+                if (firstNativeBeamFrame < 0) firstNativeBeamFrame = steps;
+                // Explicit native homing target is stronger than AI intent.
+                nativeAcceptedFireAtPrivateOwner |= ReferenceEquals(beam.Target, p) || ReferenceEquals(beam.Target, body);
+            }
+            // With exactly one bot and one idle private human, paired native
+            // opposing-damage counters identify the real attacker/victim owners.
+            paidOwnerDamage = state.MatchDamageDealt[bot.SlotIndex] > dealtBefore
+                && state.MatchDamageTaken[p.SlotIndex] > takenBefore;
+            if (paidOwnerDamage && firstPrivateDamageFrame < 0) firstPrivateDamageFrame = steps;
+            if (paidOwnerDamage || nativeAcceptedFireAtPrivateOwner) break;
+            if (p.Health == 0 || state.MatchState != MatchState.InProgress) break;
+        }
+        int acceptedShots = state.ShotsFired[bot.SlotIndex] - firedBefore;
+        int botDamage = state.MatchDamageDealt[bot.SlotIndex] - dealtBefore;
+        int privateDamage = state.MatchDamageTaken[p.SlotIndex] - takenBefore;
+        int botKills = state.Kills[bot.SlotIndex] - killsBefore;
+        Console.WriteLine("SCOUT DRONE NATIVE BOT COMBAT TRACE " + JsonSerializer.Serialize(new
+        {
+            bound = 1800, actualSteps = Math.Min(steps, 1800), botSlot = bot.SlotIndex, botHunter = bot.Hunter.ToString(),
+            acceptedShots, liveNativeBeamObserved, observedNativePoolObjects = observedFlights.Count,
+            nativeAcceptedFireAtPrivateOwner, paidOwnerDamage, botDamage, privateDamage, botKills,
+            firstAcceptedFrame, firstNativeBeamFrame, firstPrivateDamageFrame,
+            humanHealthBefore, humanHealthAfter = p.Health, bodyHealthBefore, bodyHealthAfter = body.Health,
+            aiOverride = false, placementOverride = false, healthOverride = false,
+            evidence = "native accepted-fire event with actual AI/private target, or paired native opposing-damage counters; movement is not combat proof"
+        }));
+        Check(acceptedShots > 0 || liveNativeBeamObserved || paidOwnerDamage,
+            "bounded unmodified native bot produces actual accepted shot/live native beam/native owner damage");
+        Check(nativeAcceptedFireAtPrivateOwner || paidOwnerDamage,
+            "native bot accepted fire targets private human/body or native damage pairs actual bot/private victim owners");
+        Check(bot.IsBot && bot.ModCharacterGameplay == CharacterGameplayRules.Native && bot.DroneShots == 0
+            && bot.DroneLasers == 0 && p.ModCharacterGameplay == CharacterGameplayRules.TrooperDroneCombatV1,
+            "observed native bot combat never transfers private mechanics to native AI owner");
+        return new { configuredBots = 1, bound = 1800, steps = Math.Min(steps, 1800), acceptedShots,
+            liveNativeBeamObserved, nativeAcceptedFireAtPrivateOwner, paidOwnerDamage,
+            nativeDamageQualified = paidOwnerDamage, healthLossOnlyIsNotAttribution = true,
+            botDamage, privateDamage, botKills, aiOverridden = false, syntheticPlacement = false };
+    }
+
 }

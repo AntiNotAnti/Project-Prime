@@ -1848,6 +1848,12 @@ namespace MphRead.Entities
         }
 
         public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
+            => TakeDamageCore(damage, flags, direction, source, scoutDroneLaser: false);
+
+        // Private synchronous attribution only; public/native and nested calls
+        // cannot inherit a laser label. Native protection/modifiers/stats below
+        // remain the sole damage owner.
+        private void TakeDamageCore(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source, bool scoutDroneLaser)
         {
             if (_scene.Services.SuppressDamage) return;
             if (_scene.AimTrainer?.TryHandleDamage(this, source, damage, flags) == true) return;
@@ -2605,6 +2611,10 @@ namespace MphRead.Entities
                             else if (fromHalfturret)
                             {
                                 killedBy = _altAttackNames[(int)attacker.Hunter];
+                            }
+                            else if (scoutDroneLaser && ReferenceEquals(source, attacker))
+                            {
+                                killedBy = "SENTRY DRONE LASER"; // local alt fact; no fabricated beam statistics
                             }
                             else if (beam != null && attacker.ModScoutDroneOwnsBeam(beam))
                             {

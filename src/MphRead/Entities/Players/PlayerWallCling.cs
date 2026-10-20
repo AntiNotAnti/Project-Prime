@@ -56,7 +56,7 @@ public partial class PlayerEntity
 
     private bool ModCharacterGameplayEnabled => !_modCharacterGameplayRetired
         && _modCharacterGameplayBound
-        && _modCharacterGameplay.Variant is CharacterGameplayVariant.TrooperV1 or CharacterGameplayVariant.TrooperDroneV1
+        && _modCharacterGameplay.Variant is CharacterGameplayVariant.TrooperV1 or CharacterGameplayVariant.TrooperDroneV1 or CharacterGameplayVariant.TrooperDroneCombatV1
         && _modCharacterGameplay.IsValidFor(Hunter)
         && Hunter == _modCharacterGameplayHunter
         && _modCharacterGameplayScene == _scene.LifetimeGeneration

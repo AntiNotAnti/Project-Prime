@@ -3,6 +3,7 @@ using MphRead.Droid;
 using MphRead.Mods;
 
 InputOwnershipChecks.Run();
+ZoomTouchChecks.Run();
 WeaponTouchChecks.Run();
 StylusResponseChecks.Run();
 
