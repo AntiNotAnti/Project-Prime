@@ -43,6 +43,7 @@ Our slices add no wire change.
 | [833](https://github.com/AntiNotAnti/Project-Prime/pull/833) | Detached original backgrounds/font metrics and bounded CPU glyph/color layout | `3dd5a0b833e67e43d840997c6a30b475fad5e017` |
 | [835](https://github.com/AntiNotAnti/Project-Prime/pull/835) | Private CPU widget animation and detached flat geometry | `32977c43e3de5cffa28532beb78fd029ac32259d` |
 | [837](https://github.com/AntiNotAnti/Project-Prime/pull/837) | Bounded aggregate credits catalog, immutable result binding and CPU frame ownership | `2a1ce057936d086d33cb2318966bbc52615bec78` |
+| [840](https://github.com/AntiNotAnti/Project-Prime/pull/840) | Optional bounded native canvas, explicit texture policy and retained draw-frame ownership | `6e2287e860fcb31b2231093a0c3807261ef8d820` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document

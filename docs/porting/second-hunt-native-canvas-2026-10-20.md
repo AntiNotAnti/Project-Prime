@@ -87,6 +87,13 @@ All three native artifacts have source fingerprint
 `e81721a66a588cb4b4995bc1cb91481ef14ea1bf6676e6cee604d178481994ce`.
 Receipts: `artifacts/sh-integration/native-canvas-e7526ef32`.
 
+PR840 merged at `6e2287e860fcb31b2231093a0c3807261ef8d820`. Concurrent
+CW-05h PR839 (`4904f4212`) adds launcher rules/offline availability and is
+outside this frozen whole-binary proof. The canvas production files and native
+source fingerprint match the qualified source exactly at that merge; unrelated
+Host intent/menu bindings and runtime-rule fixture expectations changed.
+Subsequent native rule-binding repair has its own fresh native qualification.
+
 The runtime logs expose an unrelated preexisting Home movement-toggle17
 model/callback omission, present unchanged on baseline main. Canvas acceptance
 passes despite that bootstrap warning; a separate follow-up fixes that owner.
