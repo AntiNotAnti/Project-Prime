@@ -14,6 +14,13 @@ internal static class DisplayPosePlan
             throw new ArgumentException("-pose-scenario requires native-pose-v1 or native-pose-charge-retreat-v2.");
         return selected;
     }
+    internal static string ResolveFocusControl(string? selected, bool poseCheck)
+    {
+        if (selected == null) return "none";
+        if (!poseCheck || selected is not ("none" or "isolated" or "legacy"))
+            throw new ArgumentException("-pose-focus-control requires -posecheck and none|isolated|legacy.");
+        return selected;
+    }
     // An explicit scenario input, never a position edit or draw-time recovery.
     internal static bool RetreatsDuringCharge(string scenario, int tick)
         => scenario == RetreatScenario && tick is >= 361 and <= 390;

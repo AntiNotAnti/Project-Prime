@@ -19,6 +19,14 @@ class DisplayPosePlanTests(unittest.TestCase):
 using MphRead.Mods.Render;
 int checks=0;
 void Check(bool ok,string label){if(!ok)throw new Exception(label);++checks;}
+Check(DisplayPosePlan.ResolveFocusControl(null,false)=="none","missing control leaves ordinary modes unchanged");
+foreach(string control in new[]{"none","isolated","legacy"}) {
+ Check(DisplayPosePlan.ResolveFocusControl(control,true)==control,"explicit focus control identity");
+ try{DisplayPosePlan.ResolveFocusControl(control,false);throw new Exception("focus control without pose admitted");}catch(ArgumentException){checks++;}
+}
+foreach(string control in new[]{"","ISOLATED","unknown"}) {
+ try{DisplayPosePlan.ResolveFocusControl(control,true);throw new Exception("unknown focus control admitted");}catch(ArgumentException){checks++;}
+}
 Check(DisplayPosePlan.ResolveScenario(null,false)==DisplayPosePlan.OriginalScenario&&DisplayPosePlan.ResolveScenario(null,true)==DisplayPosePlan.OriginalScenario,"missing CLI scenario preserves original default");
 foreach(string scenario in new[]{DisplayPosePlan.OriginalScenario,DisplayPosePlan.RetreatScenario})
 {
