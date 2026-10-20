@@ -1,24 +1,34 @@
 # PR-09 validation — draft, acceptance incomplete
 
-**DRAFT / NOT RELEASE ACCEPTED.** Functional evidence is substantial, but the
-performance gate fails and the platform/network/combat matrix remains incomplete.
+**DRAFT / NOT RELEASE ACCEPTED.** Functional evidence is substantial. The
+operator accepts the current performance tradeoff; relevant hosted CI is not
+fully verified, and the stated balance/device limitations remain open.
 This document does not declare Momentum complete or suitable for default rollout.
 Classic remains the default and rollback path; Momentum is an explicit opt-in.
 
-The principal earlier campaign uses main `f908c7e534bce67e07a3776b21a658790034544d`
-plus the uncommitted PR-09 validation changes. Focused current-source checks now
-use actual main `3de8887a8b04bd85db8b60ea14da9add15c1972a` plus the PR-09 changes,
-including the merged CW-04c and PR-736 occlusion changes. The actual macOS Core
-build04 and tool05 builds passed with zero warnings/errors. Each result retains
-its original source/build lease. Latest-main `91f3a96d3240d612d4d7e97c1d198570d8197fad`
-plus the validation overlay also builds on macOS with zero warnings/errors
-(Core build10/tool11). Observer, retention, math, profile, replay-rule and CPU
-frame-timing/handoff checks pass. PR-09a diagnostics are committed and merged in
-[PR-750](https://github.com/AntiNotAnti/Project-Prime/pull/750). The subsequent
-validation tools remain a separate slice; hosted CI and release gates are open.
+PR-00 through PR-08 and the subsequent independently committed PR-09 slices
+are merged. Each result below retains its original source/build lease; a newer
+test-only merge does not turn an older binary into a fresh latest-main build.
+The current5d compatibility refresh and collision optimization are recorded in
+[PR-09e](pr09e-results.md), scheduler-accounting instrumentation in
+[PR-09f](pr09f-results.md), and all-Hunter fixed air turns and jump chains in
+[PR-09g](pr09g-results.md). The retained complete timing capture and its failed
+observer controls are documented in [PR-09h](pr09h-results.md).
 
 ## Completed scoped evidence
 
+- **Fixed air-turn/jump observations pass:** 28 mirrored Native/Momentum pairs
+  and 14 stationary calibration pairs cover all seven Hunters on both rooms,
+  31,920 actual body samples and 245,829 assertions. Both models reach the
+  declared radial objectives without collision overflow/recovery. Maximum
+  observed speed 8.887898 remains below the unchanged 10.799561 cap; this does
+  not prove maximum-cap engagement or competitive calibration.
+  [PR-09g and exact scope](pr09g-results.md).
+- **Collision-query optimization preserves its fixtures:** 8,820 collision
+  checks, 50,000 warmed zero-allocation queries and 618 exact nearest-hit rows;
+  fixed baseline/candidate verification matches every published snapshot byte.
+  The 32 timing arms retain both improvements and failed relative controls.
+  [PR-09e](pr09e-results.md).
 - A separate **current33 compatibility refresh passes after concurrent PR-754**:
   fresh Windows Core/tool build, 21 focused checks, both actual production durable
   packet comparators and both recorded replay scenes. Full preserved scene
@@ -210,15 +220,18 @@ are scoped preservation checks, not cross-platform world-hash equality. Any new
 production gameplay/replay change must rerun the relevant golden,
 checkpoint/seek and accepted-recording checks.
 
-## Performance gate — FAIL
+## Performance evidence — tradeoff accepted; failed controls retained
 
-The [PR-09f CPU-accounting slice](pr09f-results.md) adds opt-in raw Step spans,
-strict scheduler/interrupt accounting and 48 portable regression tests. Its
-first fixed experiment stops on an offline XML parser failure; all partial data
-remain retained. Bounded decoding and a separate capture/offline-analysis
-protocol address that instrumentation limit. The complete CPU experiment is
-pending; no earlier wall/cycle failure or 5% budget is waived. No further Mac
-simulation timing runs while the user's host is busy.
+The [complete PR-09h experiment](pr09h-results.md) retains all 32 timing arms,
+all 16 successful scheduler CPU audits and all 48 verified lossless archives.
+Diagnostic CPU p95 increases are +12.9436% on Proving Ground and +5.25246% on
+Sanctorus. Both measurements remain inconclusive under the predeclared 1%
+observer-quality control; no false 5% pass is claimed. On 2026-10-19 the
+operator accepted the current performance tradeoff and deferred optimization.
+That decision removes the provisional budget as a release blocker while
+retaining the measured failures and uncertainty. Earlier parser failures and
+all original source/binary leases remain in [PR-09f](pr09f-results.md).
+No further Mac simulation timing runs while the user's host is busy.
 
 The later [PR-09e collision-query slice](pr09e-results.md) preserves exact seeded
 workload and published snapshot bytes while removing duplicate static-face
@@ -231,8 +244,8 @@ limit causal CPU attribution. [Numeric evidence](evidence/pr09-collision-dedup.j
 retains p99/worst/allocations and all 32 arms. Earlier measurements below retain
 their source/settings and are not overwritten.
 
-The provisional limit remains +5%; no threshold or workload was changed to obtain
-a pass. Each platform/map experiment used two sequential ABBA cycles, four runs
+The experiments retain their original provisional +5% limit; no threshold or workload was changed to obtain
+a measurement pass. Each platform/map experiment used two sequential ABBA cycles, four runs
 per model and 60 simulation seconds per run with eight genuine authority bots.
 The measured value is elapsed wall-clock `ServerSim.Step`, including scheduling
 and GC. Whole-loop process CPU totals do **not** supply per-step CPU p95; the
@@ -256,7 +269,9 @@ alive-player work differ across models (for example, Proving Ground mean shots
 to horizontal solver cost. It does not turn the strict failures into passes.
 Alive-conditioned and allocation analyses are diagnostic, not replacement gates.
 A controlled workload/CPU-tail investigation and representative gameplay budget
-acceptance remain required. Pure math throughput is not integrated acceptance.
+acceptance were subsequently investigated in PR-09f/PR-09h. The operator's
+accepted tradeoff is separate from these historical failures. Pure math
+throughput is not integrated acceptance.
 
 ### Controlled Windows investigation after PR-736
 
@@ -381,7 +396,7 @@ change, another optimization or feature completion. Source/tool hashes, per-arm
 cycle p50/p95/p99, wall tails, aggregate CPU and affinity are in the
 [numeric evidence](evidence/pr09-performance-draft.json).
 
-### Performance budget decision remains pending
+### Performance budget decision and retained historical context
 
 The candidate Proving Ground p95 wall values, 0.285/0.320 ms, are small relative
 to a 16.667 ms fixed-step deadline, and both models' aggregate CPU totals fell.
@@ -389,8 +404,9 @@ That context does **not** meet or waive the agreed relative 5% gate: Momentum
 still increased p95 by 12.4649%, and calibrated CPU-tail acceptance is absent.
 The later pinned observer follow-up also leaves a 16.2430% execution-cycle
 increase and a failed wall proxy on Proving Ground. No replacement threshold or
-feature-complete claim is proposed here. Further acceptance needs a justified optimization/investigation or an explicit user
-budget decision with these failures visible.
+feature-complete claim follows from these measurements. The subsequent
+operator decision accepts this documented tradeoff and defers optimization;
+see [PR-09h](pr09h-results.md). Other release checks remain separate.
 
 An eight-human-owner experiment with matched offered input would usefully
 measure owner movement and representative server work without autonomous bot
@@ -400,7 +416,10 @@ experiment would complement, rather than erase, this genuine eight-bot failure.
 
 ## Remaining gates
 
-- **FAIL:** strict integrated performance budget.
+- **ACCEPTED TRADEOFF:** the operator accepts the documented performance cost
+  and uncertainty for now, with optimization deferred. Historical 5% failures
+  and both CPU observer-quality failures remain visible; no measurement pass
+  or new numerical guarantee is claimed.
 - **PASS (scoped):** the corrected actual accepted-jump boundary in the complete
   Momentum spectator-03 cohort; paired impaired-06 adds bounded owner traces
   with zero overflow. The earlier UDP final-Y sample lacks the same-frame
@@ -415,9 +434,12 @@ experiment would complement, rather than erase, this genuine eight-bot failure.
   trajectories, 18,489 rewind assertions, 3,291 custom contract checks and both
   two-owner impaired combat proofs (22 assertions each), all six processes
   exiting0. The preserved eight-owner cohort retains its earlier source lease.
-- **OPEN:** representative actual team/objective gameplay and final retained-source
-  refresh. Roster/movement passes and combat payment proofs remain distinct;
-  additional simultaneous combat/lifecycle combinations are unverified.
+- **PASS (scoped):** representative actual team/objective gameplay in the
+  current46 Native/Momentum DefenderTeams pair, two independent human owners
+  plus two authority bots, with exact objective adoption and positive replicated
+  team scoring. The separate Native Nodes control does not complete a capture.
+  Additional simultaneous combat/lifecycle combinations remain unverified;
+  final retained-source compatibility and hosted CI are separate checks.
 - **UNVERIFIED:** physical Android, full Windows/Linux physical-input matrix,
   real controller/focus recovery, measured high-refresh behavior and sustained
   device/server operating budgets. Emulator and virtual-cadence evidence do not

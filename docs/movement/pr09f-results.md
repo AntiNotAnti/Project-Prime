@@ -77,9 +77,13 @@ repairs, not favorable gameplay reruns or a relaxed threshold.
 
 See [retained numeric evidence](evidence/pr09-cpu-accounting.json) for original
 source/binary hashes, all partial timing tails, allocation/workload data and
-failure history. The complete second CPU experiment is still pending; no release
-performance claim follows. Historical wall/cycle failures retain their original
-source leases and scopes. No Mac simulation timing is collected.
+failure history. The [complete second experiment](pr09h-results.md) now retains
+all 32 timing arms, 16 CPU audits and 48 verified archives. Its observer-quality
+controls fail, so CPU-tail inference remains inconclusive. The operator
+accepted the documented performance tradeoff on 2026-10-19 and deferred
+optimization; this is separate from a measurement pass. Historical wall/cycle
+failures retain their original source leases and scopes. No Mac simulation
+timing is collected.
 
 Concurrent [PR-759](https://github.com/AntiNotAnti/Project-Prime/pull/759) restores
 a fixture-only replay-render failure hook. It is excluded from ordinary desktop
