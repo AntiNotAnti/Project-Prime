@@ -52,7 +52,7 @@ internal static class Quake3RulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1 && (byte)MovementModel.Quake3 == 2, "stable movement enum values");
-        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 66, "protocol66 retains bit16 contract");
+        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 67, "protocol67 retains bit16 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Quake3", "quake3", "QUAKE3", "Quake III" })
@@ -172,7 +172,7 @@ internal static class Quake3RulesTests
         var sender = new IPEndPoint(IPAddress.Loopback, client.LocalPort);
         try
         {
-            foreach (byte protocol in new byte[] { 58, 59, 60, 61, 62, 63, 64, 65 })
+            foreach (byte protocol in new byte[] { 58, 59, 60, 61, 62, 63, 64, 65, 66 })
             {
                 byte[] packet = new byte[7]; packet[0] = (byte)PacketType.Hello;
                 packet[1] = protocol; packet[2] = byte.MaxValue;

@@ -41,6 +41,11 @@ namespace MphRead.Mods.Network
 
         internal static bool CanStartLiveRecording(out string? error)
         {
+            if (CustomReplayBoundary.IsBlocked())
+            {
+                error = CustomReplayBoundary.Error;
+                return false;
+            }
             // Do not query Active: retirement does not make an unsupported scene recordable.
             if (GameState.Current.Owner?.DeveloperMomentumPracticeTuning != null)
             {
@@ -51,9 +56,9 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        internal static bool NeedsWorld => (!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
+        internal static bool NeedsWorld => !CustomReplayBoundary.IsBlocked() && ((!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
             || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled || DemoClip.Active))
-            || DemoClip.IsSaving || DemoRecorder.IsRecording || ServerReplayRecorder.IsRecording;
+            || DemoClip.IsSaving || DemoRecorder.IsRecording || ServerReplayRecorder.IsRecording);
 
         internal static void AfterSimulation(Scene scene)
         {

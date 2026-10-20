@@ -9,6 +9,9 @@ internal interface ICustomCombatDelivery
     bool Publish(in CustomActionReceipt receipt);
     bool Publish(in CustomContactOutcome outcome);
     bool HasControlWitness(in CustomWeaponAction action);
+    bool TryPrepareAudience(in CustomWeaponAction action);
+    bool HasPreparedAudience(in CustomWeaponAction action);
+    bool PublishLaunch(in CustomReplicaLaunch launch);
     void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input);
     void AfterSourcePhase(CustomAuthorityCombatAdapter root);
 }

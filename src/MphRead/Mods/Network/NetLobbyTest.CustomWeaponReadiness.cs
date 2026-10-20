@@ -13,8 +13,9 @@ namespace MphRead.Mods.Network;
 
 public static partial class NetLobbyTest
 {
-    // Real UDP and production server handlers, with explicitly synthetic native
-    // bootstrap acknowledgements. These clients do not construct an engine scene.
+    // Real UDP and production handlers. Control-plane cases supply explicit
+    // synthetic native bootstraps; engine cases acknowledge actual server native
+    // bootstraps manually. These probes do not construct a remote engine scene.
     private sealed class CustomReadinessProbe : IDisposable
     {
         private readonly Client _client;
@@ -25,6 +26,10 @@ public static partial class NetLobbyTest
         internal CustomWeaponReady? Ready;
         internal int Pages, Confirmations, DiscardedConfirmations;
         internal bool DiscardConfirmation;
+        internal CustomReplicaConsumer? Replica;
+        internal CustomReadinessWire? ReplicaWire;
+        internal int ReplicaPages,ReplicaEvents,ReplicaAcks,WithheldReplicaAcks;
+        internal bool DiscardReplicaBaselineAcks,DiscardReplicaEventAcks;
         internal CustomReadinessProbe(Client client)
         {
             _client = client; _registry = new(true,new[] { _definition });
@@ -41,7 +46,7 @@ public static partial class NetLobbyTest
                 var manifest = new CustomWeaponManifest(new[] { _definition });
                 Check(page!.Bootstrap == NativeBootstrap && page.Manifest == manifest.Digest
                     && page.TotalRows == 1 && page.Rows.Count == 1 && page.Rows[0] == manifest.Rows[0],
-                    "UDP manifest binds exact synthetic native bootstrap and independently built M7 mechanics");
+                    "UDP manifest binds exact known native bootstrap and independently built M7 mechanics");
                 _assembler ??= new(page.Bootstrap,page.Manifest);
                 var result = _assembler.Receive(page);
                 Check(result is CustomManifestReceipt.Complete or CustomManifestReceipt.Duplicate
@@ -49,6 +54,28 @@ public static partial class NetLobbyTest
                 Ready = new(page.Bootstrap,page.Manifest,(byte)_client.Slot,WeaponMechanics.SchemaVersion,
                     WeaponMechanics.BehaviorVersion,CustomWeaponReady.PrecisionCapability);
                 Pages++;
+            }
+            if (packet.Type is PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent)
+            {
+                Check(Ready is { } && NativeBootstrap.HasValue
+                    && packet.Sender.Equals(_client.Server)
+                    && packet.ConnectionId==_client.Transport.ConnectionStats(_client.Server)!.Value.ConnectionId,
+                    "public custom facts arrive from exact admitted authority endpoint/connection after manifest resolution");
+                ReplicaWire ??= new(Ready!.Value.Bootstrap,(byte)_client.Slot);
+                Replica ??= new(ReplicaWire,NetSession.Clock);
+                Check(Replica.Receive(packet.Type,packet.Payload,NetSession.Clock,out var ack),
+                    "actual UDP public baseline/event is durably consumed by production bounded presentation consumer");
+                if (packet.Type==PacketType.CustomWeaponReplicaPage) ReplicaPages++; else ReplicaEvents++;
+                if (ack.Id!=0)
+                {
+                    if (ack.Baseline ? DiscardReplicaBaselineAcks:DiscardReplicaEventAcks) WithheldReplicaAcks++;
+                    else
+                    {
+                        byte[] bytes=new byte[CustomReplicaAck.Size];
+                        Check(CustomReplicaCodec.TryWriteAck(ReplicaWire,ack,bytes),"durable public fact produces exact recipient digest acknowledgement");
+                        _client.Send(PacketType.CustomWeaponReplicaAck,bytes);ReplicaAcks++;
+                    }
+                }
             }
             if (packet.Type == PacketType.CustomWeaponReadyConfirmed)
             {

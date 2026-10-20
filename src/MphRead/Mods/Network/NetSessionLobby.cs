@@ -412,6 +412,8 @@ namespace MphRead.Mods.Network
         // The socket, local slot, identity, authoritative roster and lobby state survive this reset.
         public static void ResetMatchState(bool preserveRoomChange = false)
         {
+            ResetCustomReplica();
+            CustomReplayBoundary.ResetMatch();
             _appliedBootstrap = _receivingBootstrap = _confirmedBootstrap = null;
             _bootstrapMask = 0;
             _bootstrapFastLength = _bootstrapSlowLength = _bootstrapWorldLength = 0;
@@ -440,6 +442,7 @@ namespace MphRead.Mods.Network
 
         private static void ResetLobbySession()
         {
+            CustomReplayBoundary.ResetMatch();
             ResetMapPreparation(); _lastMapReport = 0;
             _appliedBootstrap = _receivingBootstrap = null;
             _bootstrapMask = 0;

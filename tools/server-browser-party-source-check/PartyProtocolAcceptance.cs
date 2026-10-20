@@ -12,7 +12,7 @@ internal static class PartyProtocolAcceptance
         using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("packet-registry-baseline.json")!)
         using(var baseline=JsonDocument.Parse(input))
         {
-            Check(NetConfig.ProtocolVersion==66,"actual DLL uses protocol 66");
+            Check(NetConfig.ProtocolVersion==67,"actual DLL uses protocol 67");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
             var approved = new (string Name, byte Id)[]

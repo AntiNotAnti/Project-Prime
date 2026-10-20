@@ -430,6 +430,7 @@ namespace MphRead.Mods.Network
                 ClearNativePartyReservation();
                 _customReadiness = null;
                 _customCombatClient=null; _customCombatWire=null;
+                ResetCustomReplica();
                 NetPowerUpLedger.Reset();
                 NetBombs.Reset(); BombEventSink = null; TurretOutcomeSink = null; TurretDeliveryPending = null;
                 NetTelemetry.FullSessionReset();
@@ -922,6 +923,8 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact or PacketType.CustomWeaponState or PacketType.CustomWeaponControlDenied
                     when Role == NetRole.Client && !_playback:
                     HandleCustomCombatResult(packet); break;
+                case PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent when Role==NetRole.Client&&!_playback:
+                    HandleCustomReplica(packet);break;
                 case PacketType.PartyReservationState when Role == NetRole.Client:
                     ReceiveNativePartyReservation(packet); break;
                 case PacketType.SessionState when Role == NetRole.Client:

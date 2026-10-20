@@ -513,6 +513,7 @@ namespace MphRead.Mods.Network
                     PumpCustomWeaponReadiness(now);
                     PumpCustomActionResults(now);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
+                    PumpCustomReplica();
                     EnsureCareerMatchStarted(now);
                     PumpSocialMembership(now);
                     pumpStart = NetPerformanceEvidence.Start();
@@ -1252,6 +1253,7 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponControl: HandleCustomWeaponControl(packet,now); break;
                 case PacketType.CustomWeaponInput: HandleCustomWeaponInput(packet,now); break;
                 case PacketType.CustomWeaponResultAck: HandleCustomResultAck(packet,now); break;
+                case PacketType.CustomWeaponReplicaAck: HandleCustomReplicaAck(packet); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
                 case PacketType.MatchLoadFailed: HandleMatchLoadFailed(packet); break;

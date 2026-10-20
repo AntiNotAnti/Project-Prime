@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 66, "current protocol train is 66");
+            Check(NetConfig.ProtocolVersion == 67, "current protocol train is 67");
             var window = new NetReceiveWindow();
             Check(window.Observe(uint.MaxValue - 1) == SequenceResult.New, "initial sequence");
             Check(window.Observe(0) == SequenceResult.New && window.Bits == 2, "wrap skips missing sequence");
@@ -66,8 +66,8 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 66 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol66 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65 })
+            Check(bytes[3] == 67 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol67 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
