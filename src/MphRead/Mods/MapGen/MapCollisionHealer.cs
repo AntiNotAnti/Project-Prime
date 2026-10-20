@@ -1248,6 +1248,7 @@ public static class MapCollisionHealer
             Terrain = source.Terrain,
             Sky = source.Sky,
             Slipperiness = source.Slipperiness,
+            SurfSurface = source.SurfSurface,
             ReflectBeams = source.ReflectBeams,
             IgnorePlayers = source.IgnorePlayers,
             IgnoreBeams = source.IgnoreBeams,

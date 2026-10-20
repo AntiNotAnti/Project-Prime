@@ -957,7 +957,7 @@ namespace MphRead.Entities
                         }
                         else
                         {
-                            Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed)); // todo: FPS stuff?
+                            Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed) + ModRampJumpLift); // fixed 60 Hz
                         }
                         WallClingNoteJump();
                         nativeJumpAccepted = true;
@@ -3034,6 +3034,7 @@ namespace MphRead.Entities
             {
                 UpdateWalkingSfx();
             }
+            _scene.FinalizeMovementTelemetry(this);
             return momentumApplied;
         }
 

@@ -217,9 +217,16 @@ internal static class MomentumReplaySceneTests
         Require(replay.Session.Metadata?.RecordedMovementModel == expected
             && replay.Session.Metadata.MovementLabel == MovementModelRules.DisplayName(expected),
             operation + ": metadata label follows recorded rules across playback and seeks");
-        int recordedProfile = expected == MovementModel.Quake3
-            ? replay.Session.Metadata!.ProtocolVersion >= 62 ? 2 : 1
-            : MovementModelRules.ProfileVersion(expected);
+        int recordedProfile = expected switch
+        {
+            MovementModel.Native => 0,
+            MovementModel.Momentum => 1,
+            MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 62 ? 2 : 1,
+            MovementModel.Traversal => 1,
+            _ => throw new InvalidDataException("Unknown expected replay movement model.")
+        };
+        if (expected == MovementModel.Traversal)
+            Require(replay.Session.Metadata!.ProtocolVersion >= 68, operation + ": Traversal requires an explicitly recorded supporting protocol");
         Require(replay.Session.Metadata!.RecordedMovementProfileVersion == recordedProfile,
             operation + ": profile version follows recorded protocol, never current live policy");
         Require(replay.Scene.Services.IsReplica && !replay.Scene.MomentumMovementActive && replay.Scene.DeveloperMomentumSteps == 0,

@@ -50,6 +50,8 @@ internal static class OfflineRulesGlAcceptance
         Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13, keyboard: true);
         Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // QUAKE III", "focused native Enter selects Quake III");
         Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13, keyboard: true);
+        Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // TRAVERSAL", "focused native Enter selects Traversal");
+        Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13, keyboard: true);
         Check(controller.Tick().Bindings["offline_rule13_label"].Text == "MOVEMENT // CLASSIC", "focused native Enter selects Classic");
         Click("offline_rule_13", RmlUiIntentKind.OfflineRuleToggle, 13);
         Click("offline_rule_12", RmlUiIntentKind.OfflineRuleToggle, 12);

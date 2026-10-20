@@ -18,6 +18,11 @@ MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
 if (args.Contains("--large-model-benchmark")) { Benchmarks.LargeModels(); return; }
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+if (args.Contains("--traversal-surfaces-only"))
+{
+    TraversalSurfaceChecks.Run(Check);
+    Console.WriteLine($"Traversal surfaces: {checks} checks passed."); return;
+}
 if(args.Contains("--next-pass-only"))
 {
     string fixture=Path.Combine(Path.GetTempPath(),"prime-next-pass-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);
@@ -253,6 +258,7 @@ try
     NextPassChecks.Modeling(Check);NextPassChecks.Gltf(Check,root);
     ModelImportChecks.Run(Check, root); ModelReimportChecks.Run(Check, root); ModelCollisionChecks.Run(Check, root);
     CustomCollisionChecks.Run(Check);
+    TraversalSurfaceChecks.Run(Check);
     Q3ImportChecks.Run(Check, root);
     Pk3DiscoveryChecks.Run(Check, root);
     doc.Save(Path.Combine(root, "map.json"));

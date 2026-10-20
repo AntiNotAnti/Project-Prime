@@ -121,7 +121,8 @@ namespace MphRead.Mods.Network
                     || entry.RecordedMovementModel is { } model && (!MovementModelRules.IsDefined(model)
                         || !ReplayIdentityCompatibility.Supports(entry.ProtocolVersion)
                         || entry.ProtocolVersion < 59 && model != MovementModel.Native
-                        || entry.ProtocolVersion < 60 && model == MovementModel.Quake3)
+                        || entry.ProtocolVersion < 60 && model == MovementModel.Quake3
+                        || entry.ProtocolVersion < 68 && model == MovementModel.Traversal)
                     || entry.Bytes != info.Length
                     || entry.ModifiedUtcTicks != info.LastWriteTimeUtc.Ticks)
                     return false;

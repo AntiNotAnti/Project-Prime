@@ -126,10 +126,10 @@ internal static class PickupProtocolTests
 
     private static void RegistryAndBudgets(PickupClaim claim, PickupVerdict verdict, PickupItemFact fact)
     {
-        Check(NetConfig.ProtocolVersion == 67 && (byte)PacketType.PickupClaim == 73
+        Check(NetConfig.ProtocolVersion == 68 && (byte)PacketType.PickupClaim == 73
             && (byte)PacketType.PickupVerdict == 74 && (byte)PacketType.PickupItem == 75
             && (byte)PacketType.PickupReady == 76,
-            "protocol 67 preserves pickup packet identities");
+            "protocol 68 preserves pickup packet identities");
         var ids = new HashSet<byte>();
         foreach (string name in Enum.GetNames<PacketType>())
         {

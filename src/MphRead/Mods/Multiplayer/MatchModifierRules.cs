@@ -12,9 +12,9 @@ public static class MatchModifierRules
         match = match.NormalizeLegacy();
         reason = "";
         if (!MovementModelRules.IsDefined(match.MovementModel))
-            reason = "Movement model must be Native, Momentum or Quake3.";
+            reason = "Movement model must be Native, Momentum, Quake3 or Traversal.";
         else if (MovementModelRules.UsesMomentumSolver(match.MovementModel) && (match.BalancedMode || match.EnhancedHunters))
-            reason = "Momentum and Quake III require Native Hunter abilities; disable Balanced Mode and Enhanced Hunters.";
+            reason = "Momentum, Quake III and Traversal require Native Hunter abilities; disable Balanced Mode and Enhanced Hunters.";
         else if (match.EnhancedHunters && !allowRetiredEnhanced)
             reason = "Enhanced Hunters has been retired. Disable that modifier; Vanilla and Balanced Mode remain available.";
         else if (match.BalancedMode && (match.Fiesta || match.InstaGib || match.OneInTheChamber

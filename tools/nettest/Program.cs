@@ -106,6 +106,11 @@ namespace MphRead.NetTest
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
                     + "  --momentum-practice-tuning         Test private Quake III draft coefficients and speed building.\n"
                     + "  --momentum-practice-scene <assets> [json] Test private draft input, native jump and collision.\n"
+                    + "  --movement-telemetry-hud          Test movement HUD speed/input contracts.\n"
+                    + "  --traversal-self-splash <assets> [room] Test Traversal native self-splash and jump boosts.\n"
+                    + "  --traversal-scene <assets> [json]  Test earned ramp jumps, tagged surf and held input.\n"
+                    + "  --traversal-bot-authority <assets> [json] Test genuine authority AI under Traversal.\n"
+                    + "  --traversal-rules                  Test four-mode selection, stronger air control and ramp math.\n"
                     + "  --quake3-rules                     Test three-mode authoritative rules and protocol60 admission.\n"
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
                     + "  --quake3-bot-authority <assets> [json] Test genuine authority AI under the fixed Quake III rule.\n"
@@ -115,7 +120,7 @@ namespace MphRead.NetTest
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
                     + "  --momentum-replay-metadata         Test recorded movement labels and cold/warm library cache.\n"
-                    + "  --momentum-replay-scene <assets> <replay> <Native|Momentum> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
+                    + "  --momentum-replay-scene <assets> <replay> <model> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-combat-online <assets> <port> <model> <json> [seconds] [seed] [latency] [loss] [reorder] [duplicate] [fault-seed] [hunter] [human-min] Run genuine owner combat.\n"
                     + "  --momentum-team-objective-map <assets> <json> [NodesTeams|DefenderTeams] Validate the fixed native four-player arena.\n"
@@ -139,7 +144,7 @@ namespace MphRead.NetTest
                     + "  --momentum-match-scene <assets> [json] Test actual rule-selected native scene movement.\n"
                     + "  --momentum-test-server <assets> <port> <model> [lifetime] [capacity] [lobby|continuous] [match-seconds] [second-room|-] [game-mode] [first-room] Run local authority.\n"
                     + "  --momentum-online-scene <assets> <port> <Native|Momentum> <json> [seconds] [replay] Run a real UDP owner world.\n"
-                    + "  --momentum-touch-online <assets> <port> <Native|Momentum> <json> [seconds] Run actual touch-model movement over 200 ms UDP impairment.\n"
+                    + "  --momentum-touch-online <assets> <port> <model> <json> [seconds] Run actual touch-model movement over 200 ms UDP impairment.\n"
                     + "  --momentum-scene <assets> [json]   Test offline biped integration and Native ownership gates.\n"
                     + "  --momentum-jump-scene <assets> [json] Test legal hops, landing and native multi-jump semantics.\n"
                     + "  --momentum-collision <assets> [json] Test authored geometry and native contact handling.\n"
@@ -478,8 +483,36 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
+            if (args.Length > 0 && args[0] == "--movement-telemetry-hud") return MovementTelemetryHudTests.Run();
+            if (args.Length > 1 && args[0] == "--traversal-self-splash")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return SelfSplashTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS",
+                    Mods.Movement.MovementModel.Traversal);
+            }
+            if (args.Length > 1 && args[0] == "--traversal-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "traversal-scene";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return TraversalSceneTests.Run(output);
+            }
+            if (args.Length > 0 && args[0] == "--traversal-rules") return TraversalRulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-rules") return Quake3RulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-replay-compatibility") return Quake3ReplayCompatibilityTests.Run();
+            if (args.Length > 1 && args[0] == "--traversal-bot-authority")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumBotAuthorityTests.Run(output, Mods.Movement.MovementModel.Traversal);
+            }
             if (args.Length > 1 && args[0] == "--quake3-bot-authority")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;

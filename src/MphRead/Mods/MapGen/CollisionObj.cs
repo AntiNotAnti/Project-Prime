@@ -223,6 +223,7 @@ namespace MphRead.Mods.MapGen
                 Terrain = surface.Terrain,
                 Damaging = surface.Damaging,
                 Slipperiness = surface.Slipperiness,
+                SurfSurface = surface.SurfSurface,
                 ReflectBeams = surface.ReflectBeams,
                 IgnorePlayers = surface.IgnorePlayers,
                 IgnoreBeams = surface.IgnoreBeams,
@@ -323,13 +324,17 @@ namespace MphRead.Mods.MapGen
         public static readonly IReadOnlyList<string> Attributes = new[]
         {
             "slip0", "slip1", "slip2", "slip3",
-            "damaging", "reflect", "noplayers", "nobeams", "noscan"
+            "damaging", "reflect", "noplayers", "nobeams", "noscan", "surf"
         };
 
         /// <summary>The material name a face with these properties would carry.</summary>
         public static string MaterialName(BuiltFace face)
         {
             string name = face.Terrain.ToString().ToLowerInvariant();
+            if (face.SurfSurface)
+            {
+                name += "_surf";
+            }
             if (face.Slipperiness != 0)
             {
                 name += $"_slip{face.Slipperiness}";
@@ -363,7 +368,7 @@ namespace MphRead.Mods.MapGen
         /// `&lt;terrain&gt;` followed by any number of `_attribute`s, which is
         /// the most an OBJ can carry: it has one name per face and no room for
         /// a table of its own. Everything the collision format holds per face
-        /// fits in it -- the terrain, how slippery it is, and the five flags --
+        /// fits in it -- terrain, slipperiness, collision flags and the authored surf tag --
         /// so nothing is lost on the way through a 3D tool, and the whole
         /// vocabulary is visible in Blender's material list.
         /// </summary>
@@ -371,6 +376,7 @@ namespace MphRead.Mods.MapGen
         {
             public Terrain Terrain { get; init; }
             public int Slipperiness { get; init; }
+            public bool SurfSurface { get; init; }
             public bool Damaging { get; init; }
             public bool ReflectBeams { get; init; }
             public bool IgnorePlayers { get; init; }
@@ -422,6 +428,7 @@ namespace MphRead.Mods.MapGen
                     "slip2" => surface with { Slipperiness = 2 },
                     "slip3" => surface with { Slipperiness = 3 },
                     "damaging" => surface with { Damaging = true },
+                    "surf" => surface with { SurfSurface = true },
                     "reflect" => surface with { ReflectBeams = true },
                     "noplayers" => surface with { IgnorePlayers = true },
                     "nobeams" => surface with { IgnoreBeams = true },

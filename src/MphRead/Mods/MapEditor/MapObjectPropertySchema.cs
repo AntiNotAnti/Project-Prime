@@ -182,6 +182,7 @@ public static class MapObjectPropertySchema
                 Vec("uvOffset", "UV offset", g.Uv.Offset, o => ((MapGeometry)o).Uv.Offset, -float.MaxValue, float.MaxValue);
                 Number("uvRotation", "UV rotation", g.Uv.Rotation, (o, v) => ((MapGeometry)o).Uv.Rotation = v);
                 Flag("solid", "Collision", g.Solid, (o, v) => ((MapGeometry)o).Solid = v);
+                Flag("surfSurface", "Surf practice surface", g.SurfSurface, (o, v) => ((MapGeometry)o).SurfSurface = v);
                 Flag("damaging", "Damaging", g.Damaging, (o, v) => ((MapGeometry)o).Damaging = v);
                 Flag("hidden", "Hidden", g.Hidden, (o, v) => ((MapGeometry)o).Hidden = v);
                 Flag("locked", "Locked", g.Locked, (o, v) => ((MapGeometry)o).Locked = v);

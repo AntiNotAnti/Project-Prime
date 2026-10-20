@@ -2,7 +2,7 @@
 
 Choose **Movement: Quake III** in normal practice Match Rules or in the host's
 multiplayer Match Rules. The movement row cycles **Classic → Momentum → Quake
-III → Classic**. Apply the draft to save practice rules or ask the lobby server
+III → Traversal → Classic**. Apply the draft to save practice rules or ask the lobby server
 to accept them; Cancel leaves the previous rules intact. Guests see the accepted
 selection and cannot change it. The server freezes the profile when the match
 starts. It also applies to authority-owned bots.
@@ -14,7 +14,7 @@ retains the saved practice preference for later. Momentum and Quake III require
 Native Hunter abilities and cannot combine with Balanced or Enhanced Hunters.
 
 For a standalone server, use `-server -movement Quake3`. All players and the
-server need the new build: live protocol 62 refuses protocol 61 and older peers.
+server need the new build: live protocol 68 requires an exact protocol match.
 Return to Classic before the next match to roll back the movement choice.
 
 ## Technique and fixed profile

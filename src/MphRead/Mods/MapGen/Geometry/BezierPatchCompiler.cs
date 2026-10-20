@@ -121,6 +121,7 @@ public static class BezierPatchCompiler
                     patch.Material + materialOffset,
                     patch.Shade * (.7f + .3f * MathF.Max(0,normal.Y)))
                 {
+                    SurfSurface = patch.SurfSurface,
                     Damaging = patch.Damaging,
                     Terrain = Enum.TryParse<Terrain>(patch.Terrain,true,out var terrain)
                         ? terrain : Terrain.Metal
