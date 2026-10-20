@@ -464,8 +464,11 @@ namespace MphRead.Mods.Network
                 && serverSpawned && serverHealth > 0;
 
         public void ApplyIntent(PlayerEntity player, in IntentPacket intent)
+            => TryApplyIntent(player,intent);
+
+        internal bool TryApplyIntent(PlayerEntity player, in IntentPacket intent)
         {
-            if (intent.LifeId == 0 || !_host.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
+            if (intent.LifeId == 0 || !_host.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return false;
             // Touch input is life-fenced and admitted ahead of ProcessAlt, never
             // reconstructed from the arrival interval or authored pose.
             player.ModReceiveNativeTouch(intent.NativeTouch, intent.SlotGeneration, intent.LifeId, intent.Frame);
@@ -473,7 +476,7 @@ namespace MphRead.Mods.Network
             {
                 RejectedUpdates++;
                 Log($"slot {player.SlotIndex} intent rejected: aim={intent.Aim}");
-                return;
+                return false;
             }
             PlayerControls c = player.Controls;
             int aimSlot = player.SlotIndex;
@@ -512,7 +515,7 @@ namespace MphRead.Mods.Network
                 c.ClearAll();
                 ShootPressAge[player.SlotIndex] = 0;
                 player.ModSetSpectating(ownerSpectating);
-                return;
+                return false;
             }
             if (intent.HasState
                 && (intent.ShotFlags & IntentPacket.FlagSpawnProtectionReleased) != 0)
@@ -648,6 +651,7 @@ namespace MphRead.Mods.Network
                     (intent.ShotFlags & IntentPacket.FlagBoosting) != 0);
             }
             if (!_host.IsReplica) NetFireEvents.Prepare(player, intent);
+            return true;
         }
 
         /// <summary>
@@ -1136,23 +1140,26 @@ namespace MphRead.Mods.Network
         /// whose keyboard is driving it. Everyone else follows.
         /// </summary>
         public void ApplyReportedPosition(PlayerEntity player, in IntentPacket intent)
+            => TryApplyReportedPosition(player,intent);
+
+        internal bool TryApplyReportedPosition(PlayerEntity player, in IntentPacket intent)
         {
             if (!Sane(intent.Position))
             {
                 RejectedUpdates++;
-                return;
+                return false;
             }
             if (FrozenInPlace(player))
             {
-                return;
+                return false;
             }
             if (intent.Position == Vector3.Zero)
             {
-                return; // the owner has not spawned yet
+                return false; // the owner has not spawned yet
             }
             if (StaleSinceSpawn(player, intent))
             {
-                return;
+                return false;
             }
             // Observe only the owner pose that passed all placement/life guards.
             // The shadow never changes acceptance, position, velocity or controls.
@@ -1174,13 +1181,14 @@ namespace MphRead.Mods.Network
                 Snaps++;
                 WorstSnap = Math.Max(WorstSnap, distance);
                 Move(player, reported);
-                return;
+                return true;
             }
             // The owner also sends the aim that was calculated against this
             // position. Smoothing here leaves the authoritative hitbox behind
             // that aim under latency, so moving directly is required for
             // collision and rendering to agree.
             Move(player, reported);
+            return true;
         }
 
         /// <summary>

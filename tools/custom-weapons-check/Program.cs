@@ -7,6 +7,7 @@ using OpenTK.Mathematics;
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--authority-scene") return CustomAuthoritySceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--engine-source-scene") return CustomAuthoritySceneChecks.Run(args[1],sourceOnly:true);
 
 int checks = 0;
 void Check(bool condition, string name)
@@ -169,6 +170,7 @@ MechanicsChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
 NetworkContractChecks.Run(Check);
 SourceJournalChecks.Run(Check);
+EngineSourceHistoryChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/payment checks (pure contracts; scene fixture requires --scene)");
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

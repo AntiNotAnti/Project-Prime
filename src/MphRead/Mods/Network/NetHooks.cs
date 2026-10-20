@@ -336,7 +336,8 @@ namespace MphRead.Mods.Network
                 // spectator.
                 player.Controls.ClearAll();
                 player.ModSetSpectating(true);
-                NetFireEvents.DrainAccepted(player);
+                if (player.OwningScene.CustomCombat?.DeferNativeDrain(player) != true)
+                    NetFireEvents.DrainAccepted(player);
                 return true;
             }
             // A puppet the snapshot owns is placed here as well as after the
@@ -371,6 +372,9 @@ namespace MphRead.Mods.Network
                 NetTimingDiagnostics.PresentationCorrection(current, player.Position);
             }
             if (HitRig.HoldTriangleFixtureRemoteInput(player)) return true;
+            bool customPlaced = false;
+            Vector3 customBody = default;
+            bool customBiped = false;
             if (player.LoadFlags.TestFlag(LoadFlags.Active) && NetSession.RemoteIntentValid[slot])
             {
                 if (player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0
@@ -398,11 +402,16 @@ namespace MphRead.Mods.Network
                     //
                     // Match/life identity and room readiness exclude reports
                     // captured in the previous room.
-                    NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
+                    customPlaced = player.OwningScene.PlayerReplication.TryApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
+                    customBody = player.Position;
+                    customBiped = !player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing
+                        && (NetSession.RemoteIntents[slot].Buttons & IntentButtons.AltFormState) == 0;
                     NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
                 }
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
-                NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
+                bool customControlled = player.OwningScene.PlayerReplication.TryApplyIntent(player, NetSession.RemoteIntents[slot]);
+                player.OwningScene.CustomCombat?.RecordSourceInput(player,NetSession.RemoteIntents[slot],customBody,customBiped,
+                    acceptedPose: customPlaced && customControlled);
                 NetPowerUpLedger.ObserveInput(player);
                 if (authorityRole)
                 {
@@ -412,7 +421,8 @@ namespace MphRead.Mods.Network
                     player.ModSetSpectating(NetSession.SlotSpectating[slot]);
                 }
             }
-            NetFireEvents.DrainAccepted(player);
+            if (player.OwningScene.CustomCombat?.DeferNativeDrain(player) != true)
+                NetFireEvents.DrainAccepted(player);
             return true;
         }
 
