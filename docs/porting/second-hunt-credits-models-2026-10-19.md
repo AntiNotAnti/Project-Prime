@@ -6,8 +6,8 @@ and decodes exact admitted bytes through the existing `Read`/`Model` owners.
 It does not register a frontend route, activate original credits, build a new
 renderer, change save/audio ownership or qualify GPU fidelity.
 
-Target main is `1c8ea00a0b3ae779638ecba50a78b9696438e038` (merged PR830,
-including concurrent Traversal PR829). Reference Second Hunt remains
+Target main is `08afb86f0ebebcc014fcc9b7cc3234575037c504` (including
+merged PR830, concurrent Traversal PR829 and custom-input PR831). Reference Second Hunt remains
 `41452f2d053fcfa679e33c00a73d120a53f59e61`. Protocol69 and historical replay
 formats remain unchanged.
 
