@@ -26,6 +26,10 @@ namespace MphRead.Mods.Network
         private Task<ServerStatus>? _probe;
         private double _lastResponsiveAt;
         private bool _everResponsive;
+        private double _cpuSampleAt = -1;
+        private double _cpuSampleSeconds;
+        public double CpuCoreUsage { get; private set; }
+        public bool HasCpuSample { get; private set; }
         private const double ProbeIntervalSeconds = 5.0;
         private const double UnresponsiveSeconds = 20.0;
 
@@ -47,6 +51,29 @@ namespace MphRead.Mods.Network
                 try { return !_process.HasExited; }
                 catch (InvalidOperationException) { return false; }
             }
+        }
+
+        /// <summary>
+        /// Approximate CPU cores consumed during the previous poll interval.
+        /// Never use a startup zero as spare capacity for another child.
+        /// Only the parent HostPool owner thread calls this method.
+        /// </summary>
+        internal void SampleCpu(double now)
+        {
+            if (!Running) { HasCpuSample = false; return; }
+            try
+            {
+                double cpuSeconds = _process.TotalProcessorTime.TotalSeconds;
+                if (_cpuSampleAt >= 0 && now - _cpuSampleAt >= .25)
+                {
+                    CpuCoreUsage = Math.Max(0, (cpuSeconds - _cpuSampleSeconds) / (now - _cpuSampleAt));
+                    HasCpuSample = true;
+                }
+                _cpuSampleAt = now;
+                _cpuSampleSeconds = cpuSeconds;
+            }
+            catch (InvalidOperationException) { HasCpuSample = false; }
+            catch (System.ComponentModel.Win32Exception) { HasCpuSample = false; }
         }
 
         /// <summary>
