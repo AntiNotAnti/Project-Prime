@@ -33,7 +33,7 @@ catch-up. It checks exact source identity, cost and ammo type, rejects partial o
 conflicting emission, and restores its prior value on exit. It does not publish
 an earlier certificate, journal entry, shot acceptance or payment.
 
-Native eligibility is limited to distinct living human bipeds in ordinary Battle
+Native eligibility requires both live and historical biped form for distinct living humans in ordinary Battle
 or Battle Teams, with complete matching lifecycle, pre-damage frame, team and
 susceptibility facts. Status, Enhanced, Balanced, special lethal rules, bots,
 alt/transitional bodies, self damage, unsupported effects and missing evidence
@@ -50,9 +50,11 @@ existing arbitration tests separately cover cross-shooter trade behavior.
 
 Storage is fixed at 1,024 rows per shooter, allocated only when observed, and
 never silently recycled across room/session cleanup. Overflow and missing joins
-are incomplete evidence. Later native head corrections are marked and excluded
+are incomplete evidence. Observations made before a later native head correction are marked and excluded
 from the initial certified subset, with an explicit denominator. They cannot
-silently preserve an earlier successful comparison.
+silently preserve an earlier successful comparison. An already-completed corrected
+outcome can subsequently be observed as an exact paid duplicate; it predicts no
+new damage.
 
 Export records include the source certificate facts, original emitted segment,
 pre-damage gates/profile, actual native witness, decision, committed outcome and
@@ -61,6 +63,11 @@ requires positive activity, and fails closed on contradictions, missing fields o
 incomplete joins. It does not independently recreate the engine's entire source
 history or collision world. A physics/legal-hit denominator and an early-claim
 settlement certificate are not inferred from this audit.
+
+The current-alt-after-history control retains an actual biped snapshot, changes
+the live player to alt form before the accepted native drain, and requires verified
+source/geometry, real native payment, and fast-path fallback. Rewound collision
+form cannot hide an unsupported current actor state.
 
 Acceptance is in progress. Raw runs, failed attempts and source/binary manifests
 are retained under `artifacts/ncx/NCX-03/`. No family is promoted to early claim
