@@ -179,13 +179,15 @@ namespace MphRead.Entities
             {
                 DrawScanModels();
             }
-            bool customDeathVisible = !drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(
-                _cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime);
+            bool classicHeadDeathVisible = !drawAlive && ModClassicHeadDeathVisible;
+            bool customDeathVisible = !drawAlive && (classicHeadDeathVisible
+                || Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime));
             if (customDeathVisible)
             {
-                drawPosition = _cosmeticDeath.Position;
-                drawFacing = _cosmeticDeath.Facing;
-                drawAltForm = _cosmeticDeath.WasAltForm;
+                if (classicHeadDeathVisible && _scene.ModHeadDeathAnchor(this, out var deathPosition, out var deathFacing))
+                { drawPosition = deathPosition; drawFacing = deathFacing; drawAltForm = false; }
+                else
+                { drawPosition = _cosmeticDeath.Position; drawFacing = _cosmeticDeath.Facing; drawAltForm = _cosmeticDeath.WasAltForm; }
             }
             if (Flags2.TestFlag(PlayerFlags2.HideModel) && !forceNetworkVisibility && !customDeathVisible)
             {
@@ -729,7 +731,7 @@ namespace MphRead.Entities
         }
 
         private bool TryDrawModernCharacter(ModelInstance inst, CharacterModelPart part, float alpha,
-            int lod = 0, int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null)
+            int lod = 0, int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false)
         {
             if (alpha <= 0) return true;
             Model model = inst.Model;
@@ -772,7 +774,7 @@ namespace MphRead.Entities
                                 CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
                                 _ => Mods.Cosmetics.SkinContext.Biped
                             });
-                    _scene.CosmeticSubmission = CosmeticMaterial(
+                    if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(
                         part == CharacterModelPart.ViewModel);
                     if (authoredTexture && _scene.CosmeticMaterialSubmission == default
                         && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
@@ -831,7 +833,7 @@ namespace MphRead.Entities
                             CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
                             _ => Mods.Cosmetics.SkinContext.Biped
                         });
-                _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
+                if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
                 if (authoredTexture && _scene.CosmeticMaterialSubmission == default
                     && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
                     _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,

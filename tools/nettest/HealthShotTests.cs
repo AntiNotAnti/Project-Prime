@@ -97,6 +97,9 @@ namespace MphRead.NetTest
             typeof(EntityBase).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, _scene);
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.SlotIndex))!.SetValue(player, slot);
             player.Health = health;
+            // This fixture bypasses field initializers. Match the native idle
+            // slide voice sentinel before replication can reset traversal.
+            Field(player, "_modTraversalSlideSfx", -1);
             Field(player, "<EnhancedState>k__BackingField", new MphRead.Mods.EnhancedHunters.EnhancedHunterState());
             Field(player, "<Controls>k__BackingField", PlayerControls.GetDefault());
             Field(player, "<EquipInfo>k__BackingField", new EquipInfo());
