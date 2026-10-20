@@ -604,3 +604,19 @@ interval, excluding later receipt generation, percentile sorting, JSON and scene
 cleanup. `managedBytes`/`workingSetBytes` remain post-run observations, not peak
 residency. A callback interval includes the harness's post-Present bookkeeping;
 the profiler's raw capture timestamps the actual swap-return boundary separately.
+
+### Frozen pose input and native focus controls
+
+Pose readback mode observes OS focus separately from its synthetic keyboard/mouse
+owner. Native focus callbacks do not latch that synthetic device off; ordinary
+native timing, resource and lifecycle modes retain the production focus path.
+OS focus and physical input acceptance remain NOT_CLAIMED. Required charge fire
+and release are checked at consumption, so missing input fails before pixel
+qualification; PowerBeam/tick420 and all positive pixel/canonical gates remain.
+
+`-pose-focus-control isolated` injects a labelled loss/gain callback at tick245.
+Compare its exact canonical timeline with `none` on the same frozen binary.
+`legacy` explicitly routes that injection through the old production hardware
+path to reproduce suppression. It cannot complete/qualify normal pose acceptance.
+All three values require `-posecheck`; these are diagnostic controls, not player
+settings or hardware latency tests.
