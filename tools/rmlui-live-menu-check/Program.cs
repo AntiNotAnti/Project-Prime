@@ -286,7 +286,7 @@ Check(!traversalEditor.Validate(out _) && traversalEditor.Draft.Match.MovementMo
     "Balanced conflict preserves Traversal selection");
 Check(MovementModelRules.TryParse("Traversal", out var traversalParsed) && traversalParsed == MovementModel.Traversal
     && MovementModelRules.FromRules(MatchModifierFlags.TraversalMovement) == MovementModel.Traversal
-    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 3
+    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 4
     && new MatchDefinition().MovementModel == MovementModel.Native,
     "Traversal model maps its fixed profile without changing Classic default");
 foreach (var conflicting in new[] { MatchModifierFlags.MomentumMovement, MatchModifierFlags.Quake3Movement })
@@ -1182,6 +1182,7 @@ SocialConnectionAcceptance.Run();
 PartyQueueAcceptance.Run();
 RandomMatchAcceptance.Run();
 CreatedLobbyCompletionAcceptance.Run();
+OfflineArenaInstallChecks.Run();
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 
 sealed class Stub : IRmlUiMenuServices

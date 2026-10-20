@@ -467,7 +467,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68/69/70/71/72/73/74 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64/65/66/67/68/69/70/71/72/73/74/75 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -475,7 +475,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75)
                 status = Read(src);
             else
             {
@@ -2615,8 +2615,10 @@ namespace MphRead.Mods.Network
         // Protocol 72 appends explicit ownership absence to private custom state90.
         // Native payloads, public replicas and protocol71 movement policy are unchanged.
         // Protocol73 carries private acquisition knowledge separately from canonical/public Actions.
-        // Protocol74 adds public custom pickup state/application acknowledgements at97/98.
-        public const int ProtocolVersion = 74;
+        // Protocol74 selects Traversal profile v4: longer, lower-friction slides.
+        // Quake3 v3 and protocol72 ownership/protocol73 acquisition knowledge boundaries are unchanged.
+        // Protocol75 adds public custom pickup state/application acknowledgements at97/98.
+        public const int ProtocolVersion = 75;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

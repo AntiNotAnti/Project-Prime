@@ -15,7 +15,7 @@ public partial class PlayerEntity
     internal void ModApplyCrouchPose(Model model, Matrix4 world)
         => ModApplyCrouchVisualPose(model, world, ModCrouched ? 1 : 0);
 
-    private void ModApplyCrouchVisualPose(Model model, Matrix4 world, float amount)
+    private void ModApplyCrouchVisualPose(Model model, Matrix4 world, float amount, bool walkingGait = false)
     {
         amount = Math.Clamp(amount, 0, 1);
         if (amount <= 0) return;
@@ -39,8 +39,21 @@ public partial class PlayerEntity
         Vector3 forward = -world.Row2.Xyz.WithY(0);
         if (forward.LengthSquared < 1e-8f) forward = Vector3.UnitZ;
         else forward.Normalize();
-        var left = Leg(model, skeleton.Left, drop, forward);
-        var right = Leg(model, skeleton.Right, drop, forward);
+        Vector3 FootTarget(int[] bones, Vector3 neutral)
+        {
+            Vector3 ankle = model.Nodes[bones[2]].Animation.Row3.Xyz;
+            if (!walkingGait) return ankle;
+            neutral = Matrix.Vec3MultMtx4(neutral, world);
+            // Retain each Hunter's own stance width. Shorten the animated
+            // excursion around it, and lower only the airborne foot lift.
+            float stride = 1 + (Mods.Movement.TraversalGaitPresentation.StrideScale - 1) * amount;
+            float lift = 1 + (Mods.Movement.TraversalGaitPresentation.SwingLiftScale - 1) * amount;
+            return new(neutral.X + (ankle.X - neutral.X) * stride,
+                ankle.Y <= neutral.Y ? ankle.Y : neutral.Y + (ankle.Y - neutral.Y) * lift,
+                neutral.Z + (ankle.Z - neutral.Z) * stride);
+        }
+        var left = Leg(model, skeleton.Left, drop, forward, FootTarget(skeleton.Left, skeleton.LeftFoot));
+        var right = Leg(model, skeleton.Right, drop, forward, FootTarget(skeleton.Right, skeleton.RightFoot));
         for (int index = 0; index < model.Nodes.Count; index++)
         {
             Node node = model.Nodes[index];
@@ -51,12 +64,14 @@ public partial class PlayerEntity
             else if (group == 2) pose *= left.Knee;
             else if (group == 4) pose *= right.Hip;
             else if (group == 5) pose *= right.Knee;
-            // Ankle/foot descendants (groups 3/6) retain their native pose.
+            else if (group == 3 && walkingGait) pose *= left.Foot;
+            else if (group == 6 && walkingGait) pose *= right.Foot;
             node.Animation = pose;
         }
     }
 
-    private static (Matrix4 Hip, Matrix4 Knee) Leg(Model model, int[] bones, float drop, Vector3 forward)
+    private static (Matrix4 Hip, Matrix4 Knee, Matrix4 Foot) Leg(Model model, int[] bones, float drop,
+        Vector3 forward, Vector3 targetAnkle)
     {
         Vector3 hip = model.Nodes[bones[0]].Animation.Row3.Xyz;
         Vector3 knee = model.Nodes[bones[1]].Animation.Row3.Xyz;
@@ -72,9 +87,10 @@ public partial class PlayerEntity
             if (animatedPole.LengthSquared > 1e-6f && Vector3.Dot(animatedPole, forward) > 0)
                 forward = (forward * .8f + animatedPole.Normalized() * .2f).Normalized();
         }
-        Vector3 target = ModCrouchKnee(lowered, ankle, (knee - hip).Length, (ankle - knee).Length, forward);
+        Vector3 target = ModCrouchKnee(lowered, targetAnkle, (knee - hip).Length, (ankle - knee).Length, forward);
         return (MoveBone(hip, lowered, knee - hip, target - lowered),
-            MoveBone(knee, target, ankle - knee, ankle - target));
+            MoveBone(knee, target, ankle - knee, targetAnkle - target),
+            Matrix4.CreateTranslation(targetAnkle - ankle));
     }
 
     internal static Vector3 ModCrouchKnee(Vector3 hip, Vector3 ankle, float thigh, float shin, Vector3 forward)
@@ -122,6 +138,7 @@ public partial class PlayerEntity
     private sealed class CrouchSkeleton
     {
         internal readonly int[] Left, Right, Groups;
+        internal readonly Vector3 LeftFoot, RightFoot;
         internal readonly bool Valid;
         internal CrouchSkeleton(Model model)
         {
@@ -133,9 +150,28 @@ public partial class PlayerEntity
             }
             Left = new[] { Find("L_hip"), Find("L_knee"), Find("L_ankle") };
             Right = new[] { Find("R_hip"), Find("R_knee"), Find("R_ankle") };
-            Valid = Array.TrueForAll(Left, index => index >= 0) && Array.TrueForAll(Right, index => index >= 0);
+            Valid = Array.TrueForAll(Left, index => index >= 0) && Array.TrueForAll(Right, index => index >= 0)
+                && model.AnimationGroups.Node.Count > (int)PlayerAnimation.Idle
+                && model.AnimationGroups.Node[(int)PlayerAnimation.Idle].Count > 0;
             Groups = new int[model.Nodes.Count];
             if (!Valid) return;
+            // Read neutral feet once from the native idle clip, restoring all
+            // shared scratch nodes before the current pose continues. Never
+            // derive a neutral anchor from an arbitrary first walking frame.
+            var saved = new Matrix4[model.Nodes.Count];
+            for (int index = 0; index < saved.Length; index++) saved[index] = model.Nodes[index].Animation;
+            try
+            {
+                var idle = new AnimationInfo();
+                idle.Node.Group = model.AnimationGroups.Node[(int)PlayerAnimation.Idle];
+                model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, idle);
+                LeftFoot = model.Nodes[Left[2]].Animation.Row3.Xyz;
+                RightFoot = model.Nodes[Right[2]].Animation.Row3.Xyz;
+            }
+            finally
+            {
+                for (int index = 0; index < saved.Length; index++) model.Nodes[index].Animation = saved[index];
+            }
             for (int index = 0; index < Groups.Length; index++)
                 for (int ancestor = index; ancestor >= 0; ancestor = model.Nodes[ancestor].ParentIndex)
                 {

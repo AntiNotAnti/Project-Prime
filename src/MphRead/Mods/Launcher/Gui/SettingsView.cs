@@ -307,6 +307,9 @@ namespace MphRead.Mods.Launcher.Gui
             _inGame = inGame;
             _players = players;
             DetachedFromVisualTree += (_, _) => CancelOutlineColorPreview();
+#if ANDROID
+            DetachedFromVisualTree += (_, _) => RetireSourceWork();
+#endif
 
             Background = Brushes.Transparent;
             Focusable = true;
@@ -559,6 +562,9 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+#if ANDROID
+            ResumeSourceWork();
+#endif
             Dispatcher.UIThread.Post(() =>
             {
                 if (_shell && _categoryTabs.Count > 0)
@@ -595,6 +601,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void Close()
         {
+#if ANDROID
+            CloseSourceWork();
+#endif
             if (_shell) { Closed?.Invoke(this, EventArgs.Empty); return; }
             if (!Saved)
             {
@@ -2739,6 +2748,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
 #endif
 
+#if ANDROID
+            BuildAndroidSourceImports(page);
+#endif
             BuildDebugLogs(page);
 
             // Nothing behind it yet, and the row says so when pressed rather

@@ -41,13 +41,14 @@ source admission. Canonical age, pose, aim, resource, geometry and payment check
 remain mandatory. Already accepted emissions and terminal result identities are
 not relabelled when knowledge changes or the shooter respawns.
 
-Live protocol74 adds public item-state97 and application-ACK98. The134-byte state
+Live protocol75 adds public item-state97 and application-ACK98. The134-byte state
 contains the recipient's exact bootstrap/manifest, layout digest, bounded item
 index/count, authority world, publication serial, spawn/incarnation, ready world,
 availability and ledger revision. The138-byte ACK repeats the recipient/world,
 index/serial and exact SHA256 payload digest. Neither message contains owner
 resources or private knowledge. Native enums, packets and archive bodies remain
-unchanged; historical73 remains readable and movement-v3 still starts at71.
+unchanged; historical73/74 remain readable. Traversal-v4 still starts at74
+and Quake3-v3 at71.
 
 Each recipient mailbox retains one immutable outstanding fact per authored item,
 bounded by64 items. An unsent, wrong-scope, wrong-serial or wrong-digest ACK cannot

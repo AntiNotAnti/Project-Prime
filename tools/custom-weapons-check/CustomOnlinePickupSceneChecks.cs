@@ -278,16 +278,52 @@ internal static class CustomOnlinePickupSceneChecks
             // author later controls against fresh consumed sources.
             var current=Volatile.Read(ref observed)!;uint echoed=SendInput(first,current.Body,walk,granted.Knowledge);
             Fresh(second);AwaitSource(echoed,"actual UDP input echoes received private funding knowledge");
+            CustomReceiptMessage Control(uint sequence,CustomWeaponActionKind kind,byte optic=0,bool shoot=false,uint? ackOverride=null)
+            {
+                var request=new CustomControlRequest(ready.Bootstrap,ready.Manifest,ready.Slot,granted.State.Owner.Life,new(10),sequence,kind,optic,granted.Knowledge);
+                var position=(Vector3)Get(Actor(first),"Position");var target=(Vector3)Get(Actor(second),"Position");
+                var aim=(target+Vector3.UnitY*.2f-position-Vector3.UnitY*.4f).Normalized();
+                if(ackOverride is {} ack)
+                {
+                    uint authority=(uint)Get(Get(fixture,"Latest"),"World");int age=unchecked((int)(authority-ack));
+                    Console.WriteLine($"ONLINE PICKUP ACK FLOOR world={authority} grant={granted.GrantWorld} ack={ack} age={age} budget={CustomSourceActionJournal.MaxWorldAge}");
+                    Check(unchecked((int)(ack-ready.Bootstrap.AuthorityFrame))>=0&&age>=0&&age<=CustomSourceActionJournal.MaxWorldAge,
+                        "backdated target remains within native bootstrap and64-world age budget at actual send");
+                }
+                uint source=SendInput(first,position,aim,granted.Knowledge,request,shoot,ackOverride);Fresh(second);AwaitSource(source,"fresh knowledge-stamped control source "+sequence);
+                Wait(()=>((System.Collections.IDictionary)Get(a,"Receipts")).Contains(sequence),"actual UDP canonical control receipt "+sequence);
+                var receipt=(CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[sequence]!;
+                Call(a,"AckReceipt",sequence);return receipt;
+            }
+            // Exercise the ownership floor before receipt retries/private-state
+            // delivery spend the older ACK's finite native history budget.
+            Check(granted.GrantWorld>ready.Bootstrap.AuthorityFrame,
+                "actual grant has a preceding native-bootstrap-valid target ACK");
+            var beforeBackdate=Volatile.Read(ref observed)!;
+            var backdated=Control(1,CustomWeaponActionKind.Fire,shoot:true,ackOverride:granted.GrantWorld-1);
+            MaintainUntil(()=>State(a) is {SettledSequence:1,State.Magazine:4,State.Reserve:16},
+                "private state settles pre-grant Fire1 refusal while inventory remains unequipped and unspent");
+            var afterBackdate=Volatile.Read(ref observed)!;
+            Check(backdated.Receipt.Disposition==CustomJournalDisposition.SourceDenied
+                &&backdated.Receipt.Result!=WeaponActionResult.Accepted&&backdated.Receipt.Source==null
+                &&backdated.Receipt.Emission==CustomEmissionDisposition.NotAttempted&&backdated.Knowledge==granted.Knowledge
+                &&backdated.Receipt.Action.AckFrame==granted.GrantWorld-1
+                &&State(a) is {Selected.IsValid:false,State.Phase:CustomWeaponPhase.Unequipped}
+                &&afterBackdate.Health==beforeBackdate.Health&&afterBackdate.OtherHealth==beforeBackdate.OtherHealth
+                &&afterBackdate.Damage==beforeBackdate.Damage&&afterBackdate.OtherDamage==beforeBackdate.OtherDamage
+                &&afterBackdate.Emissions==0&&afterBackdate.Payments==0&&afterBackdate.Contacts==0
+                &&!((System.Collections.IDictionary)Get(a,"Contacts")).Contains(1u),
+                "current knowledge with a young pre-grant ACK yields SourceDenied before resource/certificate/emission effects");
             var beforeWrongStamp=Volatile.Read(ref observed)!;
             var wrongStampRequest=new CustomControlRequest(ready.Bootstrap,ready.Manifest,ready.Slot,granted.State.Owner.Life,
-                new(10),1,CustomWeaponActionKind.Equip,0,default);
+                new(10),2,CustomWeaponActionKind.Equip,0,default);
             uint wrongStampSource=SendInput(first,beforeWrongStamp.Body,walk,granted.Knowledge,wrongStampRequest);
-            Fresh(second);AwaitSource(wrongStampSource,"fresh actual input retains A while accompanying Equip1 deliberately retains empty request knowledge");
-            MaintainUntil(()=>((System.Collections.IDictionary)Get(a,"Receipts")).Contains(1u),
+            Fresh(second);AwaitSource(wrongStampSource,"fresh actual input retains A while accompanying Equip2 deliberately retains empty request knowledge");
+            MaintainUntil(()=>((System.Collections.IDictionary)Get(a,"Receipts")).Contains(2u),
                 "actual authority returns terminal receipt for mismatched private request knowledge");
-            var deniedStamp=(CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[1u]!;
-            MaintainUntil(()=>State(a) is {SettledSequence:1,State.Magazine:4,State.Reserve:16},
-                "canonical private projection settles denied nonce1 without an ammo mutation");
+            var deniedStamp=(CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[2u]!;
+            MaintainUntil(()=>State(a) is {SettledSequence:2,State.Magazine:4,State.Reserve:16},
+                "canonical private projection settles denied nonce2 without an ammo mutation");
             var afterWrongStamp=Volatile.Read(ref observed)!;
             Check(deniedStamp.Receipt.Disposition==CustomJournalDisposition.SourceDenied
                 &&deniedStamp.Receipt.Result!=WeaponActionResult.Accepted
@@ -302,22 +338,12 @@ internal static class CustomOnlinePickupSceneChecks
             Send(first,PacketType.CustomWeaponControl,exactRequestBytes);
             MaintainUntil(()=>(int)Get(a,"ReceiptPackets")>retryBefore,
                 "exact original empty-stamped reliable request traverses UDP and recovers its immutable terminal receipt");
-            Check((CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[1u]! == deniedStamp
+            Check((CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[2u]! == deniedStamp
                 &&Volatile.Read(ref observed) is {Emissions:0,Payments:0,Contacts:0}
-                &&State(a) is {SettledSequence:1,State.Magazine:4,State.Reserve:16},
+                &&State(a) is {SettledSequence:2,State.Magazine:4,State.Reserve:16},
                 "denied request retry retains full stamp/token/verdict and cannot equip or repay");
-            Call(a,"AckReceipt",1u);
-            CustomReceiptMessage Control(uint sequence,CustomWeaponActionKind kind,byte optic=0,bool shoot=false,uint? ackOverride=null)
-            {
-                var request=new CustomControlRequest(ready.Bootstrap,ready.Manifest,ready.Slot,granted.State.Owner.Life,new(10),sequence,kind,optic,granted.Knowledge);
-                var position=(Vector3)Get(Actor(first),"Position");var target=(Vector3)Get(Actor(second),"Position");
-                var aim=(target+Vector3.UnitY*.2f-position-Vector3.UnitY*.4f).Normalized();
-                uint source=SendInput(first,position,aim,granted.Knowledge,request,shoot,ackOverride);Fresh(second);AwaitSource(source,"fresh knowledge-stamped control source "+sequence);
-                Wait(()=>((System.Collections.IDictionary)Get(a,"Receipts")).Contains(sequence),"actual UDP canonical control receipt "+sequence);
-                var receipt=(CustomReceiptMessage)((System.Collections.IDictionary)Get(a,"Receipts"))[sequence]!;
-                Call(a,"AckReceipt",sequence);return receipt;
-            }
-            var equip=Control(2,CustomWeaponActionKind.Equip);
+            Call(a,"AckReceipt",2u);
+            var equip=Control(3,CustomWeaponActionKind.Equip);
             Check(equip.Receipt.Result==WeaponActionResult.Accepted&&equip.Knowledge==granted.Knowledge,
                 "actual received acquisition stamp admits a fresh Equip through the ordinary control/source path");
             Mutate(ownerScene=>
@@ -332,13 +358,13 @@ internal static class CustomOnlinePickupSceneChecks
                 if(!clear)throw new InvalidOperationException("Authored pickup approach has no actual clear three-unit shot lane.");
             },"explicit native target-lane setup after real acquisition runs on simulation owner");
             Fresh(second);
-            var optic=Control(3,CustomWeaponActionKind.Optic,1);
+            var optic=Control(4,CustomWeaponActionKind.Optic,1);
             Check(optic.Receipt.Result==WeaponActionResult.Accepted&&optic.Knowledge==granted.Knowledge,
                 "actual knowledge-stamped source admits optic without additional ownership funding");
-            var fire=Control(4,CustomWeaponActionKind.Fire,1,shoot:true);
-            Wait(()=>((System.Collections.IDictionary)Get(a,"Contacts")).Contains(4u)
+            var fire=Control(5,CustomWeaponActionKind.Fire,1,shoot:true);
+            Wait(()=>((System.Collections.IDictionary)Get(a,"Contacts")).Contains(5u)
                 &&Volatile.Read(ref observed) is {Payments:1,Contacts:1},"fresh received-knowledge fire pays through canonical authority contact");
-            var contact=(CustomContactMessage)((System.Collections.IDictionary)Get(a,"Contacts"))[4u]!;
+            var contact=(CustomContactMessage)((System.Collections.IDictionary)Get(a,"Contacts"))[5u]!;
             void FinalDiagnostic(string phase)
             {
                 var value=Volatile.Read(ref observed)!;var projected=State(a);
@@ -359,23 +385,7 @@ internal static class CustomOnlinePickupSceneChecks
                 "real pickup-funded M7 fires once, removes canonical65 HP and spends one round without a fabricated certificate");
             Check(final.Revision==1&&final.NativeAccepted==before.NativeAccepted&&final.NativeFired==before.NativeFired,
                 "later custom fire neither recollects the station nor allocates a native fire-event identity");
-            Call(a,"AckContact",4u);
-            Check(granted.GrantWorld>ready.Bootstrap.AuthorityFrame,
-                "actual grant world has a preceding native-bootstrap-valid ACK for the backdating rejection fixture");
-            var beforeBackdate=Volatile.Read(ref observed)!;
-            var backdated=Control(5,CustomWeaponActionKind.Fire,1,shoot:true,ackOverride:granted.GrantWorld-1);
-            MaintainUntil(()=>State(a) is {SettledSequence:5,State.Magazine:3,State.Reserve:16},
-                "actual private state settles Fire5 refusal without a second debit");
-            var afterBackdate=Volatile.Read(ref observed)!;
-            Check(backdated.Receipt.Disposition==CustomJournalDisposition.SourceDenied
-                &&backdated.Receipt.Result!=WeaponActionResult.Accepted
-                &&backdated.Receipt.Emission==CustomEmissionDisposition.NotAttempted&&backdated.Knowledge==granted.Knowledge
-                &&backdated.Receipt.Action.AckFrame==granted.GrantWorld-1
-                &&afterBackdate.Health==beforeBackdate.Health&&afterBackdate.OtherHealth==beforeBackdate.OtherHealth
-                &&afterBackdate.Damage==beforeBackdate.Damage&&afterBackdate.OtherDamage==beforeBackdate.OtherDamage
-                &&afterBackdate.Emissions==1&&afterBackdate.Payments==1&&afterBackdate.Contacts==1
-                &&!((System.Collections.IDictionary)Get(a,"Contacts")).Contains(5u),
-                "valid current knowledge cannot authorize a pre-grant target world or cause another shot/payment/HP removal");
+            Call(a,"AckContact",5u);
             Console.WriteLine($"PASS {checks} actual online pickup checks.");
             Console.WriteLine("SCOPE: real two-peer UDP, DedicatedServer and ServerSim public empty lives, authored stock item contact, private grant, item-ACK withholding/retries/recovery and knowledge-stamped control. Reflection, manual native loading ACKs, initial native floor/actor setup, authored positional inputs, wrong ACK injection and exact retained ACK replay are explicit fixtures. No custom Grant, funding callback, certificate, private state or source observation is injected.");
             return 0;

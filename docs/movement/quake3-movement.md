@@ -14,7 +14,7 @@ retains the saved practice preference for later. Momentum and Quake III require
 Native Hunter abilities and cannot combine with Balanced or Enhanced Hunters.
 
 For a standalone server, use `-server -movement Quake3`. All players and the
-server need the new build: live protocol 71 requires an exact protocol match.
+server need the new build: live protocol 74 requires an exact protocol match.
 Return to Classic before the next match to roll back the movement choice.
 
 ## Technique and fixed profile
@@ -86,7 +86,7 @@ movement code or new dependency is imported.
 
 ## Network and recordings
 
-Quake III is a distinct movement model (`Quake3`, enum 2), currently profile version 2.
+Quake III is a distinct movement model (`Quake3`, enum 2), currently profile version 3.
 Protocol 60 assigned it modifier bit 16 and widened the MatchState rule field to
 32 bits. Protocol 62 selects profile v2's held hops and missile impulses without
 changing packet sizes or movement bits. All live participants must update. Classic remains enum 0 and Momentum remains enum 1 with the original

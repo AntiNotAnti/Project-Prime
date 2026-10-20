@@ -177,6 +177,7 @@ namespace MphRead.Entities
                 return false;
             }
 
+            gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
             Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
                 gunLocalPosition, renderRight, renderUp, renderForward);
             Vector3 gunFacing = ModFromPresentationLocal(
@@ -764,6 +765,7 @@ namespace MphRead.Entities
                 return false;
             }
 
+            gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
             Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
                 gunLocalPosition, renderRight, renderUp, renderForward);
             Vector3 gunFacing = ModFromPresentationLocal(

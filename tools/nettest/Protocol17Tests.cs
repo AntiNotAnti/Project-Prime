@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 74, "current protocol train is 74");
+            Check(NetConfig.ProtocolVersion == 75, "current protocol train is 75");
             var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
             var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
             var decodedRefusal=RefusedPacket.Read(refusalBytes);
@@ -72,14 +72,14 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 74 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol74 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73 })
+            Check(bytes[3] == 75 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol75 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73,74 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
             }
-            bytes[3] = 75;
-            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future75 live envelope rejected");
+            bytes[3] = 76;
+            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future76 live envelope rejected");
             Check(SplitSnapshotBudgets(), "eight-player canonical state and actual split live/bootstrap lanes remain bounded");
             using var server = new NetTransport(0);
             using var client = new NetTransport(0);

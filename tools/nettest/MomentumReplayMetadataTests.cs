@@ -68,10 +68,10 @@ internal static class MomentumReplayMetadataTests
             && Metadata(69, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 2,
             "protocol69 Traversal metadata selects accepted-stance profile v2");
         foreach (MovementModel model in new[] { MovementModel.Quake3, MovementModel.Traversal })
-        foreach (byte protocol in new byte[] { 70, 71, 72, 73, 74 })
+        foreach (byte protocol in new byte[] { 70, 71, 72, 73, 74, 75 })
         foreach (byte[][] packets in new[] { new[] { Match(model) }, new[] { Session(model) }, new[] { Match(model), Session(model) } })
         {
-            int expectedProfile = protocol == 70 ? 2 : 3;
+            int expectedProfile = protocol == 70 ? 2 : model == MovementModel.Traversal && protocol >= 74 ? 4 : 3;
             var metadata = Metadata(protocol, packets);
             Check(metadata.RecordedMovementModel == model && metadata.RecordedMovementProfileVersion == expectedProfile,
                 $"recorded {model} protocol{protocol} bootstrap selects immutable profile{expectedProfile}");
@@ -81,7 +81,7 @@ internal static class MomentumReplayMetadataTests
             Check(cached.ToRecording("unused.ppdemo").Metadata!.RecordedMovementProfileVersion == expectedProfile,
                 $"cached {model} protocol{protocol} attribution retains profile{expectedProfile} without synthesizing gameplay");
         }
-        foreach (byte protocol in new byte[] { 60, 61, 62, 69, 70, 71, 72, 73, 74 })
+        foreach (byte protocol in new byte[] { 60, 61, 62, 69, 70, 71, 72, 73, 74, 75 })
             Check(Metadata(protocol, Match(MovementModel.Quake3)).RecordedMovementProfileVersion
                 == (protocol >= 71 ? 3 : protocol >= 62 ? 2 : 1),
                 "Quake III historical profile boundaries are selected by the recorded protocol");

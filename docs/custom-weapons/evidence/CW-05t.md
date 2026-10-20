@@ -1,11 +1,17 @@
 # CW-05t evidence — authoritative online pickups
 
-Base SHA: `790f8e1283694a5a243ce6bae68180af7d69e076` (latest fetched main).
+Base SHA: `4b9b3fd4364c29cf5c25f5a6f1d7b491b1a5bd22` (integrated main).
+The original slice commit `6ea832b0a9b6224d34099019520649bacfc2688c`
+was integrated with concurrent movement/Android/offline-arena changes. The
+protocol74 collision with movement PR864 was resolved by assigning pickup
+synchronization75 and preserving Traversal v4 at its historical74 threshold.
+All results below were rerun on the integrated source; preliminary evidence
+and failed diagnostic logs remain separately named in the artifact directory.
 Head SHA: completed-slice commit containing this file.
 [Implementation and boundaries](../05t-online-pickups.md).
 Scope: scene-owned online world/contact/funding, private acquisition admission,
 public item state/application ACKs, pickup rendering/selection and real public
-combat fixture migration. Live protocol74; native item/weapon IDs unchanged.
+combat fixture migration. Live protocol75; native item/weapon IDs unchanged.
 
 Command/environment: .NET10.0.401, macOS arm64, DOTNET_PROCESSOR_COUNT=2,
 UseSharedCompilation=false. Desktop `dotnet build src/MphRead/MphRead.csproj
@@ -13,20 +19,20 @@ UseSharedCompilation=false. Desktop `dotnet build src/MphRead/MphRead.csproj
 process has isolated PROJECT_PRIME_USER_DATA and paths.txt. Main sources were
 frozen through final desktop, Android and isolated server compilers. Final game
 SHA256, also checked against every tool copy:
-`2cb227ff4d183e0fed307205bb414286365d66a65cf942e1ee65c30b9948d616`.
+`2e1202b536450e5737a8be32b5b40cfe854597421ca72f901b7591025a6a91e0`.
 
 | Acceptance | Actual result |
 | --- | --- |
-| Desktop Release | PASS94.172s,1 warning,0 errors |
-| Isolated headless-server Release | PASS90.249s,1 warning,0 errors; desktop DLL unchanged |
-| Android experimental/default Debug | PASS125.246s/103.366s,27/26 warnings,0 errors |
+| Desktop Release | PASS114.822s,1 warning,0 errors |
+| Isolated headless-server Release | PASS115.523s,1 warning,0 errors; desktop DLL unchanged |
+| Android experimental/default Debug | PASS150.162s/140.592s,27/26 warnings,0 errors |
 | Custom build/test batch |22/22 PASS |
-| Pure custom contracts |18,446 PASS, including1,545 public-item codec/delivery checks |
-| Dedicated two-UDP pickup/grant/fire/ACK-loss fixture |21 checks plus strict waits PASS |
-| Full public availability UDP suite |926 configuration/client,8,320 action,4,167 control checks PASS |
-| Network/native archive/party regression batch |19/19 build/test commands PASS |
+| Pure custom contracts |18,465 PASS, including1,545 public-item codec/delivery checks |
+| Dedicated two-UDP pickup/grant/fire/ACK-loss fixture |22 checks plus strict waits PASS |
+| Full public availability UDP suite |916 configuration/client,8,276 action,4,160 control checks PASS;203.216s |
+| Network/native archive/party regression batch |22/22 build/test commands PASS, including Traversal v4 and full public UDP |
 | Independent developer action/control/input UDP |1,548/1,063/711 checks PASS |
-| Shared pickup fallback actual OpenGL |79 checks PASS,12.634s; before/after pictures inspected |
+| Shared pickup fallback actual OpenGL |79 checks PASS,3.507s; before/after pictures inspected |
 | Native registry/MP/1P tuning tables |PASS, all78 original names and exact stored tuning unchanged |
 | Native fidelity |Known46/47, raw exit1; same baseline discrepancy |
 
@@ -50,13 +56,18 @@ produces at least two identical retries. A changed digest and another recipient'
 actual ACK cannot open the execution barrier; replaying the exact durably
 consumed ACK recovers it without another grant or HP/ammo change.
 
-Fresh input with stampA plus a deliberately empty-stamped Equip request produces
+Immediately after ACK recovery, Fire1 with current knowledge and an otherwise
+valid pre-grant target ACK is explicitly checked against native bootstrap and
+64-world age bounds at send. It yields SourceDenied before a certificate,
+emission, debit or payment. Placing this negative first keeps it within the
+native age limit; the earlier test ordering expired before custom admission,
+and its failed log is retained.
+
+Fresh input with stampA plus deliberately empty-stamped Equip2 produces
 a terminal SourceDenied receipt with the original empty stamp. Exact request
 retry retains the full immutable verdict/token and cannot equip or spend.
-Subsequent genuinely stamped Equip/Optic/Fire succeeds: one accepted emission,
-one65-HP body payment, magazine3/reserve16, no native shot identity. Fire with an
-otherwise valid original source ACK at grantWorld-1 rejects before another
-emission, debit or payment. Private ammo publication is separately awaited after
+Subsequent genuinely stamped Equip3/Optic4/Fire5 succeeds: one accepted emission,
+one65-HP body payment, magazine3/reserve16, no native shot identity. Private ammo publication is separately awaited after
 the contact/receipt; its quarter-second recovery cadence is not confused with
 canonical damage timing.
 
@@ -75,8 +86,8 @@ baseline visibility, stale/conflicting duplicates, immutable incarnation deadlin
 uint wrap, exact sent-result digest ACKs, capacity/serial exhaustion, retries,
 expiry, late join and64-item bounds.100,000 warmed codec/receive/ACK/lookups
 allocate0B. Source-knowledge foundation/carriage checks remain in the batch.
-Protocol tests add74 while retaining historical73/older native archives and
-refusing old73 live/future75. Movement-v3 remains71. Public values contain no
+Protocol tests add75 while retaining historical74/73/older native archives and
+refusing old74 live/future76. Quake3 v3 remains71 and Traversal v4 remains74. Public values contain no
 owner-resource/private-nonce fields; canonical Actions remain109 bytes.
 
 OpenGL checks exercise the shared original procedural pickup geometry through
@@ -104,9 +115,9 @@ field's compile-time default; Android adds its existing platform/XML warnings.
 
 Artifacts/logs: `artifacts/custom-weapons/CW-05t-online-pickup-world/` contains
 integrated build JSON/logs,05t-custom-results.json,network-results.json,
-public-suite-result.json and its full log,final-corrected-results.json,pickup-gl
-captures/results and separately named preliminary failure logs. Public suite
-timing was not independently measured; no timing/performance claim is made.
+the full public suite network log,final-corrected-results.json,integrated-pickup-gl
+captures/results and separately named preliminary failure logs. The public suite has independently recorded elapsed time; no gameplay
+throughput, achieved Hz or comparative performance claim is made.
 Assets, captures, user data and toolchains remain uncommitted.
 
 CI job URL/status: NOT_WAITED per user instruction; CI is not reported PASS.
@@ -117,7 +128,7 @@ increments generation and starts empty. A future genuine same-life bootstrap
 replacement requires an explicit obligation-preserving transition; no such
 normal production flow currently exists. Custom replay remains blocked until
 CW-12. Final original rifle assets are CW-06; CW-06 throughCW-16 are incomplete.
-Rollback: coordinated protocol74/carriage/contact revert or disable the frozen
+Rollback: coordinated protocol75/carriage/contact revert or disable the frozen
 public availability option for subsequent matches; do not mix live schemas.
 Next dependency gate: original rifle model/audio/animation with fallback and
 cross-platform/rig validation in CW-06; carry device/refresh gates into CW-16.

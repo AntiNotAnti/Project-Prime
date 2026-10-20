@@ -41,12 +41,12 @@ Replay labels come from recorded rule facts, including after cache reload and
 seeking. A current recording whose usable rule facts are missing is labeled
 Unknown, rather than silently described as Classic. Historical archive
 compatibility remains versioned; metadata labels do not enable movement on
-replica bodies. Current peers use protocol 71; older recordings are converted
+replica bodies. Current peers use protocol 74; older recordings are converted
 at the playback boundary while retaining their recorded movement semantics.
-Current Quake III and Traversal recordings select profile v3. Quake III supports
+Current Quake III recordings select profile v3 and Traversal recordings select profile v4. Quake III supports
 held landing hops, circle/strafe-jump chains and self-missile rocket jumps; see the [technique guide](quake3-movement.md).
 Protocol-60/61 Quake III recordings retain profile v1; 62–70 retain v2.
-Traversal protocol 68 recordings retain v1, and 69–70 retain v2. Native payload
+Traversal protocol 68 recordings retain v1, 69–70 retain v2, and 71–73 retain v3. Native payload
 widths and the protocol 69 stance boundary remain unchanged.
 
 Momentum remains an experimental opt-in. The [v1 closeout](pr09-closeout.md)

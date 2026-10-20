@@ -8,14 +8,16 @@ The full plan is **not complete**. Remaining engineering is distinguished
 from device, source, deployment and performance acceptance below.
 
 Work is isolated from the original checkout's unrelated changes in the
-attached `second-hunt-integration` worktree. No protected game payloads,
+attached `second-hunt-integration` and `character-runtime-integration` worktrees.
+Current character/import work uses `character-runtime-integration`. No protected game payloads,
 private screenshots, live backend credentials or user saves are committed.
 The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
 Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
-current main advanced to 70 through concurrent custom-weapon and Traversal work.
-Our slices add no wire change.
+the current observed source-access baseline includes main through PR863 /
+protocol 73 at frozen `d098819dc`, with Android-only follow-up `78aa831ee`.
+Those frozen identities do not qualify later main changes. Our slices add no wire change.
 
 ## Completed and merged slices
 
@@ -47,6 +49,7 @@ Our slices add no wire change.
 | [842](https://github.com/AntiNotAnti/Project-Prime/pull/842) | Native Home rule controls, native/managed mode cache restoration and stable keyboard focus | `0ccee5caf6a43f4d3db41cf5b83843a4ecf533e6` |
 | [850](https://github.com/AntiNotAnti/Project-Prime/pull/850) | Complete transactional Echoes ANIM/CINF banks and existing private source-rig playback handoff | `a9f4bbcd404c232f62a46bdc154afe3fdc12769a` |
 | [856](https://github.com/AntiNotAnti/Project-Prime/pull/856) | Deterministic Echoes source GLBs/provenance and read-only normal animated diagnostic preview | `81a3462e7d16220b303d78f3af7ab2064cbc089c` |
+| [859](https://github.com/AntiNotAnti/Project-Prime/pull/859) | Generated normal Echoes cannon recipe, fixed source cut and read-only Body/Cannon preview | `cafa432247d99025231a0130e51c1f8ba2408331` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -90,7 +93,7 @@ transport, with no source shader/arena/mechanics activation. Details are in the
 | SH-00 | Frozen11-commit/641-path audit,21 source witnesses, ownership and protocol/replay ledger | Maintain ledger for later slices | No inherited upstream acceptance claim |
 | SH-01 | Auto/Touch/AimOnly/Off; pad identity/handoff; Direct default; Classic opt-in hold/smoothing/reset | No known missing code in the shipped input slices | Physical Android touch/controller switching, combat and latency/feel |
 | SH-02 | Direct weapon-wheel selection opt-in, shared sprite geometry, canonical weapon checks and input ownership | Device-found defects if any | Actual selectable/highlighted Android game and no combat/menu/replay regression |
-| SH-03 | Immutable local generations; bounded receipts/hashes; atomic publication and retained old assets; cancellation, leases, batch partial-success reporting; existing Check/Update selected/all/Remove flow; complete Dark Samus body/ball generations with component versions/status and repair reuse; Echoes full original ANIM banks, raw CINF and deterministic source GLBs/provenance share one transaction; normal recipe5/body4 adds a fixed cannon recipe and Body/Cannon diagnostic viewer, while Final stays recipe4/body3 | Skin/gun/material inventory and remaining source parts; Android URI lifecycle; coalesced waiter semantics | Physical storage URI, crash/storage failure and full game/Studio import interaction |
+| SH-03 | Immutable local generations; bounded receipts/hashes; atomic publication and retained old assets; cancellation, leases, batch partial-success reporting; existing Check/Update selected/all/Remove flow; complete Dark Samus body/ball generations with component versions/status and repair reuse; Echoes full original ANIM banks, raw CINF and deterministic source GLBs/provenance share one transaction; normal recipe5/body4 adds a fixed cannon recipe and Body/Cannon diagnostic viewer, while Final stays recipe4/body3; bounded Android selected-document access, captured app-writable root and view/Activity/provider ownership with actual emulator import/recovery (see [access evidence](second-hunt-android-source-access-2026-10-20.md)) | Skin/gun/material inventory and remaining source parts; coalesced waiter semantics | Physical/cloud/SD and revoked/low-space storage cases, broader Activity/process-death/crash acceptance, cross-platform component parity, Android runtime preview and full game/Studio import interaction |
 | SH-04 | Six local collision previews and private/source identity fences; actual source geometry audit; bounded TXTR decoder and six private texture banks verified against all390 owned entries; immutable material snapshots and shared upload infrastructure; bounded material parser and paired source-coordinate transport through final emission/cache/model ownership; all six owned arena UV streams verified | Complete-arena import recipe; full-precision dual-UV shared-renderer translation, TEV/base-lightmap semantics and complete material tiers; per-arena turret/kinetic/world mechanics; bots and authoritative multiplayer feasibility | All six actual local playtests/physics; supported GPU/Android fidelity; explicit server-content gate before online support; bank infrastructure does not qualify complete arenas |
 | SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles; complete source-animation import, deterministic body/ball source geometry and normal animated body plus fixed source-cannon diagnostic preview (see [body scope](second-hunt-generated-character-preview-2026-10-20.md) and [cannon scope](second-hunt-generated-cannon-preview-2026-10-20.md)) | Source GX materials, complete first-person firing/muzzle presentation and playable animation state/transition parts; qualified Overcharged runtime cosmetic; Trooper wall-cling/drone/blaster; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
 | SH-06 | Fenced create-lobby handoff, cancellation/retry, preference acceptance and serialized local start ownership | Directory-owned grouped search, mode/region/content query, pre-allocation ballot, telemetry and dedicated handoff | Real deployment/HMAC/account/server-child/load/reconnect; existing leader-admitted party reservations are not grouped search |

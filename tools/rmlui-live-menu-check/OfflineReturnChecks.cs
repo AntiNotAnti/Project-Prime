@@ -63,6 +63,25 @@ internal static class OfflineReturnChecks
         WaitFor(controller, () => services.OfflineLaunches == 3);
         Check(services.LastOffline == first && !Flag(controller, "offline_can_start"),
             "three rounds retain the bot setup and keep the active launch latched");
+
+        // The installed arena catalog may change after a round. A missing
+        // arena should be replaced with a valid choice on the same screen.
+        var changing = new Stub { BuiltInMaps = new[] { "AD2 ALINOS PERCH", "MP1 SANCTORUS" } };
+        using var returnController = new RmlUiMenuController(changing);
+        Check(returnController.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+            && Text(returnController, "offline_arena_value") == "AD2 ALINOS PERCH",
+            "offline draft initially selects an arena that was available");
+        changing.OfflineValidationPending = Pending();
+        Check(returnController.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),
+            "matching arena can begin validation");
+        changing.OfflineValidationPending.SetResult("");
+        WaitFor(returnController, () => changing.OfflineLaunches == 1);
+        changing.BuiltInMaps = new[] { "MP1 SANCTORUS" };
+        Check(returnController.OfflineSessionClosed()
+            && Text(returnController, "offline_arena_value") == "MP1 SANCTORUS"
+            && Flag(returnController, "offline_can_start")
+            && !Disabled(returnController, "offline_start"),
+            "bot match return replaces a now-unavailable arena without leaving Offline Battle");
     }
 
     private static TaskCompletionSource<string> Pending()
