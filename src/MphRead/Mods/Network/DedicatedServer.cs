@@ -485,6 +485,7 @@ namespace MphRead.Mods.Network
             double lastStateBroadcast = 0;
             double lastHostReap = double.NegativeInfinity;
             double lastHostMapPump = double.NegativeInfinity;
+            double lastControlMaintenance = double.NegativeInfinity;
             double lastUpdateCheck = double.NegativeInfinity;
             double hostedEmptySince = 0;
             _matchStarted = 0;
@@ -717,8 +718,15 @@ namespace MphRead.Mods.Network
                             }
                         }
                     }
-                    MaintainWaitlist(now);
-                    MaintainPartyReservations(now);
+                    // Queue and reservation deadlines operate in seconds. A
+                    // 20 Hz maintenance pass avoids per-frame scans on active
+                    // 60 Hz authorities while keeping offers responsive.
+                    if (now - lastControlMaintenance >= .05)
+                    {
+                        lastControlMaintenance = now;
+                        MaintainWaitlist(now);
+                        MaintainPartyReservations(now);
+                    }
                     // Pace around the simulation's absolute next deadline.
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
