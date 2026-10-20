@@ -69,7 +69,7 @@ internal sealed class NativeCommunityReader : INativeCommunityLibraryReader, INa
         if (!GameFiles.Ready) throw new InvalidOperationException("Game files are not configured.");
         var definitions = CustomRooms.Definitions.ToArray();
         InstalledMapRegistry registry = CustomRooms.Installed;
-        var rows = definitions.Where(map => map.BundlePath != null && !map.LocalSourceOnly
+        var rows = definitions.Where(map => map.BundlePath != null && !map.RequiresPrivateSource
             && registry.TryGet(map.MapId, out _) && ((map.InGameName ?? map.Name).Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (map.Author ?? "").Contains(query, StringComparison.OrdinalIgnoreCase)));
         rows = sort == "name" ? rows.OrderBy(m => m.InGameName ?? m.Name, StringComparer.OrdinalIgnoreCase)

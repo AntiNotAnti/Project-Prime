@@ -4,12 +4,23 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using MphRead.Mods.Settings;
 namespace MphRead.Mods.Launcher;
 
 internal sealed partial class NativeFullSettingsController
 {
     private Task<string>? _operation;
+    private CancellationTokenSource? _arenaCancellation;
+    private int _arenaStage;
+    internal bool ImportingArenas => _arenaCancellation != null && _operation?.IsCompleted != true;
+    internal void CancelArenaImport()
+    {
+        try { _arenaCancellation?.Cancel(); } catch (ObjectDisposedException) { }
+        Status = "Cancelling local import; the previous bundle stays active.";
+    }
+    private sealed class ArenaProgress(Action<Import.ImportPublishStage> report) : IProgress<Import.ImportPublishStage>
+    { public void Report(Import.ImportPublishStage stage) => report(stage); }
     private int _confirmationAction;
     internal bool Busy=>_operation!=null||_arenaPicking;
     internal string Confirmation { get; private set; }="";
@@ -74,9 +85,17 @@ internal sealed partial class NativeFullSettingsController
     private void Start(Func<string> action){Status="Working…";_operation=Task.Run(action);}
     private void TickOperation()
     {
-        if(_operation?.IsCompleted!=true)return;
-        try{Status=_operation.GetAwaiter().GetResult();}catch(Exception ex){Status="Operation failed: "+ex.Message;}
+        if(_operation?.IsCompleted!=true)
+        {
+            if (ImportingArenas && !_arenaCancellation!.IsCancellationRequested)
+                Status = "Local arena import: " + ((Import.ImportPublishStage)Volatile.Read(ref _arenaStage)).ToString().ToLowerInvariant() + "…";
+            return;
+        }
+        try{Status=_operation.GetAwaiter().GetResult();}
+        catch(OperationCanceledException){Status="Local import cancelled. Previous bundle is unchanged.";}
+        catch(Exception ex){Status="Operation failed: "+ex.Message;}
         _operation=null;
+        _arenaCancellation=null;
     }
     private static async Task<string> RebuildThumbnails()
     {

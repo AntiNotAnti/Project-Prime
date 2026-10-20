@@ -177,7 +177,7 @@ public sealed class NativeCommunityInstallController : IDisposable
     }
 
     private static bool ValidHostIdentity(NativeCommunityInstalled result)
-        => !result.Definition.LocalSourceOnly && result.Identity is { } identity && identity.IsCustom
+        => !result.Definition.RequiresPrivateSource && result.Identity is { } identity && identity.IsCustom
             && identity.MapId == result.MapId && identity.MapId != Guid.Empty
             && !String.IsNullOrWhiteSpace(identity.RoomKey)
             && String.Equals(identity.RoomKey, result.Definition.Name, StringComparison.OrdinalIgnoreCase)

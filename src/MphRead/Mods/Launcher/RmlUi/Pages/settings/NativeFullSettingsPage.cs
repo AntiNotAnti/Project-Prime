@@ -78,10 +78,15 @@ internal sealed class NativeFullSettingsPage : IDisposable
         bool known=intent.Kind is RmlUiIntentKind.SettingsApply or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose
             or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo
             ||intent.Kind==RmlUiIntentKind.SettingsCategory&&intent.Argument<NativeFullSettingsController.Categories.Length
-            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=218 or >=220 and <=222 or >=232 and <236);
+            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <236);
         if(!known||!_pages.Accept(intent))return false;
         if(_controller.ConfirmingVideo&&intent.Kind is not (RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo or RmlUiIntentKind.SettingsClose))return true;
-        if(_controller.Busy)return true;
+        if(_controller.Busy)
+        {
+            if(intent.Kind==RmlUiIntentKind.SettingsAction&&intent.Argument==219&&_controller.ImportingArenas)
+            { _controller.CancelArenaImport(); Refresh(); }
+            return true;
+        }
         if((_controller.Capturing||_controller.Confirmation.Length>0)&&!(intent.Kind==RmlUiIntentKind.SettingsAction&&intent.Argument is 23 or 24 or 213 or 214 or 215)&&intent.Kind!=RmlUiIntentKind.SettingsClose)return true;
         if(intent.Kind is not (RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo)&&!Capture()){Refresh();return true;}
         switch(intent.Kind)
@@ -217,6 +222,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         Text("native_settings_summary",_controller.InstallationSummary);
         Bool("visible:native_settings_files",_controller.Category==5);
         Bool("visible:native_settings_import_arenas",_controller.Category==5&&_allowGameFiles);
+        Bool("visible:native_settings_cancel_import",_controller.ImportingArenas);
         Bool("disabled:native_settings_files",!_allowGameFiles);
         Bool("visible:native_settings_video",_controller.ConfirmingVideo);
         Bool("disabled:native_settings_keep_video",!_controller.CanKeepVideo);

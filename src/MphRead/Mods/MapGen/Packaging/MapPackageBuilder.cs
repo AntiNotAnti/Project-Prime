@@ -41,7 +41,7 @@ namespace MphRead.Mods.MapGen
 
         public static string Build(MapDefinition source, string outputPath)
         {
-            if (source.LocalSourceOnly)
+            if (source.RequiresPrivateSource)
                 throw new InvalidDataException("A local game-source import cannot be packaged or published.");
             return MapBuildScheduler.Shared.PackageAsync(
                 MapBuildSnapshot.Capture(source), outputPath).GetAwaiter().GetResult();
@@ -55,7 +55,7 @@ namespace MphRead.Mods.MapGen
             string outputPath, CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
-            if (source.LocalSourceOnly)
+            if (source.RequiresPrivateSource)
                 throw new InvalidDataException("A local game-source import cannot be packaged or published.");
             MapDefinition definition = MapProjectSerializer.Clone(source);
             var entries = new SortedDictionary<string, Payload>(StringComparer.Ordinal);

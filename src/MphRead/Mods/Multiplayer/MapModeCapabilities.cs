@@ -13,7 +13,7 @@ public static class MapModeCapabilities
     /// single-player previews; old calls preserve their strict online default.</summary>
     public static bool AllowsLocalSource(MapDefinition? map, bool offlinePreview, out string reason)
     {
-        if (map?.LocalSourceOnly == true && !offlinePreview)
+        if (map?.RequiresPrivateSource == true && !offlinePreview)
         {
             reason = "This arena was imported from local commercial game files. " +
                 "It is available only for offline play and cannot be hosted, voted, or transferred.";

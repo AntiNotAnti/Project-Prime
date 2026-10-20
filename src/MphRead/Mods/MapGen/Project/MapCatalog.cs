@@ -199,6 +199,20 @@ namespace MphRead.Mods.MapGen
         private static IEnumerable<string> MapFiles(string root)
         {
             if (!Directory.Exists(root)) yield break;
+            // Hidden generation/staging directories are never scanned. Read one
+            // validated receipt snapshot and expose only that complete generation.
+            bool ownsEchoes = Import.LocalImportBundle.HasReceipt(root, "echoes");
+            HashSet<string>? ownedEchoesFiles = null;
+            if (ownsEchoes)
+            {
+                var bundle = Import.LocalImportBundle.Inspect(root, "echoes", Import.EchoesPrivateMapImport.CurrentBundleSpec);
+                if (bundle.State == Import.ImportBundleState.Ready)
+                {
+                    ownedEchoesFiles = new HashSet<string>(bundle.Files.Select(file => Path.GetFileName(file)), StringComparer.OrdinalIgnoreCase);
+                    foreach (string file in bundle.Files) yield return file;
+                }
+                else Console.WriteLine("[map] Local Echoes bundle " + bundle.State + ": " + bundle.Message);
+            }
             var pending = new Stack<string>();
             pending.Push(Path.GetFullPath(root));
             while (pending.Count > 0)
@@ -212,6 +226,8 @@ namespace MphRead.Mods.MapGen
                 foreach (string path in files)
                 {
                     string file = Path.GetFileName(path);
+                    if (ownsEchoes && directory == Path.Combine(Path.GetFullPath(root), "local-echoes")
+                        && (ownedEchoesFiles == null || ownedEchoesFiles.Contains(file))) continue;
                     if (file.StartsWith('.')
                         || file.Equals("map.build.json", StringComparison.OrdinalIgnoreCase)
                         || file.Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
