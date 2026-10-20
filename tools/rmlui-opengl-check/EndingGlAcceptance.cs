@@ -211,14 +211,32 @@ internal static class EndingGlAcceptance
             var button = Bounds("campaign_ending_continue");
             Check(scroll[0] >= 0 && scroll[1] >= 0 && scroll[0] + scroll[2] <= width + 1
                 && scroll[1] + scroll[3] <= height + 1, "ending scroll viewport stays within framebuffer");
+            // Seven full-height timing rows need not fit above the fold on
+            // 640x360. They belong to the scroll content, not a clipped/fixed
+            // results panel. Test native scrolling instead of asserting that
+            // the entire summary is visible at scroll offset zero.
             Check(totals[0] >= scroll[0] - 1 && totals[0] + totals[2] <= scroll[0] + scroll[2] + 1
-                && totals[1] >= scroll[1] - 1 && totals[1] + totals[3] <= scroll[1] + scroll[3] + 1,
-                "expanded timing totals fit fully inside the initial scroll viewport");
+                && totals[1] >= scroll[1] - 1,
+                "expanded timing totals remain horizontally contained in scroll content");
             Check(totals[3] >= 7 * 18 && credits[1] >= totals[1] + totals[3],
                 "seven totals lines reserve native height and do not overlap credits");
             Check(button[0] >= 0 && button[1] >= 0 && button[0] + button[2] <= width + 1
                 && button[1] + button[3] <= height + 1 && button[1] + button[3] <= scroll[1] + 1,
                 "return action stays visible above expanded scroll content");
+            if (totals[1] + totals[3] > scroll[1] + scroll[3] + 1)
+            {
+                host.Input.PointerMoved(scroll[0] + scroll[2] / 2, scroll[1] + scroll[3] / 2);
+                host.Input.PointerWheel(-1); Settle(120);
+                Check(host.TryGetElementBounds(document, "campaign_ending_totals",
+                        out _, out float scrolledY, out _, out _)
+                    && scrolledY < totals[1] - 1,
+                    "small native ending window scrolls the expanded timing totals toward view");
+                Check(host.TryGetElementBounds(document, "campaign_ending_continue",
+                        out _, out float pinnedY, out _, out _)
+                    && Math.Abs(pinnedY - button[1]) < 1,
+                    "scrolling timing rows does not move the pinned return button");
+                host.Input.PointerWheel(1000); Settle(120);
+            }
             File.WriteAllText(Path.Combine(output, $"synthetic-{name}-layout-{width}x{height}.json"),
                 JsonSerializer.Serialize(new { SyntheticOnly = true, Width = width, Height = height,
                     ExpectedTotalsLines = 7, page.Receipt.PlayTicks, page.Receipt.GoreaTicks,
