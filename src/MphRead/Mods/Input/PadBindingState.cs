@@ -41,7 +41,10 @@ namespace MphRead.Mods.Input
             // Appended enum value, gameplay context. Intentionally unbound so
             // upgrading cannot steal a button from an existing controller.
             /* SaveClip */ GamepadButtons.None,
-            /* Crouch */ GamepadButtons.None
+            /* Crouch */ GamepadButtons.None,
+            /* CustomWeapon */ GamepadButtons.None,
+            /* CustomReload */ GamepadButtons.None,
+            /* CustomOptic */ GamepadButtons.None
         };
 
         public string Preset { get; internal set; } = "Default";
@@ -66,7 +69,8 @@ namespace MphRead.Mods.Input
             PadAction.Scoreboard, PadAction.Menu, PadAction.Chat, PadAction.SaveClip,
             PadAction.WeaponWheel,
             PadAction.VoltDriver, PadAction.Battlehammer, PadAction.Imperialist, PadAction.Judicator,
-            PadAction.Magmaul, PadAction.ShockCoil, PadAction.OmegaCannon, PadAction.AffinitySlot, PadAction.LastWeapon
+            PadAction.Magmaul, PadAction.ShockCoil, PadAction.OmegaCannon, PadAction.AffinitySlot, PadAction.LastWeapon,
+            PadAction.CustomWeapon, PadAction.CustomReload, PadAction.CustomOptic
         };
 
         private static readonly PadAction[] ReplayActionOrder = new[]
@@ -323,6 +327,9 @@ namespace MphRead.Mods.Input
                 PadAction.Menu => "Menu",
                 PadAction.SaveClip => "Save clip",
                 PadAction.Crouch => "Crouch / slide",
+                PadAction.CustomWeapon => "Custom weapon",
+                PadAction.CustomReload => "Reload custom weapon",
+                PadAction.CustomOptic => "Cycle custom optic",
                 PadAction.WeaponWheel => "Weapon wheel",
                 PadAction.ReplayPlayPause => "Replay: play / pause",
                 PadAction.ReplayStep => "Replay: step frame",

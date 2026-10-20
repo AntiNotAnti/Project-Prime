@@ -29,7 +29,7 @@ namespace MphRead.Entities
                 if (!fresh || CurrentWeapon != BeamType.ShockCoil || !Controls.Shoot.IsDown || !ModIsInPlay)
                     NetContinuousTargeting.ResetPlayer(this);
                 _scene.WeaponPhase.Observe(SlotIndex, _scene.FrameCount,
-                    EquipWeapon.Flags.TestFlag(WeaponFlags.Continuous) && Controls.Shoot.IsDown, fresh);
+                    EquipWeapon.Flags.TestFlag(WeaponFlags.Continuous) && Controls.Shoot.IsDown&&!ModCustomOwnsBipedControls, fresh);
             }
             if (_health > 0)
             {
@@ -1002,6 +1002,7 @@ namespace MphRead.Entities
             ModRefreshNetworkAim();
             UpdateCamera();
             UpdateAimVecs();
+            _scene.OfflineWeapons?.CompleteInput(this);
             NetShotInputHistory.Capture(this, _frozenTimer == 0 && _health > 0 && !_field6D0
                 && !ScanVisor && !IsUnmorphing && !IsAltForm);
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
@@ -1032,166 +1033,170 @@ namespace MphRead.Entities
                 }
                 if (!scanInput && !IsUnmorphing)
                 {
-                    if (!Controls.Shoot.IsDown)
+                    ModSynchronizeCustomNativeSuppression();
+                    if(!ModCustomOwnsBipedControls)
                     {
-                        Flags2 &= ~PlayerFlags2.Shooting;
-                    }
-                    else if (Controls.Shoot.IsPressed || !Flags2.TestFlag(PlayerFlags2.NoShotsFired))
-                    {
-                        Flags2 |= PlayerFlags2.Shooting;
-                        Flags2 &= ~PlayerFlags2.NoShotsFired;
-                    }
-                    if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
-                    {
-                        EquipInfo.ChargeLevel = 0;
-                    }
-                    else
-                    {
-                        bool releaseCharge = false;
-                        if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
+                        if (!Controls.Shoot.IsDown)
                         {
-                            releaseCharge = true; // charge released/insufficient
+                            Flags2 &= ~PlayerFlags2.Shooting;
+                        }
+                        else if (Controls.Shoot.IsPressed || !Flags2.TestFlag(PlayerFlags2.NoShotsFired))
+                        {
+                            Flags2 |= PlayerFlags2.Shooting;
+                            Flags2 &= ~PlayerFlags2.NoShotsFired;
+                        }
+                        if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
+                        {
+                            EquipInfo.ChargeLevel = 0;
                         }
                         else
                         {
-                            if (EquipInfo.ChargeLevel > 0 && GunAnimation != GunAnimation.MissileClose)
+                            bool releaseCharge = false;
+                            if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
                             {
-                                // the game doesn't need this condition, but we do because "the next frame will
-                                // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
-                                if (CurrentWeapon != BeamType.PowerBeam
-                                    || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
-                                {
-                                    PlayBeamChargeSfx(CurrentWeapon);
-                                }
-                                if (Biped2Flags.TestFlag(AnimFlags.Ended) || Biped2Anim == PlayerAnimation.Charge
-                                    || Biped2Anim == PlayerAnimation.Shoot && Biped2Frame > 8)
-                                {
-                                    anim2 = PlayerAnimation.Charge;
-                                }
-                            }
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
-                            {
-                                EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
-                                EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
+                                releaseCharge = true; // charge released/insufficient
                             }
                             else
                             {
-                                EquipInfo.ChargeLevel++;
-                                int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
-                                if (EquipInfo.ChargeLevel > minCharge)
+                                if (EquipInfo.ChargeLevel > 0 && GunAnimation != GunAnimation.MissileClose)
                                 {
-                                    int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
-                                    int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
-                                    int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
-                                    int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
-                                    if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
+                                    // the game doesn't need this condition, but we do because "the next frame will
+                                    // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
+                                    if (CurrentWeapon != BeamType.PowerBeam
+                                        || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
                                     {
-                                        EquipInfo.ChargeLevel--;
+                                        PlayBeamChargeSfx(CurrentWeapon);
+                                    }
+                                    if (Biped2Flags.TestFlag(AnimFlags.Ended) || Biped2Anim == PlayerAnimation.Charge
+                                        || Biped2Anim == PlayerAnimation.Shoot && Biped2Frame > 8)
+                                    {
+                                        anim2 = PlayerAnimation.Charge;
                                     }
                                 }
-                            }
-                            // todo?: auto release
-                        }
-                        if (releaseCharge)
-                        {
-                            StopBeamChargeSfx(CurrentWeapon);
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
-                            {
-                                TryFireWeapon();
-                                anim2 = PlayerAnimation.ChargeShoot;
-                                animFlags2 = AnimFlags.NoLoop;
-                            }
-                            EquipInfo.ChargeLevel = 0;
-                        }
-                    }
-                    if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
-                    {
-                        if (Controls.Zoom.IsPressed)
-                        {
-                            UpdateZoom(!EquipInfo.Zoomed);
-                        }
-                        if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
-                        {
-                            // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
-                            // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
-                            float zoomFov = Fixed.ToFloat(EquipInfo.Weapon.ZoomFov);
-                            Vector3 facing = _facingVector;
-
-                            void CheckZoomTargets(EntityType type)
-                            {
-                                foreach (EntityBase entity in _scene.Entities)
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
                                 {
-                                    if (entity.Type != type || entity == this || !entity.GetTargetable())
+                                    EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
+                                    EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
+                                }
+                                else
+                                {
+                                    EquipInfo.ChargeLevel++;
+                                    int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
+                                    if (EquipInfo.ChargeLevel > minCharge)
                                     {
-                                        continue;
-                                    }
-                                    if (entity.Type == EntityType.Object
-                                        && !((ObjectEntity)entity).Data.EffectFlags.TestFlag(ObjEffFlags.WeaponZoom))
-                                    {
-                                        continue;
-                                    }
-                                    entity.GetPosition(out Vector3 position);
-                                    Vector3 between = position - Position;
-                                    float dot = Vector3.Dot(between, facing);
-                                    if (dot > 1 && dot / between.Length >= Fixed.ToFloat(4074))
-                                    {
-                                        float angle = MathHelper.RadiansToDegrees(MathF.Atan2(3, dot));
-                                        if (angle < zoomFov)
+                                        int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
+                                        int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
+                                        int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
+                                        int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
+                                        if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
                                         {
-                                            zoomFov = angle;
+                                            EquipInfo.ChargeLevel--;
                                         }
                                     }
                                 }
+                                // todo?: auto release
                             }
-
-                            CheckZoomTargets(EntityType.Player);
-                            CheckZoomTargets(EntityType.EnemyInstance);
-                            CheckZoomTargets(EntityType.Object);
-                            zoomFov *= 2;
-                            if (CurrentWeapon == BeamType.Imperialist)
+                            if (releaseCharge)
                             {
-                                float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
-                                zoomFov = Mods.InputSettings.ScaleImperialistZoomFov(normalFov, zoomFov);
-                            }
-                            float currentFov = CameraInfo.Fov;
-                            float zoomStep = 2 * 2;
-                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                                && BalancedModeRules.IsAffinity(Hunter, CurrentWeapon))
-                            {
-                                zoomStep *= BalancedModeRules.ScopeVisualSpeed(Hunter, CurrentWeapon);
-                            }
-                            if (zoomFov > currentFov)
-                            {
-                                currentFov += zoomStep;
-                                if (currentFov > zoomFov)
+                                StopBeamChargeSfx(CurrentWeapon);
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
                                 {
-                                    currentFov = zoomFov;
+                                    TryFireWeapon();
+                                    anim2 = PlayerAnimation.ChargeShoot;
+                                    animFlags2 = AnimFlags.NoLoop;
                                 }
+                                EquipInfo.ChargeLevel = 0;
                             }
-                            else if (zoomFov < currentFov)
-                            {
-                                currentFov -= zoomStep;
-                                if (currentFov < zoomFov)
-                                {
-                                    currentFov = zoomFov;
-                                }
-                            }
-                            CameraInfo.Fov = currentFov;
                         }
-                    }
-                    if (NetFireEvents.HasPending(this)
-                            && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
-                        || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
-                        || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
-                        && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
-                    {
-                        if (TryFireWeapon())
+                        if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                         {
-                            anim2 = PlayerAnimation.Shoot;
-                            animFlags2 |= AnimFlags.NoLoop;
-                            if (Biped2Anim == PlayerAnimation.Shoot)
+                            if (Controls.Zoom.IsPressed)
                             {
-                                SetBiped2Animation(PlayerAnimation.Shoot, Biped2Flags);
+                                UpdateZoom(!EquipInfo.Zoomed);
+                            }
+                            if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
+                            {
+                                // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
+                                // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
+                                float zoomFov = Fixed.ToFloat(EquipInfo.Weapon.ZoomFov);
+                                Vector3 facing = _facingVector;
+
+                                void CheckZoomTargets(EntityType type)
+                                {
+                                    foreach (EntityBase entity in _scene.Entities)
+                                    {
+                                        if (entity.Type != type || entity == this || !entity.GetTargetable())
+                                        {
+                                            continue;
+                                        }
+                                        if (entity.Type == EntityType.Object
+                                            && !((ObjectEntity)entity).Data.EffectFlags.TestFlag(ObjEffFlags.WeaponZoom))
+                                        {
+                                            continue;
+                                        }
+                                        entity.GetPosition(out Vector3 position);
+                                        Vector3 between = position - Position;
+                                        float dot = Vector3.Dot(between, facing);
+                                        if (dot > 1 && dot / between.Length >= Fixed.ToFloat(4074))
+                                        {
+                                            float angle = MathHelper.RadiansToDegrees(MathF.Atan2(3, dot));
+                                            if (angle < zoomFov)
+                                            {
+                                                zoomFov = angle;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                CheckZoomTargets(EntityType.Player);
+                                CheckZoomTargets(EntityType.EnemyInstance);
+                                CheckZoomTargets(EntityType.Object);
+                                zoomFov *= 2;
+                                if (CurrentWeapon == BeamType.Imperialist)
+                                {
+                                    float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+                                    zoomFov = Mods.InputSettings.ScaleImperialistZoomFov(normalFov, zoomFov);
+                                }
+                                float currentFov = CameraInfo.Fov;
+                                float zoomStep = 2 * 2;
+                                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                    && BalancedModeRules.IsAffinity(Hunter, CurrentWeapon))
+                                {
+                                    zoomStep *= BalancedModeRules.ScopeVisualSpeed(Hunter, CurrentWeapon);
+                                }
+                                if (zoomFov > currentFov)
+                                {
+                                    currentFov += zoomStep;
+                                    if (currentFov > zoomFov)
+                                    {
+                                        currentFov = zoomFov;
+                                    }
+                                }
+                                else if (zoomFov < currentFov)
+                                {
+                                    currentFov -= zoomStep;
+                                    if (currentFov < zoomFov)
+                                    {
+                                        currentFov = zoomFov;
+                                    }
+                                }
+                                CameraInfo.Fov = currentFov;
+                            }
+                        }
+                        if (NetFireEvents.HasPending(this)
+                                && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
+                            || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
+                            || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
+                            && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
+                        {
+                            if (TryFireWeapon())
+                            {
+                                anim2 = PlayerAnimation.Shoot;
+                                animFlags2 |= AnimFlags.NoLoop;
+                                if (Biped2Anim == PlayerAnimation.Shoot)
+                                {
+                                    SetBiped2Animation(PlayerAnimation.Shoot, Biped2Flags);
+                                }
                             }
                         }
                     }
@@ -1277,6 +1282,7 @@ namespace MphRead.Entities
 
         private bool TryFireWeapon()
         {
+            if(ModCustomOwnsBipedControls)return false;
             if (!NetFireEvents.CanFire(this)) return false;
             bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
             if (_scene.AimTrainer is { } trainer)
@@ -3520,6 +3526,9 @@ namespace MphRead.Entities
         public Keybind AffinitySlot { get; }
         public Keybind Pause { get; }
         public Keybind HudOverlay { get; }
+        public Keybind CustomWeapon { get; }=new Keybind(Keys.Unknown);
+        public Keybind CustomReload { get; }=new Keybind(Keys.Unknown);
+        public Keybind CustomOptic { get; }=new Keybind(Keys.Unknown);
 
         public bool InvertAimY { get; }
         public bool InvertAimX { get; }
@@ -3589,7 +3598,7 @@ namespace MphRead.Entities
                 moveLeft, moveRight, moveUp, moveDown, rollLeft, rollRight, rollUp, rollDown, aimLeft, aimRight, aimUp, aimDown,
                 shoot, zoom, jump, morph, boost, altAttack, scanVisor, scan, nextWeapon, prevWeapon, weaponMenu, powerBeam,
                 missile, voltDriver, battlehammer, imperialist, judicator, magmaul, shockCoil, omegaCannon, affinitySlot,
-                pause, hudOverlay, Crouch
+                pause, hudOverlay, Crouch, CustomWeapon, CustomReload, CustomOptic
             };
         }
 

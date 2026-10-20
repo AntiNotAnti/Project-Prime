@@ -398,6 +398,9 @@ namespace MphRead.Mods
         /// <summary>"Humanise" a control's name for a screen: "AltAttack" -> "Alt attack".</summary>
         public static string ActionName(PropertyInfo property)
         {
+            if(property.Name==nameof(PlayerControls.CustomWeapon))return "Custom weapon slot";
+            if(property.Name==nameof(PlayerControls.CustomReload))return "Custom weapon reload";
+            if(property.Name==nameof(PlayerControls.CustomOptic))return "Custom weapon optic";
             string name = property.Name == nameof(PlayerControls.Pause)
                 ? "Scoreboard"
                 : property.Name == nameof(PlayerControls.RolltLeft) ? "Roll left" : property.Name;

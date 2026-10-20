@@ -30,7 +30,11 @@ namespace MphRead.Mods.Input
         Judicator,
         Magmaul,
         ShockCoil,
-        OmegaCannon
+        OmegaCannon,
+        // Append only: existing layout instance action IDs remain stable.
+        CustomWeapon,
+        CustomReload,
+        CustomOptic
     }
 
     public enum TouchMode { Auto, Touch, AimOnly, Off }
@@ -153,7 +157,10 @@ namespace MphRead.Mods.Input
             (TouchControl.Judicator, "Judicator button"),
             (TouchControl.Magmaul, "Magmaul button"),
             (TouchControl.ShockCoil, "Shock Coil button"),
-            (TouchControl.OmegaCannon, "Omega Cannon button")
+            (TouchControl.OmegaCannon, "Omega Cannon button"),
+            (TouchControl.CustomWeapon, "Custom weapon button"),
+            (TouchControl.CustomReload, "Custom weapon reload"),
+            (TouchControl.CustomOptic, "Custom weapon optic")
         };
 
         private static readonly TouchControl[] _directWeapons =
@@ -179,6 +186,9 @@ namespace MphRead.Mods.Input
             {
                 hidden.Add(control);
             }
+            hidden.Add(TouchControl.CustomWeapon);
+            hidden.Add(TouchControl.CustomReload);
+            hidden.Add(TouchControl.CustomOptic);
             return hidden;
         }
 
@@ -232,6 +242,9 @@ namespace MphRead.Mods.Input
                 TouchControl.Magmaul => "MAG",
                 TouchControl.ShockCoil => "COIL",
                 TouchControl.OmegaCannon => "OMEGA",
+                TouchControl.CustomWeapon => "CUSTOM",
+                TouchControl.CustomReload => "RELOAD",
+                TouchControl.CustomOptic => "OPTIC",
                 _ => control.ToString()
             };
         }
@@ -355,6 +368,12 @@ namespace MphRead.Mods.Input
                     => new TouchButtonGeometry(0.62f * w, 0.42f * h, 0.052f * h),
                 TouchControl.OmegaCannon
                     => new TouchButtonGeometry(0.70f * w, 0.42f * h, 0.052f * h),
+                TouchControl.CustomWeapon
+                    => new TouchButtonGeometry(0.54f * w, 0.54f * h, 0.052f * h),
+                TouchControl.CustomReload
+                    => new TouchButtonGeometry(0.62f * w, 0.54f * h, 0.052f * h),
+                TouchControl.CustomOptic
+                    => new TouchButtonGeometry(0.70f * w, 0.54f * h, 0.052f * h),
                 _ => new TouchButtonGeometry(0.5f * w, 0.5f * h, 0.06f * h)
             };
         }
@@ -413,10 +432,7 @@ namespace MphRead.Mods.Input
             StickScale = 1f;
             OverlayOpacity = 1f;
             _hidden.Clear();
-            foreach (TouchControl control in _directWeapons)
-            {
-                _hidden.Add(control);
-            }
+            _hidden.UnionWith(CreateDefaultHidden());
             _layout.Clear();
             ReplaceInstances(Array.Empty<TouchButtonInstance>());
         }
