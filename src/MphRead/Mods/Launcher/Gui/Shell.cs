@@ -1003,6 +1003,10 @@ namespace MphRead.Mods.Launcher.Gui
                 MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeReplayClosed(window);
 #endif
             ShowFrontScreen();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (_played?.Kind == LaunchKind.Offline)
+                MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeOfflineClosed(window);
+#endif
             if (_played?.Kind == LaunchKind.Adventure && MatchStart.RecentCampaignEnding != null)
             {
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
