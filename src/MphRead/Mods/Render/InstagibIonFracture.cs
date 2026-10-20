@@ -1,6 +1,8 @@
 using System;
 using System.Buffers;
 using MphRead.Mods.Cosmetics;
+using MphRead.Entities;
+using MphRead.Mods.Network;
 using MphRead.Mods.Render.Hud;
 using OpenTK.Mathematics;
 
@@ -16,6 +18,48 @@ namespace MphRead.Mods.Render
     {
         internal const float LifeSeconds = 0.9f;
         internal const int Capacity = 24;
+        internal const float MuzzleJoinSeconds = 0.12f;
+        internal const float MainRailUvInset = 0.05f;
+
+        // Normal IMP keeps its full authored cross-section at the barrel.
+        // The old 12% width taper plus UV=0 made the first rail pixels
+        // disappear, leaving a black seam between muzzle and Insta-Gib.
+        // Moving signatures still use TaperAt so their strands grow naturally.
+        internal static float VisibleRailHalfWidth(float along, float width,
+            float fullAt, bool central)
+            => central ? width : TaperAt(along, width, fullAt);
+
+        internal static float RailUvAt(float progress, bool central)
+        {
+            float t = float.IsFinite(progress) ? Math.Clamp(progress, 0f, 1f) : 0f;
+            // Sample an interior texel from the muzzle instead of the often
+            // transparent end cap of the native 'trail' texture.
+            return central ? MainRailUvInset + (1f - MainRailUvInset) * t : t;
+        }
+
+        // A screen-space-matched viewmodel muzzle can shift slightly relative
+        // to the simulated shot origin at high refresh / custom FOV. Validate
+        // only a tiny visual join, not a new line of fire.
+        internal static bool TryMuzzleBridge(Vector3 shotStart, Vector3 impact,
+            Vector3 renderedMuzzle, out Vector3 bridgeEnd)
+        {
+            bridgeEnd = shotStart;
+            if (!Finite(shotStart) || !Finite(impact) || !Finite(renderedMuzzle))
+                return false;
+            Vector3 flight = impact - shotStart;
+            float length = flight.Length;
+            if (!float.IsFinite(length) || length <= 0.25f) return false;
+            Vector3 offset = renderedMuzzle - shotStart;
+            float squared = offset.LengthSquared;
+            if (!float.IsFinite(squared) || squared < 0.0001f
+                || squared > 0.6f * 0.6f) return false;
+            float forward = Vector3.Dot(offset, flight / length);
+            float lateralSquared = MathF.Max(0f, squared - forward * forward);
+            if (forward < -0.55f || forward > 0.20f
+                || lateralSquared > 0.28f * 0.28f) return false;
+            bridgeEnd = shotStart + flight / length * MathF.Min(0.11f, length * 0.25f);
+            return true;
+        }
 
         // The normal Imperialist's authored "sniperBeam" cross-section is our
         // width reference. Its X/Z extent is not multiplied by shot length:
@@ -418,6 +462,13 @@ namespace MphRead.Mods.Render
                 }
             }
 
+            // The central shot always reaches the actual gun barrel, including
+            // Reduced Motion and Low-quality rendering. Only a small visual
+            // segment is drawn here; accepted hit and projectile endpoints
+            // are never changed.
+            DrawMuzzleConnection(scene, lance, axis, view, length, age, hot,
+                look.Core, sizeScale);
+
             if (reducedMotion || quality == CosmeticEffectQuality.Off) return;
             bool full = quality == CosmeticEffectQuality.High;
             bool medium = quality >= CosmeticEffectQuality.Medium;
@@ -657,6 +708,54 @@ namespace MphRead.Mods.Render
             }
         }
 
+        private void DrawMuzzleConnection(Scene scene, in Lance lance,
+            Vector3 axis, Vector3 view, float length, float age,
+            Vector3 color, float alpha, float sizeScale)
+        {
+            if (age > MuzzleJoinSeconds || alpha < 0.005f) return;
+
+            // For remote players and third-person cameras, the established
+            // native spawn point is the world-space origin. The short cap
+            // covers the textured trail's transparent start, with no new shot.
+            Vector3 origin = lance.Start - axis * MathF.Min(0.065f, length * 0.15f);
+            if (TryRenderedFirstPersonMuzzle(scene, lance, out Vector3 muzzle)
+                && TryMuzzleBridge(lance.Start, lance.End, muzzle, out _))
+            {
+                // Same late-latched, FOV-remapped barrel tip already used by
+                // continuous weapon presentation.
+                origin = muzzle;
+            }
+            Vector3 end = lance.Start + axis * MathF.Min(0.11f, length * 0.23f);
+            Vector3 direction = end - origin;
+            if (direction.LengthSquared <= 0.00001f) return;
+            Vector3 side = Perpendicular(direction.Normalized(), view);
+            DrawShaft(scene, origin, end, side,
+                0.07f * sizeScale, color,
+                alpha * (1f - age / MuzzleJoinSeconds),
+                fullMuzzle: true);
+        }
+
+        private static bool TryRenderedFirstPersonMuzzle(Scene scene,
+            in Lance lance, out Vector3 muzzle)
+        {
+            muzzle = default;
+            if (scene.Services.IsReplica
+                || scene.GameState.ThirdPersonCamera
+                || scene.ModThirdPersonCameraActive
+                || MphRead.Mods.SpectatorMode.IsSpectating
+                || MphRead.Mods.KillCam.Active || DemoPlayback.IsActive)
+                return false;
+
+            PlayerEntity local = scene.Players.Main;
+            if (local.SlotIndex != lance.Slot || !local.IsMainPlayer
+                || local.CameraType != CameraType.First
+                || (NetSession.Active && local.SlotIndex != NetHooks.LocalSlot)
+                || !local.ModGetFirstPersonEffectTransform(out Matrix4 transform))
+                return false;
+            muzzle = scene.ModWorldSpaceViewModelPoint(transform.Row3.Xyz);
+            return Finite(muzzle);
+        }
+
         private bool TryPrepareTrail(Scene scene)
         {
             try
@@ -698,7 +797,9 @@ namespace MphRead.Mods.Render
             {
                 float t = i / (float)(samples - 1);
                 float s = reach * (strand < 0 ? t * t : t);
-                float bandHalfWidth = TaperAt(s, width * sizeScale, widthReach);
+                bool centralRail = strand < 0 && !signatureStyle.HasValue;
+                float bandHalfWidth = VisibleRailHalfWidth(s,
+                    width * sizeScale, widthReach, centralRail);
                 Vector3 motion = Vector3.Zero;
                 if (signatureStyle.HasValue)
                     motion = SignatureOffset(signatureStyle.Value, t, age, strand, right, up);
@@ -714,9 +815,10 @@ namespace MphRead.Mods.Render
                 else side.Normalize();
                 Vector3 offset = side * bandHalfWidth;
                 int at = i * 4;
-                data[at] = new Vector3(t * _uvX, 0f, 0f);
+                float uv = RailUvAt(t, centralRail) * _uvX;
+                data[at] = new Vector3(uv, 0f, 0f);
                 data[at + 1] = centre - offset;
-                data[at + 2] = new Vector3(t * _uvX, _uvY, 0f);
+                data[at + 2] = new Vector3(uv, _uvY, 0f);
                 data[at + 3] = centre + offset;
             }
             scene.AddRenderItem(RenderItemType.TrailMulti, Math.Clamp(alpha, 0f, 1f),
@@ -790,7 +892,8 @@ namespace MphRead.Mods.Render
         }
 
         private static void DrawShaft(Scene scene, Vector3 start, Vector3 end,
-            Vector3 right, float width, Vector3 color, float alpha)
+            Vector3 right, float width, Vector3 color, float alpha,
+            bool fullMuzzle = false)
         {
             if (alpha <= 0.005f) return;
             const int samples = 5;
@@ -799,7 +902,8 @@ namespace MphRead.Mods.Render
             {
                 float u = i / (float)(samples - 1);
                 Vector3 center = Vector3.Lerp(start, end, u);
-                float envelope = i == 0 ? 0.12f : i == samples - 1 ? 0.45f : 1f;
+                float envelope = i == 0 ? (fullMuzzle ? 1f : 0.12f)
+                    : i == samples - 1 ? (fullMuzzle ? 0.9f : 0.45f) : 1f;
                 Vector3 offset = right * (width * envelope);
                 int at = i * 4;
                 points[at] = new Vector3(0, u, 0);

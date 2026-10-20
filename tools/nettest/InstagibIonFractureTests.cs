@@ -153,6 +153,54 @@ internal static class InstagibIonFractureTests
                     "size-constrained strand preserves deterministic replay presentation");
             }
         }
+        // The shot's canonical trace has not changed. Unlike the old
+        // tapered custom trail, the central IMP-width rail must already be
+        // visible at its first muzzle pixel, regardless of style/quality.
+        float compactRail = InstagibIonFracture.FallbackImperialistHalfWidth;
+        float scaledCore = compactRail * 0.06f
+            / InstagibIonFracture.OriginalRailHaloHalfWidth;
+        Check(InstagibIonFracture.VisibleRailHalfWidth(
+                    0f, compactRail, 9f, central: true) == compactRail
+            && InstagibIonFracture.VisibleRailHalfWidth(
+                    0.03f, scaledCore, 3f, central: true) == scaledCore,
+            "main rail and white core start at full Imperialist width without muzzle taper");
+        Check(InstagibIonFracture.VisibleRailHalfWidth(
+                    0f, compactRail, 9f, central: false)
+                    == InstagibIonFracture.TaperAt(0f, compactRail, 9f)
+            && InstagibIonFracture.VisibleRailHalfWidth(
+                    0f, compactRail, 9f, central: false) < compactRail,
+            "animated strands retain authored taper without changing style motion");
+        Check(InstagibIonFracture.RailUvAt(0f, central: true)
+                    == InstagibIonFracture.MainRailUvInset
+            && InstagibIonFracture.RailUvAt(0f, central: true) > 0f
+            && InstagibIonFracture.RailUvAt(1f, central: true) == 1f
+            && InstagibIonFracture.RailUvAt(0f, central: false) == 0f,
+            "central shot samples opaque interior texture at muzzle, not transparent UV border");
+        Vector3 muzzleStart = new Vector3(0.4f, 1.5f, -0.2f);
+        Vector3 hit = muzzleStart + new Vector3(0f, 0f, 15f);
+        Vector3 lateMuzzle = muzzleStart + new Vector3(0.09f, 0f, -0.16f);
+        Check(InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit, lateMuzzle,
+                    out var bridgeEnd)
+            && bridgeEnd.Z > muzzleStart.Z
+            && bridgeEnd.Z < muzzleStart.Z + 0.12f,
+            "first-person FOV/late-latched gun receives only a short visual connector");
+        Check(!InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit,
+                muzzleStart + new Vector3(0f, 0f, -1.3f), out _)
+            && !InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit,
+                muzzleStart + new Vector3(0.4f, 0f, 0f), out _)
+            && !InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit,
+                muzzleStart + new Vector3(0f, 0f, 0.4f), out _),
+            "wrong camera, distant or forward muzzle cannot redirect old shot trace");
+        Check(!InstagibIonFracture.TryMuzzleBridge(muzzleStart,
+                muzzleStart + new Vector3(0f, 0f, 0.09f), lateMuzzle, out _)
+            && !InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit,
+                new Vector3(float.NaN, 0f, 0f), out _)
+            && !InstagibIonFracture.TryMuzzleBridge(muzzleStart, hit,
+                muzzleStart, out _),
+            "point-blank walls, nonfinite poses and identical emitter never create artificial beam spans");
+        Check(InstagibIonFracture.MuzzleJoinSeconds <= 0.15f,
+            "world-space muzzle connector expires quickly instead of following the gun for the shot's lifetime");
+
         var born = InstagibIonFracture.LookAt(0f);
         var expired = InstagibIonFracture.LookAt(1f);
         Check(born.Core == 1f && Math.Abs(born.Glow - 0.75f) < 0.001f
