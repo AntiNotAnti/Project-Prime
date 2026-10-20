@@ -521,8 +521,10 @@ namespace MphRead.Entities
                         Matrix4 transform = ModGetFirstPersonGunTransform(out Matrix4 renderTransform)
                             ? renderTransform
                             : GetTransformMatrix(_aimVec, _upVector, _gunDrawPos);
+                        using var ownerGunDraw = ModBeginOwnerGunDraw(transform);
                         UpdateTransforms(_gunModel, transform, Recolor);
-                        bool gunSample = TryHunterNodeSample(_gunModel, out var gunPresentation);
+                        bool gunSample = ModTryOwnerGunSample(out var gunPresentation)
+                            || TryHunterNodeSample(_gunModel, out gunPresentation);
                         try
                         {
                             if (gunSample)

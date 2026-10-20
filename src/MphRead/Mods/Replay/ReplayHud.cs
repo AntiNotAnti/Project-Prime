@@ -316,6 +316,7 @@ namespace MphRead.Mods.Replay
                     + $"last snapshot {net.LastSnapshotFrame}f",
                 $"checkpoints {DemoPlayback.CheckpointCount}  "
                     + $"director {ReplayDirector.Reason}",
+                "shot " + (DemoPlayback.PresentationScene?.ReplayDirectorShotDescription ?? "Canonical POV"),
                 $"session {DemoPlayback.Session.Host.GetType().Name}  frame {DemoPlayback.CurrentFrame}",
                 $"alpha {DemoPlayback.ReplicaScene?.ReplayRenderAlpha:0.000}  {DemoPlayback.SeekDiagnostics}",
                 $"capture {ReplayCapture.Recorder.Timeline.PayloadBytes / 1024d:0} KiB / {ReplayCapture.Recorder.Timeline.RecordCount} facts / {ReplayCapture.Recorder.Timeline.RestorePointCount} worlds",

@@ -13,14 +13,19 @@ namespace MphRead.Mods.Replay;
 internal readonly record struct ReplayOwnerPose(double Frame, double RenderSeconds,
     ushort Match, ulong Epoch, byte Slot, ushort Generation, ushort Life,
     Matrix4 View, float WorldFov, float GunFov, Vector3 GunPosition,
-    Vector3 GunFacing, Vector3 GunUp);
+    Vector3 GunFacing, Vector3 GunUp)
+{
+    internal float Aspect { get; init; }
+    internal ReplayOwnerVisual Visual { get; init; }
+}
 
 internal sealed class ReplayOwnerTrack
 {
     internal const string Extension = ".ownerpose";
     internal const int MaximumSamples = 65536;
     private const uint Magic = 0x31504F50; // POP1, independent of replay schema
-    private const int RecordBytes = 16 + 2 + 8 + 1 + 2 + 2 + 64 + 8 + 36;
+    internal const int LegacyRecordBytes = 139;
+    internal const int RecordBytes = LegacyRecordBytes + 4 + ReplayOwnerVisual.Bytes;
     private const int HeaderBytes = 4 + 2 + 2 + 4 + 32;
     private readonly ReplayOwnerPose[] _samples;
     internal int Count { get; private set; }
@@ -45,7 +50,9 @@ internal sealed class ReplayOwnerTrack
             || !float.IsFinite(value.WorldFov) || value.WorldFov is < .01f or > 3.06f
             || !float.IsFinite(value.GunFov) || value.GunFov is < .01f or > 3.06f
             || !Finite(value.GunPosition) || !Unit(value.GunFacing) || !Unit(value.GunUp)
-            || MathF.Abs(Vector3.Dot(value.GunFacing, value.GunUp)) > .01f) return false;
+            || MathF.Abs(Vector3.Dot(value.GunFacing, value.GunUp)) > .01f
+            || !float.IsFinite(value.Aspect) || value.Aspect != 0 && value.Aspect is < .2f or > 8
+            || !value.Visual.Valid) return false;
         for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++)
             if (!float.IsFinite(value.View[r, c])) return false;
         // Require a rigid affine camera; determinant alone accepts shears/scales.
@@ -88,7 +95,7 @@ internal sealed class ReplayOwnerTrack
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
             using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
             {
-                writer.Write(Magic); writer.Write((ushort)1); writer.Write((ushort)60);
+                writer.Write(Magic); writer.Write((ushort)2); writer.Write((ushort)60);
                 writer.Write(Count); writer.Write(identity);
                 for (int i = 0; i < Count; i++)
                 {
@@ -98,6 +105,7 @@ internal sealed class ReplayOwnerTrack
                     for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) writer.Write(v.View[r, c]);
                     writer.Write(v.WorldFov); writer.Write(v.GunFov);
                     Write(writer, v.GunPosition); Write(writer, v.GunFacing); Write(writer, v.GunUp);
+                    writer.Write(v.Aspect); v.Visual.Write(writer);
                 }
                 writer.Flush(); stream.Position = 0;
                 byte[] checksum = SHA256.HashData(stream);
@@ -128,12 +136,15 @@ internal sealed class ReplayOwnerTrack
         try
         {
             using var stream = new FileStream(replay + Extension, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (stream.Length < HeaderBytes + RecordBytes + 32
+            if (stream.Length < HeaderBytes + LegacyRecordBytes + 32
                 || stream.Length > HeaderBytes + (long)MaximumSamples * RecordBytes + 32) return null;
             using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
-            if (reader.ReadUInt32() != Magic || reader.ReadUInt16() != 1 || reader.ReadUInt16() != 60) return null;
+            if (reader.ReadUInt32() != Magic) return null;
+            ushort schema = reader.ReadUInt16();
+            if (schema is not (1 or 2) || reader.ReadUInt16() != 60) return null;
+            int recordBytes = schema == 1 ? LegacyRecordBytes : RecordBytes;
             int count = reader.ReadInt32();
-            if (count is < 1 or > MaximumSamples || stream.Length != HeaderBytes + (long)count * RecordBytes + 32) return null;
+            if (count is < 1 or > MaximumSamples || stream.Length != HeaderBytes + (long)count * recordBytes + 32) return null;
             byte[] identity = reader.ReadBytes(32);
             if (!CryptographicOperations.FixedTimeEquals(identity, Hash(replay, cancellation))) return null;
             var track = new ReplayOwnerTrack(count);
@@ -147,6 +158,7 @@ internal sealed class ReplayOwnerTrack
                 for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) view[r, c] = reader.ReadSingle();
                 var sample = new ReplayOwnerPose(frame, seconds, match, epoch, slot, generation, life,
                     view, reader.ReadSingle(), reader.ReadSingle(), Read(reader), Read(reader), Read(reader));
+                if (schema == 2) sample = sample with { Aspect = reader.ReadSingle(), Visual = ReplayOwnerVisual.Read(reader) };
                 if (!track.Add(sample)) return null;
             }
             long length = stream.Length - 32;
@@ -201,7 +213,8 @@ internal static class ReplayOwnerCapture
         _track.Add(new(frame, (System.Diagnostics.Stopwatch.GetTimestamp() - _started) / (double)System.Diagnostics.Stopwatch.Frequency,
             NetSession.CurrentMatchId, NetSession.AuthorityEpoch, (byte)player.SlotIndex,
             NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
-            view, worldFov, gunFov, gun.GunPosition, gun.GunFacing, gun.GunUp));
+            view, worldFov, gunFov, gun.GunPosition, gun.GunFacing, gun.GunUp)
+            { Aspect = scene.Size.Y > 0 ? scene.Size.X / (float)scene.Size.Y : 0, Visual = player.ModCaptureOwnerVisual() });
     }
     internal static void Finish(string path, Task canonicalCompletion, Func<bool> canonicalSucceeded)
     {

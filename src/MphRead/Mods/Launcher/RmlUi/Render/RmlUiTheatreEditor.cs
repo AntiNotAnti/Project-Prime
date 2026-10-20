@@ -51,8 +51,9 @@ internal static partial class RmlUiOpenGlSmoke
                     uint frame=events.Where(e=>e.ActorSlot==row.Slot).Select(e=>e.Frame).DefaultIfEmpty().First();
                     rows.Add(new("player:"+row.Slot,frame,frame,Name(row.Slot),$"{row.Kills}K/{row.Deaths}D // {row.Damage} DAMAGE // {row.ObjectiveEvents} OBJ // {row.Spawns} SPAWNS",row.Slot));
                 }
+                rows.Add(new("activity-method",0,0,"RECORDED ACTIVITY / 10s",ReplayAnalyticsSnapshot.ActivityDescription));
                 foreach(var row in analytics.DamageTimeline.Where(row=>row.Damage>0||row.Kills>0||row.Objectives>0))
-                    rows.Add(new("bucket:"+row.StartFrame,row.StartFrame,row.EndFrame,"DAMAGE OVER TIME",$"{row.Damage} DAMAGE // {row.Kills} KILLS // {row.Objectives} OBJECTIVES"));
+                    rows.Add(new("bucket:"+row.StartFrame,row.StartFrame,row.EndFrame,"RECORDED ACTIVITY",$"{row.ActivityScore}/100 ACTIVITY // {row.Damage} DAMAGE // {row.Kills} KILLS // {row.Objectives} OBJECTIVES"));
                 foreach(var row in analytics.WeaponUsage)
                 {
                     uint frame=events.Where(e=>e.Type==ReplayEventType.WeaponFired&&e.Value==row.Weapon).Select(e=>e.Frame).DefaultIfEmpty().First();
@@ -76,10 +77,10 @@ internal static partial class RmlUiOpenGlSmoke
             var events = ((Files)context.Persisted).Events;
             if (events.Length > ReplayStudio.MaximumAnalysisEvents)
                 throw new InvalidOperationException("Replay exceeds the bounded highlight analysis limit.");
-            return System.Threading.Tasks.Task.Run(() => ReplayStudio.Highlights(events,context.Duration,
-                    cancellationToken: cancellation).Select((row,index)=>new TheatreEditorEntry("highlight:"+index,
+            return System.Threading.Tasks.Task.Run(() => ReplayContextAnalysis.Suggestions(context.PlaybackPath, events,context.Duration,
+                    cancellation: cancellation).Select((row,index)=>new TheatreEditorEntry("highlight:"+index,
                         row.StartFrame,row.EndFrame,row.Label,
-                        $"ANNOTATION // {row.Kind} // SCORE {row.Score} // FOCUS {row.FocusFrame}",
+                        $"{(row.Kind == ReplayHighlightKind.Context ? "VERIFIED CONTEXT" : "ANNOTATION")} // {row.Kind} // SCORE {row.Score} // FOCUS {row.FocusFrame}",
                         row.ActorSlot,FocusFrame:row.FocusFrame)).ToImmutableArray(),cancellation);
         }
         public void ValidateSeekReview(TheatreEditorContext previous,TheatreEditorContext next)

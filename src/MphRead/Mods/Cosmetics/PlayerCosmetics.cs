@@ -41,6 +41,7 @@ namespace MphRead.Entities
         }
         internal CosmeticSurface CosmeticMaterial(bool firstPerson)
         {
+            if (firstPerson && _ownerGunDrawActive) return _ownerVisual.Surface;
             bool suppressed = Mods.Render.BrightSkins.ShouldApply(this) || BrightSkinStatusOverride || BrightSkinFrozenOverlay || ModMatchSpawnProtectionActive
                 || (Flags2.TestFlag(PlayerFlags2.Cloaking) || _curAlpha < 1) || _timeSinceDamage < Values.DamageFlashTime * 2;
             float distance = IsMainPlayer ? 0 : (Position - _scene.Players.Main.CameraInfo.Position).Length;

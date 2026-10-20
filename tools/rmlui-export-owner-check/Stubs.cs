@@ -3,7 +3,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead
 {
-    internal sealed class Scene { public double ReplayPresentationFrame = double.NaN; public long LifetimeGeneration = 1; public StubPlayers Players=new(); }
+    internal sealed class Scene { public double ReplayPresentationFrame = double.NaN; public long LifetimeGeneration = 1; public bool OwnerExportPreparedForDraw = true; public StubPlayers Players=new(); }
     internal sealed class StubPlayers { public int MainPlayerIndex=2; }
 }
 namespace MphRead.Mods.Network
@@ -34,7 +34,8 @@ namespace MphRead.Mods.Network
         public static ReplayState State = ReplayState.Paused;
         public static bool IsSeeking => State == ReplayState.Seeking;
         public static void Seek(uint frame, bool resume) { CurrentFrame = frame; State = ReplayState.Seeking; }
-        public static void StepForward() { }
+        public static int StepCalls;
+        public static void StepForward() { StepCalls++; }
     }
     internal static class ReplayFormatV3 { public const uint MaxFrame = 100000000; }
     internal static class DemoLibrary { public static string Directory = Path.GetTempPath(); }
@@ -51,6 +52,13 @@ namespace MphRead.Mods
 }
 namespace MphRead.Mods.Replay
 {
+    internal static class ReplayOwnerExport
+    {
+        public static bool Ready = true;
+        public static string? Source;
+        public static void Begin(string source) => Source = source;
+        public static void End() => Source = null;
+    }
     internal enum ReplayCameraMode { FirstPerson, Chase, Free, Orbit }
     internal enum ReplayPresentationProfile { Faithful, Presentation }
     internal static class ReplayCamera

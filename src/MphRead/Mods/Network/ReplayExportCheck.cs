@@ -16,7 +16,7 @@ namespace MphRead.Mods.Network;
 
 internal static class ReplayExportCheck
 {
-    internal static int Run(string path, string output)
+        internal static int Run(string path, string output, bool ownerPresentation = false)
     {
         if (path == "synthetic")
         {
@@ -24,7 +24,7 @@ internal static class ReplayExportCheck
             try
             {
                 ReplayWorldCoverageCheck.Write(fixture, "MP3 PROVING GROUND", GameMode.Battle, new Vector3(0, 1, 0));
-                return Run(fixture, output);
+                return Run(fixture, output, ownerPresentation);
             }
             finally { File.Delete(fixture); }
         }
@@ -40,9 +40,15 @@ internal static class ReplayExportCheck
             _ => { }, () => { }, initializeRuntime: false);
         try
         {
+            if (ownerPresentation)
+            {
+                string copy = Path.Combine(output, "synthetic-owner-source.ppdemo");
+                File.Copy(path, copy, overwrite: true); path = copy;
+                WriteSyntheticOwnerPictures(path);
+            }
             if (!DemoPlayback.Join(path)) throw new InvalidDataException(DemoPlayback.LastError);
             shell.OnSimulationFrame();
-            uint start = Math.Min(350, DemoPlayback.LastFrame - 8), end = start + 6;
+            uint start = Math.Min(ownerPresentation ? 12u : 350u, DemoPlayback.LastFrame - 8), end = start + 6;
             foreach (int fps in Replay.ReplayExportRates.Supported)
             {
                 string[]? reference = null;
@@ -53,7 +59,8 @@ internal static class ReplayExportCheck
                     var job = new ReplayVideoExportManifest(2, Path.GetFullPath(path), start, end, 1280, 720, fps,
                         true, false, false, pattern, movie,
                         $"-y -loglevel error -framerate {fps} -i \"{pattern}\" -c:v libx264 -pix_fmt yuv420p \"{movie}\"");
-                    ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation); ReplayCamera.SetMode(ReplayCameraMode.Orbit);
+                    var expectedMode = ownerPresentation ? ReplayCameraMode.FirstPerson : ReplayCameraMode.Orbit;
+                    ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation); ReplayCamera.SetMode(expectedMode);
                     if (!ReplayVideoExporter.Start(job)) throw new InvalidDataException(ReplayVideoExporter.Status);
                     var deadline = DateTime.UtcNow.AddSeconds(30);
                     while (ReplayVideoExporter.Active && DateTime.UtcNow < deadline)
@@ -64,13 +71,16 @@ internal static class ReplayExportCheck
                         Scene scene = DemoPlayback.PresentationScene!;
                         string before = ReplayStateHash.Compute(scene);
                         shell.OnDrawFrame(); shell.OnRenderFrame();
+                        if (ownerPresentation && ReplayOwnerExport.Ready && scene.OwnerExportPreparedForDraw
+                            && !scene.ReplayOwnerProvenance.StartsWith("Owner captured", StringComparison.Ordinal))
+                            throw new InvalidDataException("The exact first-person export did not consume the frozen owner picture: " + scene.ReplayOwnerProvenance);
                         if (ReplayStateHash.Compute(scene) != before) throw new InvalidDataException("Rendering changed gameplay state.");
                         ReplayVideoExporter.AfterSceneDraw(scene);
                         if (pass == 1) Thread.Sleep(3); // intentionally change wall-clock/render cadence
                     }
                     if (ReplayVideoExporter.State != ReplayExportState.Completed || !File.Exists(movie))
                         throw new InvalidDataException("Export did not complete: " + ReplayVideoExporter.Status);
-                    if (ReplayCamera.Mode != ReplayCameraMode.Orbit || ReplayCamera.Profile != ReplayPresentationProfile.Presentation)
+                    if (ReplayCamera.Mode != expectedMode || ReplayCamera.Profile != ReplayPresentationProfile.Presentation)
                         throw new InvalidDataException("Export did not restore the replay camera.");
                     int expected = checked((int)new ReplayExportSampler(start, end, fps).Count);
                     if (ReplayVideoExporter.FramesWritten != expected) throw new InvalidDataException("Wrong export sample count.");
@@ -87,6 +97,11 @@ internal static class ReplayExportCheck
                     if (fps == 120 && hashes.Distinct().Count() <= 7) throw new InvalidDataException("120 FPS duplicated 60 Hz pictures.");
                     reference = hashes;
                 }
+            }
+            if (ownerPresentation)
+            {
+                Console.WriteLine("[replayexport] OWNER PASS: synthetic 240Hz camera/gun/animation/cosmetic sidecar against real ROM assets; identical repeated 24/30/48/60/90/120/144 FPS PNGs, real video encoding, cold seek/cadence independence and gameplay hash invariance.");
+                return 0;
             }
             // A queue owns the renderer and encoder through successful process exit.
             ReplayExportQueue.ClearPending();
@@ -154,4 +169,35 @@ internal static class ReplayExportCheck
         finally { ReplayVideoExporter.Cancel(); DemoPlayback.Stop(); shell.DoCleanup(); shell.UnloadGl(); }
 #endif
     }
+
+#if !ANDROID
+    private static void WriteSyntheticOwnerPictures(string path)
+    {
+        using var replica = new PassiveReplayScene(path, new Vector2i(1280, 720));
+        var track = new ReplayOwnerTrack(128);
+        while (replica.Session.CurrentFrame <= 20 && replica.Step())
+        {
+            var player = replica.Scene.Players.Main;
+            if (replica.Session.CurrentFrame < 10 || replica.State.Match is not { } match
+                || !replica.State.TryGetPlayer(player.SlotIndex, out var state) || state.Health == 0) continue;
+            Vector3 facing = player.CameraInfo.Facing;
+            if (!float.IsFinite(facing.LengthSquared) || facing.LengthSquared < .0001f) facing = Vector3.UnitZ;
+            facing = facing.Normalized(); var right = Vector3.Cross(facing, Vector3.UnitY).Normalized();
+            var up = Vector3.Cross(right, facing).Normalized();
+            for (int i = 0; i < 4; i++)
+            {
+                double frame = replica.Session.CurrentFrame + i / 4d;
+                Vector3 eye = player.CameraInfo.Position + right * (float)(Math.Sin(frame * .2) * .05);
+                var pose = new ReplayOwnerPose(replica.Session.RecordingPresentationFrame(frame), frame / 60,
+                    match.MatchId, match.AuthorityEpoch, (byte)player.SlotIndex, state.SlotGeneration, state.LifeId,
+                    Matrix4.LookAt(eye, eye + facing, up), MathHelper.DegreesToRadians(78), MathHelper.DegreesToRadians(78),
+                    eye + facing * .4f + right * .2f - up * .2f, facing, up)
+                    { Aspect = 16f / 9, Visual = player.ModCaptureOwnerVisual() };
+                if (!track.Add(pose)) throw new InvalidDataException("Synthetic owner picture was invalid.");
+            }
+        }
+        if (track.Count < 32) throw new InvalidDataException("Insufficient owner fixture pictures.");
+        track.Save(path);
+    }
+#endif
 }

@@ -37,7 +37,7 @@ internal static class ReplayHighlightsCommand
             using var reader = DemoReader.Open(source, out var status, metadataOnly: true);
             if (reader == null) throw new InvalidDataException($"Replay could not be opened: {status}.");
             if (reader.Metadata == null) throw new InvalidDataException("Legacy replay has no annotation metadata; no events can be verified.");
-            string json = Analyze(reader.Metadata.Events, reader.DurationFrames,
+            string json = ReplayContextAnalysis.Json(source, reader.Metadata.Events, reader.DurationFrames,
                 new ReplayHighlightWeights(combat, objective, finish), cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (output == null) Console.WriteLine(json);

@@ -2293,6 +2293,12 @@ namespace MphRead.Mods
                 Environment.ExitCode = Network.ReplayExportCheck.Run(exportSource, ValueAfter(args, "output") ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "prime-replay-export-check"));
                 return true;
             }
+            if (ValueAfter(args, "replayownerexportcheck") is string ownerExportSource)
+            {
+                Environment.ExitCode = Network.ReplayExportCheck.Run(ownerExportSource,
+                    ValueAfter(args, "output") ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "prime-replay-owner-export-check"), ownerPresentation: true);
+                return true;
+            }
             if (ValueAfter(args, "replaytheatrecheck") is string theatreSource)
             {
                 Environment.ExitCode = Network.ReplayTheatreCheck.Run(theatreSource, ValueAfter(args, "shots"));

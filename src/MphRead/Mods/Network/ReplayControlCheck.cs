@@ -281,6 +281,22 @@ namespace MphRead.Mods.Network
                 Require(analytics.DamageTimeline.Count > 0
                     && analytics.DamageTimeline.Sum(bucket => bucket.Damage) == 200,
                     "studio damage timeline");
+                Require(analytics.DamageTimeline.Single().ActivityScore == 85,
+                    "recorded activity must combine damage, kills and objectives on fixed weights");
+                var activity = Replay.ReplayStudio.Analytics(new[]
+                {
+                    new ReplayEvent(599, ReplayEventType.Damage, 0, 1, 100),
+                    new ReplayEvent(600, ReplayEventType.Kill, 0, 1),
+                    new ReplayEvent(601, ReplayEventType.Objective, 0)
+                }, 601).DamageTimeline;
+                Require(activity.Count == 2 && activity[0].ActivityScore == 10
+                    && activity[1].StartFrame == 600 && activity[1].EndFrame == 601
+                    && activity[1].ActivityScore == 45,
+                    "activity windows must split at ten seconds without extrapolating short final windows");
+                Require(new Replay.ReplayTimeBucket(0, 600, int.MaxValue, int.MaxValue, int.MaxValue).ActivityScore == 100
+                    && new Replay.ReplayTimeBucket(0, 600, -1, -1, -1).ActivityScore == 0
+                    && new Replay.ReplayTimeBucket(0, 600, 0, 0, 0).ActivityScore == 0,
+                    "activity score must saturate without integer overflow and keep quiet windows at zero");
                 Require(analytics.WeaponUsage.Count == 1
                     && analytics.WeaponUsage[0].Weapon == 7
                     && analytics.WeaponUsage[0].Shots == 1,

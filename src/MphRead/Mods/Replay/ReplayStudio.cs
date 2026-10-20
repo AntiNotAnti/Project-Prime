@@ -18,7 +18,8 @@ namespace MphRead.Mods.Replay
         CloseFinish,
         Comeback,
         Duel,
-        MatchFinish
+        MatchFinish,
+        Context
     }
 
     internal readonly record struct ReplayHighlight(
@@ -52,7 +53,16 @@ namespace MphRead.Mods.Replay
         uint EndFrame,
         int Damage,
         int Kills,
-        int Objectives);
+        int Objectives)
+    {
+        // Annotation activity per fixed ten-second window, not suspense or a
+        // probability: 100 damage = 10 points, kill = 20, objective = 25.
+        // Fixed weights make recordings comparable; sparse final windows are
+        // deliberately not extrapolated to a full window.
+        public int ActivityScore => (int)Math.Clamp(
+            Math.Max(0L, Damage) / 10 + Math.Max(0L, Kills) * 20
+                + Math.Max(0L, Objectives) * 25, 0, 100);
+    }
 
     internal readonly record struct ReplayWeaponUsage(int Weapon, int Shots);
 
@@ -63,6 +73,8 @@ namespace MphRead.Mods.Replay
         public int TotalDamage { get; init; }
         public int ObjectiveEvents { get; init; }
         public uint DurationFrames { get; init; }
+        public const uint ActivityBucketFrames = 10 * 60;
+        public const string ActivityDescription = "Recorded activity per 10s: damage/10 + kills×20 + objectives×25, capped at 100. Final windows are not extrapolated.";
         public IReadOnlyList<ReplayTimeBucket> DamageTimeline { get; init; }
             = Array.Empty<ReplayTimeBucket>();
         public IReadOnlyList<ReplayWeaponUsage> WeaponUsage { get; init; }
@@ -261,7 +273,7 @@ namespace MphRead.Mods.Replay
                 return row;
             }
 
-            const uint bucketFrames = 10 * 60;
+            const uint bucketFrames = ReplayAnalyticsSnapshot.ActivityBucketFrames;
             var timeline = new Dictionary<uint, MutableTimeline>();
             MutableTimeline Bucket(uint frame)
             {
