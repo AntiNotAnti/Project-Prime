@@ -3841,6 +3841,14 @@ namespace MphRead
             }
             else if (_cameraMode == CameraMode.Player)
             {
+                if (_thirdPersonRenderedEyeValid)
+                {
+                    // Exact same eye as TransformCamera's final draw matrix.
+                    // No second replay camera sample, inversion or late-pose
+                    // fallback on every high-refresh frame.
+                    _cameraPosition = _thirdPersonRenderedEye;
+                    return;
+                }
                 PlayerEntity main = this.Players.Main;
                 CameraInfo camera = main.CameraInfo;
                 if (main.ModReplayPresentationCamera(
