@@ -404,14 +404,17 @@ namespace MphRead.Mods.Network
                     // captured in the previous room.
                     customPlaced = player.OwningScene.PlayerReplication.TryApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
                     customBody = player.Position;
-                    customBiped = !player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing
-                        && (NetSession.RemoteIntents[slot].Buttons & IntentButtons.AltFormState) == 0;
-                    NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
                 }
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 bool customControlled = player.OwningScene.PlayerReplication.TryApplyIntent(player, NetSession.RemoteIntents[slot]);
+                bool stanceMatches = player.ModCrouched
+                    == ((NetSession.RemoteIntents[slot].Buttons & IntentButtons.CrouchedState) != 0);
+                customBiped = !player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing
+                    && (NetSession.RemoteIntents[slot].Buttons & IntentButtons.AltFormState) == 0;
+                if (customPlaced && customControlled && stanceMatches)
+                    NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
                 player.OwningScene.CustomCombat?.RecordSourceInput(player,NetSession.RemoteIntents[slot],customBody,customBiped,
-                    acceptedPose: customPlaced && customControlled);
+                    acceptedPose: customPlaced && customControlled && stanceMatches);
                 NetPowerUpLedger.ObserveInput(player);
                 if (authorityRole)
                 {

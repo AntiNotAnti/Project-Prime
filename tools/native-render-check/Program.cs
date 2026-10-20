@@ -37,6 +37,12 @@ int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
 Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
 bool poseCheck = args.Contains("-posecheck");
+bool crouchCheck = args.Contains("-crouchcheck");
+if (crouchCheck && (!OperatingSystem.IsWindows() || players != 1 || shots == null || cap != 60
+    || args.Any(a => a is "-posecheck" or "-pose-pixels" or "-resourcestress" or "-windowcycle"
+        or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile"
+        or "-glgpu" or "-camera" or "-facing" or "-resource-context-cycles" or "-transition-gc")))
+    throw new ArgumentException("-crouchcheck requires Windows, -players 1, -shots and -hz 60; run separately from other diagnostics.");
 string poseFocusControl = DisplayPosePlan.ResolveFocusControl(args.Contains("-pose-focus-control")
     ? Value("-pose-focus-control", "") : null, poseCheck);
 bool lateProvenanceControl = args.Contains("-late-provenance-control");
@@ -94,7 +100,7 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "m
     ResourceAttribution.DisableMusic();
 CheckWindow CreateWindow(string[] options)
 {
-    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl);
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck);
     try
     {
         value.ConfigureResourceStress(options);
@@ -104,14 +110,14 @@ CheckWindow CreateWindow(string[] options)
     catch { value.Dispose(); throw; }
 }
 if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck);
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
 {
     window.Run();
     var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult()
-        : poseCheck ? window.DisplayPoseResult() : window.Result())!;
+        : crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.Result())!;
     if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
         ? window.CleanupAndInspect() : window.CleanupTransitionGcAndInspect(args.Contains("-transition-rebind")));
     if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
@@ -122,9 +128,9 @@ try
 }
 catch (Exception ex)
 {
-    if (window.ResourceStressEnabled || poseCheck)
+    if (window.ResourceStressEnabled || poseCheck || crouchCheck)
     {
-        var result=JsonSerializer.SerializeToNode(poseCheck ? window.DisplayPoseResult() : window.ResourceStressResult())!;
+        var result=JsonSerializer.SerializeToNode(crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.ResourceStressResult())!;
         result["error"]=ex.ToString();
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         File.WriteAllText(output,result.ToJsonString(new JsonSerializerOptions { WriteIndented=true })+"\n");
@@ -203,8 +209,9 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none")
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false)
     {
+        _crouchCheck = crouchCheck;
         _poseFocusControl = poseFocusControl;
         _lateProvenanceControl = lateProvenanceControl;
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
@@ -234,10 +241,18 @@ sealed partial class CheckWindow : RenderWindow
         PlayerEntity.PlayerCount = players;
         PlayerEntity.MainPlayerIndex = 0;
         foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
-        if (idle) Scene.Players.Main.IsBot = false;
+        if (idle || crouchCheck) Scene.Players.Main.IsBot = false;
         if (bombCheck || impactCheck || poseCheck) foreach (var player in PlayerEntity.Players) player.IsBot = false;
         typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
         AddRoom(room, GameMode.Battle, playerCount: players);
+        if (crouchCheck)
+        {
+            new MphRead.Mods.Network.MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                MovementModel = MphRead.Mods.Movement.MovementModel.Traversal,
+                TimeLimitSeconds = 0, PointGoal = 10000 }.ApplyInitialConfiguration(Scene.GameState);
+            typeof(Scene).GetField("_developerMomentumDiagnostics", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(Scene, true);
+        }
     }
 
     protected override void OnLoad()
@@ -281,6 +296,7 @@ sealed partial class CheckWindow : RenderWindow
         }
         ObserveWindowState();
         if (_poseCheck) InitializeDisplayPose();
+        if (_crouchCheck) InitializeCrouchRenderCheck();
     }
 
     private void StabilizeCaptureKillFeed()
@@ -321,6 +337,13 @@ sealed partial class CheckWindow : RenderWindow
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         ObserveWindowState();
+        if (_crouchCheck)
+        {
+            BeforeCrouchRenderFrame();
+            base.OnRenderFrame(new FrameEventArgs(1d / 60));
+            AfterCrouchRenderFrame();
+            return;
+        }
         if (_poseCheck)
         {
             BeforeDisplayPoseFrame();
@@ -529,6 +552,12 @@ sealed partial class CheckWindow : RenderWindow
 
     protected override void OnFocusedChanged(FocusedChangedEventArgs e)
     {
+        if (_crouchCheck)
+        {
+            ObserveCrouchFocus(e.IsFocused, "os-callback");
+            if (_wall.IsRunning) ObserveWindowState(e.IsFocused);
+            return; // This diagnostic owns frozen synthetic input; OS focus is observed only.
+        }
         if (_poseCheck)
         {
             ObservePoseFocus(e.IsFocused, _poseInjectingFocus ? "injected-isolated" : "os-callback");

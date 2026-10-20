@@ -40,7 +40,8 @@ namespace MphRead.Mods.Input
             /* ReplayCameraMode */ GamepadButtons.Y,
             // Appended enum value, gameplay context. Intentionally unbound so
             // upgrading cannot steal a button from an existing controller.
-            /* SaveClip */ GamepadButtons.None
+            /* SaveClip */ GamepadButtons.None,
+            /* Crouch */ GamepadButtons.None
         };
 
         public string Preset { get; internal set; } = "Default";
@@ -59,7 +60,7 @@ namespace MphRead.Mods.Input
 
         private static readonly PadAction[] GameplayActionOrder = new[]
         {
-            PadAction.Shoot, PadAction.Jump, PadAction.Morph, PadAction.Zoom,
+            PadAction.Shoot, PadAction.Jump, PadAction.Crouch, PadAction.Morph, PadAction.Zoom,
             PadAction.ScanVisor, PadAction.Scan, PadAction.NextWeapon,
             PadAction.PrevWeapon, PadAction.Missile, PadAction.PowerBeam,
             PadAction.Scoreboard, PadAction.Menu, PadAction.Chat, PadAction.SaveClip,
@@ -321,6 +322,7 @@ namespace MphRead.Mods.Input
                 PadAction.PowerBeam => "Power beam",
                 PadAction.Menu => "Menu",
                 PadAction.SaveClip => "Save clip",
+                PadAction.Crouch => "Crouch / slide",
                 PadAction.WeaponWheel => "Weapon wheel",
                 PadAction.ReplayPlayPause => "Replay: play / pause",
                 PadAction.ReplayStep => "Replay: step frame",

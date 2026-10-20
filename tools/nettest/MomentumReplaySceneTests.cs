@@ -39,6 +39,11 @@ internal static class MomentumReplaySceneTests
             CheckMode(second, expected, "second construction before gameplay");
             Require(first.Session.LastFrame >= 1800, "recorded asset-backed fixture covers at least 1800 visible frames");
             var references = new Dictionary<uint, Hashes>();
+            bool stanceArchive = expected == MovementModel.Traversal && first.Session.Metadata!.ProtocolVersion >= 69;
+            var previousStance = new Dictionary<int, bool>();
+            var stanceSeekTargets = new HashSet<uint>(); var stanceBoundaryFrames = new List<uint>();
+            int snapshotStanceChecks = 0, crouchedFrames = 0, standingFrames = 0;
+            bool capturedCrouch = false, capturedStandingAfterCrouch = false;
             var checkpointFrames = new List<uint>(); var checkpointSizes = new List<int>();
             using var aggregate = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             int frames = 0, continued = 0, snapshotPoseChecks = 0, morphFrames = 0, midairMorphFrames = 0, altFrames = 0, airborneFrames = 0;
@@ -65,7 +70,7 @@ internal static class MomentumReplaySceneTests
                     Require(restored.Session.CurrentFrame == frame && hash == Hash(restored), "restored actual world continuation matches at " + frame);
                     continued++;
                 }
-                int players = 0; bool morph = false, midairMorph = false, alt = false, air = false;
+                int players = 0; bool morph = false, midairMorph = false, alt = false, air = false, crouched = false;
                 foreach (PlayerEntity player in first.Scene.Players.Items)
                 {
                     Require(!first.Scene.MomentumOwnsPlayer(player), "replica player is excluded from native/Momentum ownership");
@@ -76,6 +81,23 @@ internal static class MomentumReplaySceneTests
                     Require((player.Position - recorded.Position).Length <= .00001f,
                         $"canonical recorded snapshot owns collision body at frame{frame}/slot{player.SlotIndex}");
                     snapshotPoseChecks++;
+                    if (stanceArchive)
+                    {
+                        Require(player.ModCrouched == recorded.Crouched && player.ModCollisionCrouched == recorded.Crouched,
+                            $"canonical recorded stance owns live and collision shape at frame{frame}/slot{player.SlotIndex}");
+                        snapshotStanceChecks++;
+                        crouched |= recorded.Crouched;
+                        if (previousStance.TryGetValue(player.SlotIndex, out bool previous) && previous != recorded.Crouched)
+                        {
+                            stanceBoundaryFrames.Add(frame);
+                            if (stanceSeekTargets.Count < 18)
+                            {
+                                if (frame > 0) stanceSeekTargets.Add(frame - 1);
+                                stanceSeekTargets.Add(frame); stanceSeekTargets.Add(frame + 1);
+                            }
+                        }
+                        previousStance[player.SlotIndex] = recorded.Crouched;
+                    }
                     morph |= player.IsMorphing || player.IsUnmorphing;
                     midairMorph |= (player.IsMorphing || player.IsUnmorphing) && MathF.Abs(player.Speed.Y) > .001f;
                     alt |= player.IsAltForm; air |= !player.Flags1.TestFlag(PlayerFlags1.Grounded);
@@ -84,9 +106,13 @@ internal static class MomentumReplaySceneTests
                 }
                 minimumPlayers = Math.Min(minimumPlayers, players); maximumPlayers = Math.Max(maximumPlayers, players);
                 if (morph) morphFrames++; if (midairMorph) midairMorphFrames++; if (alt) altFrames++; if (air) airborneFrames++;
-                if (frame > 0 && frame % 300 == 0 || morph && !capturedMorph)
+                if (stanceArchive && players > 0) { if (crouched) crouchedFrames++; else standingFrames++; }
+                bool captureCrouch = stanceArchive && crouched && !capturedCrouch;
+                bool captureStanding = stanceArchive && capturedCrouch && !crouched && players > 0 && !capturedStandingAfterCrouch;
+                if (frame > 0 && frame % 300 == 0 || morph && !capturedMorph || captureCrouch || captureStanding)
                 {
                     capturedMorph |= morph;
+                    capturedCrouch |= captureCrouch; capturedStandingAfterCrouch |= captureStanding;
                     using var checkpoint = ReplayWorldCheckpoint.Capture(first);
                     checkpointFrames.Add(checkpoint.Frame); checkpointSizes.Add(checkpoint.Bytes.Length);
                     restored?.Dispose(); restored = new PassiveReplayScene(source, size);
@@ -102,6 +128,10 @@ internal static class MomentumReplaySceneTests
             Require(frames >= 1800 && continued > 0 && checkpointFrames.Count >= 6, "all-frame traversal and actual periodic checkpoint continuation activated");
             Require(morphFrames > 0 && midairMorphFrames > 0 && altFrames > 0 && airborneFrames > 0, "actual recorded midair form transitions and airborne interval covered");
             Require(maximumPlayers >= 2, "actual multiplayer recorded actors reconstructed");
+            if (stanceArchive)
+                Require(snapshotStanceChecks > 0 && crouchedFrames > 0 && standingFrames > 0 && stanceBoundaryFrames.Count >= 2
+                    && capturedCrouch && capturedStandingAfterCrouch,
+                    "protocol69 recording contains real stance transitions and captures actual crouched and subsequent standing checkpoints");
             string digest = Convert.ToHexString(aggregate.GetHashAndReset());
             restored?.Dispose(); restored = null;
 
@@ -111,7 +141,8 @@ internal static class MomentumReplaySceneTests
             CheckMode(playerTransport.Current, expected, "seek player initial construction");
             // Forward seeks build real memory capsules; backward seeks restore them.
             uint last = playerTransport.Current.Session.LastFrame;
-            foreach (uint requested in new uint[] { 1500, 35, 1100, 615, 0, 1799, 1201, 610, last })
+            foreach (uint requested in new uint[] { 1500, 35, 1100, 615, 0, 1799, 1201, 610, last }
+                .Concat(stanceSeekTargets.Where(references.ContainsKey).OrderByDescending(frame => frame)).Distinct())
             {
                 uint target = Math.Min(last, requested);
                 playerTransport.Seek(target);
@@ -198,6 +229,9 @@ internal static class MomentumReplaySceneTests
                 recordedProfileVersion = first.Session.Metadata.RecordedMovementProfileVersion,
                 firstFrame = references.Keys.Min(), lastFrame = references.Keys.Max(), gameplayPresentationDigest = digest,
                 snapshotPoseChecks, morphFrames, midairMorphFrames, altFrames, airborneFrames,
+                stanceArchive, snapshotStanceChecks, crouchedFrames, standingFrames, stanceBoundaryFrames,
+                stanceSeekTargets = stanceSeekTargets.OrderBy(frame => frame).ToArray(), capturedCrouch, capturedStandingAfterCrouch,
+                gameplayHashIncludesStance = stanceArchive,
                 minimumRecordedPlayers = minimumPlayers, maximumRecordedPlayers = maximumPlayers,
                 checkpointFrames, checkpointSizes, continuedFrames = continued,
                 memoryCheckpointCount = playerTransport.CheckpointCount, memoryCheckpointBytes = playerTransport.CheckpointBytes, seeks, durableEnabled = durablePath != null, durableSeeks,
@@ -209,8 +243,23 @@ internal static class MomentumReplaySceneTests
         finally { restored?.Dispose(); }
     }
     private static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
-    private static Hashes Hash(PassiveReplayScene replay) => new(ReplayStateHash.Compute(replay.Scene, replay.Session.CurrentFrame),
-        replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame));
+    private static Hashes Hash(PassiveReplayScene replay)
+    {
+        string gameplay = ReplayStateHash.Compute(replay.Scene, replay.Session.CurrentFrame);
+        if (replay.Session.Metadata is { ProtocolVersion: >= 69, RecordedMovementModel: MovementModel.Traversal })
+        {
+            // Test-only extension: archived schemas and historical expected
+            // hashes retain their original meaning. Current stance must also
+            // survive world capsules, continuation, and every transport seek.
+            var stance = new StringBuilder(gameplay);
+            foreach (PlayerEntity player in replay.Scene.Players.Items)
+                stance.Append('|').Append(player.SlotIndex).Append(':').Append(player.ModCrouched ? '1' : '0')
+                    .Append(player.ModCollisionCrouched ? '1' : '0')
+                    .Append(':').Append(BitConverter.SingleToInt32Bits(player.ModBipedTop));
+            gameplay = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(stance.ToString())));
+        }
+        return new(gameplay, replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame));
+    }
     private static void CheckMode(PassiveReplayScene replay, MovementModel expected, string operation)
     {
         Require(replay.Scene.GameState.MovementModel == expected, operation + ": explicit recorded movement model preserved");
@@ -222,7 +271,7 @@ internal static class MomentumReplaySceneTests
             MovementModel.Native => 0,
             MovementModel.Momentum => 1,
             MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 62 ? 2 : 1,
-            MovementModel.Traversal => 1,
+            MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 69 ? 2 : 1,
             _ => throw new InvalidDataException("Unknown expected replay movement model.")
         };
         if (expected == MovementModel.Traversal)
@@ -231,6 +280,12 @@ internal static class MomentumReplaySceneTests
             operation + ": profile version follows recorded protocol, never current live policy");
         Require(replay.Scene.Services.IsReplica && !replay.Scene.MomentumMovementActive && replay.Scene.DeveloperMomentumSteps == 0,
             operation + ": private replica never reruns an active horizontal adapter");
+        if (expected == MovementModel.Traversal && replay.Session.Metadata!.ProtocolVersion >= 69)
+            foreach (PlayerEntity player in replay.Scene.Players.Items)
+                if (replay.State.TryGetPlayer(player.SlotIndex, out var recorded) && recorded.Health > 0
+                    && (recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned)) == (PlayerState.FlagActive | PlayerState.FlagSpawned))
+                    Require(player.ModCrouched == recorded.Crouched && player.ModCollisionCrouched == recorded.Crouched,
+                        operation + ": canonical recorded stance restored exactly for slot" + player.SlotIndex);
         Require(!NetSession.Active && !DemoPlayback.IsActive, operation + ": private reader never opens live/global playback ownership");
     }
 }

@@ -909,7 +909,7 @@ namespace MphRead.Entities
                 // slot 2 while the authority counted none at all.
                 CameraInfo.Position = _field6D0
                     ? Position
-                    : Position.AddY(Fixed.ToFloat(Values.AimYOffset));
+                    : Position.AddY(ModBipedEyeOffset);
             }
             _gunVec1 = aim.Normalized();
             float flat = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
@@ -987,11 +987,12 @@ namespace MphRead.Entities
         internal AltCollisionPose ModCaptureAltPose() => Hunter == Hunter.Kanden
             ? new(_kandenSegPos[1], _kandenSegPos[2], _kandenSegPos[3]) : default;
         internal HistoricalCollisionState ModCaptureCollisionState() => new(Position, PrevPosition,
-            _volume, _volumeUnxf, NodeRef, _modHistoricalCollisionForm, ModCaptureAltPose());
+            _volume, _volumeUnxf, NodeRef, _modHistoricalCollisionForm, ModCaptureAltPose(), _modHistoricalCrouched);
         internal void ModApplyHistoricalCollisionPose(in HistoricalPlayerPose pose)
         {
             Position = PrevPosition = pose.Position;
             _modHistoricalCollisionForm = pose.AltForm;
+            _modHistoricalCrouched = !pose.AltForm && pose.Crouched;
             _volumeUnxf = PlayerVolumes[(int)Hunter, pose.AltForm ? 2 : 0];
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
             if (Hunter == Hunter.Kanden)
@@ -1006,6 +1007,7 @@ namespace MphRead.Entities
             Position = state.Position; PrevPosition = state.Previous;
             _volume = state.Volume; _volumeUnxf = state.Untransformed; NodeRef = state.Node;
             _modHistoricalCollisionForm = state.Form;
+            _modHistoricalCrouched = state.Crouched;
             if (Hunter == Hunter.Kanden)
             {
                 _kandenSegPos[1] = state.Segments.Seg1;
@@ -1275,6 +1277,7 @@ namespace MphRead.Entities
         {
             if (value)
             {
+                ModResetTraversalStance();
                 Flags2 |= PlayerFlags2.Spectating;
                 // Spectating is a role, not an invisible living hunter. Keep
                 // the occupied network slot but remove its current world body.

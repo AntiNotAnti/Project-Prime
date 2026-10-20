@@ -59,7 +59,7 @@ public sealed partial class DedicatedServer
         bool fire=request.Kind==CustomWeaponActionKind.Fire;
         var action=new CustomWeaponAction(request.Bootstrap,request.Manifest,request.Slot,request.Life,request.Weapon,request.Sequence,
             input.Frame,fire ? sample.Input.AckFrame:0,fire ? sample.Input.AckSubFrame:(byte)0,request.Kind,request.Optic,
-            fire ? sample.Body+Vector3.UnitY*.4f:Vector3.Zero,fire ? sample.Aim:Vector3.Zero);
+            fire ? sample.MuzzleOrigin:Vector3.Zero,fire ? sample.Aim:Vector3.Zero);
         if (!action.IsValid)
         {
             if (root.SettleUnobserved(request)) outbox.PublishDenied(request,NetSession.NetFrame,CustomControlDenialReason.SourceUnavailable);

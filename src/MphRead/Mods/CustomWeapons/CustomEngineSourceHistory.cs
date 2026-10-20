@@ -1,3 +1,4 @@
+using MphRead.Mods.Movement;
 using System;
 using OpenTK.Mathematics;
 
@@ -14,7 +15,11 @@ internal readonly record struct CustomSourceInput(WeaponOwnerContext Owner,uint 
         && MathF.Abs(p.X) <= 1000000 && MathF.Abs(p.Y) <= 1000000 && MathF.Abs(p.Z) <= 1000000;
 }
 internal readonly record struct CustomEngineObservation(CustomSourceInput Input,uint ObservedWorldFrame,
-    Vector3 Body,Vector3 Aim,bool CanUseWeapon,CustomSourceModifierEvidence Modifiers = default);
+    Vector3 Body,Vector3 Aim,bool CanUseWeapon,CustomSourceModifierEvidence Modifiers = default, bool Crouched = false)
+{
+    internal Vector3 MuzzleOrigin => Body + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(Crouched);
+    internal Vector3 TraceOrigin => Body + Vector3.UnitY * TraversalStance.CustomTraceOffset(Crouched);
+}
 internal enum CustomSourceObservationStatus : byte { Missing,Rejected,Available }
 internal enum CustomObservationResult : byte { Captured,Duplicate,Conflict,Unavailable,Invalid }
 
@@ -57,7 +62,7 @@ internal sealed class CustomEngineSourceHistory
             return CustomObservationResult.Invalid;
         _world = world;
         if (unchecked((int)(input.Frame-_frontier)) > 0) _frontier = input.Frame;
-        _entries[index] = new(new(input,world,facts?.Body ?? default,facts?.Aim ?? default,facts?.CanUseWeapon ?? false,facts?.Modifiers ?? default),facts.HasValue,false);
+        _entries[index] = new(new(input,world,facts?.Body ?? default,facts?.Aim ?? default,facts?.CanUseWeapon ?? false,facts?.Modifiers ?? default,facts?.Crouched ?? false),facts.HasValue,false);
         return CustomObservationResult.Captured;
     }
     private static bool CustomSourceInputValidFacts(in CustomPrecombatFacts facts)

@@ -90,7 +90,8 @@ namespace MphRead.Entities
             Vector3 position = Position;
             if (!_field6D0)
             {
-                position.Y += Fixed.ToFloat(Values.AimYOffset) + MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
+                position.Y += (IsAltForm ? Fixed.ToFloat(Values.AimYOffset) : ModBipedEyeOffset)
+                    + MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
             }
             if (_timeStanding < 9 * 2) // todo: FPS stuff
             {

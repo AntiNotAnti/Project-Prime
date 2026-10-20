@@ -290,6 +290,8 @@ namespace MphRead.Mods.Network
             if (c.Shoot.IsDown) buttons |= IntentButtons.Shoot;
             if (c.Zoom.IsDown) buttons |= IntentButtons.Zoom;
             if (c.Jump.IsDown) buttons |= IntentButtons.Jump;
+            if (c.Crouch.IsDown) buttons |= IntentButtons.Crouch;
+            if (player.ModCrouched) buttons |= IntentButtons.CrouchedState;
             if (c.Morph.IsDown) buttons |= IntentButtons.Morph;
             if (c.Boost.IsDown) buttons |= IntentButtons.Boost;
             if (c.AltAttack.IsDown) buttons |= IntentButtons.AltAttack;
@@ -427,7 +429,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private const IntentButtons PressedButtons = ~(IntentButtons.ZoomedState
             | IntentButtons.AltFormState | IntentButtons.InPlayState
-            | IntentButtons.SpectatingState | IntentButtons.ReadyState);
+            | IntentButtons.SpectatingState | IntentButtons.ReadyState | IntentButtons.CrouchedState | IntentButtons.Crouch);
 
         /// <summary>Newest press frame already applied, per slot.</summary>
         private readonly uint[] _lastPressFrame = new uint[PlayerEntity.SlotCapacity];
@@ -538,6 +540,7 @@ namespace MphRead.Mods.Network
                 intent.WeaponSelect == (byte)BeamType.Battlehammer
                     && ((missed & IntentButtons.Zoom) == IntentButtons.Zoom));
             Set(c.Jump, ((intent.Buttons & IntentButtons.Jump) == IntentButtons.Jump), ((missed & IntentButtons.Jump) == IntentButtons.Jump));
+            Set(c.Crouch, (intent.Buttons & IntentButtons.Crouch) != 0, false);
             Set(c.Morph, ((intent.Buttons & IntentButtons.Morph) == IntentButtons.Morph), ((missed & IntentButtons.Morph) == IntentButtons.Morph));
             if (c.Morph.IsPressed)
             {
@@ -618,6 +621,7 @@ namespace MphRead.Mods.Network
             if (_host.IsAuthority)
             {
                 ApplyForm(player, ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
+                player.ModAdmitReportedCrouch(c.Crouch.IsDown, (intent.Buttons & IntentButtons.CrouchedState) != 0);
             }
             // And what this player's next shot is worth, from the one machine
             // that knows -- charge, ram, double damage, the Prime Hunter
@@ -841,6 +845,7 @@ namespace MphRead.Mods.Network
             _host.ReplayDamage(player, state);
             if (!spawned)
             {
+                player.ModResetTraversalStance();
                 if (state.Health == 0 && player.Health > 0) _host.ReplayDeath(player);
                 player.Health = state.Health;
                 if (state.Health == 0)
@@ -887,6 +892,7 @@ namespace MphRead.Mods.Network
                 if (!state.HalfturretActive) player.OnHalfturretDied();
             }
             player.ModSetFrozen((state.Flags & PlayerState.FlagFrozen) != 0);
+            player.ModApplyReplicatedCrouch(state.Crouched, isLocal && !fresh);
             ApplyAfflictions(player, state);
             if (formWasNew && !waitingForForm && _authorityForms[slot].Known
                 && _authorityForms[slot].State.Frame == state.Form.Frame)

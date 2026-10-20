@@ -1,0 +1,710 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "baseMain": "6366ce762a692a3b2bcf0bf61e3920c095f15b78",
+  "liveProtocol": 69,
+  "movement": "Traversal",
+  "profileVersion": 2,
+  "defaultMovement": "Classic",
+  "platform": "Windows x64, .NET 10.0.401 SDK / .NET 10.0.12 runtime",
+  "buildProperties": {
+    "Configuration": "Release",
+    "MphReadReplayPreviewFailureFixture": false,
+    "otherProperties": "normal defaults"
+  },
+  "finalRuntime": {
+    "baseSha": "6366ce762a692a3b2bcf0bf61e3920c095f15b78",
+    "snapshot": "06",
+    "sourceManifestSha256": "6735d2779047f72a24015cdbaec41818e698bbd010086a92f9d60826d28e6f15",
+    "sourceFiles": 93,
+    "overlaySha256": "2115bf2d1625fdf08286cbfb4bc9b9e4ebe06d9200e187a874d63261484ff7c9",
+    "buildExitCode": 0,
+    "normalProperties": {
+      "Configuration": "Release",
+      "MphReadReplayPreviewFailureFixture": false,
+      "otherProperties": "normal defaults"
+    },
+    "binaries": {
+      "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+      "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "runtimeSourceFiles": {
+      ".github/workflows/momentum-math.yml": {
+        "sha256": "d4439cfa19a7aeac481ce423b5867cfb0e57ece4c11223d335fdf85ed02dd5a3",
+        "bytes": 10306
+      },
+      "maps/traversal-training/map.json": {
+        "sha256": "2967da35c25d6e2459cab9676411d94b00015a3b0b690c211b2f27f8dd4fdf17",
+        "bytes": 4563
+      },
+      "src/MphRead/Entities/ArtifactEntity.cs": {
+        "sha256": "df08cc284589589bcc418d4c480b317d6797f1109fd08745d8e45f800719c8e5",
+        "bytes": 13141
+      },
+      "src/MphRead/Entities/BeamProjectileEntity.cs": {
+        "sha256": "75a446117aea4f7a799b2abefda83f5f00e15596cede3dad3f3de9e46dc23c2f",
+        "bytes": 150807
+      },
+      "src/MphRead/Entities/BombEntity.cs": {
+        "sha256": "3ad818e16e6f43c3d72e92a0601e2a4edfb880777a92fc2484b628ffd9f022a7",
+        "bytes": 33301
+      },
+      "src/MphRead/Entities/OctolithFlagEntity.cs": {
+        "sha256": "6847c8a8457d722130b29a5870c994b88ef090ec2e24f9ba995b6ea001dffd75",
+        "bytes": 15517
+      },
+      "src/MphRead/Entities/Players/PlayerCamera.cs": {
+        "sha256": "20829a5f1db1cd51b4405e4e86c5534018a063dfb5715b3d758e9950fca0b655",
+        "bytes": 57392
+      },
+      "src/MphRead/Entities/Players/PlayerCollision.cs": {
+        "sha256": "fe37df39b2082739b6e678cf985a06ed9ac2dff7813ddb8e202fca0aae375157",
+        "bytes": 74342
+      },
+      "src/MphRead/Entities/Players/PlayerDraw.cs": {
+        "sha256": "13c971e519a59907d035309b6804ab09b0a1d57286111991ed58da5cb572ae20",
+        "bytes": 62701
+      },
+      "src/MphRead/Entities/Players/PlayerEntity.cs": {
+        "sha256": "acdc1dd590f9f6e6496e39732d02963d6f5bef2978d994d8dd1fda696cde7926",
+        "bytes": 171368
+      },
+      "src/MphRead/Entities/Players/PlayerInput.cs": {
+        "sha256": "7cfc9bbd8794740bfaa0bf108539af654db48568de37d194a1d5a89c2ccd0585",
+        "bytes": 174824
+      },
+      "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": {
+        "sha256": "cc02488cbbebba355fa466c3dd7b0d4a74d8086f70ada3e58c3d1563063fe1e1",
+        "bytes": 6515
+      },
+      "src/MphRead/Entities/Players/PlayerProcess.cs": {
+        "sha256": "afadabfa2194d678ac2e76cc69195cac446d0b16e071b9ccb211493be227a00d",
+        "bytes": 116442
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": {
+        "sha256": "d7a677c77d6e4d92c0ab069a8ba43db85130c065e9a9dac368a98619e8ef10d9",
+        "bytes": 6489
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": {
+        "sha256": "7e6f807e2b5f337e607e96e1f8ba0581f66beaf304b0d0d8696f87526cd5742d",
+        "bytes": 8404
+      },
+      "src/MphRead/Entities/Players/PlayerWallCling.cs": {
+        "sha256": "f6d64065564818d0e3ad49619267f0bf8fd52a79fa7375b9480360af56f4237c",
+        "bytes": 15388
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomAuthorityCombatAdapter.cs": {
+        "sha256": "a614d9c96c462277c152a3db663277d0ac2f18f54dbbe4823eb190200afd2379",
+        "bytes": 27467
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomCombatResults.cs": {
+        "sha256": "52614f3e83ce3aefaae0646fac07b4ff5c5fef9d2dbdcc07b07fee8f57d80ffd",
+        "bytes": 21640
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomEngineSourceAdmission.cs": {
+        "sha256": "9255d8bd1e2d00d2ce5e2eb401c5fec3985207f08a63967d8f7b714096264190",
+        "bytes": 7337
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomEngineSourceHistory.cs": {
+        "sha256": "f7482436fa05b0eb4dd48b05846492a6370d409d609f4a8d195f3954803d933f",
+        "bytes": 5724
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomReplicaCodec.cs": {
+        "sha256": "57c93992dc069db6c753c6238439451aa2bdd75894e27d488ae3d93437e56cd1",
+        "bytes": 18193
+      },
+      "src/MphRead/Mods/CustomWeapons/CustomSourceActionJournal.cs": {
+        "sha256": "ecac66fe698563b1491032730cdb0eb9a90b15b651fe27706363081c736af77b",
+        "bytes": 26612
+      },
+      "src/MphRead/Mods/CustomWeapons/OfflineCustomWeaponRuntime.cs": {
+        "sha256": "8bd01714a6ee9b3071fce8506e0f4329446d629b4b45fc7796db8dfc1c1d1bb9",
+        "bytes": 9163
+      },
+      "src/MphRead/Mods/CustomWeapons/PlayerEntityCustomSourceFacts.cs": {
+        "sha256": "1895a963ba3f7ca08fe5731135ad472d47c60951cbfee6f41e385b7121f08fa5",
+        "bytes": 1929
+      },
+      "src/MphRead/Mods/Input/AimAssist/AimAssistWorld.cs": {
+        "sha256": "fb5d69d10bbce128635d3c68858b14b92b7a7e4ccb927bdd1edb08fb050a37bb",
+        "bytes": 21085
+      },
+      "src/MphRead/Mods/Input/GamepadChecks.cs": {
+        "sha256": "2028c380d7e13a759f02669091594ba32816d9ee1d645da771cb284cba8b5ed1",
+        "bytes": 33406
+      },
+      "src/MphRead/Mods/Input/GamepadEnhancementChecks.cs": {
+        "sha256": "f9d8ce3f570ebf484cb3c518da3d607b6f3c5a43555dcffed0e752254982f1da",
+        "bytes": 14763
+      },
+      "src/MphRead/Mods/Input/GamepadInput.cs": {
+        "sha256": "47d7e5d2e185c011fccff78e5514262fb919c0dda1c6f997ee512c92f92a48a2",
+        "bytes": 26533
+      },
+      "src/MphRead/Mods/Input/PadAction.cs": {
+        "sha256": "1e081a80228ade29a4f69b6e3b6431e276c3c851a8b1cea9fcbf4039d3554af6",
+        "bytes": 2728
+      },
+      "src/MphRead/Mods/Input/PadBindingState.cs": {
+        "sha256": "900d2046a5896ee8360aad8db7a0fecf9586a2c5fbb13565cafeb1cb74072165",
+        "bytes": 18970
+      },
+      "src/MphRead/Mods/InputSettings.cs": {
+        "sha256": "1cd25c64ef70521b259e560e0e22185c4465e6350a0d6225885f35833f3266d2",
+        "bytes": 47227
+      },
+      "src/MphRead/Mods/Launcher/Gui/KeyRow.cs": {
+        "sha256": "3011c1bb0e55f6e629f3a25dec60cbc1736215b9ac73e253dd1d99064762b4f3",
+        "bytes": 15840
+      },
+      "src/MphRead/Mods/Movement/MovementModel.cs": {
+        "sha256": "361dc38809aaed204780d267827845b6dbc0dcdd426ad674a7b0866b4e424fce",
+        "bytes": 3805
+      },
+      "src/MphRead/Mods/Movement/TraversalMovementProfileV2.cs": {
+        "sha256": "03ba90546584314ddf9fa5a1eaf3befa34101015d4ea79118d8ec3e9d8a8db51",
+        "bytes": 1152
+      },
+      "src/MphRead/Mods/Movement/TraversalStance.cs": {
+        "sha256": "93632b272dfc66be2119c3067f735e915ebda19e8b23b5cf8d1544debbc256d3",
+        "bytes": 1126
+      },
+      "src/MphRead/Mods/Network/CustomWeaponControlNetwork.cs": {
+        "sha256": "5225fbfaeb822829146949a9f267543c13b7cfd0712c28a11ecc5f6ea6b6f698",
+        "bytes": 4821
+      },
+      "src/MphRead/Mods/Network/HistoricalPlayerPose.cs": {
+        "sha256": "2b7717d8768f4ae61919f0fe02e476ce0b080a84e168d72bdd9800af3d23de46",
+        "bytes": 863
+      },
+      "src/MphRead/Mods/Network/NetHistoricalTrace.cs": {
+        "sha256": "7be9cbde3dd875cca2cc25be982cd730bdb80fe369faee266fcd7e94dbdcfff6",
+        "bytes": 9777
+      },
+      "src/MphRead/Mods/Network/NetHooks.cs": {
+        "sha256": "addafbddc4a702bc02a89b935e99d963e9cd42968d63dc2c8b529d54d8794a85",
+        "bytes": 39897
+      },
+      "src/MphRead/Mods/Network/NetLobbyTest.cs": {
+        "sha256": "5f1813f2da465d2612986074289f6f360c38fe854ceb77bbb706a1a2b3376ee7",
+        "bytes": 115360
+      },
+      "src/MphRead/Mods/Network/NetProtocol.cs": {
+        "sha256": "b6cd400e1a02f0adc8440282b5b733fc8106ce298211cd0a7c7c42e0f76cdb94",
+        "bytes": 148990
+      },
+      "src/MphRead/Mods/Network/NetSession.cs": {
+        "sha256": "9ad7ca26d09f06108bea547ab61b4332db4cb295b70ce886dd823f4e4571ca69",
+        "bytes": 109960
+      },
+      "src/MphRead/Mods/Network/NetShotProof.cs": {
+        "sha256": "b1d41939fabfea847a8742f731d4ad6f14385e95977717dbca0a256c945f37da",
+        "bytes": 36463
+      },
+      "src/MphRead/Mods/Network/NetUnlagged.cs": {
+        "sha256": "7b07c6dbdc4977fabd902926e3367f6912834e70ef2ba40287efa07679ea6347",
+        "bytes": 73925
+      },
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": {
+        "sha256": "f51e8b4923ce1fb533fbff3d380587429d4080b02f3af0e6e6bbd4a1d8c99ac5",
+        "bytes": 119546
+      },
+      "src/MphRead/Mods/Network/PlayerReplicationBridge.cs": {
+        "sha256": "8dc0b10ac2b2bee74a39851c07ee2d80678c6e6aeae595a1160d1fa996384a13",
+        "bytes": 76814
+      },
+      "src/MphRead/Mods/Network/ReplayFormatV3.cs": {
+        "sha256": "1c2f840f554c5a37ec92f135350bd3d66872b55ffa0be7f159eb68a5aceddc27",
+        "bytes": 47016
+      },
+      "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": {
+        "sha256": "e60c139ad163c7af068f9d12eefe37dbc7f6117ab682f18fb61416b7b8dfdb5a",
+        "bytes": 27411
+      },
+      "src/MphRead/Mods/Network/ReplayMetadata.cs": {
+        "sha256": "c14e76c95310dc3121553325c15e08d4e8e02760d05c04d04c8bbcd2486b29b5",
+        "bytes": 16052
+      },
+      "src/MphRead/Mods/Network/ReplayPoseStream.cs": {
+        "sha256": "76e3d6b1c765b1a9f2051469dacd6ac03ab329c16b4e82b75310f1a96a33a6be",
+        "bytes": 61991
+      },
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpoint.cs": {
+        "sha256": "407f75a7168d8e61a9f5dff5e1c470077adb40fb5032d35d2e74deef83330951",
+        "bytes": 19028
+      },
+      "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": {
+        "sha256": "b733abda1b08f72e849794bbeb2fe842ed76b43d894ed38c47961a56b6b76113",
+        "bytes": 4250
+      },
+      "src/MphRead/Mods/Network/ReplaySceneServices.cs": {
+        "sha256": "996a32ed5916c8ce1a00ffabaaa8289ceed2fa9a3c112330f009b3e22e8259c9",
+        "bytes": 11555
+      },
+      "src/MphRead/Mods/Replay/ReplayWorldCheckpoint.cs": {
+        "sha256": "ed4381e41476c239d573ec307a075284d5583f423f853493c161576ae5910af5",
+        "bytes": 43782
+      },
+      "src/MphRead/Mods/Training/TrainingTargetMotion.cs": {
+        "sha256": "4e44112409ecae80cb860520319ed3aea1099bb340d0c419a4d8ae4dc0f34089",
+        "bytes": 4241
+      },
+      "src/MphRead/Renderer.cs": {
+        "sha256": "035232e4b394c35a13611c226bbb87bf9add8105b5d13987bdf5e226d255fc1c",
+        "bytes": 474461
+      },
+      "src/MphRead/SceneMomentumMovement.cs": {
+        "sha256": "6f75efaac065aed92557ff047e4beeaf444131ba1b7ce78f918017439668d6ab",
+        "bytes": 9593
+      },
+      "tools/custom-weapons-check/EngineSourceHistoryChecks.cs": {
+        "sha256": "ee18781e7f52486726ded441217bb4868936b245319db139ba03a23ac32476ed",
+        "bytes": 24447
+      },
+      "tools/custom-weapons-check/ReplicaDeliveryChecks.cs": {
+        "sha256": "b4933a7d16a4dec7e5380c1374aec88ae27a763f4dee7451de4af0efc1195565",
+        "bytes": 39753
+      },
+      "tools/custom-weapons-check/ResultTransportChecks.cs": {
+        "sha256": "0a79643ac6b871fc7b6ef8844dbfdc62e8541dc58bd011212c6158ef6bb92aaa",
+        "bytes": 55627
+      },
+      "tools/group-reservation-check/check_registry.py": {
+        "sha256": "089ec12672556a41ed2e4689e9c5e83a619ff9147e0177de85a3af556ae6f18c",
+        "bytes": 2004
+      },
+      "tools/nettest/ContinuousTargetTests.cs": {
+        "sha256": "89da76c049d2a37a950058e6d14b3017f0aa35b9e51ac546c548b43c9580094b",
+        "bytes": 7769
+      },
+      "tools/nettest/EnhancedRetirementTests.cs": {
+        "sha256": "734d11a620005aaac58021f49595c80746b43719c606f9d6f3612d8d757d2482",
+        "bytes": 26639
+      },
+      "tools/nettest/MomentumBotAuthorityTests.cs": {
+        "sha256": "450bc4d3dc0a47f42e0ebac84936cc99870a4563b8ac9c02f761d2f9629249a6",
+        "bytes": 19529
+      },
+      "tools/nettest/MomentumOnlineSceneTests.cs": {
+        "sha256": "68a1c63774eff468e2780387596a50670f5ff91ed9cfddc2a20ab42bcf0ecc74",
+        "bytes": 40913
+      },
+      "tools/nettest/MomentumReplayMetadataTests.cs": {
+        "sha256": "3406d2b22f1220a6eecb1a08f08100ee5ca9808c5802a7987ff375b840acd941",
+        "bytes": 11660
+      },
+      "tools/nettest/MomentumReplaySceneTests.cs": {
+        "sha256": "7c74fca59e37e35fd7d91a54eac21a482c8af9a9629f02ae7dc553a138cae6f0",
+        "bytes": 21728
+      },
+      "tools/nettest/MomentumRulesTests.cs": {
+        "sha256": "0bfbea83cfa668b312b23b83c36bc40c1e3241483f94a0cc5884ab14303c408d",
+        "bytes": 28129
+      },
+      "tools/nettest/MovementValidationTests.cs": {
+        "sha256": "c246e183fc60b219a2349d21255e73c6a9cf60ecd35f3859c881d2578b563a56",
+        "bytes": 15265
+      },
+      "tools/nettest/NetArchitectureTests.cs": {
+        "sha256": "0e1b208e5a74e2af38b57cc53ee17abfb3d757e7cd2056bc25aa84487ae026eb",
+        "bytes": 19763
+      },
+      "tools/nettest/PickupProtocolTests.cs": {
+        "sha256": "5d7cf9c49f2570fe2d463ff73ea029372b0e1df3e1bef67a08fba595bea02cfa",
+        "bytes": 13591
+      },
+      "tools/nettest/PlayerNameChatTests.cs": {
+        "sha256": "0c46297f3f80c55aa68e9f0a7f3c5b1055b1a4cdefb93443d902a6e7d680d02d",
+        "bytes": 14329
+      },
+      "tools/nettest/Program.cs": {
+        "sha256": "b416a8335a3ea0766c1b0a98f862a224cd9788be816b8836e751bebbc8529c22",
+        "bytes": 108126
+      },
+      "tools/nettest/Protocol17Tests.cs": {
+        "sha256": "824b0f43189b11d1482cc1b18b456112c12d17db20ae213ae5376f5f55dc94f3",
+        "bytes": 9385
+      },
+      "tools/nettest/Quake3ReplayCompatibilityTests.cs": {
+        "sha256": "62049a1b8688c68a469ca24acf4b56ac4da8d0bab5991c8225a800976cdf3ee3",
+        "bytes": 7059
+      },
+      "tools/nettest/Quake3RulesTests.cs": {
+        "sha256": "9fb8bf3c9194554984b584f25ca2cb311d653100a9d06f2ec86d739793edf3d5",
+        "bytes": 31386
+      },
+      "tools/nettest/ReplayProtocol58Tests.cs": {
+        "sha256": "fbcf8d06e764f1ef97f47759abd16c926b2650eed9dbd4d84c84557527645ebf",
+        "bytes": 15502
+      },
+      "tools/nettest/TraversalCrouchPoseTests.cs": {
+        "sha256": "0749b9273d061a4ab0c368a2fe1736b8d1e7d76552315edbdd76b72f2ed2f20d",
+        "bytes": 11756
+      },
+      "tools/nettest/TraversalRulesTests.cs": {
+        "sha256": "56e748828920152737167d516952b43e4e608384e47eae985eedd0ba607dd636",
+        "bytes": 21984
+      },
+      "tools/nettest/TraversalSceneTests.cs": {
+        "sha256": "fe73373200fecb9764fb55cd99edc32961f80f04cfb9d31321aa4efc1cc41a6c",
+        "bytes": 26336
+      },
+      "tools/nettest/TraversalStanceNetworkTests.cs": {
+        "sha256": "2365dac57c6ddf64de019d86eca859105d1de68cd31230dffb25875548636ce9",
+        "bytes": 17348
+      },
+      "tools/nettest/TraversalStanceSceneTests.cs": {
+        "sha256": "3fa13b79f55145ec128cbb4aecc09d180f16615db652e2043581aaa2e57127d0",
+        "bytes": 18868
+      },
+      "tools/nettest/TraversalStanceTests.cs": {
+        "sha256": "71a79d67b6a61ed896df574a848c34f1851ad8820abe5cae97aabb23b97d8ae9",
+        "bytes": 7844
+      },
+      "tools/porting/test_source_manifest.py": {
+        "sha256": "1a3fa79e27e788548935da8a773ef03c53eb5fee6ef3f0dc128161411f46ef04",
+        "bytes": 7862
+      },
+      "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": {
+        "sha256": "1de3f3952d10b57e91cffebf0641db49dbe15749b3c58f36ffe8ae98450d7138",
+        "bytes": 9966
+      }
+    }
+  },
+  "integratedRegression05": [
+    {
+      "name": "native-baseline",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance",
+      "exitCode": 0
+    },
+    {
+      "name": "crouch-input",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-network",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-authority",
+      "exitCode": 0
+    },
+    {
+      "name": "headless-gamepad",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-advanced-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "self-splash-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-rocket-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-self-splash",
+      "exitCode": 0
+    },
+    {
+      "name": "architecture",
+      "exitCode": 0
+    },
+    {
+      "name": "lifecycle-checkpoint",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-replay-compatibility",
+      "exitCode": 0
+    },
+    {
+      "name": "replay-form-history",
+      "exitCode": 0
+    },
+    {
+      "name": "claim-receipts",
+      "exitCode": 0
+    }
+  ],
+  "finalTargetedRegression06": [
+    {
+      "name": "traversal-stance",
+      "exitCode": 0
+    },
+    {
+      "name": "crouch-input",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-network",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-authority",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-stance-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "architecture",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-replay-compatibility",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-bot-authority",
+      "exitCode": 0
+    }
+  ],
+  "authorityAi05": [
+    {
+      "name": "momentum-bot-authority",
+      "exitCode": 0
+    },
+    {
+      "name": "traversal-bot-authority",
+      "exitCode": 0
+    }
+  ],
+  "sourceContract05": {
+    "snapshot": "05",
+    "exitCode": 0,
+    "command": "python -X utf8 tools/porting/test_source_manifest.py"
+  },
+  "live": {
+    "sourceSnapshot": "06",
+    "seconds": 40,
+    "processExitCodes": {
+      "server": 0,
+      "owner0": 0,
+      "owner1": 0
+    },
+    "binaries": {
+      "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+      "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+    },
+    "archiveSha256": "e5c68d47c4aed0d9edc209952b80968642b83f9cadcbf29f2e1f533e3dee97c6",
+    "ownerCounters": [
+      {
+        "checks": 28653,
+        "profileVersion": 2,
+        "ticks": 2401,
+        "solverSteps": 1490,
+        "legalJumpImpulses": 17,
+        "acceptedHeldHops": 13,
+        "ownerCrouchHeldTicks": 400,
+        "ownerCrouchedTicks": 306,
+        "ownerStanceChanges": 16,
+        "ownerHeldIntentPackets": 400,
+        "ownerCrouchedIntentPackets": 306,
+        "remoteHeldIntentPackets": 400,
+        "ownerCanonicalCrouchedSnapshots": 285,
+        "ownerCanonicalStandingSnapshots": 1945,
+        "remoteCanonicalCrouchedSnapshots": 373,
+        "remoteCanonicalStandingSnapshots": 1857,
+        "remoteCrouchedPoseChecks": 401,
+        "ownerAnomalyCount": 2,
+        "ownerAnomalyOverflow": 0,
+        "disconnected": false
+      },
+      {
+        "checks": 30670,
+        "profileVersion": 2,
+        "ticks": 2401,
+        "solverSteps": 2401,
+        "legalJumpImpulses": 30,
+        "acceptedHeldHops": 20,
+        "ownerCrouchHeldTicks": 400,
+        "ownerCrouchedTicks": 400,
+        "ownerStanceChanges": 20,
+        "ownerHeldIntentPackets": 400,
+        "ownerCrouchedIntentPackets": 400,
+        "remoteHeldIntentPackets": 400,
+        "ownerCanonicalCrouchedSnapshots": 374,
+        "ownerCanonicalStandingSnapshots": 1877,
+        "remoteCanonicalCrouchedSnapshots": 282,
+        "remoteCanonicalStandingSnapshots": 1969,
+        "remoteCrouchedPoseChecks": 303,
+        "ownerAnomalyCount": 2,
+        "ownerAnomalyOverflow": 0,
+        "disconnected": false
+      }
+    ],
+    "scope": "real Windows UDP authority plus two independent scripted human owner processes and one authority native AI bot; actual lobby bot admission/start; real recording and passive replay; no physical device or rendered UI acceptance",
+    "displacementDiagnostics": "2/2 rows; 0.25-unit trigger is diagnostic, not an acceptance threshold; scratch candidates do not prove resolved collision"
+  },
+  "replay": {
+    "checks": 116994,
+    "recordedProtocol": 69,
+    "recordedProfileVersion": 2,
+    "frames": 2400,
+    "snapshotPoseChecks": 7200,
+    "snapshotStanceChecks": 7200,
+    "crouchedFrames": 405,
+    "standingFrames": 1995,
+    "capturedCrouch": true,
+    "capturedStandingAfterCrouch": true,
+    "gameplayHashIncludesStance": true,
+    "continuedFrames": 2240,
+    "memoryCheckpointCount": 8,
+    "minimumRecordedPlayers": 3,
+    "maximumRecordedPlayers": 3,
+    "gameplayPresentationDigest": "AAAD7F6E82F13082DD7C63759D89A07027F8C9764A76160EFFAD6811F62E202C",
+    "durableEnabled": false
+  },
+  "historicalArchives": [
+    {
+      "sourceSnapshot": "06",
+      "binaries": {
+        "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+        "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+      },
+      "protocol": 61,
+      "inputSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+      "exitCode": 0
+    },
+    {
+      "sourceSnapshot": "06",
+      "binaries": {
+        "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+        "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+      },
+      "protocol": 62,
+      "inputSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+      "exitCode": 0
+    },
+    {
+      "sourceSnapshot": "06",
+      "binaries": {
+        "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+        "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+      },
+      "protocol": 68,
+      "inputSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+      "exitCode": 0
+    }
+  ],
+  "performanceScope": "Zero-allocation warmed stance math checked; whole-frame performance and competitive balance deferred. No physical-device claim. No Mac builds/simulation.",
+  "finalCustomContracts06": {
+    "snapshot": "06",
+    "buildExitCode": 0,
+    "exitCode": 0,
+    "binarySha256": "3bb44a3566a2949b7de03101b4d671b4ef8872d38b49d2e41e8f9f093bf0f1ef",
+    "sourceBinaries": {
+      "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+      "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+    },
+    "sourceBinariesUnchanged": true,
+    "outputDirectory": "existing nettest Release output; normal project defaults, no fixture-feature overrides",
+    "checks": 14203
+  },
+  "renderedCheck": {
+    "snapshot": "06",
+    "toolRevision": "08",
+    "launchMode": "owned one-shot interactive console task",
+    "toolOverlayManifestSha256": "f445c61b2bdf7efef2d34133a70ecf9c5abf844b7158a8d8ab262085358d3eed",
+    "sourceManifestSha256": "6735d2779047f72a24015cdbaec41818e698bbd010086a92f9d60826d28e6f15",
+    "binaries": {
+      "ProjectPrime.dll": "a042ee7f0071d0d06aa3317232bf879a089f7a891e3b9ea93f17353bc18cdcbc",
+      "nettest.dll": "29f8aca98c554f229a1c5075772243682ca73284d6e8d73089654f63b077e6cf"
+    },
+    "diagnosticSha256": "11824853614c7ac9618538ae81b08d45af6ffa2edba3236e25d9977c50f82f25",
+    "exitCode": 0,
+    "leaseUnchanged": true,
+    "status": "PASS",
+    "scope": "Windows native renderer and actual Traversal Ctrl input; native spawn and intro skip; fixed external camera and frozen render-only body-hidden controls; no actor position/stance/pose/velocity writes; image capture only; OS focus observed with isolated frozen synthetic input, no OS-focus, frame timing or physical-device qualification",
+    "focusPolicy": "OS focus callbacks are recorded without invoking the production focus-loss handler; only this diagnostic owns the frozen synthetic keyboard",
+    "model": "Traversal",
+    "hunter": "Samus",
+    "standing": {
+      "Pixels": 19417,
+      "Left": 573,
+      "Bottom": 227,
+      "Right": 731,
+      "Top": 488,
+      "Height": 262
+    },
+    "crouched": {
+      "Pixels": 16291,
+      "Left": 573,
+      "Bottom": 220,
+      "Right": 731,
+      "Top": 396,
+      "Height": 177
+    },
+    "released": {
+      "Pixels": 19338,
+      "Left": 573,
+      "Bottom": 227,
+      "Right": 731,
+      "Top": 492,
+      "Height": 266
+    },
+    "glVendor": "NVIDIA Corporation",
+    "glRenderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "glVersion": "4.6.0 NVIDIA 617.42",
+    "clientMvid": "9b01fb94-37cd-4be1-8a55-ea13a5edc983",
+    "taskRemoved": true,
+    "pngSha256": {
+      "released-standing-repeat.png": "d9641970b25f39c2c5ce1625f9eb272eccf03b7354d04399599822f7c158dc5e",
+      "crouched-repeat.png": "339f87df227cfc9352d668a389d7f0b7bb71a45c24f81c464f46df9084683538",
+      "crouched.png": "339f87df227cfc9352d668a389d7f0b7bb71a45c24f81c464f46df9084683538",
+      "released-standing-body-hidden.png": "4374df8672e4026427a11382768b7623334a2a612d12a3a45a9c9bd883b574fb",
+      "standing.png": "28e59aebfe6ead4a0f7bcd4b629dc5076f23917a6eb70f3d19e5c25dc4ded6eb",
+      "standing-body-hidden.png": "4374df8672e4026427a11382768b7623334a2a612d12a3a45a9c9bd883b574fb",
+      "crouched-body-hidden.png": "4374df8672e4026427a11382768b7623334a2a612d12a3a45a9c9bd883b574fb",
+      "released-standing.png": "d9641970b25f39c2c5ce1625f9eb272eccf03b7354d04399599822f7c158dc5e",
+      "standing-repeat.png": "28e59aebfe6ead4a0f7bcd4b629dc5076f23917a6eb70f3d19e5c25dc4ded6eb"
+    },
+    "toolSourceFiles": {
+      "tools/native-render-check/Program.cs": "51233c276bc8b289529afc9efa12272de86180076b71645439a1b99d63578880",
+      "tools/native-render-check/TraversalCrouchRenderCheck.cs": "5860ec76befc63a720aa0fc1bc44b3e186c0410f5b8e9a8b4033b2e743db61b5",
+      "tools/native-render-check/README.md": "403e1a1085e00ed6fb89fc7f61f134e3c5084bd75ffb9b35f15eb526737be2b0"
+    },
+    "unstablePixels": [
+      0,
+      0,
+      0
+    ]
+  }
+}

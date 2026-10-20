@@ -266,7 +266,7 @@ namespace MphRead.Entities
                     || (_scene.GameState.Teams && TeamIndex == target.TeamIndex)) continue;
                 var volume = PlayerVolumes[(int)target.Hunter, target.IsAltForm ? 2 : 0];
                 Vector3 center = target.Position + volume.SpherePosition;
-                float height = Fixed.ToFloat(target.Values.MaxPickupHeight);
+                float height = target.IsAltForm ? Fixed.ToFloat(target.Values.MaxPickupHeight) : target.ModBipedTop;
                 Vector3 chest = target.IsAltForm ? center
                     : Vector3.Lerp(center, target.Position + new Vector3(0, height - .3f, 0),
                         profile.BodyAimHeight);
@@ -274,7 +274,7 @@ namespace MphRead.Entities
                 float distance = (head - CameraInfo.Position).Length;
                 float radius = target.Volume.SphereRadius;
                 float bodyLower = target.IsAltForm ? volume.SpherePosition.Y - radius
-                    : Fixed.ToFloat(target.Values.MinPickupHeight);
+                    : target.ModBipedBottom;
                 float bodyUpper = target.IsAltForm ? volume.SpherePosition.Y + radius : height;
                 var bodyRegion = AssistRegion(target, bodyLower, bodyUpper, radius);
                 var headRegion = AssistRegion(target, height - .3f, height, radius);

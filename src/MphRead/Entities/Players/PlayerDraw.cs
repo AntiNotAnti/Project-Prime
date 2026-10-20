@@ -593,6 +593,7 @@ namespace MphRead.Entities
                 _bipedModel2.AnimInfo, upper);
             foreach (Node node in model.Nodes)
                 node.Animation *= world;
+            ModApplyCrouchPose(model, world);
             model.UpdateMatrixStack();
         }
 

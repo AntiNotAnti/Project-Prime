@@ -54,7 +54,8 @@ public static class NetHistoricalTrace
 
     internal static HistoricalBody CurrentBody(PlayerEntity player) => new(player.SlotIndex,
         player.ModCollisionIsAltForm ? player.Volume.SpherePosition : player.Position, player.Volume.SphereRadius,
-        Fixed.ToFloat(player.Values.MinPickupHeight), Fixed.ToFloat(player.Values.MaxPickupHeight),
+        player.ModCollisionIsAltForm ? Fixed.ToFloat(player.Values.MinPickupHeight) : player.ModBipedBottom,
+        player.ModCollisionIsAltForm ? Fixed.ToFloat(player.Values.MaxPickupHeight) : player.ModBipedTop,
         !player.ModCollisionIsAltForm ? HistoricalBodyType.BipedCylinder : player.Hunter == Hunter.Kanden
             ? HistoricalBodyType.KandenChain : HistoricalBodyType.AltSphere, player.ModCaptureAltPose());
 
@@ -86,7 +87,8 @@ public static class NetHistoricalTrace
     {
         var volume = PlayerEntity.PlayerVolumes[(int)player.Hunter, pose.AltForm ? 2 : 0];
         return new(player.SlotIndex, pose.Position + (pose.AltForm ? volume.SpherePosition : Vector3.Zero),
-            volume.SphereRadius, Fixed.ToFloat(player.Values.MinPickupHeight), Fixed.ToFloat(player.Values.MaxPickupHeight),
+            volume.SphereRadius, pose.AltForm ? Fixed.ToFloat(player.Values.MinPickupHeight) : player.ModBipedBottom,
+            pose.AltForm ? Fixed.ToFloat(player.Values.MaxPickupHeight) : player.ModBipedTopFor(pose.Crouched),
             !pose.AltForm ? HistoricalBodyType.BipedCylinder : player.Hunter == Hunter.Kanden
                 ? HistoricalBodyType.KandenChain : HistoricalBodyType.AltSphere, pose.AltPose);
     }

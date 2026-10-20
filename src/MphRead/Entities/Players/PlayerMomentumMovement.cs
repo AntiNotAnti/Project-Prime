@@ -80,7 +80,8 @@ public partial class PlayerEntity
         MomentumPracticeTuning? practice = developerOwns ? _scene.DeveloperMomentumPracticeTuning : null;
         bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
         bool traversal = !developerOwns && _scene.GameState.MovementModel == MovementModel.Traversal;
-        MomentumTuning tuning = practice?.Tuning ?? (traversal ? TraversalMovementProfileV1.Tuning
+        MomentumTuning tuning = practice?.Tuning ?? (traversal ? ModCrouched
+            ? TraversalMovementProfileV2.CrouchTuning(ModSliding) : TraversalMovementProfileV2.Tuning
             : quake3 ? Quake3MovementProfileV2.Tuning : MomentumProfileV1.Tuning);
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
@@ -94,13 +95,13 @@ public partial class PlayerEntity
             before.Z * NativeVelocityUnitsPerSecond);
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
-            : traversal ? TraversalMovementProfileV1.Step(horizontal, input)
+            : traversal ? TraversalMovementProfileV2.Step(horizontal, input, ModCrouched, ModSliding)
             : quake3 ? Quake3MovementProfileV2.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);
         _scene.NoteDeveloperMomentumStep(new MomentumStepSample(_scene.FrameCount, SlotIndex, before, Speed,
-            input, tuning, contact, result.SpeedLimited, result.IncomingOverCap));
+            input, tuning, contact, result.SpeedLimited, result.IncomingOverCap, ModCrouched, ModSliding));
         return true;
     }
 }

@@ -352,6 +352,38 @@ namespace MphRead.Mods.Input
                 GamepadManager.SelectDevice(null); GamepadOptions.Reset(); PadBindings.Reset();
             }
         }
+        // CPU-only input/profile acceptance, independent of shell startup.
+        public static int RunInputEnhancements()
+        {
+            _checks = 0;
+            string previous = Launcher.LauncherPrefs.Directory;
+            string directory = Path.Combine(Path.GetTempPath(), "crouch-input-check-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(directory);
+                Launcher.LauncherPrefs.Directory = directory;
+                InputSettings.Reset();
+                GamepadProfiles.Initialize();
+                GamepadEnhancementChecks.Run();
+                Console.WriteLine($"[crouch-input-check] PASS: {_checks} deterministic input/profile checks; no shell or rendering");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[crouch-input-check] FAIL: " + ex);
+                return 1;
+            }
+            finally
+            {
+                foreach (var device in GamepadManager.Devices) GamepadManager.RemoveDevice(device.DeviceId);
+                GamepadManager.SelectDevice(null);
+                GamepadOptions.Reset();
+                PadBindings.Reset();
+                Launcher.LauncherPrefs.Directory = previous;
+                GamepadProfiles.Initialize();
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+        }
         private sealed class FakeHaptics : IGamepadHaptics
         {
             public float Low;

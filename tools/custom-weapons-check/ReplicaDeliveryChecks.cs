@@ -96,8 +96,22 @@ internal static class ReplicaDeliveryChecks
     { var box=f.Mailbox();Baseline(f,box,new(f.Wire,0),Array.Empty<CustomReplicaFlight>(),check);return box; }
     internal static void Run(Action<bool,string> check)
     {
-        UnknownEmission(check);CanonicalReceipts(check);WrapExpiry(check);Golden(check);CodecAndRecipients(check);AtomicAssembly(check);BaselineAcknowledgements(check);WorldsAndJoins(check);StatesAndFuzz(check);
+        UnknownEmission(check);RetainedStance(check);CanonicalReceipts(check);WrapExpiry(check);Golden(check);CodecAndRecipients(check);AtomicAssembly(check);BaselineAcknowledgements(check);WorldsAndJoins(check);StatesAndFuzz(check);
         EventOrdering(check);CapacityAndDeadlines(check);PrivateIndependence(check);TokenWindow(check);Allocation(check);
+    }
+    private static void RetainedStance(Action<bool,string> check)
+    {
+        var f = new Fixture(); var original = f.Launch();
+        var source = original.Source with { Crouched = true };
+        source = source with { Action = source.Action with { Origin = source.MuzzleOrigin } };
+        var expected = original with { Source = source, Origin = source.MuzzleOrigin };
+        var bytes = Event(f,new(CustomReplicaKind.Launch,1,expected.World,expected,default));
+        check(bytes.Length == CustomReplicaCodec.EventPrefix + 171 && bytes[CustomReplicaCodec.EventPrefix+142] == 9
+            && CustomReplicaCodec.TryReadEvent(f.Wire,bytes,out var read) && read.Launch == expected
+            && read.Launch.Source.Crouched && read.Launch.Source.MuzzleOrigin == expected.Origin,
+            "replica launch roundtrips retained crouch in spare source bit3 at the unchanged171-byte width");
+        bytes[CustomReplicaCodec.EventPrefix+142] |= 16;
+        check(!CustomReplicaCodec.TryReadEvent(f.Wire,bytes,out _),"replica source bits above the declared stance/modifier nibble refuse");
     }
     private static void UnknownEmission(Action<bool,string> check)
     {

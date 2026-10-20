@@ -120,7 +120,7 @@ internal static class MovementValidationTests
         NetMovementValidationShadow.Observe(traversal with { Frame = 2, Position = new(1000, 0, 0) });
         var traversalReport = NetMovementValidationShadow.Capture();
         Check(traversalReport.Hunters.Length == 56 && traversalReport.Hunters[42].MovementModel == MovementModel.Traversal
-            && traversalReport.Hunters[42].ProfileVersion == 1 && traversalReport.Hunters[42].Evaluated == 1
+            && traversalReport.Hunters[42].ProfileVersion == 2 && traversalReport.Hunters[42].Evaluated == 1
             && traversalReport.Hunters[42].WouldRefuse == 0 && traversalReport.HardRejections == 0,
             "Traversal retains its own bounded observational counters and uncapped horizontal measurement");
     }

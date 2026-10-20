@@ -650,6 +650,7 @@ namespace MphRead.Entities
             _matchSpawnProtectionTimer = 0;
             ModResetSpawnProtectionReplication();
             ModResetMovementValidation();
+            ModResetTraversalStance();
             ModResetWallClingForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
@@ -733,6 +734,7 @@ namespace MphRead.Entities
                 Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
+            ModResetTraversalStance();
             _modFormStartedFrame = 0;
             _scene.MatchEvents.Spawn(_scene, this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
@@ -995,6 +997,7 @@ namespace MphRead.Entities
             _matchSpawnProtectionTimer = 0;
             ModResetSpawnProtectionReplication();
             ModResetMovementValidation();
+            ModResetTraversalStance();
             if (IsBot && _scene.GameState.SinglePlayer)
             {
                 _spawnInvulnTimer = 0;
@@ -1264,10 +1267,12 @@ namespace MphRead.Entities
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
+            _modSlideTicks = 0; _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
             ModResetWallClingForLife();
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
+            if (_modCrouched && ModCanStand()) _modCrouched = false;
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
                 ResumeOwnCamera();

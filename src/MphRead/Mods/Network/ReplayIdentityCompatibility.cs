@@ -21,6 +21,45 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
+        => NormalizeLegacyStance(ConvertCore(packet, protocol), protocol);
+
+    private static ReadOnlySpan<byte> NormalizeLegacyStance(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 69 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int at = (type == PacketType.Intent ? 1 : 2) + 4;
+            Require(packet.Length >= at + 4);
+            uint buttons = BinaryPrimitives.ReadUInt32LittleEndian(packet[at..]);
+            if ((buttons & (uint)(IntentButtons.Crouch | IntentButtons.CrouchedState)) == 0) return packet;
+            byte[] normalized = packet.ToArray();
+            BinaryPrimitives.WriteUInt32LittleEndian(normalized.AsSpan(at),
+                buttons & ~(uint)(IntentButtons.Crouch | IntentButtons.CrouchedState));
+            return normalized;
+        }
+        if (type is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            bool fast = type == PacketType.SnapshotFast;
+            int stride = fast ? SnapshotFast.PlayerSize : PlayerState.Size;
+            int auxiliary = 54 + DamageEvent.Size * PlayerState.DamageHistory - (fast ? 7 : 0);
+            Require(packet.Length >= 1 + SnapshotHeader.Size + stride * header.PlayerCount);
+            bool found = false;
+            for (int index = 0; index < header.PlayerCount; index++)
+                found |= (packet[1 + SnapshotHeader.Size + stride * index + auxiliary] & 4) != 0;
+            if (!found) return packet;
+            byte[] normalized = packet.ToArray();
+            for (int index = 0; index < header.PlayerCount; index++)
+                normalized[1 + SnapshotHeader.Size + stride * index + auxiliary] &= 0xFB;
+            return normalized;
+        }
+        return packet;
+    }
+
+    private static ReadOnlySpan<byte> ConvertCore(ReadOnlySpan<byte> packet, int protocol)
     {
         if (packet.IsEmpty) return packet;
         if (!Supports(protocol)) throw new InvalidDataException("Unsupported replay protocol.");

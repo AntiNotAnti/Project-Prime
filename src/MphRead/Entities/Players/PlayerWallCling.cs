@@ -328,8 +328,8 @@ public partial class PlayerEntity
     // within the allowed angles and facing the same way as the one he touched
     private bool WallClingTallEnough(Vector3 n)
     {
-        float bottom = Fixed.ToFloat(Values.MinPickupHeight) + _clingProbeInset;
-        float top = Fixed.ToFloat(Values.MaxPickupHeight) - _clingProbeInset;
+        float bottom = ModBipedBottom + _clingProbeInset;
+        float top = ModBipedTop - _clingProbeInset;
         float reach = Fixed.ToFloat(Values.BipedColRadius) + _clingProbeReach;
         for (int i = 0; i < 3; i++)
         {

@@ -64,6 +64,9 @@ internal static class MomentumReplayMetadataTests
         Check(Metadata(68, Match(MovementModel.Traversal), Session(MovementModel.Traversal)).RecordedMovementModel == MovementModel.Traversal
             && Metadata(68, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 1,
             "protocol68 Traversal metadata retains its model and immutable profile version");
+        Check(Metadata(69, Match(MovementModel.Traversal), Session(MovementModel.Traversal)).RecordedMovementModel == MovementModel.Traversal
+            && Metadata(69, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 2,
+            "protocol69 Traversal metadata selects accepted-stance profile v2");
         Check(Metadata(67, Match(MovementModel.Traversal)).RecordedMovementModel == null
             && Metadata(67, Session(MovementModel.Traversal)).RecordedMovementModel == null,
             "historical reserved Traversal bits cannot label replay metadata");
