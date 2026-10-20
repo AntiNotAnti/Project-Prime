@@ -27,8 +27,8 @@ workspace lifetime and 50,000 warmed zero-allocation calls; the candidate's 618-
 nearest-contact snapshot is byte-identical to the baseline.
 
 All eight diagnostic verification arms pass. Four map/model pairs preserve exact
-canonical workload/RNG/stable-counter hashes and all 3,600 published snapshot
-payload bytes. Every one of the 32 timing arms also matches its corresponding
+canonical workload/RNG/stable-counter hashes and byte hashes covering all 3,600
+published snapshot payloads. Every one of the 32 timing arms also matches its corresponding
 verification workload hash; all processes exit 0. Native collision contact
 overflow, recovery fallback and failed simulation-step deltas are 0 throughout.
 Core/tool hashes remain unchanged during each frozen lease.
@@ -72,8 +72,30 @@ accounting and the release decision remain open.
 ## Integration and remaining work
 
 The concurrent [PR-756](https://github.com/AntiNotAnti/Project-Prime/pull/756)
-repairs a stale UI range fixture without production changes. It does not
-invalidate the recorded 648 production lease. Source/asset and whitespace
-checks pass; hosted CI remains pending and is not waited on. Classic remains
+repairs a stale UI range fixture without production changes. Subsequent
+[PR-757](https://github.com/AntiNotAnti/Project-Prime/pull/757) changes ordinary
+claim receipt retention and continuous-shot identity. This slice is rebased onto
+that main (`5d68d2ee8cfbf592c698c24139f99a8222dbe10b`) and freshly rebuilt on
+Windows, with the same two collision/benchmark source files verified by hash.
+The 648 timing observations above retain their original production lease.
+
+Latest-source checks pass: 15 focused cases, including 698 receipt checks,
+1,157 actual arbitration assertions, 667 continuous-combat assertions, Native
+gold/rewind and both replay scenes; both production durable packet comparators;
+and 51 NCX Python tests. Four verification-only bot arms preserve the earlier
+candidate's exact workload/counter and 3,600-payload snapshot hashes. They are
+correctness comparisons, not new timing measurements.
+
+Both actual two-owner 60-second fault cohorts (200 ±20 ms, 1% loss, 5% reorder,
+1% duplication) pass all 22 payment/authority proofs. Native/Momentum respectively
+record 13/9 joined payments and 57/90 authoritative rewind samples. Natural
+death/respawn and claim retries occur in both. All six processes exit 0 without
+evidence overflow or disconnects. Both replay scenes preserve all 22 report
+fields against current33, including the digests and six durable seeks. See
+[current5d compatibility evidence](evidence/pr09-current5d-compatibility.json)
+for source/binary hashes, counts and scope. No new team/device/GL claim follows.
+
+Source/asset and whitespace checks pass; hosted CI remains queued at publication
+and is not waited on. Classic remains
 the default and rollback path. PR-09 is incomplete: performance, the retained
 Nodes capture control, and the documented device/input gaps are still open.
