@@ -11,12 +11,12 @@ import statistics
 import sys
 from pathlib import Path
 
-NUMBER = r"([0-9]+(?:\\.[0-9]+)?)"
-FRAMES = re.compile(r"frame ms p50/p90/p95/p99\\s+" + "/".join([NUMBER] * 4))
-STAGES = re.compile(r"stage p95 sim/render/ui/swap\\s+" + "/".join([NUMBER] * 4))
-COUNTS = re.compile(r">20/33/50\\s+(\\d+)/(\\d+)/(\\d+) of (\\d+)")
-SHAPE = re.compile(r"(\\d+)x(\\d+) world (\\d+)% cap (.+?) display active/max " + NUMBER + "/" + NUMBER + r" Hz")
-THERMAL = re.compile(r"thermal\\s+(\\d+)")
+NUMBER = r"([0-9]+(?:\.[0-9]+)?)"
+FRAMES = re.compile(r"frame ms p50/p90/p95/p99\s+" + "/".join([NUMBER] * 4))
+STAGES = re.compile(r"stage p95 sim/render/ui/swap\s+" + "/".join([NUMBER] * 4))
+COUNTS = re.compile(r">20/33/50\s+(\d+)/(\d+)/(\d+) of (\d+)")
+SHAPE = re.compile(r"(\d+)x(\d+) world (\d+)% cap (.+?) display active/max " + NUMBER + "/" + NUMBER + r" Hz")
+THERMAL = re.compile(r"thermal\s+(\d+)")
 
 
 def parse_lines(lines):
