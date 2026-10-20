@@ -1177,6 +1177,35 @@ namespace MphRead.Mods.Network
         public static bool Arbitrating => Enabled && NetSession.Active
             && (NetSession.Role == NetRole.Host || NetSession.IsAuthority);
 
+        private static void NoteAuthorityTiming(int victim, uint world, bool clearLedger = true)
+        {
+            _lastHitFire[victim] = world;
+            if (clearLedger) _completingLedger[victim] = -1;
+        }
+
+        /// <summary>Record an owned custom contact's launch world without entering
+        /// native claim/payment ledgers, independently of optional claim policy.</summary>
+        internal static void NoteCustomAuthorityTiming(PlayerEntity victim, BeamProjectileEntity beam, uint world)
+        {
+            int slot = victim.SlotIndex;
+            if ((uint)slot >= Slots || !NetSession.Active || !NetSession.IsAuthority
+                || victim.OwningScene.Services.IsReplica || NetDamage.Replaying || NetDamage.ApplyingClaim
+                || NetHitPrediction.Predicting || world == 0
+                || world != beam.ModCustomShot?.Certificate?.TargetWorldFrame
+                || victim.OwningScene.CustomCombat?.OwnsDamage(victim, beam) != true) return;
+            NoteAuthorityTiming(slot, world);
+        }
+
+        /// <summary>Read the launch-world stamp used for a canonical damage
+        /// transition. This query never allocates a shot or updates a ledger.</summary>
+        internal static uint CanonicalDamageWorld(PlayerEntity? attacker, EntityBase? source, DamageFlags flags)
+        {
+            if (flags.TestFlag(DamageFlags.Burn)) return NetSession.NetFrame;
+            if (ApplyingClaim) return ApplyingClaimLaunch != 0 ? ApplyingClaimLaunch : ApplyingClaimAck;
+            if (source is BeamProjectileEntity { ModLaunchFrame: > 0 } beam) return beam.ModLaunchFrame;
+            return FireFrameOf(attacker?.SlotIndex ?? -1);
+        }
+
         /// <summary>
         /// Stamp the world-frame a hit was aimed at, for the arbitration.
         /// Called from <see cref="NetDamage.Note"/>, which the authority runs
@@ -1197,7 +1226,9 @@ namespace MphRead.Mods.Network
             // FireFrameOf is the fallback for a hit with no beam behind it.
             uint fire = ApplyingClaim ? ApplyingClaimAck : FireFrameOf(attackerSlot);
             if (ApplyingClaim) launchFrame = ApplyingClaimLaunch;
-            _lastHitFire[victimSlot] = launchFrame != 0 ? launchFrame : fire;
+            // Native NoteLedger owns its existing marker reset below. Sources
+            // without a native ledger retain their established behavior.
+            NoteAuthorityTiming(victimSlot, launchFrame != 0 ? launchFrame : fire, clearLedger: false);
             if (attackerSlot >= 0 && attackerSlot < Slots)
             {
                 // Filed under the world-frame the shooter was looking at, which
@@ -1248,8 +1279,7 @@ namespace MphRead.Mods.Network
         internal static void NoteAuthorityBurn(int victim)
         {
             if ((uint)victim >= Slots || !Arbitrating) return;
-            _lastHitFire[victim] = NetSession.NetFrame;
-            _completingLedger[victim] = -1;
+            NoteAuthorityTiming(victim, NetSession.NetFrame);
         }
 
         public static void CompleteAuthorityHit(PlayerEntity victim, PlayerEntity? attacker, int before, DamageFlags flags, ushort sequence, uint launchFrame = 0, BeamType beam = BeamType.None)

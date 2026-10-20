@@ -2200,7 +2200,9 @@ namespace MphRead.Entities
             Mods.Network.CareerMatchStats.NoteDamage(
                 this, attacker, damage, dead, _scene.FrameCount);
             if (beam?.ModCustomShot == null) Mods.Network.MatchReportStats.NoteDamage(this, attacker, beam, damage);
-            _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModCustomShot == null ? beam?.ModLaunchKey : null);
+            if (beam?.ModCustomShot is { Action: not null } customSource)
+                _scene.MatchEvents.CustomDamage(_scene,attacker,this,damage,customSource.Owner);
+            else _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModCustomShot == null ? beam?.ModLaunchKey : null);
             // todo?: something for wifi
             if (attacker != null)
             {
@@ -3188,6 +3190,9 @@ namespace MphRead.Entities
             if (beam?.EnhancedMicroSeeker == true && attacker != null && _health < combatHealthBefore
                 && Mods.EnhancedHunters.EnhancedHunters.Authority(attacker))
                 Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(attacker.Hunter, "micro-missile-hits");
+            if (beam?.ModCustomShot == null)
+                _scene.CustomCombat?.NoteCanonicalDeath(this,combatHealthBefore,
+                    Mods.Network.NetHitClaims.CanonicalDamageWorld(attacker,source,flags));
             if (_health == 0) Mods.EnhancedHunters.EnhancedHunters.ResetPlayer(this);
         }
 

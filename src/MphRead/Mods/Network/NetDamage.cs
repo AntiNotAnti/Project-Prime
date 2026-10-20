@@ -27,6 +27,31 @@ namespace MphRead.Mods.Network
 
         public static ushort Sequence(int slot) => (uint)slot < Slots ? _sequence[slot] : (ushort)0;
         private static readonly ushort[] _sequence = new ushort[Slots];
+        private static ushort NextSequence(int slot)
+            => _sequence[slot] = NetLifecycleTracker.Next(_sequence[slot]);
+
+        /// <summary>Allocate the shared victim event identity for an actual custom
+        /// payment. The reserved custom contact owns attribution and its outcome;
+        /// native damage history and claim ledgers do not receive an entry.</summary>
+        internal static ushort AllocateCustomEvent(PlayerEntity victim, BeamProjectileEntity beam)
+        {
+            int slot = victim.SlotIndex;
+            if ((uint)slot >= Slots || !NetSession.Active || !NetSession.IsAuthority
+                || victim.OwningScene.Services.IsReplica || Replaying || ApplyingClaim || NetHitPrediction.Predicting
+                || victim.OwningScene.CustomCombat?.OwnsDamage(victim, beam) != true) return 0;
+            ushort sequence = NextSequence(slot);
+            // Custom holes can span the native ushort history's half range.
+            // An ancient native event must not acquire this custom identity or
+            // become apparently new again after modular sequence wrap.
+            for (int i=0; i<PlayerState.DamageHistory; i++)
+                if (_history[slot,i].EventId != 0 && !NetLifecycleTracker.Newer(sequence,_history[slot,i].EventId))
+                { _history[slot,i] = default; _replayAttackerLives[slot,i] = 0; }
+            _attacker[slot] = NoSlot;
+            _beam[slot] = NoBeam;
+            _flags[slot] = 0;
+            _direction[slot] = Vector3.Zero;
+            return sequence;
+        }
         private static readonly DamageEvent[,] _history = new DamageEvent[Slots, PlayerState.DamageHistory];
         // Kept only on the authority: the compact damage wire does not carry
         // shooter life. Preserve the launch life for replay attribution instead
@@ -458,8 +483,9 @@ namespace MphRead.Mods.Network
             // rescue, prediction or replay attribution. Live custom admission
             // and payment must supply their own mandatory adapter first.
             if (source is BeamProjectileEntity { ModCustomShot: not null } custom)
-                return NetSession.Active || custom.OwningScene != victim.OwningScene
-                    || victim.OwningScene.OfflineWeapons?.IsEligible != true;
+                return custom.OwningScene != victim.OwningScene || (NetSession.Active
+                    ? victim.OwningScene.CustomCombat?.TryEnterDamage(victim,custom) != true
+                    : victim.OwningScene.OfflineWeapons?.IsEligible != true);
             if (!NetSession.Active || Replaying)
             {
                 return false;
@@ -599,7 +625,7 @@ namespace MphRead.Mods.Network
             if (flags.TestFlag(DamageFlags.Headshot)) NetShotDiagnostics.AuthorityHeadshots[weapon]++;
             if (attacker != null && NetLog.Enabled) NetShotDiagnostics.Trace("authority-hit",
                 launchKey ?? ShotKey.For(attacker.SlotIndex, launchFrame), beam, $"victim={slot} damage={amount}");
-            _sequence[slot] = NetLifecycleTracker.Next(_sequence[slot]);
+            NextSequence(slot);
             if (NetLog.Enabled) NetLog.Event($"[damage-publish] epoch={NetSession.AuthorityEpoch} match={NetSession.CurrentMatchId} victim={slot}/{NetPlayerLifecycle.Generation(slot)}/{NetPlayerLifecycle.Get(slot)} event={_sequence[slot]} shooter={attacker?.SlotIndex} launch={launchFrame}");
             Resolved[slot]++;
             ResolvedSession[slot]++;
@@ -844,6 +870,12 @@ namespace MphRead.Mods.Network
                 if (NetLog.Enabled) NetLog.Event($"[damage-replay] epoch={NetSession.AuthorityEpoch} match={NetSession.CurrentMatchId} victim={slot}/{state.SlotGeneration}/{state.LifeId} event={hit.EventId} shooter={hit.AttackerSlot}/{hit.AttackerGeneration}");
                 ReplayEvent(player, feedback, hit.EventId);
             }
+            // Only an already lifecycle/ordering-validated canonical snapshot
+            // closes custom holes, after its retained native events were read.
+            // Receiving a separate custom receipt never advances this frontier.
+            if (state.DamageEventId != 0 && (_lastSeen[slot] == 0
+                || NetLifecycleTracker.Newer(state.DamageEventId,_lastSeen[slot])))
+                _lastSeen[slot] = state.DamageEventId;
         }
 
         private struct DeferredSelf

@@ -84,7 +84,7 @@ internal static class CustomPaymentChecks
     internal static int Run()
     {
         _checks = 0;
-        IdentityJoins(); ContactTransitions(); HealthResults(); RetentionAndReuse(); InvalidAndForeignLeases(); Lifetimes(); AllocationChecks();
+        IdentityJoins(); ContactTransitions(); HealthResults(); ContactDispositions(); RetentionAndReuse(); InvalidAndForeignLeases(); Lifetimes(); AllocationChecks();
         Console.WriteLine($"Custom payment: {_checks} pure state-machine checks passed; no live authority coverage.");
         return _checks;
     }
@@ -275,6 +275,31 @@ internal static class CustomPaymentChecks
             Check(!f.Store.TryGetOutcome(hit.Key,out _) && !f.Store.CompleteContact(lease,new(100,99,0,0,1),out _)
                 && !f.Store.CompleteNoSpawn(launch.Lease) && !f.Store.CommitEmitted(launch.Lease),
                 "invalid completion cannot be repaired, refunded or recommitted");
+            lease.Dispose(); launch.Lease.Dispose();
+        }
+    }
+    private static void ContactDispositions()
+    {
+        using (var f = new Fixture())
+        {
+            var launch = f.Begin(); var hit = Contact(launch.Source);
+            Check(f.Store.TryBeginContact(launch.Source,hit,100,out var lease,out _) == CustomContactDecision.Reserved,
+                "trade-denied physical contact reserves component before classification");
+            Check(f.Store.CompleteContact(lease,new(100,100,20,20,0),out var outcome,CustomContactDisposition.TradeDenied)
+                && outcome.Disposition == CustomContactDisposition.TradeDenied && !outcome.Lethal,
+                "trade-denied contact retains typed terminal zero outcome");
+            Check(f.Store.TryBeginContact(launch.Source,hit with { Key = hit.Key with { Victim = new(5,6,10) } },100,out _,out _)
+                == CustomContactDecision.Consumed,"trade denial cannot revive component against another victim");
+            lease.Dispose(); f.Store.CommitEmitted(launch.Lease);
+        }
+        foreach (var item in new[] {
+            (CustomContactDisposition.TradeDenied,new CustomDamageResult(100,99,0,0,1)),
+            ((CustomContactDisposition)255,new CustomDamageResult(100,100,0,0,0)) })
+        {
+            using var f = new Fixture(); var launch = f.Begin();
+            f.Store.TryBeginContact(launch.Source,Contact(launch.Source),100,out var lease,out _);
+            Check(!f.Store.CompleteContact(lease,item.Item2,out _,item.Item1) && f.Store.IsQuarantined,
+                "denied-with-damage or unknown outcome disposition quarantines rather than inventing a payment");
             lease.Dispose(); launch.Lease.Dispose();
         }
     }

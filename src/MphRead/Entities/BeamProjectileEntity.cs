@@ -132,7 +132,9 @@ namespace MphRead.Entities
             int turretBefore = flags.TestFlag(DamageFlags.Halfturret) ? player.Halfturret?.Health ?? 0 : 0;
             try
             {
-                player.TakeDamage(damage, flags, direction, this);
+                if (ModCustomShot != null && NetSession.Active)
+                    _scene.CustomCombat?.ApplyContact(player,this,damage,flags,direction,impactPoint);
+                else player.TakeDamage(damage, flags, direction, this);
                 if (ModCustomShot is { } accepted)
                     _scene.OfflineWeapons?.Impact(accepted,player,before,turretBefore,flags,impactPoint);
             }
@@ -283,7 +285,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
-            if (ModCustomShot != null && _scene.OfflineWeapons?.IsEligible != true)
+            if (ModCustomShot != null && _scene.OfflineWeapons?.IsEligible != true
+                && _scene.CustomCombat?.OwnsFlight(this) != true)
             { Destroy(); return false; }
             if (!_scene.Services.IsReplica && _modAcceptedContinuousFrame == _scene.FrameCount)
                 return Lifespan > 0;
@@ -1618,7 +1621,8 @@ namespace MphRead.Entities
         }
 
         private static bool _CannotEmitCustom(EntityBase owner, EquipInfo equip, Scene scene)
-            => scene.OfflineWeapons?.OwnsEmission(owner,equip) != true;
+            => scene.OfflineWeapons?.OwnsEmission(owner,equip) != true
+                && scene.CustomCombat?.OwnsEmission(owner,equip) != true;
 
         private static BeamProjectileEntity ChooseBeamSlot(EquipInfo equip, EntityBase owner)
         {

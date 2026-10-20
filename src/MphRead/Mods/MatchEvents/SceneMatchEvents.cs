@@ -1,6 +1,7 @@
 using MphRead.Entities;
 using System;
 using MphRead.Mods.Network;
+using MphRead.Mods.CustomWeapons;
 namespace MphRead.Mods.MatchEvents;
 /// <summary>Passive Stage A producer. Never touches health, score, wire or player-facing consumers.</summary>
 internal sealed class SceneMatchEvents
@@ -109,6 +110,15 @@ internal sealed class SceneMatchEvents
     {
         if (!Prepare(scene) || attacker == null || attacker == victim || victim.Health <= 0) return;
         _assists.Damage(SourceActor(attacker, launch), Actor(victim), Tick(scene), damage);
+    }
+    // Generic assist accounting retains a custom flight's firing life without
+    // constructing native shot identity or a native weapon semantic event.
+    internal void CustomDamage(Scene scene, PlayerEntity? attacker, PlayerEntity victim, uint damage, WeaponOwnerContext source)
+    {
+        if (!Prepare(scene) || !NetSession.Active || attacker == null || attacker == victim || victim.Health <= 0
+            || !source.IsValid || source.MatchId != Bus.MatchId || source.AuthorityEpoch != Bus.AuthorityEpoch
+            || attacker.SlotIndex != source.Slot || NetPlayerLifecycle.Generation(source.Slot) != source.Generation) return;
+        _assists.Damage(new(source.Slot,source.Generation,source.Life),Actor(victim),Tick(scene),damage);
     }
     internal void Headshot(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, ShotKey? launch = null)
     {
