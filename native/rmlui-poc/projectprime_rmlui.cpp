@@ -328,7 +328,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 8; ++index) if (action == "play:server:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::PlayServer); intent.argument = index; return true;
     }
-    for (int index = 0; index < 18; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
+    for (int index = 0; index < PrimeLobbyRuleChoiceCount; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::LobbyRulesToggle); intent.argument = index; return true;
     }
     for (int index = 0; index < 6; ++index) if (action == "lobby:map-select:" + std::to_string(index)) {
@@ -1290,7 +1290,13 @@ PP_EXPORT int pp_rmlui_document_set_bool(uint64_t document_id, const char* name,
         if (!element) return 0;
         if (boolean) element->RemoveProperty("display");
         else { g_text_input.Unavailable(element); element->SetProperty("display", "none"); }
-    } else if (document_id == g_home_id && g_model) g_model->SetBool(name, boolean);
+    } else if (document_id == g_home_id && g_model) {
+        // Model setters can change other model booleans (entering a lobby
+        // closes its rules). Their last requested values no longer describe
+        // the model; allow the following snapshot fields to restore them.
+        document->booleans.clear();
+        g_model->SetBool(name, boolean);
+    }
     else {
         auto* element = document->element->GetElementById(name);
         if (!element) return 0;

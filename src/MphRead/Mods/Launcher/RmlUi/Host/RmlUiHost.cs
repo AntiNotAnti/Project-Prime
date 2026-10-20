@@ -41,6 +41,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             "home_mode", "multiplayer_mode", "play_create_mode", "play_browser_mode",
             "activity_selector_open", "lobby_rules_open"
         };
+        private static readonly string[] LobbyModeDependentBindings =
+        {
+            "multiplayer_mode", "play_create_mode", "play_browser_mode", "lobby_rules_open"
+        };
         private uint _protocol;
         private string _root = "";
         private int _width, _height;
@@ -281,6 +285,19 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 if (_protocol == 0) _native.SetBool(name, value.Boolean ? 1 : 0);
                 else if (_native.DocumentSetBool(document.DocumentId, name, value.Boolean ? 1 : 0) == 0)
                     throw new InvalidOperationException($"Native RmlUi rejected boolean binding '{name}'.");
+                if (document == HomeDocument)
+                {
+                    // The compatibility model derives these fields when its
+                    // mode changes. A later snapshot must be able to restore
+                    // their requested values after that native mutation.
+                    if (name == "lobby_mode")
+                    {
+                        state.Bindings.Remove("home_mode");
+                        if (value.Boolean)
+                            foreach (string dependent in LobbyModeDependentBindings) state.Bindings.Remove(dependent);
+                    }
+                    else if (name == "multiplayer_mode") state.Bindings.Remove("home_mode");
+                }
             }
             state.Bindings[name] = value;
         }

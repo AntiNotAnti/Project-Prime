@@ -2,6 +2,7 @@
 
 // Private compatibility presenter; included inside the runtime namespace.
 // It owns no RmlUi context, renderer, network session, or document lifetime.
+constexpr int PrimeLobbyRuleChoiceCount = 19;
 struct PrimeMenuData {
     Rml::String player_name = "PLAYER";
     Rml::String profile_state = "LOCAL PROFILE";
@@ -28,7 +29,7 @@ struct PrimeMenuData {
     Rml::String rules_format = "FFA";
     Rml::String rules_goal_label = "SCORE GOAL";
     Rml::String rules_status = "READING SERVER RULES";
-    std::array<Rml::String, 17> rules_toggles{};
+    std::array<Rml::String, PrimeLobbyRuleChoiceCount> rules_toggles{};
     bool multiplayer_mode = false;
     bool play_create_mode = false;
     bool play_browser_mode = false;
@@ -126,6 +127,8 @@ public:
         model.Bind("rules_toggle14", &data.rules_toggles[14]);
         model.Bind("rules_toggle15", &data.rules_toggles[15]);
         model.Bind("rules_toggle16", &data.rules_toggles[16]);
+        model.Bind("rules_toggle17", &data.rules_toggles[17]);
+        model.Bind("rules_toggle18", &data.rules_toggles[18]);
         model.Bind("multiplayer_mode", &data.multiplayer_mode);
         model.Bind("play_create_mode", &data.play_create_mode);
         model.Bind("play_browser_mode", &data.play_browser_mode);
@@ -262,6 +265,8 @@ public:
         model.BindEventCallback("lobby_rules_toggle14", &PrimeMenuModel::LobbyRulesToggle14, this);
         model.BindEventCallback("lobby_rules_toggle15", &PrimeMenuModel::LobbyRulesToggle15, this);
         model.BindEventCallback("lobby_rules_toggle16", &PrimeMenuModel::LobbyRulesToggle16, this);
+        model.BindEventCallback("lobby_rules_toggle17", &PrimeMenuModel::LobbyRulesToggle17, this);
+        model.BindEventCallback("lobby_rules_toggle18", &PrimeMenuModel::LobbyRulesToggle18, this);
         model.BindEventCallback("play_quick", &PrimeMenuModel::PlayQuick, this);
         model.BindEventCallback("play_browse", &PrimeMenuModel::PlayBrowse, this);
         model.BindEventCallback("play_create_open", &PrimeMenuModel::PlayCreateOpen, this);
@@ -378,6 +383,7 @@ public:
         }
         else if (name == "lobby_starting") data.lobby_starting = value;
         else if (name == "lobby_rules_open") {
+            if (data.lobby_rules_open == value) return;
             data.lobby_rules_open = value;
             handle.DirtyVariable("lobby_rules_open");
             RequestFocus(value ? (data.rules_owner ? "rules_map_next" : "rules_close_top")
@@ -759,5 +765,9 @@ private:
     { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:15"); }
     void LobbyRulesToggle16(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:16"); }
+    void LobbyRulesToggle17(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:17"); }
+    void LobbyRulesToggle18(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:18"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
