@@ -1667,36 +1667,30 @@ namespace MphRead.Mods.Launcher.Gui
             // again in the launcher when the game finishes" was about this
             // frame and not about the one Leave match produces.
             w => { Escape(); Mods.WindowMode.Toggle(w); Wait(30); },
-            // The results, held rather than allowed to run their clock: the
-            // engine's own scoreboard on the left and the deck panel on the
-            // right, which is the one picture that shows the two halves
-            // together. The real screen runs for ten seconds and then
-            // rotates, and a capture that has to be caught inside ten seconds
-            // is a capture that fails on a slow machine.
+            // The native scoreboard is a full-width results surface, with no
+            // second modal or map selector. Hold it for a deterministic capture
+            // and then test the real return-to-lobby followed by an explicitly
+            // started second bot match.
             _ => { HoldResults(); Wait(60); },
             w =>
             {
                 Shot(w, "shell-endgame");
-                // Some rule sets do not expose character changes at results.
-                UiSurface.Current?.ClickOn(c => c is DeckButton tab && tab.Text == "Change hunter");
-                Wait(30);
-            },
-            w => { Shot(w, "shell-endgame-hunter"); MapPick.Reset(); ReleaseResults(); Wait(90); },
-            w =>
-            {
-                CheckShotRematch(w, _played?.RoomKey);
-                Shot(w, "shell-bot-rematch"); HoldResults(); Wait(20);
-            },
-            _ =>
-            {
-                _shotNextRoom = MapPick.Order.FirstOrDefault(room => !MapPick.IsReturnToLobby(room));
-                if (_shotNextRoom != null) MapPick.Choose(MapPick.IndexOf(_shotNextRoom));
-                ReleaseResults(); Wait(90);
+                ReleaseResults();
+                Wait(90);
             },
             w =>
             {
-                CheckShotRematch(w, _shotNextRoom);
-                Shot(w, "shell-bot-next-map"); RequestEndMatch(); Wait(90);
+                CheckShotReturnToLobby(w);
+                Shot(w, "shell-bot-lobby");
+                if (!StartShotMatch()) ShotMisses++;
+                Wait(90);
+            },
+            w =>
+            {
+                CheckShotRematch(w, _rooms.FirstOrDefault());
+                Shot(w, "shell-bot-restart");
+                RequestEndMatch();
+                Wait(90);
             },
             w => { Shot(w, "shell-back-fullscreen"); Mods.WindowMode.Toggle(w); Wait(25); },
             w => { Shot(w, "shell-back"); Wait(5); }
@@ -1932,42 +1926,13 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>
-        /// End the match the way running out of time does: the engine plays
-        /// its own end sequence, fades and quits the scene. Shortened to a
-        /// fifth of a second of results, since the capture is about what comes
-        /// after it.
-        /// </summary>
-        /// <summary>
-        /// Put the match at its results and keep it there.
-        ///
-        /// The continuation check shortens the results to a fifth of a
-        /// second because the capture it belongs to is about what comes
-        /// *after* them. This one is about the results themselves, so the
-        /// clock is given thirty seconds instead -- the screen it photographs
-        /// is the engine's scoreboard and the deck panel beside it, and both
-        /// have to be settled before the shutter.
-        ///
-        /// The ballot is begun by hand as well: on a server it arrives in a
-        /// packet, and there is no server here.
+        /// Hold the native scoreboard long enough for a deterministic GL
+        /// capture. No modal or map ballot is presented over these results.
         /// </summary>
         private static void HoldResults()
         {
-            // `Ending`, not `GameOver`. Both satisfy EndScreen.Available, so
-            // the deck panel comes up either way -- but the HUD draws the
-            // scoreboard on `Ending` and only the words GAME OVER on
-            // `GameOver`, and the scoreboard is the half of this picture the
-            // theme does not touch. A capture without it is a capture of half
-            // the screen.
             GameState.MatchState = MatchState.Ending;
             GameState.MatchTime = 30;
-            try
-            {
-                MapPick.Begin(_settings.RoomKey ?? "", open: true);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[shellshot] no ballot to show: {ex.Message}");
-            }
         }
 
         /// <summary>Let the clock run again, so the sequence can leave.</summary>
@@ -1976,7 +1941,16 @@ namespace MphRead.Mods.Launcher.Gui
             GameState.MatchTime = 0.2f;
         }
 
-        private static string? _shotNextRoom;
+        private static void CheckShotReturnToLobby(RenderWindow window)
+        {
+            if (window.HasScene)
+            {
+                ShotMisses++;
+                Console.WriteLine("[shellshot] scoreboard did not return to offline lobby");
+            }
+            else Console.WriteLine("[shellshot] returned to offline lobby after scoreboard");
+        }
+
         private static void CheckShotRematch(RenderWindow window, string? expected)
         {
             int expectedId = expected == null ? -1 : Metadata.GetRoomByName(expected).Item2;
@@ -1984,9 +1958,9 @@ namespace MphRead.Mods.Launcher.Gui
                 || expectedId < 0 || window.Scene.RoomId != expectedId)
             {
                 ShotMisses++;
-                Console.WriteLine($"[shellshot] bot rematch failed: expected {expected}, scene={window.HasScene}, state={GameState.MatchState}");
+                Console.WriteLine($"[shellshot] explicit bot restart failed: expected {expected}, scene={window.HasScene}, state={GameState.MatchState}");
             }
-            else Console.WriteLine($"[shellshot] bot rematch loaded {expected}");
+            else Console.WriteLine($"[shellshot] bot restart from lobby loaded {expected}");
         }
 
         private static void Shot(RenderWindow window, string name)

@@ -40,7 +40,11 @@ void Check(bool ok, string name)
     if (!ok) throw new InvalidOperationException(name);
     Console.WriteLine("RESULTS PASS " + name);
 }
-Check(!EndScreen.CharacterChangeEnabled && EndScreen.Available, "legacy picker disabled during active results");
+Check(!EndScreen.CharacterChangeEnabled && EndScreen.Available, "results lifecycle remains active");
+Check(!EndScreen.PanelAvailable, "no popup during native cinematic");
+GameState.MatchState = MatchState.Ending;
+Check(EndScreen.Available && !EndScreen.PanelAvailable, "scoreboard phase remains active without popup");
+GameState.MatchState = MatchState.GameOver;
 Check(!EndScreen.HandleKeyDown(Keys.Left) && !EndScreen.HandleKeyDown(Keys.Right), "results arrows cannot select Hunter");
 // Also characterizes the former no-op API when run against the pristine baseline.
 typeof(EndScreen).GetMethod("Pick")?.Invoke(null, new object[] { Hunter.Kanden, 3 });
@@ -52,15 +56,18 @@ rooms.Clear();
 rooms.AddRange(new[] { "MP1 SANCTORUS", "MP2 HARVESTER" });
 var tileGradientHashes = rooms.ToDictionary(room => room, room => room.GetHashCode());
 MapPick.Apply(new MapChoicesPacket { Open = 1, Count = 0, RoomKeys = Array.Empty<string>(), Votes = Array.Empty<byte>(), Eligible = 2 });
-Check(MapPick.Available && MapPick.Order.Count == 2, "results ballot active");
-Check(EndScreen.HandleKeyDown(Keys.Down) && MapPick.Cursor == 1, "ballot down advances native cursor");
+Check(MapPick.Available && MapPick.Order.Count == 2, "map ballot backend retained");
+Check(!EndScreen.HandleKeyDown(Keys.Down) && MapPick.Cursor == 0, "hidden ballot never steals keyboard input");
+Check(!EndScreen.HandleKeyDown(Keys.Enter) && MapPick.Picked.Length == 0, "hidden ballot never casts a vote");
+MapPick.Step(1);
 string chosenBefore = MapPick.Order[MapPick.Cursor];
-Check(EndScreen.HandleKeyDown(Keys.Enter) && MapPick.Picked == chosenBefore, "ballot Enter chooses actual map");
+MapPick.ChooseCursor();
+Check(MapPick.Picked == chosenBefore, "map ballot backend can still choose by explicit lobby action");
 MapPick.NoteLayout(new[] { new EndScreen.Hit(0, 0, .5f, 1), new EndScreen.Hit(.5f, 0, 1, 1) }, 2);
 EndScreen.NotePointer(.25f, .5f);
-string clickedBefore = MapPick.Order[0], previousPick = MapPick.Picked;
-Check(EndScreen.HandleClick() && MapPick.Picked == (previousPick == clickedBefore ? "" : clickedBefore),
-    "results pointer selects ballot");
+string previousPick = MapPick.Picked;
+Check(!EndScreen.HandleClick() && MapPick.Picked == previousPick,
+    "hidden post-match popup never handles pointer input");
 
 var hashes = new Dictionary<string, string>();
 void Shot(string name)
