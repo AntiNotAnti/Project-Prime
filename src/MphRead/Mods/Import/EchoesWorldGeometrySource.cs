@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using MphRead.Mods.Import.Retro;
 
 namespace MphRead.Mods.Import;
@@ -12,7 +13,7 @@ namespace MphRead.Mods.Import;
 /// Based on Second Hunt's MIT-licensed Mrea.ReadGeometry layout research.
 /// Extracted commercial geometry is never embedded in the application.
 /// </summary>
-public static class EchoesWorldGeometrySource
+public static partial class EchoesWorldGeometrySource
 {
     public const int MaxModels = 4096;
     public const int MaxSurfaces = 100000;
@@ -20,7 +21,19 @@ public static class EchoesWorldGeometrySource
     public const int MaxTriangles = 400000;
     public const int MaxMaterials = 4096;
 
-    public static EchoesWorldGeometry Read(EchoesMreaSections area)
+    public static EchoesWorldGeometry Read(EchoesMreaSections area) => ReadCore(area, null);
+
+    /// <summary>Opt-in source-preservation evidence. This does not register a
+    /// map, produce a native UV companion or qualify material rendering.</summary>
+    public static EchoesWorldSourceGeometry ReadWithSourceCoordinates(EchoesMreaSections area)
+    {
+        var coordinates = new CoordinateCapture();
+        EchoesWorldGeometry geometry = ReadCore(area, coordinates);
+        return new(geometry, coordinates.Materials, coordinates.Triangles.ToArray(),
+            coordinates.CornerVisits, coordinates.CandidateCornerVisits);
+    }
+
+    private static EchoesWorldGeometry ReadCore(EchoesMreaSections area, CoordinateCapture? capture)
     {
         ArgumentNullException.ThrowIfNull(area);
         if (area.GeometrySection < 0 || area.ModelCount is < 1 or > MaxModels)
@@ -29,6 +42,8 @@ public static class EchoesWorldGeometrySource
         byte[] set = area.Section(area.GeometrySection).ToArray();
         int pos = 0;
         int textures = ReadCount(set, ref pos, 16384);
+        var resources = capture == null ? Array.Empty<uint>() : new uint[textures];
+        for (int i = 0; i < resources.Length; i++) resources[i] = Read32(set, pos + 4 * i);
         Skip(set, ref pos, 4L * textures);
         int materialCount = ReadCount(set, ref pos, MaxMaterials);
         if (materialCount == 0)
@@ -42,6 +57,7 @@ public static class EchoesWorldGeometrySource
         }
         int materialStart = pos;
         var descriptors = new uint[materialCount];
+        if (capture != null) capture.Materials = new EchoesSourceMaterial[materialCount];
         for (int i = 0; i < materialCount; i++)
         {
             int first = checked(materialStart + (i == 0 ? 0 : offsets[i - 1]));
@@ -50,7 +66,19 @@ public static class EchoesWorldGeometrySource
                 throw new InvalidDataException("Retro material descriptor extends outside section.");
             try
             {
-                descriptors[i] = Cmdl.ReadMaterial(set, first, last, echoes: true).VertexAttributes;
+                Cmdl.Material material = Cmdl.ReadMaterial(set, first, last, echoes: true);
+                descriptors[i] = material.VertexAttributes;
+                if (capture != null)
+                {
+                    foreach (int index in material.Tex)
+                        if (index < 0 || index >= resources.Length)
+                            throw new InvalidDataException("Echoes material texture index is outside its set.");
+                    bool candidate = IsCommonOpaqueCandidate(material);
+                    capture.Materials[i] = new(i,
+                        Convert.ToHexStringLower(SHA256.HashData(set.AsSpan(first, last - first))), candidate,
+                        candidate ? resources[material.Tex[1]] : null,
+                        candidate ? resources[material.Tex[0]] : null);
+                }
             }
             catch (Exception ex) when (ex is ArgumentOutOfRangeException or IndexOutOfRangeException
                 or OverflowException or InvalidDataException)
@@ -69,6 +97,8 @@ public static class EchoesWorldGeometrySource
                 throw new InvalidDataException("Echoes world model sections are incomplete.");
             int vertexOffset = vertices.Count / 3;
             ReadPositions(area.Section(section + 1).Span, vertices);
+            SourceUvPools? uv = capture == null ? null : capture.AdmitPools(
+                area.Section(section + 4), area.Section(section + 5));
             int countOffset = 0;
             int surfaceCount = ReadCount(area.Section(section + 6).Span,
                 ref countOffset, MaxSurfaces - seen);
@@ -82,8 +112,9 @@ public static class EchoesWorldGeometrySource
                 int material = checked((int)Read32(surface, 12));
                 if (material < 0 || material >= materialCount)
                     throw new InvalidDataException("Echoes render surface references a missing material.");
-                DecodeSurface(surface, descriptors[material], vertexOffset,
-                    vertices.Count / 3, triangles);
+                DecodeSurfaceCore(surface, descriptors[material], vertexOffset,
+                    vertices.Count / 3, triangles, material, uv,
+                    capture?.Materials[material].CommonOpaqueCandidate == true, capture);
             }
             section += surfaceCount + 2;
         }
@@ -97,8 +128,20 @@ public static class EchoesWorldGeometrySource
     /// none of those attributes changes authoritative collision.</summary>
     public static void DecodeSurface(ReadOnlySpan<byte> surface, uint descriptor,
         int vertexOffset, int positionsAvailable, List<int> triangles)
+        => DecodeSurfaceCore(surface, descriptor, vertexOffset, positionsAvailable, triangles,
+            -1, null, false, null);
+
+    private static void DecodeSurfaceCore(ReadOnlySpan<byte> surface, uint descriptor,
+        int vertexOffset, int positionsAvailable, List<int> triangles, int material,
+        SourceUvPools? uv, bool commonCandidate, CoordinateCapture? capture)
     {
         ArgumentNullException.ThrowIfNull(triangles);
+        if (vertexOffset < 0 || positionsAvailable < vertexOffset)
+            throw new InvalidDataException("Invalid Echoes model-local position range.");
+        // The inherited source layout admits T0..T6. Do not silently treat
+        // an unhandled eighth coordinate attribute as the next primitive.
+        if (capture != null && (descriptor & 0x00c00000) != 0)
+            throw new InvalidDataException("Echoes source T7 attributes are outside the coordinate-preservation profile.");
         if (surface.Length < 0x30 || (descriptor & 3) == 0)
             throw new InvalidDataException("GX surface is incomplete or lacks indexed positions.");
         long start = 0x30L + Read32(surface, 0x1c);
@@ -114,7 +157,22 @@ public static class EchoesWorldGeometrySource
             if (opcode == 0) break;
             int primitive = opcode & 0xf8;
             int count = Read16(surface, ref at);
+            if (primitive is not (0x90 or 0x98 or 0xa0) || (primitive == 0x90 && count % 3 != 0))
+                throw new InvalidDataException("Unsupported or malformed Echoes GX primitive.");
+            int stride = 2;
+            for (int bit = 0; bit < 8; bit++)
+                if ((descriptor & (0x01000000u << bit)) != 0) stride++;
+            if ((descriptor & 0xc) != 0) stride += 2;
+            if ((descriptor & 0x30) != 0) stride += 2;
+            if ((descriptor & 0xc0) != 0) stride += 2;
+            for (int tex = 0; tex < 7; tex++)
+                if ((descriptor & (0x300u << (2 * tex))) != 0) stride += 2;
+            if ((long)stride * count > surface.Length - at)
+                throw new InvalidDataException("Truncated Echoes GX primitive attributes.");
+            capture?.AdmitCorners(count);
+            if (commonCandidate && capture != null) capture.CandidateCornerVisits += count;
             var indices = new int[count];
+            var pairs = commonCandidate ? new EchoesSourceCoordinates[count] : null;
             for (int vertex = 0; vertex < count; vertex++)
             {
                 for (int bit = 0; bit < 8; bit++)
@@ -127,9 +185,21 @@ public static class EchoesWorldGeometrySource
                 if ((descriptor & 0xc) != 0) Skip(surface, ref at, 2);
                 if ((descriptor & 0x30) != 0) Skip(surface, ref at, 2);
                 if ((descriptor & 0xc0) != 0) Skip(surface, ref at, 2);
+                int t0 = -1, t1 = -1;
                 for (int tex = 0; tex < 7; tex++)
                     if ((descriptor & (0x300u << (2 * tex))) != 0)
-                        Skip(surface, ref at, 2);
+                    {
+                        if (pairs == null) { Skip(surface, ref at, 2); continue; }
+                        int indexUv = Read16(surface, ref at);
+                        if (tex == 0) t0 = indexUv;
+                        if (tex == 1) t1 = indexUv;
+                    }
+                if (pairs != null)
+                {
+                    if (uv == null || t0 < 0 || t1 < 0)
+                        throw new InvalidDataException("Common Echoes material lacks its paired source UV attributes.");
+                    pairs[vertex] = uv.Read(t0, t1);
+                }
             }
             void Add(int a, int b, int c)
             {
@@ -138,6 +208,13 @@ public static class EchoesWorldGeometrySource
                 if (triangles.Count / 3 >= MaxTriangles)
                     throw new InvalidDataException("Echoes world triangles exceed limit.");
                 triangles.Add(x); triangles.Add(y); triangles.Add(z);
+                if (capture != null)
+                {
+                    if ((capture.Triangles.Count + 1L) * 56 > MaxRetainedSourceCoordinateBytes)
+                        throw new InvalidDataException("Retained Echoes source coordinates exceed their byte budget.");
+                    capture.Triangles.Add(new(material, pairs == null ? null
+                        : new EchoesSourceUvTriangle(pairs[a], pairs[b], pairs[c])));
+                }
             }
             if (primitive == 0x90)
             {
