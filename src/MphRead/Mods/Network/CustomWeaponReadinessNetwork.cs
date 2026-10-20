@@ -116,6 +116,8 @@ public sealed partial class DedicatedServer
     }
     private sealed class LiveCustomSourceReadiness(DedicatedServer server,Scene scene) : ICustomSourceBoundaryReadiness
     {
+        public bool IsConfirmed(WeaponOwnerContext owner)
+            =>server.CurrentCustomSourceEntry(owner,scene)?.Boundary?.IsConfirmed(owner)==true;
         public bool TryGet(WeaponOwnerContext owner,out CustomSourceReadyContext context)
         {
             context = default;

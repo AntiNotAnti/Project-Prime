@@ -183,6 +183,7 @@ ResultTransportChecks.Run(Check);
 ControlRequestChecks.Run(Check);
 ClientControlSubmissionChecks.Run(Check);
 NativeSelectionHistoryChecks.Run(Check);
+NativeFireGateChecks.Run(Check);
 InputCarrierChecks.Run(Check);
 ReplicaDeliveryChecks.Run(Check);
 ReplicaConsumerChecks.Run(Check);

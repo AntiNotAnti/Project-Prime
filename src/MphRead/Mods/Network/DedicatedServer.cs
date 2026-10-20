@@ -513,6 +513,7 @@ namespace MphRead.Mods.Network
                     PumpCustomWeaponReadiness(now);
                     PumpCustomActionResults(now);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
+                    PumpCustomNativeIntents();
                     PumpCustomReplica();
                     EnsureCareerMatchStarted(now);
                     PumpSocialMembership(now);
@@ -2572,7 +2573,8 @@ namespace MphRead.Mods.Network
                 connection?.MinimumRttMilliseconds,
                 peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
                     && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
-            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent,out bool newCurrentCarrier)) return false;
+            if (!FilterCustomNativeIntent(peer,intent,packet.ConnectionId,out var admittedIntent)
+                ||!NetSession.AcceptSlotIntent(peer.SlotIndex, admittedIntent,out bool newCurrentCarrier)) return false;
             if (newCurrentCarrier) NoteCustomCurrentInput(packet,peer,intent);
             // Admit recovered shots from older carriers without replacing current movement/readiness.
             if (intent.LifeId != life)
@@ -2595,24 +2597,7 @@ namespace MphRead.Mods.Network
             // list, so it cannot work out who an endpoint belongs to; without
             // this the authority dropped every relayed intent and simulated
             // nobody.
-            _scratch[0] = (byte)peer.SlotIndex;
-            var presentation = NetFireEvents.WithoutTurretOffers(intent);
-            int relaySize = CompactIntentCodec.Write(presentation, _scratch.AsSpan(1));
-            for (int i = 0; i < _peers.Count; i++)
-            {
-                // To everyone, not just the authority. Input is what makes a
-                // player do anything visible -- fire, morph, lay a bomb, swing
-                // an alt attack -- and a client that only ever received
-                // positions drew opponents that slid around the level in
-                // silence: no beams, no morph animation, no bombs. Position
-                // still comes from the authority's snapshot; this is what
-                // fills in everything a position cannot express.
-                if (_peers[i] != peer && _peers[i].MatchReady)
-                {
-                    _transport?.Send(_peers[i].EndPoint, PacketType.SlotIntent,
-                        _scratch.AsSpan(0, relaySize + 1));
-                }
-            }
+            RelayNativeIntent(peer,admittedIntent);
             return newCurrentCarrier;
         }
 

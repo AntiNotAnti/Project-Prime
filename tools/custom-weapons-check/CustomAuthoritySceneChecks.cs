@@ -253,9 +253,9 @@ internal static partial class CustomAuthoritySceneChecks
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
             if (nativeSelectionOnly)
             {
-                NativeSelectionAccepted(); NativeSelectionReleased(); NativeSelectionDenied(); NativeSelectionFire(); NativeSelectionLifecycle();
+                NativeSelectionAccepted(); NativeSelectionReleased(); NativeSelectionDenied(); NativeSelectionFire(); NativeSelectionLifecycle(); NativeFireGateEngine();
                 Console.WriteLine($"PASS {_checks} real engine native selection-history checks.");
-                Console.WriteLine("SCOPE: actual asset-backed authority actors, native accepted-input placement/control phases and production engine custom source admission; trusted readiness configuration and manual ordered action ingress are explicit fixtures. Only source-time selection ownership is tested; native event filtering, live input controls, UDP and rendering are not activated.");
+                Console.WriteLine("SCOPE: actual asset-backed authority actors, native accepted-input placement/control phases and production engine custom source admission; trusted readiness configuration and manual ordered action ingress are explicit fixtures. Source-time selection ownership plus native gate intake and actual turret-emission claim lookup are tested through explicit readiness ingress seams; UDP, claim damage and rendering are not activated.");
                 return 0;
             }
             if (snapshotOnly)

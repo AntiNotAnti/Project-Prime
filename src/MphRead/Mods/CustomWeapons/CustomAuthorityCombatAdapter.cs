@@ -9,7 +9,7 @@ namespace MphRead.Mods.CustomWeapons;
 /// oracle is trusted, not a wire payload. This adapter does not implement that
 /// oracle, readiness, ingress or transport, and cannot be enabled by a packet.
 /// The source journal, private emission and canonical payment share one owner.</summary>
-internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICustomWeaponEmitter, IDisposable
+internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmission, ICustomWeaponEmitter, ICustomNativeSelectionPolicy, IDisposable
 {
     internal const int LifeCapacity = 32, DeathCapacity = 128;
     internal const uint DeathRetention = 1024;
@@ -164,7 +164,11 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         if (!owner.IsValid||owner.MatchId!=_match||owner.AuthorityEpoch!=_epoch)return CustomNativeSelection.Rejected;
         if (Find(owner)?.Journal is { } journal)return journal.ReadNativeSelection(owner,source);
-        return IsCurrentSourceOwner(owner)?CustomNativeSelection.Pending:CustomNativeSelection.Rejected;
+        // A current native actor can offer its first event before the engine
+        // opens custom life storage. That event waits for capture, not denial.
+        return owner.Slot<_scene.Players.Items.Count
+            &&CurrentOwner(_scene.Players.Items[owner.Slot],out var current)&&current==owner
+            ?CustomNativeSelection.Pending:CustomNativeSelection.Rejected;
     }
     internal bool TryReleaseNativeSourceSelection(WeaponOwnerContext owner,uint source)
         =>owner.IsValid&&Find(owner)?.Journal?.TryReleaseNativeSelection(owner,source)==true;
@@ -388,6 +392,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     internal void Advance()
     {
         if (_disposed) return;
+        foreach(var gate in _nativeFireGates)gate?.Advance(Now);
         if (!IsEligible) { Dispose(); return; }
         for (int i=0; i<_deaths.Length; i++)
             if (_deaths[i] is { } death && unchecked(Now-death.Observed) > DeathRetention) _deaths[i] = null;
