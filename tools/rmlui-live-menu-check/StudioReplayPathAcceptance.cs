@@ -3,11 +3,12 @@ using MphRead.Mods.Launcher.RmlUi.Host;
 
 internal static class StudioReplayPathAcceptance
 {
+    private static string PathFor(string name) => Path.Combine(Path.GetTempPath(), "ProjectPrime-RmlUi-Synthetic", name);
     private static RmlUiReplayEntry Entry(string path, int n = 0) => new(path, "DEEP LINK " + n, "SYNTHETIC", "MP1 SANCTORUS",
         100 + n, 200, 300, false, false, false, true);
     internal static void Run()
     {
-        var entries = Enumerable.Range(0, 17).Select(i => Entry("/synthetic/replay-" + i + ".ppdemo", i)).ToArray();
+        var entries = Enumerable.Range(0, 17).Select(i => Entry(PathFor("replay-" + i + ".ppdemo"), i)).ToArray();
         var service = new Stub { TheatreRows = entries };
         using var controller = new RmlUiMenuController(service);
         Check(controller.OpenStudioReplayPath(entries[0].Path) && controller.Busy
@@ -22,7 +23,7 @@ internal static class StudioReplayPathAcceptance
         Check(service.LastReplay.Path == entries[0].Path && service.LastReplayOpenEditor
             && !controller.OpenStudioReplayPath(entries[1].Path), "exact preflight opens inline editor once and existing playback cannot be replaced");
 
-        var initial = new Stub { TheatreRows = new[] { Entry("/synthetic/virtual.ppclip") } };
+        var initial = new Stub { TheatreRows = new[] { Entry(PathFor("virtual.ppclip")) } };
         using var duringRead = new RmlUiMenuController(initial);
         duringRead.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre);
         Check(duringRead.OpenStudioReplayPath(initial.TheatreRows[0].Path), "startup path attaches to existing initial library read");
@@ -34,7 +35,7 @@ internal static class StudioReplayPathAcceptance
 
         foreach (bool navigate in new[] { false, true })
         {
-            var canceled = new Stub { TheatreRows = new[] { Entry("/synthetic/canceled.ppdemo") } };
+            var canceled = new Stub { TheatreRows = new[] { Entry(PathFor("canceled.ppdemo")) } };
             using var canceledController = new RmlUiMenuController(canceled);
             Check(canceledController.OpenStudioReplayPath(canceled.TheatreRows[0].Path), "cancel fixture accepts pending startup target");
             if (navigate) canceledController.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
@@ -47,9 +48,9 @@ internal static class StudioReplayPathAcceptance
         foreach (bool unplayable in new[] { false, true })
         {
             var unavailable = new Stub { TheatreRows = unplayable
-                ? new[] { Entry("/synthetic/missing.ppdemo") with { Playable = false } } : Array.Empty<RmlUiReplayEntry>() };
+                ? new[] { Entry(PathFor("missing.ppdemo")) with { Playable = false } } : Array.Empty<RmlUiReplayEntry>() };
             using var absent = new RmlUiMenuController(unavailable);
-            Check(absent.OpenStudioReplayPath("/synthetic/missing.ppdemo"), "requested source awaits authoritative library scan");
+            Check(absent.OpenStudioReplayPath(PathFor("missing.ppdemo")), "requested source awaits authoritative library scan");
             unavailable.TheatreReadPending.SetResult(unavailable.TheatreRows);
             Wait(absent, () => !absent.Busy);
             Check(unavailable.TheatreValidations == 0 && unavailable.ReplayLaunches == 0
@@ -58,7 +59,7 @@ internal static class StudioReplayPathAcceptance
         }
         foreach (bool changed in new[] { false, true })
         {
-            var guarded = new Stub { TheatreRows = new[] { Entry("/synthetic/guarded.ppdemo") } };
+            var guarded = new Stub { TheatreRows = new[] { Entry(PathFor("guarded.ppdemo")) } };
             using var guardedController = new RmlUiMenuController(guarded);
             guardedController.OpenStudioReplayPath(guarded.TheatreRows[0].Path);
             guarded.TheatreReadPending.SetResult(guarded.TheatreRows);
@@ -71,12 +72,12 @@ internal static class StudioReplayPathAcceptance
         }
         var invalid = new Stub();
         using var rejected = new RmlUiMenuController(invalid);
-        foreach (string path in new[] { "relative.ppdemo", "/synthetic/not-replay.txt", "", "/synthetic/bad\0.ppdemo" })
+        foreach (string path in new[] { "relative.ppdemo", PathFor("not-replay.txt"), "", "/synthetic/bad\0.ppdemo" })
             Check(!rejected.OpenStudioReplayPath(path), "startup rejects malformed or unsupported logical path");
-        Check(!rejected.OpenStudioReplayPath("/synthetic/recover.ppdemo", recover: true)
+        Check(!rejected.OpenStudioReplayPath(PathFor("recover.ppdemo"), recover: true)
             && invalid.TheatreReadCalls == 0 && invalid.TheatreWorkCalls == 0, "recovery startup requires explicit review and performs no silent modification");
         invalid.ReplayEditingAllowed = false;
-        Check(!rejected.OpenStudioReplayPath("/synthetic/main.ppdemo") && invalid.TheatreReadCalls == 0,
+        Check(!rejected.OpenStudioReplayPath(PathFor("main.ppdemo")) && invalid.TheatreReadCalls == 0,
             "Main role cannot enter Studio startup editing path");
         rejected.ReportStudioLaunch(false, "SYNTHETIC STUDIO REFUSAL");
         Check(rejected.Tick().Bindings.Values.Any(value => value.Text == "SYNTHETIC STUDIO REFUSAL"), "external Studio refusal is visible through existing native status");

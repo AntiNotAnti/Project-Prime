@@ -1,8 +1,12 @@
 # Quake III strafe-jump tuning draft
 
+For normal practice and multiplayer, select **Movement: Quake III** in Match
+Rules; see the [fixed shared profile](quake3-movement.md). This page describes
+the separate editable offline JSON experiment.
+
 This playable offline preset targets Quake III / Quake Live-style strafe-jump
-speed building. Classic remains the default. Existing Momentum profile v1,
-match rules, protocol 59 and recorded behavior are unchanged. This draft is not
+speed building. Classic remains the default. Existing Momentum profile v1 and recorded behavior are unchanged. Normal shared
+matches now use protocol 60 for the separately identified Quake III selection. This draft is not
 an exact Quake physics port: Hunter jump timing, gravity, collision, alternate
 forms, abilities and the fixed 60 Hz simulation retain their native ownership.
 
@@ -68,8 +72,10 @@ per-player native bypasses. The retained selection blocks live demo, clip and
 server-replay recording for that scene, including after retirement; start a
 fresh supported scene to record. Existing immutable archive export is unchanged.
 
-Promoting the final coefficients into multiplayer or recordings requires a
-separately identified profile and its compatibility validation. Do not edit
+The default draft coefficients have a separately identified fixed menu/network
+profile. Custom JSON edits remain private; promoting later coefficients into
+multiplayer or recordings requires another identified profile and compatibility
+validation. Do not edit
 `MomentumProfileV1` to promote this draft. Performance optimization remains
 deferred under the [v1 closeout](pr09-closeout.md); this tuning slice makes no
 new performance-budget or physical-device acceptance claim.

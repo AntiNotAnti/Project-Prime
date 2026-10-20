@@ -24,7 +24,7 @@ internal readonly record struct MovementValidationCounts(Hunter Hunter, bool Alt
     long Evaluated, long Exempt, long Unsupported, long WouldRefuse, long DuplicateOrOld,
     long LongGaps, long InputAbsentWhileMoving, float MaximumHorizontal, float MaximumUpward, MovementModel MovementModel, int ProfileVersion);
 internal sealed record MovementValidationReport(bool Enabled, int HardRejections,
-    MovementValidationCounts[] Hunters, MovementValidationRow[] Rows, long Overflow, long Invalid, int Schema = 2);
+    MovementValidationCounts[] Hunters, MovementValidationRow[] Rows, long Overflow, long Invalid, int Schema = 3);
 
 /// <summary>Opt-in source-time envelope observations. This is not a collision reference,
 /// cheat verdict, or movement authority. It has no path to write player state or reject packets.
@@ -52,7 +52,7 @@ internal static class NetMovementValidationShadow
     private static long _overflow, _invalid;
     private static Counts[] Create()
     {
-        var result = new Counts[28]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
+        var result = new Counts[42]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
     }
     private static bool Alt(in MovementValidationSample value) => (value.Buttons & IntentButtons.AltFormState) != 0;
     private static bool Context(in MovementValidationSample a, in MovementValidationSample b) =>
@@ -65,8 +65,7 @@ internal static class NetMovementValidationShadow
             || !NetPlayerLifecycle.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
         Observe(new(intent.AuthorityEpoch, intent.MatchId, player.SlotIndex, intent.SlotGeneration, intent.LifeId,
             player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions | player.ModQ3MovementProof(intent.Position), intent.MoveX, intent.MoveY,
-            player.OwningScene.GameState.MovementModel, player.OwningScene.GameState.MovementModel == MovementModel.Momentum
-                ? MomentumProfileV1.MomentumProfileVersion : 0));
+            player.OwningScene.GameState.MovementModel, MovementModelRules.ProfileVersion(player.OwningScene.GameState.MovementModel)));
     }
     internal static void Observe(in MovementValidationSample sample)
     {
@@ -74,7 +73,7 @@ internal static class NetMovementValidationShadow
         if ((uint)sample.Slot >= Slots.Length || (uint)sample.Hunter >= 7 || sample.Epoch == 0
             || sample.Match == 0 || sample.Generation == 0 || sample.Life == 0
             || !MovementModelRules.IsDefined(sample.MovementModel)
-            || sample.ProfileVersion != (sample.MovementModel == MovementModel.Momentum ? MomentumProfileV1.MomentumProfileVersion : 0)
+            || sample.ProfileVersion != MovementModelRules.ProfileVersion(sample.MovementModel)
             || !float.IsFinite(sample.Position.X) || !float.IsFinite(sample.Position.Y) || !float.IsFinite(sample.Position.Z)
             || Math.Abs(sample.Position.X) >= 100000 || Math.Abs(sample.Position.Y) >= 100000 || Math.Abs(sample.Position.Z) >= 100000)
         { _invalid++; return; }
@@ -121,6 +120,14 @@ internal static class NetMovementValidationShadow
             accelerationLimit = Math.Max(accelerationLimit,
                 MomentumProfileV1.Tuning.GroundAcceleration * MomentumProfileV1.GroundSpeed / 900 + .2f);
         }
+        if (sample.MovementModel == MovementModel.Quake3)
+        {
+            // This profile has no finite total-speed cap. Retain measurements
+            // without treating ordinary strafe gain as a capped-speed violation.
+            speedLimit = float.PositiveInfinity;
+            accelerationLimit = Math.Max(accelerationLimit,
+                Quake3MovementProfileV1.Tuning.GroundAcceleration * Quake3MovementProfileV1.GroundSpeed / 900 + .2f);
+        }
         bool speedSignal = horizontal > speedLimit, upSignal = upward > verticalLimit, accelerationSignal = acceleration > accelerationLimit;
         const IntentButtons movement = IntentButtons.MoveUp | IntentButtons.MoveDown | IntentButtons.MoveLeft | IntentButtons.MoveRight;
         if ((sample.Buttons & movement) == 0 && sample.MoveX == 0 && sample.MoveY == 0 && horizontal > .05f) count.InputAbsent++;
@@ -146,7 +153,7 @@ internal static class NetMovementValidationShadow
             var c = Counters[i]; counts[i] = new((Hunter)((i % 14) / 2), (i & 1) != 0,
                 c.Baselines, c.Evaluated, c.Exempt, c.Unsupported, c.WouldRefuse, c.DuplicateOrOld,
                 c.LongGaps, c.InputAbsent, c.MaxHorizontal, c.MaxUpward, (MovementModel)(i / 14),
-                i >= 14 ? MomentumProfileV1.MomentumProfileVersion : 0);
+                MovementModelRules.ProfileVersion((MovementModel)(i / 14)));
         }
         return new(Enabled, 0, counts, Rows.AsSpan(0, _rows).ToArray(), _overflow, _invalid);
     }

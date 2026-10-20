@@ -63,6 +63,10 @@ def analyze(document):
         result = document.get("result", document)
         if not isinstance(result, dict):
             raise ValueError("result must be an object")
+        if result.get("complete") is False or result.get("timingEvidenceComplete") is False:
+            raise ValueError("native harness did not complete its timing evidence")
+        if "droppedIntervalRecords" in result and integer(result["droppedIntervalRecords"], "droppedIntervalRecords") != 0:
+            raise ValueError("droppedIntervalRecords must be zero; incomplete raw timing")
         intervals = result.get("frameIntervalsMs")
         if not isinstance(intervals, list):
             raise ValueError("result.frameIntervalsMs must be an array")
@@ -97,7 +101,9 @@ def analyze(document):
         "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
         "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
         "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
-        "intervalMeaning": "Chronological application Present returns; not physical scanout or GPU time",
+        "intervalMeaning": ("Application Present returns" if source == "glframe-capture-schema2"
+                            else "Harness frame callback returns, including post-Present bookkeeping")
+                           + "; not physical scanout or GPU time",
         "loadedBinaryIdentity": identity,
         "samples": count, "chronologicalIntervalsMs": intervals,
         "captureGroup": list(next(iter(groups))) if groups else None,

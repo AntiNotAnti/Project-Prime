@@ -80,7 +80,7 @@ public sealed class RmlUiOfflineRuleEditor
             // A user explicitly activating an unsupported saved choice selects
             // Classic. Merely opening/applying an unknown value still fails validation.
             bool known = Movement.MovementModelRules.TryParse(Draft.MovementModel, out var model);
-            Draft = Draft with { MovementModel = known && model == Movement.MovementModel.Native ? "Momentum" : "Native" };
+            Draft = Draft with { MovementModel = known ? Movement.MovementModelRules.Next(model).ToString() : "Native" };
             Error = ""; return true;
         }
         if (index is < 0 or >= 13 or 5 || index == 0 && !AutoResetVisible || index == 1 && !FireVisible) return false;
@@ -105,7 +105,7 @@ public sealed class RmlUiOfflineRuleEditor
             || amount is < 0 or > 999 || !Duration(limit) || !Duration(goal))
         { Error = "USE A POINT GOAL FROM 0–999 AND DURATIONS AS m:ss"; return false; }
         if (!Movement.MovementModelRules.TryParse(Draft.MovementModel, out var movementModel))
-        { Error = "MOVEMENT MODEL MUST BE NATIVE OR MOMENTUM"; return false; }
+        { Error = "CHOOSE CLASSIC, MOMENTUM, OR QUAKE III MOVEMENT"; return false; }
         var rules = new MatchDefinition { Mode = Mode, MovementModel = Mode == GameMode.SinglePlayer
                 ? Movement.MovementModel.Native : movementModel, InstaGib = Draft.Enabled(7),
             NoImperialist = Draft.Enabled(9), Fiesta = Draft.Enabled(6), BalancedMode = Draft.Enabled(10) };

@@ -182,7 +182,10 @@ namespace MphRead.Mods.Network
                 case PacketType.MatchState:
                     if (payload.Length != MatchStatePacket.Size) throw Malformed();
                     var match = MatchStatePacket.Read(payload);
-                    if (string.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
+                    if (!Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
+                        || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
+                            && ((MatchModifierFlags)match.RuleBits & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0
+                        || string.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
                         || !float.IsFinite(match.TimeRemaining) || !float.IsFinite(match.TimeElapsed)) throw Malformed();
                     if (Match is MatchStatePacket previous && !Matches(match.MatchId, match.AuthorityEpoch))
                     {

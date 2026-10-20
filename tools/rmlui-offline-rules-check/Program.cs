@@ -184,7 +184,9 @@ Check(RmlUiOfflineRuleEditor.Labels.Length == 14 && new MenuSettings().MovementM
 var movement = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules());
 Check(movement.MovementVisible && movement.MovementLabel == "Classic" && movement.Toggle(13)
     && movement.Draft.MovementModel == "Momentum" && movement.MovementLabel == "Momentum"
-    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles both directions");
+    && movement.Toggle(13) && movement.Draft.MovementModel == "Quake3" && movement.MovementLabel == "Quake III"
+    && movement.Validate("7", "7:00", "1:30")
+    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles all three models");
 movement.Toggle(13);
 Check(movement.Toggle(12) && movement.NextDamage() && movement.Validate("31", "8:10", "2:00")
     && movement.Draft.MovementModel == "Momentum" && movement.Draft.Enabled(12),
@@ -202,6 +204,12 @@ foreach (string invalidMovement in new[] { "unknown", "1", "Momentum " })
     Check(unsupported.Toggle(13) && unsupported.Draft.MovementModel == "Native" && unsupported.MovementLabel == "Classic"
         && unsupported.Validate("7", "7:00", "1:30"), "explicit movement click repairs unsupported value to Native: " + invalidMovement);
 }
+var quakeRules = Rules() with { MovementModel = "Quake3" };
+var quakeSettings = new MenuSettings();
+Check(RmlUiOfflineRules.TryCommit(quakeSettings, RmlUiOfflineRules.Capture(quakeSettings), quakeRules, _ => { }, out _)
+    && RmlUiOfflineRules.Capture(quakeSettings) == quakeRules
+    && new RmlUiOfflineRuleEditor(GameMode.Battle, RmlUiOfflineRules.Capture(quakeSettings)).MovementLabel == "Quake III",
+    "Quake III apply and reopen preserve the exact saved model");
 var campaignRules = Rules() with { MovementModel = "Momentum" };
 var campaign = new RmlUiOfflineRuleEditor(GameMode.SinglePlayer, campaignRules);
 Check(!campaign.MovementVisible && !campaign.Toggle(13) && campaign.Draft == campaignRules

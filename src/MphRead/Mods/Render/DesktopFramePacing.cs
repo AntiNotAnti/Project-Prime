@@ -42,7 +42,7 @@ internal static class DesktopFramePacing
             return true;
         }
 
-        // FrameTiming measures a two-second window. Require both a relative and
+        // The source-owned measurement uses a two-second window. Require both a relative and
         // absolute margin so 59.94/60 and normal compositor jitter never trip
         // the fallback, while a 144 Hz display accidentally drawing at 180+ does.
         return measuredFrameRate > refreshRate * 1.12
@@ -66,5 +66,39 @@ internal static class DesktopFramePacing
         }
 
         return cap > 0 ? cap : 0;
+    }
+}
+
+/// <summary>
+/// Display fallback evidence belongs to one uninterrupted presentation source.
+/// It is independent of simulation diagnostics, which may include earlier caps.
+/// </summary>
+internal sealed class DesktopPacingMeasurement
+{
+    private double _seconds;
+    private long _frames;
+    private long _generation = -1;
+    internal double FrameHz { get; private set; }
+
+    internal void Observe(double elapsedSeconds, long generation, bool sourceChanged, bool focused)
+    {
+        if (sourceChanged || generation != _generation || !focused
+            || !double.IsFinite(elapsedSeconds) || elapsedSeconds < 0 || elapsedSeconds > 0.25)
+        {
+            _generation = generation;
+            _seconds = 0;
+            _frames = 0;
+            FrameHz = 0;
+            // This interval began before the source/reset boundary.
+            return;
+        }
+        _seconds += elapsedSeconds;
+        _frames++;
+        if (_seconds >= 2.0)
+        {
+            FrameHz = _frames / _seconds;
+            _seconds = 0;
+            _frames = 0;
+        }
     }
 }

@@ -20,7 +20,7 @@ internal static class MomentumBotAuthorityTests
     private static void Require(bool value, string message)
     { _checks++; if (!value) throw new InvalidOperationException(message); }
     private static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
-    internal static int Run(string? output)
+    internal static int Run(string? output, MovementModel? onlyModel = null)
     {
         try
         {
@@ -30,7 +30,8 @@ internal static class MomentumBotAuthorityTests
             var summaries = new List<object>();
             foreach (Hunter hunter in new[] { Hunter.Samus, Hunter.Kanden, Hunter.Spire, Hunter.Noxus, Hunter.Trace, Hunter.Sylux, Hunter.Weavel })
                 foreach (int level in new[] { 0, 3 })
-                    foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
+                    foreach (MovementModel model in onlyModel is { } selected ? new[] { selected }
+                        : new[] { MovementModel.Native, MovementModel.Momentum })
                         summaries.Add(Capture(hunter, level, model));
             if (output != null)
             {
@@ -39,7 +40,7 @@ internal static class MomentumBotAuthorityTests
                     scope = "actual ServerSim.Start session/roster and native AI; one authority bot per scene; seven Hunters, difficulties 0 and 3; actual intent sink/wire and snapshot poses; no client-puppet, rendered-camera or physical-device proof", summaries },
                     new JsonSerializerOptions { WriteIndented = true }));
             }
-            Console.WriteLine($"MOMENTUM BOT AUTHORITY PASS {_checks} assertions, 28 actual authority scenes");
+            Console.WriteLine($"MOMENTUM BOT AUTHORITY PASS {_checks} assertions, {(onlyModel.HasValue ? 14 : 28)} actual authority scenes");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine("MOMENTUM BOT AUTHORITY FAIL " + ex); return 1; }
@@ -173,9 +174,11 @@ internal static class MomentumBotAuthorityTests
                     var sample = scene.LastMomentumStep!.Value;
                     Require(sample.Slot == 0 && sample.SimulationFrame == frame, "solver diagnostic identifies actual bot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "solver preserves native vertical bits");
-                    var result = MomentumProfileV1.Step(new Vector3(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30), sample.Input);
+                    Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    var result = model == MovementModel.Quake3 ? Quake3MovementProfileV1.Step(incoming, sample.Input)
+                        : MomentumProfileV1.Step(incoming, sample.Input);
                     Require(sample.NativeVelocityAfter.X == result.Velocity.X / 30 && sample.NativeVelocityAfter.Z == result.Velocity.Z / 30,
-                        "actual authority bot velocity equals v1 math");
+                        "actual authority bot velocity equals its immutable match profile");
                     if (capturedIntent is { } packet)
                     {
                         Require(packet.Frame == NetSession.NetFrame, "intent/solver comparison uses the same actual authority frame");
@@ -199,7 +202,7 @@ internal static class MomentumBotAuthorityTests
                     position = new[] { player.Position.X, player.Position.Y, player.Position.Z }, solverSamples, intents });
             }
             Require(liveTicks > 0 && movingTicks > 0 && movingIntents > 0 && partialAxes > 0 && snapshots > 0 && snapshotPoseMatches > 0 && acceptedIntentMatches == intents, "native AI produces live movement, actual intents and snapshots");
-            if (model == MovementModel.Momentum && solverSamples == 0)
+            if (MovementModelRules.UsesMomentumSolver(model) && solverSamples == 0)
             {
                 // Failure-only readback; never changes a gate, role, control or physics field.
                 var privateValues = new Dictionary<string, object?>();
@@ -224,9 +227,9 @@ internal static class MomentumBotAuthorityTests
                     morphPressed = player.Controls.Morph.IsPressed, attachedEnemy = player.AttachedEnemy != null, privateValues }));
             }
             Require(model == MovementModel.Native ? solverSamples == 0 : solverSamples > 0 && exactIntentSolverComparisons > 0, "selected model governs actual authority bot solver");
-            if (model == MovementModel.Momentum)
+            if (MovementModelRules.UsesMomentumSolver(model))
                 Require(solverDuringCameraSequence > 0, "Proving Ground presentation intro remains active while actual authority bot receives Momentum");
-            if (model == MovementModel.Momentum)
+            if (MovementModelRules.UsesMomentumSolver(model))
                 Require(solverDuringCameraSequence > 0, "Proving Ground presentation intro remains active while actual authority bot receives Momentum");
             Console.WriteLine($"MOMENTUM BOT AUTHORITY PASS {hunter} level={level} model={model} solver={solverSamples} intents={intents} moving={movingIntents} partial={partialAxes}");
             return new { hunter = hunter.ToString(), level, model = model.ToString(), liveTicks, movingTicks, snapshots,

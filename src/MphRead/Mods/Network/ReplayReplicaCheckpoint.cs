@@ -156,8 +156,9 @@ internal sealed partial class ReplayReplicaState
             restored._rosterRevision = Flag() ? reader.ReadUInt32() : null;
             if (Flag())
             {
-                var packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
-                Read(protocol < 29 ? 103 : MatchStatePacket.Size).CopyTo(packet, 1);
+                int matchSize = protocol < 29 ? 103 : protocol < 60 ? MatchStatePacket.Protocol59Size : MatchStatePacket.Size;
+                var packet = new byte[1 + matchSize]; packet[0] = (byte)PacketType.MatchState;
+                Read(matchSize).CopyTo(packet, 1);
                 restored.Match = MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
             }
             if (Flag())

@@ -56,6 +56,18 @@ internal static class MomentumOfflineRulesTests
             Check(plan.MatchRules.MovementModel == MovementModel.Momentum && plan.MatchRules.ThirdPersonCamera, "offline preview preserves model and independent camera choice");
             state = State(); GameSettings.ApplyMatchRules(momentum, state);
             Check(state.MovementModel == MovementModel.Momentum && state.ThirdPersonCamera, "offline saved model applies explicitly");
+            var quake = new MenuSettings { MovementModel = "Quake3", ThirdPersonCamera = "on" };
+            var quakePlan = OfflineLaunch.Preview(quake, "fixture", GameMode.Battle, Hunter.Samus, 0, 0, 0);
+            Check(quakePlan.MatchRules.MovementModel == MovementModel.Quake3, "normal offline preview selects Quake III");
+            state = State(); GameSettings.ApplyMatchRules(quake, state);
+            Check(state.MovementModel == MovementModel.Quake3 && state.ThirdPersonCamera, "saved Quake III applies without developer opt-in");
+            Check(OfflineLaunch.Preview(quake, "fixture", GameMode.SinglePlayer, Hunter.Samus, 0, 0, 0)
+                .MatchRules.MovementModel == MovementModel.Native && quake.MovementModel == "Quake3",
+                "campaign remains Classic while retaining saved practice Quake III");
+            var quakeConflict = new MenuSettings { MovementModel = "Quake3", BalancedMode = "on" };
+            state = State();
+            Check(Refused(() => GameSettings.ApplyMatchRules(quakeConflict, state)), "saved Quake III rejects unsupported Balanced abilities");
+            Unchanged(state);
             var historic = new MenuSettings { MovementModel = "Native", BalancedMode = "on", Fiesta = "on" };
             GameSettings.ApplyMatchRules(historic, State());
             Check(true, "new raw-saved guard does not newly reject historical Native modifier preferences");

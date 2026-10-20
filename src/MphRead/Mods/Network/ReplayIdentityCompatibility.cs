@@ -98,7 +98,8 @@ internal static class ReplayIdentityCompatibility
         }
 
         if (protocol < 29 && type == PacketType.MatchState
-            && converted.Length != 1 + MatchStatePacket.Size)
+            && converted.Length != 1 + MatchStatePacket.Size
+            && converted.Length != 1 + MatchStatePacket.Protocol59Size)
         {
             Require(converted.Length is 96 or 104);
             byte[] expanded = new byte[1 + MatchStatePacket.Size];
@@ -108,6 +109,20 @@ internal static class ReplayIdentityCompatibility
             if (protocol < 12)
                 BinaryPrimitives.WriteUInt16LittleEndian(expanded.AsSpan(14), 0);
             converted = expanded;
+        }
+
+        // Protocol 60 widens only the trailing rule field. Older canonical
+        // fixtures are accepted, but their formerly absent upper bytes must be zero.
+        if (protocol < 60 && type == PacketType.MatchState)
+        {
+            if (converted.Length == 1 + MatchStatePacket.Protocol59Size)
+            {
+                byte[] expanded = new byte[1 + MatchStatePacket.Size];
+                converted.CopyTo(expanded);
+                converted = expanded;
+            }
+            Require(converted.Length == 1 + MatchStatePacket.Size);
+            Require(BinaryPrimitives.ReadUInt16LittleEndian(converted[106..]) == 0);
         }
 
         if (protocol < 28 && type == PacketType.MatchState)
@@ -211,6 +226,11 @@ internal static class ReplayIdentityCompatibility
         {
             Require(converted.Length == 1 + SessionStatePacket.Size);
             Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 32768u) == 0);
+        }
+        if (protocol < 60 && type == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 65536u) == 0);
         }
         return converted;
     }

@@ -29,6 +29,17 @@ namespace MphRead.Mods.Multiplayer
 {
     internal static class TeamRules { internal static bool AreAllies(int left, int right) => left == right; }
 }
+namespace MphRead.Mods.CustomWeapons
+{
+    // Identity-only dependency of the production semantic adapter. This fixture
+    // does not exercise custom weapon admission, simulation or damage authority.
+    internal readonly record struct WeaponOwnerContext(ushort MatchId, ulong AuthorityEpoch,
+        byte Slot, ushort Generation, ushort Life)
+    {
+        internal bool IsValid => MatchId != 0 && AuthorityEpoch != 0 && Slot < 8
+            && Generation != 0 && Life != 0;
+    }
+}
 namespace MphRead.Mods.Network
 {
     internal readonly record struct ShotKey(ulong AuthorityEpoch, ushort MatchId, int ShooterSlot, ushort Generation, ushort LifeId, uint ShotId);

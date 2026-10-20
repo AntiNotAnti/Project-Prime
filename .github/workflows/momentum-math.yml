@@ -5,6 +5,7 @@ on:
     paths:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/Momentum*.cs'
+      - 'tools/nettest/Quake3*.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'
@@ -59,6 +60,7 @@ on:
     paths:
       - 'src/MphRead/Mods/Movement/**'
       - 'tools/nettest/Momentum*.cs'
+      - 'tools/nettest/Quake3*.cs'
       - 'tools/nettest/MomentumSceneTests.cs'
       - 'tools/nettest/MomentumAdmissionTests.cs'
       - 'tools/nettest/MomentumProfileTests.cs'
@@ -141,6 +143,10 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-admission
       - name: Authoritative model rules, wire and lobby ownership without assets
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-rules
+      - name: Quake III authoritative rules and protocol admission
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-rules
+      - name: Historical replay widths and Quake III identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-replay-compatibility
       - name: Saved and offline model defaults, validation and rule preservation
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-offline-rules
       - name: V1 contact, speed-retention and partial-input policy

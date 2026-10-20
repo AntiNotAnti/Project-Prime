@@ -51,12 +51,12 @@ internal static class MomentumRulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1, "stable movement enum values");
-        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 59, "protocol59 bit15 contract");
-        foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE" })
+        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 60, "current protocol preserves v1 bit15 contract");
+        foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Momentum", "momentum", "MOMENTUM" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Momentum, "momentum parse " + text);
-        foreach (string text in new[] { "0", "1", "2", "255", "classic", "momentum-v1", "Native,Momentum", "unknown", " Native", "Momentum ", " " })
+        foreach (string text in new[] { "0", "1", "2", "255", "momentum-v1", "Native,Momentum", "unknown", " Native", "Momentum ", " " })
             Check(!MovementModelRules.TryParse(text, out _), "reject unknown movement spelling " + text);
         Check(new MatchDefinition().MovementModel == MovementModel.Native, "old/default match remains Native");
         foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
@@ -72,7 +72,7 @@ internal static class MomentumRulesTests
             Check(model == MovementModel.Momentum ? match.ModifierSummary.Contains("Momentum", StringComparison.OrdinalIgnoreCase)
                 : !match.ModifierSummary.Contains("Momentum", StringComparison.OrdinalIgnoreCase), "summary identifies selected Momentum only");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)2, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
         {
             var bad = Definition(invalid);
             Check(!MovementModelRules.IsDefined(invalid), "unknown enum not defined");
@@ -103,7 +103,7 @@ internal static class MomentumRulesTests
             match.ApplyModifiers(state);
             Check(state.MovementModel == model, "modifier path selects movement");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)2, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
         {
             var good = Definition(MovementModel.Momentum) with { ThirdPersonCamera = true };
             good.ApplyInitialConfiguration(state);
@@ -127,11 +127,11 @@ internal static class MomentumRulesTests
             Check(flags == (uint)state.Match.Rules, "session uses full uint modifier field");
             Check(SessionStatePacket.TryRead(bytes, out var decoded) && decoded.Match == state.Match, "movement/camera session roundtrip");
             var match = new MatchStatePacket { RoomKey = state.Match.RoomKey, NextRoomKey = "", Mode = (byte)GameMode.Battle,
-                MatchId = 3, AuthorityEpoch = 7, RuleBits = (ushort)state.Match.Rules };
+                MatchId = 3, AuthorityEpoch = 7, RuleBits = (uint)state.Match.Rules };
             byte[] matchBytes = new byte[MatchStatePacket.Size]; match.Write(matchBytes);
             var readMatch = MatchStatePacket.Read(matchBytes);
             Check(readMatch.RuleBits == match.RuleBits && MovementModelRules.FromRules((MatchModifierFlags)readMatch.RuleBits) == model,
-                "ushort MatchState preserves movement bit15 and camera bit14");
+                "uint MatchState preserves movement bit15 and camera bit14");
             Check((((MatchModifierFlags)readMatch.RuleBits & MatchModifierFlags.ThirdPersonCamera) != 0) == thirdPerson, "camera bit independent of movement");
         }
         State(Definition(MovementModel.Native)).Write(bytes);
@@ -139,12 +139,12 @@ internal static class MomentumRulesTests
         Check(SessionStatePacket.TryRead(bytes, out var all, validateDefinition: false)
             && (uint)all.Match.Rules == 65535 && all.Match.MovementModel == MovementModel.Momentum && all.Match.ThirdPersonCamera,
             "all sixteen defined modifier bits structurally survive uint decoding");
-        foreach (uint unknown in new[] { 1u << 16, 1u << 31, 65535u | (1u << 16) })
+        foreach (uint unknown in new[] { 1u << 17, 1u << 31, 65535u | (1u << 17) })
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(SessionStatePacket.Protocol28Size), unknown);
             Check(!SessionStatePacket.TryRead(bytes, out _, validateDefinition: false), "unknown modifier bits rejected before definition validation");
         }
-        foreach (MovementModel invalid in new[] { (MovementModel)2, (MovementModel)255 })
+        foreach (MovementModel invalid in new[] { (MovementModel)3, (MovementModel)255 })
         {
             Array.Fill(bytes, (byte)0xa5);
             var state = State(Definition(invalid));
@@ -155,7 +155,7 @@ internal static class MomentumRulesTests
             Configuration = State(Definition(MovementModel.Momentum) with { ThirdPersonCamera = true }) };
         byte[] commandBytes = new byte[LobbyCommandPacket.Size]; command.Write(commandBytes);
         Check(LobbyCommandPacket.TryRead(commandBytes, out var parsed) && parsed.Configuration.Match == command.Configuration.Match, "UpdateMatch command codec carries both high rule bits");
-        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 16);
+        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 17);
         Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit16");
     }
 
@@ -297,7 +297,7 @@ internal static class MomentumRulesTests
                 RoomKey = session.Match.RoomKey, NextRoomKey = "", Mode = (byte)session.Match.Mode,
                 PointGoal = session.Match.PointGoal, TimeRemaining = session.Match.TimeLimitSeconds,
                 Flags = MatchStatePacket.FlagInProgress,
-                RuleBits = (ushort)(session.Match with { MovementModel = model }).Rules
+                RuleBits = (uint)(session.Match with { MovementModel = model }).Rules
             };
             var acceptedControl = NetSession.ServerMatch!.Value;
             NetSession.ApplyMatchState(Control(frozen, MovementModel.Momentum), rotated: false);
@@ -324,7 +324,7 @@ internal static class MomentumRulesTests
             NetSession.ApplySessionState(next);
             Check(NetSession.ServerSession?.MatchId == next.MatchId
                 && NetSession.ServerSession?.Match.MovementModel == MovementModel.Momentum
-                && NetSession.ServerMatch?.RuleBits == (ushort)next.Match.Rules
+                && NetSession.ServerMatch?.RuleBits == (uint)next.Match.Rules
                 && bootstrap.MovementModel == MovementModel.Momentum,
                 "new match identity legitimately selects Momentum from Native");
             var nextWorld = bootstrap.ForScene(new ScenePlayerRegistry());
@@ -353,15 +353,15 @@ internal static class MomentumRulesTests
                 matchFirst.Phase = SessionPhase.InMatch;
                 MovementModel opposite = selected == MovementModel.Native ? MovementModel.Momentum : MovementModel.Native;
                 NetSession.ApplyMatchState(Control(matchFirst, selected), rotated: false);
-                Check(NetSession.ServerSession == null && NetSession.ServerMatch?.RuleBits == (ushort)matchFirst.Match.Rules,
+                Check(NetSession.ServerSession == null && NetSession.ServerMatch?.RuleBits == (uint)matchFirst.Match.Rules,
                     "genuine MatchState may establish first frozen model");
                 NetSession.ApplyMatchState(Control(matchFirst, opposite), rotated: false);
-                Check(NetSession.ServerMatch?.RuleBits == (ushort)matchFirst.Match.Rules,
+                Check(NetSession.ServerMatch?.RuleBits == (uint)matchFirst.Match.Rules,
                     "same-identity MatchState cannot change first frozen model without a SessionState baseline");
                 var contradiction = matchFirst;
                 contradiction.Match = contradiction.Match with { MovementModel = opposite };
                 NetSession.ApplySessionState(contradiction);
-                Check(NetSession.ServerSession == null && NetSession.ServerMatch?.RuleBits == (ushort)matchFirst.Match.Rules,
+                Check(NetSession.ServerSession == null && NetSession.ServerMatch?.RuleBits == (uint)matchFirst.Match.Rules,
                     "first late non-lobby SessionState cannot contradict genuine frozen MatchState");
                 NetSession.ApplySessionState(matchFirst);
                 Check(NetSession.ServerSession?.Match.MovementModel == selected,

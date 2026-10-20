@@ -75,7 +75,7 @@ namespace MphRead.NetTest
                     + "  --timed-grants                    Test authority timed pickup reservations and source history.\n"
                     + "  --timed-shot-certificates         Test bounded immutable timed shot storage.\n"
                     + "  --timed-shot-replay               Test detached archival fact codecs and optional replay schemas.\n"
-                    + "  --protocol58-replay               Test reviewed 56/57/58/59 archival layouts and future refusal.\n"
+                    + "  --protocol58-replay               Test reviewed 56/57/58/59/60 archival layouts and future refusal.\n"
                     + "  --timed-shot-replay-scene <assets> [room] Test actual authority launch fact persistence.\n"
                     + "  --timed-shot-certificate-benchmark [json] Measure certificate storage operations.\n"
                     + "  --timed-shot-native <assets> [room] Test real native shot certificates and Shadow parity.\n"
@@ -104,6 +104,10 @@ namespace MphRead.NetTest
                     + "  --native-discontinuities <assets> [room] Test native events through snapshot/history/presentation.\n"
                     + "  --momentum-practice-tuning         Test private Quake III draft coefficients and speed building.\n"
                     + "  --momentum-practice-scene <assets> [json] Test private draft input, native jump and collision.\n"
+                    + "  --quake3-rules                     Test three-mode authoritative rules and protocol60 admission.\n"
+                    + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
+                    + "  --quake3-bot-authority <assets> [json] Test genuine authority AI under the fixed Quake III rule.\n"
+                    + "  --quake3-scene <assets> [json]     Test normal Quake III rule simulation and native preservation.\n"
                     + "  --momentum-admission               Test offline developer scene/owner admission without assets.\n"
                     + "  --momentum-rules                   Test authoritative two-mode rules, wire and lobby ownership.\n"
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
@@ -463,6 +467,22 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
+            if (args.Length > 0 && args[0] == "--quake3-rules") return Quake3RulesTests.Run();
+            if (args.Length > 0 && args[0] == "--quake3-replay-compatibility") return Quake3ReplayCompatibilityTests.Run();
+            if (args.Length > 1 && args[0] == "--quake3-bot-authority")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MomentumBotAuthorityTests.Run(output, Mods.Movement.MovementModel.Quake3);
+            }
+            if (args.Length > 1 && args[0] == "--quake3-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return Quake3SceneTests.Run(output);
+            }
             if (args.Length > 0 && args[0] == "--momentum-admission") return MomentumAdmissionTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-rules") return MomentumRulesTests.Run();
             if (args.Length > 0 && args[0] == "--momentum-offline-rules") return MomentumOfflineRulesTests.Run();
@@ -634,7 +654,9 @@ namespace MphRead.NetTest
                     LobbyOwner: args.Contains("lobby-owner"), LobbyBots: bots, LobbyHumans: humans, RequireMapChange: args.Contains("map-change"));
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                return MomentumOnlineSceneTests.Run(acceptancePort, model, output, seconds, acceptanceOptions: options);
+                string? recordPath = args.FirstOrDefault(value => value.StartsWith("record=", StringComparison.Ordinal));
+                return MomentumOnlineSceneTests.Run(acceptancePort, model, output, seconds,
+                    replayPath: recordPath == null ? null : System.IO.Path.GetFullPath(recordPath[7..]), acceptanceOptions: options);
             }
             if (args.Length >= 5 && (args[0] == "--momentum-online-scene" || args[0] == "--momentum-touch-online"))
             {
