@@ -232,10 +232,10 @@ namespace MphRead.Mods.Launcher
                 1.10f, 1.13f, 1.04f),
             Hunter.Weavel => new(
                 "weavel",
-                new MenuRgb(0.82f, 0.16f, 0.08f),
-                new MenuRgb(1.00f, 0.46f, 0.18f),
-                new MenuRgb(0.60f, 0.10f, 0.05f),
-                new MenuRgb(1.00f, 0.34f, 0.12f),
+                new MenuRgb(0.16f, 0.48f, 0.24f),
+                new MenuRgb(0.46f, 0.82f, 0.38f),
+                new MenuRgb(0.10f, 0.34f, 0.16f),
+                new MenuRgb(0.58f, 0.88f, 0.44f),
                 1.07f, 1.08f, 1.00f),
             _ => new(
                 "neutral",
@@ -260,9 +260,23 @@ namespace MphRead.Mods.Launcher
         public static byte ReadyMask { get; set; }
         public static bool Starting { get; set; }
         public static double CountdownSeconds { get; set; }
+        public static uint SessionVersion { get; private set; }
+        private static ushort _match;
+        private static ulong _epoch;
         private static readonly int[] SlotIdentities = new int[8];
-        public static int IdentityAt(int slot) => SlotIdentities[slot];
-        public static void SetIdentity(int slot, int identity) => SlotIdentities[slot] = identity;
+        private static readonly int[] SlotTeams = { -1, -1, -1, -1, -1, -1, -1, -1 };
+        public static int IdentityAt(int slot) => (uint)slot < 8 ? SlotIdentities[slot] : -1;
+        public static void SetIdentity(int slot, int identity) { if ((uint)slot < 8) SlotIdentities[slot] = identity; }
+        public static int TeamAt(int slot) => (uint)slot < 8 ? SlotTeams[slot] : -1;
+        public static void SetTeam(int slot, int team) { if ((uint)slot < 8) SlotTeams[slot] = team is >= 0 and < 4 ? team : -1; }
+
+        public static void SetSession(ushort match, ulong epoch)
+        {
+            if (_match == match && _epoch == epoch) return;
+            _match = match; _epoch = epoch;
+            unchecked { SessionVersion++; }
+            ClearSlots();
+        }
         // One visual identity per presentation slot, copied on the render thread
         // alongside the same formation/occupancy snapshot. No network state is
         // owned by this class.
@@ -280,8 +294,17 @@ namespace MphRead.Mods.Launcher
         public static void Reset()
         {
             Active = false;
-            OccupiedMask = ReadyMask = 0; Starting = false; CountdownSeconds = 0;
+            Starting = false; CountdownSeconds = 0;
+            SetSession(0, 0);
+            ClearSlots();
+        }
+
+        private static void ClearSlots()
+        {
+            OccupiedMask = ReadyMask = 0;
             Array.Clear(SlotHunters);
+            Array.Fill(SlotIdentities, -1);
+            Array.Fill(SlotTeams, -1);
         }
     }
 

@@ -19,6 +19,10 @@ internal static class RmlUiHunterStageRenderer
     // Farther pads first; local/front player is deliberately rendered last.
     private static readonly int[] BackToFront = { 7, 5, 6, 3, 4, 1, 2, 0 };
     private static bool _shown;
+    private static RmlUiHost? _stageHost;
+    private static RenderWindow? _stageWindow;
+    private static readonly Func<bool> StageCanPresent = () => _stageHost is { Active: true }
+        && _stageWindow is { HasScene: false };
 
     public static void Draw(RenderWindow window, RmlUiHost host,
         RmlUiMenuPage page, bool suspended, HubSnapshot hub,
@@ -80,7 +84,8 @@ internal static class RmlUiHunterStageRenderer
             LauncherBackdropComposer.Draw(width, height);
             LauncherHunter.Wanted = home && plan.GameFilesReady
                 || lobbyStage && plan.Count > 0;
-            LauncherHunter.CanPresent = () => host.Active && !window.HasScene;
+            _stageHost = host; _stageWindow = window;
+            LauncherHunter.CanPresent = StageCanPresent;
             LauncherHunter.CinematicLighting = true;
             LauncherHunter.TransparentBackground = true;
 
@@ -115,6 +120,7 @@ internal static class RmlUiHunterStageRenderer
             LauncherHunter.SourcePreviewRequest = null;
             LauncherHunter.Wanted = false;
             LauncherHunter.CanPresent = null;
+            _stageHost = null; _stageWindow = null;
             LauncherHunter.TransparentBackground = false;
             LauncherHunter.CinematicLighting = false;
             LauncherHunter.DistanceScale = 1;
@@ -364,6 +370,7 @@ internal static class RmlUiHunterStageRenderer
     private static void PublishFormation(RmlUiHost host, RmlUiHunterStagePlan plan,
         RmlUiLobbyView lobby)
     {
+        LauncherLobbyVisuals.SetSession(plan.MatchId, plan.AuthorityEpoch);
         LauncherLobbyVisuals.Active = true;
         LauncherLobbyVisuals.Starting = lobby.Starting;
         LauncherLobbyVisuals.CountdownSeconds = 0;
@@ -375,6 +382,7 @@ internal static class RmlUiHunterStageRenderer
             if (i >= plan.Count)
             {
                 LauncherLobbyVisuals.SetIdentity(i, -1);
+                LauncherLobbyVisuals.SetTeam(i, -1);
                 continue;
             }
             RmlUiStageHunter actor = plan.Formation[i];
@@ -382,6 +390,7 @@ internal static class RmlUiHunterStageRenderer
             if (actor.Ready) ready |= (byte)(1 << i);
             LauncherLobbyVisuals.SetIdentity(i, actor.Identity);
             LauncherLobbyVisuals.SetHunter(i, actor.Hunter);
+            LauncherLobbyVisuals.SetTeam(i, actor.Team);
         }
         LauncherLobbyVisuals.OccupiedMask = occupied;
         LauncherLobbyVisuals.ReadyMask = ready;
@@ -389,6 +398,7 @@ internal static class RmlUiHunterStageRenderer
 
     public static void Hide()
     {
+        LauncherPresentation.Motion.Suspend();
         if (!_shown) return;
         _shown = false;
         LauncherPresentation.Active = false;
