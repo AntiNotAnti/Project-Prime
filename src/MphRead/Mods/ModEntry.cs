@@ -266,6 +266,14 @@ namespace MphRead.Mods
                 return true;
             }
 #endif
+            if (HasFlag(args, "replayfidelity"))
+            {
+                string source = ValueAfter(args, "replayfidelity") ?? throw new ArgumentException("-replayfidelity requires a replay path.");
+                string json = Replay.ReplayFidelityDiagnostics.Export(source);
+                string? output = ValueAfter(args, "output");
+                if (output == null) Console.WriteLine(json); else System.IO.File.WriteAllText(output, json);
+                return true;
+            }
             if (HasFlag(args, "replaycontrolcheck"))
             {
                 Environment.ExitCode = Network.ReplayControlCheck.Run();
