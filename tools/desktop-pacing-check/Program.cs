@@ -89,4 +89,44 @@ Check(Math.Abs(DesktopFramePacing.SoftwareFrequency(0, 144,
         displayVSyncFallback: true) - 144) < 0.001,
     "Linux/macOS ignored-VSync fallback paces Display mode at monitor refresh");
 
+// Reproduce Unlimited → Display with an already-fast diagnostic window.
+// The transition interval and every partial new window must be excluded.
+var measurement = new DesktopPacingMeasurement();
+void Frames(int count, double interval, long generation = 1, bool focused = true)
+{
+    for (int i = 0; i < count; i++)
+        measurement.Observe(interval, generation, sourceChanged: false, focused);
+}
+measurement.Observe(1d / 300, 1, sourceChanged: true, focused: true);
+Frames(601, 1d / 300);
+Check(measurement.FrameHz > 299, "fast prior source has measurement evidence");
+measurement.Observe(1d / 300, 1, sourceChanged: true, focused: true);
+Frames(119, 1d / 60);
+Check(measurement.FrameHz == 0, "cap/monitor transition excludes prior fast and partial windows");
+Frames(2, 1d / 60);
+Check(Math.Abs(measurement.FrameHz - 60) < .001,
+    "only a full new-source window supplies Display fallback evidence");
+Check(!DesktopFramePacing.MacVSyncIgnored(true, 0, 60, measurement.FrameHz, false),
+    "fast previous cap cannot falsely latch Display fallback");
+measurement.Observe(1d / 180, 1, sourceChanged: true, focused: true);
+Frames(361, 1d / 180);
+Check(DesktopFramePacing.LinuxVSyncIgnored(true, 0, 144, measurement.FrameHz, false),
+    "genuinely ignored VSync still trips after clean full window");
+measurement.Observe(1d / 180, 2, sourceChanged: false, focused: true);
+Check(measurement.FrameHz == 0, "presentation reset discards previous measurement");
+Frames(359, 1d / 180, 2);
+Check(measurement.FrameHz == 0, "presentation reset requires a fresh full window");
+Frames(3, 1d / 180, 2);
+Check(measurement.FrameHz > 179, "measurement recovers after reset window");
+measurement.Observe(1d / 180, 2, sourceChanged: false, focused: false);
+Check(measurement.FrameHz == 0, "focus loss discards evidence");
+Frames(359, 1d / 180, 2);
+Check(measurement.FrameHz == 0, "focus recovery cannot reuse earlier intervals");
+foreach (double invalid in new[] { .5, -1, double.NaN, double.PositiveInfinity })
+{
+    Frames(3, 1d / 180, 2);
+    measurement.Observe(invalid, 2, sourceChanged: false, focused: true);
+    Check(measurement.FrameHz == 0, $"invalid/stalled interval {invalid} clears fallback evidence");
+}
+
 return failures == 0 ? 0 : 1;

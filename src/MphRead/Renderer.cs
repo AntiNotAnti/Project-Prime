@@ -9092,6 +9092,9 @@ localCenter *= _profileHudScale;
         private double _appliedMonitorRefreshRate = -1;
         private bool _displayVSyncFallback;
         private bool _appliedDisplayVSyncFallback;
+        private bool _pacingSourceInvalidated = true;
+        private long _appliedPacingGeneration = -1;
+        private readonly Mods.Render.DesktopPacingMeasurement _pacingMeasurement = new();
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -9120,13 +9123,19 @@ localCenter *= _profileHudScale;
         /// Linux and macOS detect drivers that ignore swap interval in
         /// Display mode and latch a software display-rate fallback.
         /// </summary>
-        private void ApplyFrameRateSettings()
+        private void ApplyFrameRateSettings(double elapsedSeconds)
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
             double refreshRate = MonitorRefreshRate(this);
-            bool sourceChanged = cap != _appliedFrameRateCap
+            bool sourceChanged = _pacingSourceInvalidated
+                || _appliedPacingGeneration != Mods.Render.FrameTiming.PresentationGeneration
+                || cap != _appliedFrameRateCap
                 || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
                     > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
+            _pacingSourceInvalidated = false;
+            _appliedPacingGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            _pacingMeasurement.Observe(elapsedSeconds,
+                Mods.Render.FrameTiming.PresentationGeneration, sourceChanged, IsFocused);
             if (sourceChanged)
             {
                 _displayVSyncFallback = false;
@@ -9134,15 +9143,15 @@ localCenter *= _profileHudScale;
 
             bool displayFallback = Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
-                Mods.Render.FrameTiming.MeasuredFrameHz, _displayVSyncFallback)
+                _pacingMeasurement.FrameHz, _displayVSyncFallback)
                 || Mods.Render.DesktopFramePacing.MacVSyncIgnored(
                     OperatingSystem.IsMacOS(), cap, refreshRate,
-                    Mods.Render.FrameTiming.MeasuredFrameHz, _displayVSyncFallback);
+                    _pacingMeasurement.FrameHz, _displayVSyncFallback);
             if (displayFallback && !_displayVSyncFallback)
             {
                 Mods.DebugLog.Line("frametiming",
                     $"Display swap interval is not pacing the window "
-                    + $"({Mods.Render.FrameTiming.MeasuredFrameHz:0.#} Hz on "
+                    + $"({_pacingMeasurement.FrameHz:0.#} Hz on "
                     + $"{refreshRate:0.#} Hz); switching to software display pacing.");
             }
             _displayVSyncFallback = displayFallback;
@@ -9195,7 +9204,7 @@ localCenter *= _profileHudScale;
                 Mods.Render.OpenGlFrameProfiler.CancelFrame();
 #endif
             Mods.Network.DemoRecorder.PollSaves();
-            ApplyFrameRateSettings();
+            ApplyFrameRateSettings(args.Time);
             if (Mods.Network.NetLaunch.TickTerminalLobby(this))
             {
                 GL.Clear(ClearBufferMask.ColorBufferBit);
@@ -9563,6 +9572,8 @@ localCenter *= _profileHudScale;
         /// </summary>
         protected override void OnMove(WindowPositionEventArgs e)
         {
+            // Moving can select another monitor with the same nominal refresh.
+            _pacingSourceInvalidated = true;
             if (_shell)
             {
                 Mods.WindowGeometry.Note(this);
@@ -9635,6 +9646,7 @@ localCenter *= _profileHudScale;
 #if !MPHREAD_SERVER && !ANDROID
             Mods.Render.OpenGlFrameProfiler.CancelFrame();
 #endif
+            _pacingSourceInvalidated = true;
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeFocusChanged(e.IsFocused);
 #endif
