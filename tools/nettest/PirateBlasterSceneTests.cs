@@ -235,12 +235,17 @@ internal static class PirateBlasterSceneTests
         Console.WriteLine("PIRATE BLASTER TARGET SETUP "+JsonSerializer.Serialize(new{aligned,steps,targetPosition=new[]{target.Position.X,target.Position.Y,target.Position.Z},aim=new[]{aim.X,aim.Y,aim.Z},radiansPerPixel,syntheticPlacement=true,realMouseAim=true}));
         Check(aligned,"bounded real mouse pitch aims at actual requested native body/head band");
     }
+    private static object? ImpactView(CustomImpactFact? fact) => fact is {} f ? new {
+        weapon=f.Weapon.ToString(), projectile=f.Source.Sequence, owner=f.Source.Owner,
+        f.VictimSlot, f.Tick, f.Damage, f.TurretDamage, f.HitTurret, f.Headshot, f.Lethal,
+        point=new[]{f.Point.X,f.Point.Y,f.Point.Z}
+    } : null;
     private static object DamageAndMark(string room,bool staleLife=false,bool head=false)
     {
         using var f=new Fixture(room,target:true);var p=f.Player;var target=f.Target!;var r=f.Runtime;PlaceTargetAndAim(f,head);
         int before=target.Health;ulong shots=r.Shots,hits=r.Hits;f.Step(new Input(Shoot:true));
         for(int n=0;n<60&&r.Hits-hits<3;n++)f.Step();
-        Console.WriteLine("PIRATE BLASTER DAMAGE TRACE "+JsonSerializer.Serialize(new{healthBefore=before,healthAfter=target.Health,shots=r.Shots-shots,hits=r.Hits-hits,impact=r.LastImpact,marked=r.IsMarked(p,target),frame=f.Scene.FrameCount}));
+        Console.WriteLine("PIRATE BLASTER DAMAGE TRACE "+JsonSerializer.Serialize(new{healthBefore=before,healthAfter=target.Health,shots=r.Shots-shots,hits=r.Hits-hits,impact=ImpactView(r.LastImpact),marked=r.IsMarked(p,target),frame=f.Scene.FrameCount}));
         Check(r.Shots-shots==3&&r.Hits-hits==3&&before-target.Health==(head?48:36),"three actual distinct native bolts pay literal body12/head16 each");
         Check(r.LastImpact is {} impact&&impact.Damage==(head?16:12)&&impact.Headshot==head&&impact.Source.Weapon==PirateBlasterDefinition.Definition.Identity,
             "actual collision fact identifies private content and native requested body/head damage");
@@ -325,7 +330,7 @@ internal static class PirateBlasterSceneTests
         Check(actual!=null,"far head control captures actual first native flight");Vector3 spawned=actual!.SpawnPosition;
         f.Step(new Input(Native:true)); // real selection cancels paid tails; existing native flight remains authoritative
         for(int n=0;n<40&&r.Hits==0;n++)f.Step();
-        var impact=r.LastImpact;Console.WriteLine("PIRATE BLASTER FAR HEAD TRACE "+JsonSerializer.Serialize(new{impact,hpBefore=hp,hpAfter=target.Health,spawned=new[]{spawned.X,spawned.Y,spawned.Z}}));
+        var impact=r.LastImpact;Console.WriteLine("PIRATE BLASTER FAR HEAD TRACE "+JsonSerializer.Serialize(new{impact=ImpactView(impact),hpBefore=hp,hpAfter=target.Health,spawned=new[]{spawned.X,spawned.Y,spawned.Z}}));
         Check(impact is {} hit&&hit.Point.Y-target.Position.Y>=target.ModBipedTop-.3f
             &&(hit.Point-spawned).Length>15&&!hit.Headshot&&hit.Damage==12&&hp-target.Health==12,
             "real high-band contact beyond native15-unit range pays body12 rather than head16");
