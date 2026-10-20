@@ -53,7 +53,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.PlayQueueAction => 4,
         RmlUiIntentKind.PlayServer => 8,
         RmlUiIntentKind.HunterRotate or RmlUiIntentKind.HunterZoom => 2,
-        RmlUiIntentKind.InGameAction => 36,
+        RmlUiIntentKind.InGameAction => 34,
         RmlUiIntentKind.LicenseAction => 30,
         RmlUiIntentKind.StudioAction => 224,
         RmlUiIntentKind.TheatreAction => 25,

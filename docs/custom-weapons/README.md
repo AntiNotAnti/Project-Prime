@@ -1,5 +1,7 @@
 # Custom weapons implementation ledger
 
+Current gameplay correction: the user clarified on October 20, 2026 that the M7 must be a world pickup, not a menu/loadout grant. This overrides the attached CW-05 selection proposal; see [pickup contract](05k-pickup-correction.md).
+
 Source specification: `PROJECT_PRIME_CUSTOM_WEAPONS_SNIPER_HEADSHOT_RAGDOLL_IMPLEMENTATION_PLAN.md`
 supplied by the user on 2026-10-19 and preserved as [implementation-plan.md](implementation-plan.md). The user's request authorizes sequential CW-00 through CW-16,
 one independently reviewable PR and completed-slice commit at a time, immediate merge after
@@ -15,7 +17,7 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-02 | Mechanics schema and deterministic per-life state | Complete; 1,179 checks, zero-allocation routine ticks, native parity |
 | CW-03 | Offline M7 through canonical combat hooks | Complete; 1,181 pure and 45 real-scene checks; native parity |
 | CW-04 | Custom action authority/network state | Authority implementation complete through04q: live private results, public recipient replicas, exact source/resource/contact admission, impaired ordinary-client owner symmetry, spectator reconnect/old ACK refusal and native client HP/death projection validated. Developer flags remain off; public controls/device cadence are CW-05 and custom bots/packages/replay are CW-12. Physical/rendered/WAN acceptance remains a release gate. |
-| CW-05 | Loadout, input, HUD and scope | In progress:05a canonical client request producer,05b bounded source-time selection history,05c authority native-fire isolation and05d public device bindings/local input isolation and05e optics/sensitivity/hold settings, canonical HUD and reversible feedback;05f reserved frozen availability contract and shared eligibility policy;05g protocol70 frozen online activation and public readiness;05h launcher choice and captured-human offline availability;05i Android UI-owned async settings;05j immutable in-game desired selection and pending-native fencing implemented, [final local qualification pending](evidence/CW-05j.md);05k Rules/pause fallback layout and final device acceptance pending |
+| CW-05 | Pickup acquisition, input, HUD and scope | In progress:05a–05i delivered ordered input, source selection history, native isolation, device bindings, optics/HUD, frozen match availability and settings persistence.05j menu selection was locally qualified;05k retires it after the user's world-pickup correction. Pickup-funded ownership, normal weapon selection and final device acceptance remain pending. |
 | CW-06 | Original assets and presentation | Pending CW-05 |
 | CW-07 | Accepted nonlethal head reaction | Pending CW-06 |
 | CW-08 | Lethal head collapse/cosmetics | Pending CW-07 |
@@ -28,9 +30,9 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-15 | Community creator/install UI | Pending CW-14 |
 | CW-16 | Full release/security/platform acceptance | Pending CW-15 |
 
-CW-05j desktop menu selection does not qualify mobile usability: reviewed landscape
-actions remain small and portrait Quit/scroll is clipped. Those Rules/pause layout
-repairs are scoped to CW-05k; CW-05 is not complete.
+CW-05j evidence remains historical. Its menu design and the unmerged responsive
+menu work are superseded by the user's world-pickup correction. No pickup
+acquisition or mobile usability completion is implied by those earlier captures.
 
 No pending row denotes delivered runtime functionality. Device/visual/network gaps remain explicit
 release blockers. Foundation code alone cannot satisfy the final create/publish/download/play/replay flow.

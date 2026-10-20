@@ -151,62 +151,7 @@ internal static class CustomPublicInputClientSceneChecks
         {var bytes=new byte[CustomControlDenied.Size];new CustomControlDenied(request,token,Bootstrap.AuthorityFrame+11,CustomControlDenialReason.SourceUnavailable).Write(bytes);Send(PacketType.CustomWeaponControlDenied,bytes);Until(()=>NetSession.LastCustomControlDenied?.Token==token,"synthetic no-source result consumed");}
         public void Dispose(){NetSession.Stop();Wire.Dispose();((IDisposable)Rig).Dispose();Scene.DoCleanup();}
     }
-    private static int RunMenuSelection(Fixture f)
-    {
-        f.Sample(_=>{});
-        var initial=f.Scene.CustomWeaponMenuSelection??throw new Exception("online selection snapshot missing");
-        int health=f.Player.Health;var ammo=f.Player.ModAmmo;var before=NetSession.CustomWeaponPresentationState;
-        Check(initial.CanEquip&&!initial.Selected&&initial.Context.Owner==f.Owner(1)
-            &&initial.Context.Bootstrap==f.Bootstrap&&initial.Context.Manifest==f.Manifest.Manifest.Digest,
-            "online immutable menu snapshot carries exact canonical full context");
-        bool stable=true;for(int i=0;i<100000;i++)stable&=ReferenceEquals(initial,f.Scene.CustomWeaponMenuSelection);
-        Check(stable&&NetSession.CustomWeaponPresentationState==before&&f.Player.Health==health&&f.Player.ModAmmo==ammo,
-            "100000 online UI cache reads cannot mutate native actor or private canonical resources");
-        Check(f.Scene.RequestCustomWeaponMenuSelection(initial,true)&&NetSession.CustomWeaponPresentationState==before,
-            "online menu click queues only desired selection before input phase");
-        f.Sample(_=>{});var equip=f.Request(1);
-        Check(equip.Kind==CustomWeaponActionKind.Equip&&equip.Owner==initial.Context.Owner&&equip.Bootstrap==initial.Context.Bootstrap
-            &&equip.Manifest==initial.Context.Manifest,"real online fixed input sink derives canonical Equip1 from queued desired state");
-        f.Until(()=>f.Wire.Sent.Any(p=>p.Type==PacketType.CustomWeaponInput&&CustomInputCarrier.TryRead(p.Payload,out var r,out var i)
-            &&r==equip&&i.Frame==104),"menu-selected Equip enters actual93 with fresh consumed native input104");
-        f.State(1,2,1,true,0);f.Sample(_=>{});
-        var selected=f.Scene.CustomWeaponMenuSelection!;
-        Check(selected.CanReturnNative&&f.Scene.RequestCustomWeaponMenuSelection(selected,false),"online desired native return queues against selected canonical view");
-        f.Sample(_=>{});var native=f.Request(2);
-        Check(native.Kind==CustomWeaponActionKind.Unequip&&f.Scene.CustomWeaponMenuSelection is {NativePending:true,CanReturnNative:false}
-            &&f.Scene.CustomInputSuppressesNative(f.Player),"actual online Unequip2 remains pending and preserves native permission fence");
-        f.Deny(native,20);f.Sample(_=>{});f.Sample(_=>{});
-        Check(f.Scene.CustomWeaponMenuSelection is {Selected:true,NativePending:false}
-            &&!f.Wire.Sent.Any(p=>p.Type==PacketType.CustomWeaponControl&&CustomControlRequest.TryRead(p.Payload,out var r)&&r.Sequence==3),
-            "denied desired native return reconciles canonical selection without automatically issuing another nonce");
-        Check(f.Scene.RequestCustomWeaponMenuSelection(f.Scene.CustomWeaponMenuSelection!,false),"explicit new click may retry denied selection");
-        f.Sample(_=>{});var retried=f.Request(3);
-        Check(retried.Kind==CustomWeaponActionKind.Unequip,"explicit retry consumes next canonical sequence3 only once");
-        f.State(1,3,3,false,0);f.Sample(_=>{});
-        var old=f.Scene.CustomWeaponMenuSelection!;
-        Check(!old.Selected&&!f.Scene.CustomInputSuppressesNative(f.Player)&&f.Player.Health==health
-            &&f.Player.ModAmmo==ammo&&NetSession.CustomWeaponPresentationState?.State is {Magazine:4,Reserve:16},
-            "canonical native settlement releases fence and selection-only flow preserves HP/ammo/private4/16");
-        Check(f.Scene.RequestCustomWeaponMenuSelection(old,true),"queue old-life choice immediately before native lifecycle adoption");
-        f.Native(2,f.Bootstrap.AuthorityFrame+20);f.Sample(_=>{});
-        Check(f.AppliedLife==2&&f.Scene.CustomWeaponMenuSelection==null&&!f.Scene.RequestCustomWeaponMenuSelection(old,true)
-            &&!f.Wire.Sent.Any(p=>p.Type==PacketType.CustomWeaponControl&&CustomControlRequest.TryRead(p.Payload,out var r)&&r.Life==2),
-            "actual NetHooks adopts nativeLife2 before mailbox consume and retires old-life queued selection");
-        f.State(2,4,0,false,0);f.ReadyBody();f.Sample(_=>{});
-        var current=f.Scene.CustomWeaponMenuSelection!;
-        Check(current.Context.Owner==f.Owner(2)&&f.Scene.RequestCustomWeaponMenuSelection(current,true),"new canonical life publishes fresh native-selected UI context");
-        f.Sample(_=>{});var reborn=f.Request(1,2);
-        Check(reborn.Kind==CustomWeaponActionKind.Equip&&reborn.Owner==f.Owner(2)&&reborn.Sequence==1,
-            "fresh desired request uses new full-life sequence1 rather than old pending identity");
-        f.Scene.DoCleanup();
-        Check(f.Scene.CustomWeaponMenuSelection==null&&!f.Scene.RequestCustomWeaponMenuSelection(current,true)
-            &&!f.Wire.Overflow&&f.Wire.Error==null&&!f.Server.Simulating,
-            "client scene cleanup retires selection mailbox and bounded actual UDP recorder remains healthy");
-        Console.WriteLine($"PASS {_checks} online menu-selection client boundary checks.");
-        Console.WriteLine("SCOPE: actual asset client, fixed NetHooks input sink and real91/93UDP; private/native/public authority facts are explicit synthetic fixtures. No remote engine admission, authoritative damage, UI click, physical device or Android qualification.");
-        return 0;
-    }
-    internal static int Run(string data,bool menuSelection=false)
+    internal static int Run(string data)
     {
         _checks=0;string cwd=Directory.GetCurrentDirectory();bool force=MapAudit.ForceEveryone,ready=NetSession.DeveloperCustomWeaponReadiness;
         bool focus=GamepadContexts.Focused;var context=GamepadContexts.Current;
@@ -214,9 +159,7 @@ internal static class CustomPublicInputClientSceneChecks
         {
             NetSession.Stop();Directory.SetCurrentDirectory(Path.GetFullPath(data));Paths.UpdatePaths();Paths.ChooseMphPath();Headless.Enter();
             MapAudit.ForceEveryone=true;GamepadContexts.Focused=true;GamepadContexts.Current=GamepadContext.Gameplay;NetSession.DeveloperCustomWeaponReadiness=true;
-            using var f=new Fixture();
-            if(menuSelection)return RunMenuSelection(f);
-            int health=f.Player.Health;
+            using var f=new Fixture();int health=f.Player.Health;
             f.Sample(c=>c.CustomWeapon.IsPressed=true);var equip=f.Request(1);
             Check(equip.Kind==CustomWeaponActionKind.Equip&&equip.Owner==f.Owner(1)&&equip.Manifest==f.Manifest.Manifest.Digest
                 &&equip.Bootstrap==f.Bootstrap&&equip.Weapon.Value==10,"public actor control derives complete canonical Equip identity/nonce1");

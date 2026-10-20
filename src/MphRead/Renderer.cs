@@ -2464,7 +2464,6 @@ namespace MphRead
             MatchEvents.ObservePhase(this);
             if (Mods.Network.NetSession.FreezeGameplay)
             {
-                ClearCustomMenuSelection();
                 Mods.Network.NetSession.PumpLoading();
                 SemanticPresentation.Update(this);
                 return;
