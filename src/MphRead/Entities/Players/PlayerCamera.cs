@@ -838,9 +838,11 @@ namespace MphRead.Entities
             // including alt form and steep uphill/downhill aim.
             Vector3 forward = winner.FacingVector;
             forward.Y = 0;
-            if (forward.LengthSquared < 0.0001f)
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f)
                 forward = new Vector3(winner.Field70, 0, winner.Field74);
-            if (forward.LengthSquared < 0.0001f) forward = Vector3.UnitZ;
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f) forward = Vector3.UnitZ;
             else forward.Normalize();
             Vector3 side = Vector3.Cross(forward, Vector3.UnitY);
             if (side.LengthSquared < 0.0001f) side = Vector3.UnitX;
@@ -892,6 +894,8 @@ namespace MphRead.Entities
                 return target;
             // The existing collision distance is a segment fraction. Keep a
             // small surface margin without crossing behind the first hit.
+            // Malformed collision distances are not allowed into view matrices.
+            if (!float.IsFinite(hit.Distance)) return focus + Vector3.UnitY * 0.5f;
             float fraction = Math.Clamp(hit.Distance - 0.025f, 0.05f, 1f);
             return focus + (target - focus) * fraction + hit.Plane.Xyz * 0.05f;
         }
