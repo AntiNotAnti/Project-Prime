@@ -167,12 +167,14 @@ public partial class Scene
 
     internal void FinalizeMovementTelemetry(PlayerEntity player)
     {
-        if (player.SlotIndex != Players.Main?.SlotIndex || _movementTelemetry is not { } sample
+        if (player.SlotIndex != Players.Main?.SlotIndex || _movementTelemetry is null
             || _movementTelemetryFrame != FrameCount) return;
-        Vector2 velocity = new(player.Speed.X * PlayerEntity.NativeVelocityUnitsPerSecond,
-            player.Speed.Z * PlayerEntity.NativeVelocityUnitsPerSecond);
+        Vector3 velocity = player.Speed * PlayerEntity.NativeVelocityUnitsPerSecond;
+        Vector2 horizontal = new(velocity.X, velocity.Z);
         float efficiency = _movementTelemetryBestGain > 0
-            ? Math.Clamp((velocity.LengthSquared - _movementTelemetryIncomingSquared) / _movementTelemetryBestGain, 0, 1) : -1;
-        _movementTelemetry = sample with { Speed = velocity.Length, StrafeEfficiency = efficiency };
+            ? Math.Clamp((horizontal.LengthSquared - _movementTelemetryIncomingSquared) / _movementTelemetryBestGain, 0, 1) : -1;
+        // Standing is the completed physical contact; Grounded includes a native grace period.
+        _movementTelemetry = MovementTelemetrySample.Completed(horizontal.Length, velocity.Length, efficiency,
+            player.Flags1.TestFlag(PlayerFlags1.Standing), player.ModCrouched, player.ModSliding);
     }
 }

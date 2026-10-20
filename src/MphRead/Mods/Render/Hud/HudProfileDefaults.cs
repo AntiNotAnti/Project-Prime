@@ -5,6 +5,7 @@ public static class HudProfileDefaults
 {
     public const string MovementTelemetryId = "movement.telemetry";
     public const int MovementTelemetryIndex = 14;
+    public const float MovementTelemetryHeight = 24;
     public static readonly string[] ElementIds = { "core.crosshair", "core.health", "core.ammo", "core.weapons", "core.radar", "match.score", "match.timer", "combat.killFeed", "combat.notifications", "combat.opponent", "match.objective", "system.diagnostics", "core.healthGauge", "core.ammoGauge", MovementTelemetryId };
     public static readonly string[] Presets = { "Classic", "Project Prime", "Competitive", "Minimal", "Duel", "Accessibility", "Broadcast" };
     public static Dictionary<string, HudElementLayout> Elements() => new()
@@ -23,7 +24,7 @@ public static class HudProfileDefaults
         ["system.diagnostics"] = new() { Anchor = HudAnchor.TopRight, OffsetX = -22.5f, OffsetY = 11.25f },
         ["core.healthGauge"] = new() { Anchor=HudAnchor.BottomLeft,OffsetX=22.5f,OffsetY=-33.75f },
         ["core.ammoGauge"] = new() { Anchor=HudAnchor.BottomRight,OffsetX=-326.25f,OffsetY=-33.75f },
-        // Original logical rectangle: (78,166)–(178,182) on the 256x192 HUD.
+        // Logical rectangle: (78,166)–(178,190) on the 256x192 HUD; anchor and saved offsets are unchanged.
         [MovementTelemetryId] = new() { Anchor=HudAnchor.BottomCenter,OffsetX=0,OffsetY=-146.25f,Contexts=HudContext.Playing }
     };
     public static HudProfile Create(string name)

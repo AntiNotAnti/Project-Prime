@@ -17,7 +17,7 @@ The training map has an uphill ramp at X=-30, a tagged surf lane at X=-10, an id
 
 ## Tuning display
 
-Optional movement modes show horizontal speed in world units/second and airborne strafe efficiency. Speed comes from the body after collision. Efficiency compares the horizontal speed-squared gain that survived that tick with the best directional acceleration gain available at the same speed and input magnitude. `--` means the measurement is unavailable. Open the HUD editor and select **movement.telemetry** to move, scale, tint, hide or change its opacity. Save/use the edited HUD profile to apply it. Both editor previews, undo/redo, reset and profile export/import support it. This display never drives gameplay, packets, or replays and is hidden when movement is ineligible.
+Optional movement modes show horizontal and total speed in world units/second, completed AIR/SLIDING/CROUCH/GROUND state, and airborne strafe efficiency. Both speeds and contact/stance come from the body after collision; landing clears air-efficiency text. Efficiency compares the horizontal speed-squared gain that survived that tick with the best directional acceleration gain available at the same speed and input magnitude. `--` means the measurement is unavailable. Open the HUD editor and select **movement.telemetry** to move, scale, tint, hide or change its opacity. Save/use the edited HUD profile to apply it. Both editor previews, undo/redo, reset and profile export/import support it. This display never drives gameplay, packets, or replays and is hidden when movement is ineligible.
 
 ## Authoring and compatibility
 
@@ -74,3 +74,10 @@ completed playout positions and accepted velocity rather than snapshot-arrival
 bursts; passive replicas capture the same cosmetic timelines. Checkpoint restore
 clears cosmetic history and rebuilds it from subsequent completed steps.
 See [planted crouch footwork results](planted-crouch-results.md) for measured scope.
+
+Supported physical Traversal slides reuse the native terrain slide loop (or its
+native rolling loop on floors without a slide entry), with a
+bounded amount based on final horizontal speed. Walking emissions are suppressed
+while sliding; native sound clocks, shared RNG draws, source ownership and teardown
+remain intact. Player volume controls the existing source. See
+[movement feedback results](movement-feedback-results.md) for validation scope.

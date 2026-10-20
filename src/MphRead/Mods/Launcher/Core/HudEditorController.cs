@@ -39,7 +39,7 @@ public sealed class HudEditorController : IDisposable
     private HudProfile? _accepted;
     private HudEditorSnapshot? _snapshot;
     private static readonly Vector2[] Sizes = { new(60), new(248,112), new(326,112), new(248,620), Vector2.Zero,
-        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17), new(750,90) };
+        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17), new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f) };
 
     public HudEditorController(HudProfile original, IHudEditorBackend? backend = null)
     {

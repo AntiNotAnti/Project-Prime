@@ -196,7 +196,11 @@ namespace MphRead.Entities
                 sfxId = -1;
             }
             float amountB = _scene.Random.GetRandomInt1(0x7FFF) * 2;
-            if (sfxId != -1)
+            // Keep native footstep clocks and the shared random draw exact;
+            // a physical Traversal slide plays its terrain loop instead.
+            bool sliding = ModSliding && ModTraversalActive && ModMomentumEligible
+                && Flags1.TestFlag(PlayerFlags1.Standing);
+            if (sfxId != -1 && !sliding)
             {
                 _soundSource.PlaySfx(sfxId, amountA: 0xFFFF, amountB: amountB);
             }
@@ -231,10 +235,34 @@ namespace MphRead.Entities
             }
         }
 
-        private void UpdateSlidingSfx(float newAmount)
+        // Most ordinary floors have no native Slide entry. Track only the fallback
+        // ID so terrain changes, form ownership and stance resets can retire it on
+        // the existing player source, without allocating a separate voice owner.
+        private int _modTraversalSlideSfx = -1;
+
+        private void ModStopTraversalSlideSfx()
+        {
+            if (_modTraversalSlideSfx == -1) return;
+            _soundSource.StopSfx(_modTraversalSlideSfx);
+            _modTraversalSlideSfx = -1;
+        }
+
+        private void UpdateSlidingSfx(float newAmount, bool allowTraversalFallback = false)
         {
             UpdateMovementSfxAmount(newAmount);
             int sfxId = Metadata.TerrainSfx[(int)_standTerrain, (int)TerrainSfx.Slide];
+            int fallback = allowTraversalFallback && sfxId == -1
+                ? Metadata.TerrainSfx[(int)_standTerrain, (int)TerrainSfx.Roll] : -1;
+            if (_modTraversalSlideSfx != fallback || _moveSfxAmount == 0)
+                ModStopTraversalSlideSfx();
+            // A decaying native amount can finish an existing cue, but cannot
+            // start a new fallback on a surface reached after the slide ended.
+            if (fallback != -1 && _moveSfxAmount > 0
+                && (newAmount > 0 || _modTraversalSlideSfx == fallback))
+            {
+                _modTraversalSlideSfx = fallback;
+                _soundSource.PlaySfx(fallback, loop: true, amountA: _moveSfxAmount);
+            }
             if (sfxId != -1)
             {
                 _soundSource.PlaySfx(sfxId, loop: true, amountA: _moveSfxAmount);
