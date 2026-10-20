@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Ktx;
 
@@ -39,11 +40,45 @@ namespace MphRead.Mods.Render
                         ModernTextureAsset.MaximumDimension);
                     if (Ktx2.NeedsTranscoding(texture))
                     {
+#if ANDROID
+                        // GLES3 guarantees ETC2 RGBA8. Prefer ASTC 4x4 only when
+                        // the current EGL owner previously advertised it.
+                        if (AndroidTextureCompressionPolicy.Enabled
+                            && width <= maximumDimension && height <= maximumDimension)
+                        {
+                            GpuTextureCompressionFormat format = AndroidTextureCompressionPolicy.Preferred;
+                            Ktx2.TranscodeFormat target = format == GpuTextureCompressionFormat.Astc4x4Rgba
+                                ? Ktx2.TranscodeFormat.Astc4X4Rgba
+                                : Ktx2.TranscodeFormat.Etc2Rgba;
+                            Ktx2.ErrorCode result = Ktx2.TranscodeBasis(texture, target,
+                                Ktx2.TranscodeFlagBits.HighQuality);
+                            if (result != Ktx2.ErrorCode.Success)
+                                throw new InvalidDataException($"GPU block transcode failed: {result}.");
+                            return CopyCompressed(texture, key, assetClass, channel,
+                                width, height, format);
+                        }
+#endif
                         TranscodeRgba(texture);
                         return CopyRgba(texture, key, assetClass, channel,
                             width, height, maximumDimension);
                     }
 
+#if ANDROID
+                    if (AndroidTextureCompressionPolicy.Enabled
+                        && width <= maximumDimension && height <= maximumDimension)
+                    {
+                        GpuTextureCompressionFormat fixedFormat = texture->VkFormat switch
+                        {
+                            Ktx2.VkFormat.Etc2R8G8B8A8UnormBlock => GpuTextureCompressionFormat.Etc2Rgba8,
+                            Ktx2.VkFormat.Astc4X4UnormBlock when AndroidTextureCompressionPolicy.SupportsAstc
+                                => GpuTextureCompressionFormat.Astc4x4Rgba,
+                            _ => GpuTextureCompressionFormat.None
+                        };
+                        if (fixedFormat != GpuTextureCompressionFormat.None)
+                            return CopyCompressed(texture, key, assetClass, channel,
+                                width, height, fixedFormat);
+                    }
+#endif
                     if (texture->VkFormat is Ktx2.VkFormat.R8G8B8A8Unorm
                         or Ktx2.VkFormat.R8G8B8A8Srgb)
                     {
@@ -125,6 +160,33 @@ namespace MphRead.Mods.Render
                     "Project Prime KTX2 textures must be one non-array 2D image up to 8192x8192.");
             }
         }
+
+#if ANDROID
+        private static CompressedTextureAsset CopyCompressed(Ktx2.Texture* texture, string key,
+            TextureAssetClass assetClass, TextureAssetChannel channel,
+            int width, int height, GpuTextureCompressionFormat format)
+        {
+            int maxLevels = GpuCompressedTextureMath.MipLevelCount(width, height);
+            if (texture->NumLevels == 0 || texture->NumLevels > maxLevels)
+                throw new InvalidDataException("KTX2 has an invalid compressed mip count.");
+            var mips = new List<CompressedTextureMip>((int)texture->NumLevels);
+            for (uint level = 0; level < texture->NumLevels; level++)
+            {
+                int w = Math.Max(1, width >> (int)level);
+                int h = Math.Max(1, height >> (int)level);
+                int size = GpuCompressedTextureMath.LevelBytes(w, h);
+                Ktx2.ErrorCode error = Ktx2.GetImageOffset(texture, level, 0, 0, out nuint offset);
+                nuint available = Ktx2.GetImageSize(texture, level);
+                if (error != Ktx2.ErrorCode.Success || available < (nuint)size
+                    || offset > texture->DataSize || (nuint)size > texture->DataSize - offset)
+                    throw new InvalidDataException("Compressed KTX2 mip data is missing or truncated.");
+                byte[] blocks = new byte[size];
+                Marshal.Copy((IntPtr)(texture->PData + offset), blocks, 0, size);
+                mips.Add(new CompressedTextureMip(w, h, blocks));
+            }
+            return new CompressedTextureAsset(key, assetClass, channel, format, mips.ToArray());
+        }
+#endif
 
         private static void TranscodeRgba(Ktx2.Texture* texture)
         {

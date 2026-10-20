@@ -40,28 +40,33 @@ internal sealed class RmlUiAndroidGlesState
     private const int UnpackRowLength = 0x0CF2, UnpackSkipRows = 0x0CF3, UnpackSkipPixels = 0x0CF4;
     private const int PixelUnpackBufferBinding = 0x88EF, SamplerBinding = 0x8919;
 
-    internal int DrawFramebuffer { get; }
-    private readonly int _readFramebuffer, _renderbuffer, _vao, _program, _activeTexture;
-    private readonly int _texture0, _arrayBuffer, _elementBuffer, _sampler0, _pixelUnpackBuffer;
-    private readonly int _unpackRowLength, _unpackSkipRows, _unpackSkipPixels;
-    private readonly int _clearStencil, _writeStencil, _stencilFunc, _stencilRef, _stencilMask;
-    private readonly int _stencilFail, _stencilZFail, _stencilZPass, _unpackAlignment;
-    private readonly int _srcRgb, _dstRgb, _srcAlpha, _dstAlpha, _equationRgb, _equationAlpha;
-    private readonly int _depthWrite;
+    internal int DrawFramebuffer { get; private set; }
+    private int _readFramebuffer, _renderbuffer, _vao, _program, _activeTexture;
+    private int _texture0, _arrayBuffer, _elementBuffer, _sampler0, _pixelUnpackBuffer;
+    private int _unpackRowLength, _unpackSkipRows, _unpackSkipPixels;
+    private int _clearStencil, _writeStencil, _stencilFunc, _stencilRef, _stencilMask;
+    private int _stencilFail, _stencilZFail, _stencilZPass, _unpackAlignment;
+    private int _srcRgb, _dstRgb, _srcAlpha, _dstAlpha, _equationRgb, _equationAlpha;
+    private int _depthWrite;
     private readonly int[] _viewport = new int[4];
     private readonly int[] _scissorRect = new int[4];
     private readonly int[] _colorMask = new int[4];
     private readonly float[] _clearColor = new float[4];
-    private readonly bool _depth, _stencil, _blend, _scissor, _cull;
+    private bool _depth, _stencil, _blend, _scissor, _cull;
 
-    private static int Read(int name)
+    // Reuse the same arrays for each pass. Previously the capture created
+    // dozens of one-element managed arrays per draw on the EGL owner thread.
+    private readonly int[] _single = new int[1];
+
+    private int Read(int name)
     {
-        int[] value = new int[1];
-        GLES30.GlGetIntegerv(name, value, 0);
-        return value[0];
+        GLES30.GlGetIntegerv(name, _single, 0);
+        return _single[0];
     }
 
-    internal RmlUiAndroidGlesState()
+    internal RmlUiAndroidGlesState() => Capture();
+
+    internal void Capture()
     {
         DrawFramebuffer = Read(DrawFramebufferBinding);
         _readFramebuffer = Read(ReadFramebufferBinding);

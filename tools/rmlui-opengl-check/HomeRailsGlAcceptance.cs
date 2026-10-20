@@ -51,8 +51,9 @@ internal static class HomeRailsGlAcceptance
                 Check(model["home_party_count"].Text == (connected ? "4 / 4" : "1 / 4"), "Current Session retains four bounded seats for " + name);
                 var activity = Box("activity_panel"); var rail = Box("home_right_rail");
                 Check(Disjoint(activity, rail), "right rail cannot cover activity controls for " + name);
-                if (width / float.Parse(density, System.Globalization.CultureInfo.InvariantCulture) <= 900
-                    || height / float.Parse(density, System.Globalization.CultureInfo.InvariantCulture) <= 490)
+                if (width / float.Parse(density, System.Globalization.CultureInfo.InvariantCulture) >= 640
+                    && (width / float.Parse(density, System.Globalization.CultureInfo.InvariantCulture) <= 900
+                    || height / float.Parse(density, System.Globalization.CultureInfo.InvariantCulture) <= 490))
                 {
                     var leftRail = Box("home_left_rail");
                     Check(rail.X - leftRail.Right >= width * .40f,
@@ -63,14 +64,12 @@ internal static class HomeRailsGlAcceptance
                 var seats = new[] { "home_party_slot0", "home_social", "home_party_slot2", "home_party_slot3" }.Select(Box).ToArray();
                 for (int i = 1; i < seats.Length; i++)
                     Check(seats[i].Y >= seats[i - 1].Bottom - 1, "Current Session seats do not overlap: " + i);
-                var news = new BundledNewsProvider().Read().Skip(1).Take(2).ToArray();
-                var first = Box("home_news0"); var second = Box("home_news1");
-                Check(first.Bottom <= second.Y + 1 && Disjoint(first, activity) && Disjoint(second, activity)
-                    && Disjoint(first, rail) && Disjoint(second, rail), "two authored news lines have positive separate bounds outside activity and Friends");
+                var dispatch = Reach("home_feature_open", "home_left_rail");
+                Check(Disjoint(dispatch, activity) && Disjoint(dispatch, rail),
+                    "featured Dispatch action has positive bounds separate from fixed activity and Friends");
                 var semantics = NativeSemanticReadback.Read(host, layout.Document);
-                Check(news.All(item => semantics.ContainsText(item.Title)), "actual native Home contains the two existing additional authored news titles");
-                Reach("home_news0", "home_left_rail"); Reach("home_news1", "home_left_rail");
-                Capture("news-reached");
+                Check(semantics.ContainsText("READ DISPATCH"), "compact featured news retains its complete news route");
+                Capture("dispatch-reached");
                 Reach("activity_selector", "home_left_rail"); Reach("deploy", "home_left_rail");
                 if (connected)
                 {

@@ -25,7 +25,8 @@ SIZES = [(1280, 720), (1920, 1080), (2560, 1440), (3840, 2160),
 # useful logical dimensions rather than halving already-small viewports.
 CASES = [(w, h, 1.0) for w, h in SIZES] + [(1280, 720, 2.0), (2560, 1440, 2.0), (3840, 2160, 2.0)]
 FIXTURES = {
-    'pages/home/home.rml': ['activity_selector', 'deploy', 'profile', 'header_settings'],
+    'pages/home/home.rml': ['activity_selector', 'deploy', 'home_feature_open', 'profile', 'header_settings'],
+    'pages/lobby/lobby.rml': ['lobby_player0', 'lobby_player7', 'lobby_match_rules', 'lobby_chat_input', 'lobby_chat_send', 'lobby_ready', 'lobby_start', 'lobby_leave'],
     'pages/hunters/native-picker.rml': ['hunter_choice0', 'hunter_apply', 'hunter_cancel'],
     'pages/community/native-discover.rml': ['native_community_public', 'native_community_find', 'native_community_row0', 'native_community_row7', 'native_community_install', 'native_community_back'],
     'pages/license/native-overview.rml': ['native_license_close', 'native_license_refresh'],
@@ -104,6 +105,7 @@ LONG_DESCRIPTION = ('A restored Alimbic arena with interconnected vertical route
                     'and a central courtyard. Published by the community for four-player objective matches. '
                     'This deliberately long description verifies wrapping without hiding install controls.')
 CONTENT_ELEMENTS = {
+    'pages/lobby/lobby.rml': ['lobby_roster_panel', 'lobby_left_panels', 'lobby_chat_panel'],
     'pages/home/home.rml': ['home_left_rail', 'home_right_rail', 'activity_selector', 'deploy'],
     'pages/hunters/native-picker.rml': ['native_hunter_panel', 'native_hunter_picker', 'native_hunter_preview_panel', 'hunter_cosmetics_visibility'],
     'pages/community/native-discover.rml': ['native_community', 'native_community_row0', 'native_community_name0', 'native_community_meta0', 'native_community_title', 'native_community_description', 'native_community_hash'],
@@ -143,6 +145,23 @@ def seed(bridge, doc, path, touch=False, large_text=False):
         bridge.text(doc, 'native_hunter_name', 'SAMUS ARAN')
         bridge.text(doc, 'hunter_skin_description', 'Classic armor with community color accents and a verified cosmetic loadout.')
         bridge.text(doc, 'hunter_cosmetics_visibility', 'Preview your detached cosmetic draft. Apply changes to use this hunter in your next session.')
+    if path == 'pages/lobby/lobby.rml':
+        bridge.boolean(doc, 'visible:lobby_countdown', False)
+        for key, value in {'text_lobby_name_1': 'ALIMBIC OPEN LOBBY', 'text_lobby_status_1': 'Public // North America',
+                           'text_lobby_mode_name_1': 'BATTLE', 'text_lobby_map_1': 'Alimbic Citadel',
+                           'lobby_time': '7:00', 'lobby_score': '25 POINTS', 'text_lobby_format_1': 'TEAM BATTLE',
+                           'text_lobby_player_count_1': '8 / 8', 'text_lobby_ready_count_1': '7 / 8',
+                           'lobby_brief_title': 'ONE HUNTER NOT READY', 'lobby_brief_count': '7 / 8 READY',
+                           'lobby_ready': 'READY', 'lobby_hunter': 'HUNTER', 'lobby_chat_history': 'Samus: Ready when you are.\nTrace: Good luck!',
+                           'lobby_field_caption': 'SERVER CONNECTED'}.items(): bridge.text(doc, key, value)
+        for i, hunter in enumerate(['SAMUS', 'KANDEN', 'TRACE', 'SYLUX', 'NOXUS', 'SPIRE', 'WEAVEL', 'SAMUS']):
+            bridge.text(doc, f'text_slot{i}_name_1', f'Hunter {i+1}')
+            bridge.text(doc, f'text_slot{i}_hunter_1', hunter)
+            bridge.text(doc, f'text_slot{i}_state_1', 'READY' if i < 7 else 'WAITING')
+            bridge.text(doc, f'lobby_team{i}', 'ORANGE' if i % 2 == 0 else 'GREEN')
+            bridge.boolean(doc, f'visible:lobby_slot{i}', False)
+            bridge.boolean(doc, f'visible:lobby_add_bot{i}', False)
+            bridge.boolean(doc, f'class:visible_slot{i}_occupied_1:ready', i < 7)
     if path == 'pages/community/native-discover.rml':
         for element in ['native_community_cancel_install', 'native_community_archive', 'native_community_restore',
                         'native_community_creator_confirm', 'native_community_creator_cancel', 'native_community_notice', 'native_community_preview']:
@@ -242,6 +261,11 @@ def geometry_checks(bridge, doc, path, width, height, density, touch=False):
         container = stage or viewport
         horizontal = bool(box) and box[0] >= container[0]-2 and box[0]+box[2] <= container[0]+container[2]+2
         assertion(checks, 'content_horizontal_bounds:' + element, horizontal, bounds=box, container=container)
+    if path == 'pages/lobby/lobby.rml' and width / density >= 1280 and height / density >= 720 and not touch:
+        roster = bridge.bounds(doc, 'lobby_roster_panel')
+        for i in range(8):
+            box = bridge.bounds(doc, f'visible_slot{i}_occupied_1')
+            assertion(checks, f'eight_roster_rows_initially_visible:{i}', inside(box, roster), bounds=box, roster=roster)
     for element in FIXTURES[path]:
         focused = bool(bridge.document_focus(doc, encode(element)))
         bridge.update()

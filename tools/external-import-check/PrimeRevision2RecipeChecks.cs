@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MphRead.Mods.Import;
@@ -14,6 +15,20 @@ internal static class PrimeRevision2RecipeChecks
         ("trooper-wave", "b2131444ade0323c04795ad3a2b6637b552b36ba584d32fb5ed08b92e411d204"),
         ("trooper-plasma", "9ebb847f18b5c3930a7ceeb8ce46bed433cacdbef51f778f4a3979a13eb9add5")
     };
+    private static readonly (string Id, string Recipe)[] PreviousRevision2 =
+    {
+        ("trooper-power", "5f2bcfeb64962b16303aaf425b9fd6a72b448e4ee633efd863406d80d7da5d24"),
+        ("trooper-ice", "f3e306915b55dc7705699e90409675b2c9bf35ffb6f312499a58c5bb7e5ced57"),
+        ("trooper-wave", "307ee117dddbc3bdfbe3498162cb67b1c624f7a1d44bf5c7120dd9f51856f75b"),
+        ("trooper-plasma", "701b4768bd93f3457f4f53e81ec5de4b3fd5a49f88a5c1bd8546af43905f6fb4")
+    };
+    // Literal receipt identities from frozen fc8 qualification, not computed
+    // from the current recipe factory or an optional local evidence file.
+    internal static ImportBundleSpec PreviousRev2(string id) => new(id, 2,
+        PreviousRevision2.Single(p => p.Id == id).Recipe, "c55bf0ecb6cac32fa90d43cb0ad9e4a917d43ed0",
+        new[] { id + ".obj", id + ".skeleton.json", id + ".weights.json", id + ".motions.json" });
+    internal static string[] FullComponents(string id) => new[] { ".obj", ".skeleton.json", ".weights.json", ".motions.json",
+        ".cinf.bin", ".animations.bin", ".source.glb", ".source.json", ".ancs-graph.json", ".ancs.bin" }.Select(s => id + s).ToArray();
 
     public static void Run()
     {
@@ -33,10 +48,15 @@ internal static class PrimeRevision2RecipeChecks
                 Check(old.RequiredComponents.SequenceEqual(new[] { expected.Id + ".obj", expected.Id + ".skeleton.json",
                     expected.Id + ".weights.json", expected.Id + ".motions.json" }), "legacy four components remain exact");
                 var next = RetroCharacterPreviewExporter.BundleSpec(expected.Id, ExternalSourceEdition.PrimeUsaRevision2);
-                Check(next.Id == old.Id && next.Version == 2 && next.RecipeHash != old.RecipeHash
+                Check(next.Id == old.Id && next.Version == 3 && next.RecipeHash != old.RecipeHash
                     && next.SourceFingerprint != old.SourceFingerprint
-                    && next.RequiredComponents.SequenceEqual(old.RequiredComponents), "revision 2 has separate recipe/source identity with same authoring outputs");
+                    && next.RequiredComponents.Length == 10 && next.RequiredComponents.ToHashSet().SetEquals(FullComponents(expected.Id)),
+                    "revision 2 v3 has complete source-authoring outputs under a separate exact recipe/source identity");
                 Check(next.SourceFingerprint == "c55bf0ecb6cac32fa90d43cb0ad9e4a917d43ed0", "revision 2 archive fingerprint is fixed");
+                Check(next.RecipeHash != PreviousRev2(expected.Id).RecipeHash, "richer v3 recipe cannot masquerade as frozen four-component v2");
+                Check(RetroCharacterPreviewExporter.PartsFor(expected.Id).Single().Version == 1
+                    && RetroCharacterPreviewExporter.PartsFor(expected.Id, ExternalSourceEdition.PrimeUsaRevision2).Single() is { Id: "body", Version: 2 },
+                    "only Rev2 advances the expected body component version");
                 VerifyInventory(Path.Combine(root, expected.Id), old, next);
             }
             foreach (string unknown in new[] { "trooper", "power_trooper", "TROOPER-POWER", "darksamus" })
@@ -45,10 +65,16 @@ internal static class PrimeRevision2RecipeChecks
                 Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.InspectBundle(root, unknown), "unknown/alias source ID refuses inspection");
             }
             foreach (string echoes in new[] { "darksamus-echoes", "darksamus-overcharged-echoes" })
+            {
                 Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.BundleSpec(echoes, ExternalSourceEdition.PrimeUsaRevision2),
                     "Prime edition cannot alias an Echoes appearance");
+                Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.PartsFor(echoes, ExternalSourceEdition.PrimeUsaRevision2),
+                    "Prime edition cannot alias Echoes component versions");
+            }
             Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.BundleSpec("trooper-power", (ExternalSourceEdition)999),
                 "unknown edition cannot select a recipe");
+            Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.PartsFor("trooper-power", (ExternalSourceEdition)999),
+                "unknown edition cannot select component versions");
         }
         finally { Directory.Delete(root, recursive: true); }
         Console.WriteLine($"PRIME REVISION 2 RECIPES PASS: {_checks} checks; synthetic metadata/components only");
@@ -86,11 +112,25 @@ internal static class PrimeRevision2RecipeChecks
     private static void VerifyInventory(string root, ImportBundleSpec old, ImportBundleSpec next)
     {
         Directory.CreateDirectory(root);
+        var previous = PreviousRev2(next.Id);
+        string previousRoot = Path.Combine(root, "previous-rev2");
+        var previousParts = previous.RequiredComponents.ToDictionary(n => n, n => Encoding.UTF8.GetBytes("own synthetic v2 component " + n));
+        LocalImportBundle.Publish(previousRoot, previous, previousParts);
+        var previousSnapshot = Snapshot(previousRoot);
+        var previousInspection = RetroCharacterPreviewExporter.InspectBundle(previousRoot, previous.Id);
+        Check(previousInspection.State == ImportBundleState.Outdated && previousInspection.Receipt is { Version: 2 }
+            && LocalImportBundle.Inspect(previousRoot, previous.Id, previous).State == ImportBundleState.Ready,
+            "literal frozen Rev2 v2 remains valid under its explicit old recipe but current inspection reports Outdated");
+        Check(Same(previousSnapshot, Snapshot(previousRoot)), "inspection never migrates or rewrites the old v2 receipt/generation");
+        Check(RetroCharacterPreviewExporter.InspectParts(previous.Id, previousInspection).Single() is { Version: 2, State: ImportBundleState.Outdated },
+            "old Rev2 receipt reports expected bodyv2 as Outdated, never current Ready");
         var parts = next.RequiredComponents.ToDictionary(n => n, n => Encoding.UTF8.GetBytes("own synthetic component " + n));
         LocalImportBundle.Publish(root, next, parts);
         var ready = RetroCharacterPreviewExporter.InspectBundle(root, next.Id);
-        Check(ready.State == ImportBundleState.Ready && ready.Receipt is { Version: 2 }
-            && ready.Files.Count == 4 && ready.Receipt.SourceFingerprint == next.SourceFingerprint, "edition-aware inspection admits fully verified revision 2 inventory");
+        Check(ready.State == ImportBundleState.Ready && ready.Receipt is { Version: 3 }
+            && ready.Files.Count == 10 && ready.Receipt.SourceFingerprint == next.SourceFingerprint, "edition-aware inspection admits fully verified revision 2 v3 inventory");
+        Check(RetroCharacterPreviewExporter.InspectParts(next.Id, ready).Single() is { Version: 2, State: ImportBundleState.Ready },
+            "current Rev2 complete bodyv2 status is Ready");
         Check(LocalImportBundle.Inspect(root, next.Id, old).State == ImportBundleState.UnsupportedSource,
             "legacy-only inspection still refuses revision 2 fingerprint");
         Check(RetroCharacterPreviewExporter.InspectBundle(root, "darksamus-echoes").State == ImportBundleState.NotInstalled,
@@ -106,7 +146,7 @@ internal static class PrimeRevision2RecipeChecks
             File.WriteAllBytes(pointer, original);
         }
         Changed(receipt with { SourceFingerprint = new string('a', 40) }, ImportBundleState.UnsupportedSource, "unknown source fingerprint has no permissive fallback");
-        Changed(receipt with { Version = 1 }, ImportBundleState.Outdated, "known revision 2 fingerprint cannot disguise old version");
+        Changed(receipt with { Version = 2 }, ImportBundleState.Outdated, "known revision 2 fingerprint cannot disguise old version");
         Changed(receipt with { RecipeHash = new string('b', 64) }, ImportBundleState.Outdated, "known revision 2 fingerprint cannot disguise wrong recipe");
         Changed(receipt with { Schema = 2 }, ImportBundleState.Failed, "malformed receipt cannot trigger edition fallback");
         string component = ready.Files[0]; byte[] bytes = File.ReadAllBytes(component); byte[] corrupt = (byte[])bytes.Clone(); corrupt[0] ^= 1;
@@ -121,11 +161,18 @@ internal static class PrimeRevision2RecipeChecks
         Check(RetroCharacterPreviewExporter.InspectBundle(root, "darksamus-echoes").State == ImportBundleState.Failed,
             "copied receipt cannot cross canonical character IDs");
         string legacyRoot = Path.Combine(root, "legacy"); Directory.CreateDirectory(legacyRoot);
-        LocalImportBundle.Publish(legacyRoot, old, parts);
+        LocalImportBundle.Publish(legacyRoot, old, parts.Where(p => old.RequiredComponents.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value));
         var oldReady = RetroCharacterPreviewExporter.InspectBundle(legacyRoot, old.Id);
         Check(oldReady.State == ImportBundleState.Ready && oldReady.Receipt is { Version: 1 }
             && oldReady.Receipt.RecipeHash == old.RecipeHash, "existing complete legacy publication stays Ready");
+        Check(RetroCharacterPreviewExporter.InspectParts(old.Id, oldReady).Single() is { Version: 1, State: ImportBundleState.Ready },
+            "complete original source still reports bodyv1 Ready");
     }
+
+    private static Dictionary<string, string> Snapshot(string root) => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+        .ToDictionary(p => Path.GetRelativePath(root, p), p => Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(p))));
+    private static bool Same(Dictionary<string, string> a, Dictionary<string, string> b) =>
+        a.Count == b.Count && a.All(p => b.TryGetValue(p.Key, out string? hash) && hash == p.Value);
 
     private static GameCubeDiscReader Disc(string game, byte revision, byte number)
     {

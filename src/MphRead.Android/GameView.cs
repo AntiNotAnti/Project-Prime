@@ -865,6 +865,7 @@ namespace MphRead.Droid
                 {
                     EsBindings.Load();
                     GlEs.Reset();
+                    AndroidTextureCompressionPolicy.ProbeCurrentContext();
                     _contextBindingsReady = true;
                     // Something rather than whatever was in the buffer, for the
                     // seconds the room takes to load.
@@ -1177,6 +1178,9 @@ namespace MphRead.Droid
                 }
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
+                // Terminal UI passes use Android GLES directly; never infer
+                // the next scene's VAO binding from the previous picture.
+                GlEs.InvalidateVertexArrayBinding();
                 OpenGlPassProfiler.BeginFrame();
                 scene.OnDrawFrame();
                 if (!scene.OnRenderFrame())
