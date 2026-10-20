@@ -36,10 +36,13 @@ internal static class ReplayPerformanceChecks
     }
     internal static void Run(Action<bool, string> check, ReplayMetadata metadata)
     {
-        check(GameState.MatchFinalCameraSeconds == 5 && GameState.MatchEndingSeconds == 10
-            && DedicatedServer.EndSequenceSeconds == 21, "shared final/results/intermission durations");
+        check(GameState.MatchFinalCameraSeconds == 5 && GameState.MatchKillcamSeconds == 5
+            && GameState.MatchEndingSeconds == 6 && DedicatedServer.EndSequenceSeconds == 17,
+            "winner shot, final replay, six-second scoreboard and server grace share one timing contract");
         check(KillcamController.PersonalReplayFrames == 300 && KillcamController.FinalReplayFrames == 300
-            && KillcamController.PlaybackRate == 1, "five-second killcam footage at one times speed");
+            && KillcamController.PlaybackRate == 1
+            && FinalKillPresentation.PreRollFrames + FinalKillPresentation.PostRollFrames == 290,
+            "final replay preserves a five-second clock by compensating for the brief half-speed impact");
         var encoded = new ReplayAuthorityCaptureScratch();
         var authority = new ReplayAuthorityWorld { MatchId = 1, Epoch = 1, Tick = 1 };
         byte[] reference = authority.Encode();
