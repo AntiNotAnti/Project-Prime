@@ -23,7 +23,7 @@ internal sealed class CustomWeaponInputController
     private Selection? _selection;
     private uint _nativeFence;
     private Optic? _optic;
-    private bool _canonicalSelected,_available,_uncertain,_holdWasDown,_ambiguousEquip;
+    private bool _canonicalSelected,_available,_uncertain,_holdWasDown,_holdMode,_holdSelected,_holdSampled,_holdReconcile,_ambiguousEquip;
     private byte _canonicalOptic,_preferredOptic=1;
     internal bool Selected=>_selection?.Custom??_canonicalSelected;
     internal bool SuppressNative=>_canonicalSelected||_selection.HasValue||_nativeFence!=0||_uncertain;
@@ -32,7 +32,7 @@ internal sealed class CustomWeaponInputController
     internal void Reset()
     {
         _owner=default;_bootstrap=default;_manifest=default;_selection=null;_optic=null;_nativeFence=0;_canonicalSelected=_available=_uncertain=false;
-        _canonicalOptic=0;_preferredOptic=1;_holdWasDown=_ambiguousEquip=false;
+        _canonicalOptic=0;_preferredOptic=1;_holdWasDown=_holdMode=_holdSelected=_holdSampled=_holdReconcile=_ambiguousEquip=false;
     }
     internal void Synchronize(CustomInputProjection? projection)
     {
@@ -51,19 +51,33 @@ internal sealed class CustomWeaponInputController
     }
     internal void Sample(in CustomInputSample input,ICustomWeaponInputSink sink)
     {
-        bool holdChanged=input.ZoomDown!=_holdWasDown;_holdWasDown=input.ZoomDown;
-        if(!_available||!input.Allowed)return;
+        bool allowed=_available&&input.Allowed;
+        bool holdChanged=input.ZoomDown!=_holdWasDown;
+        // A blocked release must survive until input can publish again. A
+        // blocked press remains consumed, as ordinary physical edges do. Neither
+        // readiness recovery nor a denied result creates a new hold epoch.
+        if(input.HoldScope)
+        {
+            if(_holdSampled&&input.HoldScope!=_holdMode||allowed&&Selected&&!_holdSelected
+                ||holdChanged&&(!input.ZoomDown||allowed))_holdReconcile=true;
+        }
+        else _holdReconcile=false;
+        _holdWasDown=input.ZoomDown;_holdMode=input.HoldScope;_holdSelected=Selected;_holdSampled=true;
+        if(!allowed)return;
         // Explicit native intent wins a simultaneous custom selection. Selecting
         // the existing fallback beam is still an Unequip request.
         if(input.SelectNative)
         {
             if(SuppressNative&&sink.Submit(CustomWeaponActionKind.Unequip,0,out uint native))
             {_selection=new(native,false);_optic=null;}
+            _holdReconcile=false;_holdSelected=Selected;
             return;
         }
         if(input.SelectCustom&&!Selected&&sink.Submit(CustomWeaponActionKind.Equip,0,out uint equip))
-        {_selection=new(equip,true);_ambiguousEquip|=_nativeFence!=0;_nativeFence=equip;}
-        if(!Selected)return;
+        {_selection=new(equip,true);_ambiguousEquip|=_nativeFence!=0;_nativeFence=equip;
+            if(input.HoldScope)_holdReconcile=true;}
+        _holdSelected=Selected;
+        if(!Selected){_holdReconcile=false;return;}
         if(input.ReloadPressed&&sink.Submit(CustomWeaponActionKind.Reload,0,out uint reload))
             _optic=new(reload,0);
         byte wanted=PresentationOptic;
@@ -72,7 +86,12 @@ internal sealed class CustomWeaponInputController
             byte preferred=_preferredOptic==1?(byte)2:(byte)1;
             _preferredOptic=preferred;if(wanted!=0)wanted=preferred;
         }
-        if(input.HoldScope&&(holdChanged||input.CycleOptic))wanted=input.ZoomDown?_preferredOptic:(byte)0;
+        if(input.HoldScope)
+        {
+            if(_holdReconcile||input.CycleOptic)wanted=input.ZoomDown?_preferredOptic:(byte)0;
+            // Attempt at most once per epoch, including refusal and no-op.
+            _holdReconcile=false;
+        }
         else if(input.ZoomPressed)wanted=wanted==0?_preferredOptic:(byte)0;
         if(wanted!=PresentationOptic&&sink.Submit(CustomWeaponActionKind.Optic,wanted,out uint optic))
         { _optic=new(optic,wanted);if(wanted!=0)_preferredOptic=wanted; }

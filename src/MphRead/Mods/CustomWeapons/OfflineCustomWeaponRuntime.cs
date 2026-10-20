@@ -27,6 +27,14 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
     private readonly WeaponDefinition _definition;
     private readonly Slot?[] _slots = new Slot[8];
     private bool _disposed;
+    internal WeaponMechanics Mechanics=>_definition.Mechanics;
+    internal bool TryPeek(PlayerEntity player,out WeaponStateSnapshot state,out bool selected)
+    {
+        state=default;selected=false;
+        if(!IsEligible||player.OwningScene!=_scene||(uint)player.SlotIndex>=8
+            ||_slots[player.SlotIndex] is not {Alive:true} slot||slot.Player!=player||player.Health<=0)return false;
+        state=slot.State.Snapshot();selected=slot.Selected;return true;
+    }
     internal ulong AcceptedShots { get; private set; }
     internal CustomImpactFact? LastImpact { get; private set; }
     internal bool IsEligible => !_disposed && !NetSession.Active && !_scene.Services.IsReplica
@@ -116,14 +124,15 @@ internal sealed class OfflineCustomWeaponRuntime : IDisposable
         slot.Inputs[slot.InputCount++]=new(sequence,kind,optic,Tick,slot.State.Owner);
         return true;
     }
-    private static void CompleteResult(Slot slot,in LocalInput input,WeaponActionResult result)
+    private void CompleteResult(Slot slot,in LocalInput input,WeaponActionResult result)
     {
+        _scene.ApplyCustomFeedback(new(default,default,input.Owner,input.Sequence,input.Kind,result,result==WeaponActionResult.Accepted));
         slot.SettledInputSequence=input.Sequence;
         if(result==WeaponActionResult.Accepted)return;
         if(input.Kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip)slot.SelectionDenied=input.Sequence;
         if(input.Kind is CustomWeaponActionKind.Reload or CustomWeaponActionKind.Optic)slot.OpticDenied=input.Sequence;
     }
-    private static void ExpireInputs(Slot slot)
+    private void ExpireInputs(Slot slot)
     {
         for(int i=0;i<slot.InputCount;i++)CompleteResult(slot,slot.Inputs[i],WeaponActionResult.InvalidLife);
         slot.InputCount=0;Array.Clear(slot.Inputs);

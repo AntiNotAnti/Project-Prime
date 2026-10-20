@@ -554,13 +554,17 @@ namespace MphRead.Entities
             float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
             if (normalFov != 0 && (EquipInfo.Zoomed || scopeBlend > 0))
             {
-                float zoomScale = Math.Clamp(CameraInfo.Fov / normalFov, .05f, 1);
+                float zoomScale = AimZoomScale();
                 mouseX *= zoomScale;
                 mouseY *= zoomScale;
                 controllerX *= zoomScale;
                 controllerY *= zoomScale;
             }
 
+            mouseX *= ModCustomScopeSensitivity;
+            mouseY *= ModCustomScopeSensitivity;
+            controllerX *= ModCustomScopeSensitivity;
+            controllerY *= ModCustomScopeSensitivity;
             Vector2 pointerAim = ModBoundLateAim(
                 new Vector2(mouseX, mouseY), presentationAlpha);
             if (Mods.Input.GamepadInput.TryRenderCameraAim(Mods.Render.FrameTiming.Alpha,
@@ -579,7 +583,7 @@ namespace MphRead.Entities
                     lateRawX *= scopedX;
                     lateRawY *= scopedY;
                     var lateCamera = Mods.Input.AimAssist.AimAssistMath.CameraDelta(
-                        new(lateRawX, lateRawY), AimZoomScale(),
+                        new(lateRawX, lateRawY), AimZoomScale() * ModCustomScopeSensitivity,
                         Controls.InvertAimX, Controls.InvertAimY);
                     float lateFraction = (float)Math.Clamp(presentationAlpha, 0.0, 1.0);
                     controllerX += lateCamera.X * lateFraction;
@@ -2470,7 +2474,7 @@ namespace MphRead.Entities
             float scopedY = 1 + (Mods.Input.GamepadOptions.ScopedY - 1) * scopeBlend;
             float x = Mods.Input.GamepadInput.AimDeltaX * scopedX;
             float y = Mods.Input.GamepadInput.AimDeltaY * scopedY;
-            var cameraDelta = Mods.Input.AimAssist.AimAssistMath.CameraDelta(new(x, y), AimZoomScale(),
+            var cameraDelta = Mods.Input.AimAssist.AimAssistMath.CameraDelta(new(x, y), AimZoomScale() * ModCustomScopeSensitivity,
                 Controls.InvertAimX, Controls.InvertAimY);
 
             // Production controller assist runs once at the fixed 60 Hz input/simulation

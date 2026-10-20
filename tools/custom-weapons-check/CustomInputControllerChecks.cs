@@ -30,7 +30,7 @@ internal static class CustomInputControllerChecks
         =>new(allowed,custom,native,shoot,reload,zoom,down,cycle,hold);
     internal static void Run(Action<bool,string> check)
     {
-        Selection(check);UncertainEquipFence(check);Denials(check);QueueRefusal(check);Scope(check);HeldScope(check);HeldRefusal(check);
+        Selection(check);UncertainEquipFence(check);Denials(check);QueueRefusal(check);Scope(check);HeldScope(check);HeldRefusal(check);HoldReconciliation(check);
         Context(check);BootstrapBoundary(check);ManifestBoundary(check);ResourceBoundary(check);RenderSchedules(check);Allocation(check);
     }
     private static void Selection(Action<bool,string> check)
@@ -211,6 +211,73 @@ internal static class CustomInputControllerChecks
         recovered.Sample(Sample(hold:true),unavailable);recovered.Sample(Sample(down:true,hold:true,allowed:false),unavailable);
         recovered.Sample(Sample(down:true,hold:true),unavailable);
         check(unavailable.Count==0,"engine-disallowed hold edge is not deferred until a later favorable sample");
+    }
+    private static void HoldReconciliation(Action<bool,string> check)
+    {
+        var preheld=new CustomWeaponInputController();var equip=new Sink();preheld.Synchronize(Projection());
+        preheld.Sample(Sample(down:true,hold:true),equip);
+        check(equip.Count==0,"holding Zoom while native cannot publish custom scope");
+        preheld.Sample(Sample(custom:true,down:true,hold:true,shoot:true),equip);
+        check(equip.Count==3&&equip.Trace[0].Kind==CustomWeaponActionKind.Equip
+            &&equip.Trace[1]==new Attempt(CustomWeaponActionKind.Optic,1,2,true)
+            &&equip.Trace[2]==new Attempt(CustomWeaponActionKind.Fire,1,3,true),
+            "successful Equip with preheld Zoom reconciles scope once before physical fire");
+        preheld.Synchronize(Projection(true,settled:3,opticDenied:2));
+        for(int i=0;i<30;i++)preheld.Sample(Sample(down:true,hold:true),equip);
+        check(equip.Count==3&&preheld.PresentationOptic==0,
+            "denied preheld Equip scope cannot retry or refire without a new epoch");
+
+        foreach(bool unavailable in new[]{false,true})
+        {
+            var c=new CustomWeaponInputController();var sink=new Sink();c.Synchronize(Projection(true));
+            c.Sample(Sample(down:true,hold:true),sink);c.Synchronize(Projection(true,1,settled:1));
+            if(unavailable)c.Synchronize(null);
+            c.Sample(Sample(hold:true,allowed:false),sink);
+            c.Sample(Sample(hold:true,allowed:false),sink);
+            check(sink.Count==1&&c.PresentationOptic==1,
+                "blocked held-scope release records intent without publishing: unavailable="+unavailable);
+            if(unavailable)c.Synchronize(Projection(true,1,settled:1));
+            c.Sample(Sample(hold:true),sink);
+            check(sink.Count==2&&sink.Trace[1]==new Attempt(CustomWeaponActionKind.Optic,0,2,true),
+                "first allowed sample reconciles remembered scope release exactly once: unavailable="+unavailable);
+            c.Synchronize(Projection(true,1,settled:1,opticDenied:2));
+            c.Synchronize(null);c.Sample(Sample(hold:true),sink);c.Synchronize(Projection(true,1,settled:1,opticDenied:2));
+            for(int i=0;i<30;i++)c.Sample(Sample(hold:true),sink);
+            check(sink.Count==2&&c.PresentationOptic==1,
+                "denied release and readiness recovery do not rearm an unchanged hold epoch: unavailable="+unavailable);
+        }
+
+        var mode=new CustomWeaponInputController();var changes=new Sink();mode.Synchronize(Projection(true,1));
+        mode.Sample(Sample(),changes);mode.Sample(Sample(hold:true),changes);
+        check(changes.Count==1&&changes.Trace[0]==new Attempt(CustomWeaponActionKind.Optic,0,1,true),
+            "toggle-to-hold reconciles an already scoped released button once");
+        mode.Synchronize(Projection(true,1,opticDenied:1));mode.Sample(Sample(hold:true),changes);
+        check(changes.Count==1&&mode.PresentationOptic==1,"denied hold-mode reconciliation remains disarmed");
+        mode.Sample(Sample(),changes);
+        check(changes.Count==1&&mode.PresentationOptic==1,"hold-to-toggle preserves optic without inventing a toggle press");
+        mode.Sample(Sample(hold:true),changes);
+        check(changes.Count==2&&changes.Trace[1].Optic==0,"a distinct hold-mode entry starts one new reconciliation epoch");
+        mode.Synchronize(Projection(true,settled:2));mode.Sample(Sample(down:true),changes);
+        mode.Sample(Sample(down:true,hold:true),changes);
+        check(changes.Count==3&&changes.Trace[2].Optic==1,
+            "toggle-to-hold with a preheld button scopes without requiring a fabricated press");
+        mode.Sample(Sample(down:true,hold:true,zoom:true),changes);
+        check(changes.Count==3,"held mode does not interpret a redundant ZoomPressed hint as toggle");
+
+        var failed=new CustomWeaponInputController();var full=new Sink();failed.Synchronize(Projection(true,1));
+        failed.Sample(Sample(down:true,hold:true),full);full.FailNext=true;
+        failed.Sample(Sample(hold:true,allowed:false),full);failed.Sample(Sample(hold:true),full);
+        for(int i=0;i<30;i++)failed.Sample(Sample(hold:true),full);
+        check(full.Count==1&&!full.Trace[0].Accepted&&failed.PresentationOptic==1,
+            "refused deferred release is attempted once rather than retrying on every allowed sample");
+        failed.Sample(Sample(down:true,hold:true),full);failed.Sample(Sample(hold:true),full);
+        check(full.Count==2&&full.Trace[1]==new Attempt(CustomWeaponActionKind.Optic,0,1,true),
+            "actual repress and release can retry a previously refused release without burning nonce");
+
+        var native=new CustomWeaponInputController();var winner=new Sink();native.Synchronize(Projection(true,1));
+        native.Sample(Sample(native:true,custom:true,shoot:true,zoom:true,down:true,cycle:true,hold:true),winner);
+        check(winner.Count==1&&winner.Trace[0].Kind==CustomWeaponActionKind.Unequip&&!native.Selected,
+            "explicit native selection wins hold reconciliation, custom selection, optic cycle and fire");
     }
     private static void Context(Action<bool,string> check)
     {

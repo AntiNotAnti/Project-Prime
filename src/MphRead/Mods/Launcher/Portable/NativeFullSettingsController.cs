@@ -194,6 +194,8 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             Rows.Add(new("Audio",cueGroup,Words(c.ToString()),()=>Sound.CombatFeedbackAudio.GetSelection(c),v=>Sound.CombatFeedbackAudio.SetSelection(c,v),v=>options.Contains(v,StringComparer.OrdinalIgnoreCase)?null:"Choose an installed sound.",options){ChoiceLabels=Sound.CombatFeedbackAudio.GetOptions(c).ToDictionary(o=>o.Id,o=>o.Label,StringComparer.OrdinalIgnoreCase)});
         }
         Add(typeof(InputSettings),null,"Controls","Mouse and keyboard",new[]{"MouseSensitivity","ImperialistZoomSensitivity","ImperialistZoomAmount","AltSwipeSensitivity","InvertMouseY","InvertMouseX","MouseMovementBoost","MouseAltFormMovement","ClassicMorphBallTouch","StylusMovementBoost","ScrollAllWeapons","ChatKey","ClipKey"});
+        Add(typeof(InputSettings),null,"Controls","Custom scope (all aim devices)",
+            "CustomScopeHold","CustomScope25Sensitivity","CustomScope4Sensitivity");
         foreach(var property in InputSettings.Bindings)
         {
             var p=property;
@@ -319,7 +321,17 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             }
             if(name=="KillCamCamera")choices=new[]{"0","1","2"};
             var numeric=NumericRange(name);bool tune=choices==null&&(p.PropertyType==typeof(float)||p.PropertyType==typeof(int))&&!name.EndsWith("Port",StringComparison.Ordinal);
-            Rows.Add(new(category,group,Words(name),Read,v=>p.SetValue(owner,p.PropertyType.IsEnum?Enum.Parse(p.PropertyType,v,true):Convert.ChangeType(v,p.PropertyType,CultureInfo.InvariantCulture)),Validate,choices){KeyboardBinding=p.PropertyType==typeof(Keys),Minimum=tune?numeric.Min:null,Maximum=tune?numeric.Max:null,WholeNumber=p.PropertyType==typeof(int),Description=tune?$"{numeric.Min:0.###}–{numeric.Max:0.###}":"Enter a value, then Apply Changes"});
+            string label=name switch
+            {
+                "CustomScopeHold"=>"Hold custom scope (all aim devices)",
+                "CustomScope25Sensitivity"=>"2.5x custom scope sensitivity (all aim devices)",
+                "CustomScope4Sensitivity"=>"4x custom scope sensitivity (all aim devices)",
+                _=>Words(name)
+            };
+            Rows.Add(new(category,group,label,Read,v=>p.SetValue(owner,p.PropertyType.IsEnum?Enum.Parse(p.PropertyType,v,true):Convert.ChangeType(v,p.PropertyType,CultureInfo.InvariantCulture)),Validate,choices){KeyboardBinding=p.PropertyType==typeof(Keys),Minimum=tune?numeric.Min:null,Maximum=tune?numeric.Max:null,WholeNumber=p.PropertyType==typeof(int),Description=tune?$"{numeric.Min:0.###}–{numeric.Max:0.###}":"Enter a value, then Apply Changes"});
+            if(name=="CustomScopeHold")Rows[^1].ChoiceLabels=new(StringComparer.OrdinalIgnoreCase){{"false","Toggle on each Zoom press"},{"true","Hold Zoom to scope"}};
+            if(name is "CustomScope25Sensitivity" or "CustomScope4Sensitivity")
+                Rows[^1].Description="0.1–3x for mouse, controller, touch and keyboard aim after normal scope scaling; 1x preserves that feel.";
             if(name=="KillCamCamera")Rows[^1].ChoiceLabels=new(StringComparer.OrdinalIgnoreCase){{"0","Chase"},{"1","First person"},{"2","Cinematic"}};
         }
     }
@@ -336,6 +348,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         {
             case "MouseSensitivity":min=.1;max=10;break;
             case "ImperialistZoomSensitivity":min=.1;max=3;break;
+            case "CustomScope25Sensitivity":case "CustomScope4Sensitivity":min=.1;max=3;break;
             case "ImperialistZoomAmount":min=.25;max=2;break;
             case "AltSwipeSensitivity":min=.25;max=4;break;
             case "ButtonScale":min=(double)(decimal)TouchSettings.MinButtonScale;max=(double)(decimal)TouchSettings.MaxButtonScale;break;

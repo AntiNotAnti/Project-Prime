@@ -215,6 +215,11 @@ namespace MphRead.Entities
         {
             // Remote and replay actors consume recorded aim. They must never read or
             // update the foreground controller's source, target or telemetry state.
+            if (ModCustomScopeSelected)
+            {
+                _controllerAssist.Reset();_assistDeviceRevision=-1;
+                return new AimAssistResult(x,y);
+            }
             if (_scene.Services.IsReplica || NetHooks.IsPuppet(this))
                 return new AimAssistResult(x, y);
             var snapshot = GamepadInput.FrameSnapshot;

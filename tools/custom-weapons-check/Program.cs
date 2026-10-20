@@ -5,6 +5,8 @@ using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
+if (args.Length is 2 or 3 && args[0] == "--scope-gl") return CustomScopeSceneChecks.Run(args[1],gl:true,output:args.Length==3?args[2]:null);
+if (args.Length == 2 && args[0] == "--scope-scene") return CustomScopeSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--local-input-scene") return CustomLocalInputSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--client-projection-scene") return CustomAuthoritySceneChecks.RunClientProjection(args[1]);
@@ -196,6 +198,9 @@ ResultTransportChecks.Run(Check);
 ControlRequestChecks.Run(Check);
 ClientControlSubmissionChecks.Run(Check);
 CustomInputControllerChecks.Run(Check);
+CustomScopeChecks.Run(Check);
+CustomPresentationResultChecks.Run(Check);
+CustomFeedbackChecks.Run(Check);
 CustomInputProjectionChecks.Run(Check);
 NativeSelectionHistoryChecks.Run(Check);
 NativeFireGateChecks.Run(Check);
