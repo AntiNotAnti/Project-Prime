@@ -4,7 +4,7 @@
 renders and closes every packaged `pages/**/*.rml` document using the real CPU
 draw-list backend. It records library SHA-256, markup hashes, lifecycle results,
 first open/update/render timings and three immediate idle update/render timings.
-The eight populated fixtures exercise actual markup IDs, focus-based action
+The 32 populated fixtures exercise actual markup IDs, focus-based action
 reachability and horizontal border-box containment. These service publications
 are synthetic fixtures; the harness does not claim physical controller/touch
 input, game-model rendering, or end-to-end Android/device qualification.
@@ -31,7 +31,7 @@ assertion, missing fixture ID, initialization or lifecycle failure. Baselines
 must explicitly pass `--allow-failures` to allow known failures. Fatal errors
 always exit nonzero.
 
-On Windows, add `--glfw /absolute/path/to/glfw3.dll` to capture all eight fixtures
+On Windows, add `--glfw /absolute/path/to/glfw3.dll` to capture all 32 fixtures
 at every density-1 matrix size. A real hidden 64x64 OpenGL 2.1 context renders
 into an RGBA8 framebuffer object with a stencil attachment at the requested
 size; desktop/window size limits do not constrain these PNGs. These are actual
@@ -42,3 +42,17 @@ encoding. FBO capability errors are reported and fail candidate runs.
 Border-box assertions establish viewport or known-container containment. They
 do not prove pixel occlusion, correct z-order, every scroll hit target or every
 workflow. Preserve the separate interactive native and application harnesses.
+
+Theatre, the replay workspace and Journal also exercise combined large text and
+touch classes at logical 1280x720 and 640x360, including HiDPI equivalents. The
+Windows interaction suites independently verify full initial archive rows,
+header overlap, horizontal focus scrolling, and timeline picture-ticket clips.
+
+For a targeted native CPU comparison, repeat `--page` with any known fixture:
+
+```sh
+python3 tools/rmlui-layout-check/benchmark.py --library /absolute/path/to/native-library --before /absolute/path/to/before-assets --after /absolute/path/to/after-assets --output /absolute/path/to/abba.json --page pages/theatre/library.rml --page pages/theatre/playback.rml --page pages/theatre/studio-workspace.rml --page pages/studio/native-entry.rml
+```
+
+Omitting `--page` benchmarks every fixture. The receipt records the exact selected
+paths. These are warmed native CPU call costs, not FPS or game-world rendering.

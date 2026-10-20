@@ -9,14 +9,19 @@
         <div class="theatre_heading">
             <div class="eyebrow">THEATRE // REPLAY ARCHIVE</div>
             <h1 id="theatre_title">YOUR RECORDINGS</h1>
-            <div id="theatre_summary">SCANNING REPLAY LIBRARY</div>
         </div>
+        <div class="theatre_discovery_tools">
         <div class="theatre_search_bar">
             <input id="theatre_search" class="play_input" type="text" maxlength="512" placeholder="Search replays, maps, players and named moments"/>
             <button id="theatre_search_submit" class="play_action" data-action="theatre:search">SEARCH</button>
             <button id="theatre_clear_search" class="play_action" data-action="theatre:clear-search">CLEAR</button>
         </div>
         <div class="theatre_toolbar">
+                <div class="theatre_pagination">
+                    <button id="theatre_previous_page" class="play_action" data-action="theatre:previous-page">PREVIOUS</button>
+                    <span id="theatre_page_number">1 / 1</span>
+                    <button id="theatre_next_page" class="play_action" data-action="theatre:next-page">NEXT</button>
+                </div>
             <button id="theatre_next_filter" class="play_action" data-action="theatre:next-filter">
                 SMART VIEW // <span id="theatre_filter_label">ALL REPLAYS</span>
             </button>
@@ -25,10 +30,13 @@
             </button>
             <button id="theatre_refresh" class="play_action" data-action="theatre:refresh">REFRESH</button>
         </div>
-        <p class="theatre_hint">14 smart views // Same Map and Same Players use your selected replay. Named bookmarks and highlights power the annotation views; duration views use known recording lengths.</p>
+        </div>
+        <p class="theatre_hint">Same Map and Same Players use the selected recording.</p>
         <div class="theatre_columns">
             <div class="theatre_library">
-                <div id="theatre_empty" class="theatre_notice"/>
+                <div id="theatre_results" class="theatre_results">
+                    <div id="theatre_summary">SCANNING REPLAY LIBRARY</div>
+                <div id="theatre_empty" style="display:none" class="theatre_notice"/>
                 <button id="theatre_entry0" class="theatre_entry" data-action="theatre:entry:0">
                     <b id="theatre_entry0_title"/>
                     <span id="theatre_entry0_detail"/>
@@ -61,24 +69,20 @@
                     <b id="theatre_entry7_title"/>
                     <span id="theatre_entry7_detail"/>
                 </button>
-                <div class="theatre_pagination">
-                    <button id="theatre_previous_page" class="play_action" data-action="theatre:previous-page">PREVIOUS</button>
-                    <span id="theatre_page_number">1 / 1</span>
-                    <button id="theatre_next_page" class="play_action" data-action="theatre:next-page">NEXT</button>
                 </div>
+
             </div>
             <div class="theatre_selected">
+                <div id="theatre_selected_scroll" class="theatre_selected_scroll">
                 <h2 id="theatre_selected_title">SELECT A REPLAY</h2>
+        <div id="theatre_status" style="display:none" class="theatre_notice"/>
+        <div id="theatre_error" style="display:none" class="theatre_notice theatre_error"/>
+        <div id="theatre_launch_problem" style="display:none" class="theatre_notice theatre_error"/>
+        <button id="theatre_cancel_job" style="display:none" class="play_action" data-action="theatre:cancel-job">CANCEL SCAN / CHECK</button>
                 <div id="theatre_hero" class="theatre_hint">ARCHIVE STANDBY</div>
                 <div id="theatre_metadata">Choose a recording to see its metadata.</div>
                 <div id="theatre_no_preview" class="theatre_hint">Watch recordings or open Prime Studio to edit.</div>
-                <div class="theatre_actions">
-                    <button id="theatre_watch" class="play_action primary" data-action="theatre:watch">WATCH REPLAY</button>
-                    <button id="theatre_favorite" class="play_action" data-action="theatre:favorite">TOGGLE FAVORITE</button>
-                </div>
-                <div class="theatre_actions">
-                    <button id="theatre_studio" class="play_action" data-action="theatre:studio">OPEN IN PRIME STUDIO</button>
-                </div>
+                <div class="theatre_actions"><button id="theatre_favorite" class="play_action" data-action="theatre:favorite">TOGGLE FAVORITE</button></div>
                 <div class="theatre_file_tools">
                   <h2>LIBRARY TOOLS</h2>
                   <div class="theatre_actions">
@@ -99,19 +103,22 @@
                     <button id="theatre_cancel_delete" class="play_action" data-action="theatre:cancel-delete">KEEP RECORDING</button>
                   </div>
                   <h2>IMPORT REPLAY FILE</h2>
-                  <p class="theatre_hint">Enter an absolute .ppdemo, .ppreplay portable bundle or legacy replay path. A verified copy and its camera, organization and reel are added to this library. Bundled exact custom maps use the existing map installer; the source is preserved.</p>
+                  <p class="theatre_hint">Absolute .ppdemo, .ppreplay bundle or legacy replay path. Import adds a verified copy; the source is preserved.</p>
                   <input id="theatre_import_path" type="text" maxlength="4096"/>
                   <button id="theatre_import_path_apply" class="play_action" data-action="theatre:import-path">IMPORT VERIFIED COPY</button>
-                  <p id="theatre_workflow_hint" class="theatre_hint">Watch and organize recordings here. Open Prime Studio for replay editing and export.</p>
+                  <p id="theatre_workflow_hint" class="theatre_hint">Prime Studio provides replay editing and video export.</p>
                 </div>
+                </div>
+
             </div>
         </div>
-        <div id="theatre_status" class="theatre_notice"/>
-        <div id="theatre_error" class="theatre_notice theatre_error"/>
-        <div id="theatre_launch_problem" class="theatre_notice theatre_error"/>
-        <button id="theatre_cancel_job" class="play_action" data-action="theatre:cancel-job">CANCEL SCAN / CHECK</button>
         <div class="theatre_navigation">
-            <button class="play_action" data-action="route:home">HOME</button>
+                <div class="theatre_primary">
+<button id="theatre_watch" class="play_action primary" data-action="theatre:watch">WATCH REPLAY</button>
+<button id="theatre_studio" class="play_action" data-action="theatre:studio">OPEN IN PRIME STUDIO</button>
+                </div>
+
+            <button id="theatre_home" class="play_action" data-action="route:home">HOME</button>
         </div>
     </div>
 </body>

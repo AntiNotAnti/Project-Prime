@@ -28,7 +28,10 @@ internal static partial class EditorGlAcceptance
         var editor=new MemoryEditor();var camera=new WorkspaceCamera(editor.Context);var exports=new WorkspaceExports(editor.Context);
         using var transport=new TheatrePlaybackController(new NoStudio());using var pages=new RmlUiPageManager(host);
         using var page=new TheatrePlaybackPagePresenter(host,pages,transport,camera:camera,exports:exports,editor:editor);
-        host.Input.SetFramebufferScale(1,1);page.Open();var document=page.Document;var metrics=new TimelineMetrics(width,height,width,height,density);
+        host.Input.SetFramebufferScale(1,1);page.Open();var document=page.Document;
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_TOUCH")=="1")host.SetBool(document,"class:@document:touch-targets",true);
+        if(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_LARGE_TEXT")=="1")host.SetBool(document,"class:@document:large-text",true);
+        var metrics=new TimelineMetrics(width,height,width,height,density);
         var captures=new List<object>();TimelineRenderTicket? presented=null;string timelineDiagnostic="";int timelineDiagnosticCount=0;Settle();
         Check(pages.PageKey=="studio-workspace"&&pages.Top==document&&pages.ModalCount==0,"actual persistent workspace owns one native page without an editor modal");
         Layout("initial");Capture("camera");
@@ -63,15 +66,21 @@ internal static partial class EditorGlAcceptance
         Scroll("studio_inspector_scroll",1000);Settle();
         // The timeline is independently scrollable: lower tracks remain bounded
         // and only actually visible marker boxes enter the successful-picture ticket.
+        bool wholePanelScroll=(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_TOUCH")=="1"||Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_LARGE_TEXT")=="1")&&height/density<=400;
+        string timelineScroll=wholePanelScroll?"replay_timeline_panel":"replay_timeline_surface";
         var surface=Bounds("replay_timeline_surface");var cameraTrack=Bounds("replay_timeline_camera");var lowerBefore=Bounds("replay_timeline_exportrange");
-        Check(surface.Inside(Bounds("studio_timeline"))&&surface.Height>8,"timeline has an actual bounded vertical scroll surface");
-        Scroll("replay_timeline_surface",-1000);Settle();var lowerAfter=Bounds("replay_timeline_exportrange");
-        Check(lowerAfter.Y<=lowerBefore.Y&&lowerAfter.Y+lowerAfter.Height<=surface.Y+surface.Height+2&&lowerAfter.Y>=surface.Y-2,"native timeline vertical scroll exposes the final export-range track without covering transport");
-        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,Presented=presented},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
-        Check(presented!=null&&presented.Clip.Inside(surface)&&presented.Lanes.All(row=>row.Box.Inside(presented.Clip))&&presented.Lanes.Any(row=>row.Id.StartsWith("replay_timeline_exportrange_",StringComparison.Ordinal)),"actual presented timeline ticket authorizes only markers inside its visible scroll clip");
-        if(lowerBefore.Y+lowerBefore.Height>surface.Y+surface.Height+2)
+        var panel=Bounds("replay_timeline_panel");
+        File.WriteAllText(Path.Combine(output,"timeline-initial-bounds.json"),JsonSerializer.Serialize(new{WholePanelScroll=wholePanelScroll,Surface=surface,Panel=panel,Timeline=Bounds("studio_timeline")},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+        Check((wholePanelScroll?panel:surface).Inside(Bounds("studio_timeline"))&&surface.Height>8,"timeline has an actual bounded vertical scroll owner");
+        Scroll(timelineScroll,-1000);Settle();var lowerAfter=Bounds("replay_timeline_exportrange");surface=Bounds("replay_timeline_surface");panel=Bounds("replay_timeline_panel");
+        var visibleSurface=new TimelineBox(Math.Max(surface.X,panel.X),Math.Max(surface.Y,panel.Y),Math.Min(surface.X+surface.Width,panel.X+panel.Width)-Math.Max(surface.X,panel.X),Math.Min(surface.Y+surface.Height,panel.Y+panel.Height)-Math.Max(surface.Y,panel.Y));
+        File.WriteAllText(Path.Combine(output,"timeline-scrolled-bounds.json"),JsonSerializer.Serialize(new{ScrollOwner=timelineScroll,Surface=surface,Panel=panel,VisibleSurface=visibleSurface,LowerBefore=lowerBefore,LowerAfter=lowerAfter,Presented=presented},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+        Check(lowerAfter.Y<=lowerBefore.Y&&lowerAfter.Y+lowerAfter.Height<=visibleSurface.Y+visibleSurface.Height+2&&lowerAfter.Y>=visibleSurface.Y-2,"native timeline vertical scroll exposes the final export-range track without covering transport");
+        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,VisibleSurface=visibleSurface,Presented=presented},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
+        Check(presented!=null&&presented.Clip.Inside(visibleSurface)&&presented.Lanes.All(row=>row.Box.Inside(presented.Clip))&&presented.Lanes.Any(row=>row.Id.StartsWith("replay_timeline_exportrange_",StringComparison.Ordinal)),"actual presented timeline ticket authorizes only markers inside its visible scroll clip");
+        if(lowerBefore.Y+lowerBefore.Height>visibleSurface.Y+visibleSurface.Height+2)
             Check(lowerAfter.Y<lowerBefore.Y&&Bounds("replay_timeline_camera").Y<cameraTrack.Y,"overflowing compact timeline actually scrolls its track stack");
-        Layout("scrolled timeline");Capture("timeline-lower-tracks");Scroll("replay_timeline_surface",1000);
+        Layout("scrolled timeline");Capture("timeline-lower-tracks");Scroll(timelineScroll,1000);
         Click("studio_settings","workspace-settings");Check(page.TryTakeStudioSettingsRequest()&&!page.TryTakeStudioSettingsRequest()&&pages.Top==document,"always-visible native Settings emits one workspace request without retiring owners");
         Layout("settings request");
         Check(editor.Commits==0&&camera.Writes==0&&exports.Enqueues==0&&!DemoPlayback.IsActive,"synthetic workspace interaction wrote no recording metadata and opened no replay");
@@ -130,10 +139,11 @@ internal static partial class EditorGlAcceptance
                     &&host.TryGetElementBounds(document,parent,out float px,out float py,out float pw,out float ph))
                 {
                     var current=new TimelineBox(x,y,w,h);var pane=new TimelineBox(px,py,pw,ph);
-                    stable=current.Inside(pane)&&previous==current?stable+1:0;previous=current;
+                    stable=(current.Inside(pane)||(id.StartsWith("studio_tab_",StringComparison.Ordinal)&&TabInside(current,pane)))&&previous==current?stable+1:0;previous=current;
                     if(stable>=3)return;
                 }
             }while(timer.ElapsedMilliseconds<2000);
+            File.WriteAllText(Path.Combine(output,"unreachable-"+id+".json"),JsonSerializer.Serialize(new[]{id,parent}.Select(key=>{bool visible=host.TryGetElementBounds(document,key,out float x,out float y,out float w,out float h);return new{id=key,visible,x,y,width=w,height=h};}),new JsonSerializerOptions{WriteIndented=true}));
             Check(false,"focused native field settles fully inside its scroll region: "+id);
         }
         TimelineBox Bounds(string id)
@@ -141,6 +151,8 @@ internal static partial class EditorGlAcceptance
             Check(host.TryGetElementBounds(document,id,out float x,out float y,out float w,out float h)&&w>0&&h>0,"actual persistent native bounds: "+id);
             return new(x,y,w,h);
         }
+        // Native horizontal scroll may finish at a fractional border edge (observed 0.28 physical px).
+        bool TabInside(TimelineBox box,TimelineBox pane)=>box.X>=pane.X-1&&box.Y>=pane.Y-1&&box.X+box.Width<=pane.X+pane.Width+1&&box.Y+box.Height<=pane.Y+pane.Height+1;
         void Layout(string stage)
         {
             var screen=new TimelineBox(0,0,width,height);var top=Bounds("studio_transport");var timeline=Bounds("studio_timeline");var viewport=Bounds("replay_viewport");var inspector=Bounds("studio_inspector");var tabs=Bounds("studio_tabs");
@@ -148,12 +160,21 @@ internal static partial class EditorGlAcceptance
             Check(viewport.Width>=80&&viewport.Height>=48&&inspector.Width>=120&&inspector.Height>=48&&top.Y+top.Height<=viewport.Y+2
                 &&viewport.X+viewport.Width<=inspector.X+2&&viewport.Y+viewport.Height<=timeline.Y+2,"transport viewport inspector and timeline coexist without overlap: "+stage);
             foreach(string id in new[]{"studio_settings","replay_back","studio_open","studio_save_as"})Check(Bounds(id).Inside(top),"persistent navigation remains reachable: "+id+" // "+stage);
-            foreach(string tab in new[]{"camera","markers","combat","analysis","audio","export"})Check(Bounds("studio_tab_"+tab).Inside(tabs),"inspector tab remains reachable: "+tab+" // "+stage);
+            foreach(string tab in new[]{"camera","markers","combat","analysis","audio","export"})
+            {
+                string id="studio_tab_"+tab;
+                if(!TabInside(Bounds(id),tabs))
+                {
+                    Check(host.FocusDocument(document,id),"horizontal tab strip focuses "+tab);
+                    WaitVisible(id,"studio_tabs");
+                }
+                Check(TabInside(Bounds(id),tabs),"inspector tab remains reachable by horizontal focus scroll: "+tab+" // "+stage);
+            }
             Check(pages.Top==document&&pages.ModalCount==0,"tab and scroll stay in the same native workspace document: "+stage);
         }
         void Click(string id,string action)
         {
-            Frame();Check(host.FocusDocument(document,id),"native workspace control can focus: "+id);Settle();var box=Bounds(id);var screen=new TimelineBox(0,0,width,height);
+            Frame();Check(host.FocusDocument(document,id),"native workspace control can focus: "+id);Settle();if(id.StartsWith("studio_tab_",StringComparison.Ordinal))WaitVisible(id,"studio_tabs");var box=Bounds(id);var screen=new TimelineBox(0,0,width,height);
             Check(box.Inside(screen),"focused native control is on screen before pointer activation: "+id);
             Check(RmlUiIntentRegistry.TryParseLegacy("replay:"+action,document,1,out var expected),"expected action exists in the real native registry: "+action);
             host.DiscardIntents();host.Input.PointerButton(0,box.X+box.Width/2,box.Y+box.Height/2,true);host.Input.PointerButton(0,box.X+box.Width/2,box.Y+box.Height/2,false);host.Update();bool received=false;
