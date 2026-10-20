@@ -2,6 +2,15 @@
 
 These are measured input/collision trials, not competitive balance acceptance. The straight chains do not exercise an exhaustive strafe or maximum-speed envelope. No profile tuning or acceptance threshold changed.
 
+The later [PR-09g fixed air-turn observations](pr09g-results.md) add all seven
+Hunters on both maps with mirrored ordinary mouse/strafe input: 28 envelope pairs,
+14 calibration pairs and 31,920 actual body samples. Every pair reaches its radial
+objectives with zero collision overflow/recovery. The maximum observed solver
+speed is 8.887898, below the unchanged 10.799561 cap; cap engagement remains zero.
+All distributions and per-pair outcomes are retained in
+[the new evidence](evidence/pr09-air-turn-envelope.json). This adds a fixed turning
+observation without claiming optimal-strafe or competitive calibration.
+
 `--momentum-balance-scene <paths-only-config> [output.json]` runs seven Hunters on MP3 PROVING GROUND and MP1 SANCTORUS with the production Native/Momentum match rule. Each pair starts at the same seeded native spawn position and facing; all 56 macOS pair comparisons reported zero differences. Native movement, jump/gravity, abilities, life and authored collision remain active. The fixture never forces position, velocity, grounding, health or jump flags.
 
 Fresh macOS Release execution at source `3de8887a8b04bd85db8b60ea14da9add15c1972a` plus the uncommitted PR-09 changes passed **215,756 assertions across 112 trials and 38,640 bounded per-tick samples**. Host: Apple M4 Pro, macOS 27.0.1, arm64, .NET 10; one offline player, fixed 60 Hz simulation, headless without render cadence or network impairment. The full build and subsequent tool-only build each passed with zero warnings/errors. [Sanitized per-Hunter/map results](evidence/pr09-balance-runup-draft.json) include helper/binary hashes, runtime configuration, conditions, percentiles and every objective result. Independent Python recomputation of the four reported percentiles, every body-coordinate radial displacement, total planar path distance and first-arrival objectives passed 39,536 checks over all 112 arms. Local raw body samples, manifest and log remain under `artifacts/momentum-pr09/balance-scene-02-macos/`.
