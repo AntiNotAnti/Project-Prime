@@ -102,7 +102,43 @@ body and462 per ball. Actual source update/repair/reuse/cancellation/removal
 passed and the full RVZ hash stayed unchanged; temporary derived media was
 deleted. Only IDs, counts and hashes were retained.
 
-Final frozen build and runtime-owner verification results follow after testing.
+Frozen production/test commit `2c79267927a3c4d094a6586186f4ba56b2c09284`
+passed all37 serial qualification commands. Two independent git archives retained
+all6,068 tracked files unchanged; archive SHA256
+`152b9ba9ebc0ee0d88159f8aa0cef3dd91208a4e49de5733b596c50f8c4c768c`.
+Desktop and dedicated Release builds report zero warnings/errors. Android Release
+has25 existing documentation warnings and zero errors; both ARM64 and x86_64
+contain119 AOT assemblies, and the signed APK verifies v2/v3 signatures.
+
+The strict animation suite passes977 bounded-decoder checks and177 archive checks;
+48 Python authoring tests pass. Existing import, native Settings, game-files,
+settings-archive, ship, credits and historical replay suites pass. The existing
+source-rig synthetic loader/palette suite passes910 checks. Cached native source
+closure and all three native runtime manifests verify unchanged.
+
+The owned runtime test passes281 checks through the actual pack, lease, weighted
+loader and `CharacterSourceClip`: all55 character-declared strict rigid roots,
+2,979 key poses and165 additional poses evaluate the complete39-joint palette.
+It uses our own single triangle with the original full source hierarchy. Sampling
+performs no clip file reads; captured samples remain usable without source files
+until explicit strong revalidation retires the lease. Fresh generations reproduce
+poses and cannot revive old clips. Caller-rehashed edited animation/CINF, altered
+bind hierarchy, undeclared/composite roots and Final identity are refused. Global
+source caches, binaries and the owned RVZ remain unchanged; derived data is deleted.
+All16 legacy geometry/skeleton/weights/sparse-motion hashes match the independent
+`a0c24687a` source evidence.
+
+Frozen desktop DLL SHA256:
+`3ea6e5acbbaa691b10b48df75a23c45458c6bcc07d9412f95145b6ace915486d`.
+Dedicated DLL:
+`8a22a8be10b615a4a4f38ba32b32e6aac4d7eba72e481fe1953fafe7edc5203e`.
+Signed Android APK:
+`552262cb41ec1aa1eb435b9930c6035e40f7fc2b1bee0fc4e46410bc726ce2a0`.
+Local receipts/logs are under ignored
+`artifacts/sh-integration/character-animation-final-2c7926792`.
+An initial test fixture needed an unsigned integer literal; another omitted the
+expected missing-source IOException. Their failed exploratory logs are retained;
+the final frozen suites pass. No CI or external review success is claimed.
 Windows SSH authentication currently fails; user-authorized Mac fallback is used.
 Android compilation does not establish storage-URI, device, crash or runtime
 character acceptance. A CPU source-rig test with our own triangle does not prove
