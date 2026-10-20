@@ -300,8 +300,16 @@ namespace MphRead.Mods.Launcher.Gui
             => _rooms.Where(Metadata.IsBuiltInRoom).ToArray();
 
         internal static IReadOnlyList<string> RmlUiOfflineRooms()
-            => _rooms.Where(room => Metadata.IsBuiltInRoom(room)
-                || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase)).ToArray();
+        {
+            // The room catalog was captured when the launcher started. A
+            // missing built-in entity file must not remain selectable after a
+            // failed load or game-file repair, especially on bot-match return.
+            using var files = GameFiles.TryUseConfiguredFiles();
+            if (files == null) return Array.Empty<string>();
+            return _rooms.Where(room =>
+                (Metadata.IsBuiltInRoom(room) || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase))
+                && (!Metadata.IsBuiltInRoom(room) || ThumbnailGenerator.HasInstalledEntityFile(room))).ToArray();
+        }
 
         internal static bool RmlUiShowLegacyLobby()
         {

@@ -1407,17 +1407,26 @@ namespace MphRead.Entities
         }
 
         internal Mods.Network.PickupContactPose ModPickupContactPose(uint source, uint authority)
+            => ModCapturePickupContactPose(source,authority,!_scene.Services.DisablePowerups);
+
+        // DisablePowerups controls timed effects, not ordinary weapon items.
+        // Keep the existing timed-claim pose unchanged for its native callers.
+        internal Mods.Network.PickupContactPose ModWeaponPickupContactPose(uint source,uint authority)
+            => ModCapturePickupContactPose(source,authority,true);
+
+        private Mods.Network.PickupContactPose ModCapturePickupContactPose(uint source,uint authority,bool enabled)
             => new(Mods.Network.ShotKey.For(SlotIndex, 0), source, authority, Position,
                 _volume.SpherePosition, _volume.SphereRadius, IsAltForm ? Fixed.ToFloat(Values.MinPickupHeight) : ModBipedBottom,
                 IsAltForm ? Fixed.ToFloat(Values.MaxPickupHeight) : ModBipedTop, IsAltForm, _health > 0 && ModIsInPlay,
                 !IgnoreItemPickups && !(IsBot && _scene.GameState.SinglePlayer)
                     && !(IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
-                    && !_scene.Services.DisablePowerups);
+                    && enabled);
 
         private void PickUpItems()
         {
             Mods.Network.NetPowerUpLedger.ObserveContact(this);
             _scene.OfflineWeapons?.ProcessPickupContact(this);
+            _scene.CustomCombat?.ProcessPickupContact(this);
             if (_health == 0 || (IsBot && _scene.GameState.SinglePlayer) || IgnoreItemPickups
                 || IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {

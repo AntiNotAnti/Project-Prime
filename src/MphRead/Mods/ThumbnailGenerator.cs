@@ -90,57 +90,79 @@ namespace MphRead.Mods
             return rooms;
         }
 
-        private static readonly Dictionary<string, bool> _spawnCache =
-            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        // Cache results by *asset identity*, not just room name: game-file setup
+        // may change the installed root, and an arena's entity file may be
+        // repaired or removed between bot matches.
+        private static readonly Dictionary<string, (string Path, long Size, long Modified, bool Found)> _spawnCache =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>True only when the built-in arena entity file is installed.</summary>
+        internal static bool HasInstalledEntityFile(string roomKey)
+        {
+            if (!Metadata.RoomMetadata.TryGetValue(roomKey, out RoomMetadata? room)
+                || room.EntityPath == null) return false;
+            string root = room.FirstHunt ? Paths.FhFileSystem : Paths.FileSystem;
+            return !String.IsNullOrWhiteSpace(root)
+                && File.Exists(Paths.Combine(root, room.EntityPath));
+        }
 
         /// <summary>
-        /// Whether a match in this room would have anywhere to put anybody.
-        ///
-        /// The six Biodefense Chambers carry the multiplayer flag and no
-        /// entity file at all: no player spawns, so a match there strands
-        /// everybody at the origin and a preview is a picture of somewhere
-        /// nobody can go. They are dropped from the room list itself rather
-        /// than from any one screen, so the launcher, the map grid, the host
-        /// menu, -rooms and the previews all lose them together.
-        ///
-        /// Only the entity file is read -- no models, no collision, no GL.
+        /// A built-in arena must have a readable entity file and at least one
+        /// active spawn. Missing or unreadable data is *not* proof of a spawn.
+        /// Generated community arenas retain their lazy-generation behavior
+        /// until their runtime files are prepared.
         /// </summary>
         private static bool HasPlayerSpawn(string roomKey, RoomMetadata meta)
         {
-            if (_spawnCache.TryGetValue(roomKey, out bool known))
+            if (meta.EntityPath == null) return false;
+            bool builtIn = Metadata.IsBuiltInRoom(roomKey);
+            string root = meta.FirstHunt ? Paths.FhFileSystem : Paths.FileSystem;
+            if (String.IsNullOrWhiteSpace(root)) return false;
+
+            FileInfo file;
+            long modified;
+            try
             {
-                return known;
+                string entityPath = Paths.Combine(root, meta.EntityPath);
+                file = new FileInfo(entityPath);
+                if (!file.Exists) return !builtIn; // Custom map compilation can be deferred.
+                if (file.Length == 0) return false;
+                modified = file.LastWriteTimeUtc.Ticks;
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[rooms] could not inspect the entity file for {roomKey}: {ex.Message}");
+                return !builtIn;
+            }
+            if (_spawnCache.TryGetValue(roomKey, out var cached)
+                && String.Equals(cached.Path, file.FullName, StringComparison.Ordinal)
+                && cached.Size == file.Length && cached.Modified == modified)
+                return cached.Found;
+
             bool found = false;
             try
             {
-                if (meta.EntityPath != null)
+                int layerId = Metadata.GetMultiplayerEntityLayer(GameMode.Battle,
+                    Network.NetLaunch.RoomPlayerCount);
+                foreach (Entity entity in Read.GetEntities(meta.EntityPath, layerId, meta.FirstHunt))
                 {
-                    int layerId = Metadata.GetMultiplayerEntityLayer(GameMode.Battle,
-                        Network.NetLaunch.RoomPlayerCount);
-                    foreach (Entity entity in Read.GetEntities(meta.EntityPath, layerId, meta.FirstHunt))
+                    if (entity.Type != EntityType.PlayerSpawn && entity.Type != EntityType.FhPlayerSpawn)
+                        continue;
+                    if (((Entity<PlayerSpawnEntityData>)entity).Data.Active != 0)
                     {
-                        if (entity.Type != EntityType.PlayerSpawn && entity.Type != EntityType.FhPlayerSpawn)
-                        {
-                            continue;
-                        }
-                        if (((Entity<PlayerSpawnEntityData>)entity).Data.Active != 0)
-                        {
-                            found = true;
-                            break;
-                        }
+                        found = true;
+                        break;
                     }
                 }
             }
             catch (Exception ex)
             {
-                // A reader that cannot answer must not delist a room that may
-                // be perfectly playable: a bad match is worse than a missing
-                // one only until the launcher has no maps left in it.
                 Console.WriteLine($"[rooms] could not read the spawns in {roomKey}: {ex.Message}");
-                found = true;
+                // A missing or corrupt built-in map must never be offered as a
+                // playable arena. Do not cache failed IO: setup can repair it.
+                return !builtIn;
             }
-            _spawnCache[roomKey] = found;
+            _spawnCache[roomKey] = (file.FullName, file.Length, modified, found);
             return found;
         }
 

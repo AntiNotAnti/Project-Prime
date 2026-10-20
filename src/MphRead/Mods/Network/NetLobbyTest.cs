@@ -1,5 +1,6 @@
 using System;
 using MphRead.Mods.MapGen;
+using MphRead.Mods.Launcher;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -71,7 +72,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 74, "protocol 74 preserves the queue/bot wire contract");
+            Check(NetConfig.ProtocolVersion == 75, "protocol 75 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -263,13 +264,27 @@ namespace MphRead.Mods.Network
         {
             string root = Path.Combine(Path.GetTempPath(),"prime-map-download-"+Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
-            string oldRuntime = Paths.AllPaths[Paths.MphKey], oldLibrary = CustomRooms.UserMapDirectory;
+            // Preserve the process globals that the synthetic configured-files
+            // fixture temporarily publishes for the real prewarm worker.
+            string oldMphKey = Paths.MphKey, oldFhKey = Paths.FhKey;
+            var oldPaths = Paths.AllPaths.ToArray();
+            string oldLibrary = CustomRooms.UserMapDirectory;
+            string oldGameFilesRoot = GameFiles.Root, oldWorkingDirectory = Directory.GetCurrentDirectory();
             using var stop = new CancellationTokenSource();
             System.Threading.Tasks.Task? service = null;
             try
             {
                 Headless.Enter();
-                Paths.SetPath(Paths.MphKey,Path.Combine(root,"runtime")); Directory.CreateDirectory(Paths.FileSystem);
+                // RoomPrewarm.Begin now requires a configured-files read lease.
+                // An in-memory Paths.SetPath alone is not a valid launcher setup.
+                // Publish only an empty synthetic game root, never retail assets.
+                string runtime = Path.Combine(root,"runtime");
+                Directory.CreateDirectory(runtime);
+                File.WriteAllText(Path.Combine(root,"paths.txt"),"0.19.0.0\nAMHE1="+runtime+"\n");
+                GameFiles.Root = root;
+                Directory.SetCurrentDirectory(root);
+                Check(GameFiles.Ready && Paths.FileSystem == runtime,
+                    "isolated synthetic paths.txt admits configured-files prewarm without commercial media");
                 CustomRooms.UserMapDirectory = Path.Combine(root,"installed");
                 using(var texture = new BinaryWriter(File.Create(Path.Combine(root,"tile.tex"))))
                 {
@@ -493,7 +508,15 @@ namespace MphRead.Mods.Network
             {
                 NetSession.Stop(); stop.Cancel();
                 if(service!=null)try{service.GetAwaiter().GetResult();}catch(OperationCanceledException){}
-                Paths.SetPath(Paths.MphKey,oldRuntime); CustomRooms.UserMapDirectory=oldLibrary;
+                // Restore exactly the prior process-local path selection after
+                // every successful, rejected, or canceled download scenario.
+                GameFiles.Root = oldGameFilesRoot;
+                Directory.SetCurrentDirectory(oldWorkingDirectory);
+                Paths.UpdatePaths();
+                foreach (var path in oldPaths) Paths.SetPath(path.Key, path.Value);
+                Paths.MphKey = oldMphKey;
+                Paths.FhKey = oldFhKey;
+                CustomRooms.UserMapDirectory = oldLibrary;
                 Directory.Delete(root,true);
             }
         }
@@ -595,7 +618,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 74 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 75 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,

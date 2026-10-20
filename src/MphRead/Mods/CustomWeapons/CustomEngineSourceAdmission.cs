@@ -63,6 +63,7 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
         if (status != CustomSourceObservationStatus.Available)
             return status == CustomSourceObservationStatus.Missing ? CustomSourceDecision.Pending : CustomSourceDecision.Rejected;
         if (Before(sample.ObservedWorldFrame,pinned.OpenedWorld)) return CustomSourceDecision.Rejected;
+        if(!_root.AdmitsPickupAction(action,pinned.PeerIncarnation,sample.ObservedWorldFrame))return CustomSourceDecision.Rejected;
         if (action.Kind != CustomWeaponActionKind.Fire)
         {
             certificate = new(action,sample.ObservedWorldFrame,sample.ObservedWorldFrame,0,

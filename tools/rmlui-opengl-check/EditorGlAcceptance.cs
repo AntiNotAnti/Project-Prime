@@ -87,7 +87,12 @@ internal static partial class EditorGlAcceptance
         internal TheatreEditorContext Context=new(1,new object(),new object(),"SYNTHETIC.ppdemo","SYNTHETIC.ppdemo","SOURCE","ANNOTATION","REEL",10,600,0,10,80,true,
             ImmutableArray.Create(new TheatreEditorPlayer(0,"Hunter"),new TheatreEditorPlayer(1,"Target")),
             ImmutableArray.Create(new TheatreEditorEntry("event:0",10,10,"SHOT","SYNTHETIC",0,10,Target:1),new TheatreEditorEntry("event:1",200,200,"KILL","SYNTHETIC",1,2,Target:0)),
-            ImmutableArray.Create(new TheatreEditorEntry("highlight:0",0,100,"KILL","SYNTHETIC",0,FocusFrame:30)),
+            // The reviewed range [10,80) already occupies the reel. Automatic
+            // suggestions must be distinct and non-overlapping: one manually
+            // accepted, then a second eligible for Add Top.
+            ImmutableArray.Create(
+                new TheatreEditorEntry("highlight:0",120,160,"KILL","SYNTHETIC",0,FocusFrame:130),
+                new TheatreEditorEntry("highlight:1",200,250,"SECOND","SYNTHETIC",1,FocusFrame:230)),
             ImmutableArray.Create(new TheatreEditorEntry(Guid.NewGuid().ToString("N"),0,20,"NAMED","SYNTHETIC")),ImmutableArray<TheatreEditorEntry>.Empty,
             ImmutableArray.Create(new TheatreEditorEntry("analytics",0,0,"TOTAL","SYNTHETIC")),new object());
         public TheatreEditorContext Capture()=>Context;

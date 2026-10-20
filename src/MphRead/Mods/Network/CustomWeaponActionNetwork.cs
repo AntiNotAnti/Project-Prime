@@ -48,7 +48,7 @@ public sealed partial class DedicatedServer
         if (_phase!=SessionPhase.InMatch || _bots.Count!=0 || _peers.Count==0) return false;
         foreach (var peer in _peers)
         {
-            if(CurrentCustomRecipientEntry(peer,scene) is not {Replica.IsReady:true} recipient
+            if(CurrentCustomRecipientEntry(peer,scene) is not {Replica.IsReady:true} recipient||!PickupRecipientReady(recipient)
                 ||recipient.Replica.HasExpired(NetSession.Clock))return false;
             if(!peer.Spectating&&(CurrentCustomActionEntry(peer.SlotIndex,scene) is not {State.Evidence:not null} entry
                 ||entry.Peer!=peer||entry.State.Evidence!.Manifest!=scene.CustomCombat?.Manifest.Digest))return false;
@@ -98,6 +98,8 @@ public sealed partial class DedicatedServer
         public bool PublishLaunch(in CustomReplicaLaunch launch)=>server._customAudience?.PublishLaunch(launch,NetSession.Clock)==true;
         public void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input)
             => server.BindCustomControl(scene,root,input);
+        public bool CanCollectPickup(CustomAuthorityCombatAdapter root,int index)=>server.CanCollectCustomPickup(scene,root,index);
+        public bool PublishPickup(CustomAuthorityCombatAdapter root,in CustomPickupOutcome outcome)=>server.PublishCustomPickup(scene,root,outcome);
     }
     private void HandleCustomWeaponAction(ReceivedPacket packet,double now)
     {
@@ -164,8 +166,11 @@ public sealed partial class DedicatedServer
             combat.Outbox.AdvanceFlights(NetSession.NetFrame);
             var player=scene.Players.Items[slot];
             if (!root.TryPrivateState(player,out var snapshot,out bool hasWeapon) || !root.TryStateMetadata(player,out var selected,out var settled,out var committed)) continue;
+            CustomPickupKnowledgeGrant grant=default;
+            if(hasWeapon)root.TryPickupKnowledge(snapshot.Owner,out grant);
             if (combat.State is { } old && old.State==snapshot && old.Selected==selected
-                && old.SettledSequence==settled && old.CommittedSource==committed && old.HasWeapon==hasWeapon) continue;
+                && old.SettledSequence==settled && old.CommittedSource==committed && old.HasWeapon==hasWeapon
+                &&old.Knowledge==grant.Knowledge&&old.GrantWorld==grant.GrantWorld&&old.EffectiveSource==grant.EffectiveSource) continue;
             // Public controls cannot start their result deadline while another
             // recipient is still preparing its durable baseline. Baseline
             // assembly and native source ingress stay independent of this state.
@@ -173,7 +178,7 @@ public sealed partial class DedicatedServer
             uint revision=combat.State?.Revision ?? 0;
             if (revision==uint.MaxValue) { InvalidateCustomEntry(entry); continue; }
             var state=new CustomStateMessage(entry.State.Wire.Bootstrap,root.Manifest.Digest,new(10),NetSession.NetFrame,
-                revision+1,settled,selected,committed,snapshot,hasWeapon);
+                revision+1,settled,selected,committed,snapshot,hasWeapon,grant.Knowledge,grant.GrantWorld,grant.EffectiveSource);
             CustomCombatResults.Write(state,combat.StateBytes,entry.State.Wire.Manifest,entry.State.Wire.Definition); combat.State=state;
         }
     }

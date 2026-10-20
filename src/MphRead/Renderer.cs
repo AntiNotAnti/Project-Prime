@@ -5413,6 +5413,7 @@ namespace MphRead
             }
 
             OfflineWeapons?.DrawPickups();
+            Mods.CustomWeapons.CustomPickupPresentation.DrawOnline(this);
             Mods.Network.NetConfirmedImpacts.Draw(this);
             // PR-14: depth-tested world-only prismatic Insta-Gib shot trails.
             _ionFracture?.Draw(this);

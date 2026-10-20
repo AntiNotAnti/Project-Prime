@@ -89,7 +89,7 @@ public static partial class NetSession
     }
     internal static bool CustomWeaponReplicaReady=>CurrentCustomReplica() is {IsReady:true,PendingFacts: < CustomReplicaConsumer.Capacity};
     private static void ResetCustomReplica()
-    {_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;}
+    {ResetCustomPickupReplica();_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;}
     internal static bool TryTakeCustomReplicaFact(out CustomReplicaEvent fact)
     {fact=default;return CurrentCustomReplica()?.TryTakeFact(out fact)==true;}
     internal static bool TryCopyCustomReplicaState(Span<CustomReplicaSlot> slots,out uint world)

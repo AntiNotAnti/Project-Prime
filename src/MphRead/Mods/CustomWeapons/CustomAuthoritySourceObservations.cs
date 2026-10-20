@@ -67,6 +67,8 @@ internal sealed partial class CustomAuthorityCombatAdapter
                                 && !BindLife(token.Player,token.Input.Frame,facts.CanUseWeapon)) continue;
                         }
                         if (_current[owner.Slot] is not { Journal: not null } life || life.Owner != owner) continue;
+                        if(_sourceBoundary!=null&&(!_sourceBoundary.TryGet(owner,out var pickupContext)
+                            ||!CapturePickupInput(life,token.Input,pickupContext)))continue;
                         CustomObservationResult result;
                         bool canUse = false;
                         if (hasFacts)

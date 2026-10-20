@@ -29,6 +29,7 @@ public sealed partial class DedicatedServer
         if (!root.IsActionLifeActive(request.Owner)
             || !root.TryStateMetadata(scene.Players.Items[request.Slot],out _,out uint settled,out _)) return;
         if(root.HasRetainedControlConflict(request))return;
+        root.EchoPickupControl(entry.State.ConnectionId,request);
         if ((ulong)request.Sequence> (ulong)settled+CustomSourceActionJournal.PendingCapacity) return;
         var offered=entry.Combat.Outbox.Reserve(request,fence,now,NetSession.NetFrame,NetSession.Clock);
         if (offered is not (CustomOutboxOffer.Reserved or CustomOutboxOffer.Duplicate)) return;

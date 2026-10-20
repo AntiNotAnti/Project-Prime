@@ -33,6 +33,12 @@ public static class MapModeCapabilities
         var custom = CustomRooms.Definitions.FirstOrDefault(d => String.Equals(d.Name, roomKey, StringComparison.OrdinalIgnoreCase));
         if (!AllowsLocalSource(custom, allowLocalSource, out reason))
             return false;
+        if (Metadata.IsBuiltInRoom(roomKey) && !Mods.ThumbnailGenerator.HasInstalledEntityFile(roomKey))
+        {
+            reason = $"{roomKey} is missing extracted arena entity data ({System.IO.Path.GetFileName(room.EntityPath)}). "
+                + "Choose an installed arena or repair the game files in Settings.";
+            return false;
+        }
         if (custom != null && MapModeValidator.WhyUnsupported(custom, mode,
             configuredPlayers ?? custom.Capabilities?.MinPlayers ?? 1) is string unsupported)
         { reason = unsupported; return false; }
