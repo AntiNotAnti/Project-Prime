@@ -26,7 +26,7 @@ internal static class CharacterGeneratedCannonOwnedProbe
         void Check(bool value,string why){if(!value)throw new InvalidDataException(why);checks++;}
         void Reject(Action action,string why)
         {
-            try{action();}catch(Exception e)when(e is InvalidDataException or IOException or NotSupportedException or ArgumentException)
+            try{action();}catch(Exception e)when(e is InvalidDataException or IOException or NotSupportedException or ArgumentException or JsonException)
             {refusals++;cases.Add(why);return;}
             throw new InvalidDataException("Expected generated cannon refusal: "+why);
         }
