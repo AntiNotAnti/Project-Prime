@@ -70,8 +70,9 @@ public partial class PlayerEntity
             // Destroy releases effects/audio/references; Remove releases Scene
             // membership too. Both are idempotent for an unused pool member.
             if (beam.Owner != null || beam.Lifespan > 0) beam.Destroy();
-            if (_scene.TryGetEntity(beam.Id, out var registered) && ReferenceEquals(registered, beam))
-                _scene.RemoveEntity(beam);
+            // Native pool flights have Id=-1 and live only in the Scene list.
+            // RemoveEntity also handles an unused private member harmlessly.
+            _scene.RemoveEntity(beam);
         }
     }
 
@@ -93,8 +94,7 @@ public partial class PlayerEntity
             _halfturret.Health = 0;
             OnHalfturretDied();
             _halfturret.Destroy();
-            if (_scene.TryGetEntity(_halfturret.Id, out var body) && ReferenceEquals(body, _halfturret))
-                _scene.RemoveEntity(_halfturret);
+            _scene.RemoveEntity(_halfturret);
         }
         if (_droneModel != null) _models.Remove(_droneModel);
         _droneModel = null;
@@ -266,6 +266,7 @@ public partial class PlayerEntity
         Matrix.ProjectPosition(at, _scene.ViewMatrix, _scene.PerspectiveMatrix, out Vector2 position);
         if (float.IsFinite(position.X) && float.IsFinite(position.Y))
         {
+            _targetCircleInst.Enabled = true;
             _targetCircleInst.PositionX = position.X; _targetCircleInst.PositionY = position.Y;
             _targetCircleInst.Alpha = Features.ReticleOpacity;
             _scene.DrawHudObject(_targetCircleInst, scale: Mods.Render.Crosshair.Scale);

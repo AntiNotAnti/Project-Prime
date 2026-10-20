@@ -20,6 +20,9 @@ namespace MphRead.NetTest;
 
 // Owned AMHE1 offline CPU acceptance. All form/attack/hover changes use actual
 // KeyboardState events and OnSimulationFrame after real Scene initialization.
+// Aim-order acceptance uses raw MouseState samples gathered by native input.
+// Initial split can rest on the planted native body. The hover arm deliberately
+// walks clear via real Forward input before asserting actual room-floor support.
 // The second inert target, public native Spawn placements, remaining-health
 // cap setup and injected native freeze timer are explicitly synthetic fixtures.
 // The capacity arm directly invokes the production volley hook without advancing
@@ -35,7 +38,7 @@ internal static class ScoutDroneSceneTests
     // Independent literal source-authored oracle: 19 twin volleys, not values
     // queried from production constants or copied state-machine arithmetic.
     private static readonly int[] VolleySteps = { 4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 132, 140, 148 };
-    private readonly record struct Input(bool Morph = false, bool Attack = false, bool Jump = false, bool Shoot = false, bool Forward = false, bool AimRight = false);
+    private readonly record struct Input(bool Morph = false, bool Attack = false, bool Jump = false, bool Shoot = false, bool Forward = false);
     private static readonly Action<KeyboardState, Keys, bool> SetKey = typeof(KeyboardState)
         .GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private static void Check(bool condition, string label, bool verbose = true)
@@ -84,7 +87,6 @@ internal static class ScoutDroneSceneTests
                 }
                 Player.Controls.MoveUp.Key = Keys.W; Player.Controls.RollUp.Key = Keys.W; Player.Controls.Jump.Key = Keys.Space;
                 Player.Controls.Morph.Key = Keys.B; Player.Controls.AltAttack.Key = Keys.F; Player.Controls.Shoot.Key = Keys.Enter;
-                Player.Controls.AimRight.Key = Keys.E;
                 Player.Controls.MouseAim = false; Player.Controls.KeyboardAim = true;
                 SetKey(Keyboard, Keys.Enter, true);
                 for (int i = 0; i < 600 && !Player.LoadFlags.TestFlag(LoadFlags.Spawned); i++) Scene.OnSimulationFrame();
@@ -102,7 +104,6 @@ internal static class ScoutDroneSceneTests
         {
             SetKey(Keyboard, Keys.B, input.Morph); SetKey(Keyboard, Keys.F, input.Attack);
             SetKey(Keyboard, Keys.Space, input.Jump); SetKey(Keyboard, Keys.Enter, input.Shoot); SetKey(Keyboard, Keys.W, input.Forward);
-            SetKey(Keyboard, Keys.E, input.AimRight);
             Scene.OnSimulationFrame();
             Check(!NetSession.Active && float.IsFinite(Player.Position.Y) && float.IsFinite(Player.Speed.Y), "finite offline actual simulation tick", verbose: false);
             if (requireAlive) Check(Player.ModIsInPlay && Player.Health > 0, "tick retains living native player owner", verbose: false);
@@ -115,6 +116,7 @@ internal static class ScoutDroneSceneTests
             for (int i = 0; i < 120 && (!Player.IsAltForm || Player.IsMorphing); i++) Step();
             Check(Player.IsAltForm && !Player.IsMorphing && Player.Flags2.TestFlag(PlayerFlags2.Halfturret), "native split/form owner reaches mobile half");
             Check(ReferenceEquals(Player.DroneBody, Player.Halfturret), "drone body is exact native form-owned Halfturret");
+            Check(SceneContains(Scene, Player.Halfturret), "native planted body belongs to actual Scene owner list by reference identity");
             Step(); // release Morph even when the prototype transition is immediate
         }
         internal void Merge()
@@ -193,11 +195,51 @@ internal static class ScoutDroneSceneTests
         return new { initial = 79, mobile = 40, planted = 39, nativeBodyDamage = 12, merged = 67, maximum = p.HealthMax };
     }
 
+    private static void TraceHover(Fixture f, string stage, int neutralSteps)
+    {
+        // Bounded read-only setup diagnostics retained from attempt02.
+        // Records actual control-driven placement; never injects gameplay state.
+        var p = f.Player; var volume = p.Volume;
+        static float[] Components(Vector3 value) => new[] { value.X, value.Y, value.Z };
+        Console.WriteLine("SCOUT DRONE HOVER TRACE " + JsonSerializer.Serialize(new
+        {
+            stage, neutralSteps, frame = f.Scene.FrameCount,
+            position = Components(p.Position), speed = Components(p.Speed),
+            flags1 = (uint)p.Flags1, flags1Names = p.Flags1.ToString(),
+            flags2 = (uint)p.Flags2, flags2Names = p.Flags2.ToString(),
+            p.DroneFloorGap, p.DroneCap, bodyPosition = Components(p.DroneBody.Position), bodyHealth = p.DroneBody.Health,
+            room = f.Scene.Room?.Meta.Name, volumeType = volume.Type.ToString(),
+            collisionSpherePosition = Components(volume.SpherePosition), collisionSphereRadius = volume.SphereRadius
+        }));
+    }
+
     private static object Hover(string room)
     {
         using var f = new Fixture(true, room); var p = f.Player; f.Split();
-        for (int i = 0; i < 180 && !p.Flags1.TestFlag(PlayerFlags1.Standing); i++) f.Step();
-        Check(p.Flags1.TestFlag(PlayerFlags1.Standing), "hover fixture begins on actual room floor after native split pop");
+        float BodyClearance() => new Vector2(p.Position.X - p.DroneBody.Position.X, p.Position.Z - p.DroneBody.Position.Z).Length;
+        bool OnRoomFloor() => p.Flags1.TestFlag(PlayerFlags1.Standing) && p.DroneFloorGap >= 0 && p.DroneFloorGap < .06f;
+        int walkSteps = 0, neutralSteps = 0;
+        TraceHover(f, "after-split", 0);
+        // Native split leaves its body directly beneath the mobile sphere.
+        // Real Forward control must leave that footprint before floor settling;
+        // no synthetic teleport, native Spawn or flag/speed write is used here.
+        for (; walkSteps < 180 && BodyClearance() <= 2; walkSteps++)
+        {
+            f.Step(new Input(Forward: true));
+            Check(p.Controls.RollUp.IsDown, "actual native Forward control walks split mobile sphere clear of body", verbose: false);
+            if ((walkSteps + 1) % 30 == 0) TraceHover(f, "walk-off-body", walkSteps + 1);
+        }
+        float bodyClearance = BodyClearance();
+        TraceHover(f, "after-walk-off-body", walkSteps);
+        Check(bodyClearance > 2, "bounded actual Forward input clears planted body footprint by more than2 units");
+        for (; neutralSteps < 180 && !OnRoomFloor(); neutralSteps++)
+        {
+            f.Step();
+            if ((neutralSteps + 1) % 30 == 0) TraceHover(f, "neutral-after-walk-off", neutralSteps + 1);
+        }
+        TraceHover(f, "before-standing-assertion", neutralSteps);
+        Check(p.Flags1.TestFlag(PlayerFlags1.Standing) && p.DroneFloorGap >= 0 && p.DroneFloorGap < .06f,
+            "hover fixture begins Standing on actual room floor with known gap below.06 after real walk-off-body input");
         float startY = p.Position.Y, maxGap = 0, minimumPlateau = float.MaxValue, maximumPlateau = float.MinValue;
         bool rose = false; int floorSamples = 0;
         for (int i = 0; i < 150; i++)
@@ -220,7 +262,9 @@ internal static class ScoutDroneSceneTests
         Check(sank && p.Position.Y < releaseY - .1f, "real Jump release produces downward sink");
         for (int i = 0; i < 180 && !p.Flags1.TestFlag(PlayerFlags1.Standing); i++) f.Step();
         Check(p.Flags1.TestFlag(PlayerFlags1.Standing), "released drone returns to actual room floor");
-        return new { rising = rose, floorSamples, maxGap, cap = p.DroneCap, plateauDrift = maximumPlateau - minimumPlateau, releasedSink = sank };
+        return new { setup = "native split initially supported by planted body; bounded real Forward walk clears footprint before room-floor settle",
+            walkSteps, bodyClearance, neutralSettleSteps = neutralSteps, rising = rose, floorSamples, maxGap, cap = p.DroneCap,
+            plateauDrift = maximumPlateau - minimumPlateau, releasedSink = sank };
     }
 
     private static void StartBurst(Fixture f)
@@ -297,18 +341,33 @@ internal static class ScoutDroneSceneTests
     }
     private static object InputOrder(string room)
     {
-        float currentAimChange;
+        float currentAimChange, gatheredMouseDeltaX;
         using (var f = new Fixture(true, room))
         {
             var p = f.Player; f.Split(); StartBurst(f); Unfold(f);
             for (int step = 1; step <= 3; step++) f.Step(new Input(Attack: true));
             Check(p.DroneFireState == 2 && p.DroneFireFrame == 3 && p.DroneShots == 0,
                 "aim-order regression starts immediately before first scheduled fire-step4 volley");
+            // Ordinary local keyboard aim buttons do not populate the native
+            // button-aim accumulator. Use the actual relative mouse producer,
+            // as AndroidInput.MovePointer/MomentumBalanceSceneTests do, without
+            // writing canonical aim or gathered player input.
+            PointerInput.StylusMode = false; PointerInput.Reset(); PointerDevice.Reset();
+            p.Controls.MouseAim = true; p.Controls.KeyboardAim = false;
+            Check(!PointerDevice.Active && !PointerInput.StylusMode && InputSettings.MouseSensitivity == 1 && !InputSettings.InvertMouseX,
+                "aim-order fixture selects ordinary native relative mouse input");
+            var mouse = (MouseState)typeof(Scene).GetField("_mouseState", Hidden)!.GetValue(f.Scene)!;
+            var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input", Hidden)!.GetValue(p)!;
+            var setPosition = typeof(MouseState).GetProperty("Position", Hidden | BindingFlags.Public)!.SetMethod!
+                .CreateDelegate<Action<MouseState, Vector2>>();
+            Vector2 pointer = mouse.Position;
             Vector3 previousAim = ReadCanonicalAim(p);
-            f.Step(new Input(Attack: true, AimRight: true));
+            pointer.X += 16; setPosition(mouse, pointer);
+            f.Step(new Input(Attack: true));
             Vector3 currentAim = ReadCanonicalAim(p);
-            Check(p.Controls.AimRight.IsPressed && p.Controls.AimRight.IsDown,
-                "first scheduled volley step observes actual native Keyboard AimRight press");
+            gatheredMouseDeltaX = input.MouseDeltaX;
+            Check(gatheredMouseDeltaX == 16 && input.MouseDeltaY == 0,
+                "first scheduled volley step consumes exact actual raw16px native mouse delta");
             currentAimChange = (currentAim - previousAim).Length;
             Check(currentAimChange > .0001f, "real native aim changed during the scheduled volley step");
             var emitted = p.DroneBeams.Where(beam => ReferenceEquals(beam.Owner, p) && beam.Lifespan > 0).ToArray();
@@ -341,7 +400,7 @@ internal static class ScoutDroneSceneTests
             Check(p.DroneCooldown == 119 && p.DroneShots == 0,
                 "merge cooldown first decrements on the subsequent native simulation tick");
         }
-        return new { actualKeyboardAimRightOnFireStep = 4, currentAimChange, boltsUseCurrentAim = 2,
+        return new { actualRelativeMouseOnFireStep = 4, requestedRawMouseDeltaX = 16, gatheredMouseDeltaX, currentAimChange, boltsUseCurrentAim = 2,
             actualMorphEdgeOnFireStep = 4, extraMorphStepBolts = 0, mergeEntryCooldown = 120, nextTickCooldown = 119 };
     }
 
@@ -475,16 +534,24 @@ internal static class ScoutDroneSceneTests
         return new { ordinaryPoolSize = normalPool.Length, dronePoolSize = p.DroneBeams.Count, actualNativeShot = true, liveOrdinaryFlightOverlapQualified = overlap };
     }
 
+    private static bool SceneContains(Scene scene, EntityBase entity)
+    {
+        // Native transient projectiles use Id=-1 and intentionally have no
+        // entry in the scene's authored-ID lookup. Membership is reference
+        // identity in the actual simulation owner list, for bodies and flights.
+        foreach (EntityBase member in scene.Entities) if (ReferenceEquals(member, entity)) return true;
+        return false;
+    }
     private readonly record struct Flight(BeamProjectileEntity Beam, EntityBase? Owner, float Lifespan, float Age,
-        Vector3 Position, Vector3 Velocity, Vector3 BackPosition, Vector3 SpawnPosition, bool Registered);
+        Vector3 Position, Vector3 Velocity, Vector3 BackPosition, Vector3 SpawnPosition, bool SceneMember);
     private static Flight CaptureFlight(Fixture f, BeamProjectileEntity beam)
         => new(beam, beam.Owner, beam.Lifespan, beam.Age, beam.Position, beam.Velocity, beam.BackPosition, beam.SpawnPosition,
-            f.Scene.TryGetEntity(beam.Id, out var registered) && ReferenceEquals(registered, beam));
+            SceneContains(f.Scene, beam));
     private static void CallVolley(PlayerEntity p) => typeof(PlayerEntity).GetMethod("ScoutDroneVolley", Hidden)!.Invoke(p, null);
     private static void ReleaseFlight(Fixture f, BeamProjectileEntity beam)
     {
         beam.Destroy();
-        if (f.Scene.TryGetEntity(beam.Id, out var registered) && ReferenceEquals(registered, beam)) f.Scene.RemoveEntity(beam);
+        if (SceneContains(f.Scene, beam)) f.Scene.RemoveEntity(beam);
     }
     private static object DirectHookCapacityAndRetirement(string room)
     {
@@ -501,7 +568,7 @@ internal static class ScoutDroneSceneTests
         Check(f.Scene.FrameCount == frame && p.DroneShots - shots == 40
             && pool.All(beam => ReferenceEquals(beam.Owner, p) && beam.Lifespan > 0 && !beam.Flags.TestFlag(BeamFlags.Collided)),
             "synthetic direct production-hook scheduling fills40 actual native flights without advancing simulation");
-        Check(pool.All(beam => f.Scene.TryGetEntity(beam.Id, out var entity) && ReferenceEquals(entity, beam)), "all40 actual flights are registered with the initialized Scene");
+        Check(pool.All(beam => SceneContains(f.Scene, beam)), "all40 actual native flights are members of initialized Scene by reference identity");
         var full = pool.Select(beam => CaptureFlight(f, beam)).ToArray();
         CallVolley(p);
         Check(p.DroneShots - shots == 40 && full.SequenceEqual(pool.Select(beam => CaptureFlight(f, beam))),
@@ -523,7 +590,7 @@ internal static class ScoutDroneSceneTests
         Check(!p.ScoutDroneEnabled && p.ModCharacterGameplay == CharacterGameplayRules.Native && f.Scene.PrivateCharacterGameplayUnsupported,
             "actual owner retirement clears finite drone capability while keeping replay exclusion latched");
         Check(pool.All(beam => beam.Owner == null && beam.Lifespan <= 0
-            && (!f.Scene.TryGetEntity(beam.Id, out var registered) || !ReferenceEquals(registered, beam))),
+            && !SceneContains(f.Scene, beam)),
             "actual owner retirement leaves every captured private flight ownerless/expired/unregistered");
         Check(ReferenceEquals(p.EquipInfo.Beams, normalPool) && ordinaryBefore.SequenceEqual(normalPool.Select(beam => CaptureFlight(f, beam))),
             "actual drone owner retirement preserves entire ordinary pool and existing native flight state");
