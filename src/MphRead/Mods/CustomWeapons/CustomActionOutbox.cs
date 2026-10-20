@@ -61,6 +61,8 @@ internal sealed class CustomActionOutbox
     { if (!action.IsValid) return null; foreach (var entry in _entries) if (entry.Active && entry.Owner==action.Owner && entry.Sequence==action.Sequence) return entry; return null; }
     private Entry? Find(in CustomControlRequest request)
     { if (!request.IsValid) return null; foreach (var entry in _entries) if (entry.Active && entry.Owner==request.Owner && entry.Sequence==request.Sequence) return entry; return null; }
+    internal bool ContainsControl(in CustomControlRequest request)
+        => !_closed && request.IsValid && Find(request) is { } entry && entry.Control==request;
     private void Free(Entry entry) { entry.Clear(); Count--; }
     private void MaybeFree(Entry entry)
     { if (entry.ReceiptAcked && (!entry.ContactExpected || entry.ContactAcked)) Free(entry); }

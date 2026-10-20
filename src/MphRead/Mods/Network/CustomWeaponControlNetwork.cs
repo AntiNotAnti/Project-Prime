@@ -16,7 +16,13 @@ public sealed partial class DedicatedServer
             || request.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)
             || !entry.Combat.AcceptsMode(request.Owner,2)
             || !entry.Boundary.TryGetFence(request.Owner,out ulong fence)) return;
+        AdmitCustomControl(scene,entry,request,fence,now);
+    }
+    private void AdmitCustomControl(Scene scene,CustomReadyEntry entry,in CustomControlRequest request,ulong fence,double now)
+    {
+        if (entry.Combat==null) return;
         var root=scene.CustomCombat;
+        if (root==null) return;
         // The real client also needs canonical initial state. Never retain a
         // primary control across an unbound/invalid life waiting for a favorable
         // biped pose to create its resource grant.

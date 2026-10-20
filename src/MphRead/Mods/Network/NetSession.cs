@@ -2056,7 +2056,8 @@ namespace MphRead.Mods.Network
             intent.SlotGeneration = NetPlayerLifecycle.Generation(LocalSlot);
             intent.LifeId = NetPlayerLifecycle.Get(LocalSlot);
             int intentSize = CompactIntentCodec.Write(intent, _scratch);
-            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, intentSize));
+            if (!SendCustomInputCarrier(intent,_scratch.AsSpan(0,intentSize)))
+                _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, intentSize));
             NetCampaignEvidence.Intent(LocalSlot, intent, offered: true);
             // A demo only ever contains what this client *received* -- and
             // this client never receives its own SlotIntent back, since it

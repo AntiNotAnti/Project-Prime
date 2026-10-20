@@ -27,6 +27,7 @@ internal sealed class CustomClientCombat
     internal CustomReceiptMessage? LastReceipt { get; private set; }
     internal CustomContactMessage? LastContact { get; private set; }
     internal CustomControlDenied? LastControlDenied { get; private set; }
+    internal readonly byte[] InputBytes=new byte[CustomInputCarrier.MaxPayload];
     internal CustomClientCombat(CustomReadinessWire wire) => _wire=wire;
     private bool Time(double now)
     { if (!double.IsFinite(now) || now<_time) return false; _time=now; return true; }
@@ -175,6 +176,21 @@ internal sealed class CustomClientCombat
         foreach (var pending in _pending)
             if (pending is { Control:{ } control } value && now>=value.Due) { request=control; return true; }
         return false;
+    }
+    // Input transport repeats only the oldest unconsumed control. Reliable91
+    // remains responsible for delivery; neither carrier send nor transport ACK
+    // removes the request. The authority still enforces universal sequence order.
+    internal bool TryInputControl(WeaponOwnerContext owner,double now,out CustomControlRequest request)
+    {
+        request=default;
+        if (Invalidated || !Time(now) || owner!=_submittedOwner || _mode!=2) return false;
+        foreach (var pending in _pending)
+            if (pending is { } value)
+            {
+                if (now-value.Created>CustomActionOutbox.DeadlineSeconds) { Invalidated=true; request=default; return false; }
+                if (value.Control is { } control && control.Owner==owner && (!request.IsValid || control.Sequence<request.Sequence)) request=control;
+            }
+        return request.IsValid;
     }
     internal void Sent(in CustomControlRequest request,double now)
     {

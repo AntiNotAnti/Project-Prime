@@ -53,7 +53,7 @@ public sealed class NetPacketQueue
             or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed => NetPacketPriority.Background,
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
-        PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
+        PacketType.Intent or PacketType.CustomWeaponInput or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
             or PacketType.ReplayWorld or PacketType.MatchStartCommit
             or PacketType.BombIntent or PacketType.BombEvent or PacketType.BombState or PacketType.TurretFireOutcome
             or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant => NetPacketPriority.Realtime,

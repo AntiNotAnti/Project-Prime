@@ -90,6 +90,58 @@ public static partial class NetLobbyTest
             var control=new CustomControlRequest(bootstrap,manifest.Digest,(byte)slot,2,new(10),1,CustomWeaponActionKind.Equip,0);
             Check(NetSession.SubmitCustomWeaponControl(control) && !NetSession.SubmitCustomWeaponControl(control with { Sequence=3 }),
                 "real client next life publishes reliable primary control and refuses sequence gap");
+            // Exercise the exact producer boundary used by SendIntent. These
+            // native bytes/lifecycle are synthetic; encoding proves neither
+            // server source consumption nor engine pose/control admission.
+            var carrierIntent=new IntentPacket { MatchId=nextOwner.MatchId,AuthorityEpoch=nextOwner.AuthorityEpoch,
+                SlotGeneration=nextOwner.Generation,LifeId=nextOwner.Life,Frame=400,AckFrame=bootstrap.AuthorityFrame+3,
+                Position=new(1,2,3),Aim=Vector3.UnitZ,Buttons=IntentButtons.InPlayState,HasFireEvents=true,
+                NativeTouch=new(true,true,true,12,-8,77,false) };
+            byte[] carrierNative=new byte[CompactIntentCodec.Size(carrierIntent)];
+            CompactIntentCodec.Write(carrierIntent,carrierNative);
+            byte[] nativeBefore=new byte[PlayerState.Size],nativeAfter=new byte[PlayerState.Size];
+            NetSession.RemoteStates[slot].Write(nativeBefore);
+            Check(NetSession.TryEncodeCustomWeaponInput(carrierIntent,carrierNative,out var borrowedCarrier)
+                && CustomInputCarrier.TryRead(borrowedCarrier.Span,out var embeddedControl,out var decodedCarrier)
+                && embeddedControl==control && decodedCarrier.MatchId==nextOwner.MatchId
+                && decodedCarrier.AuthorityEpoch==nextOwner.AuthorityEpoch && decodedCarrier.SlotGeneration==nextOwner.Generation
+                && decodedCarrier.LifeId==2 && decodedCarrier.Frame==carrierIntent.Frame
+                && decodedCarrier.NativeTouch==carrierIntent.NativeTouch,
+                "actual client input encoder automatically embeds oldest pending full-identity next-life control");
+            Check(borrowedCarrier.Span[CustomInputCarrier.PrefixSize..].SequenceEqual(carrierNative)
+                && borrowedCarrier.Length+NetHeader.Size<=1200 && (byte)PacketType.CustomWeaponInput==93
+                && !NetReliableChannel.IsReliable(PacketType.CustomWeaponInput)
+                && NetPacketQueue.Priority(PacketType.CustomWeaponInput)==NetPacketPriority.Realtime
+                && NetWireTelemetry.Classify(PacketType.CustomWeaponInput)==NetTrafficKind.Intent,
+                "actual producer preserves exact compact native bytes inside an unreliable realtime input datagram bounded to1200bytes");
+            var fullCarrier=carrierIntent; fullCarrier.FireEventCount=NetFireEvents.LiveCapacity;
+            for (int index=0;index<NetFireEvents.LiveCapacity;index++)
+                fullCarrier.FireEvents[index]=new((uint)(index+1),400u-(uint)(NetFireEvents.LiveCapacity-1-index),
+                    carrierIntent.AckFrame,0,FireEventKind.PressFire,(byte)BeamType.PowerBeam,0,0,
+                    FireEvent.FlagPose,Vector3.Zero,Vector3.UnitZ,Vector3.UnitZ,Vector3.UnitY,Vector2.Zero,SourceLife:2);
+            byte[] fullNative=new byte[CompactIntentCodec.Size(fullCarrier)];
+            CompactIntentCodec.Write(fullCarrier,fullNative); byte[] fullOriginal=fullNative.AsSpan().ToArray();
+            Check(CompactIntentCodec.TryRead(fullNative,out var fullDecoded) && fullDecoded.FireEventCount==14
+                && fullDecoded.NativeTouch.Active && fullDecoded.NativeTouch.Suppressed
+                && fullNative.Length+NetHeader.Size<=1200
+                && fullNative.Length+CustomInputCarrier.PrefixSize+NetHeader.Size>1200,
+                "valid fourteen-event native frame fits native MTU with existing touch-mode suppression but cannot fit custom envelope");
+            Check(!NetSession.TryEncodeCustomWeaponInput(fullCarrier,fullNative,out var noCarrier) && noCarrier.IsEmpty
+                && fullNative.AsSpan().SequenceEqual(fullOriginal) && fullCarrier.FireEventCount==14,
+                "actual client encoder returns absent wrapper for full native frame without trimming or mutating fallback bytes");
+            bool everyNativeEvent=true;
+            for (int index=0;index<NetFireEvents.LiveCapacity;index++)
+                everyNativeEvent &= fullDecoded.FireEvents[index]==fullCarrier.FireEvents[index];
+            Check(everyNativeEvent && CompactIntentCodec.TryRead(fullNative,out var fallback) && fallback.FireEventCount==14,
+                "ordinary native fallback retains every exact native event and its source-life identity");
+            Check(NetSession.TryEncodeCustomWeaponInput(carrierIntent,carrierNative,out borrowedCarrier)
+                && CustomInputCarrier.TryRead(borrowedCarrier.Span,out var stillPending,out _) && stillPending==control,
+                "full-frame fallback leaves reliable primary control pending for the next fitting native carrier");
+            NetSession.RemoteStates[slot].Write(nativeAfter);
+            Check(nativeBefore.AsSpan().SequenceEqual(nativeAfter) && NetPlayerLifecycle.Get(slot)==2
+                && NetDamage.Sequence(slot)==damage && NetSession.CustomWeaponPresentationState==nextState
+                && NetSession.LastCustomWeaponReceipt==null && NetSession.LastCustomControlDenied==null,
+                "client input production and fallback mutate neither native state/health history nor canonical custom projection");
             Check(!NetSession.SubmitCustomWeaponAction(action with { Life=2 }),"real client cannot mix publisher modes inside the new life");
             var controlPump=System.Diagnostics.Stopwatch.StartNew();
             Until(()=>controlPump.ElapsedMilliseconds>=300,"actual primary control pump retries through transport acknowledgements");
