@@ -65,8 +65,8 @@ if (poseCheck && (players != 2 || shots == null || seconds != 24 || !DisplayPose
     || args.Any(a => a is "-resourcestress" or "-windowcycle" or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile" or "-glgpu" or "-camera" or "-facing")))
     throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240; separate from other capture/performance modes.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
-if ((cap != -1 && cap < 30) || cap > 500 || seconds < 8 || seconds > 120)
-    throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..120.");
+if ((cap != -1 && cap < 30) || cap > 500 || !NativeTimingIntervals.ValidSeconds(seconds, shots != null))
+    throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..1804 (capture: 8..120).");
 ShadowQuality shadows = Enum.Parse<ShadowQuality>(Value("-shadows", "Off"), true);
 string[] dimensions = Value("-size", "1920x1080").Split('x');
 var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
@@ -137,10 +137,11 @@ sealed partial class CheckWindow : RenderWindow
     private readonly int _seconds, _cap;
     private readonly ShadowQuality _shadows;
     private readonly string? _shots;
-    private readonly List<double> _intervals = new();
+    private readonly NativeTimingIntervals _intervalBuffer;
+    private IReadOnlyList<double> _intervals => _intervalBuffer.Samples;
     private readonly Stopwatch _wall = new();
-    private long _last, _measureStarted, _allocated;
-    private int[] _collections = new int[3];
+    private long _last, _measureStarted, _measureEnded, _allocated, _finalAllocated;
+    private readonly int[] _collections = new int[3], _finalCollections = new int[3];
     private bool _measuring;
     private int _capture;
     private readonly string _room;
@@ -199,6 +200,8 @@ sealed partial class CheckWindow : RenderWindow
     internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario)
     {
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
+        // Allocate all raw interval storage before loading/warmup and timed work.
+        _intervalBuffer = new NativeTimingIntervals(NativeTimingIntervals.CapacityFor(seconds));
         _windowCycle = windowCycle; _requestedPixels = pixels;
         _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck; _impactCheck = impactCheck; _stableHud = stableHud;
         _poseCheck = poseCheck;
@@ -379,15 +382,33 @@ sealed partial class CheckWindow : RenderWindow
         if (!_measuring && Scene.FrameCount >= 240)
         {
             ObserveWorkloadStart(); // Receipt work stays outside measured intervals/allocations.
-            now = Stopwatch.GetTimestamp();
-            _measuring = true; _measureStarted = now;
-            _allocated = GC.GetTotalAllocatedBytes(false);
-            _collections = Enumerable.Range(0, 3).Select(GC.CollectionCount).ToArray();
             FrameTiming.ResetDiagnostics();
             Console.WriteLine("NATIVERENDER measurement-start (240 simulation steps warmup excluded)");
+            for (int i = 0; i < 3; i++) _collections[i] = GC.CollectionCount(i);
+            _allocated = GC.GetTotalAllocatedBytes(false);
+            now = Stopwatch.GetTimestamp();
+            _measuring = true; _measureStarted = now;
         }
         else if (_measuring && _last != 0)
-            _intervals.Add(Stopwatch.GetElapsedTime(_last, now).TotalMilliseconds);
+        {
+            bool recorded = _intervalBuffer.TryRecord(Stopwatch.GetElapsedTime(_last, now).TotalMilliseconds);
+            if (!recorded || Scene.FrameCount >= (ulong)(_seconds * 60))
+            {
+                // Freeze before receipt observations, captures, result percentiles,
+                // serialization or scene cleanup. Receipt overhead is already excluded;
+                // do not subtract _receiptEndAllocationOverhead a second time.
+                _measureEnded = now;
+                _finalAllocated = GC.GetTotalAllocatedBytes(false);
+                for (int i = 0; i < 3; i++) _finalCollections[i] = GC.CollectionCount(i);
+            }
+            if (!recorded)
+            {
+                // Preserve the incomplete buffer and a failing receipt. Never grow
+                // storage, silently drop samples or accept partial timing evidence.
+                Close();
+                return;
+            }
+        }
         _last = now;
         if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * 300))
         {
@@ -631,18 +652,49 @@ sealed partial class CheckWindow : RenderWindow
             captureKillFeedLifetimeStabilized = _stableHud,
             focusTransitions = _focusTransitions, visibilityTransitions = _visibilityTransitions,
             windowStateTransitions = _windowStateTransitions,
-            wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = Stopwatch.GetElapsedTime(_measureStarted).TotalSeconds,
+            wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = _measureEnded == 0 ? 0 : Stopwatch.GetElapsedTime(_measureStarted, _measureEnded).TotalSeconds,
             simulationFrames = Scene.FrameCount, samples = _intervals.Count,
+            intervalCapacity = _intervalBuffer.Capacity, droppedIntervalRecords = _intervalBuffer.DroppedRecords,
+            timingEvidenceComplete = Complete && _measureEnded != 0 && _intervalBuffer.DroppedRecords == 0,
             // Chronological application frame returns, serialized only after Run.
             frameIntervalsMs = _intervals,
             meanCompletedFrameFps = _intervals.Count == 0 ? 0 : 1000 / _intervals.Average(),
             frameIntervalP50Ms = P(50), frameIntervalP95Ms = P(95), frameIntervalP99Ms = P(99),
             onePercentLowEstimateFps = P(99) > 0 ? 1000 / P(99) : 0,
             pointOnePercentLowEstimateFps = _intervals.Count >= 1000 && P(99.9) > 0 ? (double?)(1000 / P(99.9)) : null,
-            allocatedBytes = GC.GetTotalAllocatedBytes(false) - _allocated - _receiptEndAllocationOverhead,
-            gcCollections = Enumerable.Range(0, 3).Select(i => GC.CollectionCount(i) - _collections[i]).ToArray(),
+            allocatedBytes = _measureEnded == 0 ? 0 : _finalAllocated - _allocated,
+            gcCollections = Enumerable.Range(0, 3).Select(i => _measureEnded == 0 ? 0 : _finalCollections[i] - _collections[i]).ToArray(),
             managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
             simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
             stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, bombVisibility = _bombVisibility?.Evidence, impactPresentation = _impactPresentation?.Evidence, windowEvents = _windowEvents, complete = Complete, observedWorkload = ObservedWorkloadReceipt() };
+    }
+}
+
+// Pure bounded storage/duration policy; extracted by test_timing_samples.py.
+internal sealed class NativeTimingIntervals
+{
+    private readonly List<double> _samples;
+    internal IReadOnlyList<double> Samples => _samples;
+    internal int Capacity => _samples.Capacity;
+    internal long DroppedRecords { get; private set; }
+    internal static bool ValidSeconds(int seconds, bool capture)
+        => seconds >= 8 && seconds <= (capture ? 120 : 1804);
+    // Up to 4096 returned frames/second over the requested measured simulation
+    // duration. Faster workloads fail explicitly; 30 min uses at most ~59 MiB.
+    internal static int CapacityFor(int seconds)
+    {
+        if (!ValidSeconds(seconds, false)) throw new ArgumentOutOfRangeException(nameof(seconds));
+        return checked((seconds - 4) * 4096);
+    }
+    internal NativeTimingIntervals(int capacity) => _samples = new List<double>(capacity);
+    internal bool TryRecord(double milliseconds)
+    {
+        if (_samples.Count == _samples.Capacity)
+        {
+            DroppedRecords++;
+            return false;
+        }
+        _samples.Add(milliseconds);
+        return true;
     }
 }

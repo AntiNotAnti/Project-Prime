@@ -81,6 +81,15 @@ class AnalyzeTests(unittest.TestCase):
             with self.subTest(document=document), self.assertRaises(ValueError):
                 analyze(document)
 
+    def test_reject_failed_or_overflowed_harness(self):
+        for extra in ({"complete": False}, {"timingEvidenceComplete": False},
+                      {"droppedIntervalRecords": 1}, {"droppedIntervalRecords": -1},
+                      {"droppedIntervalRecords": True}):
+            with self.subTest(extra=extra), self.assertRaises(ValueError):
+                analyze({"samples": 2, "frameIntervalsMs": [10, 20], **extra})
+        self.assertEqual(analyze({"samples": 2, "frameIntervalsMs": [10, 20],
+                                 "timingEvidenceComplete": True, "droppedIntervalRecords": 0})["samples"], 2)
+
     def test_cli_stdout_file_and_failure(self):
         script = str(Path(__file__).with_name("analyze.py"))
         with tempfile.TemporaryDirectory() as directory:
