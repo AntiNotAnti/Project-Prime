@@ -32,7 +32,13 @@ try
     var pack = MaterialPack.Load(root);
     Check(pack.TryResolve(key, out var material) && material.Albedo?.Width == 1 && material.Normal != null
         && material.SpecularRoughness != null && material.Emissive != null, "all channels decoded");
-    Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0) == material, "shared manifest resolution");
+    var resolved = new MaterialResolver(root).Resolve("Samus", 3, 0, 0);
+    static bool SameImage(MaterialImage? a, MaterialImage? b) => a == null ? b == null
+        : b != null && a.Path == b.Path && a.Width == b.Width && a.Height == b.Height;
+    Check(resolved.Key == material.Key && SameImage(resolved.Albedo, material.Albedo)
+        && SameImage(resolved.Normal, material.Normal)
+        && SameImage(resolved.SpecularRoughness, material.SpecularRoughness)
+        && SameImage(resolved.Emissive, material.Emissive), "shared manifest resolution retains all channel paths and dimensions");
     Manifest(new MaterialPackEntry() { Key = key.Value, Normal = "missing.png" });
     pack = MaterialPack.Load(root);
     Check(pack.Issues.Count == 1 && !pack.Issues[0].Error && pack.TryResolve(key, out material) && material.Albedo == null, "optional maps fail soft");
