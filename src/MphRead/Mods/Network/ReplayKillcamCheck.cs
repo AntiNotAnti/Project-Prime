@@ -216,22 +216,55 @@ internal static class ReplayKillcamCheck
             Require(KillcamController.FinalEligible(100, 580, true, false), "Timed boundary rejected.");
             Require(!KillcamController.FinalEligible(100, 581, true, false), "Stale timed kill admitted.");
             Require(!KillcamController.FinalEligible(101, 100, true, true), "Future kill admitted.");
+            Require(FinalKillPresentation.Rate(death - 6, death, false) == 1f
+                && FinalKillPresentation.Rate(death - 5, death, false) == 0.5f
+                && FinalKillPresentation.Rate(death + 3, death, false) == 0.5f
+                && FinalKillPresentation.Rate(death + 4, death, false) == 1f
+                && FinalKillPresentation.Rate(death, death, true) == 1f,
+                "Slow-motion beat must be bounded to a recorded frame window and honor reduce-motion.");
+            Require(FinalKillPresentation.Impact(4) == FinalImpactStyle.Precision
+                && FinalKillPresentation.Impact(3) == FinalImpactStyle.Explosive
+                && FinalKillPresentation.Impact(7) == FinalImpactStyle.Electrical
+                && FinalKillPresentation.Impact(5) == FinalImpactStyle.Cryo
+                && FinalKillPresentation.Impact(6) == FinalImpactStyle.Thermal,
+                "Final kill impact styles did not map to their actual weapon identities.");
+            Require(FinalKillPresentation.ImpactStrength(death - 1, death, false) == 0f
+                && FinalKillPresentation.ImpactStrength(death, death, false) == 1f
+                && FinalKillPresentation.ImpactStrength(death + 18, death, false) == 0f
+                && FinalKillPresentation.ImpactStrength(death, death, true) == 0f
+                && FinalKillPresentation.TransitionCover(0, 300) == 1f
+                && FinalKillPresentation.TransitionCover(150, 300) == 0f
+                && FinalKillPresentation.TransitionCover(300, 300) == 1f,
+                "Presentation effects must end on time and suppress motion when requested.");
             controller.NoteKill(marker, death, context);
             Require(controller.BeginFinal(live, context, death, timedEnd: false, causalEnd: true), "Eligible final did not start.");
             for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, context);
             Require(controller.Visible && controller.Kind == KillCamKind.Final, "Final did not become visible.");
             recorder.Reset(); // the final clip was frozen before room/lobby handoff
-            Require(controller.Frame == death - 210 && controller.Progress == 0, "Final range is not 300 frames.");
-            for (int i = 0; i < 300; i++)
+            Require(controller.Frame == death - FinalKillPresentation.PreRollFrames && controller.Progress == 0,
+                "Final playback must begin at the shortened, precise pre-roll.");
+            int freezeTicks = 0, presentationTicks = 0;
+            while (controller.State != KillcamState.AwaitCompletion)
             {
                 uint before = controller.Frame;
                 controller.Update(live, context);
-                Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0, "Final captured checkpoints.");
-                Require(controller.Frame == before + 1, "Final playback must advance at 1x.");
-                Require(ReplayStateHash.Compute(controller.Replica!.Scene, controller.Frame) == hashes[controller.Frame], "Final historical frame changed after reset.");
+                presentationTicks++;
+                Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0,
+                    "Final replay allocated a seek checkpoint.");
+                Require(controller.Frame == before || controller.Frame == before + 1,
+                    "Final playback jumped historical frames instead of respecting half-speed.");
+                if (controller.Frame == before) freezeTicks++;
+                Require(ReplayStateHash.Compute(controller.Replica!.Scene, controller.Frame)
+                    == hashes[controller.Frame], "Final historical world changed during slow motion.");
+                Require(presentationTicks < 310, "Final replay overran its bounded presentation clock.");
             }
-            Require(controller.Progress == 1, "Final progress did not reach EOF.");
-            Require(controller.State == KillcamState.AwaitCompletion, "Final did not hold its immutable EOF.");
+            Require(freezeTicks is >= 8 and <= 15, "The final impact did not slow exactly the intended frames.");
+            Require(controller.FinalPresentationTicks == (int)KillcamController.FinalReplayFrames,
+                "Final replay must finish on its five-second presentation budget.");
+            Require(controller.Frame == death + FinalKillPresentation.PostRollFrames
+                && controller.Progress == 1, "Final replay did not reach its immutable post-roll EOF.");
+            Require(controller.State == KillcamState.AwaitCompletion,
+                "Final did not make room for the six-second scoreboard.");
             if (shots != null && controller.Presentation is { } final)
             { final.OnDrawFrame(); final.OnRenderFrame(); ScreenCapture.SaveWindow(final, Path.Combine(shots, "final.png")); }
             var presented = controller.Presentation!;
