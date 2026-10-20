@@ -63,8 +63,7 @@ public sealed class RmlUiRuleEditor
             case 16: match = match with { ThirdPersonCamera = !match.ThirdPersonCamera }; break;
             case 17:
                 if (!Movement.MovementModelRules.IsDefined(match.MovementModel)) return false;
-                match = match with { MovementModel = match.MovementModel == Movement.MovementModel.Native
-                    ? Movement.MovementModel.Momentum : Movement.MovementModel.Native };
+                match = match with { MovementModel = Movement.MovementModelRules.Next(match.MovementModel) };
                 break;
         }
         Draft = Draft with { Match = match, Flags = flags };
@@ -94,7 +93,8 @@ public sealed class RmlUiRuleEditor
             14 => match.ShadowFreeze,
             15 => match.OctolithAutoReset,
             16 => match.ThirdPersonCamera,
-            17 => match.MovementModel == Movement.MovementModel.Momentum,
+            17 => Movement.MovementModelRules.IsDefined(match.MovementModel)
+                && match.MovementModel != Movement.MovementModel.Native,
             _ => false
         };
     }

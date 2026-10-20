@@ -1656,6 +1656,11 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void ApplyMatchState(MatchStatePacket state, bool rotated)
         {
+            var controlRules = (MatchModifierFlags)state.RuleBits;
+            if (!Movement.MovementModelRules.ValidRules(controlRules)
+                || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules(controlRules))
+                    && (controlRules & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0)
+            { LastError = "Unsupported or conflicting movement rules."; return; }
             if (ServerSession is { Phase: not SessionPhase.Lobby } session
                 && session.MatchId == state.MatchId && session.AuthorityEpoch == state.AuthorityEpoch
                 && Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits) != session.Match.MovementModel)

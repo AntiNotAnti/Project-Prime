@@ -50,7 +50,7 @@ namespace MphRead.Mods.Network
         DisablePowerups = 8, SpawnProtection = 16, VanillaDuelResources = 32,
         InstaGib = 64, LowTier = 128, NoImperialist = 256, OctolithAutoReset = 512,
         EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192, ThirdPersonCamera = 16384,
-        MomentumMovement = 32768
+        MomentumMovement = 32768, Quake3Movement = 65536
     }
 
     public readonly record struct MatchDefinition
@@ -119,7 +119,8 @@ namespace MphRead.Mods.Network
             Fiesta ? "Fiesta" : null, OneInTheChamber && Mode != GameMode.OneInTheChamber ? "One in the Chamber" : null, InstaGib ? "Insta-Gib" : null, LowTier ? "Low Tier" : null,
             NoImperialist ? "No Imp" : null,
             BalancedMode ? "Balanced" : null, ThirdPersonCamera ? "Third person" : null,
-            MovementModel == Movement.MovementModel.Momentum ? "Momentum v1" : null }.Where(value => value != null));
+            MovementModel == Movement.MovementModel.Momentum ? "Momentum v1"
+                : MovementModel == Movement.MovementModel.Quake3 ? "Quake III v1" : null }.Where(value => value != null));
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)
             | (AffinityWeapons ? MatchModifierFlags.AffinityWeapons : 0)

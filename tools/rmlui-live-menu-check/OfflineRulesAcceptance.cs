@@ -104,13 +104,15 @@ internal static class OfflineRulesAcceptance
         Check(controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
             && Text("offline_rule13_label") == "MOVEMENT // MOMENTUM"
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && Text("offline_rule13_label") == "MOVEMENT // QUAKE III"
+            && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
             && Text("offline_rule13_label") == "MOVEMENT // CLASSIC"
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 12)
             && controller.Dispatch(RmlUiIntentKind.OfflineDamage)
             && controller.OfflineRuleInputs?.MovementModel == "Momentum"
             && services.OfflineRules?.MovementModel == "Native" && services.OfflineRulesSaveAttempts == 0,
-            "both movement cycles and unrelated draft edits stay private before Apply");
+            "the three-way movement cycle and unrelated draft edits stay private before Apply");
         Check(controller.Dispatch(RmlUiIntentKind.OfflineCancelRules)
             && services.OfflineRules?.MovementModel == "Native", "Cancel preserves authoritative saved Classic");
         controller.Dispatch(RmlUiIntentKind.OfflineOpenRules);

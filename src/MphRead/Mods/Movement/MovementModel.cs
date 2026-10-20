@@ -3,37 +3,57 @@ using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Movement;
 
-// Protocol 59 fixes Momentum's bit to the version-one profile. Changing its
-// simulation contract requires a reviewed protocol/replay compatibility change.
-public enum MovementModel : byte { Native = 0, Momentum = 1 }
+// Live protocol 60 adds Quake3; protocol 59's Momentum bit remains profile v1.
+public enum MovementModel : byte { Native = 0, Momentum = 1, Quake3 = 2 }
 
 public static class MovementModelRules
 {
-    public static bool IsDefined(MovementModel model) => model is MovementModel.Native or MovementModel.Momentum;
-
+    public const uint KnownModifierMask = 131071;
+    public static bool IsDefined(MovementModel model) => model is MovementModel.Native or MovementModel.Momentum or MovementModel.Quake3;
+    public static bool UsesMomentumSolver(MovementModel model) => model is MovementModel.Momentum or MovementModel.Quake3;
+    public static int ProfileVersion(MovementModel model) => model switch
+    {
+        MovementModel.Native => 0,
+        MovementModel.Momentum => MomentumProfileV1.MomentumProfileVersion,
+        MovementModel.Quake3 => Quake3MovementProfileV1.ProfileVersion,
+        _ => throw new ArgumentOutOfRangeException(nameof(model))
+    };
+    public static MovementModel Next(MovementModel model) => model switch
+    {
+        MovementModel.Native => MovementModel.Momentum,
+        MovementModel.Momentum => MovementModel.Quake3,
+        MovementModel.Quake3 => MovementModel.Native,
+        _ => throw new ArgumentOutOfRangeException(nameof(model))
+    };
     public static string DisplayName(MovementModel model) => model switch
     {
         MovementModel.Native => "Classic",
         MovementModel.Momentum => "Momentum",
+        MovementModel.Quake3 => "Quake III",
         _ => "Unsupported"
     };
-
     public static bool TryParse(string? value, out MovementModel model)
     {
         model = MovementModel.Native;
-        if (String.IsNullOrEmpty(value) || String.Equals(value, "Native", StringComparison.OrdinalIgnoreCase)) return true;
-        if (!String.Equals(value, "Momentum", StringComparison.OrdinalIgnoreCase)) return false;
-        model = MovementModel.Momentum;
-        return true;
+        if (String.IsNullOrEmpty(value) || String.Equals(value, "Native", StringComparison.OrdinalIgnoreCase)
+            || String.Equals(value, "Classic", StringComparison.OrdinalIgnoreCase)) return true;
+        if (String.Equals(value, "Momentum", StringComparison.OrdinalIgnoreCase)) { model = MovementModel.Momentum; return true; }
+        if (String.Equals(value, "Quake3", StringComparison.OrdinalIgnoreCase)
+            || String.Equals(value, "Quake III", StringComparison.OrdinalIgnoreCase)) { model = MovementModel.Quake3; return true; }
+        return false;
     }
-
     public static MatchModifierFlags Modifier(MovementModel model) => model switch
     {
         MovementModel.Native => MatchModifierFlags.None,
         MovementModel.Momentum => MatchModifierFlags.MomentumMovement,
+        MovementModel.Quake3 => MatchModifierFlags.Quake3Movement,
         _ => throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown movement model.")
     };
-
+    public static bool ValidRules(MatchModifierFlags rules) => ((uint)rules & ~KnownModifierMask) == 0
+        && (rules & (MatchModifierFlags.MomentumMovement | MatchModifierFlags.Quake3Movement))
+            != (MatchModifierFlags.MomentumMovement | MatchModifierFlags.Quake3Movement);
     public static MovementModel FromRules(MatchModifierFlags rules) =>
-        (rules & MatchModifierFlags.MomentumMovement) != 0 ? MovementModel.Momentum : MovementModel.Native;
+        !ValidRules(rules) ? (MovementModel)byte.MaxValue
+        : (rules & MatchModifierFlags.Quake3Movement) != 0 ? MovementModel.Quake3
+        : (rules & MatchModifierFlags.MomentumMovement) != 0 ? MovementModel.Momentum : MovementModel.Native;
 }

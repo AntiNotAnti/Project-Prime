@@ -224,9 +224,18 @@ Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
     "native 18-choice sheet presents inverse health/powerup labels correctly");
 for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
 {
-    bool before = editor.IsOn(i);
-    Check(editor.Toggle(i) && editor.IsOn(i) != before && editor.Toggle(i)
-          && editor.IsOn(i) == before, "rule toggle " + i + " is reversible");
+    if (i == 17)
+    {
+        var beforeMovement = editor.Draft.Match.MovementModel;
+        Check(editor.Toggle(i) && editor.Toggle(i) && editor.Toggle(i)
+            && editor.Draft.Match.MovementModel == beforeMovement, "movement choice completes its three-way cycle");
+    }
+    else
+    {
+        bool before = editor.IsOn(i);
+        Check(editor.Toggle(i) && editor.IsOn(i) != before && editor.Toggle(i)
+            && editor.IsOn(i) == before, "rule toggle " + i + " is reversible");
+    }
 }
 Check(!editor.Toggle(-1) && !editor.Toggle(18) && editor.Draft == sourceRules,
     "expanded rule range still rejects invalid actions without changing draft");
@@ -237,6 +246,13 @@ Check(movementEditor.Toggle(17) && movementEditor.IsOn(17) && movementEditor.Mov
     && movementEditor.Draft.Match.MovementModel == MovementModel.Momentum
     && movementEditor.Toggle(16) && movementEditor.Draft.Match.ThirdPersonCamera,
     "movement and third-person choices remain independent draft fields");
+Check(movementEditor.Toggle(17) && movementEditor.IsOn(17)
+    && movementEditor.MovementLabel == "Quake III"
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Quake3
+    && movementEditor.Validate(out _)
+    && movementEditor.Toggle(17) && !movementEditor.IsOn(17)
+    && movementEditor.MovementLabel == "Classic"
+    && movementEditor.Toggle(17), "movement editor cycles all three choices with valid Quake III draft");
 Check(movementEditor.NextMode() && movementEditor.NextFormat()
     && movementEditor.TrySelectMap("MP2 HARVESTER", out _)
     && movementEditor.TrySetLimits("8:20", "10", out _)

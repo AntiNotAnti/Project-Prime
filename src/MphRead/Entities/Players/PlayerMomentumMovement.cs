@@ -36,21 +36,25 @@ public partial class PlayerEntity
 
         float dt = (float)FrameTiming.StepSeconds;
         // The selected draft survives retirement for recording refusal only.
-        // An admitted online/offline v1 rule must never consume a retired draft.
-        MomentumPracticeTuning? practice = !IsBot && _scene.DeveloperMomentumActive
-            ? _scene.DeveloperMomentumPracticeTuning : null;
-        MomentumTuning tuning = practice?.Tuning ?? MomentumProfileV1.Tuning;
+        // An admitted rule must never consume a retired draft. Bots retain
+        // their match profile while the local human experiments privately.
+        bool developerOwns = !IsBot && _scene.DeveloperMomentumActive;
+        MomentumPracticeTuning? practice = developerOwns ? _scene.DeveloperMomentumPracticeTuning : null;
+        bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
+        MomentumTuning tuning = practice?.Tuning ?? (quake3 ? Quake3MovementProfileV1.Tuning : MomentumProfileV1.Tuning);
         MomentumContactPhase contact = MomentumProfileV1.Contact(
             Flags1.TestFlag(PlayerFlags1.Standing), Flags1.TestFlag(PlayerFlags1.StandingPrevious),
             Speed.Y, nativeJumpAccepted);
         var input = new MomentumInput(new Vector2(x, y),
             new Vector3(_field70, 0, _field74), new Vector3(-_field78, 0, -_field7C),
-            practice?.GroundSpeed ?? MomentumProfileV1.GroundSpeed, MomentumProfileV1.UsesGroundFriction(contact), dt);
+            practice?.GroundSpeed ?? (quake3 ? Quake3MovementProfileV1.GroundSpeed : MomentumProfileV1.GroundSpeed),
+            MomentumProfileV1.UsesGroundFriction(contact), dt);
         Vector3 before = Speed;
         Vector3 horizontal = new(before.X * NativeVelocityUnitsPerSecond, 0,
             before.Z * NativeVelocityUnitsPerSecond);
-        MomentumProfileResult result = practice == null ? MomentumProfileV1.Step(horizontal, input)
-            : new MomentumProfileResult(practice.Step(horizontal, input), false, false);
+        MomentumProfileResult result = practice != null
+            ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
+            : quake3 ? Quake3MovementProfileV1.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // Y is never multiplied/divided: preserve native jump/gravity bits.
         Speed = new Vector3(result.Velocity.X / NativeVelocityUnitsPerSecond, before.Y,
             result.Velocity.Z / NativeVelocityUnitsPerSecond);

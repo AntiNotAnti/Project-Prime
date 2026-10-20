@@ -12,13 +12,13 @@ internal static class PartyProtocolAcceptance
         using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("packet-registry-baseline.json")!)
         using(var baseline=JsonDocument.Parse(input))
         {
-            Check(NetConfig.ProtocolVersion==59,"actual DLL uses protocol 59");
+            Check(NetConfig.ProtocolVersion==60,"actual DLL uses protocol 60");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
             Check(Enum.GetNames<PacketType>().Length==81,"only three approved registry names added");
             Check((byte)PacketType.PartyReservationRequest==80&&(byte)PacketType.PartyReservationState==81&&(byte)PacketType.PartyReservationAction==82,"actual DLL exact new IDs");
         }
-        Check(MatchStatePacket.Size==105&&ServerStatusPacket.Size==139&&ServerStatusPacket.SizeWithFlags==148&&ServerStatusPacket.SizeWithWaitlist==151,"existing status byte sizes unchanged");
+        Check(MatchStatePacket.Size==107&&ServerStatusPacket.Size==141&&ServerStatusPacket.SizeWithFlags==150&&ServerStatusPacket.SizeWithWaitlist==153,"protocol 60 status offsets follow widened match rules");
         var packet=new ServerStatusPacket{Match=new(){MatchId=42,AuthorityEpoch=ulong.MaxValue,RoomKey=""},Protocol=57,
             MaxPlayers=8,Flags=ServerStatusPacket.FlagCanHost,Phase=SessionPhase.Lobby,LobbyEnabled=true,WaitlistSupported=true};
         var oldBytes=new byte[ServerStatusPacket.SizeWithWaitlist];packet.Write(oldBytes);
@@ -29,8 +29,10 @@ internal static class PartyProtocolAcceptance
         Check(!QueueHelloPacket.TryRead(legacyHello,out _),"literal protocol57 QueueHello refused by current live admission");
         var previousHello=Convert.FromHexString("393A040302010807060504030201");
         Check(!QueueHelloPacket.TryRead(previousHello,out _),"literal protocol58 QueueHello refused by current live admission");
-        var hello=new QueueHelloPacket(59,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
-        Check(Convert.ToHexString(h)=="393B040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2)),"protocol59 QueueHello changes only the reviewed version byte");
+        var movementV1Hello=Convert.FromHexString("393B040302010807060504030201");
+        Check(!QueueHelloPacket.TryRead(movementV1Hello,out _),"literal protocol59 QueueHello refused by current live admission");
+        var hello=new QueueHelloPacket(60,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
+        Check(Convert.ToHexString(h)=="393C040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"protocol60 QueueHello changes only the reviewed version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);
         Check(Convert.ToHexString(j)=="3B0807060504030201","legacy QueueJoin literal bytes unchanged");
         var request=new PartyReservationRequestPacket(1,PartyReservationPurpose.MemberAttach,1,uint.MaxValue,2,

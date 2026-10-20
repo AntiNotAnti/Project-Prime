@@ -66,12 +66,12 @@ public partial class Scene
     // The scene owns the selected rule before entities spawn. Online preference
     // files never select this path: the admitted server definition must agree.
     internal bool MomentumMovementActive => DeveloperMomentumActive
-        || GameState.MovementModel == MovementModel.Momentum
+        || MovementModelRules.UsesMomentumSolver(GameState.MovementModel)
         && MomentumSceneEligible()
         && (!NetSession.Active ? !Services.PlayerReplication.Active
             : NetRoomChange.GameplayReady && (NetSession.ActiveMatchDefinition?.MovementModel
                 ?? MovementModelRules.FromRules((MatchModifierFlags)(NetSession.ServerMatch?.RuleBits ?? 0)))
-                == MovementModel.Momentum);
+                == GameState.MovementModel);
 
     private bool MomentumSceneEligible() =>
         ForegroundLease.ThreadId == Environment.CurrentManagedThreadId
@@ -84,7 +84,7 @@ public partial class Scene
 
     internal bool MomentumOwnsPlayer(PlayerEntity player) => !NetHooks.IsPuppet(player)
         && (player.IsBot
-            ? GameState.MovementModel == MovementModel.Momentum && (!NetSession.Active || NetSession.IsAuthority)
+            ? MovementModelRules.UsesMomentumSolver(GameState.MovementModel) && (!NetSession.Active || NetSession.IsAuthority)
             : ReferenceEquals(Players.Main, player) && player.SlotIndex == NetHooks.LocalSlot);
 
     private bool DeveloperMomentumSceneEligible() =>
@@ -110,7 +110,7 @@ public partial class Scene
     // or maintaining a second set of UI/focus conditions in the movement code.
     private void ModNoteMomentumInputAvailability(bool blocked)
     {
-        if (!_developerMomentumRequested && GameState.MovementModel != MovementModel.Momentum) return;
+        if (!_developerMomentumRequested && !MovementModelRules.UsesMomentumSolver(GameState.MovementModel)) return;
         _developerMomentumInputBlocked = blocked;
         _ = MomentumMovementActive;
     }

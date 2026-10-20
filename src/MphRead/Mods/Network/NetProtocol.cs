@@ -458,6 +458,31 @@ namespace MphRead.Mods.Network
             }
         }
 
+        // Status discovery is connectionless, so normalize the known pre-60
+        // width here before reading tail offsets. Live gameplay still requires
+        // an exact protocol match through Hello.
+        public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
+        {
+            status = default;
+            static bool KnownSize(int length, int size) => length == size || length == size + 1
+                || length == size + 9 || length == size + 12;
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] == NetConfig.ProtocolVersion)
+                status = Read(src);
+            else
+            {
+                const int oldSize = MatchStatePacket.Protocol59Size + 2 + MaxNameBytes;
+                if (!KnownSize(src.Length, oldSize) || src[MatchStatePacket.Protocol59Size + 1] is < 29 or >= 60)
+                    return false;
+                byte[] normalized = new byte[src.Length + 2];
+                src[..MatchStatePacket.Protocol59Size].CopyTo(normalized);
+                src[MatchStatePacket.Protocol59Size..].CopyTo(normalized.AsSpan(MatchStatePacket.Size));
+                status = Read(normalized);
+            }
+            return status.MaxPlayers is >= 1 and <= 8
+                && Movement.MovementModelRules.ValidRules((MatchModifierFlags)status.Match.RuleBits)
+                && Movement.MovementModelRules.ValidRules(status.Rules);
+        }
+
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
         {
             return new ServerStatusPacket
@@ -475,7 +500,8 @@ namespace MphRead.Mods.Network
                 AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
                 WaitlistSupported = src.Length >= SizeWithWaitlist && src[SizeWithFlags] == 1,
                 WaitlistCount = src.Length >= SizeWithWaitlist ? (ushort)Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(src[(SizeWithFlags + 1)..]), (ushort)256) : (ushort)0,
-                Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..]) : MatchModifierFlags.None
+                Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..])
+                    : (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[103..])
             };
         }
     }
@@ -658,7 +684,8 @@ namespace MphRead.Mods.Network
     {
         public ulong AuthorityEpoch;
         public const int MaxNameBytes = 40;
-        public const int Size = 1 + 4 + 4 + 1 + 1 + 2 + 2 + MaxNameBytes + MaxNameBytes + 8 + 2;
+        public const int Protocol59Size = 1 + 4 + 4 + 1 + 1 + 2 + 2 + MaxNameBytes + MaxNameBytes + 8 + 2;
+        public const int Size = Protocol59Size + 2;
 
         public byte Mode;              // GameMode
         public float TimeRemaining;    // seconds left in this match
@@ -742,7 +769,7 @@ namespace MphRead.Mods.Network
         /// <summary>Protocol 28: opt-in three-second spawn protection.</summary>
         public const byte FlagSpawnProtection = 1 << 7;
 
-        public ushort RuleBits;
+        public uint RuleBits;
         public readonly bool EnhancedHunters => ((MatchModifierFlags)RuleBits & MatchModifierFlags.EnhancedHunters) != 0;
 
         public readonly bool Ending => (Flags & FlagEnding) != 0;
@@ -787,8 +814,10 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            if (!Movement.MovementModelRules.ValidRules((MatchModifierFlags)RuleBits))
+                throw new ArgumentOutOfRangeException(nameof(RuleBits), "Unsupported or conflicting movement rules.");
             BinaryPrimitives.WriteUInt64LittleEndian(dest[95..], AuthorityEpoch);
-            BinaryPrimitives.WriteUInt16LittleEndian(dest[103..], RuleBits);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[103..], RuleBits);
             dest[0] = Mode;
             BinaryPrimitives.WriteSingleLittleEndian(dest[1..], TimeRemaining);
             BinaryPrimitives.WriteSingleLittleEndian(dest[5..], TimeElapsed);
@@ -805,7 +834,7 @@ namespace MphRead.Mods.Network
             return new MatchStatePacket
             {
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[95..]),
-                RuleBits = BinaryPrimitives.ReadUInt16LittleEndian(src[103..]),
+                RuleBits = BinaryPrimitives.ReadUInt32LittleEndian(src[103..]),
                 Mode = src[0],
                 TimeRemaining = BinaryPrimitives.ReadSingleLittleEndian(src[1..]),
                 TimeElapsed = BinaryPrimitives.ReadSingleLittleEndian(src[5..]),
@@ -2540,10 +2569,11 @@ namespace MphRead.Mods.Network
         // Protocol 58 adds the authoritative third-person presentation rule.
         // Require all participants to understand the same host-enforced view
         // instead of silently mixing competitive first- and third-person clients.
-        // Protocol 59 adds the authoritative MovementModel-v1 semantic contract.
+        // Protocol 60 adds a distinct Quake3 movement bit and uint MatchState rules.
+        // Protocol 59's authoritative Momentum-v1 contract remains unchanged.
         // Native remains the default; Momentum selects the fixed v1 profile.
-        // Owner-reported movement and all existing packet widths remain unchanged.
-        public const int ProtocolVersion = 59;
+        // Owner-reported movement and intent/snapshot payloads remain unchanged.
+        public const int ProtocolVersion = 60;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
