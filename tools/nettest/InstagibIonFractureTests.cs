@@ -95,6 +95,64 @@ internal static class InstagibIonFractureTests
             == CosmeticEffectQuality.Off, "exhausted multi-player accent budget preserves core");
         Check(InstagibIonFracture.DetailQualityForRange(CosmeticEffectQuality.High,
             float.NaN, 3) == CosmeticEffectQuality.Off, "nonfinite distance safely disables accents");
+        // Insta-Gib now uses the vanilla Imperialist sniperBeam model's X/Z
+        // cross-section instead of the earlier Quake-sized 0.24-unit halo.
+        // All nine styles keep their pure animation curves, only their final
+        // world-space ribbons are scaled/clipped to the visual envelope.
+        const float oldRadius = InstagibIonFracture.OriginalRailHaloHalfWidth;
+        float compact = InstagibIonFracture.ImperialistWidthScale(
+            InstagibIonFracture.FallbackImperialistHalfWidth);
+        Check(oldRadius == 0.24f && compact > 0f && compact < 0.35f,
+            "narrow Imperialist beam is not the old oversized rail");
+        Check(MathF.Abs(oldRadius * compact
+                - InstagibIonFracture.FallbackImperialistHalfWidth) < 0.0001f,
+            "reference halo matches original Imperialist fallback width");
+        float normalWidth = InstagibIonFracture.AuthoredImperialistHalfWidth(
+            new Vector3(-0.045f, -1f, -0.037f),
+            new Vector3(0.045f, 1f, 0.037f), Vector3.One);
+        Check(MathF.Abs(normalWidth - 0.045f) < 0.000001f,
+            "canonical X/Z model radius ignores longitudinal Y extent");
+        Check(MathF.Abs(InstagibIonFracture.AuthoredImperialistHalfWidth(
+                new Vector3(-0.1f, -1f, -0.075f),
+                new Vector3(0.1f, 1f, 0.075f),
+                new Vector3(0.5f, 3f, 0.5f)) - 0.05f) < 0.000001f,
+            "original beam mesh node transverse scale is respected");
+        Check(InstagibIonFracture.AuthoredImperialistHalfWidth(
+                Vector3.Zero, new Vector3(float.NaN, 1f, 1f),
+                Vector3.One) == 0f,
+            "bad source geometry cannot enlarge the rail");
+        Check(InstagibIonFracture.ImperialistHalfWidth(0f)
+                == InstagibIonFracture.FallbackImperialistHalfWidth
+            && InstagibIonFracture.ImperialistHalfWidth(float.NaN)
+                == InstagibIonFracture.FallbackImperialistHalfWidth,
+            "missing or corrupt model uses a safe narrow fallback");
+        Check(InstagibIonFracture.ImperialistHalfWidth(1.5f)
+                == InstagibIonFracture.MaxImperialistHalfWidth
+            && InstagibIonFracture.ImperialistHalfWidth(0.0001f)
+                == InstagibIonFracture.MinImperialistHalfWidth,
+            "oversized or tiny authored models remain within competitive bounds");
+        foreach (var beam in CosmeticCatalog.BeamEffects)
+        {
+            for (int strand = 0; strand < 2; strand++)
+            {
+                float radius = InstagibIonFracture.FallbackImperialistHalfWidth;
+                float scale = InstagibIonFracture.ImperialistWidthScale(radius);
+                float halfWidth = beam.Style == BeamFxStyle.IonFracture
+                    ? 0.031f * scale : InstagibIonFracture.SignatureFor(beam.Style).Width * scale;
+                Vector3 original = beam.Style == BeamFxStyle.IonFracture
+                    ? InstagibIonFracture.HelixDisplacement(
+                        Vector3.UnitX, Vector3.UnitY, 8f, 0.36f, 0.4f, strand)
+                    : InstagibIonFracture.SignatureOffset(
+                        beam.Style, 0.48f, 0.36f, strand, Vector3.UnitX, Vector3.UnitY);
+                Vector3 fit = InstagibIonFracture.FitMotionToImperialist(
+                    original, scale, radius, halfWidth);
+                Check(fit.Length + halfWidth <= radius + 0.00001f,
+                    "all animated beam styles stay within Imperialist shaft envelope");
+                Check(InstagibIonFracture.FitMotionToImperialist(
+                    original, scale, radius, halfWidth) == fit,
+                    "size-constrained strand preserves deterministic replay presentation");
+            }
+        }
         var born = InstagibIonFracture.LookAt(0f);
         var expired = InstagibIonFracture.LookAt(1f);
         Check(born.Core == 1f && Math.Abs(born.Glow - 0.75f) < 0.001f

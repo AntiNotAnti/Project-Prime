@@ -32,7 +32,7 @@ The authenticated Hunter License HTTP function currently accepts only three fiel
 
 ## Renderer lifetime and performance
 
-`InstagibIonFracture` is scene-owned and allocated lazily only when needed. At most 24 shot trails live for 0.82 seconds. Drawing is driven by scene time and shot IDs; duplicate replicated fire records and replay seeks cannot create persistent trails. No render-time RNG, new texture, new render backend or shader is introduced. All geometry ends at the actual collision point in the existing depth-tested transparent world pass. Reduced motion preserves the core while disabling accents; reduced transparency removes atmospheric halo. Cosmetic quality Off draws the precise core only.
+`InstagibIonFracture` is scene-owned and allocated lazily only when needed. At most 24 shot trails live for 0.9 seconds. Drawing is driven by scene time and shot IDs; duplicate replicated fire records and replay seeks cannot create persistent trails. No render-time RNG, new texture, new render backend or shader is introduced. All geometry ends at the actual collision point in the existing depth-tested transparent world pass. Reduced motion preserves the core while disabling accents; reduced transparency removes atmospheric halo. Cosmetic quality Off draws the precise core only.
 
 All added ribbons use pooled `TrailMulti` vertices. The busiest effects are capped at 3 shafts plus up to 18 small accent facets/rings at High; lower quality omits detail. The scene also prioritizes recently fired nearby shots and caps fully decorated trails at 12 (High), 8 (Medium) or 4 (Low) each frame. Remaining trails keep their canonical center beam; accents degrade with view distance, never changing collision endpoints.
 
@@ -112,3 +112,39 @@ Asset-free `--instagib-ion-fracture` acceptance checks all eight non-default
 styles for bounded, deterministic, time-varying and pairwise distinct
 geometry. Actual GPU screenshots and visual legibility under OpenGL/GLES still
 require hardware acceptance.
+
+## Imperialist-sized beam adjustment (2026-10-19)
+
+The shared Insta-Gib rail is again **normal Imperialist / sniperBeam-sized**,
+rather than the much thicker Fruity-inspired 0.24-unit half-width halo.
+
+- The renderer loads only the already-present vanilla `sniperBeam` model's
+  CPU metadata and measures mesh-bearing nodes' transverse X/Z half-widths.
+  The normal Imperialist's **Y-axis length scale** is ignored, since the
+  original beam uses `Scale = (1, shotLength, 1)`.
+- The measured radius drives a single cosmetic width factor, replacing the
+  0.24-unit maximum rail halo with the modeled cross-section. Assets with
+  invalid, tiny or unexpectedly large bounds use the safe 0.055 fallback
+  or stay within the 0.018..0.075 half-width guardrails. This measurement
+  does not allocate, upload or take ownership of a second texture.
+- The same factor narrows the hot core, colored band, outer glow, original
+  Ion Fracture helix, all eight other textured style signatures and the
+  short traveling geometry/echo shafts. Transverse animated filaments are
+  also limited to the canonical rail's width budget.
+- **Nothing is removed:** each of the nine patterns, color choices, movement
+  timing, translucent materials, impact rings, surface sparks and player hit
+  flashes still operates. Brief *impact* bursts deliberately keep their old
+  sizes so a hit remains visible; these are not the shot beam's diameter.
+- Multiplayer shot IDs, damage, hit registration, collision endpoint,
+  physics, audio, scene ownership, replay and palette wire encoding remain
+  untouched. Existing `TrailMulti` OpenGL and fallback rendering both
+  use the reduced widths, with reduced-motion and reduced-transparency
+  behavior preserved.
+
+`--instagib-ion-fracture` covers the measured width math, bounds safety,
+normal/fallback radius ratios and every style's bounded animated ribbon.
+The asset-free test cannot confirm the final in-game pixel footprint because
+that depends on each player's locally configured original game assets.
+Compare actual Imperialist vs Insta-Gib frame captures (first person,
+third person, near walls and 8-player combat) before declaring visual
+acceptance.
