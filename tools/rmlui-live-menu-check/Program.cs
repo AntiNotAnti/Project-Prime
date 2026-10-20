@@ -600,6 +600,28 @@ Check(offlinePager.OpenArena() && !offlinePager.SearchArena(new string('x',81))
     && !offlinePager.SelectArena(-1) && offlinePager.CloseArena(),
     "invalid search length and forged map slot do not change the offline request");
 
+Check(offlinePager.Current.Character == OfflineCharacterMode.Native && offlinePager.CharacterName == "NATIVE",
+    "existing source-linked offline draft begins with Native mechanics");
+Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.TrooperWallClingPractice
+    && offlinePager.Valid && offlinePager.CharacterName == "TROOPER WALL-CLING",
+    "first mechanics cycle preserves explicit wall-cling practice");
+var capturedWall = offlinePager.Current;
+Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.TrooperScoutDronePractice
+    && offlinePager.Valid && offlinePager.Current.Hunter == Hunter.Weavel && offlinePager.Current.Mode == GameMode.Battle
+    && offlinePager.Current.Bots == 0 && offlinePager.CharacterName == "TROOPER SCOUT DRONE",
+    "second mechanics cycle selects explicit valid zero-bot Scout Drone practice");
+var capturedDrone = offlinePager.Current;
+Check(offlinePager.CharacterNotice.Contains("Native fallback models", StringComparison.Ordinal)
+    && offlinePager.CharacterNotice.Contains("No laser, blaster or replays", StringComparison.Ordinal),
+    "drone notice keeps current native fallback and missing-feature scope explicit");
+Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.Native
+    && offlinePager.CharacterNotice == "" && capturedWall.Character == OfflineCharacterMode.TrooperWallClingPractice
+    && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice,
+    "third cycle restores Native while both earlier immutable captures retain their identities");
+Check(new RmlUiOfflineDraft(new[] { "Arena 00" }, Hunter.Weavel, 0, 0, 0).Current.Character == OfflineCharacterMode.Native
+    && !(capturedDrone with { Character = (OfflineCharacterMode)77 }).ValidateForm(new[] { capturedDrone.RoomKey }),
+    "fresh drafts never inherit mechanics and unknown values remain refused");
+
 services.OfflineValidationPending =
     new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)

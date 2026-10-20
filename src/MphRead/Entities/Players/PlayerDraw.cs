@@ -254,7 +254,11 @@ namespace MphRead.Entities
                     {
                         PaletteOverride = Metadata.RedPalette;
                     }
-                    if (Hunter == Hunter.Kanden)
+                    if (ScoutDroneEnabled)
+                    {
+                        DrawScoutDrone(brightSkin, outlineColor, drawPosition, drawFacing);
+                    }
+                    else if (Hunter == Hunter.Kanden)
                     {
                         specializedAltSample |= DrawKandenAlt(brightSkin, outlineColor, drawPosition);
                     }

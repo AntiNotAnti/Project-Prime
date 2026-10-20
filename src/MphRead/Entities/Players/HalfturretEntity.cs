@@ -255,7 +255,7 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                if (_target != null)
+                if (_target != null && !Owner.ScoutDroneEnabled)
                 {
                     Vector3 muzzlePos = Position.AddY(0.4f);
                     int encounter = _scene.GameState.EncounterState[Owner.SlotIndex];

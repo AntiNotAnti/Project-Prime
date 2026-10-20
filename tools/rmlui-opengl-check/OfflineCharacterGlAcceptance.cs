@@ -67,33 +67,63 @@ internal static class OfflineCharacterGlAcceptance
             &&request.Character==OfflineCharacterMode.TrooperWallClingPractice&&request.Hunter==Hunter.Weavel
             &&request.Mode==GameMode.Battle&&request.Bots==0,"actual controller validation/completion delivers the captured explicit practice request");
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
+        Check(Label("offline_character").Contains("TROOPER SCOUT DRONE",StringComparison.Ordinal)
+            &&controller.Tick().Bindings["offline_hunter_value"].Text=="WEAVEL"
+            &&controller.Tick().Bindings["offline_bots_value"].Text=="0 BOTS"
+            &&controller.Tick().Bindings["offline_mode_value"].Text=="Battle","second real click selects valid explicit drone practice");
+        Check(Label("offline_start")=="START DRONE PRACTICE"
+            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("Native fallback models",StringComparison.Ordinal)
+            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("No laser, blaster or replays",StringComparison.Ordinal),
+            "actual drone label and notice accurately scope its native fallbacks and missing abilities");
+        Focus("offline_start");
+        Check(NativeSemanticReadback.Read(host,offline).ContainsText("No laser, blaster or replays"),
+            "actual native DOM exposes the drone practice scope");
+        services.Pending=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch);
+        Check(controller.Busy&&services.Validations==2&&services.Launches==1
+            &&services.Captured is {Character:OfflineCharacterMode.TrooperScoutDronePractice,Hunter:Hunter.Weavel,Mode:GameMode.Battle,Bots:0},
+            "async map validation captures the exact immutable drone request before launch");
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,16),"busy controller cannot replace its captured drone mechanics");
+        services.Pending.SetResult("");Settle(200);services.Pending=null;
+        Check(services.Validations==2&&services.Launches==2
+            &&services.Captured is {Character:OfflineCharacterMode.TrooperScoutDronePractice,Hunter:Hunter.Weavel,Mode:GameMode.Battle,Bots:0},
+            "validation completion delivers exactly one captured drone request to existing launch owner");
+        Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         Check(Label("offline_character").Contains("NATIVE",StringComparison.Ordinal)
-            &&controller.Tick().Bindings["offline_character_notice"].Text=="","second real click returns to Native");
+            &&controller.Tick().Bindings["offline_character_notice"].Text==""
+            &&services.Captured?.Character==OfflineCharacterMode.TrooperScoutDronePractice,
+            "third real click returns to Native without mutating the delivered drone capture");
         Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
 
-        foreach(var conflict in new[]{
-            new RmlUiOfflineRules("7","7:00","3:00","medium",1<<10),
-            new RmlUiOfflineRules("7","7:00","3:00","medium",0){RiftlineM7Available=true},
-            new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Momentum"},
-            new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Quake3"},
-            new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Traversal"},
-            new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="UnknownFixture"}})
+        foreach(var mechanics in new[]{OfflineCharacterMode.TrooperWallClingPractice,OfflineCharacterMode.TrooperScoutDronePractice})
         {
-            services.Rules=conflict;int validations=services.Validations,launches=services.Launches;
+            Check(Label("offline_character").Contains(mechanics==OfflineCharacterMode.TrooperWallClingPractice?"TROOPER WALL-CLING":"TROOPER SCOUT DRONE",StringComparison.Ordinal),
+                "conflict fixtures exercise each actual selected practice state");
+            foreach(var conflict in new[]{
+                new RmlUiOfflineRules("7","7:00","3:00","medium",1<<10),
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){RiftlineM7Available=true},
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Momentum"},
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Quake3"},
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Traversal"},
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="UnknownFixture"}})
+            {
+                services.Rules=conflict;int validations=services.Validations,launches=services.Launches;
+                Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch,expected:false);
+                Check(services.Validations==validations&&services.Launches==launches,"conflicting current rule snapshot refuses before async map validation or launch service");
+                string error=controller.Tick().Bindings["offline_error"].Text;
+                string expectedReason=conflict.MovementModel=="UnknownFixture"
+                    ? "MovementModel must be Native, Momentum or Quake3." : "native movement";
+                Check(error.Contains(expectedReason,StringComparison.OrdinalIgnoreCase),"refusal provides the specific policy or unknown-model parse reason");
+                Focus("offline_start");
+                Check(NativeSemanticReadback.Read(host,offline).ContainsText(expectedReason),"actual native page exposes the same refusal text");
+            }
+            services.Rules=null;
             Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch,expected:false);
-            Check(services.Validations==validations&&services.Launches==launches,"conflicting current rule snapshot refuses before async map validation or launch service");
-            string error=controller.Tick().Bindings["offline_error"].Text;
-            string expectedReason=conflict.MovementModel=="UnknownFixture"
-                ? "MovementModel must be Native, Momentum or Quake3." : "native movement";
-            Check(error.Contains(expectedReason,StringComparison.OrdinalIgnoreCase),"refusal provides the specific policy or unknown-model parse reason");
-            Focus("offline_start");
-            Check(NativeSemanticReadback.Read(host,offline).ContainsText(expectedReason),"actual native page exposes the same refusal text");
+            Check(services.Validations==2&&services.Launches==2
+                &&controller.Tick().Bindings["offline_error"].Text.Contains("REOPEN OFFLINE SETUP",StringComparison.Ordinal),"missing current rule snapshot refuses actionably before a job");
+            services.Rules=new("7","7:00","3:00","medium",0);
+            if(mechanics==OfflineCharacterMode.TrooperWallClingPractice)Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         }
-        services.Rules=null;
-        Click("offline_start",RmlUiIntentKind.OfflineLaunchMatch,expected:false);
-        Check(services.Validations==1&&services.Launches==1
-            &&controller.Tick().Bindings["offline_error"].Text.Contains("REOPEN OFFLINE SETUP",StringComparison.Ordinal),"missing current rule snapshot refuses actionably before a job");
-        services.Rules=new("7","7:00","3:00","medium",0);
 
         // Same authored options dialog:13 has an ID; native Tab moves to the
         // following no-ID14/15 buttons. No markup IDs or production hooks added.
@@ -116,9 +146,9 @@ internal static class OfflineCharacterGlAcceptance
         Settle(150);var closing=layout.Document;
         Click("offline_back",RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Home);
         Check(!layout.HandleIntent(new(RmlUiIntentKind.OfflineChoice,16,closing,ulong.MaxValue-1),out var retired)||retired==default,"retired Offline document cannot mutate the live selection");
-        Check(services.Validations==1&&services.Launches==1&&services.Saves==0
+        Check(services.Validations==2&&services.Launches==2&&services.Saves==0
             &&ReferenceEquals(GameState.Current.Owner,priorOwner)
-            &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only one permitted in-memory launch callback");
+            &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only two distinct permitted in-memory practice launch callbacks");
         Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"native authored Offline acceptance finishes GL-clean");
         Console.WriteLine($"OFFLINE CHARACTER NATIVE GL PASS {checks} checks; {translated} translated intents; actual framebuffer {width}x{height}; synthetic services, no media/captures/Scene/prefs writes");
         return 0;
@@ -168,12 +198,13 @@ internal static class OfflineCharacterGlAcceptance
         public RmlUiOfflineRules? Rules=new("7","7:00","3:00","medium",0);
         public int Validations,Launches,Saves;
         public RmlUiOfflineRequest? Captured;
+        public TaskCompletionSource<string>? Pending;
         public HubSnapshot Hub()=>new("SYNTHETIC",Hunter.Samus,Hunter.Samus,0,true,"NO GAME FILES OR SCENE");
         public string BuildVersion()=>"offline-character-native-fixture";
         public RmlUiLobbyView Lobby()=>new(false,false,false,false,false,false,false,"","","","","",8,Array.Empty<RmlUiLobbyPlayer>());
         public IReadOnlyList<string> BuiltInArenaKeys()=>new[]{"SYNTHETIC ARENA"};
         public RmlUiOfflineRules? ReadOfflineRules()=>Rules;
-        public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request,CancellationToken token){Validations++;Captured=request;return Task.FromResult("");}
+        public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request,CancellationToken token){Validations++;Captured=request;return Pending?.Task.WaitAsync(token)??Task.FromResult("");}
         public bool LaunchOffline(RmlUiOfflineRequest request){Launches++;Captured=request;return false;}
         public bool SaveOfflineRules(RmlUiOfflineRules expected,RmlUiOfflineRules next,out string error){Saves++;error="NO PERSISTENCE IN FIXTURE";return false;}
         public Task<RmlUiDirectory> Browse(CancellationToken token)=>Task.FromResult(new RmlUiDirectory(false,"",Array.Empty<RmlUiServerCandidate>()));

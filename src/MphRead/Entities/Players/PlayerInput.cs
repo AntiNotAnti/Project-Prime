@@ -109,6 +109,7 @@ namespace MphRead.Entities
                 ModResetAltSwipeDrive();
                 ModStopNativeTouch();
                 ProcessBiped();
+                ScoutDroneStep();
             }
         }
 
@@ -1717,6 +1718,7 @@ namespace MphRead.Entities
 
         private void ProcessAlt()
         {
+            bool droneWasAlt = ScoutDroneEnabled && IsAltForm;
             Vector3 speedDelta = Vector3.Zero;
             int animId = -1;
             AnimFlags animFlags = AnimFlags.None;
@@ -2212,7 +2214,7 @@ namespace MphRead.Entities
                             _soundSource.PlaySfx(SfxId.TRACE_ALT_ATTACK);
                         }
                     }
-                    if (_abilities.TestFlag(AbilityFlags.WeavelAltAttack))
+                    if (_abilities.TestFlag(AbilityFlags.WeavelAltAttack) && !ScoutDroneEnabled)
                     {
                         if (Flags2.TestFlag(PlayerFlags2.AltAttack) || _altAttackCooldown > 0)
                         {
@@ -2499,6 +2501,7 @@ namespace MphRead.Entities
                     }
                 }
             }
+            ScoutDroneStep(mergedThisStep: droneWasAlt && !IsAltForm);
             ProcessMovement();
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             UpdateCamera();
@@ -2881,7 +2884,8 @@ namespace MphRead.Entities
             }
             if (_health > 0)
             {
-                if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld)
+                if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld
+                    && !ScoutDroneHover())
                 {
                     if (Flags2.TestFlag(PlayerFlags2.GravityOverride))
                     {
@@ -2889,7 +2893,11 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        if (IsAltForm || Flags2.TestFlag(PlayerFlags2.AltFormGravity))
+                        if (ScoutDroneEnabled && _dronePadFall && Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+                        {
+                            _gravity = Fixed.ToFloat(Values.BipedGravity);
+                        }
+                        else if (IsAltForm || Flags2.TestFlag(PlayerFlags2.AltFormGravity))
                         {
                             if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness == 0 && Values.AltFormStrafe != 0)
                             {

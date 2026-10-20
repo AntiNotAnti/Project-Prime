@@ -81,6 +81,31 @@ Check(!practiceRequest.MatchesPlan(practicePlan with { IsPlaytest = false }, 2)
 Check(!resume.MatchesPlan(plan with { OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice }, 0)
     && !ship.MatchesPlan(shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperWallClingPractice }, 0),
     "Adventure and Ship handoffs cannot carry offline character mechanics");
+var drone = practice with { Character = OfflineCharacterMode.TrooperScoutDronePractice };
+var droneRequest = RmlUiAndroidLocalLaunchRequest.ForOffline(drone);
+var dronePlan = practicePlan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice };
+Check(droneRequest.MatchesPlan(dronePlan, 2), "Android handoff retains distinct explicit Scout Drone practice");
+Check(!droneRequest.MatchesPlan(practicePlan, 2) && !practiceRequest.MatchesPlan(dronePlan, 2)
+    && !offlineRequest.MatchesPlan(dronePlan, 2), "wall-cling, drone and native captures cannot substitute each other's mechanics");
+Check(!droneRequest.MatchesPlan(dronePlan with { IsPlaytest = false }, 2)
+    && !droneRequest.MatchesPlan(dronePlan, 1), "drone admission retains exact playtest and suit witnesses");
+foreach (var bad in new[] { dronePlan with { OfflineCharacter = (OfflineCharacterMode)77 },
+    dronePlan with { Hunter = Hunter.Samus }, dronePlan with { Bots = 1 }, dronePlan with { Mode = GameMode.BattleTeams },
+    dronePlan with { RoomKey = "OTHER" }, dronePlan with { Kind = LaunchKind.Adventure } })
+    Check(!droneRequest.MatchesPlan(bad, 2), "changed drone request identity cannot cross the Android handoff");
+var unknownRequest = RmlUiAndroidLocalLaunchRequest.ForOffline(drone with { Character = (OfflineCharacterMode)77 });
+Check(!unknownRequest.MatchesPlan(dronePlan with { OfflineCharacter = (OfflineCharacterMode)77 }, 2),
+    "even matching unknown enum values never admit private mechanics");
+Check(!resume.MatchesPlan(plan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice }, 0)
+    && !ship.MatchesPlan(shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice }, 0),
+    "Adventure and Ship cannot carry drone mechanics");
+var droneAdmission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
+Check(droneAdmission.TryRequest(droneRequest, out var droneCapture)
+    && !droneAdmission.TryAccept(droneCapture with { Request = practiceRequest }, practicePlan)
+    && droneAdmission.TryAccept(droneCapture, dronePlan), "pending Android owner cannot replace captured drone with wall-cling");
+Check(droneAdmission.TryTakePlan(() => true, out var deliveredDrone, out var deliveredRequest)
+    && deliveredDrone.Equals(dronePlan) && deliveredRequest == droneRequest
+    && !droneAdmission.TryTakePlan(() => true, out _, out _), "exact detached drone plan/request retires atomically once");
 var admission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
 Check(admission.TryRequest(resume, out var captured) && !admission.TryRequest(ship, out _), "one request can await existing UI owner");
 Check(!admission.TryAccept(captured with { Request = ship }, shipPlan), "same generation cannot substitute a different captured request");

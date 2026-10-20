@@ -2061,8 +2061,12 @@ public sealed class RmlUiMenuController : IDisposable
         Text("offline_suit_value", _offline?.SuitName ?? "");
         Text("offline_character_value", _offline?.CharacterName ?? "");
         Text("offline_character_notice", _offline?.CharacterNotice ?? "");
-        Text("offline_start_label", _offline?.Current.Character == OfflineCharacterMode.TrooperWallClingPractice
-            ? "START WALL-CLING PRACTICE" : "INITIATE BOT SIMULATION");
+        Text("offline_start_label", _offline?.Current.Character switch
+        {
+            OfflineCharacterMode.TrooperWallClingPractice => "START WALL-CLING PRACTICE",
+            OfflineCharacterMode.TrooperScoutDronePractice => "START DRONE PRACTICE",
+            _ => "INITIATE BOT SIMULATION"
+        });
         Text("offline_summary", _offline == null ? "" :
             _offline.Mode + " // " + _offline.Bots + " // " + _offline.Difficulty);
         Text("offline_error", _offline == null ? "" : _status);

@@ -884,6 +884,7 @@ namespace MphRead.Entities
             if ((IsAltForm || IsMorphing) && _frozenTimer == 0)
             {
                 UpdateAnimFrames(_altModel);
+                if (ScoutDroneEnabled && _droneModel != null) UpdateAnimFrames(_droneModel);
                 if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
                     && Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack)
                     && BalancedHunterAbilityRules.ExtraSpireAttackAnimationFrame(_scene.FrameCount))
@@ -1359,6 +1360,7 @@ namespace MphRead.Entities
 
         public void ActivateJumpPad(JumpPadEntity jumpPad, Vector3 vector, ushort lockTime)
         {
+            _dronePadFall = false;
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             // Only the authority authors the sequence during a live session.
             // Offline play still advances it so map/network harnesses can inspect
@@ -2211,10 +2213,16 @@ namespace MphRead.Entities
             EquipInfo.ChargeLevel = 0;
             SetBipedAnimation(PlayerAnimation.Morph, AnimFlags.NoLoop);
             PlayHunterSfx(HunterSfx.Morph);
+            if (ScoutDroneEnabled)
+            {
+                Flags1 &= ~PlayerFlags1.Morphing;
+                UpdateForm(altForm: true);
+            }
         }
 
         public void ExitAltForm()
         {
+            ScoutDroneMerge();
             NetFireEvents.RetireTurret(this);
             _modFormStartedFrame = Mods.Network.NetSession.NetFrame;
             if (Flags2.TestFlag(PlayerFlags2.Halfturret))
@@ -2626,6 +2634,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            ModRetireCharacterGameplay();
             RetirePauseMapDetail();
             _soundSource.StopAllSfx();
             if (_furlEffect != null)
