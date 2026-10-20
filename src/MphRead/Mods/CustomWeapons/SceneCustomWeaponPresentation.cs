@@ -55,7 +55,6 @@ public partial class Scene
     {
         if(NetSession.IsAuthority||Services.IsReplica||DemoPlayback.IsActive)
         {
-            ClearCustomMenuSelection();
             if(_customHudStates!=null||_customFeedback!=null)ReleaseCustomWeaponPresentation();
             return;
         }

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using MphRead.Mods.Multiplayer;
-using MphRead.Mods.CustomWeapons;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Core;
@@ -13,8 +12,7 @@ public enum InGameAction
     Resume, Fullscreen, Settings, Replay, Vote, Spectate, Rejoin, Recorder,
     ReturnLobby, Leave, Quit, Confirm, Cancel, MapNext, VoteSubmit, VoteYes, VoteNo,
     Bots, BotSelect, BotHunter, BotSuit, BotSkill, BotTeam, BotHandicap, BotRemove, BotAdd, BotApply,
-    Journal, JournalMap, JournalScans, JournalCategory, JournalPrevious, JournalNext, JournalBack,
-    CustomEquip, CustomReturnNative
+    Journal, JournalMap, JournalScans, JournalCategory, JournalPrevious, JournalNext, JournalBack
 }
 
 public enum InGamePage { Pause, MapVote, Confirmation, Bots }
@@ -32,14 +30,6 @@ public sealed record InGameFacts(bool Live, bool Replay, bool Spectating, bool C
     public bool CanManageBots { get; init; }
     public bool CanAddBot { get; init; }
     public string CommandStatus { get; init; } = "";
-    public bool CustomAvailable { get; init; }
-    public bool CanEquipCustom { get; init; }
-    public bool CanReturnNative { get; init; }
-    public bool CustomNativePending { get; init; }
-    public string CustomBindingHelp { get; init; } = "";
-    // Opaque immutable fixed-step publication. It participates in revision
-    // equality without exposing mutable actors or inventory to the view.
-    public object? CustomSelectionWitness { get; init; }
 }
 public sealed record InGameSnapshot(Guid Lifetime, long Revision, InGamePage Page,
     InGameFacts Facts, ImmutableArray<string> Maps, int MapIndex, InGameAction? Confirmation,
@@ -63,13 +53,10 @@ public interface IInGameBackend
 /// <summary>Menu decisions only. Existing match, vote, recorder and session services own gameplay.</summary>
 public sealed class InGameController : IDisposable
 {
-    private sealed class Backend(Scene? scene = null) : IInGameBackend
+    private sealed class Backend : IInGameBackend
     {
-        private CustomWeaponSelectionSnapshot? _customSelection;
         public InGameFacts Capture()
         {
-            _customSelection = scene?.CustomWeaponMenuSelection;
-            var custom = _customSelection;
             var roster = NetSession.LobbyRoster();
             bool controls = NetSession.Active && !DemoPlayback.IsActive && NetSession.LocalIsLobbyOwner
                 && !NetSession.LobbyCommandPending && (NetSession.IsInLobby || NetSession.IsPlaying);
@@ -88,12 +75,6 @@ public sealed class InGameController : IDisposable
                 CanAddBot = controls && roster.Count < (NetSession.ServerSession?.MaxPlayers ?? 8),
                 Teams = Enumerable.Range(0, layout.TeamCount).Select(team => new InGameTeam((sbyte)team,
                     Enumerable.Range(0, roster.Count).Count(i => roster.Teams[i] == team), layout.Capacity(team))).ToImmutableArray(),
-                CustomAvailable = custom?.Available == true,
-                CanEquipCustom = custom?.CanEquip == true,
-                CanReturnNative = custom?.CanReturnNative == true,
-                CustomNativePending = custom?.NativePending == true,
-                CustomBindingHelp = custom?.Available == true ? CustomWeaponBindingHelp() : "",
-                CustomSelectionWitness = custom,
                 CommandStatus = NetSession.LobbyMessage
             };
         }
@@ -102,10 +83,6 @@ public sealed class InGameController : IDisposable
         {
             switch (action)
             {
-                case InGameAction.CustomEquip:
-                case InGameAction.CustomReturnNative:
-                    return scene?.RequestCustomWeaponMenuSelection(_customSelection, action == InGameAction.CustomEquip) == true
-                        ? "" : "The loadout changed. Reopen the match menu and try again.";
                 case InGameAction.Fullscreen: PauseMenu.RequestFullscreenToggle(); break;
                 case InGameAction.Spectate: SpectatorMode.Start(); break;
                 case InGameAction.Rejoin: SpectatorMode.Rejoin(); break;
@@ -148,13 +125,7 @@ public sealed class InGameController : IDisposable
     private InGameSnapshot _state;
     private bool _dispatching;
     public InGameController() : this(new Backend()) { }
-    public static IInGameBackend CreateEngineBackend(Scene? scene = null) => new Backend(scene);
-    internal static string CustomWeaponBindingHelp()
-    {
-        var controls = InputSettings.Current;
-        return $"Keyboard/mouse: custom slot {InputSettings.Describe(controls.CustomWeapon)}, reload {InputSettings.Describe(controls.CustomReload)}, optic {InputSettings.Describe(controls.CustomOptic)}. "
-            + "Use these menu buttons when selection is unbound. Bind keyboard/mouse or gamepad in Settings; enable custom touch buttons in Touch controls. Native weapon selection returns to native.";
-    }
+    public static IInGameBackend CreateEngineBackend() => new Backend();
     public InGameController(IInGameBackend backend)
     {
         _backend = backend ?? throw new ArgumentNullException(nameof(backend));
@@ -181,9 +152,6 @@ public sealed class InGameController : IDisposable
         {
             InGameFacts facts = _backend.Capture();
             InGameAction action = intent.Action;
-            if (action is InGameAction.CustomEquip or InGameAction.CustomReturnNative
-                && !ReferenceEquals(facts.CustomSelectionWitness, _state.Facts.CustomSelectionWitness))
-                return Reject("The loadout changed. Reopen the match menu and try again.");
             if (_state.Page == InGamePage.Confirmation)
             {
                 if (action == InGameAction.Cancel) { Set(_state with { Page = _state.ReturnPage, Confirmation = null, Error = "" }); return new(true); }
@@ -196,10 +164,6 @@ public sealed class InGameController : IDisposable
             if (action is InGameAction.Spectate && (facts.Replay || facts.Spectating || !facts.CanSpectate))
                 return Reject("Spectating is unavailable in this match.");
             if (action is InGameAction.Rejoin && (facts.Replay || !facts.Spectating)) return Reject("You are not a match spectator.");
-            if (action is InGameAction.CustomEquip or InGameAction.CustomReturnNative
-                && (_state.Page != InGamePage.Pause || facts.Replay || !facts.CustomAvailable
-                    || !(action == InGameAction.CustomEquip ? facts.CanEquipCustom : facts.CanReturnNative)))
-                return Reject("The loadout changed. Reopen the match menu and try again.");
             if (action is InGameAction.Recorder && !facts.Live) return Reject("Recording requires a live network match.");
             if (action is InGameAction.Replay && !facts.Replay) return Reject("No replay is playing.");
             if (action is InGameAction.Vote or InGameAction.VoteSubmit && (!facts.Live || facts.VoteUnavailable.Length > 0))

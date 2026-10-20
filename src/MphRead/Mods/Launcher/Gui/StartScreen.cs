@@ -693,18 +693,8 @@ namespace MphRead.Mods.Launcher.Gui
             // Everything on this stack is read over the match: the menu, the
             // settings it opens and the map vote all ask for the scrim alone.
             ShowGround(false);
-            Scene? owner = players?.OwningScene;
-            var customSelection = owner?.CustomWeaponMenuSelection;
             var view = new PauseMenuView(offerWindowMode: false,
-                campaignAvailable: CampaignJournalView.Available(players), customSelection: customSelection);
-            void SelectCustom(bool custom)
-            {
-                if (owner?.RequestCustomWeaponMenuSelection(customSelection, custom) == true)
-                { Pop(); onResume(); }
-                else view.ReportCustomSelectionRefused();
-            }
-            view.CustomEquipRequested += (_, _) => SelectCustom(true);
-            view.CustomReturnNativeRequested += (_, _) => SelectCustom(false);
+                campaignAvailable: CampaignJournalView.Available(players));
             view.Resumed += (_, _) => { Pop(); onResume(); };
             view.LeaveRequested += (_, _) => { Pop(); onLeave(); };
             view.QuitRequested += (_, _) => { Pop(); onQuit(); };

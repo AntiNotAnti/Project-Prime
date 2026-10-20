@@ -26,7 +26,6 @@ internal sealed class CustomWeaponInputController
     private bool _canonicalSelected,_available,_uncertain,_holdWasDown,_holdMode,_holdSelected,_holdSampled,_holdReconcile,_ambiguousEquip;
     private byte _canonicalOptic,_preferredOptic=1;
     internal bool Selected=>_selection?.Custom??_canonicalSelected;
-    internal bool NativeSelectionPending=>_selection is { Custom:false };
     internal bool SuppressNative=>_canonicalSelected||_selection.HasValue||_nativeFence!=0||_uncertain;
     internal byte PresentationOptic=>Selected?(_optic?.Value??_canonicalOptic):(byte)0;
     internal bool Available=>_available;

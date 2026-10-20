@@ -51,7 +51,7 @@ public sealed class InGamePagePresenter : IDisposable
             _journal.Open();
             return true;
         }
-        if (action > InGameAction.Journal && action is not (InGameAction.CustomEquip or InGameAction.CustomReturnNative)) return false;
+        if (action > InGameAction.Journal) return false;
         bool confirmation = (action is InGameAction.Confirm or InGameAction.Cancel) && _confirm != default;
         if (intent.Document != (confirmation ? _confirm : _page)) return false;
         InGameResult result = _controller.Dispatch(_controller.Intent(action));
@@ -107,13 +107,6 @@ public sealed class InGamePagePresenter : IDisposable
         InGamePage shown = state.Page == InGamePage.Confirmation ? state.ReturnPage : state.Page;
         Bool("visible:ingame_pause", shown == InGamePage.Pause);
         Bool("visible:ingame_journal", _journal != null);
-        Bool("visible:ingame_custom_equip", state.Facts.CustomAvailable);
-        Bool("visible:ingame_custom_native", state.Facts.CustomAvailable);
-        Bool("visible:ingame_custom_help", state.Facts.CustomAvailable);
-        Enabled("ingame_custom_equip", state.Facts.CanEquipCustom);
-        Enabled("ingame_custom_native", state.Facts.CanReturnNative);
-        Text("ingame_custom_help", (state.Facts.CustomNativePending ? "Return to native pending. " : "")
-            + state.Facts.CustomBindingHelp);
         Bool("visible:ingame_fullscreen", _offerFullscreen);
         Bool("visible:ingame_bots_panel", shown == InGamePage.Bots);
         Enabled("ingame_replay", state.Facts.Replay);

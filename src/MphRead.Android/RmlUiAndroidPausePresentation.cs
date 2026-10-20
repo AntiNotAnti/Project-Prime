@@ -108,7 +108,7 @@ internal sealed class RmlUiAndroidPausePresentation : IRmlUiAndroidPauseSurface
 
     private sealed class Backend(RmlUiAndroidPausePresentation owner) : IInGameBackend
     {
-        private readonly IInGameBackend _engine = InGameController.CreateEngineBackend(owner._scene);
+        private readonly IInGameBackend _engine = InGameController.CreateEngineBackend();
         public InGameFacts Capture() => _engine.Capture();
         public ImmutableArray<string> Maps() => _engine.Maps();
         public string EditBot(InGameAction action, InGameBot bot) => _engine.EditBot(action, bot);
