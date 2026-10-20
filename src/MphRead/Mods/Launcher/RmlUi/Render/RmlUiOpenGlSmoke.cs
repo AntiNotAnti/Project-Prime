@@ -747,7 +747,8 @@ internal static partial class RmlUiOpenGlSmoke
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Social page is not packaged.", path);
         _launcherPages?.Suspend();
-        var next = new NativeSocialFriendsPage(host, _pages, new CurrentSocialFriendsService(), _presence);
+        var next = new NativeSocialFriendsPage(host, _pages, new CurrentSocialFriendsService(), _presence,
+            partyView: _services is { } services ? services.PartyHome : null);
         try
         {
             next.Open();

@@ -10,7 +10,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 
 internal sealed class NativeFullSettingsPage : IDisposable
 {
-    private const int Slots=180;
+    internal const int Slots=96;
+    internal static void RequireRowCapacity(int count)
+    {
+        if(count>Slots)throw new InvalidOperationException($"Native Settings form has {count} rows; authored capacity is {Slots}. Expand the authored slots before adding this form.");
+    }
     private readonly RmlUiHost _host;
     private readonly RmlUiPageManager _pages;
     private readonly NativeFullSettingsController _controller;
@@ -197,6 +201,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         if(foreground&&!_fieldsDirty&&!_controller.Capturing&&_controller.Confirmation.Length==0&&!_controller.ConfirmingVideo)Capture();
         if(_pendingFocus!=null&&!_fieldsDirty&&foreground&&_host.FocusDocument(_document,_pendingFocus))_pendingFocus=null;
         var rows=CategoryRows();
+        RequireRowCapacity(rows.Length);
         var fields=new Dictionary<string,RmlUiBindingValue>();
         void Text(string k,string v)=>fields[k]=RmlUiBindingValue.FromText(v);
         void Bool(string k,bool v)=>fields[k]=RmlUiBindingValue.FromBoolean(v);
@@ -246,7 +251,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         });
         if(_fieldsDirty)
         {
-            _visible=rows.Take(Slots).ToArray();
+            _visible=rows;
             _host.SetField(_document,"native_settings_archive",_controller.ArchivePath);
             _host.SetField(_document,"native_settings_profile_name",_controller.ProfileName);
             for(int i=0;i<Slots;i++)

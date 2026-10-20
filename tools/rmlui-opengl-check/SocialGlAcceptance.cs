@@ -46,7 +46,12 @@ internal static class SocialGlAcceptance
         using var presence = new NativePresenceController(new FixturePresence(authority));
         using var pages = new RmlUiPageManager(host);
         var local = new NativePartyLocalLobby(42, 100, "SYNTHETIC LOCAL ROOM", "SYNTHETIC LOCAL SERVER");
-        using var page = new NativeSocialFriendsPage(host, pages, authority, presence, () => local);
+        var partyState = new NativePartySnapshot(Id(1), "SYNTHETIC PARTY", Id(1), 1,
+            new[] { new NativePartyMember(Id(1), "SYNTHETIC LEADER", NativePresence.Online),
+                new NativePartyMember(Id(2), "SYNTHETIC FRIEND", NativePresence.InLobby) },
+            Array.Empty<NativePartyInvite>(), Array.Empty<NativePartyInvite>());
+        using var page = new NativeSocialFriendsPage(host, pages, authority, presence, () => local,
+            () => new NativePartyView(true, false, "SYNTHETIC VERIFIED PARTY", 1, partyState));
         RmlUiDocumentToken document = default;
         // Read-only observations; no private controller/host state is written by the fixture.
         var controller = (NativeSocialFriendsController)typeof(NativeSocialFriendsPage)
@@ -56,6 +61,21 @@ internal static class SocialGlAcceptance
         {
             presence.Refresh(); page.Open(); document = pages.Page;
             Ready();
+            Check(!host.TryGetElementBounds(document, "social_privacy_options", out _, out _, out _, out _),
+                "privacy settings start collapsed");
+            Activate("social_privacy_toggle", 54);
+            Check(host.FocusDocument(document, "social_presence"), "expanded privacy remains reachable");
+            Activate("social_privacy_toggle", 54, keyboard: true);
+            Check(!host.TryGetElementBounds(document, "social_privacy_options", out _, out _, out _, out _),
+                "keyboard toggle collapses privacy without changing account preferences");
+            Check(RmlUiIntentRegistry.IsValid(RmlUiIntentKind.SocialAction, 54)
+                && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.SocialAction, 55), "privacy action retains bounded native codec");
+            Check(controller.Current().PendingGameInvitations == 2
+                && BindingText("social_counts").Contains("2 PENDING GAME INVITES", StringComparison.Ordinal),
+                "unfiltered incoming pending game invitations appear before opening Invites");
+            Check(BindingText("social_party_summary").Contains("2 / 8 IN PARTY", StringComparison.Ordinal)
+                && BindingText("social_party_summary").Contains("SYNTHETIC LEADER", StringComparison.Ordinal),
+                "Social shows the existing verified Party projection without creating a second owner");
             Check(controller.Current().Selected == null, "fresh synthetic Social has no selected friend or invitation");
             Enabled("social_recent", true);
             Activate("social_recent", 5);

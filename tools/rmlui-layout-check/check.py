@@ -30,7 +30,8 @@ FIXTURES = {
     'pages/hunters/native-picker.rml': ['hunter_choice0', 'hunter_skin_option6', 'hunter_category4', 'hunter_apply', 'hunter_cancel'],
     'pages/community/native-discover.rml': ['native_community_public', 'native_community_find', 'native_community_row0', 'native_community_row7', 'native_community_install', 'native_community_back'],
     'pages/license/native-overview.rml': ['native_license_close', 'native_license_refresh'],
-    'pages/social/social.rml': ['social_friends', 'social_search', 'social_back'],
+    'pages/social/social.rml': ['social_friends', 'social_search', 'social_row_7', 'social_command_29', 'social_privacy_toggle', 'social_back'],
+    'pages/social/native-party.rml': ['party_members', 'party_invite', 'party_row_0', 'party_row_7', 'party_follow', 'party_publish', 'party_back'],
     'pages/settings/quick.rml': ['quick_motion', 'quick_apply', 'quick_close'],
     'pages/settings/native-full.rml': ['native_settings_category_0', 'native_settings_value_0', 'native_settings_apply'],
     'pages/updates/versions.rml': ['versions_row_0', 'versions_close'],
@@ -111,6 +112,7 @@ CONTENT_ELEMENTS = {
     'pages/community/native-discover.rml': ['native_community', 'native_community_row0', 'native_community_name0', 'native_community_meta0', 'native_community_title', 'native_community_description', 'native_community_hash'],
     'pages/license/native-overview.rml': ['native_license', 'native_license_card', 'native_license_details', 'native_license_name', 'native_license_recent'],
     'pages/social/social.rml': ['social_page', 'social_self_id', 'social_row_0', 'social_selected_name', 'social_selected_detail'],
+    'pages/social/native-party.rml': ['social_page', 'party_summary', 'party_travel', 'party_reservation', 'party_selected'],
     'pages/settings/quick.rml': ['native_quick_settings', 'quick_motion', 'quick_apply'],
     'pages/settings/native-full.rml': ['native_settings_title', 'native_settings_row_0', 'native_settings_value_0', 'native_settings_subpages'],
     'pages/updates/versions.rml': ['update_card', 'versions_rows', 'versions_row_0', 'versions_status'],
@@ -199,6 +201,20 @@ def seed(bridge, doc, path, touch=False, large_text=False):
         bridge.text(doc, 'social_selected_name', LONG_NAME)
         bridge.text(doc, 'social_selected_detail', 'This friend is hosting an open party. Join their session or invite them to yours. ' + LONG_DESCRIPTION)
         bridge.text(doc, 'social_self_id', 'PP-1234-5678-9ABC-DEF0-1234')
+        bridge.text(doc, 'social_counts', '8 FRIENDS // 2 PENDING GAME INVITES // EXPLICIT LOCAL FIXTURE')
+        bridge.text(doc, 'social_party_summary', '4 / 8 IN PARTY // LEADER ' + LONG_NAME)
+        bridge.text(doc, 'social_session_notice', 'SHARED PRESENCES // VERIFIED DIRECTORY')
+    if path == 'pages/social/native-party.rml':
+        for key, value in {'party_self': 'PP-1234-5678-9ABC-DEF0-1234',
+                           'party_summary': '8 / 8 MEMBERS // LEADER ' + LONG_NAME,
+                           'party_travel': 'LEADER LOBBY // Alimbic Citadel // DESTINATION AVAILABLE',
+                           'party_reservation': '8 VERIFIED SEATS // ACCEPT BEFORE JOINING',
+                           'party_selected': LONG_NAME, 'party_selected_id': 'PP-1234-5678-9ABC-DEF0-1234',
+                           'party_status': 'EXPLICIT LOCAL LAYOUT FIXTURE // NO ACCOUNT OR NETWORK'}.items(): bridge.text(doc, key, value)
+        bridge.boolean(doc, 'visible:party_empty', False)
+        for i in range(8):
+            bridge.text(doc, f'party_name_{i}', LONG_NAME + f' {i+1}')
+            bridge.text(doc, f'party_detail_{i}', 'LEADER // IN LOBBY' if i == 0 else 'MEMBER // PRESENCE NOT SHARED')
     if path == 'pages/settings/quick.rml':
         bridge.text(doc, 'quick_motion_state', 'OFF')
         bridge.text(doc, 'quick_updates_state', 'ON')
@@ -209,8 +225,11 @@ def seed(bridge, doc, path, touch=False, large_text=False):
                         'native_settings_controller_identity', 'native_settings_hud', 'native_settings_reset_replay',
                         'native_settings_touch_visual', 'native_settings_stylus_visual', 'native_settings_outline_visual']:
             bridge.boolean(doc, 'visible:' + element, False)
+        # Accept both baseline180 and current96-slot authored documents.
         for i in range(180):
-            bridge.boolean(doc, f'visible:native_settings_row_{i}', i < 3)
+            if not bridge.boolean(doc, f'visible:native_settings_row_{i}', i < 3):
+                break
+            # Only authored slots participate in the publication benchmark.
             if i < 3:
                 bridge.text(doc, f'native_settings_label_{i}', ['FIELD OF VIEW', 'MENU SCALE', 'BRIGHTNESS'][i])
                 bridge.text(doc, f'native_settings_hint_{i}', 'Adjust the presentation to suit your display. Changes remain a draft until you apply them.')

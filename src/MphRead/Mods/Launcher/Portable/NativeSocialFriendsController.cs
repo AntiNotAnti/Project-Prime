@@ -73,6 +73,7 @@ public sealed record NativeSocialView(long Revision, bool Busy, string Status, s
     public bool RecentAvailable { get; init; }
     public NativeSocialInvitation[] InvitationRows { get; init; } = Array.Empty<NativeSocialInvitation>();
     public NativeSocialInvitation? SelectedInvitation { get; init; }
+    public int PendingGameInvitations { get; init; }
 }
 
 /// <summary>
@@ -172,6 +173,8 @@ public sealed partial class NativeSocialFriendsController : IDisposable
             InvitationsAvailable = _directory?.InvitationsAvailable == true,
             RecentAvailable = _directory?.RecentAvailable == true,
             InvitationRows = inviteRows,
+            PendingGameInvitations = _directory?.Invitations.Count(i => i.Incoming && i.Status == "pending"
+                && NativeSocialInvitationValidation.Actionable(i, _clock.GetUtcNow())) ?? 0,
             SelectedInvitation = inviteRows.FirstOrDefault(i => i.InviteId == _selectedInvite)
         };
     }

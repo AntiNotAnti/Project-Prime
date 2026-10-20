@@ -21,6 +21,27 @@ internal static class LicenseAcceptance
         Directory.CreateDirectory(output);
         File.WriteAllText(Path.Combine(output, "README.txt"),
             "Actual native RmlUi OpenGL framebuffer captures. All Hunter License values are deterministic synthetic fixture data. No network calls, real account data or extracted game assets are used.\n");
+        // Exercise authored initial visibility before a presenter publishes data.
+        // Visible=true must remove the inline display property; a CSS display:none
+        // default would leave these faces permanently hidden and fail this check.
+        var raw = host.OpenDocument("pages/license/native-overview.rml", RmlUiDocumentLayer.Page);
+        try
+        {
+            host.ShowDocument(raw, true); host.ShowDocument(host.HomeDocument, false); host.Update();
+            Check(host.TryGetElementBounds(raw,"native_license_face_overview",out _,out _,out _,out _),
+                "authored License starts with its default Overview face visible");
+            foreach(string face in new[]{"stats","history","achievements","comparison","account","emblems","titles"})
+            {
+                string id="native_license_face_"+face;
+                Check(!host.TryGetElementBounds(raw,id,out _,out _,out _,out _),
+                    "authored inactive face avoids initial layout: "+face);
+                host.SetBool(raw,"visible:"+id,true); host.Update();
+                Check(host.TryGetElementBounds(raw,id,out _,out _,out _,out _),
+                    "native visibility removes authored inline hide: "+face);
+                host.SetBool(raw,"visible:"+id,false); host.Update();
+            }
+        }
+        finally { host.CloseDocument(raw); }
         using var pages = new RmlUiPageManager(host);
         var service = new FixtureReader();
         using var page = new NativeLicenseOverviewPage(pages, service, host);

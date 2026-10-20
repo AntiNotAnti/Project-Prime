@@ -57,11 +57,11 @@
     </div>
     <p id="native_license_recent">RECENT MATCHES // UNKNOWN</p>
   </div>
-  <div id="native_license_face_stats" class="native_license_face">
+  <div id="native_license_face_stats" style="display:none" class="native_license_face">
     <h2>CAREER STATS</h2>
     <p id="native_license_metrics" class="native_license_metrics">CAREER DATA NOT VERIFIED</p>
   </div>
-  <div id="native_license_face_history" class="native_license_face">
+  <div id="native_license_face_history" style="display:none" class="native_license_face">
     <h2>MATCH HISTORY</h2>
     <p id="native_license_history_page">SYNC TO LOAD RECENT MATCHES</p>
     <p id="native_license_history_empty">Sync your license to view accepted matches.</p>
@@ -78,7 +78,7 @@
       <button id="native_license_next_page" data-action="license:next-page">NEXT</button>
     </div>
   </div>
-  <div id="native_license_face_achievements" class="native_license_face">
+  <div id="native_license_face_achievements" style="display:none" class="native_license_face">
     <h2>ACHIEVEMENTS</h2>
     <p>Milestones are derived from accepted career totals.</p>
     <p id="native_license_achievement_0"/><p id="native_license_achievement_1"/>
@@ -86,11 +86,11 @@
     <p id="native_license_achievement_4"/><p id="native_license_achievement_5"/>
     <p id="native_license_achievement_6"/>
   </div>
-  <div id="native_license_face_comparison" class="native_license_face">
+  <div id="native_license_face_comparison" style="display:none" class="native_license_face">
     <h2>PER-MATCH BENCHMARK</h2>
     <p id="native_license_comparison_metrics" class="native_license_metrics">CAREER DATA NOT VERIFIED</p>
   </div>
-  <div id="native_license_face_account" class="native_license_face native_license_account">
+  <div id="native_license_face_account" style="display:none" class="native_license_face native_license_account">
     <h2>SECURE YOUR HUNTER LICENSE</h2>
     <p id="native_license_account_state">ACCOUNT NOT VERIFIED</p>
     <p id="native_license_account_methods">SIGN-IN METHODS // NOT VERIFIED</p>
@@ -129,10 +129,10 @@
     <p class="native_license_privacy_note">Use ACCOUNT to secure or recover your license. Showing a private profile requires confirmation.</p>
   </div>
   </div>
-  <div id="native_license_face_emblems" class="native_license_face">
+  <div id="native_license_face_emblems" style="display:none" class="native_license_face">
     <h2>EMBLEMS</h2><p>The identity catalog is not yet available from the account service. Career and cosmetic loadouts are connected.</p>
   </div>
-  <div id="native_license_face_titles" class="native_license_face">
+  <div id="native_license_face_titles" style="display:none" class="native_license_face">
     <h2>TITLES</h2><p>The title catalog is not yet available from the account service. No title inventory has been returned.</p>
   </div>
   <p class="native_license_note">Career totals count only accepted, eligible matches. History shows matches returned by the license service, each labeled CAREER or UNRANKED.</p>
