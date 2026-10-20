@@ -632,7 +632,8 @@ namespace MphRead.Mods.Network
         internal bool TrySendSemantic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
         {
             if (type is not (PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
-                or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed
+                or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
+                or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed
                 or PacketType.MatchSemanticEvent or PacketType.MatchAward
                 or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome
                 or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant)) return false;

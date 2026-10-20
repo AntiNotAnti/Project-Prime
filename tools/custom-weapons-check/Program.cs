@@ -177,6 +177,7 @@ SourceModifierChecks.Run(Check);
 ReadinessChecks.Run(Check);
 SourceBoundaryChecks.Run(Check);
 ResultTransportChecks.Run(Check);
+ControlRequestChecks.Run(Check);
 checks += CustomPaymentChecks.Run();
-Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/payment checks (pure contracts; scene fixture requires --scene)");
+Console.WriteLine($"PASS {checks} custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/payment checks (pure contracts; scene fixture requires --scene)");
 return 0;

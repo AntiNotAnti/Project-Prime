@@ -76,17 +76,21 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
             || Before(action.AckFrame,pinned.Ready.Bootstrap.AuthorityFrame)
             || Before(now,action.AckFrame) || unchecked(now-action.AckFrame) > CustomSourceActionJournal.MaxWorldAge
             || unchecked(sample.ObservedWorldFrame-action.AckFrame) > CustomSourceActionJournal.MaxWorldAge
-            || (sample.Input.InputBits & (uint)IntentButtons.Shoot) == 0
             || Vector3.Dot(action.Direction.Normalized(),sample.Aim) < .99f
             || (action.Origin-(sample.Body+Vector3.UnitY*.4f)).LengthSquared > .0225f
             || !sample.Modifiers.Matches(action.Owner,action.SourceFrame,sample.ObservedWorldFrame)) return CustomSourceDecision.Rejected;
-        // v1 strict proof: an observed release immediately precedes the press.
-        // Missing/coalesced input is unavailable, never an inferred release.
-        var priorStatus = _root.ReadSourceObservation(action.Owner,unchecked(action.SourceFrame-1),out var prior);
-        if (priorStatus != CustomSourceObservationStatus.Available)
-            return priorStatus == CustomSourceObservationStatus.Missing ? CustomSourceDecision.Pending : CustomSourceDecision.Rejected;
-        if ((prior.Input.InputBits & (uint)IntentButtons.Shoot) != 0
-            || Before(prior.ObservedWorldFrame,pinned.OpenedWorld)) return CustomSourceDecision.Rejected;
+        // A reliable custom control is the primary trigger, bound internally to
+        // this exact consumed source. Raw source-referenced actions retain the
+        // preceding physical-level proof; packets cannot assert the witness.
+        if (!_root.HasControlWitness(action))
+        {
+            if ((sample.Input.InputBits & (uint)IntentButtons.Shoot)==0) return CustomSourceDecision.Rejected;
+            var priorStatus = _root.ReadSourceObservation(action.Owner,unchecked(action.SourceFrame-1),out var prior);
+            if (priorStatus != CustomSourceObservationStatus.Available)
+                return priorStatus == CustomSourceObservationStatus.Missing ? CustomSourceDecision.Pending : CustomSourceDecision.Rejected;
+            if ((prior.Input.InputBits & (uint)IntentButtons.Shoot) != 0
+                || Before(prior.ObservedWorldFrame,pinned.OpenedWorld)) return CustomSourceDecision.Rejected;
+        }
         // Validate actual emitted muzzle, not only the unused claimed origin.
         // The history uses the engine's sampled-world geometry contract; it is
         // not a retained copy of the earlier input-phase door state.

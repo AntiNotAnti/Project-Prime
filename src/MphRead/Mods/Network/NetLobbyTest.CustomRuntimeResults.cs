@@ -79,6 +79,41 @@ public static partial class NetLobbyTest
             Until(()=>oldClock.ElapsedMilliseconds>=100,"old state passes actual runtime revision fence");
             Check(NetSession.CustomWeaponPresentationState==projected && NetSession.CustomWeaponReadinessConfirmed,
                 "older state cannot roll back current magazine/equip projection");
+            native.LifeId=2;
+            Check(NetPlayerLifecycle.AcceptState(native,bootstrap.AuthorityFrame+3),"synthetic genuine next native life precedes control publisher reset");
+            var nextOwner=new WeaponOwnerContext(owner.MatchId,owner.AuthorityEpoch,owner.Slot,owner.Generation,2);
+            var nextSnapshot=snapshot with { Owner=nextOwner,Tick=101 };
+            var nextState=initial with { AuthorityFrame=bootstrap.AuthorityFrame+3,Revision=3,State=nextSnapshot,CommittedSource=101 };
+            CustomCombatResults.Write(nextState,state,manifest,definition);
+            Check(transport.TrySendSemantic(address,PacketType.CustomWeaponState,state),"new-life projection traverses actual client handler");
+            Until(()=>NetSession.CustomWeaponPresentationState==nextState,"canonical next life resets source-action publisher mode");
+            var control=new CustomControlRequest(bootstrap,manifest.Digest,(byte)slot,2,new(10),1,CustomWeaponActionKind.Equip,0);
+            Check(NetSession.SubmitCustomWeaponControl(control) && !NetSession.SubmitCustomWeaponControl(control with { Sequence=3 }),
+                "real client next life publishes reliable primary control and refuses sequence gap");
+            Check(!NetSession.SubmitCustomWeaponAction(action with { Life=2 }),"real client cannot mix publisher modes inside the new life");
+            var controlPump=System.Diagnostics.Stopwatch.StartNew();
+            Until(()=>controlPump.ElapsedMilliseconds>=300,"actual primary control pump retries through transport acknowledgements");
+            Check(NetSession.LastCustomWeaponReceipt==null && NetSession.LastCustomControlDenied==null,
+                "primary control transport ACK supplies neither canonical action nor a no-source verdict");
+            var bound=action with { Life=2,SourceFrame=200 };
+            var boundBefore=nextSnapshot with { Tick=200 };
+            var boundAfter=boundBefore with { Phase=CustomWeaponPhase.Ready };
+            var boundSource=source with { Action=bound,ObservedWorldFrame=bootstrap.AuthorityFrame+4,TargetWorldFrame=bootstrap.AuthorityFrame+4 };
+            var boundReceipt=new CustomReceiptMessage(12,new(bound,bootstrap.AuthorityFrame+4,CustomJournalDisposition.Accepted,
+                WeaponActionResult.Accepted,CustomEmissionDisposition.NotAttempted,boundSource,boundBefore,boundAfter));
+            CustomCombatResults.Write(boundReceipt,result,manifest,definition);
+            Check(transport.TrySendSemantic(address,PacketType.CustomWeaponReceipt,result),"canonical server-selected source response traverses actual host socket");
+            Until(()=>NetSession.LastCustomWeaponReceipt==boundReceipt,"request handler accepts canonical Action with authority-selected source frame");
+            Check(NetSession.CustomWeaponPresentationState==nextState && NetDamage.Sequence(slot)==damage,
+                "bound primary response changes no native damage or projected inventory");
+            var unavailable=control with { Sequence=2,Kind=CustomWeaponActionKind.Fire,Optic=1 };
+            Check(NetSession.SubmitCustomWeaponControl(unavailable),"next contiguous reliable primary control is retained");
+            var noSource=new CustomControlDenied(unavailable,13,bootstrap.AuthorityFrame+5,CustomControlDenialReason.SourceUnavailable);
+            byte[] denied=new byte[CustomControlDenied.Size]; noSource.Write(denied);
+            Check(transport.TrySendSemantic(address,PacketType.CustomWeaponControlDenied,denied),"typed no-source response travels through real reliable host channel");
+            Until(()=>NetSession.LastCustomControlDenied==noSource,"actual handler consumes exact no-source request and returns application ACK");
+            Check(NetSession.CustomWeaponReadinessConfirmed && NetSession.CustomWeaponPresentationState==nextState
+                && NetDamage.Sequence(slot)==damage,"no-source terminal retains native health and canonical projection");
             var contradictory=receipt with { Receipt=receipt.Receipt with { Disposition=CustomJournalDisposition.ResourceDenied,
                 Result=WeaponActionResult.Unequipped } };
             CustomCombatResults.Write(contradictory,result,manifest,definition);
@@ -88,7 +123,7 @@ public static partial class NetLobbyTest
                 && !NetSession.SubmitCustomWeaponAction(action with { Sequence=2 }),
                 "custom cache refusal preserves native admission/health and blocks new custom requests");
             NetSession.Stop();
-            Check(NetSession.LastCustomWeaponReceipt==null && NetSession.CustomWeaponPresentationState==null,
+            Check(NetSession.LastCustomWeaponReceipt==null && NetSession.LastCustomControlDenied==null && NetSession.CustomWeaponPresentationState==null,
                 "full client stop releases custom result and projection owners");
             Console.WriteLine($"PASS {_checks} actual NetSession custom result/publisher UDP checks.");
             Console.WriteLine("SCOPE: actual client transport/readiness/result handlers, action publishing, application-vs-transport acceptance, dedupe/revision/poison and native health isolation. Native lifecycle/bootstrap and authority result facts are synthetic; real combat is exercised separately by --custom-action-udp.");

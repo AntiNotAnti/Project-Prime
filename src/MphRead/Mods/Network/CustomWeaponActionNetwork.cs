@@ -12,6 +12,10 @@ public sealed partial class DedicatedServer
         internal CustomStateMessage? State;
         internal double StateDue,OfferWindow;
         internal int Offers;
+        internal byte ControlMode; // 0 unused, 1 strict source action, 2 reliable primary control
+        internal WeaponOwnerContext ModeOwner;
+        internal bool AcceptsMode(WeaponOwnerContext owner,byte mode) => ModeOwner!=owner || ControlMode==0 || ControlMode==mode;
+        internal void UseMode(WeaponOwnerContext owner,byte mode) { ModeOwner=owner; ControlMode=mode; }
         internal bool Admit(double now)
         {
             if (now-OfferWindow>=1) { OfferWindow=now; Offers=0; }
@@ -53,6 +57,10 @@ public sealed partial class DedicatedServer
             return combat.Outbox.Publish(outcome);
         }
         public void AfterSourcePhase(CustomAuthorityCombatAdapter root) => server.ProcessCustomActions(scene,root);
+        public bool HasControlWitness(in CustomWeaponAction action)
+            => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasControlWitness(action)==true;
+        public void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input)
+            => server.BindCustomControl(scene,root,input);
     }
     private void HandleCustomWeaponAction(ReceivedPacket packet,double now)
     {
@@ -62,9 +70,11 @@ public sealed partial class DedicatedServer
             || !entry.Combat.Admit(now) || !CustomRoomReady(scene)
             || !CustomWeaponAction.TryRead(packet.Payload,out var action) || action.Slot!=peer.SlotIndex
             || action.Bootstrap!=peer.BootstrapIdentity || action.Manifest!=entry.State.Wire.Manifest.Digest
-            || action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(action.Slot,action.Owner.Generation,action.Life)) return;
+            || action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(action.Slot,action.Owner.Generation,action.Life)
+            || !entry.Combat.AcceptsMode(action.Owner,1)) return;
         var offered=entry.Combat.Outbox.Reserve(action,now);
         if (offered is not (CustomOutboxOffer.Reserved or CustomOutboxOffer.Duplicate)) return;
+        entry.Combat.UseMode(action.Owner,1);
         if (offered==CustomOutboxOffer.Duplicate) return; // Retained verdict retries independently; never execute twice.
         var root=scene.CustomCombat;
         var queued=root.Offer(action);
@@ -93,6 +103,18 @@ public sealed partial class DedicatedServer
         {
             if (CurrentCustomActionEntry(slot,scene) is not { Combat:not null } entry) continue;
             var combat=entry.Combat;
+            for (int n=0;n<CustomActionOutbox.Capacity;n++)
+                if (combat.Outbox.TryUnboundControl(n,out var request) && !root.IsActionLifeActive(request.Owner)
+                    && (!NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)
+                        || root.TryStateMetadata(scene.Players.Items[slot],out _,out _,out _)))
+                    combat.Outbox.PublishDenied(request,NetSession.NetFrame,CustomControlDenialReason.LifeRetired);
+            if (root.TryStateMetadata(scene.Players.Items[slot],out _,out uint settledControl,out _) && settledControl!=uint.MaxValue
+                && combat.Outbox.TryUnboundControl(new(_matchId,_authorityEpoch,(byte)slot,NetPlayerLifecycle.Generation(slot),NetPlayerLifecycle.Get(slot)),
+                    settledControl+1,out var waiting) && combat.Outbox.ControlSourceExpired(waiting,NetSession.NetFrame,NetSession.Clock))
+            {
+                if (root.SettleUnobserved(waiting)) combat.Outbox.PublishDenied(waiting,NetSession.NetFrame,CustomControlDenialReason.SourceUnavailable);
+                else InvalidateCustomEntry(entry);
+            }
             if (CustomRoomReady(scene))
                 for (int n=0;n<CustomSourceActionJournal.MaxDrainPerTick;n++)
                     if (!root.TryProcess(scene.Players.Items[slot],out _)) break;

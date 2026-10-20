@@ -37,6 +37,7 @@ namespace MphRead.Mods.Network
         CustomWeaponManifest = 83, CustomWeaponReady = 84, CustomWeaponReadyConfirmed = 85,
         CustomWeaponAction = 86, CustomWeaponReceipt = 87, CustomWeaponContact = 88,
         CustomWeaponResultAck = 89, CustomWeaponState = 90,
+        CustomWeaponControl = 91, CustomWeaponControlDenied = 92,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -461,7 +462,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        // Status discovery accepts reviewed protocol60/61/62/63 native widths and
+        // Status discovery accepts reviewed protocol60/61/62/63/64 native widths and
         // normalizes the known pre-60 width before reading tail offsets.
         // Live gameplay still requires an exact protocol match through Hello.
         public static bool TryRead(ReadOnlySpan<byte> src, out ServerStatusPacket status)
@@ -469,7 +470,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64)
                 status = Read(src);
             else
             {
@@ -2582,7 +2583,9 @@ namespace MphRead.Mods.Network
         // Match bits, native packet widths and historical replay bodies are unchanged.
         // Protocol 63 adds the separate custom action, receipt, contact,
         // application-result acknowledgement and state lanes. Native payloads stay unchanged.
-        public const int ProtocolVersion = 63;
+        // Protocol 64 adds typed custom source-control requests and denials.
+        // Native payloads and the protocol-62 movement profile threshold stay unchanged.
+        public const int ProtocolVersion = 64;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
