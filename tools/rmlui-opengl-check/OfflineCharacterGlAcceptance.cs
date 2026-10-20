@@ -125,10 +125,27 @@ internal static class OfflineCharacterGlAcceptance
             if(mechanics==OfflineCharacterMode.TrooperWallClingPractice)Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         }
 
+        // Only the genuine Aim Lab route may own training choices. Both panels
+        // reuse the Offline document, so stale cross-route intents need policy
+        // refusal in addition to native modal/document sequence fences.
+        foreach(int trainingChoice in new[]{13,14,15})
+            Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,trainingChoice),
+                "Battle refuses stale Aim Lab training choice"+trainingChoice);
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
+            &&controller.Tick().Bindings["offline_character_value"].Text=="TROOPER SCOUT DRONE",
+            "Battle refuses training options without changing its captured drone draft");
         // Same authored options dialog:13 has an ID; native Tab moves to the
         // following no-ID14/15 buttons. No markup IDs or production hooks added.
-        Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Training),"existing training route opens");
-        Settle(180);Click("offline_training_options",RmlUiIntentKind.OfflineOpenTrainingOptions);
+        Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Training),"genuine Aim Lab route opens");
+        Settle(180);
+        Check(controller.Tick().Bindings["offline_training_mode"].Boolean&&Label("offline_heading")=="AIM LAB",
+            "actual native page switches to the genuine Aim Lab heading and route");
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,16)
+            &&!controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
+            &&!controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
+            &&controller.Tick().Bindings["offline_character_value"].Text=="TROOPER SCOUT DRONE",
+            "Aim Lab refuses stale mechanics16 and Battle launch/arena intents without mutating the Battle draft");
+        Click("offline_training_options",RmlUiIntentKind.OfflineOpenTrainingOptions);
         var modal=manager.Top;Check(modal!=offline&&manager.ModalCount==1,"actual native training options own the modal input lease");
         var before13=controller.Tick().Bindings["offline_training_difficulty_value"].Text;
         var before14=controller.Tick().Bindings["offline_training_distance_value"].Text;
@@ -144,6 +161,12 @@ internal static class OfflineCharacterGlAcceptance
         Check(!host.IsAlive(modal),"closing training retires its actual document");
         Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Offline),"return to Offline uses same controller draft");
         Settle(150);var closing=layout.Document;
+        Check(!controller.Tick().Bindings["offline_training_mode"].Boolean&&Label("offline_heading")=="OFFLINE BATTLE"
+            &&Label("offline_character").Contains("TROOPER SCOUT DRONE",StringComparison.Ordinal),
+            "returning to actual native Battle page restores its original explicit drone selection");
+        Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,13)
+            &&!controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions),
+            "closed Aim Lab modal cannot restore training choices through the Battle route");
         Click("offline_back",RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Home);
         Check(!layout.HandleIntent(new(RmlUiIntentKind.OfflineChoice,16,closing,ulong.MaxValue-1),out var retired)||retired==default,"retired Offline document cannot mutate the live selection");
         Check(services.Validations==2&&services.Launches==2&&services.Saves==0
