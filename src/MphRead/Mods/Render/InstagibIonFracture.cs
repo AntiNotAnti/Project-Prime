@@ -16,6 +16,53 @@ namespace MphRead.Mods.Render
     {
         internal const float LifeSeconds = 0.9f;
         internal const int Capacity = 24;
+
+        // The normal Imperialist's authored "sniperBeam" cross-section is our
+        // width reference. Its X/Z extent is not multiplied by shot length:
+        // BeamEffectEntity uses Scale=(1, length, 1) for the original beam.
+        // Clamp malformed/missing asset bounds to a modest competitive range.
+        internal const float OriginalRailHaloHalfWidth = 0.24f;
+        internal const float FallbackImperialistHalfWidth = 0.055f;
+        internal const float MinImperialistHalfWidth = 0.018f;
+        internal const float MaxImperialistHalfWidth = 0.075f;
+
+        internal static float AuthoredImperialistHalfWidth(
+            Vector3 min, Vector3 max, Vector3 nodeScale)
+        {
+            if (!Finite(min) || !Finite(max) || !Finite(nodeScale)
+                || max.X < min.X || max.Z < min.Z)
+                return 0f;
+            float x = 0.5f * (max.X - min.X) * MathF.Abs(nodeScale.X);
+            float z = 0.5f * (max.Z - min.Z) * MathF.Abs(nodeScale.Z);
+            float width = MathF.Max(x, z);
+            return float.IsFinite(width) && width > 0 ? width : 0f;
+        }
+
+        internal static float ImperialistHalfWidth(float authored)
+        {
+            if (!float.IsFinite(authored) || authored <= 0)
+                return FallbackImperialistHalfWidth;
+            return Math.Clamp(authored, MinImperialistHalfWidth, MaxImperialistHalfWidth);
+        }
+
+        internal static float ImperialistWidthScale(float authored)
+            => ImperialistHalfWidth(authored) / OriginalRailHaloHalfWidth;
+
+        // Keep animated silhouettes inside the original shaft's radial
+        // footprint, while preserving the full time-dependent motion curves.
+        internal static Vector3 FitMotionToImperialist(Vector3 motion,
+            float compactScale, float halfWidth, float ribbonHalfWidth)
+        {
+            if (!Finite(motion) || !float.IsFinite(compactScale)
+                || !float.IsFinite(halfWidth) || !float.IsFinite(ribbonHalfWidth))
+                return Vector3.Zero;
+            Vector3 result = motion * (Math.Clamp(compactScale, 0f, 1f) * 0.58f);
+            float room = MathF.Max(0f, halfWidth - MathF.Max(0f, ribbonHalfWidth));
+            float squared = result.LengthSquared;
+            if (squared > room * room && squared > 0f)
+                result *= room / MathF.Sqrt(squared);
+            return result;
+        }
         internal readonly record struct RailLook(float Core, float Glow, float Spiral, float Radius);
         internal static RailLook LookAt(float age)
         {
@@ -42,6 +89,8 @@ namespace MphRead.Mods.Render
         // Scene-bound original beam-trail artwork, never shared across scenes.
         private ModelInstance? _trail;
         private int _trailTexture = -1;
+        private bool _imperialistWidthChecked;
+        private float _imperialistHalfWidth = FallbackImperialistHalfWidth;
         private RepeatMode _repeatX, _repeatY;
         private float _scaleX = 1f, _scaleY = 1f;
         private float _uvX = 1f, _uvY = 1f;
@@ -243,6 +292,7 @@ namespace MphRead.Mods.Render
             bool reduceMotion = HudProfiles.Runtime.ReduceMotion;
             bool reduceTransparency = HudProfiles.Runtime.ReduceTransparency;
             CosmeticEffectQuality quality = RenderOptions.CosmeticQuality;
+            PrepareImperialistWidth(scene);
             bool textured = TryPrepareTrail(scene);
             Vector3 view = scene.ViewMatrix.Inverted().Row2.Xyz;
             if (view.LengthSquared < 0.000001f) view = Vector3.UnitZ;
@@ -312,12 +362,13 @@ namespace MphRead.Mods.Render
             }
             else
             {
+                float size = ImperialistWidthScale(_imperialistHalfWidth);
                 if (!reducedTransparency && quality != CosmeticEffectQuality.Off)
-                    DrawShaft(scene, lance.Start, lance.End, right, 0.24f,
+                    DrawShaft(scene, lance.Start, lance.End, right, 0.24f * size,
                         lance.Color, look.Glow * 0.45f);
-                DrawShaft(scene, lance.Start, lance.End, right, 0.11f,
+                DrawShaft(scene, lance.Start, lance.End, right, 0.11f * size,
                     lance.Color, look.Core * 0.90f);
-                DrawShaft(scene, lance.Start, lance.End, right, 0.06f, hot, look.Core);
+                DrawShaft(scene, lance.Start, lance.End, right, 0.06f * size, hot, look.Core);
             }
 
             // Default signature: two animated filaments around the exact rail.
@@ -567,6 +618,35 @@ namespace MphRead.Mods.Render
             }
         }
 
+        /// <summary>
+        /// The vanilla sniper beam uses the authored sniperBeam model at X/Z
+        /// scale 1, with only its longitudinal Y axis extended to the impact.
+        /// Measure mesh-bearing nodes' local cross-sections once per scene.
+        /// Invalid bounds fall back to a narrow, conservative rail.
+        /// </summary>
+        private void PrepareImperialistWidth(Scene scene)
+        {
+            if (_imperialistWidthChecked) return;
+            _imperialistWidthChecked = true;
+            try
+            {
+                Model model = scene.GetModelInstance("sniperBeam").Model;
+                float authored = 0f;
+                foreach (Node node in model.Nodes)
+                {
+                    if (node.MeshCount <= 0) continue;
+                    float halfWidth = AuthoredImperialistHalfWidth(
+                        node.MinBounds, node.MaxBounds, node.Scale);
+                    if (halfWidth > authored) authored = halfWidth;
+                }
+                _imperialistHalfWidth = ImperialistHalfWidth(authored);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                _imperialistHalfWidth = FallbackImperialistHalfWidth;
+            }
+        }
+
         private bool TryPrepareTrail(Scene scene)
         {
             try
@@ -607,15 +687,22 @@ namespace MphRead.Mods.Render
             {
                 float t = i / (float)(samples - 1);
                 float s = reach * (strand < 0 ? t * t : t);
-                Vector3 centre = axis * s;
+                float sizeScale = ImperialistWidthScale(_imperialistHalfWidth);
+                float bandHalfWidth = TaperAt(s, width * sizeScale, widthReach);
+                Vector3 motion = Vector3.Zero;
                 if (signatureStyle.HasValue)
-                    centre += SignatureOffset(signatureStyle.Value, t, age, strand, right, up);
+                    motion = SignatureOffset(signatureStyle.Value, t, age, strand, right, up);
                 else if (strand >= 0)
-                    centre += HelixDisplacement(right, up, s, age, phase, strand);
+                    motion = HelixDisplacement(right, up, s, age, phase, strand);
+                // Both animated side strands and the three-layer shaft now
+                // fit the normal Imperialist visual envelope. Impact bursts
+                // remain unchanged and still communicate the selected style.
+                Vector3 centre = axis * s + FitMotionToImperialist(
+                    motion, sizeScale, _imperialistHalfWidth, bandHalfWidth);
                 Vector3 side = Vector3.Cross(axis, camera - origin - centre);
                 if (side.LengthSquared < 0.000001f) side = right;
                 else side.Normalize();
-                Vector3 offset = side * TaperAt(s, width, widthReach);
+                Vector3 offset = side * bandHalfWidth;
                 int at = i * 4;
                 data[at] = new Vector3(t * _uvX, 0f, 0f);
                 data[at + 1] = centre - offset;
