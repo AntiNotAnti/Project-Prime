@@ -1,9 +1,10 @@
-# PR-09 validation — draft, acceptance incomplete
+# PR-09 — v1 implementation delivered; qualification limits retained
 
-**DRAFT / NOT RELEASE ACCEPTED.** Functional evidence is substantial. The
-operator accepts the current performance tradeoff; relevant hosted CI is not
-fully verified, and the stated balance/device limitations remain disclosed.
-This document does not declare Momentum complete or suitable for default rollout.
+The operator requested implementation closeout and a separate Quake III / Quake
+Live tuning pass. [The closeout audit](pr09-closeout.md) records the completed
+v1 scope, accepted performance tradeoff and explicit unverified qualification.
+**Relevant hosted CI is not verified green.** This does not establish universal
+platform/competitive acceptance or suitability for default rollout.
 Classic remains the default and rollback path; Momentum is an explicit opt-in.
 
 PR-00 through PR-08 and the subsequent independently committed PR-09 slices
@@ -475,8 +476,9 @@ experiment would complement, rather than erase, this genuine eight-bot failure.
   custom live transport/admission, payment claims and custom replay acceptance
   remain outside this evidence. Fresh 3de Windows Native gold/rewind and macOS
   Native/Momentum recorded-world continuity pass in the scopes above.
-- **PENDING:** final publication fixture/source refresh and subsequent retained
-  tool-source checks; these are not new production-physics acceptance results.
+- **PASS (scoped):** final source integration at e500 plus the unchanged
+  adaptive test overlay: fresh normal build, lifecycle/receipt/Paid checks,
+  preserved original binaries and tool-only compile/help verification. [Evidence](evidence/pr09-current-paid-compatibility.json).
 - **PENDING:** relevant hosted CI pass. Protocol-registry and waitlist-source
   fixture failures were repaired in PR-735 and PR-737 without weakening the
   production contracts. The 13 remaining retired-Hunter commands pass on the
@@ -494,8 +496,9 @@ experiment would complement, rather than erase, this genuine eight-bot failure.
 
 Dense raw logs, screenshots, scripts, all failed attempts and per-frame traces
 remain ignored under `artifacts/momentum-pr09`. Committed evidence contains only
-small numeric summaries without personal paths or extracted assets. This draft
-must be reconciled with subsequent results before a final PR-09 status decision.
+small numeric summaries without personal paths or extracted assets. The
+[closeout](pr09-closeout.md) records the operator's implementation-status decision
+without turning pending CI, historical failures or unverified devices into passes.
 
 The paired impaired-05 advisory rows were reconstructed against the actual owning
 clients (Native slot 2/client 2, Momentum slot 7/client 3). Native source frame
