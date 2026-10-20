@@ -34,6 +34,7 @@ public partial class Scene
             for(int n=0;n<CustomReplicaConsumer.Capacity&&NetSession.TryTakeCustomReplicaFact(out var fact);n++)
             {
                 ApplyCustomRifleLaunch(fact);
+                ApplyCustomHeadHit(fact);
                 _customPublicFacts??=new PublicFact[64];
                 _customPublicFacts[_customPublicFactIndex++%64]=new(fact,(uint)FrameCount);
             }
