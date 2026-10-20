@@ -1,3 +1,4 @@
+using System;
 using System.Buffers.Binary;
 using MphRead.Mods.CustomWeapons;
 
@@ -60,5 +61,23 @@ public static partial class NetSession
             client.Sent(request,now);
         }
         if (client.Invalidated) _customReadiness?.Invalidate();
+    }
+    private static bool SendCustomInputCarrier(in IntentPacket intent,System.ReadOnlySpan<byte> native)
+    {
+        if (_transport==null || _hostEndPoint==null || !TryEncodeCustomWeaponInput(intent,native,out var bytes)) return false;
+        _transport.Send(_hostEndPoint,PacketType.CustomWeaponInput,bytes.Span); return true;
+    }
+    // The returned memory is borrowed until the next client input encoding.
+    // Transport copies it synchronously; callers must not retain this buffer.
+    internal static bool TryEncodeCustomWeaponInput(in IntentPacket intent,System.ReadOnlySpan<byte> native,out ReadOnlyMemory<byte> bytes)
+    {
+        bytes=default;
+        if (_transport==null || _hostEndPoint==null || CurrentCustomCombat() is not { } client
+            || LocalSlot is <0 or >=8 || intent.MatchId==0 || intent.AuthorityEpoch==0 || intent.SlotGeneration==0 || intent.LifeId==0) return false;
+        var owner=new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)LocalSlot,intent.SlotGeneration,intent.LifeId);
+        if (!client.TryInputControl(owner,Clock,out var control))
+        { if (client.Invalidated) _customReadiness?.Invalidate(); return false; }
+        if (!CustomInputCarrier.TryWrite(control,native,client.InputBytes,out int length)) return false;
+        bytes=client.InputBytes.AsMemory(0,length); return true;
     }
 }

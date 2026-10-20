@@ -1250,6 +1250,7 @@ namespace MphRead.Mods.Network
                 case PacketType.CustomWeaponReady: HandleCustomWeaponReady(packet,now); break;
                 case PacketType.CustomWeaponAction: HandleCustomWeaponAction(packet,now); break;
                 case PacketType.CustomWeaponControl: HandleCustomWeaponControl(packet,now); break;
+                case PacketType.CustomWeaponInput: HandleCustomWeaponInput(packet,now); break;
                 case PacketType.CustomWeaponResultAck: HandleCustomResultAck(packet,now); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
@@ -2545,6 +2546,14 @@ namespace MphRead.Mods.Network
                 return;
             }
             if (!CompactIntentCodec.TryRead(packet.Payload, out IntentPacket intent)) return;
+            HandleDecodedIntent(packet,now,peer,intent);
+        }
+
+        // Both wire envelopes enter this same native admission and relay path.
+        // The bool is only the existing actual-current-carrier result; historical
+        // recovered native fire behavior and relay bytes are unchanged.
+        private bool HandleDecodedIntent(ReceivedPacket packet,double now,Peer peer,in IntentPacket intent)
+        {
             peer.LastSeen = now;
 
             ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
@@ -2553,7 +2562,7 @@ namespace MphRead.Mods.Network
                 : intent.SlotGeneration != _slotGenerations[peer.SlotIndex] ? NetIntentRejection.WrongGeneration
                 : intent.LifeId == 0 || life == 0 || unchecked((short)(intent.LifeId - life)) > 0
                     ? NetIntentRejection.WrongLife : NetIntentRejection.None;
-            if (rejection != NetIntentRejection.None) { peer.Telemetry.Intent(intent.Frame, rejection); return; }
+            if (rejection != NetIntentRejection.None) { peer.Telemetry.Intent(intent.Frame, rejection); return false; }
             var connection = _transport?.ConnectionStats(peer.EndPoint);
             LagCompensationPolicy.SetTiming(peer.SlotIndex, new LagTiming(
                 connection?.RttMilliseconds ?? (peer.Ping > 0 ? peer.Ping : null),
@@ -2561,7 +2570,7 @@ namespace MphRead.Mods.Network
                 connection?.MinimumRttMilliseconds,
                 peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
                     && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
-            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent,out bool newCurrentCarrier)) return;
+            if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent,out bool newCurrentCarrier)) return false;
             if (newCurrentCarrier) NoteCustomCurrentInput(packet,peer,intent);
             // Admit recovered shots from older carriers without replacing current movement/readiness.
             if (intent.LifeId != life)
@@ -2602,6 +2611,7 @@ namespace MphRead.Mods.Network
                         _scratch.AsSpan(0, relaySize + 1));
                 }
             }
+            return newCurrentCarrier;
         }
 
         private void HandleBye(ReceivedPacket packet)
