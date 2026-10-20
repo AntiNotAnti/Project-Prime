@@ -80,6 +80,9 @@ internal static class MomentumReplaySceneTests
                         || (recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned)) != (PlayerState.FlagActive | PlayerState.FlagSpawned)
                         || recorded.Health == 0) continue;
                     players++;
+                    if (first.Session.Metadata!.ProtocolVersion >= 77 && recorded.Form.Phase != FormPhase.Unknown)
+                        Require(!player.Controls.Morph.IsPressed,
+                            $"accepted recorded form suppresses raw morph edges at frame{frame}/slot{player.SlotIndex}");
                     Require((player.Position - recorded.Position).Length <= .00001f,
                         $"canonical recorded snapshot owns collision body at frame{frame}/slot{player.SlotIndex}");
                     snapshotPoseChecks++;
@@ -303,7 +306,10 @@ internal static class MomentumReplaySceneTests
                     && (recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned)) == (PlayerState.FlagActive | PlayerState.FlagSpawned))
                     Require(player.ModCrouched == recorded.Crouched && player.ModCollisionCrouched == recorded.Crouched
                             && player.ModTucked == recorded.Tucked,
-                        operation + ": canonical recorded stance restored exactly for slot" + player.SlotIndex);
+                        operation + $": canonical recorded stance restored exactly at frame{replay.Session.CurrentFrame}/slot{player.SlotIndex}; "
+                        + $"actual={player.ModCrouched}/{player.ModCollisionCrouched}/{player.ModTucked} recorded={recorded.Crouched}/{recorded.Tucked} "
+                        + $"health={player.Health}/{recorded.Health} alt={player.IsAltForm} morph={player.IsMorphing}/{player.IsUnmorphing} "
+                        + $"flags={recorded.Flags} form={recorded.Form.Phase} load={player.LoadFlags}");
         Require(!NetSession.Active && !DemoPlayback.IsActive, operation + ": private reader never opens live/global playback ownership");
     }
 }

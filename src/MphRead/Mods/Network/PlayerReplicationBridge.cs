@@ -546,6 +546,15 @@ namespace MphRead.Mods.Network
             Set(c.Jump, ((intent.Buttons & IntentButtons.Jump) == IntentButtons.Jump), ((missed & IntentButtons.Jump) == IntentButtons.Jump));
             Set(c.Crouch, (intent.Buttons & IntentButtons.Crouch) != 0, false);
             Set(c.Morph, ((intent.Buttons & IntentButtons.Morph) == IntentButtons.Morph), ((missed & IntentButtons.Morph) == IntentButtons.Morph));
+            // Modern passive worlds have a canonical accepted form. Replaying
+            // the owner's earlier request can start an unaccepted transition
+            // between snapshots and erase the recorded crouch/tuck body. The
+            // edge history was consumed above; only accepted form samples may
+            // start a transition here. Preserve older reconstruction contracts.
+            if (_host.IsReplica && _authorityForms[player.SlotIndex].Known
+                && player.OwningScene.Services is ReplaySceneServices replay
+                && replay.Session.Metadata?.ProtocolVersion >= 77)
+                Set(c.Morph, false, false);
             if (c.Morph.IsPressed)
             {
                 Log($"slot {player.SlotIndex} morph press received, now {player.ModFormState()}");
