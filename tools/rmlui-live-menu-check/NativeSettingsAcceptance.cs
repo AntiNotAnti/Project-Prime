@@ -345,13 +345,26 @@ internal static class NativeSettingsAcceptance
         LauncherPrefs.ReplayAutoPrune = false;
         using var controller = new NativeFullSettingsController(settings);
         var volume = Row(controller, "Audio", "Sfx Volume (%)");
-        Check(controller.Stage(volume, "64") && controller.Apply(), "Apply commits native settings through existing engine owners: " + controller.Status);
+        var detail = Row(controller, "Display", "Detailed Campaign Map");
+        Check(!LauncherPrefs.DetailedCampaignMap && !bool.Parse(detail.Value),
+            "optional campaign map detail defaults OFF in a fresh native settings owner");
+        Check(controller.Stage(detail, "true") && !LauncherPrefs.DetailedCampaignMap,
+            "campaign detail draft does not mutate active presentation preference");
+        controller.Discard();
+        Check(!controller.Dirty && !LauncherPrefs.DetailedCampaignMap && !bool.Parse(detail.Value),
+            "Discard retires optional campaign detail without publishing it");
+        Check(controller.Stage(detail, "true") && controller.Stage(volume, "64") && controller.Apply(), "Apply commits native settings through existing engine owners: " + controller.Status);
         string settingsPath = Path.Combine(root, "Savedata", "settings.json"),
             launcherPath = Path.Combine(root, "launcher.txt"), controlsPath = Path.Combine(root, "controls.txt"),
             hudPath = Path.Combine(root, "Savedata", "hud-profiles", "active.json");
         Check(new[] { settingsPath, launcherPath, controlsPath, hudPath }.All(File.Exists)
             && settings.SfxVolume == "0.64" && volume.Value == "64" && !controller.Dirty,
             "successful Apply writes all four existing owner stores and rebases percent draft");
+        Check(LauncherPrefs.DetailedCampaignMap && File.ReadAllLines(launcherPath).Contains("detailed_campaign_map=true"),
+            "accepted optional detail Apply persists through the existing launcher owner");
+        LauncherPrefs.DetailedCampaignMap = false;
+        LauncherPrefs.Load();
+        Check(LauncherPrefs.DetailedCampaignMap, "optional campaign detail reloads from the existing preference file");
         var before = new[] { settingsPath, launcherPath, controlsPath, hudPath }
             .ToDictionary(p => p, File.ReadAllBytes);
         string hudBefore = HudProfileStore.Serialize(HudProfiles.CopyCurrent());
@@ -364,11 +377,11 @@ internal static class NativeSettingsAcceptance
                 blocker = value;
             }, value => value is "clear" or "block" ? null : "Invalid fixture value.");
         controller.Rows.Add(injected);
-        Check(controller.Stage(volume, "22") && controller.Stage(injected, "block") && !controller.Apply(),
+        Check(controller.Stage(detail, "false") && controller.Stage(volume, "22") && controller.Stage(injected, "block") && !controller.Apply(),
             "later controls-store write failure rejects complete settings commit");
         Check(before.All(p => File.Exists(p.Key) && File.ReadAllBytes(p.Key).SequenceEqual(p.Value))
             && settings.SfxVolume == "0.64" && Math.Abs(MphRead.Sound.Sfx.Volume - .64f) < .0001f
-            && HudProfileStore.Serialize(HudProfiles.CopyCurrent()) == hudBefore && !SettingsPersistence.RestartRequired,
+            && HudProfileStore.Serialize(HudProfiles.CopyCurrent()) == hudBefore && LauncherPrefs.DetailedCampaignMap && !SettingsPersistence.RestartRequired,
             "failed later store restores earlier files, engine gain, live HUD and write availability");
         Check(controller.Dirty && volume.Value == "22" && controller.Status.Contains("Previous settings restored"),
             "failed transaction retains editable proposed values and reports completed rollback");
