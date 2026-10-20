@@ -1,0 +1,332 @@
+{
+  "status": "PASS within stated scopes",
+  "fullAcceptanceBase": "6a434a4ac4ff47fa243b7ef33b578db9fb5661a9",
+  "latestCompatibility": {
+    "baseSha": "835a5ba5ad8b5112930f86ee2b7e04521103a827",
+    "previousOnlineBase": "6a434a4ac4ff47fa243b7ef33b578db9fb5661a9",
+    "overlayManifestSha256": "392a5009733240e5db0d2cc354f31d566862fdd35a8581c0737b830c30cf9309",
+    "buildExitCode": 0,
+    "scope": "Final835 compatibility pass; identical55 gameplay/UI overlay hashes; prior fullonline proof remains6aCore03/tool04; no newonline/performanceclaim",
+    "binaries": {
+      "ProjectPrime.dll": "101f8a96eeae2901395a4d7dd2337d2e98a33d14e5a483dfb874bdcd17f7e99e",
+      "nettest.dll": "8190670d158793ec8868e97da1791a750f6ff1a45c1851939a91c724f168c8d6"
+    },
+    "allSourceBinaryLeasesUnchanged": true
+  },
+  "latestCases": [
+    {
+      "name": "quake3-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "quake3-replay-compatibility",
+      "exitCode": 0
+    },
+    {
+      "name": "instagib-ion-fracture",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay-metadata",
+      "exitCode": 0
+    },
+    {
+      "name": "architecture",
+      "exitCode": 0
+    },
+    {
+      "name": "protocol58-replay",
+      "exitCode": 0
+    }
+  ],
+  "sourceFilesSha256": {
+    "src/MphRead/Entities/Players/PlayerMomentumMovement.cs": "af6b3ac93ce5e66181e762f937b09e1d177877d3589e8b94adf0f2aa927758b3",
+    "src/MphRead/Mods/GameSettings.cs": "9c70bceb64daf5719b000b2788e814aac486adb9d236b3811eb3a10660b9615f",
+    "src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs": "028b49a71830d3bb07b18acbe5b4fd1a18ab303afaa9376c9bd3146885f4992b",
+    "src/MphRead/Mods/Launcher/Gui/Workspaces/OfflineWorkspace.cs": "9cee773298b45f5ce1b0c1b2b9d05bb750dca4e9895f07612dde6df0dfb3288d",
+    "src/MphRead/Mods/Launcher/Portable/OfflineLaunch.cs": "fcf204792712d0f71115a90e61686d663530eae0511310eac3ca33e036201019",
+    "src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiOfflineRuleEditor.cs": "c289baabef5e6b7bb18968b735807d6ec63d8f57315a74d698c43d4a7ba09f5a",
+    "src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiRuleEditor.cs": "bd7039a5f1e5bd342d30e920b7a23a096166c21a86bae7e5dbaaed08cf7c6f5e",
+    "src/MphRead/Mods/ModEntry.cs": "a7d7b60799ec952be4e1de7104f24441d793ef601295fcea5d794019e04371f5",
+    "src/MphRead/Mods/Movement/MovementModel.cs": "e69292ff4a88f8be34cd3fd37206f88946ff3ae805c94c66547b8f81c4f5c9ea",
+    "src/MphRead/Mods/Movement/Quake3MovementProfileV1.cs": "3fe4f6a7cf4c5ef8e0e89e2a38c03f72912d6b460aec87666b8196592f591977",
+    "src/MphRead/Mods/Multiplayer/MatchModifierRules.cs": "abda1d797d1d79bb48c6643bd80e902017f172dc96d4b7cbd5ab612993a5880c",
+    "src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs": "5462967e3a4f83a35a2b3d20f109e6057b787e055a0d202d11f9d6ebce7e4a66",
+    "src/MphRead/Mods/Network/DedicatedServer.cs": "5654c95a5bd132535d99f1972e62465994713c8970dff617bae738c6867abca1",
+    "src/MphRead/Mods/Network/MatchDefinition.cs": "306b602e0a7376c53dd58549f05b5a78c5360503bb2c1426c71fc54c9d62ce84",
+    "src/MphRead/Mods/Network/NetLobbyTest.cs": "29a7da5f103f508a2175d9f919fb2302af21ddcf14debe6c45ea94522f1d7fd4",
+    "src/MphRead/Mods/Network/NetMovementValidationShadow.cs": "1b8ea4fe25de6bbd924a1c36a771bedcce42195632ed0932c252313c04078773",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "89c67b97f99f9c79e742f04daf3782dd2d123c4fdb8bd801c0abfe797838d412",
+    "src/MphRead/Mods/Network/NetSession.cs": "cb8a5f2fdd1b40350abbaf98ae631fae3bac6cf39ac36d10bb4986e1d6b4bd6d",
+    "src/MphRead/Mods/Network/NetSessionLobby.cs": "01f9a369f4aa3db03c410b19e102b081718c7aa151097fdf7773340584a025ca",
+    "src/MphRead/Mods/Network/NetStatus.cs": "d2fb31dc3cc03d81c339c6ef47101b8f189e4f98def9aa13020788f4b9f53680",
+    "src/MphRead/Mods/Network/ReplayArchive.cs": "76296f053a4d5762a12558409f82f1d6ecd2c19a363b601c8dfa3df7f8267e65",
+    "src/MphRead/Mods/Network/ReplayFormatV3.cs": "0c39c2d14a341faaaf46189b79ada15ef89baed91337387846b3698385c5d18f",
+    "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "eabc88765dd25a0cc527cf8e210e1d0ccfde821d79b5772642250598a271d010",
+    "src/MphRead/Mods/Network/ReplayLibraryIndex.cs": "edf2a468abe10822e359af71fcfde5fda70ab2fd37d380044fa57a11342b72db",
+    "src/MphRead/Mods/Network/ReplayMetadata.cs": "74723eb8fbd4ae386288e9496a065748ce9148081f5c079ca540d4c3d2447630",
+    "src/MphRead/Mods/Network/ReplayReplicaCheckpoint.cs": "dcdc02ea523279e0b150933fccc305ad3be8b7d46aabbf56f9de93cc4cf82110",
+    "src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs": "9752df654f5954ecdb4ba3d8d28fdb59b22c177521d4d22a576eec545b248e1e",
+    "src/MphRead/Mods/Network/ReplayReplicaState.cs": "90a8d560a11dbd84f0a2002fda47899673f5a7db12eb8557d2717ee1fba940fd",
+    "src/MphRead/Mods/Network/SessionProtocol.cs": "bea103b70c2d22c73e0c10a84d958b1dba568967da6e482ffb12f3fbbf72d682",
+    "src/MphRead/SceneMomentumMovement.cs": "351898d8a17f88a66150933829deecc62552f586ec8327101e27cdb9a6d76c19",
+    "tools/nettest/ContinuousTargetTests.cs": "7644b720d28c70e926f8b87adf780aff451fd2536bbc2f1895a7a2cc2424311a",
+    "tools/nettest/EnhancedRetirementTests.cs": "aae4a60ef913c955e45278f132e9b23a37a1915d825c3ace2c99fd0ac7dc2f80",
+    "tools/nettest/MomentumBotAuthorityTests.cs": "87a7b4a185e6886b34f22c978c9c1d563818b67979b389ef55c39e7814bb6d8a",
+    "tools/nettest/MomentumOfflineRulesTests.cs": "171605d90c0f2672739ea0c5d811c8b4723fafaa65ee13171f5fb31666f6abf9",
+    "tools/nettest/MomentumOnlineSceneTests.cs": "56189fc36874269ca394aea250c1758bca7ff74d5c3d06932271f1333dfe3457",
+    "tools/nettest/MomentumReplayMetadataTests.cs": "7ba272e23da13df4801e47e6bf97335c81938419c881a09c9dff62a27e11f791",
+    "tools/nettest/MomentumReplayRulesTests.cs": "8f70c4af44a8beac22146fd603e0c951dd5f6016797521a011be6b98a77aa560",
+    "tools/nettest/MomentumRulesTests.cs": "16d03b60195fbc8d97410486e632e0313d7de2668b4f00f1abdf3a5877f54c28",
+    "tools/nettest/MovementValidationTests.cs": "2680ac63b471573ce71aea92b0541dfdfaa9d28bb77847a130819b7261e66e02",
+    "tools/nettest/NetArchitectureTests.cs": "4431811167e97ee690e8652543e16184a94a575a9a546212ee8e838a89f2e126",
+    "tools/nettest/PickupProtocolTests.cs": "5edf6ac7997a06598ee056ff46df015154b8552cab86a2ed22309f6e997a4113",
+    "tools/nettest/PlayerNameChatTests.cs": "d3df89877f41052fb6abf9f46c24e7f4cf558821eefaa39d25753603c69b3705",
+    "tools/nettest/Program.cs": "06f0ce090dd897597d654e858ec9dac0d0d4ce9b447972fcae21a4be51e02477",
+    "tools/nettest/Protocol17Tests.cs": "a56788d5459c4412a0e638867268bbd3af9894796a6da8de7670d5f743404f1c",
+    "tools/nettest/Quake3ReplayCompatibilityTests.cs": "1f914968f8191aab8c5c7db7ea0ee6826bba298282682fff16d101ad00889ce8",
+    "tools/nettest/Quake3RulesTests.cs": "075050963b8a28972005968b5617091bb654b474324d23f568bb915dc6155eb8",
+    "tools/nettest/Quake3SceneTests.cs": "cbe62244974247b5a78d8af8aaf879955c0e0b74ce303cf5a6bc31000714a3ea",
+    "tools/nettest/ReplayProtocol58Tests.cs": "e148ea98afcf396e46320fab1dceab578ab38fb48bb973000d4a55c0b1ffada9",
+    "tools/rmlui-live-menu-check/OfflineRulesAcceptance.cs": "405bb03ce9a9bbec50b24808d1b830aee0e4701200d89522124af58d652840b8",
+    "tools/rmlui-live-menu-check/Program.cs": "72f28453ab70a6cdeb45b65da6078985c807e4b8b974521abdd2850feef9abde",
+    "tools/rmlui-live-menu-check/StudioReplayPathAcceptance.cs": "ba647eb5e6df9eb013079a94eb39e1d321753b0b7344ca463f74275803fe8527",
+    "tools/rmlui-offline-rules-check/Program.cs": "c16b3ccf60e1e2f75c1657db96525123dd24dcbb9de302ea73f05183e4a642d4",
+    "tools/rmlui-opengl-check/LobbyInteractionsGlAcceptance.cs": "6a46ee7d9de0cf24ad8777ea8c2cf203639f0f421ccd79552d0b8785ec9f373c",
+    "tools/rmlui-opengl-check/OfflineRulesGlAcceptance.cs": "4855401a6452b28cf0a907227230b0a1ef8aa1020697fc70b199794456a18693",
+    "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs": "e117b78fc91929690f40c28ccfa35f7459ab9acd82e0bf8bc3e36acc0a62c5df"
+  },
+  "fullAcceptance": {
+    "status": "PASS",
+    "scope": "Windows CPU/headless; no Mac build/simulation/performance; no rendered GL/device acceptance",
+    "finalProvenance": {
+      "sourceFileCount": 55,
+      "finalSourceManifestSha256": "d431b5bd5a65ccbfc148591e3562f22ae9d819161df89d5ee7490be088c0e47d",
+      "binaries": {
+        "ProjectPrime.dll": "da9f67e55b1f301fd9859bd94622628b90ea62f168b9fbc31dd7156dd2991b68",
+        "nettest.dll": "dae8a05ebda8ab3fa2bb9eb6fb6fbb0eecb58bcc731214aaba1a1f552322588d"
+      },
+      "onlineProvenanceSha256": "f1b0fadecdd19f1f2f85e80cadcb1898ba5760681e83f83d95f9a81ed1cc3bb3",
+      "onlineReplaySha256": "9506a0cb2671aa94ec5d4e8187716a6d1e3c83422e6a4f3a1c57739d5e4952b5",
+      "scope": "allsourcehashesandonlinebinaryleaseverified; finalCore03/tool04/UI05; CPU/headless Windows, no renderGL/device/performanceacceptance"
+    },
+    "coreCases": [
+      {
+        "name": "quake3-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-scenes",
+        "exitCode": 0
+      },
+      {
+        "name": "quake3-replay-compatibility",
+        "exitCode": 0
+      },
+      {
+        "name": "math",
+        "exitCode": 0
+      },
+      {
+        "name": "profile",
+        "exitCode": 0
+      },
+      {
+        "name": "admission",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol58",
+        "exitCode": 0
+      },
+      {
+        "name": "movement-shadow",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixtures",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-fixture-lobby",
+        "exitCode": 0
+      },
+      {
+        "name": "ncx-hit-oracle",
+        "exitCode": 0
+      },
+      {
+        "name": "rules",
+        "exitCode": 0
+      },
+      {
+        "name": "offline-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "practice-tuning",
+        "exitCode": 0
+      },
+      {
+        "name": "replay-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "replay-metadata",
+        "exitCode": 0
+      },
+      {
+        "name": "native-gold",
+        "exitCode": 0
+      }
+    ],
+    "extraCases": [
+      {
+        "name": "architecture",
+        "exitCode": 0
+      },
+      {
+        "name": "protocol17",
+        "exitCode": 0
+      },
+      {
+        "name": "pickup-protocol",
+        "exitCode": 0
+      },
+      {
+        "name": "enhanced-retirement",
+        "exitCode": 0
+      },
+      {
+        "name": "player-names-chat",
+        "exitCode": 0
+      },
+      {
+        "name": "continuous-targets",
+        "exitCode": 0
+      },
+      {
+        "name": "bots",
+        "exitCode": 0
+      },
+      {
+        "name": "waitlist",
+        "exitCode": 0
+      },
+      {
+        "name": "advanced-rules",
+        "exitCode": 0
+      },
+      {
+        "name": "lobby",
+        "exitCode": 0
+      }
+    ],
+    "uiCases": [
+      {
+        "fixture": "rmlui-offline-rules-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "40bc5d75a6fd005e857f7912b8b689788bcab41aefe51d3d6d5410254f7832b7",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "rmlui-live-menu-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "41995a5f1547d87460abcffe4f7b51c101853e26f884bbd166aaf533ed341422",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      },
+      {
+        "fixture": "server-browser-party-source-check",
+        "buildExit": 0,
+        "runExit": 0,
+        "sha256": "ac925f4a02438e5970877811f8a23db6ccfa1aaed19ef93823338a911e5fc111",
+        "scope": "native RmlUi controller/rule-editor CPU fixture; no rendered GL or physical-device acceptance"
+      }
+    ],
+    "offline": {
+      "checks": 24167,
+      "hunters": 7,
+      "v1Peak": 7.1997075,
+      "quake3Peak": 8.817804,
+      "canonicalZeroAllocationSteps": 100000
+    },
+    "authorityBots": {
+      "checks": 257110,
+      "scenes": 14,
+      "ticksPerScene": 900,
+      "canonicalSolverSamples": 7156
+    },
+    "online": {
+      "processes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "checks": 24296,
+          "model": "Quake3",
+          "profileVersion": 1,
+          "solverSteps": 1653,
+          "recordedFrames": 2400,
+          "ownerAnomalyCount": 0
+        },
+        {
+          "checks": 26530,
+          "model": "Quake3",
+          "profileVersion": 1,
+          "solverSteps": 2377,
+          "recordedFrames": null,
+          "ownerAnomalyCount": 0
+        }
+      ],
+      "roster": {
+        "humans": 2,
+        "bots": 1
+      },
+      "archiveFrames": 2400,
+      "passiveReplayChecks": 73413,
+      "checkpointCount": 9,
+      "seekCount": 9,
+      "archiveSha256": "9506a0cb2671aa94ec5d4e8187716a6d1e3c83422e6a4f3a1c57739d5e4952b5"
+    },
+    "preservedEarlierFailures": [
+      "build01: three migrated test enum355 compile errors; fixed255",
+      "advanced/lobby02: historical27 fixture retained widened rule bytes; fixed genuine103byte body",
+      "UI02: two-toggle movement fixture now three choices; corrected",
+      "UI03: offline movement fixture two-toggle assumption; corrected",
+      "browser02: QueueHello59 fixture now current60 plus old59refusal; corrected",
+      "UI04: pre-existing POSIX absolute synthetic paths onWindows; fixture helper now temp absolute path",
+      "tool04: nettest.dll copy locked by in-flight ownlobby; lobby finished and04b succeeded"
+    ]
+  },
+  "upstreamIntegration": {
+    "pullRequests": [
+      773,
+      774
+    ],
+    "scope": "Imperialist visual sizing and performance documentation; seven changed files disjoint from movement/network/menu overlay; full live acceptance retains its earlier base identity."
+  },
+  "staticRegistryCheck": {
+    "passed": true,
+    "script": "tools/group-reservation-check/check_registry.py",
+    "scope": "all packet identifiers retain their assigned values; current protocol expectation updated to 60"
+  },
+  "hostedCI": "NOT VERIFIED at publication; merge does not wait for CI or review.",
+  "limits": [
+    "No new timing or performance-budget acceptance; optimization remains deferred.",
+    "No Mac builds/simulation, rendered GL, physical-device/focus or universal platform qualification.",
+    "Human feel and high-speed map qualification remain open.",
+    "Eight focused compatibility checks on latest main; full live cohort remains explicitly on the preceding base with identical movement/network/menu source hashes."
+  ]
+}

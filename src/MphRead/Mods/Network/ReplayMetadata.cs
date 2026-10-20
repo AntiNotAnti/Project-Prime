@@ -124,6 +124,7 @@ namespace MphRead.Mods.Network
                         if (String.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
                             || !float.IsFinite(match.TimeRemaining) || !float.IsFinite(match.TimeElapsed)) return null;
                         var rules = (MatchModifierFlags)match.RuleBits;
+                        if (!MovementModelRules.ValidRules(rules)) return null;
                         // MatchState omits format/team layout. Validate the modifier combinations
                         // it does carry; the session reader validates the complete definition.
                         var definition = new MatchDefinition

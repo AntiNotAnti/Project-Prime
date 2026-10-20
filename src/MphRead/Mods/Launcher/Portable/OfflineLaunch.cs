@@ -40,7 +40,7 @@ namespace MphRead.Mods.Launcher
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
         {
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
-                throw new ArgumentException("MovementModel must be Native or Momentum.", nameof(settings));
+                throw new ArgumentException("MovementModel must be Native, Momentum or Quake3.", nameof(settings));
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,

@@ -73,8 +73,8 @@ internal static class MovementValidationTests
             "model/profile context establishes a fresh source-time baseline");
         NetMovementValidationShadow.Observe(momentum with { Frame = 2, Position = new(10000, 0, 0) });
         var report = NetMovementValidationShadow.Capture();
-        Check(report.Schema == 2 && report.HardRejections == 0 && report.Hunters.Length == 28,
-            "versioned bounded report groups two models without enforcement");
+        Check(report.Schema == 3 && report.HardRejections == 0 && report.Hunters.Length == 42,
+            "versioned bounded report groups three models without enforcement");
         Check(report.Hunters[0].MovementModel == MovementModel.Native && report.Hunters[0].ProfileVersion == 0
             && report.Hunters[0].WouldRefuse == 1
             && report.Hunters[14].MovementModel == MovementModel.Momentum && report.Hunters[14].ProfileVersion == 1
@@ -103,6 +103,16 @@ internal static class MovementValidationTests
         NetMovementValidationShadow.Observe(native with { MovementModel = (MovementModel)255 });
         Check(Count("Invalid") == 3 && Count("HardRejections") == 0,
             "unknown profile/model evidence is diagnostic only and cannot enter grouping keys");
+        NetMovementValidationShadow.Reset();
+        var quake = Sample(1) with { MovementModel = MovementModel.Quake3, ProfileVersion = Quake3MovementProfileV1.ProfileVersion };
+        NetMovementValidationShadow.Observe(quake);
+        NetMovementValidationShadow.Observe(quake with { Frame = 2, Position = new(1000, 0, 0) });
+        NetMovementValidationShadow.Observe(quake with { Frame = 3, Position = new(2000, 0, 0) });
+        var uncapped = NetMovementValidationShadow.Capture();
+        Check(uncapped.HardRejections == 0 && uncapped.Hunters[28].MovementModel == MovementModel.Quake3
+            && uncapped.Hunters[28].ProfileVersion == 1 && uncapped.Hunters[28].Evaluated == 2
+            && uncapped.Hunters[28].WouldRefuse == 0,
+            "uncapped Quake III retains independent model/profile measurements without a capped-speed signal");
     }
 
     private static void OrderingAndGaps()

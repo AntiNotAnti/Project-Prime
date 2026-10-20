@@ -29,7 +29,7 @@ internal static class MomentumReplayRulesTests
         byte[] bytes = new byte[1 + MatchStatePacket.Size]; bytes[0] = (byte)PacketType.MatchState;
         new MatchStatePacket { MatchId = 7, AuthorityEpoch = 23, RoomKey = "MP3 PROVING GROUND",
             Mode = (byte)GameMode.Battle, TimeRemaining = 240,
-            RuleBits = (ushort)MovementModelRules.Modifier(model) }.Write(bytes.AsSpan(1));
+            RuleBits = (uint)MovementModelRules.Modifier(model) }.Write(bytes.AsSpan(1));
         return bytes;
     }
     private static byte[] Configuration(MovementModel model, SessionPhase phase = SessionPhase.InMatch)
@@ -43,7 +43,7 @@ internal static class MomentumReplayRulesTests
     }
     private static void Contradictions()
     {
-        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
+        foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3 })
         {
             MovementModel other = model == MovementModel.Native ? MovementModel.Momentum : MovementModel.Native;
             foreach (bool configurationFirst in new[] { false, true })
@@ -94,7 +94,7 @@ internal static class MomentumReplayRulesTests
         {
             Contradictions();
             var foreground = GameState.Current; var registry = PlayerEntity.LegacyRegistry;
-            foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum })
+            foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum, MovementModel.Quake3 })
             foreach (bool configured in new[] { false, true })
             {
                 var host = new PassiveReplaySessionHost();
@@ -129,8 +129,12 @@ internal static class MomentumReplayRulesTests
                     byte[] before = restored.CaptureCheckpoint().Bytes.ToArray();
                     foreach (byte protocol in new byte[] { 56, 57, 58 })
                     {
-                        byte[] historical = checkpoint.Bytes.ToArray(); historical[6] = protocol;
-                        if (model == MovementModel.Momentum)
+                        byte[] historical = ReplayProtocol58Tests.HistoricalCheckpoint(checkpoint.Bytes.ToArray(), protocol);
+                        // The historical field cannot carry bit 16. Exercise its
+                        // reserved movement bit rather than truncating Q3 to Classic.
+                        if (model == MovementModel.Quake3)
+                            historical[47 + 104] |= 0x80;
+                        if (model != MovementModel.Native)
                         {
                             Refused(() => restored.RestoreCheckpoint(new(historical)), "old checkpoint reserved bit refused: " + protocol);
                             Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(before), "old malformed restore is transactional");
@@ -142,7 +146,7 @@ internal static class MomentumReplayRulesTests
                             Check(scene.GameState.MovementModel == MovementModel.Native, "old checkpoint remains Native: " + protocol);
                         }
                     }
-                    byte[] future = checkpoint.Bytes.ToArray(); future[6] = 60;
+                    byte[] future = checkpoint.Bytes.ToArray(); future[6] = 61;
                     Refused(() => restored.RestoreCheckpoint(new(future)), "future checkpoint protocol refused");
                 }
                 finally { scene.DoCleanup(); scene.UnloadGl(); }

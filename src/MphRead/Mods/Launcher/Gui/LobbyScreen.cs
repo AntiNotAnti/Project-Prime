@@ -42,6 +42,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ScrollViewer _chatHistory;
         private readonly ChoiceRow _hunter, _suit, _team, _mode, _format;
         private readonly ChoiceRow _target, _handicap, _movement;
+        private bool _movementHasUnsupportedChoice;
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
@@ -124,8 +125,8 @@ namespace MphRead.Mods.Launcher.Gui
             _map.Clicked += (_, _) => OpenMapPicker();
             _mode = new ChoiceRow("Game type", _gameTypes.Select(m => m.Label).ToArray());
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
-            _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum" });
-            ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum; alt-form abilities stay native.");
+            _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum", "Quake III" });
+            ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; alt-form abilities stay native.");
             _movement.Changed += (_, _) =>
             {
                 if (_syncing) return;
@@ -703,7 +704,16 @@ namespace MphRead.Mods.Launcher.Gui
             if (movementSessionChanged || movementReset || !NetSession.CanEditLobby)
                 _movementDirty = false;
             if (!_movementDirty)
-                _movement.Index = session.Match.MovementModel == Movement.MovementModel.Momentum ? 1 : 0;
+            {
+                bool knownMovement = Movement.MovementModelRules.IsDefined(session.Match.MovementModel);
+                if (_movementHasUnsupportedChoice == knownMovement)
+                {
+                    _movement.SetItems(knownMovement ? new[] { "Classic", "Momentum", "Quake III" }
+                        : new[] { "Classic", "Momentum", "Quake III", "Choose movement" });
+                    _movementHasUnsupportedChoice = !knownMovement;
+                }
+                _movement.Index = knownMovement ? (int)session.Match.MovementModel : 3;
+            }
             _movementEpoch = session.AuthorityEpoch;
             _movementMatchId = session.MatchId;
             RefreshHunterChoices(_draftDirty && NetSession.CanEditLobby ? _lowTier.On : session.Match.LowTier);
@@ -1173,7 +1183,8 @@ namespace MphRead.Mods.Launcher.Gui
                 RoomKey = _draftRoom,
                 Mode = mode,
                 Format = format,
-                MovementModel = _movement.Index == 1 ? Movement.MovementModel.Momentum : Movement.MovementModel.Native,
+                MovementModel = _movement.Index is >= 0 and <= 2
+                    ? (Movement.MovementModel)_movement.Index : (Movement.MovementModel)byte.MaxValue,
                 CustomTeams = _customLayout
             };
         }

@@ -98,7 +98,7 @@ internal static class MomentumOnlineSceneTests
             scene.CameraSequences.Current?.End();
             Require(scene.GameState.MovementModel == expected && NetSession.ActiveMatchDefinition?.MovementModel == expected, "actual world and frozen server rule agree");
             Require(!(bool)typeof(Scene).GetField("_developerMomentumRequested", Hidden)!.GetValue(scene)!, "online adapter does not install private developer opt-in");
-            if (expected == MovementModel.Momentum) Require(scene.MomentumMovementActive && scene.MomentumOwnsPlayer(player), "authorized online rule owns real local player");
+            if (MovementModelRules.UsesMomentumSolver(expected)) Require(scene.MomentumMovementActive && scene.MomentumOwnsPlayer(player), "authorized online rule owns real local player");
             if (replayPath != null) Require(DemoRecorder.Start(), "real accepted-fact recording starts after world readiness");
 
             var remoteSlots = new HashSet<int>(); var previousRemote = new Dictionary<int, Vector3>();
@@ -157,7 +157,7 @@ internal static class MomentumOnlineSceneTests
                 set(keyboard, Keys.Tab, replayPath != null && tick % 600 is 220 or 350);
                 ushort padMinBefore = acceptanceOptions == null ? (ushort)0
                     : (ushort)typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)!;
-                object? jumpBypassBefore = acceptanceOptions != null && expected == MovementModel.Momentum && tick % 90 == 30
+                object? jumpBypassBefore = acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && tick % 90 == 30
                     ? MomentumBypassEvidence(scene, player) : null;
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
                 Vector3 ownerPositionBefore = player.Position, ownerSpeedBefore = player.Speed;
@@ -204,12 +204,14 @@ internal static class MomentumOnlineSceneTests
                     var sample = scene.LastMomentumStep!.Value;
                     Require(sample.Slot == localSlot && sample.SimulationFrame == frame, "diagnostic names actual local slot/frame");
                     Require(BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y), "online horizontal adapter preserves native Y bits");
-                    var result = MomentumProfileV1.Step(new Vector3(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30), sample.Input);
+                    Vector3 incoming = new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    var result = expected == MovementModel.Quake3 ? Quake3MovementProfileV1.Step(incoming, sample.Input)
+                        : MomentumProfileV1.Step(incoming, sample.Input);
                     Require(MathF.Abs(sample.NativeVelocityAfter.X - result.Velocity.X / 30) <= .00001f
                         && MathF.Abs(sample.NativeVelocityAfter.Z - result.Velocity.Z / 30) <= .00001f, "actual online rule uses v1 horizontal solver");
                     directSamples++;
                 }
-                bool observedMomentumJump = acceptanceOptions != null && expected == MovementModel.Momentum && delta == 1
+                bool observedMomentumJump = acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && delta == 1
                     && scene.LastMomentumStep!.Value.ContactPhase == MomentumContactPhase.LegalJump;
                 if (observedMomentumJump)
                 {
@@ -236,7 +238,7 @@ internal static class MomentumOnlineSceneTests
                         }
                     }
                 }
-                if (acceptanceOptions != null && expected == MovementModel.Momentum && player.Controls.Jump.IsPressed
+                if (acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && player.Controls.Jump.IsPressed
                     && player.Speed.Y > Fixed.ToFloat(player.Values.JumpSpeed) + .00001f)
                 {
                     highFinalJumpInputCount++;
@@ -257,7 +259,7 @@ internal static class MomentumOnlineSceneTests
                         if (excludedPadJumpSamples.Count < 16) excludedPadJumpSamples.Add(new { tick, y = player.Speed.Y,
                             previousY = previousYSpeed, padMinBefore, padMinAfter, flags1 = player.Flags1.ToString() });
                     }
-                    else if (acceptanceOptions != null && expected == MovementModel.Momentum)
+                    else if (acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected))
                     {
                         // The actual native acceptance label above owns jump checks.
                         // A pressed but rejected jump is not a jump impulse.
@@ -298,7 +300,7 @@ internal static class MomentumOnlineSceneTests
             }
             Require(inputTicks > 0 && (player.Position - origin).Length > .01f, "actual local input displaces native body");
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
-            if (acceptanceOptions != null && expected == MovementModel.Momentum)
+            if (acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected))
                 Require(acceptedMomentumJumps > 0, "extended match earns actual native accepted jump samples");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
@@ -324,7 +326,7 @@ internal static class MomentumOnlineSceneTests
                 DemoRecorder.Stop();
             }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new { checks = _checks, model = expected.ToString(), profileVersion = MomentumProfileV1.MomentumProfileVersion,
+            File.WriteAllText(path, JsonSerializer.Serialize(new { checks = _checks, model = expected.ToString(), profileVersion = MovementModelRules.ProfileVersion(expected),
                 acceptance = acceptance?.Report,
                 ownerAnomalyCount, ownerAnomalyOverflow, ownerAnomalies,
                 ownerAnomalyScope = "Test-only post-step body displacement/change trigger >0.25 units per simulation call; not a movement acceptance threshold. Maximum128 rows; overflow explicit. Native Speed and positional displacement differ in meaning. Scratch candidates are not a current collision response witness.",

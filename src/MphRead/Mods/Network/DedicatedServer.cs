@@ -909,7 +909,7 @@ namespace MphRead.Mods.Network
             return new MatchStatePacket
             {
                 Mode = (byte)entry.Mode,
-                RuleBits = (ushort)entry.Rules,
+                RuleBits = (uint)entry.Rules,
                 TimeRemaining = ending || entry.TimeLimitSeconds <= 0
                     ? 0
                     : Math.Max(0, entry.TimeLimitSeconds - elapsed),

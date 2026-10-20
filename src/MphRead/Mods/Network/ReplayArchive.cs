@@ -113,13 +113,13 @@ namespace MphRead.Mods.Network
             if (reader.Metadata != null && (metadata.FormatVersion >= 4 || metadata.MapHash != 0))
                 return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation);
             var bootstrap = new Dictionary<PacketType, byte[]>();
-            foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet);
+            foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet, metadata.ProtocolVersion);
             ReplayWriterV3? writer = null;
             try
             {
                 DemoRecord? record;
                 while ((record = reader.ReadNext()) is { } next && next.Frame < start)
-                { cancellation.ThrowIfCancellationRequested(); Remember(bootstrap, next.Data); }
+                { cancellation.ThrowIfCancellationRequested(); Remember(bootstrap, next.Data, metadata.ProtocolVersion); }
                 if (record == null) return reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : reader.LastResult;
                 if (record.Value.Frame > end) return ReplayOpenResult.Empty;
                 if (!bootstrap.TryGetValue(PacketType.MatchState, out byte[]? matchBytes)) return ReplayOpenResult.MissingMatchState;
@@ -161,15 +161,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void Remember(Dictionary<PacketType, byte[]> packets, byte[] packet)
+        private static void Remember(Dictionary<PacketType, byte[]> packets, byte[] packet, int protocol)
         {
             if (packet.Length == 0) return;
             PacketType type = (PacketType)packet[0];
             if (type == PacketType.MapChange) type = PacketType.MatchState;
-            if (type == PacketType.MatchState && packet.Length == 1 + MatchStatePacket.Size)
+            if (type == PacketType.MatchState && (packet.Length == 1 + MatchStatePacket.Size
+                || protocol < 60 && packet.Length == 1 + MatchStatePacket.Protocol59Size))
             {
                 if (packets.TryGetValue(type, out byte[]? previous)
-                    && MatchStatePacket.Read(previous.AsSpan(1)).MatchId != MatchStatePacket.Read(packet.AsSpan(1)).MatchId)
+                    && MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(previous, protocol)[1..]).MatchId
+                        != MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[1..]).MatchId)
                     packets.Remove(PacketType.Snapshot);
                 if ((PacketType)packet[0] == PacketType.MapChange)
                 {

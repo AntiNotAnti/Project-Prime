@@ -152,10 +152,10 @@ namespace MphRead.Mods.Network
                 {
                     byte[] reply = socket.Receive(ref from);
                     if (!from.Equals(endPoint)) continue;
-                    if (reply.Length >= 1 + ServerStatusPacket.Size
-                        && reply[0] == (byte)PacketType.StatusReply)
+                    if (reply.Length > 1 && reply[0] == (byte)PacketType.StatusReply
+                        && ServerStatusPacket.TryRead(reply.AsSpan(1), out var status))
                     {
-                        return Describe(ServerStatusPacket.Read(reply.AsSpan(1)), legacy: false,
+                        return Describe(status, legacy: false,
                             latency: (int)clock.ElapsedMilliseconds);
                     }
                 }
@@ -204,7 +204,7 @@ namespace MphRead.Mods.Network
                         welcomed = true;
                         continue;
                     }
-                    if (reply.Length >= 1 + MatchStatePacket.Size
+                    if (welcomed && reply.Length == 1 + MatchStatePacket.Size
                         && reply[0] == (byte)PacketType.MatchState)
                     {
                         socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint);
@@ -277,8 +277,7 @@ namespace MphRead.Mods.Network
             string message = room.Length > 0
                 ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {MatchTypeCatalog.MatchupLabel(mode, status.Format)} \u00B7 {players}"
                 : players;
-            string modifiers = new MatchDefinition { MovementModel = status.Rules.HasFlag(MatchModifierFlags.MomentumMovement)
-                    ? Movement.MovementModel.Momentum : Movement.MovementModel.Native,
+            string modifiers = new MatchDefinition { MovementModel = Movement.MovementModelRules.FromRules(status.Rules),
                 InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
                 LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
             if (modifiers.Length > 0) message += " · " + modifiers;

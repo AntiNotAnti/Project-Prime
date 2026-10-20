@@ -24,8 +24,8 @@ internal static class ReplayProtocol58Tests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 59 && ReplayIdentityCompatibility.Supports(59)
-                && !ReplayIdentityCompatibility.Supports(60), "explicit reviewed current protocol boundary");
+            Check(NetConfig.ProtocolVersion == 60 && ReplayIdentityCompatibility.Supports(60)
+                && !ReplayIdentityCompatibility.Supports(61), "explicit reviewed current protocol boundary");
             Checkpoints(); Metadata(); ConvertedRules();
             Console.WriteLine($"PROTOCOL58 REPLAY PASS {_checks} byte/archive checks; no gameplay or visual acceptance claim.");
             return 0;
@@ -39,7 +39,7 @@ internal static class ReplayProtocol58Tests
         foreach (int protocol in new[] { 56, 57, 58, 59 })
         {
             bool session = type == PacketType.SessionState;
-            byte[] packet = new byte[1 + (session ? SessionStatePacket.Size : MatchStatePacket.Size)];
+            byte[] packet = new byte[1 + (session ? SessionStatePacket.Size : MatchStatePacket.Protocol59Size)];
             packet[0] = (byte)type;
             int offset = session ? 1 + SessionStatePacket.Protocol28Size : 104;
             ushort historicalRules = protocol >= 58 ? (ushort)MatchModifierFlags.ThirdPersonCamera : (ushort)0;
@@ -63,16 +63,15 @@ internal static class ReplayProtocol58Tests
         foreach (bool timed in new[] { false, true })
         {
             byte[] current = Checkpoint(timed, thirdPerson: true, momentum: true);
-            Check(current[6] == 59 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == (timed ? 13 : 12), "current writer identifies reviewed layout");
+            Check(current[6] == 60 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == (timed ? 13 : 12), "current writer identifies reviewed layout");
             var destination = new ReplayReplicaState();
             foreach (byte protocol in new byte[] { 56, 57, 58, 59 })
             {
-                // Only the published protocol byte differs: these versions use
-                // the same explicit body/feature contract. Do not alter old bodies.
+                // Published 56–59 bodies share a 105-byte match; protocol 60 widens it.
                 // Camera starts at 58; fixed Momentum-v1 starts at 59.
                 // Preserve earlier bodies without inventing either historical rule.
                 byte[] expected = Checkpoint(timed, thirdPerson: protocol >= 58, momentum: protocol >= 59);
-                byte[] historical = expected.ToArray(); historical[6] = protocol;
+                byte[] historical = HistoricalCheckpoint(expected, protocol);
                 var descriptor = ReplayReplicaState.InspectCheckpointLayout(new(historical));
                 Check(descriptor.Protocol == protocol && descriptor.Version == (timed ? 13 : 12)
                     && descriptor.Features == (timed ? ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.TimedShots
@@ -91,7 +90,7 @@ internal static class ReplayProtocol58Tests
             }
             foreach (int length in new[] { 0, 4, 6, 7, 8, current.Length - 1 })
                 Reject(current.AsSpan(0, length).ToArray(), "truncated checkpoint " + length);
-            var future = current.ToArray(); future[6] = 60; Reject(future, "unreviewed future protocol");
+            var future = current.ToArray(); future[6] = 61; Reject(future, "unreviewed future protocol");
             var old = current.ToArray(); old[6] = 55; Reject(old, "wrong historical feature contract");
             var unknown = current.ToArray(); unknown[7] |= 0x80; Reject(unknown, "unknown feature bit");
             var mismatched = current.ToArray(); mismatched[7] ^= (byte)ReplayReplicaCheckpointFeatures.TimedShots;
@@ -99,6 +98,20 @@ internal static class ReplayProtocol58Tests
             var version = current.ToArray(); version[4] = 14; Reject(version, "unknown checkpoint version");
             Reject(current.Concat(new byte[] { 0 }).ToArray(), "unexpected checkpoint tail");
         }
+    }
+
+    internal static byte[] HistoricalCheckpoint(byte[] current, byte protocol)
+    {
+        // v12/v13 header(8), clocks/counters(36), snapshot/roster/match flags(3).
+        const int matchAt = 47;
+        if (current[4] is not (12 or 13) || current[45] != 0 || current[46] != 1)
+            throw new InvalidOperationException("Historical fixture requires an unrevisioned present match.");
+        int cut = matchAt + MatchStatePacket.Protocol59Size;
+        byte[] historical = new byte[current.Length - 2];
+        current.AsSpan(0, cut).CopyTo(historical);
+        current.AsSpan(cut + 2).CopyTo(historical.AsSpan(cut));
+        historical[6] = protocol;
+        return historical;
     }
 
     private static byte[] Checkpoint(bool timed, bool thirdPerson, bool momentum)
@@ -123,7 +136,7 @@ internal static class ReplayProtocol58Tests
 
     private static void Metadata()
     {
-        foreach (byte protocol in new byte[] { 56, 57, 58, 59 })
+        foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60 })
         foreach (bool? continuation in new bool?[] { null, false, true })
         {
             ReplayMetadata metadata = Fixture(protocol, continuation);
@@ -148,7 +161,7 @@ internal static class ReplayProtocol58Tests
             var magic = encoded.ToArray(); magic[^6] ^= 1; Reject(magic, "wrong capability magic");
             var capability = encoded.ToArray(); capability[^2] = 2; Reject(capability, "wrong capability revision");
             var policy = encoded.ToArray(); policy[^1] = 3; Reject(policy, "invalid continuation policy");
-            foreach (byte unsupported in new byte[] { 55, 60 })
+            foreach (byte unsupported in new byte[] { 55, 61 })
             {
                 Check(Refused(() => ReplayFormatV3.EncodeMetadata(Fixture(unsupported, continuation))), "unreviewed metadata protocol refused by encoder");
                 Check(Refused(() => ReplayFormatV3.DecodeMetadata(unsupported, encoded, 6)), "unreviewed metadata protocol refused by decoder");

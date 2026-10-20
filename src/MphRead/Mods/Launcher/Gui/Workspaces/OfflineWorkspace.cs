@@ -453,10 +453,10 @@ namespace MphRead.Mods.Launcher.Gui
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             bool validMovement = Movement.MovementModelRules.TryParse(_settings.MovementModel, out var savedMovement);
-            var movement = new ChoiceRow("Movement", validMovement ? new[] { "Classic", "Momentum" }
-                : new[] { "Classic", "Momentum", "Choose movement" },
-                validMovement ? savedMovement == Movement.MovementModel.Momentum ? 1 : 0 : 2);
-            ToolTip.SetTip(movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum; alt-form abilities stay native.");
+            var movement = new ChoiceRow("Movement", validMovement ? new[] { "Classic", "Momentum", "Quake III" }
+                : new[] { "Classic", "Momentum", "Quake III", "Choose movement" },
+                validMovement ? (int)savedMovement : 3);
+            ToolTip.SetTip(movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; alt-form abilities stay native.");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
@@ -482,8 +482,8 @@ namespace MphRead.Mods.Launcher.Gui
                     Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
-                    if (movement.Index is not (0 or 1))
-                    { error.Text = "Saved movement is unknown. Choose Classic or Momentum before applying rules."; return; }
+                    if (movement.Index is not (0 or 1 or 2))
+                    { error.Text = "Saved movement is unknown. Choose Classic, Momentum, or Quake III before applying rules."; return; }
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
                         || TimeSpan.TryParseExact(value, @"mm\:ss", null, out _);
                     if (!int.TryParse(score.Value, out int points) || points < 0 || points > 999 || !Duration(time.Value) || !Duration(objective.Value))
@@ -496,7 +496,7 @@ namespace MphRead.Mods.Launcher.Gui
                     var rules = new Network.MatchDefinition { Mode = SelectedMode(),
                         InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On,
                         BalancedMode = balancedMode.On,
-                        MovementModel = movement.Index == 1 ? Movement.MovementModel.Momentum : Movement.MovementModel.Native };
+                        MovementModel = (Movement.MovementModel)movement.Index };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;
                     string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;

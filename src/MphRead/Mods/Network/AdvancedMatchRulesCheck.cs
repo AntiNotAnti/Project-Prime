@@ -862,7 +862,8 @@ namespace MphRead.Mods.Network
             for (int slot = RosterPacket.MaxSlots - 1; slot >= 0; slot--)
                 historicalBytes.RemoveAt(rosterStart + RosterPacket.HeaderSize
                     + slot * RosterPacket.EntrySize + RosterPacket.EntrySize - 1);
-            historicalBytes.RemoveRange(matchStart + 103, 2);
+            // Protocol 27 has neither the old ushort nor the protocol-60 uint rule tail.
+            historicalBytes.RemoveRange(matchStart + 103, MatchStatePacket.Size - 103);
             historicalCheckpoint = historicalBytes.ToArray();
             historicalCheckpoint[6] = 27;
             var legacyDecoder = new ReplayReplicaState(); legacyDecoder.RestoreCheckpoint(new(historicalCheckpoint));

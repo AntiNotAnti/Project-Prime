@@ -1153,7 +1153,7 @@ namespace MphRead.Mods
             if (HasFlag(args, "oneinthechamber"))
                 rotation = Network.MapRotation.SingleMatch(rotation.Current.RoomKey, GameMode.OneInTheChamber, 0, 2);
             if (!Movement.MovementModelRules.TryParse(ValueAfter(args, "movement"), out var movementModel))
-                throw new ProgramException("-movement must be Native or Momentum.");
+                throw new ProgramException("-movement must be Native, Momentum or Quake3.");
             var server = new Network.DedicatedServer(port, maxPlayers, rotation)
             {
                 ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name")
