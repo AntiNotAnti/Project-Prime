@@ -16,7 +16,7 @@ internal static class CreditsFrameFixtures
 {
     private const string ModelPath="gameoptions/invented_Model.bin", AnimationPath="gameoptions/invented_Anim.bin";
     private static int checks;
-    private sealed record Fixture(Source.Document Document,Dictionary<string,Model.Snapshot> Models,
+    internal sealed record Fixture(Source.Document Document,Dictionary<string,Model.Snapshot> Models,
         Dictionary<string,Binding.Snapshot> Animations,Font.Snapshot Font,Background.Snapshot[] Pictures);
 
     internal static void Run()
@@ -185,7 +185,7 @@ internal static class CreditsFrameFixtures
         Expect<InvalidDataException>(()=>Create(pixels),"repeat over-budget catalog refusal remains deterministic");
         Check(GC.GetAllocatedBytesForCurrentThread()-before<1024*1024,"aggregate pair refusal occurs before image decoding or multi-megabyte material/model allocations");
     }
-    private static Fixture Replace(Fixture f,Dictionary<int,Source.Widget>? widgets=null,Source.Item[]? firstItems=null,
+    internal static Fixture Replace(Fixture f,Dictionary<int,Source.Widget>? widgets=null,Source.Item[]? firstItems=null,
         Dictionary<int,Source.Text>? strings=null,Source.Page[]? pages=null)
     {
         var d=f.Document;pages??=d.Pages.Select(p=>p.Index==6&&firstItems!=null?p with{Items=Array.AsReadOnly(firstItems)}:p).ToArray();
@@ -193,7 +193,7 @@ internal static class CreditsFrameFixtures
             d.GlobalPageCount,widgets?.Count??d.GlobalWidgetCount,d.GlobalStringCount,0,pages,
             widgets??d.Widgets.ToDictionary(p=>p.Key,p=>p.Value),strings??d.Strings.ToDictionary(p=>p.Key,p=>p.Value))};
     }
-    private static Catalog Create(Fixture f)=>new(f.Document,f.Models,f.Animations,f.Font,
+    internal static Catalog Create(Fixture f)=>new(f.Document,f.Models,f.Animations,f.Font,
         new(f.Pictures[0],f.Pictures[1],f.Pictures[2],f.Pictures[3]));
     private static void CatalogIdentity()
     {
@@ -292,7 +292,7 @@ internal static class CreditsFrameFixtures
 
     // Helpers deliberately author public value records independently of MARM
     // pointer serialization. Other fixture suites own raw source admission.
-    private static Fixture Make(bool navigate=false,bool animate=true,string marmIdentity="a",string textIdentity="b")
+    internal static Fixture Make(bool navigate=false,bool animate=true,string marmIdentity="a",string textIdentity="b")
     {
         var model=Model.Read(F.Model().Bytes);var animation=F.Animation();
         F.Word(animation.Bytes,animation.At["translation"]+4,4096);
@@ -337,7 +337,7 @@ internal static class CreditsFrameFixtures
     private static Source.TextStyle Style(int id)=>new(id,0,0x1f1f1f1f,0x1f1f1f1f,0,0,0,8,0,0,0,0,0,0);
     private static Source.Action Action(int targetPage=255,int callback=0)=>new(0,0,0,0,0,0,0,0,
         callback==0?Array.Empty<Source.Call>():new[]{new Source.Call(0,callback)},65535,(byte)targetPage,0);
-    private static CampaignEndingSummary Summary(bool good=true)=>new(1,good?CampaignEndingKind.Complete:CampaignEndingKind.Incomplete,
+    internal static CampaignEndingSummary Summary(bool good=true)=>new(1,good?CampaignEndingKind.Complete:CampaignEndingKind.Incomplete,
         false,73,8,12,34,999){PlayTicks=60L*(3*3600+7*60),GoreaTicks=60L*(2*60+5)};
     private static void Position(Vector3 actual,Vector3 expected,string label)=>Check((actual-expected).Length<.00001f,label);
     private static void Check(bool value,string label){checks++;if(!value)throw new InvalidOperationException("Frame fixture: "+label);}

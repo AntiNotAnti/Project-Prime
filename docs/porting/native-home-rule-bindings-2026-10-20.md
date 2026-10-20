@@ -74,3 +74,8 @@ authentication refusal. No physical Android or Windows/Linux runtime, including
 the GL sampler-object extension branch, is qualified. No CI or external review
 is claimed. Original credits loading/activation and the broader integration
 plan remain implementation work.
+
+PR842 merged at `0ccee5caf6a43f4d3db41cf5b83843a4ecf533e6`. Concurrent
+CW-05i PR841 (`e23ad4502`) changes offline-rule save ownership and is outside
+this frozen whole-binary proof. Home native/managed production code and the
+native source fingerprint remain identical to the qualified source at merge.

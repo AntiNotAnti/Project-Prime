@@ -370,7 +370,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 16; ++index) if (action == "offline:choice:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::OfflineChoice); intent.argument = index; return true;
     }
-    for (int index = 0; index < 14; ++index) if (action == "offline:rule:" + std::to_string(index)) {
+    for (int index = 0; index < PrimeOfflineRuleChoiceCount; ++index) if (action == "offline:rule:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::OfflineRuleToggle); intent.argument = index; return true;
     }
     for (int index = 0; index < 5; ++index) if (action == "offline:training-toggle:" + std::to_string(index)) {

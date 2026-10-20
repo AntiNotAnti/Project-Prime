@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Diagnostics;
 using System.Text;
 using MphRead.Mods.Campaign;
 using MphRead.Mods.Launcher.Core;
@@ -17,48 +18,75 @@ public sealed class NativeCampaignEndingPage : IDisposable
     private readonly NativeCampaignEndingController _controller;
     private readonly CampaignAudioSession _audio;
     private RmlUiDocumentToken _document;
-    private long _revision;
+    private long _revision, _controllerRevision;
+    private CampaignCreditsPresentation? _presentation;
+    private CampaignCreditsPresentation.Phase? _phase;
+    private bool _canAcknowledge;
+    private CampaignAudioPage? _requestedAudio;
+    private readonly bool _original;
+    private readonly Func<ICampaignCreditsLoadJob?> _load;
+    private readonly Func<bool> _receiptCurrent;
+    private readonly Func<double> _now;
     private bool _opened, _disposed;
 
     public CampaignEndingSummary Receipt { get; }
     public RmlUiDocumentToken Document => _document;
     public bool Closed => _controller.Snapshot().Closed;
+    internal CampaignCreditsPresentation.Phase? CreditsPhase => _presentation?.State;
+    internal int CreditsPage => _presentation?.SourcePage ?? -1;
+    internal bool CreditsCanAcknowledge => _presentation?.CanAcknowledge == true;
 
     public NativeCampaignEndingPage(RmlUiHost host, RmlUiPageManager pages, CampaignEndingSummary summary)
-        : this(host, pages, summary, new CampaignAudioSession()) { }
+        : this(host, pages, summary, new CampaignAudioSession(), LauncherPrefs.OriginalCampaignCredits,
+            CampaignCreditsLoadJob.TryStart, () => MatchStart.RecentCampaignEnding == summary, MonotonicNow) { }
 
     internal NativeCampaignEndingPage(RmlUiHost host, RmlUiPageManager pages, CampaignEndingSummary summary,
-        ICampaignAudioSink audio) : this(host, pages, summary, new CampaignAudioSession(audio)) { }
+        ICampaignAudioSink audio, bool original = false, Func<ICampaignCreditsLoadJob?>? load = null,
+        Func<bool>? receiptCurrent = null, Func<double>? now = null)
+        : this(host, pages, summary, new CampaignAudioSession(audio), original,
+            load ?? CampaignCreditsLoadJob.TryStart, receiptCurrent ?? (() => true), now ?? MonotonicNow) { }
 
     private NativeCampaignEndingPage(RmlUiHost host, RmlUiPageManager pages, CampaignEndingSummary summary,
-        CampaignAudioSession audio)
+        CampaignAudioSession audio, bool original, Func<ICampaignCreditsLoadJob?> load,
+        Func<bool> receiptCurrent, Func<double> now)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _pages = pages ?? throw new ArgumentNullException(nameof(pages));
         Receipt = summary;
-        _audio = audio;
+        _audio = audio; _original = original; _load = load; _receiptCurrent = receiptCurrent; _now = now;
         _controller = new(new NativeCampaignEndingReport(summary.Slot, summary.Kind == CampaignEndingKind.Complete,
             summary.SaveCommitted, summary.CompletionPercent, summary.Octoliths, summary.Deaths,
             summary.HunterKills, summary.EnemyKills) { PlayTicks = summary.PlayTicks, GoreaTicks = summary.GoreaTicks });
     }
 
-    public void Open()
+    public void Open(bool active = true)
     {
         _host.VerifyOwnerThread();
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_opened) return;
         _document = _pages.OpenPage(new("campaign-ending", "pages/adventure/ending.rml", "campaign_ending_continue"));
         _opened = true;
-        _audio.Enter(CampaignAudioPage.EndingResults);
-        Refresh();
+        if (_original && _host.SupportsCanvas)
+            _presentation = new(_host, _pages, _document, Receipt, _receiptCurrent, ShowSource, _load);
+        Refresh(active);
     }
+
+    internal void Suspend() { _host.VerifyOwnerThread(); _presentation?.Suspend(); }
 
     public bool Handle(in RmlUiIntent intent)
     {
         _host.VerifyOwnerThread();
-        if (!CanReturn() || intent.Document != _document || intent.Kind != RmlUiIntentKind.Navigate
-            || intent.Argument != (int)RmlUiRouteArgument.Adventure || !_pages.Accept(intent)) return false;
-        return Finish(back: false);
+        if (!CanReturn() || intent.Document != _document) return false;
+        if (intent.Kind == RmlUiIntentKind.ResultsAction && intent.Argument == 0)
+        {
+            if (_presentation?.CanAcknowledge != true || !_pages.Accept(intent)) return false;
+            bool accepted = _presentation.Acknowledge();
+            Refresh(); return accepted;
+        }
+        if (intent.Kind != RmlUiIntentKind.Navigate || intent.Argument != (int)RmlUiRouteArgument.Adventure
+            || !_pages.Accept(intent)) return false;
+        return Finish(back: _presentation?.State is CampaignCreditsPresentation.Phase.Loading
+            or CampaignCreditsPresentation.Phase.Credits or CampaignCreditsPresentation.Phase.Results);
     }
 
     public bool Back()
@@ -68,11 +96,12 @@ public sealed class NativeCampaignEndingPage : IDisposable
     }
 
     private bool CanReturn() => !_disposed && _opened && !Closed && _pages.Top == _document
-        && _host.IsAlive(_document) && _host.IsVisible(_document);
+        && _host.IsAlive(_document) && _host.IsVisible(_document) && _host.CurrentInputDocument == _document;
 
     private bool Finish(bool back)
     {
         if (!(back ? _controller.Back() : _controller.Continue())) return false;
+        _presentation?.Dispose();
         _audio.Dispose();
         Refresh();
         return true;
@@ -88,14 +117,32 @@ public sealed class NativeCampaignEndingPage : IDisposable
     }
 
     /// <summary>Call on the owner thread while this page is active, including while audio is loading.</summary>
-    public void Refresh()
+    public void Refresh(bool active = true)
     {
         _host.VerifyOwnerThread();
         if (_disposed || !_opened) return;
-        if (!_host.IsAlive(_document)) { _audio.Dispose(); return; }
-        if (!Closed) _audio.Tick();
+        if (!_host.IsAlive(_document)) { _presentation?.Dispose(); _audio.Dispose(); return; }
+        if (!Closed)
+        {
+            _presentation?.Pump(_now(), active);
+            if (_presentation?.TryTakeReturn() == true) { Finish(back: false); return; }
+            var phase = _presentation?.State;
+            if (phase is not CampaignCreditsPresentation.Phase.Loading and not CampaignCreditsPresentation.Phase.Retired)
+            {
+                var requested = phase == CampaignCreditsPresentation.Phase.Credits ? CampaignAudioPage.Ending : CampaignAudioPage.EndingResults;
+                // A failed or stolen music epoch must not retry source IO/cues
+                // each UI frame or reclaim a newer scene's playback.
+                if (_requestedAudio != requested) { _requestedAudio = requested; _audio.Enter(requested); }
+            }
+            if (phase == CampaignCreditsPresentation.Phase.Retired) _audio.Dispose();
+            else _audio.Tick();
+        }
         var state = _controller.Snapshot();
-        if (state.Revision <= _revision) return;
+        var currentPhase = _presentation?.State;
+        bool acknowledge = !state.Closed && _presentation?.CanAcknowledge == true;
+        if (state.Revision == _controllerRevision && currentPhase == _phase && acknowledge == _canAcknowledge) return;
+        bool focusOk = acknowledge && !_canAcknowledge;
+        bool focusReturn = currentPhase == CampaignCreditsPresentation.Phase.Fallback && _phase != currentPhase;
         var fields = new Dictionary<string, RmlUiBindingValue>();
         void Text(string key, string value) => fields[key] = RmlUiBindingValue.FromText(value);
         Text("campaign_ending_heading", Receipt.Heading);
@@ -111,7 +158,29 @@ public sealed class NativeCampaignEndingPage : IDisposable
             + $"\nOCTOLITHS  {Receipt.Octoliths}/8\nDEATHS  {Receipt.Deaths}\nHUNTER KILLS  {Receipt.HunterKills}\nENEMY KILLS  {Receipt.EnemyKills}");
         Text("campaign_ending_credits", CreditsText());
         fields["disabled:campaign_ending_continue"] = RmlUiBindingValue.FromBoolean(state.Closed);
-        if (_pages.Present(_document, state.Revision, fields)) _revision = state.Revision;
+        bool source = currentPhase is CampaignCreditsPresentation.Phase.Credits or CampaignCreditsPresentation.Phase.Results;
+        Text("campaign_ending_continue", currentPhase is CampaignCreditsPresentation.Phase.Loading
+            or CampaignCreditsPresentation.Phase.Credits or CampaignCreditsPresentation.Phase.Results
+            ? "CANCEL CREDITS // RETURN TO FILE SELECT" : "RETURN TO CAMPAIGN FILE SELECT");
+        Text("campaign_ending_source_status", currentPhase == CampaignCreditsPresentation.Phase.Loading
+            ? "LOADING ORIGINAL CARTRIDGE CREDITS" : source ? "ORIGINAL CREDITS // STACKED SCREENS" : "");
+        fields["visible:campaign_ending_source_ok"] = RmlUiBindingValue.FromBoolean(acknowledge);
+        fields["disabled:campaign_ending_source_ok"] = RmlUiBindingValue.FromBoolean(!acknowledge);
+        fields["visible:campaign_ending_source"] = RmlUiBindingValue.FromBoolean(source);
+        fields["visible:campaign_ending_scroll"] = RmlUiBindingValue.FromBoolean(!source);
+        if (_pages.Present(_document, ++_revision, fields))
+        {
+            _controllerRevision = state.Revision; _phase = currentPhase; _canAcknowledge = acknowledge;
+            if (focusOk) _host.FocusDocument(_document, "campaign_ending_source_ok");
+            else if (focusReturn) _host.FocusDocument(_document, "campaign_ending_continue");
+        }
+    }
+
+    private static double MonotonicNow() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+    private void ShowSource(bool show)
+    {
+        _host.SetBool(_document, "visible:campaign_ending_source", show);
+        _host.SetBool(_document, "visible:campaign_ending_scroll", !show);
     }
 
     private static string CreditsText()
@@ -131,6 +200,7 @@ public sealed class NativeCampaignEndingPage : IDisposable
         _host.VerifyOwnerThread();
         if (_disposed) return;
         _disposed = true;
+        _presentation?.Dispose();
         _audio.Dispose();
         _controller.Dispose();
         if (_document != default && _pages.Page == _document) _pages.ClosePage();

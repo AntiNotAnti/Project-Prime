@@ -136,6 +136,9 @@ namespace MphRead.Mods.Launcher
         /// <summary>Optional cartridge-backed room detail in the existing campaign pause map.</summary>
         public static bool DetailedCampaignMap { get; set; }
 
+        /// <summary>Optional original animated campaign credits on supported desktop endings.</summary>
+        public static bool OriginalCampaignCredits { get; set; } = false;
+
         /// <summary>Master gain for Project Prime combat-feedback cues, before the normal SFX volume.</summary>
         public static float CombatFeedbackVolume { get; set; } = 1f;
         /// <summary>Show local medal text when a multi-kill or life-streak milestone is earned.</summary>
@@ -451,6 +454,12 @@ namespace MphRead.Mods.Launcher
                                 DetailedCampaignMap = detailedMap;
                             }
                             break;
+                        case "original_campaign_credits":
+                            if (Boolean.TryParse(value, out bool originalCredits))
+                            {
+                                OriginalCampaignCredits = originalCredits;
+                            }
+                            break;
                         case "combat_feedback_volume":
                             if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
                                 out float feedbackVolume))
@@ -651,6 +660,7 @@ namespace MphRead.Mods.Launcher
                     $"player_outline_width={RenderOptions.PlayerOutlineWidth.ToString(CultureInfo.InvariantCulture)}",
                     $"reduce_motion={ReduceMotion.ToString().ToLowerInvariant()}",
                     $"detailed_campaign_map={DetailedCampaignMap.ToString().ToLowerInvariant()}",
+                    $"original_campaign_credits={OriginalCampaignCredits.ToString().ToLowerInvariant()}",
                     $"combat_feedback_volume={CombatFeedbackVolume.ToString(CultureInfo.InvariantCulture)}",
                     $"combat_notifications_visible={CombatNotificationsVisible.ToString().ToLowerInvariant()}",
                     $"imperialist_headshot_sound={ImperialistHeadshotSound}",
