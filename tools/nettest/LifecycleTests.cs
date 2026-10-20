@@ -910,6 +910,48 @@ namespace MphRead.NetTest
             Check(Math.Abs(ackPoint - positionPoint) < .02,
                 "rendered puppet and sub-frame ack name the same world");
 
+            // A fixed-step cosmetic consumer needs the completed read point,
+            // even when the last draw presented an earlier fractional world.
+            Check(NetSmoothing.Sample(1, out Vector3 completed, out bool completedAlt)
+                && (completed - presented).Length > .0001f,
+                "completed-position fixture separates simulation and last-drawn playout points");
+            NetPresentationDiagnostics.Reset();
+            var diagnosticsBefore = NetPresentationDiagnostics.Capture();
+            var countersBefore = (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames);
+            object? ReadClock(string name) => typeof(NetSmoothing)
+                .GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null);
+            var clocksBefore = (ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                ReadClock("_presentationReadFrame"), ReadClock("_presentationValid"));
+            for (int repeat = 0; repeat < 16; repeat++)
+            {
+                Check(NetSmoothing.SampleCompletedPresentation(1, out var cosmetic, out bool cosmeticAlt)
+                    && cosmetic == completed && cosmeticAlt == completedAlt,
+                    "repeated cosmetic captures sample the completed point independently of the last draw");
+            }
+            Check(!NetSmoothing.SampleCompletedPresentation(-1, out var unavailable, out bool unavailableAlt)
+                && unavailable == Vector3.Zero && !unavailableAlt,
+                "invalid cosmetic sample fails without inventing a position or form");
+            Check(clocksBefore.Equals((ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                    ReadClock("_presentationReadFrame"), ReadClock("_presentationValid")))
+                && countersBefore == (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                    NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                    NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames),
+                "cosmetic capture leaves read/presentation clocks and all playout diagnostics exact");
+            var diagnosticsAfter = NetPresentationDiagnostics.Capture();
+            for (int slot = 0; slot < diagnosticsBefore.Length; slot++)
+            {
+                var before = diagnosticsBefore[slot]; var after = diagnosticsAfter[slot];
+                Check((before with { AgeHistogram = after.AgeHistogram }) == after
+                    && before.AgeHistogram.SequenceEqual(after.AgeHistogram),
+                    "cosmetic capture leaves every per-slot diagnostic and age bucket exact");
+            }
+            Check(NetSmoothing.SamplePresentation(1, out var stillPresented, out _)
+                && stillPresented == presented && NetSmoothing.AckPoint(out uint stillAckFrame, out byte stillAckSub)
+                && stillAckFrame == ackFrame && stillAckSub == ackSub,
+                "completed cosmetic sampling cannot move the rendered world or its shot acknowledgement");
+
             NetSmoothing.PreparePresentation(1);
             Check(NetSmoothing.Sample(1, out Vector3 current, out _)
                 && NetSmoothing.SamplePresentation(1, out Vector3 atCurrent, out _)
@@ -932,7 +974,46 @@ namespace MphRead.NetTest
                 && ackFrame == 100 && ackSub == 0,
                 "held presentation acks the world the client actually received");
 
-
+            // The read clock can reach an authority frame absent from the
+            // buffer. Completed drawing deliberately holds an earlier received
+            // world; cosmetic capture must use that same hold, not fail and
+            // cause the caller to fall back to the newest raw snapshot.
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!
+                .SetValue(null, 101.5);
+            Check(!NetSmoothing.Sample(1, out _, out _), "missing-lower-frame fixture has no direct read-clock pose");
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out held, out bool heldAlt) && held == a.Position
+                && NetSmoothing.AckPoint(out ackFrame, out ackSub) && ackFrame == 100 && ackSub == 0,
+                "completed drawing resolves a missing lower frame to the earlier received world");
+            NetPresentationDiagnostics.Reset();
+            diagnosticsBefore = NetPresentationDiagnostics.Capture();
+            countersBefore = (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames);
+            clocksBefore = (ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                ReadClock("_presentationReadFrame"), ReadClock("_presentationValid"));
+            for (int repeat = 0; repeat < 16; repeat++)
+            {
+                Check(NetSmoothing.SampleCompletedPresentation(1, out var cosmetic, out bool cosmeticAlt)
+                    && cosmetic == held && cosmeticAlt == heldAlt,
+                    "completed cosmetic sampling preserves the drawn hold across a missing authority frame");
+            }
+            Check(clocksBefore.Equals((ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                    ReadClock("_presentationReadFrame"), ReadClock("_presentationValid")))
+                && countersBefore == (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                    NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                    NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames)
+                && NetSmoothing.AckPoint(out uint heldAckFrame, out byte heldAckSub)
+                && heldAckFrame == ackFrame && heldAckSub == ackSub,
+                "missing-frame cosmetic sampling leaves read/presentation clocks, ACK and diagnostics exact");
+            diagnosticsAfter = NetPresentationDiagnostics.Capture();
+            for (int slot = 0; slot < diagnosticsBefore.Length; slot++)
+            {
+                var before = diagnosticsBefore[slot]; var after = diagnosticsAfter[slot];
+                Check((before with { AgeHistogram = after.AgeHistogram }) == after
+                    && before.AgeHistogram.SequenceEqual(after.AgeHistogram),
+                    "missing-frame cosmetic sampling leaves per-slot diagnostics and age buckets exact");
+            }
         }
 
         private static void HistoryBoundaries()

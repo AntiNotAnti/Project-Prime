@@ -24,6 +24,20 @@ internal static class MomentumOnlineSceneTests
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
     private static int _checks;
+    private static readonly FieldInfo WalkPresentation = typeof(PlayerEntity).GetField("_modCrouchWalk", Hidden)!;
+    private static readonly FieldInfo SlidePresentation = typeof(PlayerEntity).GetField("_modSlidePresentation", Hidden)!;
+    private static void ObserveLowTravel(PlayerEntity actor, ref int walking, ref int sliding)
+    {
+        if (!actor.ModCrouched || actor.Health == 0 || actor.IsAltForm || actor.IsMorphing || actor.IsUnmorphing
+            || !actor.LoadFlags.TestFlag(LoadFlags.Spawned) || actor.Speed.Xz.Length <= .00001f) return;
+        var walk = ((TraversalWalkPresentation)WalkPresentation.GetValue(actor)!).Sample(1);
+        float slide = ((TraversalSlidePresentation)SlidePresentation.GetValue(actor)!).Sample(1);
+        Require(float.IsFinite(walk.Amount) && walk.Amount is >= 0 and <= 1
+            && float.IsFinite(slide) && slide is >= 0 and <= 1,
+            "actual moving low actor has bounded completed cosmetic samples");
+        if (walk.Amount > 0) walking++;
+        if (slide > 0) sliding++;
+    }
     private static void Require(bool condition, string message)
     { _checks++; if (!condition) throw new InvalidOperationException(message); }
     private static float ExpectedTraversalRampLift(Scene scene, PlayerEntity player)
@@ -115,6 +129,9 @@ internal static class MomentumOnlineSceneTests
             var samples = new List<object>(); int remoteMoving = 0, inputTicks = 0, impulses = 0, directSamples = 0, airborneTicks = 0, landings = 0;
             int altTicks = 0, airborneMorphTicks = 0, bipedReturnTicks = 0, padCoincidentJumpInputs = 0;
             int ownerCrouchHeldTicks = 0, ownerCrouchedTicks = 0, ownerStandingTicks = 0, ownerStanceChanges = 0;
+            int ownerVisualWalkTicks = 0, ownerVisualSlideTicks = 0, ownerPhysicalSlideTicks = 0;
+            int remoteVisualWalkTicks = 0, remoteVisualSlideTicks = 0;
+            bool traversalLowTravelScript = expected == MovementModel.Traversal && touch == null;
             int ownerHeldIntentPackets = 0, ownerCrouchedIntentPackets = 0, remoteHeldIntentPackets = 0;
             int ownerCanonicalCrouchedSnapshots = 0, ownerCanonicalStandingSnapshots = 0;
             int remoteCanonicalCrouchedSnapshots = 0, remoteCanonicalStandingSnapshots = 0, remoteCrouchedPoseChecks = 0;
@@ -169,6 +186,8 @@ internal static class MomentumOnlineSceneTests
             {
                 WaitUntil(clock, ref next);
                 int phase = tick % 240;
+                int traversalCycle = tick / 240 % 3;
+                bool dedicatedLowTravel = traversalLowTravelScript && traversalCycle != 0;
                 if (touch != null)
                 {
                     // Actual linked Android model, with the GameView direction ->
@@ -200,17 +219,32 @@ internal static class MomentumOnlineSceneTests
                 }
                 else
                 {
-                    set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
-                    set(keyboard, Keys.S, phase >= 96 && phase < 144);
+                    if (dedicatedLowTravel)
+                    {
+                        // Cycle 1: settle in crouch for 30 ticks, then actually walk low.
+                        // Cycle 2: earn ordinary run speed for 60 ticks before fresh Ctrl.
+                        set(keyboard, Keys.W, phase < 160 && (traversalCycle == 2 || phase >= 30));
+                        set(keyboard, Keys.D, false); set(keyboard, Keys.S, false);
+                    }
+                    else
+                    {
+                        set(keyboard, Keys.W, phase < 48); set(keyboard, Keys.D, phase >= 48 && phase < 96);
+                        set(keyboard, Keys.S, phase >= 96 && phase < 144);
+                    }
                 }
                 bool heldHopModel = expected is MovementModel.Quake3 or MovementModel.Traversal;
                 bool heldHopScript = heldHopModel && acceptanceOptions != null;
-                set(keyboard, Keys.Space, heldHopScript ? phase >= 30 && phase < 192 : tick % 90 == 30);
+                set(keyboard, Keys.Space, !dedicatedLowTravel
+                    && (heldHopScript ? phase >= 30 && phase < 192 : tick % 90 == 30));
                 // Recording acceptance adds real mid-air form transitions; the
                 // short protocol/rule worker keeps its original input script.
-                set(keyboard, Keys.Tab, replayPath != null && tick % 600 is 220 or 350);
+                set(keyboard, Keys.Tab, replayPath != null && (traversalLowTravelScript
+                    ? traversalCycle == 0 && phase is 160 or 220
+                    : tick % 600 is 220 or 350));
                 if (expected == MovementModel.Traversal)
-                    set(keyboard, Keys.LeftControl, phase >= 160 && phase < 200);
+                    set(keyboard, Keys.LeftControl, dedicatedLowTravel
+                        ? phase < 160 && (traversalCycle == 1 || phase >= 60)
+                        : phase >= 160 && phase < 200);
                 ushort padMinBefore = acceptanceOptions == null ? (ushort)0
                     : (ushort)typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)!;
                 object? jumpBypassBefore = acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && tick % 90 == 30
@@ -232,6 +266,8 @@ internal static class MomentumOnlineSceneTests
                     else if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing) ownerStandingTicks++;
                     if (player.ModCrouched != previousOwnerCrouched) ownerStanceChanges++;
                     previousOwnerCrouched = player.ModCrouched;
+                    if (player.ModSliding) ownerPhysicalSlideTicks++;
+                    ObserveLowTravel(player, ref ownerVisualWalkTicks, ref ownerVisualSlideTicks);
                     Require(player.ModCollisionCrouched == player.ModCrouched,
                         "actual owner collision stance follows production crouch input without historical override");
                 }
@@ -377,6 +413,8 @@ internal static class MomentumOnlineSceneTests
                             if (canonical.Crouched) remoteCrouchedPoseChecks++;
                         }
                     }
+                    if (expected == MovementModel.Traversal)
+                        ObserveLowTravel(remote, ref remoteVisualWalkTicks, ref remoteVisualSlideTicks);
                     remoteSlots.Add(slot);
                     if (previousRemote.TryGetValue(slot, out Vector3 prior) && (remote.Position - prior).Length > .001f) remoteMoving++;
                     previousRemote[slot] = remote.Position;
@@ -406,6 +444,14 @@ internal static class MomentumOnlineSceneTests
                     && ownerCanonicalCrouchedSnapshots > 0 && ownerCanonicalStandingSnapshots > 0
                     && remoteCanonicalCrouchedSnapshots > 0 && remoteCanonicalStandingSnapshots > 0 && remoteCrouchedPoseChecks > 0,
                     "real Ctrl input produces owner stance, submitted/received UDP intents, canonical owner/remote snapshots and remote low collision shapes");
+            // Short protocol workers keep their bounded-duration contract.
+            // A full 720-tick cohort must actually earn both motion categories;
+            // a key schedule alone is never activation or slide-entitlement proof.
+            bool requireLowTravelActivation = traversalLowTravelScript && tick >= 720;
+            if (requireLowTravelActivation)
+                Require(ownerVisualWalkTicks > 0 && ownerVisualSlideTicks > 0 && ownerPhysicalSlideTicks > 0
+                    && remoteVisualWalkTicks > 0 && remoteVisualSlideTicks > 0,
+                    $"full real Traversal cohort earns owned/remote cosmetic low travel: ownerWalk={ownerVisualWalkTicks} ownerSlide={ownerVisualSlideTicks} physicalSlide={ownerPhysicalSlideTicks} remoteWalk={remoteVisualWalkTicks} remoteSlide={remoteVisualSlideTicks}");
             Require(expected == MovementModel.Native ? scene.DeveloperMomentumSteps == firstSteps : directSamples > 0, "selected model actually governs local solver execution");
             acceptance?.Complete();
             uint? recordedFrames = null;
@@ -437,10 +483,14 @@ internal static class MomentumOnlineSceneTests
                 solverSteps = scene.DeveloperMomentumSteps - firstSteps, directSamples, inputTicks, legalJumpImpulses = impulses, acceptedHeldHops, airborneTicks, landings,
                 altTicks, airborneMorphTicks, bipedReturnTicks, recordedFrames, padCoincidentJumpInputs, excludedPadJumpSamples, acceptedMomentumJumps, acceptedJumpSamples, postSeamVerticalChangeCount, postSeamVerticalChanges, highFinalJumpInputCount, highFinalJumpInputs,
                 ownerCrouchHeldTicks, ownerCrouchedTicks, ownerStandingTicks, ownerStanceChanges,
+                requireLowTravelActivation, ownerVisualWalkTicks, ownerVisualSlideTicks, ownerPhysicalSlideTicks,
+                remoteVisualWalkTicks, remoteVisualSlideTicks,
                 ownerHeldIntentPackets, ownerCrouchedIntentPackets, remoteHeldIntentPackets,
                 ownerCanonicalCrouchedSnapshots, ownerCanonicalStandingSnapshots,
                 remoteCanonicalCrouchedSnapshots, remoteCanonicalStandingSnapshots, remoteCrouchedPoseChecks,
-                crouchSchedule = expected == MovementModel.Traversal ? "Ctrl held at ticks160..199 of each240-tick cycle; production input, no stance/shape/velocity writes" : null,
+                crouchSchedule = traversalLowTravelScript
+                    ? "720 fixed steps repeated: cycle 0 retains W/D/S and hop coverage, Ctrl 160..199; cycle 1 Ctrl 0..159 with W 30..159; cycle 2 W 0..159 with fresh Ctrl 60..159; no jumps in cycles1/2; recording form edges confined to cycle 0 phase160/220; production input only"
+                    : expected == MovementModel.Traversal ? "Ctrl held at ticks160..199 of each240-tick touch cycle; production input, no stance/shape/velocity writes" : null,
                 inputSource = touchModel ? "linked production Android TouchControls + explicit GameView digital keyboard boundary" : "synthetic keyboard",
                 touchSamples, touchDirectionalSamples, touchDiagonalSamples, touchReleases,
                 touchSchedule = touchModel ? "240 fixed steps: 48 up, 48 up-right, 48 down, 48 up-left, 48 released; native keyboard jump every 90 steps at phase30" : null,

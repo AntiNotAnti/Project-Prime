@@ -24,7 +24,7 @@ sealed partial class CheckWindow
     private double _gaitDistance, _gaitCycle;
     private double? _gaitPreviousPhase;
     private int _gaitPictures;
-    private readonly HashSet<int> _gaitVisualFrames = new();
+    private readonly HashSet<int> _gaitPhaseBins = new();
 
     private void InitializeCrouchGaitCheck()
     {
@@ -81,7 +81,8 @@ sealed partial class CheckWindow
         if (measuring)
         {
             object gait = CrouchGet(player, "_modCrouchGait")!;
-            double phase = (double)CrouchGet(gait, "_phase")!;
+            object walk = CrouchGet(player, "_modCrouchWalk")!;
+            double phase = (double)CrouchGet(walk, "_phase")!;
             if (_gaitPreviousPhase is double previous)
             {
                 double delta = phase - previous;
@@ -108,12 +109,12 @@ sealed partial class CheckWindow
                 object lower = CrouchGet(player, "_modCrouchLowerAnimation")!;
                 int visualClip = ((int[])CrouchGet(lower, "Index")!)[0];
                 int visualFrame = ((int[])CrouchGet(lower, "Frame")!)[0];
-                _gaitVisualFrames.Add(visualFrame);
-                if (slide) CrouchRequire(visualClip == (int)PlayerAnimation.Idle && visualFrame == 0,
-                    "held W slide renders stable Idle frame-zero lower legs");
+                _gaitPhaseBins.Add(Math.Clamp((int)(phase * 20), 0, 19));
+                CrouchRequire(visualClip == (int)PlayerAnimation.Idle && visualFrame == 0,
+                    "dedicated low footwork and slide sample a neutral native Idle0 lower skeleton");
                 _gaitSamples.Add(new { label, sourceFrame, simulationFrame = Scene.FrameCount, phase,
                     canonicalClip = CrouchGet(player, "Biped1Anim")?.ToString(), canonicalFrame = CrouchGet(player, "Biped1Frame"),
-                    visualClip, visualFrame, sliding = CrouchGet(player, "ModSliding"),
+                    visualClip, visualFrame, proceduralWalkAmount = CrouchGet(walk, "_amount"), sliding = CrouchGet(player, "ModSliding"),
                     gliding = CrouchGet(gait, "Gliding"), position = CrouchVector(player.Position),
                     durationSeconds = _gaitTick / 60d, distance = _gaitDistance, completedCycles = _gaitCycle });
                 _gaitPictures++;
@@ -121,7 +122,7 @@ sealed partial class CheckWindow
         }
         if (slide ? _gaitTick >= 90 : _gaitCycle >= 1.05 && _gaitPictures >= 5)
         {
-            CrouchRequire(slide || _gaitVisualFrames.Count >= 3, "walking cycle includes different rendered lower poses");
+            CrouchRequire(slide || _gaitPhaseBins.Count >= 3, "walking cycle captures multiple distinct procedural phase bins");
             CrouchRequire(_gaitDistance > .1 && _gaitPictures >= 5, "actual travel and representative moving body captures required");
             _gaitSegments.Add(new { name = _gaitNames[_gaitSegment], durationSeconds = _gaitTick / 60d,
                 distance = _gaitDistance, completedCycles = _gaitCycle, pictures = _gaitPictures,
@@ -137,12 +138,12 @@ sealed partial class CheckWindow
     {
         _gaitTick = 0; _gaitLastFrame = Scene.FrameCount;
         _gaitStart = _gaitPrevious = Scene.Players.Main.Position;
-        _gaitVisualFrames.Clear();
+        _gaitPhaseBins.Clear();
         _gaitDistance = _gaitCycle = 0; _gaitPreviousPhase = null; _gaitPictures = 0;
     }
 
     internal object CrouchGaitRenderResult() => new { schema = 1, status = Complete ? "PASS" : "FAIL", checkReady = Complete,
-        scope = "Windows native continuous 60 Hz renderer; actual Ctrl+W/S/A/D full walk cycles and running held-W+Ctrl slide; external camera follows actual body; frozen body-hidden negative controls and exact RGB repeats; no actor state writes; no perfect world foot-plant claim",
+        scope = "Windows native continuous 60 Hz renderer; actual Ctrl+W/S/A/D full walk cycles and running held-W+Ctrl slide; external camera follows actual body; frozen body-hidden negative controls and exact RGB repeats; no actor state writes; straight support-foot planting is measured separately by CPU; turning and remote smoothing are not a world-foot-lock claim",
         scheduler = "production FrameTiming.Advance; presentation generation fence preserved",
         segments = _gaitSegments, samples = _gaitSamples, pictures = _crouchPictures,
         focusEvents = _crouchFocusEvents, continuousPresentationGeneration = _crouchContinuousGeneration,

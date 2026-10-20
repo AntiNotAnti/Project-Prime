@@ -641,10 +641,8 @@ namespace MphRead.Entities
         {
             AnimationInfo lowerInfo = visualGait ? ModCrouchLowerPose(model, out lower) : _bipedModel1.AnimInfo;
             AnimationInfo upperInfo = _bipedModel2.AnimInfo;
-            // Walking arms follow the same travel clock (or stable slide pose).
-            // A real shot/charge/ability upper clip keeps its native animation.
-            if (visualGait && ModIsWalkingClip(Biped2Anim))
-            { upperInfo = lowerInfo; upper = lower; }
+            // Procedural legs must not relax or retime the native weapon arm.
+            // Walking, shot, charge and ability upper curves keep their aim pose.
             spineNode.AnimIgnoreChild = true;
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
             try

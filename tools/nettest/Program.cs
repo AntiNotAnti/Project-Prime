@@ -130,6 +130,7 @@ namespace MphRead.NetTest
                     + "  --momentum-offline-rules           Test saved/offline selection and hidden rule preservation.\n"
                     + "  --momentum-replay-rules            Test passive movement rules and decoder checkpoint consistency.\n"
                     + "  --momentum-replay-metadata         Test recorded movement labels and cold/warm library cache.\n"
+                    + "  --traversal-replay-presentation <assets> <replay> Require real recorded crouch-walk and slide cosmetic activation.\n"
                     + "  --momentum-replay-scene <assets> <replay> <model> <json> [durable-replay] Test recorded world determinism and mode restoration.\n"
                     + "  --momentum-rewind-scene <assets> [json] Test actual movement trajectories through historical geometry queries.\n"
                     + "  --momentum-combat-online <assets> <port> <model> <json> [seconds] [seed] [latency] [loss] [reorder] [duplicate] [fault-seed] [hunter] [human-min] Run genuine owner combat.\n"
@@ -704,6 +705,16 @@ namespace MphRead.NetTest
                     "--momentum-touch-gl" => MomentumTouchGlTests.Run(output),
                     _ => MomentumBotAuthorityTests.Run(output)
                 };
+            }
+            if (args.Length >= 3 && args[0] == "--traversal-replay-presentation")
+            {
+                string replay = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                if (!ServerSim.Available(out string reason)) throw new InvalidOperationException(reason);
+                Mods.Headless.Enter();
+                TraversalReplayPresentationTests.Run(replay, requireActiveTravel: true);
+                return 0;
             }
             if (args.Length >= 5 && args[0] == "--momentum-replay-scene")
             {

@@ -192,6 +192,8 @@ internal static class TraversalSlidePoseTests
             void Draw() => Visual.Invoke(p, new object?[] { model, model.Nodes[spine], world, pitch, null, null, crouch });
             Draw(); Matrix4[] picture = Nodes(model); float[] pictureStack = model.MatrixStackValues.ToArray();
             Check(picture.All(Finite) && pictureStack.All(float.IsFinite), "actual slide geometry and submitted matrix stack are finite");
+            Near(OrientationError(picture[cannon], neutral[cannon]), 0,
+                "slide counter-lean retains actual native upper-channel cannon aim through every entry/turn sample");
             float maxLengthError = 0;
             for (int side = 0; side < 2; side++)
                 for (int segment = 0; segment < 2; segment++)
@@ -221,8 +223,8 @@ internal static class TraversalSlidePoseTests
 
                 // Cosmetic comparison seam only: replace the presentation
                 // envelope with zero around the SAME production Visual call.
-                // Gait.Gliding keeps both calls on the same idle lower curves
-                // and walking-upper composition. Restore the captured timeline
+                // Both calls keep the same idle lower curves and native upper
+                // animation/aim channel. Restore the captured timeline
                 // in finally. Physical timers, speed, and node poses are never
                 // fixture-authored; every node is composed by production code.
                 object capturedClock = Slide.GetValue(p)!;
@@ -277,10 +279,7 @@ internal static class TraversalSlidePoseTests
         spine.AnimIgnoreChild = true; spine.AfterTransform = Matrix4.CreateRotationZ(pitch);
         try { model.AnimateNodes(0, false, Matrix4.Identity, Vector3.One, lower, sample); }
         finally { spine.AnimIgnoreChild = ignore; spine.AfterTransform = after; }
-        bool walkingUpper = upper.NodeIndex is (int)PlayerAnimation.WalkForward or (int)PlayerAnimation.WalkBackward
-            or (int)PlayerAnimation.WalkLeft or (int)PlayerAnimation.WalkRight;
-        model.AnimateNodes(spine.ChildIndex, false, Matrix4.Identity, Vector3.One,
-            walkingUpper ? lower : upper, walkingUpper ? sample : null);
+        model.AnimateNodes(spine.ChildIndex, false, Matrix4.Identity, Vector3.One, upper);
         foreach (Node node in model.Nodes) node.Animation *= world;
     }
 
