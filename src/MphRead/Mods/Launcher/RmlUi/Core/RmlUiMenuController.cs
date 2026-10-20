@@ -621,6 +621,9 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.OfflineChoice:
                 if (_offline == null || _busy || !RmlUiIntentRegistry.IsValid(kind, argument))
                     return false;
+                // Choices 7-15 belong exclusively to training. Choice 16 is an
+                // Offline Battle mechanics selector and must remain available there.
+                if (_trainingRoute != (argument is >= 7 and <= 15)) return false;
                 if (argument == 0) _offline.RefreshArenas(_services.OfflineArenaKeys());
                 if (argument >= 7 && argument != 16)
                 {
@@ -633,7 +636,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (offlineChanged) Dirty();
                 return offlineChanged;
             case RmlUiIntentKind.OfflineOpenArena:
-                if (_offline == null || _busy || _trainingOptionsOpen) return false;
+                if (_offline == null || _trainingRoute || _busy || _trainingOptionsOpen) return false;
                 _offline.RefreshArenas(_services.OfflineArenaKeys());
                 if (!_offline.OpenArena()) return false;
                 Dirty(); return true;
@@ -641,16 +644,16 @@ public sealed class RmlUiMenuController : IDisposable
                 if (_offline == null || !_offline.CloseArena()) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineArenaSearch:
-                if (_offline == null || !_offline.SearchArena(arenaSearch)) return false;
+                if (_offline == null || _trainingRoute || !_offline.SearchArena(arenaSearch)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineArenaPage:
-                if (_offline == null || !_offline.ArenaTurn(argument)) return false;
+                if (_offline == null || _trainingRoute || !_offline.ArenaTurn(argument)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineSelectArena:
-                if (_offline == null || !_offline.SelectArena(argument)) return false;
+                if (_offline == null || _trainingRoute || !_offline.SelectArena(argument)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
-                if (_offline == null || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
+                if (_offline == null || _trainingRoute || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
                 RmlUiOfflineRequest offlineRequest = _offline.Current;
                 if (offlineRequest.Character != OfflineCharacterMode.Native)
                 {
@@ -672,7 +675,7 @@ public sealed class RmlUiMenuController : IDisposable
                 _offlineInFlight = offlineRequest;
                 return true;
             case RmlUiIntentKind.OfflineOpenTrainingOptions:
-                if (_training == null || _offline == null || _offline.ArenaOpen || _trainingOptionsOpen) return false;
+                if (_training == null || _offline == null || !_trainingRoute || _offline.ArenaOpen || _trainingOptionsOpen) return false;
                 _trainingOptionsOpen = true;
                 Dirty();
                 return true;
@@ -682,11 +685,11 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty();
                 return true;
             case RmlUiIntentKind.OfflineTrainingToggle:
-                if (!_trainingOptionsOpen || _training == null
+                if (!_trainingRoute || !_trainingOptionsOpen || _training == null
                     || !_training.Toggle(argument)) return false;
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchTraining:
-                if (_training == null || _offline == null || _busy || _offline.ArenaOpen
+                if (_training == null || _offline == null || !_trainingRoute || _busy || _offline.ArenaOpen
                     || _trainingOptionsOpen || _trainingLaunched || _services.Lobby().Active) return false;
                 if (!_services.LaunchTraining(_training.BuildForLaunch(),
                         _training.Hunter, _offline.Current.Suit))
@@ -698,7 +701,7 @@ public sealed class RmlUiMenuController : IDisposable
                 Status("AIM LAB LAUNCH ACCEPTED");
                 return true;
             case RmlUiIntentKind.OfflineOpenRules:
-                if (_offline == null || _busy || _offline.ArenaOpen || _trainingOptionsOpen
+                if (_offline == null || _trainingRoute || _busy || _offline.ArenaOpen || _trainingOptionsOpen
                     || _services.Lobby().Active || _services.ReadOfflineRules() is not { } localRules) return false;
                 _offlineRules = new(_offline.Current.Mode, localRules);
                 Dirty(); return true;
@@ -1430,6 +1433,14 @@ public sealed class RmlUiMenuController : IDisposable
             return RequestGameFiles(training ? SetupResume.Training : SetupResume.Offline);
         if (_offline != null)
         {
+            if (_trainingRoute != training)
+            {
+                // Retire stale modals and validation before reusing the shared draft.
+                Cancel();
+                _offlineRules = null;
+                _trainingOptionsOpen = false;
+                if (_offline.ArenaOpen) _offline.CloseArena();
+            }
             _offline.RefreshArenas(_services.OfflineArenaKeys());
             _trainingRoute = training;
             Dirty();
@@ -2065,11 +2076,19 @@ public sealed class RmlUiMenuController : IDisposable
             ? "START WALL-CLING PRACTICE" : "INITIATE BOT SIMULATION");
         Text("offline_summary", _offline == null ? "" :
             _offline.Mode + " // " + _offline.Bots + " // " + _offline.Difficulty);
+        Text("offline_eyebrow_label", _trainingRoute ? "OPERATIONS // TRAINING" : "OPERATIONS // OFFLINE");
+        Text("offline_heading_label", _trainingRoute ? "AIM LAB" : "OFFLINE BATTLE");
+        Text("offline_description_label", _trainingRoute
+            ? "Configure dedicated aim and movement drills."
+            : "Build a local match with bots and custom rules.");
         Text("offline_error", _offline == null ? "" : _status);
-        Text("offline_availability", _offline?.Valid == true
-            ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
-        Flag("offline_can_start", _offline?.Valid == true && !_busy && !_offlineLaunched && _offlineRules == null);
-        Flag("offline_training_can_start", _training != null && !_trainingLaunched
+        Text("offline_availability", _trainingRoute
+            ? "PERSONAL TRAINING // CHOOSE A DRILL"
+            : _offline?.Valid == true
+                ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
+        Flag("offline_can_start", !_trainingRoute && _offline?.Valid == true
+            && !_busy && !_offlineLaunched && _offlineRules == null);
+        Flag("offline_training_can_start", _trainingRoute && _training != null && !_trainingLaunched
             && !lobby.Active && !_busy);
         Text("offline_training_hunter_value", _training?.HunterLabel ?? "");
         Text("offline_drill_value", _training?.DrillLabel ?? "");

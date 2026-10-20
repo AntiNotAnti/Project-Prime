@@ -606,6 +606,19 @@ Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offl
     && controller.OfflineOpen && Flag(controller.Tick(), "offline_mode")
     && !Flag(controller.Tick(), "lobby_mode"),
     "native Offline Battle opens without requesting the legacy workspace");
+var botSetupBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Offline, controller.Tick().Bindings);
+Check(botSetupBindings.TryGetValue("visible:offline_match_panel", out var visibleBotSetup)
+    && visibleBotSetup.Boolean
+    && botSetupBindings.TryGetValue("visible:offline_training_panel", out var hiddenAimSetup)
+    && !hiddenAimSetup.Boolean
+    && botSetupBindings.TryGetValue("offline_heading", out var botSetupHeading)
+    && botSetupHeading.Text == "OFFLINE BATTLE"
+    && !Flag(controller.Tick(), "offline_training_can_start"),
+    "Offline Battle shows only bot-match settings and the correct heading");
+Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice, 8)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining),
+    "Offline Battle cannot edit or launch Aim Lab through a stale intent");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 5)
     && Text(controller.Tick(), "offline_hunter_value") == "KANDEN",
     "Hunter choice updates native offline draft, not launcher preferences");
@@ -691,9 +704,30 @@ Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Trai
     && controller.OfflineOpen && Flag(controller.Tick(), "offline_training_mode")
     && !Flag(controller.Tick(), "lobby_mode"),
     "Aim Lab opens the native Offline workspace with training focus");
+var aimSetupBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Offline, controller.Tick().Bindings);
+Check(aimSetupBindings.TryGetValue("visible:offline_match_panel", out var hiddenBotSetup)
+    && !hiddenBotSetup.Boolean
+    && aimSetupBindings.TryGetValue("visible:offline_training_panel", out var visibleAimSetup)
+    && visibleAimSetup.Boolean
+    && aimSetupBindings.TryGetValue("offline_heading", out var aimSetupHeading)
+    && aimSetupHeading.Text == "AIM LAB"
+    && !Flag(controller.Tick(), "offline_can_start"),
+    "Aim Lab shows only drill settings and the correct heading");
+Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice, 3)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineChoice, 16)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineOpenRules)
+    && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),
+    "Aim Lab cannot edit or launch bot matches through a stale intent");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 8)
     && Text(controller.Tick(), "offline_drill_value") == "Flick",
     "the native drill control changes current training draft only");
+Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
+    && controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
+    && !controller.TrainingOptionsOpen && !Flag(controller.Tick(), "offline_training_mode")
+    && controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Training)
+    && !controller.TrainingOptionsOpen && Flag(controller.Tick(), "offline_training_mode"),
+    "switching local activities retires an old Aim Lab options modal");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
     && controller.TrainingOptionsOpen
     && Flag(controller.Tick(), "offline_training_open"),

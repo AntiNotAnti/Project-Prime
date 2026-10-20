@@ -665,6 +665,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             new(RmlUiBindingKind.Boolean, "visible:offline_match_panel", "!offline_training_mode"),
             new(RmlUiBindingKind.Boolean, "visible:offline_training_panel", "offline_training_mode"),
+            new(RmlUiBindingKind.Text, "offline_eyebrow", "{{offline_eyebrow_label}}"),
+            new(RmlUiBindingKind.Text, "offline_heading", "{{offline_heading_label}}"),
+            new(RmlUiBindingKind.Text, "offline_description", "{{offline_description_label}}"),
             new(RmlUiBindingKind.Text, "offline_arena_value", "{{offline_arena_value}}"),
             new(RmlUiBindingKind.Text, "offline_mode_value", "{{offline_mode_value}}"),
             new(RmlUiBindingKind.Text, "offline_matchup_value", "{{offline_matchup_value}}"),

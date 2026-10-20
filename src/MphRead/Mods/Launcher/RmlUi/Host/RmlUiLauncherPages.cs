@@ -100,6 +100,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             Verify();
             bool wasLobby = Bool("lobby_mode");
+            bool wasTraining = Bool("offline_training_mode");
             Put(name, value);
             if (name == "lobby_mode")
             {
@@ -116,6 +117,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             {
                 Put("home_mode", !value && !Bool("lobby_mode"));
                 if (value) Put("lobby_mode", false);
+            }
+            else if (name == "offline_training_mode" && wasTraining != value
+                && _page == RmlUiMenuPage.Offline)
+            {
+                // Return focus to the new setup on same-page activity changes.
+                _pendingFocus = value ? "offline_training_start" : "offline_arena";
             }
         }
 
