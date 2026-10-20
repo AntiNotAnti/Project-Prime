@@ -64,8 +64,7 @@ internal sealed class ReplayLiveWorld : IDisposable
             if (_failed || !_enabled) return;
             if (_world == null)
             {
-                foreach (var record in _pending)
-                    if (!record.Payload.IsEmpty) _bootstrap.Accept(record.Payload, record.RecordingFrame);
+                SeedBootstrap(_bootstrap, _pending, frame);
                 ClearPending();
                 bool any = false;
                 for (int slot = 0; slot < 8; slot++) any |= _bootstrap.TryGetPlayer(slot, out _);
@@ -101,6 +100,21 @@ internal sealed class ReplayLiveWorld : IDisposable
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         { Fail(ex.Message); _world?.Dispose(); _world = null; }
     }
+    // Cached construction facts arrive in dependency/type order, not clock
+    // order. Install their complete recording frontier before capture; source
+    // and authority clocks remain those carried by the accepted facts.
+    internal static void SeedBootstrap(ReplayReplicaState bootstrap,
+        IReadOnlyList<ReplayTimelineRecord> records, uint frame)
+    {
+        uint frontier = frame;
+        foreach (var record in records)
+        {
+            frontier = Math.Max(frontier, record.RecordingFrame);
+            if (!record.Payload.IsEmpty) bootstrap.Accept(record.Payload, record.RecordingFrame);
+        }
+        bootstrap.Advance(frontier);
+    }
+
     private void Fail(string error)
     {
         _failed = true; LastError = error; ClearPending();
