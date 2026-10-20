@@ -211,6 +211,7 @@ internal static class CustomAuthoritySceneChecks
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
             DamageAndSequence(); HeadAndScore(); ProtectedContact(); TurretContact(); MissingHistoryAndCapacity();
             Trade(false); Trade(true); RespawnAndReplacement(); LateImpactTrade(); SharedCounterBoundaries(); CanonicalReplayFrontier();
+            RulesRetirement(); StreamRetirement(); SceneCleanup(); AdvanceAllocation(); RetainedLifeBudget();
             Console.WriteLine($"PASS {_checks} real-scene custom authority combat checks.");
             Console.WriteLine("SCOPE: actual dedicated M7 emission/Process/TakeDamage/health/payment, native-death trade, and seeded canonical snapshot damage-history replay seams; source certificates explicitly injected. NOT_RUN: authenticated transport/readiness/source-pose producer, custom replay reconstruction, presentation or GL/audio.");
             return 0;
@@ -532,5 +533,146 @@ internal static class CustomAuthoritySceneChecks
         NetDamage.Replay(f.Victim,native);
         Check(f.Victim.Health == 199 && NetDamage.Replayed[slot] == replayed+1,
             "repeated native event remains deduplicated after custom snapshot hole");
+    }
+    private static void ExcludedRule(Fixture f,int rule,bool enabled)
+    {
+        switch (rule)
+        {
+            case 0: f.Scene.GameState.EnhancedHunters = enabled; break;
+            case 1: f.Scene.GameState.BalancedMode = enabled; break;
+            case 2: f.Scene.GameState.InstaGib = enabled; break;
+            case 3: f.Scene.GameState.OneInTheChamber = enabled; break;
+            case 4: f.Scene.GameState.NoImperialist = enabled; break;
+            case 5: f.Scene.GameState.Mode = enabled ? GameMode.Capture : GameMode.Battle; break;
+            default: throw new ArgumentOutOfRangeException(nameof(rule));
+        }
+    }
+    private static void RulesRetirement()
+    {
+        string[] names = { "Enhanced Hunters","Balanced","Insta-Gib","One in the Chamber","No Imperialist","non-Battle mode" };
+        for (int rule=0; rule<names.Length; rule++)
+        {
+            using var f = new Fixture(); var beam = f.Fire(process:false);
+            var action = beam.ModCustomShot!.Certificate!.Value.Action;
+            ExcludedRule(f,rule,true);
+            Check(!f.Root.IsEligible && !f.Root.OwnsFlight(beam) && f.Root.Offer(action) == CustomQueueResult.Foreign
+                && !f.Root.TryProcess(f.Shooter,out _),"actual rule change immediately refuses custom source/flight: " + names[rule]);
+            f.Root.Advance();
+            Check(f.Pool.All(b=>b.Lifespan <= 0 && b.ModCustomShot == null) && f.Victim.Health == 200
+                && f.Root.PositivePayments == 0,"Advance retires unpaid private flight on rule change: " + names[rule]);
+            ExcludedRule(f,rule,false); f.Root.Advance();
+            Check(!f.Root.IsEligible && !f.Root.TryState(f.Shooter,out _) && !f.Root.BindLife(f.Shooter,1000,true),
+                "restoring rule cannot revive disposed custom runtime or refill life: " + names[rule]);
+        }
+    }
+    private static void StreamRetirement()
+    {
+        foreach (bool epoch in new[] { false,true })
+        {
+            using var f = new Fixture(); var beam = f.Fire(process:false);
+            var source = beam.ModCustomShot!;
+            var action = source.Certificate!.Value.Action;
+            ushort match = epoch ? (ushort)1 : (ushort)2; ulong authority = epoch ? 2UL : 1UL;
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = match,AuthorityEpoch = authority,
+                RoomKey = "MP3 PROVING GROUND",Mode = (byte)GameMode.Battle },false);
+            Check(NetSession.CurrentMatchId == match && NetSession.AuthorityEpoch == authority,
+                "real authoritative match control changes requested stream dimension; epoch=" + epoch);
+            Check(!f.Root.IsEligible && !f.Root.OwnsFlight(beam) && f.Root.Offer(action) == CustomQueueResult.Foreign,
+                "old runtime cannot cross actual authoritative match/epoch boundary; epoch=" + epoch);
+            f.Root.Advance();
+            Check(f.Pool.All(b=>b.Lifespan <= 0 && b.ModCustomShot == null) && f.Root.PositivePayments == 0,
+                "actual stream replacement destroys old unpaid flight without payment; epoch=" + epoch);
+            f.Root.Dispose(); f.Root.Advance();
+            Check(!f.Root.BindLife(f.Shooter,1000,true),"stream-retired runtime remains unavailable under repeated disposal; epoch=" + epoch);
+        }
+    }
+    private static void SceneCleanup()
+    {
+        using var f = new Fixture(); var beam = f.Fire(process:false); var runtime = f.Root;
+        var registry = f.Scene.CustomWeapons!;
+        f.Scene.DoCleanup();
+        Check(f.Scene.CustomCombat == null && f.Scene.CustomWeapons == null && registry.IsDisposed
+            && !runtime.IsEligible && !runtime.OwnsFlight(beam) && f.Pool.All(b=>b.Lifespan <= 0 && b.ModCustomShot == null),
+            "actual scene cleanup releases custom runtime/registry and admitted private flight");
+        runtime.Advance(); runtime.Dispose();
+        Check(runtime.AcceptedEmissions == 1 && runtime.PositivePayments == 0,
+            "retained runtime reference is inert after actual scene cleanup; no post-teardown actor damage invoked");
+    }
+    private static void AdvanceAllocation()
+    {
+        foreach (bool settled in new[] { false,true })
+        {
+            using var f = new Fixture(); var beam = f.Fire(process:settled);
+            Check(f.Root.TryState(f.Shooter,out var before),"allocation fixture captures real source resources");
+            var outcome = f.Root.LastOutcome; var position = beam.Position; float age = beam.Age, life = beam.Lifespan;
+            ushort sequence = NetDamage.Sequence(f.Victim.SlotIndex); ulong contacts = f.Root.TerminalContacts;
+            for (int i=0; i<10000; i++) f.Root.Advance();
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            for (int i=0; i<100000; i++) f.Root.Advance();
+            allocated = GC.GetAllocatedBytesForCurrentThread()-allocated;
+            Check(allocated == 0,"100000 warmed fixed-frame Advance calls allocate zero bytes with actual retained " + (settled ? "outcome" : "flight"));
+            Check(f.Root.TryState(f.Shooter,out var after) && after == before && f.Root.LastOutcome == outcome
+                && f.Root.TerminalContacts == contacts && NetDamage.Sequence(f.Victim.SlotIndex) == sequence
+                && beam.Position == position && beam.Age == age && beam.Lifespan == life,
+                "fixed-frame Advance measurement preserves exact real retained state; settled=" + settled);
+            Console.WriteLine($"CUSTOM AUTHORITY ALLOCATION 100000 fixed-frame Advance calls, retained {(settled ? "outcome" : "flight")}: {allocated} bytes.");
+        }
+    }
+    private static void RetainedLifeBudget()
+    {
+        using var f = new Fixture(); var initial = f.Fire(); var first = f.Root.LastOutcome!.Value;
+        Vector3 shooterBase = f.Shooter.Position, victimBase = f.Victim.Position;
+        // Retire already-collided presentation objects so this store-retention
+        // fixture isolates life budget, rather than artificial projectile pressure.
+        initial.Destroy(); f.Scene.RemoveEntity(initial);
+        CustomActionReceipt AdmitCurrent(CustomWeaponActionKind kind,uint sequence,byte optic)
+        {
+            var key = ShotKey.For(f.Shooter.SlotIndex,0); uint world = NetSession.NetFrame;
+            var owner = new WeaponOwnerContext(key.MatchId,key.AuthorityEpoch,(byte)key.ShooterSlot,key.Generation,key.LifeId);
+            bool fire = kind == CustomWeaponActionKind.Fire;
+            var bootstrap = new WorldBootstrapIdentity(new(owner.MatchId,owner.AuthorityEpoch,1),1,owner.Generation,world,1,1);
+            var aim = f.Aim();
+            var action = new CustomWeaponAction(bootstrap,f.Root.Manifest.Digest,owner.Slot,owner.Life,new(10),sequence,world,
+                fire ? world : 0,0,kind,optic,fire ? f.Shooter.Position+Vector3.UnitY*.5f : Vector3.Zero,fire ? aim : Vector3.Zero);
+            f.Oracle.Supplied.Add(action,new(action,world,world,0,f.Shooter.Position,aim,true,false,false));
+            Check(f.Root.ObserveSource(owner,world,true) && f.Root.Offer(action) == CustomQueueResult.Queued,
+                "budget fixture supplies exact current-life source to real journal");
+            Check(f.Root.TryProcess(f.Shooter,out var receipt) && receipt.Result == WeaponActionResult.Accepted,
+                "budget fixture executes actual current-life custom action");
+            return receipt;
+        }
+        for (int retained=1; retained<CustomAuthorityCombatAdapter.LifeCapacity; retained++)
+        {
+            uint world = 1000u+(uint)retained; Frame(world);
+            f.Shooter.Spawn(shooterBase,Vector3.UnitZ,Vector3.UnitY,f.Shooter.NodeRef,respawn:true);
+            // Native Spawn offsets its supplied position upward. Restore the
+            // originally measured clear standing pair after the real lifecycle
+            // transition, rather than accumulating height and hitting heads.
+            f.Shooter.ModPlaceAt(shooterBase); f.Victim.ModPlaceAt(victimBase);
+            Fixture.Clean(f.Shooter,200); Fixture.Clean(f.Victim,200); f.Root.Advance();
+            Check(f.Root.BindLife(f.Shooter,world,true),"bounded store retains another actual native respawn life");
+            AdmitCurrent(CustomWeaponActionKind.Equip,1,0); AdmitCurrent(CustomWeaponActionKind.Optic,2,1);
+            var receipt = AdmitCurrent(CustomWeaponActionKind.Fire,3,1);
+            Check(receipt.Emission == CustomEmissionDisposition.Spawned,"budget fixture emits genuine M7 in each retained life");
+            var beam = f.Pool.Single(b=>b.Lifespan > 0 && !b.Flags.TestFlag(BeamFlags.Collided) && b.ModCustomShot?.Owner.Life == NetPlayerLifecycle.Get(f.Shooter.SlotIndex));
+            beam.Process(); beam.Process();
+            if (f.Victim.Health != 135)
+                Console.WriteLine($"CUSTOM AUTHORITY BUDGET DIAG retained={retained} world={world} hp={f.Victim.Health} shooter={f.Shooter.Position} victim={f.Victim.Position} beam={beam.Position} spawn={beam.SpawnPosition} flags={beam.Flags} age={beam.Age} lifespan={beam.Lifespan} owned={f.Root.OwnsFlight(beam)} contacts={f.Root.TerminalContacts} positive={f.Root.PositivePayments} outcome={f.Root.LastOutcome}");
+            Check(f.Victim.Health == 135 && f.Root.LastOutcome?.Contact.Headshot == false,
+                "each retained life owns an actual terminal65 body payment");
+            beam.Destroy(); f.Scene.RemoveEntity(beam);
+        }
+        Frame(1032); f.Shooter.Spawn(shooterBase,Vector3.UnitZ,Vector3.UnitY,f.Shooter.NodeRef,respawn:true);
+        f.Shooter.ModPlaceAt(shooterBase); f.Victim.ModPlaceAt(victimBase);
+        Fixture.Clean(f.Shooter,200); f.Root.Advance();
+        Check(!f.Root.BindLife(f.Shooter,1032,true) && f.Root.TryGetOutcome(first.Contact.Key,out var original) && original == first,
+            "33rd real life fails bounded retention admission without evicting first paid outcome");
+        Frame(1256); f.Root.Advance();
+        Check(!f.Root.BindLife(f.Shooter,1256,true) && f.Root.TryGetOutcome(first.Contact.Key,out _),
+            "root life budget preserves first outcome through inclusive256 retention boundary");
+        Frame(1257); f.Root.Advance();
+        Check(f.Root.BindLife(f.Shooter,1257,true) && !f.Root.TryGetOutcome(first.Contact.Key,out _)
+            && f.Root.TryState(f.Shooter,out var fresh) && fresh.Magazine == 4 && fresh.Phase == CustomWeaponPhase.Unequipped,
+            "expired retained life releases capacity for previously refused native life without premature eviction");
     }
 }
