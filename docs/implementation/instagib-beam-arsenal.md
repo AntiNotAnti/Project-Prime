@@ -83,3 +83,14 @@ curves, phase opposition, deterministic offsets and muzzle taper. These
 asset-free checks cannot prove native texture blending, HDR/color behavior,
 wall occlusion or real-device 1v1 and 8-player performance; capture GPU
 screenshots and benchmarks before considering the visual acceptance complete.
+
+## UI ownership update (2026-10-19)
+
+Cosmetic selection belongs to the **Hunters** tab, not Hunter License. The
+native Hunter picker retains one cycle button for beam style and one for tint,
+with the current selections and short descriptions displayed beneath them.
+Nine individual style cards, nine tint buttons and decorative ASCII beam glyphs
+were removed. License buttons and its separate Avalonia cosmetic page were
+removed without modifying the saved `CosmeticLoadout`, account fields or
+multiplayer/replay identifiers. The small thumbnail ownership helper remains
+for the existing Avalonia lifetime regression.

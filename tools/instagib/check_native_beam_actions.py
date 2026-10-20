@@ -1,56 +1,68 @@
 #!/usr/bin/env python3
-"""Asset-free end-to-end source contract for native RmlUi Insta-Gib customization.
+"""Native cosmetic ownership acceptance: Hunters-only, cycle-only UI.
 
-The native bridge has its own action registry and ABI enum. A C#-only UI test
-can pass even while native clicks are silently dropped. Pin both sides here.
+The native RmlUi bridge has its own ABI mapping. Keep both cycle commands
+wired, but do not bring back the overwhelming beam/color button matrices or
+Hunter License customization routes.
 """
 from pathlib import Path
 import re
 
 root = Path(__file__).resolve().parents[2]
-read = lambda name: (root / name).read_text(encoding="utf-8")
-rml = read("src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/native-picker.rml")
-license_rml = read("src/MphRead/Mods/Launcher/RmlUi/Pages/license/native-overview.rml")
+def read(path: str) -> str:
+    return (root / path).read_text(encoding="utf-8")
+hunter = read("src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/native-picker.rml")
+native_license = read("src/MphRead/Mods/Launcher/RmlUi/Pages/license/native-overview.rml")
+legacy_license = read("src/MphRead/Mods/Launcher/RmlUi/Pages/license/license.rml")
 native = read("native/rmlui-poc/projectprime_rmlui.cpp")
 header = read("native/rmlui-poc/projectprime_rmlui_api.h")
 managed = read("src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs")
 presenter = read("src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/NativeHunterPagePresenter.cs")
-control = read("src/MphRead/Mods/Launcher/Portable/LauncherCosmeticDraftController.cs")
-gl_test = read("tools/rmlui-opengl-check/LicenseCardGlAcceptance.cs")
+controller = read("src/MphRead/Mods/Launcher/Portable/LauncherCosmeticDraftController.cs")
+license_page = read("src/MphRead/Mods/Launcher/RmlUi/Pages/license/NativeLicenseOverviewPage.cs")
+license_workspace = read("src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseWorkspace.cs")
+license_ui = read("src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseCustomization.cs")
 
-def require(ok: bool, message: str) -> None:
+def check(ok: bool, why: str) -> None:
     if not ok:
-        raise AssertionError(message)
+        raise AssertionError(why)
 
-for name, number in (("HunterBeamNext", 278), ("HunterBeamColorNext", 279),
-                     ("HunterBeamSelect", 280), ("HunterBeamColorSelect", 281)):
-    marker = rf"\b{re.escape(name)}\s*=\s*{number}\b"
-    require(bool(re.search(marker, managed)), f"managed ABI mismatch: {name}")
-    require(bool(re.search(marker, header)), f"native ABI mismatch: {name}")
-    require(f"PrimeIntentKind::{name}" in native, f"native decoder missing: {name}")
-    require(f"RmlUiIntentKind.{name}" in presenter, f"controller routing missing: {name}")
+for name, number, action, element in (
+    ("HunterBeamNext", 278, "hunter:beam-next", "hunter_beam"),
+    ("HunterBeamColorNext", 279, "hunter:beam-color-next", "hunter_beam_color"),
+):
+    pattern = rf"\b{re.escape(name)}\s*=\s*{number}\b"
+    check(bool(re.search(pattern, managed)) and bool(re.search(pattern, header)),
+          f"native/C# ABI mismatch for {name}")
+    check(f"PrimeIntentKind::{name}" in native and action in native,
+          f"native decoder drops {action}")
+    check(f"RmlUiIntentKind.{name}" in presenter and action in managed,
+          f"managed handler not connected to {action}")
+    check(f'id="{element}"' in hunter and f'data-action="{action}"' in hunter,
+          f"visible Hunters cycle button missing for {element}")
 
 for i in range(9):
-    for identifier, action in ((f"hunter_beam{i}", f"hunter:beam-select:{i}"),
-                               (f"hunter_beam_color{i}", f"hunter:beam-color-select:{i}")):
-        require(f'id="{identifier}"' in rml, f"missing gallery button: {identifier}")
-        require(f'data-action="{action}"' in rml, f"missing button action: {action}")
-        require(f'class:{identifier}:selected' not in rml, "selection is bound by presenter, not static")
-    require(f"for (int i = 0; i < CosmeticCatalog.BeamEffects.Count; i++)" in presenter,
-            "dynamic beam selected-state binding missing")
+    for tag in (f'hunter_beam{i}', f'hunter_beam_color{i}'):
+        check(f'id="{tag}"' not in hunter,
+              f"obsolete beam/color selector returned: {tag}")
+    check(f'hunter:beam-select:{i}' not in hunter and
+          f'hunter:beam-color-select:{i}' not in hunter,
+          "old direct beam button returned")
 
-for action in ("hunter:beam-next", "hunter:beam-color-next",
-               "hunter:beam-select:", "hunter:beam-color-select:"):
-    require(action in native, f"native parser does not handle {action}")
-    require(action in managed, f"managed parser does not handle {action}")
-
-for entry in ("native_license_customize", "native_license_tab_customization"):
-    require(f'id="{entry}"' in license_rml, f"Hunter License entry missing: {entry}")
-    require(f'"{entry}"' in gl_test, f"GL acceptance must exercise {entry}")
-require("license:customization" in license_rml, "License route missing")
-require("case 1: OpenCustomizationRequested = true;" in
-        read("src/MphRead/Mods/Launcher/RmlUi/Pages/license/NativeLicenseOverviewPage.cs"),
-        "License controller has no customization handoff")
-require("SelectBeam(int index)" in control and "SelectBeamColor(int index)" in control,
-        "native draft cannot select a specific style or dye")
-print("INSTA-GIB NATIVE BEAM UI PASS: nine styles, nine dyes, two License routes, native/C# ABI")
+check('id="hunter_beam_grid"' not in hunter and
+      'class="beam-color-picker"' not in hunter and
+      'class="beam-miniature"' not in hunter,
+      "old gallery or text-only beam placeholder is still visible")
+for text in ('native_license_customize', 'native_license_tab_customization',
+             'license:customization'):
+    check(text not in native_license and text not in legacy_license,
+          "Hunter License still exposes cosmetics: " + text)
+check('OpenCustomizationRequested' not in license_page and
+      'case 1: OpenCustomizationRequested' not in license_page,
+      "native License still owns cosmetic navigation")
+check('Face.Customization' not in license_workspace and
+      'private Control Customization()' not in license_ui,
+      "Avalonia Hunter License still owns a cosmetic page")
+check('NextBeam()' in controller and 'NextBeamColor()' in controller,
+      "cycle selection is no longer available")
+print("INSTA-GIB UI PASS: Hunter-only cycle buttons, native/C# actions, no License customization")
