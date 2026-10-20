@@ -1,0 +1,16 @@
+== checking what git is tracking ==
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/community-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/community-before.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/compact-profile-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/compact-profile-before.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/hunters-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/hunters-before.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/license-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/license-before.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/quick-settings-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/quick-settings-before.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/versions-after.png -- a game asset, or a picture of one (tracked by git)
+REFUSED: docs/implementation/rmlui-ux-2026-10-19/versions-before.png -- a game asset, or a picture of one (tracked by git)
+
+Nothing from the game may be published. If one of these is ours --
+a logo, a screenshot of the launcher -- add it to tools/asset-guard-allow.txt.

@@ -177,3 +177,13 @@ No capture sample performs JSON serialization, sorting or file writes. Legacy
 with `-glprofile`; omit `-glgpu` and separate attribution/readbacks from performance
 controls. CPU-only synthetic allocation checks do not prove end-to-end overhead.
 The capture reports that overhead as UNVERIFIED until native A/A validates it.
+
+Analyze a completed plain or compressed receipt with
+`python3 tools/native-fps/analyze.py capture.json.gz -o report.json`.
+The offline CLI reports native completed-frame FPS, interval p99/p99.9, true
+1% low and the labelled reciprocal-p99 estimate, fixed/reported simulation Hz,
+active cap/VSync, profiling state and recorded graphics overrides. Missing
+metadata remains UNVERIFIED. It refuses to overwrite its raw input, including
+hard-link aliases. It never automatically qualifies a device or enables a flag.
+See [native FPS decisions](performance/native-fps/decision.md) for frozen Windows
+receipts, available hardware, default policy and rollback instructions.

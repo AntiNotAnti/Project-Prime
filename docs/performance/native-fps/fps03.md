@@ -23,7 +23,7 @@ sustained receipts are recorded with their frozen identities in the final decisi
 Do not count artifact removal as an unprofiled game FPS or photon-latency gain.
 
 Rollback: revert this PR; `-late-provenance-control` retains the original timing
-only as a diagnostic reproduction. Earlier raw runs and the stopped pre-soak
+only as a diagnostic reproduction. Earlier raw runs and the failed/closed pre-soak
 protocol attempt remain preserved with explicit exclusions.
 
 ## Windows same-binary result

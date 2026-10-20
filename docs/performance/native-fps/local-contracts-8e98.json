@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "sourceHead": "8e98bb0b1fa514c3c32510ce278dd42501e14b43",
+  "productionSourceDirty": "",
+  "clientSha256": "272fa462158fc6a4013ec0074c0d29cbe20b92460a330363e2dbf173c5e13308",
+  "checks": [
+    {
+      "flag": "-replayformatcheck",
+      "exitCode": 0,
+      "tail": [
+        "[net] server map: MP1 SANCTORUS (Battle, 0 s left)",
+        "[replayformat] PASS 3050 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+      ]
+    },
+    {
+      "flag": "-replaycontrolcheck",
+      "exitCode": 0,
+      "tail": [
+        "[replaycheck] input: replay controller context isolation passed",
+        "[replaycheck] studio: annotation sidecar round-trip passed"
+      ]
+    },
+    {
+      "flag": "-frametimingcheck",
+      "exitCode": 0,
+      "tail": [
+        "FRAMETIMING ok   Lockjaw global Rng1 unchanged",
+        "FRAMETIMING all cases pass"
+      ]
+    },
+    {
+      "flag": "-renderbackendcheck",
+      "exitCode": 0,
+      "tail": [
+        "RENDERBACKENDS PASS legacy GL cache is program-local and invalidates safely at ownership boundaries",
+        "RENDERBACKENDS all policy cases pass"
+      ]
+    },
+    {
+      "flag": "-rendergraphcheck",
+      "exitCode": 0,
+      "tail": [
+        "[rendergraphcheck] PASS: translucent material cannot join opaque room groups",
+        "[rendergraphcheck] PASS"
+      ]
+    }
+  ],
+  "nativePerformance": "NOT_RUN: content-free contracts",
+  "historicalFixtureRepairPr": 785
+}

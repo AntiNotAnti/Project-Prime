@@ -1,0 +1,1229 @@
+{
+  "schema": 1,
+  "sourceSha": "ff76552e811710989bca332598053be9012a7b52",
+  "clientSha256": "fd68f72905ff77f291fb8b8dd1a1201c54fac5254e16add163c58a26a91f9e07",
+  "runs": [
+    {
+      "name": "cap-60",
+      "arm": "cap",
+      "cap": 60,
+      "fps": 60.10921643423703,
+      "p99": 17.6174,
+      "trueLow": 46.32327531497511,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "d60b25a2c4f5be5778f0c77a74b7db9eb2d2bf6dd0d332eb605ad7eed8670dd4"
+    },
+    {
+      "name": "cap-120",
+      "arm": "cap",
+      "cap": 120,
+      "fps": 78.53526091448238,
+      "p99": 116.2821,
+      "trueLow": 5.893410762647765,
+      "simDrops": 28,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "66045da4c481d76fc0ca81784ca473709bb4156b90ee47141abc36563f346200"
+    },
+    {
+      "name": "cap-144",
+      "arm": "cap",
+      "cap": 144,
+      "fps": 99.48442104227898,
+      "p99": 46.6987,
+      "trueLow": 18.764287245585585,
+      "simDrops": 1,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "f1b818ceb3d62d1f531c9ec1829a4fd3bc08a72e434afb4e8675b3a20c76b426"
+    },
+    {
+      "name": "cap-165",
+      "arm": "cap",
+      "cap": 165,
+      "fps": 155.5421151967287,
+      "p99": 21.5951,
+      "trueLow": 32.07978687176673,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "3ce7bc1f08ddf3835917b2b03714eea06a155058b37e465fd6c1e7abe49ee585"
+    },
+    {
+      "name": "cap-240",
+      "arm": "cap",
+      "cap": 240,
+      "fps": 239.69904369518534,
+      "p99": 5.1921,
+      "trueLow": 159.6151359841151,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "b6cdac5b4aa7a7f6ec72f231ab36043d5bc3d13d4ecc11e2dd3a04ab18403096"
+    },
+    {
+      "name": "cap--1",
+      "arm": "cap",
+      "cap": -1,
+      "fps": 1208.0398425690219,
+      "p99": 1.5224,
+      "trueLow": 464.31188738952847,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "6e4b0250357eb6e74f6242f22d09db7161ac5c050b91474c7b0e1a8b2a13e779"
+    },
+    {
+      "name": "paired-1-A",
+      "arm": "A",
+      "cap": -1,
+      "fps": 1093.4597118399674,
+      "p99": 1.626,
+      "trueLow": 518.4452891078196,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "cc90415884cdc5bf718a70b18631755585f3fe25721d167758b6a466ce6ca19d"
+    },
+    {
+      "name": "paired-2-B",
+      "arm": "B",
+      "cap": -1,
+      "fps": 1110.2725413937042,
+      "p99": 1.5593,
+      "trueLow": 517.746459558754,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "c4ec06cd044910c01c562d2bd18790881fdd9dc6370e5714744068eb4a21293b"
+    },
+    {
+      "name": "paired-3-B",
+      "arm": "B",
+      "cap": -1,
+      "fps": 1075.129192345076,
+      "p99": 1.6247,
+      "trueLow": 529.5369556452457,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "c83f0e19383f431f0ec568850705de5e21d94bad6f37083bc7b32eefd024cb10"
+    },
+    {
+      "name": "paired-4-A",
+      "arm": "A",
+      "cap": -1,
+      "fps": 1237.125926566003,
+      "p99": 1.3591,
+      "trueLow": 608.8593722191519,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "99abac05827999041e959ca96617d7262152e0f62890cbcd9e6ce3b92451a610"
+    },
+    {
+      "name": "paired-5-A",
+      "arm": "A",
+      "cap": -1,
+      "fps": 1224.890631507889,
+      "p99": 1.3984,
+      "trueLow": 576.9122994405599,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "52720fbcce679aace37a827a0dee2507b204c755ce0940cc70998b657016b9b0"
+    },
+    {
+      "name": "paired-6-B",
+      "arm": "B",
+      "cap": -1,
+      "fps": 1207.4801062993304,
+      "p99": 1.4039,
+      "trueLow": 594.5685913490761,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "ad696160d8b757e43abb46ba18c6f8f33d404d6167494ed794a1d2ff2754f116"
+    },
+    {
+      "name": "paired-7-B",
+      "arm": "B",
+      "cap": -1,
+      "fps": 1201.4029043097291,
+      "p99": 1.4701,
+      "trueLow": 558.7779712029117,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "18f2691e8e6e6fd2c1ed534c7de50690fedebbe2315f4e6c46eb293040f09fde"
+    },
+    {
+      "name": "paired-8-A",
+      "arm": "A",
+      "cap": -1,
+      "fps": 1226.5831215748178,
+      "p99": 1.4218,
+      "trueLow": 562.2274487701791,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "683a96c55de1190a3dc948c4550d88d83338c3659691a263a4d1ca2d09789a19"
+    },
+    {
+      "name": "paired-9-A",
+      "arm": "A",
+      "cap": -1,
+      "fps": 1235.6204723897476,
+      "p99": 1.4168,
+      "trueLow": 579.1019231107387,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "febabd0e683629ece187670a46a0dc4efbc61bb32531491cde03b24ca87611bd"
+    },
+    {
+      "name": "paired-10-B",
+      "arm": "B",
+      "cap": -1,
+      "fps": 1216.6119270623415,
+      "p99": 1.3714,
+      "trueLow": 614.2391245550558,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "5f1c6cee37ff5f04c4dbf20f0720855be58e898ed908a9a8b02974c6a0054055"
+    },
+    {
+      "name": "attribution-Off",
+      "arm": "attribution",
+      "cap": -1,
+      "fps": 1145.5806093433464,
+      "p99": 1.9949,
+      "trueLow": 353.54570056778823,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "4ab89b1b3d3e8527f4d8b5d15992b621133894a56a597e99423e6bf4b9131a74"
+    },
+    {
+      "name": "attribution-High",
+      "arm": "attribution",
+      "cap": -1,
+      "fps": 960.937699595029,
+      "p99": 1.7939,
+      "trueLow": 421.54952383566155,
+      "simDrops": 0,
+      "focusTransitions": 0,
+      "mvid": "26f3ff93-8305-42e4-aff6-7f5e46d50c3d",
+      "rawSha256": "4628a39a9c0f0228962bd229f53b3b563cae55b92f2539a26e01210ae60ddaa1"
+    }
+  ],
+  "controlArms": {
+    "A": {
+      "medianP99": 1.4168,
+      "rangeP99": [
+        1.3591,
+        1.626
+      ],
+      "medianTrueLow": 576.9122994405599,
+      "rangeNoisePercent": 18.838226990400894
+    },
+    "B": {
+      "medianP99": 1.4701,
+      "rangeP99": [
+        1.3714,
+        1.6247
+      ],
+      "medianTrueLow": 558.7779712029117,
+      "rangeNoisePercent": 17.230120399972797
+    }
+  },
+  "inclusiveCpuOwners": {
+    "Off": {
+      "intervalP50": 0.7571,
+      "rank": [
+        {
+          "passName": "World",
+          "inclusiveP50Ms": 0.26044999999999996,
+          "percentOfInterval": 34.401003830405486
+        },
+        {
+          "passName": "Preparation",
+          "inclusiveP50Ms": 0.18395,
+          "percentOfInterval": 24.296658301413288
+        },
+        {
+          "passName": "Opaque",
+          "inclusiveP50Ms": 0.14765,
+          "percentOfInterval": 19.50204728569542
+        },
+        {
+          "passName": "DrawItems",
+          "inclusiveP50Ms": 0.1421,
+          "percentOfInterval": 18.76898692378814
+        },
+        {
+          "passName": "ItemSetup",
+          "inclusiveP50Ms": 0.09085,
+          "percentOfInterval": 11.999735834103818
+        },
+        {
+          "passName": "Hud",
+          "inclusiveP50Ms": 0.0576,
+          "percentOfInterval": 7.60797781006472
+        },
+        {
+          "passName": "TranslucentBehind",
+          "inclusiveP50Ms": 0.04485,
+          "percentOfInterval": 5.923920221899353
+        },
+        {
+          "passName": "CaptureWorld",
+          "inclusiveP50Ms": 0.030449999999999998,
+          "percentOfInterval": 4.021925769383173
+        },
+        {
+          "passName": "MarkTranslucent",
+          "inclusiveP50Ms": 0.0232,
+          "percentOfInterval": 3.0643243957205124
+        },
+        {
+          "passName": "TranslucentFront",
+          "inclusiveP50Ms": 0.022,
+          "percentOfInterval": 2.9058248580108303
+        },
+        {
+          "passName": "GeometrySubmission",
+          "inclusiveP50Ms": 0.01855,
+          "percentOfInterval": 2.450138687095496
+        },
+        {
+          "passName": "HudImagePrepare",
+          "inclusiveP50Ms": 0.0149,
+          "percentOfInterval": 1.9680359265618808
+        },
+        {
+          "passName": "PaletteCollection",
+          "inclusiveP50Ms": 0.0097,
+          "percentOfInterval": 1.2812045964865935
+        },
+        {
+          "passName": "Shadow",
+          "inclusiveP50Ms": 0.0025,
+          "percentOfInterval": 0.3302073702285035
+        },
+        {
+          "passName": "SceneOverlays",
+          "inclusiveP50Ms": 0.0024,
+          "percentOfInterval": 0.31699907541936334
+        },
+        {
+          "passName": "Decal",
+          "inclusiveP50Ms": 0.0024,
+          "percentOfInterval": 0.31699907541936334
+        },
+        {
+          "passName": "Composite",
+          "inclusiveP50Ms": 0.0012,
+          "percentOfInterval": 0.15849953770968167
+        },
+        {
+          "passName": "RebuildDepth",
+          "inclusiveP50Ms": 0.0008,
+          "percentOfInterval": 0.10566635847312113
+        },
+        {
+          "passName": "WorldSetup",
+          "inclusiveP50Ms": 0.0006,
+          "percentOfInterval": 0.07924976885484084
+        },
+        {
+          "passName": "Outlines",
+          "inclusiveP50Ms": 0.0006,
+          "percentOfInterval": 0.07924976885484084
+        },
+        {
+          "passName": "Ui",
+          "inclusiveP50Ms": 0.0004,
+          "percentOfInterval": 0.052833179236560564
+        },
+        {
+          "passName": "PostProcess",
+          "inclusiveP50Ms": 0.0003,
+          "percentOfInterval": 0.03962488442742042
+        },
+        {
+          "passName": "ShadowCollection",
+          "inclusiveP50Ms": 0.0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "ShadowSubmission",
+          "inclusiveP50Ms": 0.0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "TextureUpload",
+          "inclusiveP50Ms": 0.0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "ProceduralPrepare",
+          "inclusiveP50Ms": 0.0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "ProceduralSubmit",
+          "inclusiveP50Ms": 0.0,
+          "percentOfInterval": 0.0
+        }
+      ],
+      "frameP99": 1.3152,
+      "renderP99": 0.738,
+      "swapP99": 0.0463,
+      "gpuRecords": 752,
+      "lastGpu": {
+        "schema": 1,
+        "supported": true,
+        "pass": "Hud",
+        "samples": 240,
+        "p50Ms": 0.001568,
+        "p95Ms": 0.001888,
+        "p99Ms": 0.00192,
+        "worldGpuP95Ms": null,
+        "worldGpuP99Ms": null,
+        "droppedQueries": 0
+      }
+    },
+    "High": {
+      "intervalP50": 0.9509,
+      "rank": [
+        {
+          "passName": "World",
+          "inclusiveP50Ms": 0.3893,
+          "percentOfInterval": 40.9401619518351
+        },
+        {
+          "passName": "Opaque",
+          "inclusiveP50Ms": 0.2733,
+          "percentOfInterval": 28.741192554422124
+        },
+        {
+          "passName": "Preparation",
+          "inclusiveP50Ms": 0.2022,
+          "percentOfInterval": 21.264065622042274
+        },
+        {
+          "passName": "DrawItems",
+          "inclusiveP50Ms": 0.1604,
+          "percentOfInterval": 16.868230097802083
+        },
+        {
+          "passName": "ItemSetup",
+          "inclusiveP50Ms": 0.1222,
+          "percentOfInterval": 12.850983278998845
+        },
+        {
+          "passName": "Hud",
+          "inclusiveP50Ms": 0.0588,
+          "percentOfInterval": 6.183615522136923
+        },
+        {
+          "passName": "TranslucentBehind",
+          "inclusiveP50Ms": 0.0405,
+          "percentOfInterval": 4.2591229361657374
+        },
+        {
+          "passName": "Shadow",
+          "inclusiveP50Ms": 0.0338,
+          "percentOfInterval": 3.55452728993585
+        },
+        {
+          "passName": "CaptureWorld",
+          "inclusiveP50Ms": 0.031,
+          "percentOfInterval": 3.2600694079293304
+        },
+        {
+          "passName": "GeometrySubmission",
+          "inclusiveP50Ms": 0.0286,
+          "percentOfInterval": 3.0076769376380272
+        },
+        {
+          "passName": "ShadowSubmission",
+          "inclusiveP50Ms": 0.025,
+          "percentOfInterval": 2.629088232201073
+        },
+        {
+          "passName": "TranslucentFront",
+          "inclusiveP50Ms": 0.0241,
+          "percentOfInterval": 2.5344410558418344
+        },
+        {
+          "passName": "MarkTranslucent",
+          "inclusiveP50Ms": 0.0227,
+          "percentOfInterval": 2.387212114838574
+        },
+        {
+          "passName": "HudImagePrepare",
+          "inclusiveP50Ms": 0.0152,
+          "percentOfInterval": 1.5984856451782523
+        },
+        {
+          "passName": "PaletteCollection",
+          "inclusiveP50Ms": 0.01,
+          "percentOfInterval": 1.0516352928804291
+        },
+        {
+          "passName": "ShadowCollection",
+          "inclusiveP50Ms": 0.0045,
+          "percentOfInterval": 0.473235881796193
+        },
+        {
+          "passName": "SceneOverlays",
+          "inclusiveP50Ms": 0.0027,
+          "percentOfInterval": 0.28394152907771586
+        },
+        {
+          "passName": "Decal",
+          "inclusiveP50Ms": 0.0024,
+          "percentOfInterval": 0.25239247029130296
+        },
+        {
+          "passName": "WorldSetup",
+          "inclusiveP50Ms": 0.002,
+          "percentOfInterval": 0.21032705857608583
+        },
+        {
+          "passName": "PostProcess",
+          "inclusiveP50Ms": 0.0017,
+          "percentOfInterval": 0.17877799978967293
+        },
+        {
+          "passName": "Composite",
+          "inclusiveP50Ms": 0.0012,
+          "percentOfInterval": 0.12619623514565148
+        },
+        {
+          "passName": "RebuildDepth",
+          "inclusiveP50Ms": 0.0009,
+          "percentOfInterval": 0.09464717635923861
+        },
+        {
+          "passName": "Ui",
+          "inclusiveP50Ms": 0.0005,
+          "percentOfInterval": 0.05258176464402146
+        },
+        {
+          "passName": "Outlines",
+          "inclusiveP50Ms": 0.0004,
+          "percentOfInterval": 0.04206541171521717
+        },
+        {
+          "passName": "TextureUpload",
+          "inclusiveP50Ms": 0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "ProceduralPrepare",
+          "inclusiveP50Ms": 0,
+          "percentOfInterval": 0.0
+        },
+        {
+          "passName": "ProceduralSubmit",
+          "inclusiveP50Ms": 0,
+          "percentOfInterval": 0.0
+        }
+      ],
+      "frameP99": 1.512,
+      "renderP99": 0.9926,
+      "swapP99": 0.0449,
+      "gpuRecords": 632,
+      "lastGpu": {
+        "schema": 1,
+        "supported": true,
+        "pass": "Hud",
+        "samples": 240,
+        "p50Ms": 0.001632,
+        "p95Ms": 0.001792,
+        "p99Ms": 0.00192,
+        "worldGpuP95Ms": null,
+        "worldGpuP99Ms": null,
+        "droppedQueries": 0
+      }
+    }
+  },
+  "qualification": "DIAGNOSTIC_ONLY",
+  "exclusions": [
+    "Raw profiler streams include proven ~40ms post-warmup binary identity hashing artifact at tick242; corrected control campaign required before sustained acceptance.",
+    "Initial 120/144 numeric sweep had spikes and dropped steps; retained, not silently excluded. Later warm native traces met 120/144 caps; cause of initial transients remains unproven.",
+    "Progress queries read completed result JSON during short campaign; diagnostic only, not strict unprofiled qualification."
+  ],
+  "attributionProtocol": "Only records after 240-simulation-tick measurement marker; discard first partial completed CPU window and first GPU window per pass. CPU scopes inclusive; no sums.",
+  "candidateDecision": "NO_ROLLOUT: A/A p99 full range is 18.84% of median; no isolated renderer/upload candidate proved eligible.",
+  "timingMeaning": "Completed application presentations / callback returns, not physical scanout or photon latency.",
+  "rawReceiptIndex": "evidence/windows-short/index.json",
+  "rawCaptureDiagnostics": [
+    {
+      "run": "paired-10-B",
+      "samples": 24284,
+      "droppedRecords": 0,
+      "cancellationEvents": 1925,
+      "storedSegments": [
+        1925
+      ],
+      "inputProxyMeaning": "software sample-call entry to Present return; no photon or Reflex claim",
+      "inputToPresentProxyMs": {
+        "p50": 0.5243,
+        "p95": 0.7145,
+        "p99": 0.8062,
+        "p999": 1.2374
+      },
+      "inputPollMs": {
+        "p50": 0.0006000000000000001,
+        "p95": 0.001,
+        "p99": 0.0028,
+        "p999": 0.029500000000000002
+      },
+      "simulationMs": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0.3702,
+        "p999": 0.5528
+      },
+      "renderMs": {
+        "p50": 0.5036,
+        "p95": 0.6953,
+        "p99": 0.782,
+        "p999": 1.1743
+      },
+      "swapMs": {
+        "p50": 0.0147,
+        "p95": 0.0376,
+        "p99": 0.0462,
+        "p999": 0.0854
+      },
+      "unattributedGapMs": {
+        "p50": 0.25920000000000004,
+        "p95": 0.44289999999999996,
+        "p99": 0.5352,
+        "p999": 0.7812
+      },
+      "allocatedBytesPerFrame": {
+        "p50": 31200,
+        "p95": 41256,
+        "p99": 44400,
+        "p999": 46384
+      },
+      "totalRecordedAllocations": 768772296,
+      "recordedGcCollections": [
+        16,
+        2,
+        0
+      ],
+      "totalUploadBytes": 22296,
+      "longestFrames": [
+        {
+          "SimulationTick": 242,
+          "IntervalMs": 42.0263,
+          "SimulationMs": 1.0558,
+          "RenderMs": 0.7646,
+          "SwapMs": 0.0248,
+          "UnattributedGapMs": 40.1811,
+          "AllocatedBytes": 29576,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 314,
+          "IntervalMs": 10.6065,
+          "SimulationMs": 8.107,
+          "RenderMs": 1.9729,
+          "SwapMs": 0.0237,
+          "UnattributedGapMs": 0.502900000000001,
+          "AllocatedBytes": 39176,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 2816,
+          "PrimarySource": "simulation"
+        },
+        {
+          "SimulationTick": 344,
+          "IntervalMs": 4.7019,
+          "SimulationMs": 2.7606,
+          "RenderMs": 1.611,
+          "SwapMs": 0.0224,
+          "UnattributedGapMs": 0.30790000000000006,
+          "AllocatedBytes": 919944,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 1324,
+          "IntervalMs": 4.6314,
+          "SimulationMs": 0,
+          "RenderMs": 4.2512,
+          "SwapMs": 0.019,
+          "UnattributedGapMs": 0.3612000000000003,
+          "AllocatedBytes": 35904,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "gl-cpu"
+        },
+        {
+          "SimulationTick": 637,
+          "IntervalMs": 4.37,
+          "SimulationMs": 0.2936,
+          "RenderMs": 0.6951,
+          "SwapMs": 0.0214,
+          "UnattributedGapMs": 3.3599000000000006,
+          "AllocatedBytes": 29328,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        }
+      ]
+    },
+    {
+      "run": "paired-2-B",
+      "samples": 22158,
+      "droppedRecords": 0,
+      "cancellationEvents": 1483,
+      "storedSegments": [
+        1483
+      ],
+      "inputProxyMeaning": "software sample-call entry to Present return; no photon or Reflex claim",
+      "inputToPresentProxyMs": {
+        "p50": 0.5484,
+        "p95": 0.7497,
+        "p99": 1.0137,
+        "p999": 1.638
+      },
+      "inputPollMs": {
+        "p50": 0.0007,
+        "p95": 0.001,
+        "p99": 0.0032,
+        "p999": 0.032799999999999996
+      },
+      "simulationMs": {
+        "p50": 0,
+        "p95": 0.2268,
+        "p99": 0.3828,
+        "p999": 0.786
+      },
+      "renderMs": {
+        "p50": 0.5254,
+        "p95": 0.7243,
+        "p99": 0.9811,
+        "p999": 1.614
+      },
+      "swapMs": {
+        "p50": 0.0165,
+        "p95": 0.0419,
+        "p99": 0.0518,
+        "p999": 0.101
+      },
+      "unattributedGapMs": {
+        "p50": 0.3082999999999999,
+        "p95": 0.5007999999999999,
+        "p99": 0.5848000000000001,
+        "p999": 0.8614999999999999
+      },
+      "allocatedBytesPerFrame": {
+        "p50": 31360,
+        "p95": 41256,
+        "p99": 44400,
+        "p999": 46408
+      },
+      "totalRecordedAllocations": 703704088,
+      "recordedGcCollections": [
+        16,
+        2,
+        0
+      ],
+      "totalUploadBytes": 22296,
+      "longestFrames": [
+        {
+          "SimulationTick": 242,
+          "IntervalMs": 45.2314,
+          "SimulationMs": 2.3771,
+          "RenderMs": 1.8058,
+          "SwapMs": 0.0261,
+          "UnattributedGapMs": 41.022400000000005,
+          "AllocatedBytes": 29576,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 314,
+          "IntervalMs": 11.0673,
+          "SimulationMs": 8.6778,
+          "RenderMs": 2.0209,
+          "SwapMs": 0.0243,
+          "UnattributedGapMs": 0.34429999999999983,
+          "AllocatedBytes": 39176,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 2816,
+          "PrimarySource": "simulation"
+        },
+        {
+          "SimulationTick": 708,
+          "IntervalMs": 4.943,
+          "SimulationMs": 0.3987,
+          "RenderMs": 0.737,
+          "SwapMs": 0.0541,
+          "UnattributedGapMs": 3.7531999999999996,
+          "AllocatedBytes": 32128,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 344,
+          "IntervalMs": 4.894,
+          "SimulationMs": 2.8688,
+          "RenderMs": 1.668,
+          "SwapMs": 0.0222,
+          "UnattributedGapMs": 0.3350000000000004,
+          "AllocatedBytes": 919688,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 243,
+          "IntervalMs": 3.9411,
+          "SimulationMs": 1.1192,
+          "RenderMs": 1.5986,
+          "SwapMs": 0.0245,
+          "UnattributedGapMs": 1.1988000000000003,
+          "AllocatedBytes": 28296,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        }
+      ]
+    },
+    {
+      "run": "paired-3-B",
+      "samples": 21461,
+      "droppedRecords": 0,
+      "cancellationEvents": 1628,
+      "storedSegments": [
+        1628
+      ],
+      "inputProxyMeaning": "software sample-call entry to Present return; no photon or Reflex claim",
+      "inputToPresentProxyMs": {
+        "p50": 0.6808,
+        "p95": 1.324,
+        "p99": 1.5096,
+        "p999": 1.6459
+      },
+      "inputPollMs": {
+        "p50": 0.0007,
+        "p95": 0.0013,
+        "p99": 0.0034000000000000002,
+        "p999": 0.035
+      },
+      "simulationMs": {
+        "p50": 0,
+        "p95": 0.2393,
+        "p99": 0.3768,
+        "p999": 0.6033
+      },
+      "renderMs": {
+        "p50": 0.6543,
+        "p95": 1.2295,
+        "p99": 1.414,
+        "p999": 1.548
+      },
+      "swapMs": {
+        "p50": 0.0366,
+        "p95": 0.1119,
+        "p99": 0.1414,
+        "p999": 0.2199
+      },
+      "unattributedGapMs": {
+        "p50": 0.1698,
+        "p95": 0.4160000000000001,
+        "p99": 0.4839000000000001,
+        "p999": 0.7311
+      },
+      "allocatedBytesPerFrame": {
+        "p50": 30192,
+        "p95": 41056,
+        "p99": 44184,
+        "p999": 46416
+      },
+      "totalRecordedAllocations": 673128104,
+      "recordedGcCollections": [
+        13,
+        2,
+        0
+      ],
+      "totalUploadBytes": 22296,
+      "longestFrames": [
+        {
+          "SimulationTick": 242,
+          "IntervalMs": 42.1596,
+          "SimulationMs": 1.1456,
+          "RenderMs": 0.9756,
+          "SwapMs": 0.025,
+          "UnattributedGapMs": 40.0134,
+          "AllocatedBytes": 29576,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 314,
+          "IntervalMs": 10.57,
+          "SimulationMs": 8.3302,
+          "RenderMs": 1.9564,
+          "SwapMs": 0.0238,
+          "UnattributedGapMs": 0.2596000000000008,
+          "AllocatedBytes": 39176,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 2816,
+          "PrimarySource": "simulation"
+        },
+        {
+          "SimulationTick": 344,
+          "IntervalMs": 4.8739,
+          "SimulationMs": 2.786,
+          "RenderMs": 1.6788,
+          "SwapMs": 0.0223,
+          "UnattributedGapMs": 0.3867999999999998,
+          "AllocatedBytes": 919688,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 665,
+          "IntervalMs": 4.4283,
+          "SimulationMs": 0.3297,
+          "RenderMs": 0.3584,
+          "SwapMs": 0.0211,
+          "UnattributedGapMs": 3.7191,
+          "AllocatedBytes": 28456,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 1118,
+          "IntervalMs": 3.4998,
+          "SimulationMs": 0,
+          "RenderMs": 3.3813,
+          "SwapMs": 0.0969,
+          "UnattributedGapMs": 0.02160000000000005,
+          "AllocatedBytes": 45496,
+          "Gen0": 1,
+          "Gen1": 1,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        }
+      ]
+    },
+    {
+      "run": "paired-6-B",
+      "samples": 24102,
+      "droppedRecords": 0,
+      "cancellationEvents": 1518,
+      "storedSegments": [
+        1518
+      ],
+      "inputProxyMeaning": "software sample-call entry to Present return; no photon or Reflex claim",
+      "inputToPresentProxyMs": {
+        "p50": 0.5204,
+        "p95": 0.7269,
+        "p99": 0.9561,
+        "p999": 1.237
+      },
+      "inputPollMs": {
+        "p50": 0.0007,
+        "p95": 0.001,
+        "p99": 0.0031999999999999997,
+        "p999": 0.024800000000000003
+      },
+      "simulationMs": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0.3685,
+        "p999": 0.5829
+      },
+      "renderMs": {
+        "p50": 0.4991,
+        "p95": 0.7054,
+        "p99": 0.9315,
+        "p999": 1.205
+      },
+      "swapMs": {
+        "p50": 0.015,
+        "p95": 0.038,
+        "p99": 0.0491,
+        "p999": 0.0914
+      },
+      "unattributedGapMs": {
+        "p50": 0.2657999999999999,
+        "p95": 0.45589999999999997,
+        "p99": 0.5764,
+        "p999": 0.8653000000000001
+      },
+      "allocatedBytesPerFrame": {
+        "p50": 31256,
+        "p95": 41256,
+        "p99": 44400,
+        "p999": 46384
+      },
+      "totalRecordedAllocations": 763014832,
+      "recordedGcCollections": [
+        16,
+        2,
+        0
+      ],
+      "totalUploadBytes": 22296,
+      "longestFrames": [
+        {
+          "SimulationTick": 242,
+          "IntervalMs": 42.8748,
+          "SimulationMs": 1.1337,
+          "RenderMs": 1.095,
+          "SwapMs": 0.0249,
+          "UnattributedGapMs": 40.6212,
+          "AllocatedBytes": 29576,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 314,
+          "IntervalMs": 10.602,
+          "SimulationMs": 8.5433,
+          "RenderMs": 1.8488,
+          "SwapMs": 0.0236,
+          "UnattributedGapMs": 0.18629999999999997,
+          "AllocatedBytes": 39176,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 2816,
+          "PrimarySource": "simulation"
+        },
+        {
+          "SimulationTick": 1354,
+          "IntervalMs": 4.8782,
+          "SimulationMs": 0,
+          "RenderMs": 4.4755,
+          "SwapMs": 0.0449,
+          "UnattributedGapMs": 0.3577999999999994,
+          "AllocatedBytes": 38016,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "gl-cpu"
+        },
+        {
+          "SimulationTick": 344,
+          "IntervalMs": 4.8173,
+          "SimulationMs": 2.7835,
+          "RenderMs": 1.6752,
+          "SwapMs": 0.0448,
+          "UnattributedGapMs": 0.31380000000000025,
+          "AllocatedBytes": 919688,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 1353,
+          "IntervalMs": 4.6286,
+          "SimulationMs": 0,
+          "RenderMs": 4.3084,
+          "SwapMs": 0.0441,
+          "UnattributedGapMs": 0.2760999999999998,
+          "AllocatedBytes": 38016,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "gl-cpu"
+        }
+      ]
+    },
+    {
+      "run": "paired-7-B",
+      "samples": 23979,
+      "droppedRecords": 0,
+      "cancellationEvents": 1513,
+      "storedSegments": [
+        1513
+      ],
+      "inputProxyMeaning": "software sample-call entry to Present return; no photon or Reflex claim",
+      "inputToPresentProxyMs": {
+        "p50": 0.5194,
+        "p95": 0.7192,
+        "p99": 0.9285,
+        "p999": 1.5792
+      },
+      "inputPollMs": {
+        "p50": 0.0006000000000000001,
+        "p95": 0.001,
+        "p99": 0.0031999999999999997,
+        "p999": 0.0238
+      },
+      "simulationMs": {
+        "p50": 0,
+        "p95": 0.1924,
+        "p99": 0.3634,
+        "p999": 0.6993
+      },
+      "renderMs": {
+        "p50": 0.497,
+        "p95": 0.6988,
+        "p99": 0.8942,
+        "p999": 1.5597
+      },
+      "swapMs": {
+        "p50": 0.015,
+        "p95": 0.0395,
+        "p99": 0.0521,
+        "p999": 0.1252
+      },
+      "unattributedGapMs": {
+        "p50": 0.27,
+        "p95": 0.45339999999999997,
+        "p99": 0.5686000000000001,
+        "p999": 0.8697999999999999
+      },
+      "allocatedBytesPerFrame": {
+        "p50": 31280,
+        "p95": 41256,
+        "p99": 44400,
+        "p999": 46408
+      },
+      "totalRecordedAllocations": 760406464,
+      "recordedGcCollections": [
+        16,
+        2,
+        0
+      ],
+      "totalUploadBytes": 22296,
+      "longestFrames": [
+        {
+          "SimulationTick": 242,
+          "IntervalMs": 43.8694,
+          "SimulationMs": 1.8384,
+          "RenderMs": 1.8259,
+          "SwapMs": 0.0251,
+          "UnattributedGapMs": 40.18,
+          "AllocatedBytes": 29576,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 314,
+          "IntervalMs": 10.8551,
+          "SimulationMs": 8.6722,
+          "RenderMs": 1.9759,
+          "SwapMs": 0.0239,
+          "UnattributedGapMs": 0.18310000000000007,
+          "AllocatedBytes": 39176,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 2816,
+          "PrimarySource": "simulation"
+        },
+        {
+          "SimulationTick": 344,
+          "IntervalMs": 4.7598,
+          "SimulationMs": 2.7422,
+          "RenderMs": 1.7117,
+          "SwapMs": 0.0223,
+          "UnattributedGapMs": 0.2836000000000003,
+          "AllocatedBytes": 919688,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 665,
+          "IntervalMs": 4.2506,
+          "SimulationMs": 0.3042,
+          "RenderMs": 0.4356,
+          "SwapMs": 0.0215,
+          "UnattributedGapMs": 3.4893000000000005,
+          "AllocatedBytes": 28456,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        },
+        {
+          "SimulationTick": 243,
+          "IntervalMs": 2.9216,
+          "SimulationMs": 0.903,
+          "RenderMs": 1.6648,
+          "SwapMs": 0.0238,
+          "UnattributedGapMs": 0.3300000000000001,
+          "AllocatedBytes": 28296,
+          "Gen0": 0,
+          "Gen1": 0,
+          "Gen2": 0,
+          "UploadBytes": 0,
+          "PrimarySource": "unknown/mixed"
+        }
+      ]
+    }
+  ],
+  "collectionLimits": [
+    "Per-frame GC observations span only the bounded frame scope; a collection in scheduler/uninstrumented gaps may not appear there. Native harness full-window GC counters are separate.",
+    "Input proxy begins at software polling-call entry, not hardware sampling, scanout, Reflex, or photon time.",
+    "Enabled capture overhead has not been proved negligible; do not promote capture by default."
+  ]
+}
