@@ -96,6 +96,7 @@ internal sealed partial class CustomAuthorityCombatAdapter
             {
                 _delivery?.AfterSourcePhase(this);
                 foreach (var life in _current) life?.Journal?.SealNativeSelection();
+                _delivery?.SourcePhaseSealed(this);
             }
         }
         finally

@@ -1442,6 +1442,7 @@ namespace MphRead.Mods.Network
             NetCampaignEvidence.TimelineIntentReceived(slot, intent);
             if (!NetFireEvents.Accept(slot, intent))
             { NetTelemetry.Intent(slot, intent.Frame, NetIntentRejection.Invalid); return false; }
+            Mods.CustomWeapons.CustomNativeClaimSource.FilterAdmitted(slot,ref intent);
             NetCampaignEvidence.Intent(slot, intent, offered: false);
             ReplayCapture.AcceptedIntent(slot, intent);
             if (intent.LifeId != NetPlayerLifecycle.Get(slot)) return true;

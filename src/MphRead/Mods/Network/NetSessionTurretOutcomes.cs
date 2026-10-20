@@ -52,6 +52,14 @@ public static partial class NetSession
     }
     internal static void RefuseTurret(ShotKey key, FireEvent fire, TurretFireOutcomeReason reason)
         => PublishTurretOutcome(new(key, NetFrame, TurretFireOutcomeStatus.Refused, reason, fire, default, default));
+    internal static bool TryGetAuthorityTurretEmission(in ShotKey key,out FireEvent fire)
+    {
+        fire=default;
+        if(!IsAuthority||!MatchesStream(key.MatchId,key.AuthorityEpoch)
+            ||!TurretTerminals.TryGetValue(key,out var fact)||fact.Status!=TurretFireOutcomeStatus.Emitted
+            ||fact.Fire.Kind!=FireEventKind.TurretFire||fact.Fire.Weapon!=(byte)BeamType.Battlehammer)return false;
+        fire=fact.Fire;return true;
+    }
     private static void HandleTurretOutcome(ReceivedPacket packet)
     {
         if (!WorldIsReady || !NetFactBatch.Validate(PacketType.TurretFireOutcome, packet.Payload)) return;

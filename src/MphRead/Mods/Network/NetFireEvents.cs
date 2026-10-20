@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -355,7 +356,12 @@ public static class NetFireEvents
         NetShotSourceJournal.Observe(slot, intent);
         var state = For(slot);
         state.EventStream |= intent.HasFireEvents;
-        if (!AcceptedPlaybackEnabled) return state.Incoming.Accept(intent);
+        if (!AcceptedPlaybackEnabled)
+        {
+            bool accepted=state.Incoming.Accept(intent);
+            if(accepted)ConfirmCustomNativeEvents(slot,intent);
+            return accepted;
+        }
         state.Ledger.Expire(intent.Frame);
         // Discrete events have one owner, the full-key ledger. Continuous and
         // turret events keep their existing cadence/owner-specific policy.
@@ -375,12 +381,15 @@ public static class NetFireEvents
             var key = new ShotKey(intent.AuthorityEpoch, intent.MatchId, slot,
                 intent.SlotGeneration, life, fire.ShotId);
             var admission = state.Ledger.Accept(key, fire, intent.Frame);
+            if(admission is ShotAdmission.Accepted or ShotAdmission.Duplicate)
+                CustomNativeClaimSource.Confirm(key,fire);
             if (admission == ShotAdmission.Accepted)
                 NetCampaignEvidence.TimelineFire("source-admitted", key, fire);
             if (admission is not (ShotAdmission.Accepted or ShotAdmission.Duplicate))
                 NetCampaignEvidence.AdmissionRejected(key, fire, admission.ToString());
         }
         if (!state.Incoming.Accept(special)) return false;
+        ConfirmCustomNativeEvents(slot,special);
         if (NetCampaignEvidence.Enabled && NetSession.IsAuthority && (uint)slot < PlayerEntity.Players.Count)
         {
             var owner = PlayerEntity.Players[slot]; var form = owner.ModCaptureForm();
@@ -395,6 +404,16 @@ public static class NetFireEvents
             }
         }
         return true;
+    }
+    private static void ConfirmCustomNativeEvents(int slot,in IntentPacket intent)
+    {
+        for(int i=0;i<intent.FireEventCount;i++)
+        {
+            var fire=intent.FireEvents[i];
+            var key=new ShotKey(intent.AuthorityEpoch,intent.MatchId,slot,intent.SlotGeneration,
+                fire.SourceLife!=0?fire.SourceLife:intent.LifeId,fire.ShotId);
+            CustomNativeClaimSource.Confirm(key,fire);
+        }
     }
     internal static AcceptedShotLedger CaptureLedger(int slot) => For(slot).Ledger;
     internal static bool TryAcceptedKey(PlayerEntity player, out ShotKey key)
