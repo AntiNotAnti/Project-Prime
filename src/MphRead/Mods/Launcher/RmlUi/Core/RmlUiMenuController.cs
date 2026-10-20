@@ -117,6 +117,10 @@ public interface IRmlUiMenuServices
     NativePartyQueueSnapshot CapturePartyQueue() => NativePartyQueueSnapshot.Empty;
     bool CommandPartyQueue(NativePartyQueueSnapshot expected, NativePartyQueueCommand command) => false;
     Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken token);
+    bool CanAcceptCreatedLobby(LaunchPlan plan) => false;
+    void NoteCreatedLobby(LaunchPlan plan) { }
+    void DiscardCreatedLobby(LaunchPlan plan) { }
+    void CancelCreatedLobby() { }
     bool AcceptJoin(LaunchPlan plan);
     bool OpenCreateLobby();
     bool ConfigureGameFiles() => false;
@@ -391,16 +395,13 @@ public sealed class RmlUiMenuController : IDisposable
             case RmlUiIntentKind.PlayJoin:
                 return Connect(address, playerName);
             case RmlUiIntentKind.PlayCancel:
-                if (_creating)
-                {
-                    Status("The authoritative server allocation is in progress.");
-                    return false;
-                }
+                bool wasCreating = _creating;
                 bool wasSearching = _randomSearch;
                 Cancel();
                 _browsing = wasSearching;
                 _createOpen = false;
-                Status(wasSearching ? "RANDOM MATCH SEARCH CANCELLED" : "READY TO DEPLOY");
+                Status(wasCreating ? "LOBBY JOIN CANCELLED // A COMMITTED DEDICATED ALLOCATION MAY FINISH"
+                    : wasSearching ? "RANDOM MATCH SEARCH CANCELLED" : "READY TO DEPLOY");
                 return true;
             case RmlUiIntentKind.CampaignShipAction:
                 return argument == 10 && _adventure is { Confirming: false, Launched: false } adventure
@@ -1006,16 +1007,23 @@ public sealed class RmlUiMenuController : IDisposable
                         _services.DiscardPartyJoin(partyJoin.Target, joined.Plan);
                         Status("PARTY DESTINATION OR ACCOUNT CHANGED // REFRESH PARTY");
                     }
+                    else if (item.Kind == Job.Create && !_services.CanAcceptCreatedLobby(joined.Plan))
+                    {
+                        _services.DiscardCreatedLobby(joined.Plan);
+                        Status("CREATED LOBBY CONNECTION CHANGED // RETRY");
+                    }
                     else if (_services.AcceptJoin(joined.Plan))
                     {
                         _browsing = false;
                         _createOpen = false;
                         if (partyJoin != null) _services.NotePartyJoined(partyJoin.Target);
+                        if (item.Kind == Job.Create) _services.NoteCreatedLobby(joined.Plan);
                         Status("JOINED. WAITING FOR AUTHORITATIVE LOBBY STATE.");
                     }
                     else
                     {
                         if (partyJoin != null) _services.DiscardPartyJoin(partyJoin.Target, joined.Plan);
+                        if (item.Kind == Job.Create) _services.DiscardCreatedLobby(joined.Plan);
                         Status("Unable to complete the current client handoff.");
                     }
                     break;
@@ -1659,9 +1667,13 @@ public sealed class RmlUiMenuController : IDisposable
         _studioReplayPath = null;
         _activeMenuJob = null;
         _setupResume = SetupResume.None;
-        if (_randomSearch) _joining = false;
+        // Preserve the existing pending lifetime of ordinary joins. Created
+        // allocations now have exact client ownership and can retire immediately.
+        if (_randomSearch || _creating) _joining = false;
+        _creating = false;
         _randomSearch = false;
         _services.CancelRandomJoin();
+        _services.CancelCreatedLobby();
         _services.CancelPartyJoin();
         _services.CancelSocialJoin();
         _joiningParty = false;
@@ -1694,6 +1706,8 @@ public sealed class RmlUiMenuController : IDisposable
 
     private void DiscardPartyCompletion(Completion completion)
     {
+        if (completion.Kind == Job.Create && completion.Data is RmlUiJoinResult created)
+            _services.DiscardCreatedLobby(created.Plan);
         if (completion.Kind == Job.Quick && completion.Data is RmlUiJoinResult random)
             _services.DiscardRandomJoin(random.Plan);
         if (completion.Data is PartyJoinCompletion party)
