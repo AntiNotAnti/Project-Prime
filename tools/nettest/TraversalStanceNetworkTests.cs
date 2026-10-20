@@ -37,8 +37,8 @@ internal static class TraversalStanceNetworkTests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 76 && (uint)IntentButtons.Crouch == 1u << 22
-                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol76 preserves distinct held and canonical stance bits");
+            Check(NetConfig.ProtocolVersion == 77 && (uint)IntentButtons.Crouch == 1u << 22
+                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol77 preserves distinct held and canonical stance bits");
             foreach (IntentButtons bits in new[] { IntentButtons.None, IntentButtons.Crouch, IntentButtons.CrouchedState, StanceBits })
             {
                 var carrier = new IntentPacket { Buttons = IntentButtons.InPlayState | bits, Aim = Vector3.UnitZ };

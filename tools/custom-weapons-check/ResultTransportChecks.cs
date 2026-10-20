@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using MphRead.Mods.CustomWeapons;
 using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 
 // Pure authority-result codecs. Consistent source/health fixtures below do not
@@ -111,6 +112,19 @@ internal static class ResultTransportChecks
             && CustomCombatResults.TryReadReceipt(bytes,f.Manifest,f.Definition,out var copy) && copy == message
             && copy.Receipt.Source!.Value.Crouched && copy.Receipt.Source.Value.MuzzleOrigin == action.Origin,
             "receipt retains accepted source crouch and muzzle in spare bit3 without widening its body");
+        var tucked = source with { Tucked = true };
+        var tuckedAction = tucked.Action with { Origin = tucked.MuzzleOrigin };
+        tucked = tucked with { Action = tuckedAction };
+        var tuckedMessage = message with { Receipt = message.Receipt with { Action = tuckedAction, Source = tucked } };
+        var tuckedBytes = Encode(tuckedMessage,f);
+        check(tuckedBytes.Length == 233 && tuckedBytes[158] == 25
+            && CustomCombatResults.TryReadReceipt(tuckedBytes,f.Manifest,f.Definition,out var tuckedCopy)
+            && tuckedCopy == tuckedMessage && tuckedCopy.Receipt.Source!.Value.Tucked
+            && (tucked.MuzzleOrigin - source.MuzzleOrigin - Vector3.UnitY * ParkourStance.TuckRise).Length < .00001f,
+            "receipt roundtrips retained tuck in bit4 with the shared stance origin offset");
+        var malformed = tuckedBytes.ToArray(); malformed[158] &= 0xf7;
+        check(!CustomCombatResults.TryReadReceipt(malformed,f.Manifest,f.Definition,out _),
+            "receipt refuses tucked source without accepted crouch");
         check(!f.Receipt.Receipt.Source!.Value.Crouched
             && Encode(f.Receipt,f).AsSpan().SequenceEqual(Convert.FromHexString(ReceiptHex)),
             "default standing source remains byte-exact to the published independent receipt fixture");
@@ -144,7 +158,7 @@ internal static class ResultTransportChecks
         var receipt = Convert.FromHexString(ReceiptHex); var contact = Convert.FromHexString(ContactHex);
         for (int value=1;value<=255;value++) if (value != 7)
             Refuse(0,Change(receipt,124,(byte)value),f,check,"partial or unknown optional receipt masks cannot describe a terminal result");
-        for (int value=16;value<=255;value++) Refuse(0,Change(receipt,158,(byte)value),f,check,"unknown source modifier bits refuse");
+        for (int value=32;value<=255;value++) Refuse(0,Change(receipt,158,(byte)value),f,check,"unknown source modifier bits refuse");
         Refuse(0,Change(receipt,158,7),f,check,"simultaneous Double and Prime source modifiers cannot enter result wire");
         foreach (var field in new (int At,int Maximum)[] { (121,(byte)CustomJournalDisposition.EngineFault),(122,(byte)WeaponActionResult.InvalidOptic),(123,(byte)CustomEmissionDisposition.Uncertain) })
             for (int value=field.Maximum+1;value<=255;value++) Refuse(0,Change(receipt,field.At,(byte)value),f,check,"unknown terminal result enums refuse atomically");

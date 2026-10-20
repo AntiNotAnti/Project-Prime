@@ -343,6 +343,7 @@ namespace MphRead.Entities
                     Model model = _bipedModel1.Model;
                     float scale = Metadata.HunterScales[Hunter];
                     float bottom = Fixed.ToFloat(Values.MinPickupHeight);
+                    if (ModTucked) drawPosition.Y += ModTuckRise;
                     // Build the render-only body basis from the same facing
                     // selected above for this picture. Remote/replay hunters have
                     // already been angularly interpolated there; using raw
@@ -355,7 +356,7 @@ namespace MphRead.Entities
                     bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0) || ModCrouchGaitActive;
                     float canonicalAngle = angle;
                     Matrix4 canonicalBody = isolateLocalOrOfflineActor || crouchInterpolated
-                        ? ModBuildBipedDrawTransform(Position, _facingVector,
+                        ? ModBuildBipedDrawTransform(Position.AddY(ModTucked ? ModTuckRise : 0), _facingVector,
                             fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
                         transform = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(CosmeticDeathDefinition,

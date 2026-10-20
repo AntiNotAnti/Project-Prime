@@ -10,6 +10,7 @@ namespace MphRead.Entities;
 public partial class PlayerEntity
 {
     private TraversalCrouchPresentation _modCrouchPresentation;
+    private bool _modTuckCameraSuppressed;
     private TraversalGaitPresentation _modCrouchGait;
     private TraversalSlidePresentation _modSlidePresentation;
     private TraversalWalkPresentation _modCrouchWalk;
@@ -42,6 +43,8 @@ public partial class PlayerEntity
         float? acceptedSpeed = inferred ? Speed.Xz.Length * NativeVelocityUnitsPerSecond : null;
         if (_scene.Services.IsReplica) _modCrouchPresentation.Reset();
         else _modCrouchPresentation.Capture(_scene.FrameCount, ModCrouched);
+        if (!ModCrouched && _modCrouchPresentation.Sample(0, false) == 0)
+            _modTuckCameraSuppressed = false;
         float cos = MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob));
         bool lowPose = _scene.Services.IsReplica ? ModCrouched
             : _modCrouchPresentation.Sample(1, ModCrouched) > 0;
@@ -87,14 +90,14 @@ public partial class PlayerEntity
     // Translation, aim, native CameraInfo, collision and shot origins stay exact.
     private float ModCrouchDrawEyeCorrection(double alpha)
     {
-        if (_scene.Services.IsReplica || !ModCrouchBodyAllowed
+        if (_scene.Services.IsReplica || !ModCrouchBodyAllowed || _modTuckCameraSuppressed
             || _modCrouchVisualGeneration != FrameTiming.PresentationGeneration) return 0;
         float t = FrameTiming.HighRefreshPresentation ? (float)alpha : 1;
         float canonical = FrameTiming.HighRefreshPresentation && CameraInfo.ModHasLiveDrawHistory(alpha)
             ? _modCrouchPresentation.SampleCanonical(t, ModCrouched) : ModCrouched ? 1 : 0;
         float visual = _modCrouchPresentation.Sample(t, ModCrouched);
         float standingEye = Fixed.ToFloat(Values.AimYOffset);
-        float lowEye = TraversalStance.EyeOffset(ModBipedBottom, Fixed.ToFloat(Values.MaxPickupHeight),
+        float lowEye = TraversalStance.EyeOffset(ModNativeBipedBottom, Fixed.ToFloat(Values.MaxPickupHeight),
             Fixed.ToFloat(Values.BipedColRadius), standingEye, true);
         return (canonical - visual) * (standingEye - lowEye) + ModCrouchDrawBobCorrection(alpha);
     }

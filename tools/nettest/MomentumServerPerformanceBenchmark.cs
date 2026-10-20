@@ -117,9 +117,9 @@ internal static class MomentumServerPerformanceBenchmark
         try
         {
             if (args.Length is < 5 or > 7)
-                throw new ArgumentException("--momentum-server-performance ASSETS ROOM Native|Momentum OUTPUT_JSON [SECONDS>=60] [timing|verify]");
+                throw new ArgumentException("--momentum-server-performance ASSETS ROOM Native|Momentum|Quake3|Traversal|Parkour OUTPUT_JSON [SECONDS>=60] [timing|verify]");
             output = Path.GetFullPath(args[4]);
-            Require(MovementModelRules.TryParse(args[3], out var model) && !string.IsNullOrEmpty(args[3]), "explicit Native or Momentum model required");
+            Require(MovementModelRules.TryParse(args[3], out var model) && !string.IsNullOrEmpty(args[3]), "explicit Native, Momentum, Quake3, Traversal or Parkour model required");
             double seconds = args.Length > 5 ? double.Parse(args[5], CultureInfo.InvariantCulture) : 60;
             Require(double.IsFinite(seconds) && seconds is >= 60 and <= 600, "duration must cover 3600..36000 fixed simulation steps");
             string phase = args.Length > 6 ? args[6] : "timing";
@@ -318,7 +318,17 @@ internal static class MomentumServerPerformanceBenchmark
                 {
                     solverSampleTicks++; solverObservedSlots[sample.Slot] = true;
                     if (sample.Input.MoveAxes.LengthSquared > .000001f) positiveInputSolverTicks++;
-                    var expected = MomentumProfileV1.Step(new(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30), sample.Input);
+                    var incoming = new OpenTK.Mathematics.Vector3(sample.NativeVelocityBefore.X * 30, 0, sample.NativeVelocityBefore.Z * 30);
+                    if (sample.GroundSupport.HasValue)
+                        incoming = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
+                    var expected = model switch
+                    {
+                        MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
+                        MovementModel.Quake3 => Quake3MovementProfileV4.Step(incoming, sample.Input),
+                        MovementModel.Traversal => TraversalMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Parkour => ParkourMovementProfileV1.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        _ => throw new InvalidOperationException("Classic cannot produce a momentum solver sample.")
+                    };
                     Require(MathF.Abs(expected.Velocity.X / 30 - sample.NativeVelocityAfter.X) <= .00001f
                         && MathF.Abs(expected.Velocity.Z / 30 - sample.NativeVelocityAfter.Z) <= .00001f
                         && BitConverter.SingleToInt32Bits(sample.NativeVelocityBefore.Y) == BitConverter.SingleToInt32Bits(sample.NativeVelocityAfter.Y),
@@ -345,8 +355,8 @@ internal static class MomentumServerPerformanceBenchmark
                 if (!(row.ActiveSteps == steps && row.AliveSteps > 60 && row.MovingSteps > 30 && row.Travel > 1
                     && row.IntentEvents > 0 && row.MovingIntentEvents > 0))
                     workloadFailures.Add($"Slot {row.Slot} lacks nontrivial native work: active={row.ActiveSteps}, alive={row.AliveSteps}, moving={row.MovingSteps}, travel={row.Travel}, intent={row.IntentEvents}, movingIntent={row.MovingIntentEvents}.");
-                if (model == MovementModel.Momentum && row.EligibleSteps <= 0)
-                    workloadFailures.Add($"Slot {row.Slot} has no measured eligible Momentum biped steps.");
+                if (MovementModelRules.UsesMomentumSolver(model) && row.EligibleSteps <= 0)
+                    workloadFailures.Add($"Slot {row.Slot} has no measured eligible {model} biped steps.");
                 var player = scene.Players.Items[row.Slot];
                 row.ContactOverflows = player.ModCollisionContactOverflows - baseOverflows[row.Slot];
                 row.RecoveryFallbacks = player.ModCollisionRecoveryFallbacks - baseFallbacks[row.Slot];
@@ -356,9 +366,9 @@ internal static class MomentumServerPerformanceBenchmark
                 workloadFailures.Add("Measured actual AI workload has no proven shots; combat benchmark is invalid.");
             if (verify && work.Sum(row => row.PartialIntentEvents) <= 0)
                 workloadFailures.Add("Verification window has no genuine partial analog AI intent events.");
-            if (verify && model == MovementModel.Momentum
+            if (verify && MovementModelRules.UsesMomentumSolver(model)
                 && !(solverApplications > 0 && solverSampleTicks > 0 && positiveInputSolverTicks > 0))
-                workloadFailures.Add("Diagnostic verification has no proven actual nonzero-input Momentum solver applications.");
+                workloadFailures.Add($"Diagnostic verification has no proven actual nonzero-input {model} solver applications.");
             if (model == MovementModel.Native) Require(scene.DeveloperMomentumSteps == 0, "Native control never invokes Momentum solver");
             if (!verify) Require(scene.DeveloperMomentumSteps == 0, "timing arm has diagnostic capture disabled");
             long aliveSteps = work.Sum(row => row.AliveSteps), activeSteps = work.Sum(row => row.ActiveSteps);
@@ -369,9 +379,9 @@ internal static class MomentumServerPerformanceBenchmark
             {
                 schema = 1, failure = workloadFailures.Count == 0 ? null : string.Join("\n", workloadFailures),
                 acceptedPerformanceEvidence = !verify && workloadFailures.Count == 0, phase = verify ? "diagnostic-verification" : "timing",
-                model = model.ToString(), profileVersion = model == MovementModel.Momentum ? MomentumProfileV1.MomentumProfileVersion : 0,
+                model = model.ToString(), profileVersion = MovementModelRules.ProfileVersion(model),
                 protocol = NetConfig.ProtocolVersion, commit = Environment.GetEnvironmentVariable("PRIME_BENCHMARK_COMMIT") ?? "working-tree",
-                scenario = new { room, players = Players, steps, simulationHz = 60, warmupSteps = warm, warmupPolicy = "fixed 1200 native simulation steps in both models; genuine combat deaths preserved",
+                scenario = new { room, players = Players, steps, simulationHz = 60, warmupSteps = warm, warmupPolicy = "fixed 1200 native simulation steps in every model; genuine combat deaths preserved",
                     kind = "actual eight-bot ServerSim authority with genuine AI, native spawning/combat/respawn; no transport", seed1 = Seed1, seed2 = Seed2 },
                 environment = new { runtime = RuntimeInformation.FrameworkDescription, os = RuntimeInformation.OSDescription,
                     architecture = RuntimeInformation.ProcessArchitecture.ToString(), machine = Environment.MachineName,

@@ -125,8 +125,11 @@ namespace MphRead.NetTest
                     + "  --traversal-bot-authority <assets> [json] Test genuine authority AI under Traversal.\n"
                     + "  --ground-slope-rules               Test surface speed, qualified clipping and bounded slope force.\n"
                     + "  --ground-slope-scene <assets> [json] Test earned ramps, slopes, slides and native controls.\n"
-                    + "  --traversal-rules                  Test four-mode selection, stronger air control and ramp math.\n"
-                    + "  --quake3-rules                     Test three-mode authoritative rules and protocol60 admission.\n"
+                    + "  --parkour-tuck-scene <assets> [json] Test native input, tuck clearance and landing.\n"
+                    + "  --parkour-stance-rules             Test Parkour tuck eligibility and shape.\n"
+                    + "  --parkour-compatibility            Test Parkour v1 rules and archive protocol boundaries.\n"
+                    + "  --traversal-rules                  Test five-mode selection, stronger air control and ramp math.\n"
+                    + "  --quake3-rules                     Test five-mode authoritative rules and protocol60 admission.\n"
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
                     + "  --quake3-bot-authority <assets> [json] Test genuine authority AI under the fixed Quake III rule.\n"
                     + "  --quake3-scene <assets> [json]     Test normal Quake III rule simulation and native preservation.\n"
@@ -547,6 +550,18 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-tuck-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-tuck";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourTuckSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--traversal-stance")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -584,6 +599,8 @@ namespace MphRead.NetTest
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return GroundSlopeSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--parkour-stance-rules") return ParkourStanceTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-compatibility") return ParkourCompatibilityTests.Run();
             if (args.Length > 0 && args[0] == "--traversal-rules") return TraversalRulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-rules") return Quake3RulesTests.Run();
             if (args.Length > 0 && args[0] == "--quake3-replay-compatibility") return Quake3ReplayCompatibilityTests.Run();

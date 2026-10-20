@@ -25,7 +25,7 @@ public partial class PlayerEntity
         && result.Terrain is not Terrain.Lava
         && !ModSurfContact(result) && GroundSlopeMovement.Walkable(result.Plane.Xyz);
 
-    internal bool ModTraversalActive => _scene.GameState.MovementModel == MovementModel.Traversal
+    internal bool ModTraversalActive => (_scene.GameState.MovementModel is MovementModel.Traversal or MovementModel.Parkour)
         && ModUsesQuake3Techniques;
 
     internal bool ModMovementBlastWeaponEligible(BeamType beam) => ModQuake3RocketImpulseEligible
@@ -92,7 +92,8 @@ public partial class PlayerEntity
         bool developerOwns = !IsBot && _scene.DeveloperMomentumActive;
         MomentumPracticeTuning? practice = developerOwns ? _scene.DeveloperMomentumPracticeTuning : null;
         bool quake3 = !developerOwns && _scene.GameState.MovementModel == MovementModel.Quake3;
-        bool traversal = !developerOwns && _scene.GameState.MovementModel == MovementModel.Traversal;
+        bool parkour = !developerOwns && _scene.GameState.MovementModel == MovementModel.Parkour;
+        bool traversal = !developerOwns && (_scene.GameState.MovementModel is MovementModel.Traversal or MovementModel.Parkour);
         MomentumTuning tuning = practice?.Tuning ?? (traversal ? ModCrouched
             ? TraversalMovementProfileV5.CrouchTuning(ModSliding) : TraversalMovementProfileV5.Tuning
             : quake3 ? Quake3MovementProfileV4.Tuning : MomentumProfileV1.Tuning);
@@ -112,6 +113,7 @@ public partial class PlayerEntity
         if (groundTravel) horizontal = GroundSlopeMovement.Flatten(before) * NativeVelocityUnitsPerSecond;
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
+            : parkour ? ParkourMovementProfileV1.Step(horizontal, input, ModCrouched, ModSliding)
             : traversal ? TraversalMovementProfileV5.Step(horizontal, input, ModCrouched, ModSliding)
             : quake3 ? Quake3MovementProfileV4.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // The planar solver preserves native Y bits. Only proven continuing

@@ -12,20 +12,28 @@ public partial class PlayerEntity
     private bool _modCrouched, _modCrouchWasDown;
     private int _modSlideTicks, _modSlideEntryTicks;
     private ulong _modStanceFrame = ulong.MaxValue;
-    private bool? _modHistoricalCrouched;
-    internal bool ModCrouched => _modCrouched && _scene.GameState.MovementModel == MovementModel.Traversal
+    private bool? _modHistoricalCrouched, _modHistoricalTucked;
+    private bool _modTucked;
+    private byte _modTuckRebases;
+    internal bool ModTucked => ModCrouched && _modTucked && _scene.GameState.MovementModel == MovementModel.Parkour;
+    internal byte ModTuckRebases => _modTuckRebases;
+    internal float ModTuckRise => ParkourStance.TuckRise;
+    private bool ModCollisionTucked => _modHistoricalTucked ?? ModTucked;
+    internal bool ModCrouched => _modCrouched && (_scene.GameState.MovementModel is MovementModel.Traversal or MovementModel.Parkour)
         && !IsAltForm && !IsMorphing && !IsUnmorphing;
     internal bool ModSliding => ModCrouched && _modSlideTicks > 0;
     internal bool ModCollisionCrouched => _modHistoricalCrouched ?? ModCrouched;
-    internal float ModBipedBottom => Fixed.ToFloat(Values.MinPickupHeight);
-    internal float ModBipedTop => ModBipedTopFor(ModCollisionCrouched);
-    internal float ModBipedTopFor(bool crouched) => TraversalStance.Top(ModBipedBottom,
-        Fixed.ToFloat(Values.MaxPickupHeight), Fixed.ToFloat(Values.BipedColRadius), crouched);
-    internal float ModBipedEyeOffset => TraversalStance.EyeOffset(ModBipedBottom,
+    private float ModNativeBipedBottom => Fixed.ToFloat(Values.MinPickupHeight);
+    internal float ModBipedBottom => ModBipedBottomFor(ModCollisionCrouched, ModCollisionTucked);
+    internal float ModBipedBottomFor(bool crouched, bool tucked) => ParkourStance.Bottom(ModNativeBipedBottom, crouched, tucked);
+    internal float ModBipedTop => ModBipedTopFor(ModCollisionCrouched, ModCollisionTucked);
+    internal float ModBipedTopFor(bool crouched, bool tucked = false) => ParkourStance.Top(ModNativeBipedBottom,
+        Fixed.ToFloat(Values.MaxPickupHeight), Fixed.ToFloat(Values.BipedColRadius), crouched, tucked);
+    internal float ModBipedEyeOffset => TraversalStance.EyeOffset(ModNativeBipedBottom,
         Fixed.ToFloat(Values.MaxPickupHeight), Fixed.ToFloat(Values.BipedColRadius),
-        Fixed.ToFloat(Values.AimYOffset), ModCrouched);
+        Fixed.ToFloat(Values.AimYOffset), ModCrouched) + (ModTucked ? ModTuckRise : 0);
 
-    private bool ModCrouchBodyAllowed => _scene.GameState.MovementModel == MovementModel.Traversal
+    private bool ModCrouchBodyAllowed => (_scene.GameState.MovementModel is MovementModel.Traversal or MovementModel.Parkour)
         && ModCharacterGameplay.Variant == Mods.Multiplayer.CharacterGameplayVariant.Native
         && Hunter is >= Hunter.Samus and <= Hunter.Weavel
         && _health > 0 && LoadFlags.TestFlag(LoadFlags.Spawned)
@@ -35,10 +43,10 @@ public partial class PlayerEntity
     internal void ModResetTraversalStance()
     {
         ModStopTraversalSlideSfx();
-        _modCrouched = _modCrouchWasDown = false;
+        _modCrouched = _modCrouchWasDown = _modTucked = _modTuckCameraSuppressed = false;
         _modCrouchPresentation.Reset(); _modCrouchGait.Reset();
         _modSlidePresentation.Reset(); _modCrouchWalk.Reset(); _modCrouchWalkReach = 0; _modTraversalPictureFrame = ulong.MaxValue;
-        _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
+        _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = _modHistoricalTucked = null;
         if (!_scene.Quake3TechniquesActive || !ModMomentumBodyEligible)
             ModResetGroundTravel();
     }
@@ -46,19 +54,22 @@ public partial class PlayerEntity
     // Native standing clearance, with fixed scratch capacity. Grow only when
     // the full body fits; saturated queries fail closed.
     private bool ModCanStand() => ModCanOccupyBiped(crouched: false);
-    private bool ModCanOccupyBiped(bool crouched)
+    private bool ModCanOccupyBiped(bool crouched, bool tucked = false, Vector3? origin = null)
     {
+        Vector3 position = origin ?? Position;
+        float nativeBottom = ModBipedBottomFor(crouched, tucked);
+        float nativeTop = ModBipedTopFor(crouched, tucked);
         float radius = Fixed.ToFloat(Values.BipedColRadius);
-        float bottom = ModBipedBottom + radius;
-        float top = ModBipedTopFor(crouched) - radius;
-        Vector3 start = Position.AddY(bottom), end = Position.AddY(top);
+        float bottom = nativeBottom + radius;
+        float top = nativeTop - radius;
+        Vector3 start = position.AddY(bottom), end = position.AddY(top);
         using var candidates = CollisionDetection.GetCandidatesForLimits(start, end, radius + .05f,
             null, Vector3.Zero, includeEntities: true, _scene);
         for (int probe = 0; probe < 3; probe++)
         {
             float y = probe == 0 ? bottom : probe == 1 ? (bottom + top) * .5f : top;
             Array.Clear(_penetrationScratch);
-            int count = CollisionDetection.CheckSpherePenetration(candidates, Position.AddY(y), radius,
+            int count = CollisionDetection.CheckSpherePenetration(candidates, position.AddY(y), radius,
                 _penetrationScratch.Length, TestFlags.Players, _penetrationScratch);
             if (count >= _penetrationScratch.Length) return false;
             for (int index = 0; index < count; index++)
@@ -77,8 +88,8 @@ public partial class PlayerEntity
         // its flat top/bottom. Check polygon edges against that same extent;
         // a sphere-cap-only clearance could otherwise allow a side rail into
         // the newly standing body.
-        Vector3 cylinderBottom = Position.AddY(ModBipedBottom + CollisionRecoverySkin);
-        float cylinderHeight = ModBipedTopFor(crouched) - ModBipedBottom - 2 * CollisionRecoverySkin;
+        Vector3 cylinderBottom = position.AddY(nativeBottom + CollisionRecoverySkin);
+        float cylinderHeight = nativeTop - nativeBottom - 2 * CollisionRecoverySkin;
         candidates.SeenFaces.Clear();
         for (int index = 0; index < candidates.Count; index++)
         {
@@ -106,8 +117,20 @@ public partial class PlayerEntity
         => candidate.EntityCollision is { } entity ? Matrix.Vec3MultMtx4(point, entity.Transform)
             : point + candidate.Collision.Translation;
 
-    internal void ModAdmitReportedCrouch(bool held, bool reported)
+    internal void ModAdmitReportedCrouch(bool held, bool reported, bool tucked = false)
     {
+        if (_scene.GameState.MovementModel == MovementModel.Parkour)
+        {
+            // Placement follows the existing life-fenced owner-report contract.
+            // The authority independently admits body/form eligibility and fit;
+            // it does not simulate the owner trajectory a second time.
+            bool low = reported && ModCrouchBodyAllowed
+                && (held && ModMomentumBodyEligible || !ModCanStand());
+            if (low && ModCanOccupyBiped(true, tucked))
+            { _modCrouched = true; _modTucked = tucked; ModCancelTraversalSlide(); }
+            else if (ModCanStand()) { _modCrouched = _modTucked = false; }
+            return;
+        }
         // A lost entry packet can leave only a released-but-clearance-blocked
         // stance report. Independently prove both the obstruction and low fit.
         if (ModCrouchBodyAllowed && reported && (!held || !ModMomentumBodyEligible) && !_modCrouched
@@ -133,7 +156,13 @@ public partial class PlayerEntity
         bool down = requested && ModMomentumBodyEligible;
         bool fresh = down && !_modCrouchWasDown;
         if (down) _modCrouched = true;
-        else if (_modCrouched && ModCanStand()) _modCrouched = false;
+        else if (_modCrouched && ModCanStand()) _modCrouched = _modTucked = false;
+        // A tuck changes only the hull and source offsets. It never adds jump
+        // force, translates an airborne origin, or re-arms a jump.
+        if (!_modTucked && ParkourStance.CanTuck(_scene.GameState.MovementModel == MovementModel.Parkour,
+            ModMomentumEligible, !Flags1.TestFlag(PlayerFlags1.Standing), down)
+            && ModCanOccupyBiped(true, true))
+        { _modTucked = true; _modTuckCameraSuppressed = true; }
         if (_modStanceFrame != _scene.FrameCount)
         {
             if (_modSlideTicks > 0) _modSlideTicks--;
@@ -159,10 +188,26 @@ public partial class PlayerEntity
         _modCrouchWasDown = down;
     }
 
+    private void ModCompleteTuckContact()
+    {
+        if (!ModTucked || !ModCrouchBodyAllowed || !_scene.MomentumOwnsPlayer(this)
+            || !Flags1.TestFlag(PlayerFlags1.Standing) || Speed.Y > 0) return;
+        Vector3 rise = Vector3.UnitY * ModTuckRise;
+        Position += rise;
+        PrevPosition += rise;
+        _modTucked = false;
+        _volume = CollisionVolume.Move(_volumeUnxf, Position);
+        _modTuckCameraSuppressed = false;
+        _modCrouchPresentation.Reset();
+        _modTuckRebases = (byte)((_modTuckRebases + 1) & 15);
+        // Ordinary crouch at the raised origin is precisely the same world
+        // capsule and eye. The origin adjustment is not physical velocity.
+    }
+
     internal void ModCancelTraversalSlide()
         => _modSlideTicks = _modSlideEntryTicks = 0;
 
-    internal void ModApplyReplicatedCrouch(bool crouched, bool isLocal = false)
+    internal void ModApplyReplicatedCrouch(bool crouched, bool isLocal = false, bool tucked = false)
     {
         if (!ModCrouchBodyAllowed) { ModResetTraversalStance(); return; }
         // The owner predicts this level from newer local input. A delayed
@@ -170,6 +215,8 @@ public partial class PlayerEntity
         // crouch snapshot re-duck a released owner. Life/form/health rules above
         // still retire prediction; fresh lives are seeded as remote state.
         if (isLocal) return;
+        _modTucked = crouched && tucked && _scene.GameState.MovementModel == MovementModel.Parkour;
+        _modTuckCameraSuppressed |= _modTucked;
         if (crouched) _modCrouched = true;
         else _modCrouched = false;
         if (!_modCrouched) ModCancelTraversalSlide();

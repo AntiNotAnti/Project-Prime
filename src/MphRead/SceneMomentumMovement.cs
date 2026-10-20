@@ -96,7 +96,7 @@ public partial class Scene
                 ?? MovementModelRules.FromRules((MatchModifierFlags)(NetSession.ServerMatch?.RuleBits ?? 0)))
                 == GameState.MovementModel);
 
-    internal bool Quake3TechniquesActive => GameState.MovementModel is MovementModel.Quake3 or MovementModel.Traversal
+    internal bool Quake3TechniquesActive => GameState.MovementModel is MovementModel.Quake3 or MovementModel.Traversal or MovementModel.Parkour
         && MomentumMovementActive;
 
     private bool MomentumSceneEligible() =>

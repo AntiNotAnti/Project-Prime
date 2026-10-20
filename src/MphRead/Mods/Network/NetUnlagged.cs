@@ -322,6 +322,7 @@ namespace MphRead.Mods.Network
         private static readonly bool[,] _targetable = new bool[Slots, HistoryFrames];
         private static readonly bool[,] _altForm = new bool[Slots, HistoryFrames];
         private static readonly bool[,] _crouched = new bool[Slots, HistoryFrames];
+        private static readonly bool[,] _tucked = new bool[Slots, HistoryFrames];
         private static readonly bool[,] _inPlay = new bool[Slots, HistoryFrames];
         public static long FormRewinds, FormMismatches, KandenHistoricalSegmentChecks, KandenHistoricalSegmentHits;
         private static readonly uint[] _formLog = new uint[Slots];
@@ -471,6 +472,7 @@ namespace MphRead.Mods.Network
                     }
                     _altForm[i, index] = player.IsAltForm;
                     _crouched[i, index] = player.ModCrouched;
+                    _tucked[i, index] = player.ModTucked;
                     _morphing[i, index] = player.IsMorphing;
                     _targetTeam[i, index] = player.TeamIndex;
                     _targetable[i, index] = player.GetTargetable();
@@ -493,11 +495,11 @@ namespace MphRead.Mods.Network
         public static HistoricalPlayerPose InterpolatePose(in HistoricalPlayerPose lower,
             in HistoricalPlayerPose upper, float fraction)
         {
-            if (lower.AltForm != upper.AltForm || lower.Crouched != upper.Crouched
+            if (lower.AltForm != upper.AltForm || lower.Crouched != upper.Crouched || lower.Tucked != upper.Tucked
                 || (upper.Position - lower.Position).LengthSquared > 16f)
                 return lower;
             return new(Vector3.Lerp(lower.Position, upper.Position, fraction), lower.AltForm,
-                AltCollisionPose.Lerp(lower.AltPose, upper.AltPose, fraction), lower.Crouched);
+                AltCollisionPose.Lerp(lower.AltPose, upper.AltPose, fraction), lower.Crouched, lower.Tucked);
         }
 
         private struct CollisionCacheEntry
@@ -553,12 +555,12 @@ namespace MphRead.Mods.Network
             ushort generation = NetPlayerLifecycle.Generation(slot), life = NetPlayerLifecycle.Get(slot);
             if (!PositionAt(slot, frame, generation, life, out var position)) return false;
             int index = (int)(frame % HistoryFrames);
-            pose = new(position, _altForm[slot, index], _altPose[slot, index], _crouched[slot, index]);
+            pose = new(position, _altForm[slot, index], _altPose[slot, index], _crouched[slot, index], _tucked[slot, index]);
             float fraction = (float)(target - frame);
             if (fraction > .0001f && PositionAt(slot, frame + 1, generation, life, out var nextPosition))
             {
                 int next = (int)((frame + 1) % HistoryFrames);
-                pose = InterpolatePose(pose, new(nextPosition, _altForm[slot, next], _altPose[slot, next], _crouched[slot, next]), fraction);
+                pose = InterpolatePose(pose, new(nextPosition, _altForm[slot, next], _altPose[slot, next], _crouched[slot, next], _tucked[slot, next]), fraction);
             }
             return true;
         }
@@ -623,7 +625,7 @@ namespace MphRead.Mods.Network
             double frame = ContinuousTargetFrame(owner);
             if (frame >= NetSession.NetFrame)
             {
-                pose = new(target.Position, target.ModCollisionIsAltForm, default);
+                pose = new(target.Position, target.ModCollisionIsAltForm, default, target.ModCrouched, target.ModTucked);
                 return target.ModIsInPlay && target.GetTargetable();
             }
             if (!TryHistoricalPose(target, frame, out pose)) return false;
