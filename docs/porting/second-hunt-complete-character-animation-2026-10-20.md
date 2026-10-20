@@ -154,3 +154,9 @@ network authority are not transplanted.
 PR850 merged at `a9f4bbcd404c232f62a46bdc154afe3fdc12769a`. Concurrent
 CW-05k/l/m changes are outside the frozen2c7926792 whole-binary proof; the
 animation/importer/character ownership closure is unchanged at merge.
+
+Focused postmerge checks at a9f4bbcd4 also passed: desktop Release, both
+animation/import tools and defaults, and the owned281-check runtime probe.
+The subsequent [generated source preview](second-hunt-generated-character-preview-2026-10-20.md)
+adds importer geometry and an actual diagnostic viewer without claiming
+complete character gameplay.

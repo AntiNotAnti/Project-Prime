@@ -32,8 +32,31 @@ Generated provenance format2 is separate from legacy manual format1. It cannot i
 
 The existing exact pack/asset/lease generation and source-animation profile own playback. Cached drawing samples captured clips without source file IO. The explicit diagnostic stage permission is scoped to its exact launcher side Scene, foreground request and owner; it does not enable global character replacement. Request attachment/clearing runs every draw, including frames without a60Hz native preview step. Closing the page retires its own binding; a foreign owner cannot close it. No source pose is written to a gameplay model.
 
-## Verification status
+## Frozen verification
 
-Exploratory desktop builds pass with zero warnings/errors. Synthetic writer checks cover deterministic bytes, seams, short/float/absent UVs, exact source weights, forward hierarchy references, full39-joint loader partitioning, cancellation, detached capture and malformed/budget refusals. Settings fixtures cover dirty draft preservation, captured selection, state gates, stale documents and late worker retirement. The owned bundle probe compares every generated original source corner and joint, repeated writer bytes, source/provenance hashes, same-generation publication and repair/reuse/cancel/remove for all four Echoes parts; the source RVZ remains unchanged and derived test payloads are deleted.
+Production/test commit `dd191b6eb1bb49d0bb485c40300e0cabb4b283e5`, based on current main `8c6ec015d`, passes **42/42 serial commands** from two fresh Git archives. All6110 tracked files in both archives remain unchanged after testing. The documentation follow-up does not change production/test bytes. Protocol71 comes from the merged movement baseline; this slice adds no wire IDs, packet changes, Hunter identities, native intent ABI or canvas ABI changes.
 
-Actual GPU, native layout and final frozen build qualification are pending in this work branch. No current evidence here claims character gameplay or untested platform parity.
+* Desktop and dedicated Release builds: zero warnings/errors.
+* Android Release:25 existing warnings, zero errors;119 AOT assemblies for each of arm64/x64; signed APK verifies with v2/v3.
+* All three native libraries rebuilt from the exact pinned dependencies/current native closure and independently verified: macOS arm64 GL2 and Android arm64/x64 draw-list.
+*150 markup/style files resolve; native Home178 checks and canvas CPU1085 checks pass.
+* Full importer, animation, character, Settings, game-files, archive, ship and credits suites pass;48 Python authoring tests and910 source-rig asset checks pass. The new writer contributes421 checks; bounded animation/archive fixtures retain977/177 checks.
+* Owned bundle acceptance accounts for every original corner/material/weight/joint, deterministic repeated output and same-generation repair/reuse/cancel/remove for all four Echoes parts. All16 historical authoring component hashes remain identical to the independent earlier receipt.
+* Actual runtime playback retains55 declared strict rigid clips,2979 key samples and165 off-grid samples with no sampling-time proof/file reads. Generated profile acceptance passes33 checks including32 refusal cases, a fully rehashed format1 downgrade, forged geometry, false gameplay claims, and retained selection/lease use after Remove with reopen refusal.
+* Actual GPU acceptance passes228 checks over18 frames and two recreated contexts: post-twelve raw clip13 visibly animates; four visible angles differ; resources and A/B/A palettes stay stable; immediate native restoration needs no60Hz step; foreign owners cannot close the source binding.
+* The actual native source page passes96 checks and six translated clicks at each physical960×600 and640×480, with global character replacement still disabled. Native focus scrolls the control pane; actual pointer Back closes the view. Draft/stale-document/late-worker fixtures pass separately.
+* Historical protocol58, Quake3, pickup and grant replay checks and campaign map/timing checks pass. No extra-character multiplayer/replay playability is claimed.
+
+The initial frozen7dcd8f871 run caught two Android references to the desktop preview owner; the final source adds explicit platform guards. Exploratory tests also exposed the source-root framing and small-window footer overlap; the final GPU/native pointer tests verify their corrections. Superseded failures remain in the private receipt history.
+
+Windows SSH authentication was rejected (exit255), so the requested Mac fallback was used. These tests do not qualify a Windows/Linux source-root runtime, physical Android device, GX material fidelity, game actor, cannon, morph transition, extra selection or performance parity. All owned source hashes remain unchanged; all temporary derived media and test contexts were deleted. Receipts retain metadata, counts, IDs and hashes rather than source pictures, geometry or pose arrays.
+
+Private receipts: `artifacts/sh-integration/character-generated-final-dd191b6eb/`, with the earlier native builds/exploration under `character-generated-preview-exploratory/`.
+
+| Frozen output | SHA-256 |
+| --- | --- |
+| Git archive | `cfa3ed4e30bde15ecaad99334cb338e9af070d97aac4c07706b120d5a74245a8` |
+| Desktop DLL | `79ddbd98e5890ba1bc33ba5e646616bb2b7e9eb95f4011b49fea35e60fe26f1c` |
+| Import test tool | `fb6bb6e569dcd47dbed875eb23f3b897fc9b6f2224936bf4359a6f9f10d9fc3b` |
+| Dedicated DLL | `8c3e715a81a0b1e868d19086bb5a23f615c9d11970d7f23a3be07633fe2acdc5` |
+| Signed Android APK | `064e5556ac4a8e2cbb98e75f5013e8aad589fba9b2ba8f3e97b60e06be02bef3` |
