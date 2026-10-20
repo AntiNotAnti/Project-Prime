@@ -13,7 +13,7 @@ action/outcome packet, public activation or full CW-04 completion is claimed.
 | --- | --- | --- |
 | Main Release build, final observer retirement guard | PASS, zero warnings/errors, 65.51s | `build-udp-observer-retirement.log` |
 | Pure contracts before final test-only observer guard | PASS, 4,053 checks | `pure-final.log` |
-| Automatic readiness/source-boundary scene | PASS, 127 checks | `engine-readiness-final.log` |
+| Automatic readiness/source-boundary scene | PASS, 127 checks | `engine-readiness-scene-final.log` |
 | Engine admission / source / authority scenes | PASS, 249 / 318 / 985 checks | named final logs |
 | Offline / rewind scenes | PASS, 46 / 156 checks | named final logs |
 
