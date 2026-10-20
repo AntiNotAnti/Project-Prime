@@ -1,0 +1,666 @@
+{
+  "schema": 1,
+  "status": "implementation complete; physical device and matched performance qualification pending",
+  "date": "2026-10-20",
+  "branch": "codex/upstream-owner-director-completion",
+  "initialMain": "0c3a281b683ac062848bc21a7fe86ef24e194cc5",
+  "integratedMain": "2771fda3bfb7996315cc1d6754fcd7fc76a18638",
+  "featureHead": "3e1e5521d",
+  "protocol": 76,
+  "wireChange": "None in this series; protocol changes are independent main work.",
+  "environment": {
+    "platform": "macOS arm64",
+    "sdk": "10.0.401",
+    "gl": "2.1 Metal - 91.7",
+    "windows": "SSH authentication denied; existing Parsec connection did not reliably accept focus/keyboard. Authorized Mac fallback used without changing credentials or session.",
+    "android": "Release full-AOT build only; physical device not tested"
+  },
+  "sourcesSha256": {
+    "src/MphRead/Entities/Players/PlayerDraw.cs": "88c72a6a367d075676e720b9835c4640d5600e122126a57159c50396e8b7804a",
+    "src/MphRead/Mods/Cosmetics/PlayerCosmetics.cs": "d4d6c3b257f535e555ce1936c94fdfe5dc7adf872163110bb44c75023f7d17e6",
+    "src/MphRead/Mods/Launcher/Gui/ReplayControlsView.cs": "f35441c4bdb6269faebe28ec9417c34c24b4dab9481a96c7048375d8f51f504b",
+    "src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiTheatreEditor.cs": "801a6d37017a8bbdc0e7dccde3ead58515311353b6e6aa4c2dee1e1b084b3b1b",
+    "src/MphRead/Mods/ModEntry.cs": "c910e88a0e8abc1182df54610c2893407fe9b42dbcafbfcce3820a794e74c552",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "c7f991d695ee5aabee5175d1293c9f1c16e96311394fcab6634fc9024ed325c9",
+    "src/MphRead/Mods/Network/ReplayControlCheck.cs": "2a50f63dcee05006e81edecf048a92552448c4847f7b34c3892490b5b04267f0",
+    "src/MphRead/Mods/Network/ReplayExportCheck.cs": "5622d3cedc251bf5f92f1e44c720ab2cc2d4fbe677a816552b5ad78175185a55",
+    "src/MphRead/Mods/Render/OpenGlScopedBindingCache.cs": "d22c5472ebdff143b5292a6bd9dd4d38715edf403a880e4bbd189d457f404154",
+    "src/MphRead/Mods/Replay/PlayerEntityOwnerVisual.cs": "b4e6f32a1cff8f5984e00c3b35b266fd55735198e075755ef92c0cfb9246033c",
+    "src/MphRead/Mods/Replay/ReplayCamera.cs": "836011dab7de0a6d2f2eb5bfac56a0f55feabf8309fd9c25be7dd305d1e78cf8",
+    "src/MphRead/Mods/Replay/ReplayContextAnalysis.cs": "7257336b2b7f2da0ce381d695cd703a322df823d5eddc240866a9e7f1b2bb353",
+    "src/MphRead/Mods/Replay/ReplayDetachedExportQueue.cs": "491217c409690a85cb5b87d1ec359b5b6b910f78d7b642c2a86ab7f38de18150",
+    "src/MphRead/Mods/Replay/ReplayDetachedExportTicket.cs": "40bdf5419bbe16fed4d60eea230f150112dc2d7d798349d0aaadd0ba2df010bd",
+    "src/MphRead/Mods/Replay/ReplayDirectorShots.cs": "854e0694bf251663ef9f8fcd04b94ee22503ae009b352df63a6e88bd685a30c4",
+    "src/MphRead/Mods/Replay/ReplayHighlightsCommand.cs": "748d034ab9696bac43abe321df3e255ff595b2c127fa9a60c58795530437fb67",
+    "src/MphRead/Mods/Replay/ReplayHud.cs": "1da7419d9f350c3666553d78bc7b49562f34790d40b06f746d8073a0179f6a3b",
+    "src/MphRead/Mods/Replay/ReplayOwnerExport.cs": "19ed82a34c3830e49bc3a49d10b9f739def27a4d89c6e9d83f6d65a7b6b37244",
+    "src/MphRead/Mods/Replay/ReplayOwnerPresentation.cs": "af840842c69fe7fde956d451e51c7da5ca56f3026742a78c7b21492fdcf02c4c",
+    "src/MphRead/Mods/Replay/ReplayOwnerVisual.cs": "7017486cb0b2b386bb97b6bd60bacbcde9dba3d24dfc29afb91fda9619a7241c",
+    "src/MphRead/Mods/Replay/ReplayStudio.cs": "45e63e940b8192c4deb534ff69d26fe48a8a2d749fbcf03acec4e6f88f9d705a",
+    "src/MphRead/Mods/Replay/ReplayVideoExporter.cs": "8f886be1cdb6059cd9fedac3551ed328abd8ec38475e9f297b1d512cf3f83969",
+    "src/MphRead/Mods/Replay/SceneReplayDirectorShots.cs": "258641c587aad418cdab2eff51b3af257310f36a3359b668870c7cc7dfaa9780",
+    "src/MphRead/Mods/Replay/SceneReplayMultiView.cs": "ff464c7f518381c175f2bd78b1a8857203a44ad113c13a9668f8503c4b45ee88",
+    "src/MphRead/Mods/Replay/SceneReplayOwnerPresentation.cs": "b65f24b33e1a667dfc45652fbe99ee461c493d73a0a2d0b72d915463592ce73d",
+    "src/MphRead/Renderer.cs": "267fc3143519c6f7a9df06e48b4471a140729f287440e6903ed99e9db843bd96",
+    "tools/nettest/Program.cs": "3af08f395f853cdd5a93e4f845a6d704332460663722cb10a47f5e4472a3ff83",
+    "tools/nettest/ReplayContextAnalysisTests.cs": "12559aaef849577619a318d07a517d2febb0383954d93aaef273367ce2497de0",
+    "tools/nettest/ReplayDirectorShotTests.cs": "db2443c0cbddfd84ef84946021aff276b2430671b201d4390006911b6a086c42",
+    "tools/nettest/ReplayOwnerSceneTests.cs": "91e49b52cc6c95f9abf51e1a6879cdd47e7d194cfc7306347016deabc5315d59",
+    "tools/nettest/ReplayOwnerTrackTests.cs": "518dbe339ea9c8f2877d02063c4a0462641968132e1541b01b42efce4ed2e3f8",
+    "tools/rmlui-editor-check/ContextDecoderSeam.cs": "be48d7d87f4062da9ea19cd4b1a3cfd1ea9a7cea2e69cd5b4f04a03e94088123",
+    "tools/rmlui-export-owner-check/Program.cs": "ca3979223312762484cf9c055409c40bb79a32ca6a8055f869ca138ff65b7474",
+    "tools/rmlui-export-owner-check/Stubs.cs": "d9d42d5265e9b344779a621596b513e31aa2947c651af8ebf37d3bc79722f883",
+    "tools/rmlui-timeline-check/editor-owner/editor-owner-check.csproj": "34b3a7fd0a45f77e4b010f07c9f43758476de3349463b3b8c398a505ef2690e7"
+  },
+  "ownerGlExport": {
+    "scope": "Synthetic 240Hz owner sidecar from actual ROM assets; real GL and FFmpeg encoding, no live multiplayer capture claim",
+    "renderBinary": {
+      "binarySha256": "47996f1da9193a6a881453a60005dd47159e98d3637b2f66bf545b2b0a2c698d",
+      "renderingFeatureHead": "c2ddacdfd",
+      "note": "Render checks precede final analysis-only same-tick score cache fix."
+    },
+    "sidecarSha256": "09267c66f6e1f87dff4a9c4da84a25b22671f43984a2e74629c0cc787346f222",
+    "gameplayHashInvariantEveryDraw": true,
+    "frozenOwnerPictureConsumed": true,
+    "visualInspection": true,
+    "rates": {
+      "24": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 3,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 3,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "c05c0de2b55a80e9f49e1b692dcb60bd0abe4ce46aa04c11b09faa7f1d935d05",
+          "3c54afc788278c4e5e7f1e8d8a2e43ea96562b8c6bb25944b849a9f969a74e16"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "30": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 4,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 4,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "fbd636af0de37455273f574391349120f62c16edc4087c40b96c71c77cbc407b",
+          "aaf1ffe107fb6783e45aeabcded0ea154b3641d07ac0bf9be469b1aef04a4e01",
+          "34ec4616490c8d55f1442fe68efa07efa436acdae7582b5d9f40c06a7beeedc0"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "48": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 5,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 5,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "aa6096650385fdbff8c23635f2b59081d3e5a525683c21fd5bf06a9b64eec5ca",
+          "c05c0de2b55a80e9f49e1b692dcb60bd0abe4ce46aa04c11b09faa7f1d935d05",
+          "c80288a4d4ba31c574e8fb0b1b31c0da4cef94afc803d249841ce1ae824ab974",
+          "3c54afc788278c4e5e7f1e8d8a2e43ea96562b8c6bb25944b849a9f969a74e16"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "60": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 7,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 7,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "a6a606ef4105a1df35262ae46cf1159e96d0bdc32c177ee2eda1318a4dd16d5a",
+          "fbd636af0de37455273f574391349120f62c16edc4087c40b96c71c77cbc407b",
+          "e60a67ad8b3fc8371702c22c2c31387ac78ed64fb19a4f0a4540756c130099f5",
+          "aaf1ffe107fb6783e45aeabcded0ea154b3641d07ac0bf9be469b1aef04a4e01",
+          "3c54afc788278c4e5e7f1e8d8a2e43ea96562b8c6bb25944b849a9f969a74e16",
+          "34ec4616490c8d55f1442fe68efa07efa436acdae7582b5d9f40c06a7beeedc0"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "90": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 10,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 10,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "565e8245ea74879e828b1df1cbe95a44f8d2dc4f2669385ba382902728b30f2d",
+          "f8786a2c3e44db21fbd0d6b738d6eeeb3c21c5d4f9338e90ea42ac1cf7d802a9",
+          "fbd636af0de37455273f574391349120f62c16edc4087c40b96c71c77cbc407b",
+          "8a37951c35cf63a9d490b038d84ab2d3030fd4641a9c3ff2d2398f48580814ed",
+          "fe297390744436dfa0ca4b4cbf1c099036742e15b74b79e2f61003f4260cc2e0",
+          "aaf1ffe107fb6783e45aeabcded0ea154b3641d07ac0bf9be469b1aef04a4e01",
+          "a6082a3a12fd5f61d79958ec4f6bb72648ca41baf3a1f91c7c3991957ba86786",
+          "ea5d3e927b5bf5f19c25ac5dbf194642a852aac9253998f646828ca5b19b1d5e",
+          "34ec4616490c8d55f1442fe68efa07efa436acdae7582b5d9f40c06a7beeedc0"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "120": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 13,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 13,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "fc72adcbb275b7aa971f351f14a9801aa0b9074f9281bcb3ef2201e133725b09",
+          "a6a606ef4105a1df35262ae46cf1159e96d0bdc32c177ee2eda1318a4dd16d5a",
+          "1c061f5be0b7f9ed50d5fb044c27288b9df9ddc3dee040ceb83f446af1482086",
+          "fbd636af0de37455273f574391349120f62c16edc4087c40b96c71c77cbc407b",
+          "c05c0de2b55a80e9f49e1b692dcb60bd0abe4ce46aa04c11b09faa7f1d935d05",
+          "e60a67ad8b3fc8371702c22c2c31387ac78ed64fb19a4f0a4540756c130099f5",
+          "8f8d9011a1de2037c53947746d8d66ccc539653fe28421b3d1d08ae2ce7a8fa9",
+          "aaf1ffe107fb6783e45aeabcded0ea154b3641d07ac0bf9be469b1aef04a4e01",
+          "f2307cf34ece3d027e7d5d374731857713989fb5130ff073a89512c7966fe99f",
+          "3c54afc788278c4e5e7f1e8d8a2e43ea96562b8c6bb25944b849a9f969a74e16",
+          "61502ee2ed25f35c08b2c8e01f8877063e5522789c56eb4e4b101ede7c7ee6a5",
+          "34ec4616490c8d55f1442fe68efa07efa436acdae7582b5d9f40c06a7beeedc0"
+        ],
+        "videoEncodedBothPasses": true
+      },
+      "144": {
+        "dimensions": [
+          1280,
+          720
+        ],
+        "framesPerPass": 15,
+        "identicalAcrossPasses": true,
+        "distinctFrames": 15,
+        "pngSha256": [
+          "69e676ff20ffb463066983bb6050f26c253b9f55a686c16e69f719afae9691c3",
+          "49568d2055ef59d63612800f0ddadf94663c13be1c6b6a4c64f79ff971b583f2",
+          "4d147294b5a14a4ac7305bb22f20ff091c23b586d28c48d67987b0aa9e22b6ca",
+          "aa6096650385fdbff8c23635f2b59081d3e5a525683c21fd5bf06a9b64eec5ca",
+          "b4dff6e67d9dfb1098c34722fe8e97a2ea40ebd4b0b54068561bdf48f932d5e0",
+          "597c65ceedcbd91d7766bf20fdb52eef737a7a368c3bd7cd33ee242f22130f96",
+          "c05c0de2b55a80e9f49e1b692dcb60bd0abe4ce46aa04c11b09faa7f1d935d05",
+          "17d44f10e5bb43245434433d1b3bbf1fa62d8100cd2fffd2d447152005bd5213",
+          "fe297390744436dfa0ca4b4cbf1c099036742e15b74b79e2f61003f4260cc2e0",
+          "c80288a4d4ba31c574e8fb0b1b31c0da4cef94afc803d249841ce1ae824ab974",
+          "7a3a755c9d37ece84b759e4551605512b738e419d841104947466e5e2f4a7f21",
+          "b83b25040529a8d77537bb2b32c0c869ae56e439f1006209db0e8eb49a72a498",
+          "3c54afc788278c4e5e7f1e8d8a2e43ea96562b8c6bb25944b849a9f969a74e16",
+          "ee7a9ee545b02c940554a9f755cb65fb45c9f4adcb7de2e1803f9ca180c01e3d",
+          "b0364f8755e846c2467fa666ca53edeccf750ead05c9b0b22cb84464e4acb0ea"
+        ],
+        "videoEncodedBothPasses": true
+      }
+    },
+    "testedProtocol": 75
+  },
+  "hdAcceptance": {
+    "pr": 879,
+    "url": "https://github.com/AntiNotAnti/Project-Prime/pull/879",
+    "state": "MERGED",
+    "mergeCommit": "9b349e55481ec43727965c6aea4bd9be5bd4f0a4",
+    "rerun": {
+      "pass": true,
+      "hunter": "Samus",
+      "testedModelSha256": "ebfb9c81a647a707949a9814a83ca2a31049fcd24d17a0d0f0bfc433c687b2d0",
+      "backend": "OpenGL",
+      "room": "MP1 SANCTORUS",
+      "submitted": 3090,
+      "lateFrames": 990,
+      "effectFrames": 687,
+      "fired": true,
+      "zoomed": true,
+      "muzzleAligned": true,
+      "animations": [
+        "Idle",
+        "Shot",
+        "Charging",
+        "FullCharge",
+        "ChargeShot",
+        "MissileOpen",
+        "MissileShot",
+        "ChargingMissile",
+        "FullChargeMissile",
+        "MissileClose",
+        "Switch"
+      ],
+      "mobileTextureTier": false,
+      "textureCompression": "Rgba8",
+      "nodes": [
+        "Main",
+        "Main",
+        "Main",
+        "centerGlow",
+        "cp",
+        "decals",
+        "glowBlue",
+        "glowGreen",
+        "glowOrange",
+        "glowRed",
+        "glowYellow",
+        "housing",
+        "noz1",
+        "noz1",
+        "noz2",
+        "noz2",
+        "noz3",
+        "noz3",
+        "noz4",
+        "noz4",
+        "ring1",
+        "ring2",
+        "ring3"
+      ],
+      "cases": [
+        {
+          "Name": "projection-fov-60",
+          "fov": 60
+        },
+        {
+          "Name": "projection-fov-78",
+          "fov": 78
+        },
+        {
+          "Name": "projection-fov-120",
+          "fov": 120
+        },
+        {
+          "Name": "idle",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "fov-60",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 60
+        },
+        {
+          "Name": "fov-120",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 120
+        },
+        {
+          "Name": "materials-on",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "materials-off",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "run-strafe",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "jump",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "aim-turn",
+          "Count": 90,
+          "submitted": 90,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "fire",
+          "Count": 90,
+          "submitted": 90,
+          "effectFrames": 72,
+          "fov": 78
+        },
+        {
+          "Name": "charge",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 113,
+          "fov": 78
+        },
+        {
+          "Name": "charge-fov-60",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 113,
+          "fov": 60
+        },
+        {
+          "Name": "charge-fov-120",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 113,
+          "fov": 120
+        },
+        {
+          "Name": "missile",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 36,
+          "fov": 78
+        },
+        {
+          "Name": "missile-charge",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 102,
+          "fov": 78
+        },
+        {
+          "Name": "imperialist",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "zoom",
+          "Count": 90,
+          "submitted": 90,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "unzoom",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "affinity",
+          "Count": 90,
+          "submitted": 90,
+          "effectFrames": 36,
+          "fov": 78
+        },
+        {
+          "Name": "affinity-charge",
+          "Count": 120,
+          "submitted": 120,
+          "effectFrames": 102,
+          "fov": 78
+        },
+        {
+          "Name": "suit-0",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "suit-1",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "suit-2",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "suit-3",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "suit-4",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "Name": "suit-5",
+          "Count": 60,
+          "submitted": 60,
+          "effectFrames": 0,
+          "fov": 78
+        },
+        {
+          "rate": 90,
+          "lateFrames": 90,
+          "simulationSteps": 60
+        },
+        {
+          "rate": 120,
+          "lateFrames": 120,
+          "simulationSteps": 60
+        },
+        {
+          "rate": 240,
+          "lateFrames": 240,
+          "simulationSteps": 60
+        },
+        {
+          "rate": 540,
+          "lateFrames": 540,
+          "simulationSteps": 59
+        }
+      ],
+      "scope": "Real bot scene and native gun animation. Scripted focus-independent input. Native rigid packet transforms, embedded atlas bindings, material toggles, FOV 60/78/120 and Imperialist zoom. Draw scheduling simulated at 90/120/240/540 Hz; not physical display latency measurements. Visual review is separate."
+    },
+    "receiptSha256": "813b06bc41b3221be124afc15de0de2ac7690294dd6cc6028f7a1e309523955f",
+    "profileSettingsSha256": "9cc4acbf4806b5470bd74c5a92a3f9b6f2b065bb3641b8dcbdead87f4d0eac55",
+    "testedProtocol": 75
+  },
+  "notVerified": [
+    "Physical Windows/Android input and display acceptance",
+    "Matched before/after performance matrix and numeric acceptance budgets",
+    "Full real multiplayer/live owner-capture campaign",
+    "Hosted CI and review: not awaited by explicit user instruction"
+  ],
+  "privateEvidence": "Ignored artifacts/upstream-improvements/completion and /tmp/upstream-test-results; no proprietary assets or PNG/movie payloads committed.",
+  "builds": {
+    "dedicatedServer": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 1,
+      "seconds": 166.7,
+      "binarySha256": "fcaa2f61fa05a351ea88b239f576956c26e62f136d94f3b1d9b45e1debc57feb",
+      "command": "dotnet build src/MphRead/MphRead.csproj -c Release -m:1 -p:UseSharedCompilation=false -p:MphReadServer=true --artifacts-path /tmp/upstream-server-build"
+    },
+    "clientFresh": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 1,
+      "seconds": 203.34,
+      "note": "Fresh compile after analysis-only same-tick score cache correction."
+    },
+    "clientNettestFinal": {
+      "status": "PASS",
+      "warnings": 1,
+      "errors": 0,
+      "seconds": 183.43,
+      "binarySha256": "4ab826022d61488f436a66afa9a8ea5ab6e19004e23a36b1ff40bda4dd59b087",
+      "nettestSha256": "acf9226ad9fab10442ba55c59907777cdaf8dae98b85dedf8d0f442351e0607a"
+    },
+    "androidReleaseFullAot": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 26,
+      "seconds": 689.55,
+      "scope": "ARM64/x64 full AOT and APK packaging before independent movement/protocol PR880 integration; compilation of integrated sources follows",
+      "binarySha256": "3897ef0f6fceb70d0192b1aee431693c78f9630f017d3da68ad2d173443d4ad2"
+    },
+    "androidFinalSourceCompile": {
+      "status": "PASS",
+      "protocol": 76,
+      "warnings": 26,
+      "errors": 0,
+      "seconds": 502.08,
+      "scope": "Compile target only after independent PR880 integration; full AOT/APK prior snapshot retained separately",
+      "binarySha256": "ff7a5848a3ec2a06bc3e89c9146144f297c4c4f1456cd16868d551424d84535b"
+    },
+    "clientNettestProtocol76": {
+      "status": "PASS",
+      "errors": 0,
+      "warnings": 1,
+      "seconds": 518.13,
+      "binarySha256": "7861305521e6422ef17920885314b65b31a035b9bbf519b9d6d3142edb47fa4d",
+      "nettestSha256": "f6e3103a1e67bdcdbc56d3ae43c7943833f0cca192b8cb416e05710c448e1f8e"
+    }
+  },
+  "preflightMain": "2771fda3bfb7996315cc1d6754fcd7fc76a18638",
+  "broadCampaignProtocol": 75,
+  "finalIntegrationHead": "646b278e3adc8c76133328f338bffff8549c0034",
+  "protocol75Checks": {
+    "ownerTrack": 86,
+    "directorShots": 17,
+    "ownerSceneRestoration": 18,
+    "fidelityExport": 49,
+    "historicalReplayByteArchive": 889,
+    "touchInstances": 155,
+    "lifecycleCheckpoint": 35,
+    "lifecycle": 3738,
+    "sourceLinkedExporter": 28,
+    "sourceLinkedBackend": 27,
+    "sourceLinkedRetention": 5,
+    "suggestionController": 32,
+    "nativeEditor": [
+      49,
+      32,
+      77,
+      19,
+      14,
+      22
+    ],
+    "timelineEditorOwner": [
+      57,
+      32,
+      77,
+      19,
+      14
+    ],
+    "pythonComparator": 7,
+    "recorderBaseline": "two independent deterministic constructed runs pass; original protocol61 golden unchanged",
+    "replayControl": "timing, camera, studio, killcam, isolation and hardening pass",
+    "contextCli": {
+      "fixtureFrames": 1800,
+      "repeatedJsonByteIdentical": true,
+      "jsonBytes": 531,
+      "fixtureHasNoContext": true,
+      "sourceSha256": "ea8a8c2278466f08a7f22f4c706b2a1554c79da0ebb64682c08e52fd4d9108a1",
+      "jsonSha256": "c7e40aba10bb77a9130785a0e140c8374062a8abf2874a646ddbf98a708c39cf"
+    },
+    "harnessScope": "UI controller harnesses use a named annotation-only decoder seam for nonpacket synthetic input; context checks use actual canonical decoder packets.",
+    "contextProofs": 62
+  },
+  "postMainProtocol76Checks": [
+    {
+      "test": "--replay-owner-track",
+      "exit": 0,
+      "tail": [
+        "PASS: 86 owner presentation track assertions; synthetic codec/file/pose validation; asset animation rendering not exercised"
+      ]
+    },
+    {
+      "test": "--replay-director-shots",
+      "exit": 0,
+      "tail": [
+        "Replay director shots: PASS 17"
+      ]
+    },
+    {
+      "test": "--replay-context-analysis",
+      "exit": 0,
+      "tail": [
+        "PASS: 62 context proof assertions; synthetic semantics/certificates/accepted facts only"
+      ]
+    },
+    {
+      "test": "--replay-fidelity-export",
+      "exit": 0,
+      "tail": [
+        "FIDELITY EXPORT PASS corrupt chunk disclosed without trusting partial records",
+        "PASS: 49 replay fidelity export assertions"
+      ]
+    },
+    {
+      "test": "--protocol58-replay",
+      "exit": 0,
+      "tail": [
+        "PROTOCOL58 REPLAY PASS 932 byte/archive checks; no gameplay or visual acceptance claim."
+      ]
+    },
+    {
+      "test": "--upstream-baseline",
+      "exit": 0,
+      "tail": [
+        "}",
+        "UPSTREAM BASELINE PASS two independent constructed multi-life recorder runs"
+      ]
+    },
+    {
+      "test": "--touch-instances",
+      "exit": 0,
+      "tail": [
+        "TOUCH INSTANCES PASS 155 checks (production input/codec models; device verification pending)"
+      ]
+    },
+    {
+      "test": "--lifecycle-checkpoint",
+      "exit": 0,
+      "tail": [
+        "LIFECYCLE CHECKPOINT PASS 35 checks"
+      ]
+    },
+    {
+      "test": "--replay-owner-scene",
+      "exit": 0,
+      "tail": [
+        "[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.",
+        "PASS: 18 ROM-backed owner draw restoration assertions; headless actual replica, no GL image claim"
+      ]
+    }
+  ],
+  "postMainReplayControl": {
+    "exit": 0,
+    "tail": [
+      "[replaycheck] timing: rates, presentation independence and deterministic receive clock passed",
+      "[replaycheck] camera: interpolation, persistence, bounds, corruption and profiles passed",
+      "[replayreview] rational exports, delayed kill clock, edit rollback and artifact ownership passed",
+      "[replayhardening] identity fences, clip window, encoder progress/failure/cancellation passed",
+      "[replaycheck] studio: analytics and highlight derivation passed",
+      "[replaycheck] kill cam: eligibility and weapon labels passed",
+      "[replaycheck] input: replay controller context isolation passed",
+      "[replaycheck] studio: annotation sidecar round-trip passed"
+    ]
+  }
+}
