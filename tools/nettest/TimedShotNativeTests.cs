@@ -201,14 +201,17 @@ internal static class TimedShotNativeTests
     {
         using var fixture = new Fixture(room, oldMode, newMode);
         var shot = fixture.Fire();
-        if (newMode == TimedGrantProofMode.Shadow)
+        if (newMode != TimedGrantProofMode.Off || NetCombatFastPath.ShadowEnabled)
         {
             var value = Certificate(shot, TimedGrantKnowledge.NotGranted);
             Check(!value.AuthorizedDouble && value.Funding == null && NetTimedShotProof.Stored == 1
                 && NetTimedShotProof.NotGranted == 1, "unfunded native shot never authorizes Double");
+            Check(value.CaptureMode == newMode && newMode != TimedGrantProofMode.Enforce
+                && !NetTimedShotModifiers.Enforcing,
+                "explicit observation retains the actual timed capture mode, including Off, without enabling enforcement");
         }
         else Check(NetTimedShotProof.Stored == 0 && !NetTimedShotProof.TryGet(shot.Key, shot.Fire.SourceFrame, out _),
-            "new Off retains no certificate while native semantic emission succeeds");
+            "both timed proof and fast observation Off retain no certificate while native semantic emission succeeds");
         Console.WriteLine("TIMED NATIVE ARM " + JsonSerializer.Serialize(new { oldMode, newMode, shot.Key, shot.Fire.SourceFrame, shot.Outcome }));
         return shot.Outcome;
     }
