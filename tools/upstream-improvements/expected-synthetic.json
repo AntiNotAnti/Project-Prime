@@ -1,0 +1,16 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "synthetic-production-recorder; no gameplay/UDP/GPU",
+  "Protocol": 61,
+  "HunterIds": 7,
+  "Lives": 2,
+  "AcceptedShots": 4,
+  "WrongLifeRejected": 1,
+  "CrossMatchRejected": 4,
+  "CrossEpochRejected": 4,
+  "Records": 20,
+  "Events": 4,
+  "PacketSha256": "db1a6ea3b5dd4c1199f4fb04946a999da9f7998172c4f3d07586b6012f5055ed",
+  "EventSha256": "e73817c8a2bfc4f0d33e6c9bafd2b22f69ecbde422cdd69cb7d27110fa867e92",
+  "ShotSha256": "3c12bae80dd14d27e385dd0a505129c2e041a66e819a223629dfa98540bec5b2"
+}

@@ -864,6 +864,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--combat-fast-damage") return CombatFastDamageTests.Run();
             if (args.Length > 0 && args[0] == "--claim-receipts") return ClaimReceiptAccountingTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
+            if (args.Length > 0 && args[0] == "--upstream-baseline") return UpstreamBaselineTests.Run(args.Length > 1 ? args[1] : null);
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--party-join-ownership") return PartyJoinOwnershipTests.Run();
             if (args.Length > 0 && args[0] == "--android-local-cycle-integration") return AndroidLocalSceneIntegrationTests.Run();
