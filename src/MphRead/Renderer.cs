@@ -2655,6 +2655,7 @@ namespace MphRead
                     PlayerEntity player = this.Players.Items[i];
                     player.CameraInfo.ModCaptureDrawState();
                     player.ModCaptureFirstPersonDrawState();
+                    player.ModCaptureTraversalVisual();
                 }
 
                 // Ages the predictions the authority has not answered yet and
@@ -5411,6 +5412,7 @@ namespace MphRead
                 }
             }
 
+            OfflineWeapons?.DrawPickups();
             Mods.Network.NetConfirmedImpacts.Draw(this);
             // PR-14: depth-tested world-only prismatic Insta-Gib shot trails.
             _ionFracture?.Draw(this);

@@ -27,10 +27,13 @@ internal static class TraversalStanceSceneTests
     private static readonly Hunter[] Hunters = { Hunter.Samus, Hunter.Kanden, Hunter.Spire,
         Hunter.Noxus, Hunter.Trace, Hunter.Sylux, Hunter.Weavel };
     private static int _checks;
+    private static readonly FieldInfo SlideTimer = typeof(PlayerEntity).GetField("_modSlideTicks", Hidden)!;
+    private static readonly FieldInfo EntryTimer = typeof(PlayerEntity).GetField("_modSlideEntryTicks", Hidden)!;
     private sealed record Command(bool Forward = false, bool Crouch = false, bool Jump = false);
     private sealed record Tick(int Number, float X, float Y, float Z, float Speed, float BeforeSpeed, float VelocityY,
         bool Standing, bool Crouched, bool CollisionCrouched, bool Sliding, bool CrouchHeld, bool CrouchPressed,
-        float Bottom, float Top, float Eye, bool AcceptedJump, float? JumpImpulse);
+        float Bottom, float Top, float Eye, bool AcceptedJump, float? JumpImpulse,
+        bool StandingBefore, bool JumpPressed, int SlideTicks, int EntryTicks);
     private sealed record Capture(string Hunter, string Model, string Scenario, Command[] Commands, Tick[] Ticks);
     private sealed record State(int Index, PlayerEntity Player);
     private static void Require(bool good, string label)
@@ -119,6 +122,10 @@ internal static class TraversalStanceSceneTests
                         "same held Ctrl does not let an excluded standing model enter the low tunnel");
                 }
             });
+            Case("ordinary-run-slide-and-fresh-jump", () => RunningSlideRegressions(rows));
+            Case("low-speed-and-stationary-slide-refusal", () => LowSpeedRegressions(rows));
+            Case("one-use-six-tick-landing-buffer", () => LandingBufferRegressions(rows));
+            Case("held-jump-yields-to-active-slide", () => HeldJumpRegressions(rows));
             Case("earned-slide-friction-and-finite-window", () =>
             {
                 int entry = -1; bool releasedRun = false;
@@ -127,7 +134,7 @@ internal static class TraversalStanceSceneTests
                     releasedRun |= s.Player.Position.Z >= -.5f;
                     if (entry < 0 && releasedRun && s.Player.Position.Z > 8
                         && s.Player.Flags1.TestFlag(PlayerFlags1.Standing)
-                        && s.Player.Speed.Xz.Length * 30 >= TraversalMovementProfileV2.SlideMinimumSpeed)
+                        && s.Player.Speed.Xz.Length * 30 >= TraversalMovementProfileV3.SlideMinimumSpeed)
                         entry = s.Index;
                     return new(!releasedRun, entry >= 0);
                 }
@@ -140,16 +147,16 @@ internal static class TraversalStanceSceneTests
                 Require(entry >= 0, "actual run-up and native surf descent earn slide-entry speed on solid landing");
                 Tick start = slide.Ticks[entry];
                 Require(start.CrouchPressed && start.Crouched && start.Sliding
-                    && start.BeforeSpeed >= TraversalMovementProfileV2.SlideMinimumSpeed,
+                    && start.BeforeSpeed >= TraversalMovementProfileV3.SlideMinimumSpeed,
                     "fresh grounded Ctrl consumes only an actually earned entry speed");
                 Require(start.Speed <= start.BeforeSpeed + .00001f, "entering a slide creates no bonus speed");
                 Near(start.BeforeSpeed, standing.Ticks[entry].BeforeSpeed, "paired friction controls share actual entry velocity");
                 Require(slide.Ticks[entry + 5].Speed > standing.Ticks[entry + 5].Speed + .01f,
                     "actual grounded slide retains more momentum than standing friction");
                 int slidingTicks = slide.Ticks.Count(t => t.Sliding);
-                Require(slidingTicks > 5 && slidingTicks <= TraversalMovementProfileV2.SlideTicks,
+                Require(slidingTicks > 5 && slidingTicks <= TraversalMovementProfileV3.SlideTicks,
                     "actual slide has a finite at-most-48-tick lifetime");
-                Require(slide.Ticks.Skip(entry + TraversalMovementProfileV2.SlideTicks + 1)
+                Require(slide.Ticks.Skip(entry + TraversalMovementProfileV3.SlideTicks + 1)
                     .All(t => t.CrouchHeld && !t.Sliding), "holding Ctrl cannot refresh an expired slide");
                 Require(slide.Ticks.All(t => !t.AcceptedJump), "slide entry creates no native jump impulse");
 
@@ -194,7 +201,7 @@ internal static class TraversalStanceSceneTests
                 rows.Add(new { scenario = "slide-fresh-press", fresh });
                 Require(!fresh.Ticks[entry + 3].Sliding && fresh.Ticks[entry + 4].CrouchPressed,
                     "release ends the first slide and rearms a fresh input edge");
-                if (fresh.Ticks[entry + 4].BeforeSpeed >= TraversalMovementProfileV2.SlideMinimumSpeed)
+                if (fresh.Ticks[entry + 4].BeforeSpeed >= TraversalMovementProfileV3.SlideMinimumSpeed)
                     Require(fresh.Ticks[entry + 4].Sliding, "fresh press can reenter only with remaining earned speed");
                 else Require(!fresh.Ticks[entry + 4].Sliding, "fresh press below threshold cannot manufacture a replacement slide");
             });
@@ -204,12 +211,163 @@ internal static class TraversalStanceSceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failures.Count == 0 ? "PASS" : "FAIL",
-                checks = _checks, failures, profileVersion = TraversalMovementProfileV2.ProfileVersion,
+                checks = _checks, failures, profileVersion = TraversalMovementProfileV3.ProfileVersion,
                 scope = "Actual offline CPU keyboard and authored collision; native spawn/intro skip and one initial lane placement; all measured speeds, stance, clearance and slide lifetime are production-derived; no physical device, GL, multiplayer or replay qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine($"TRAVERSAL STANCE SCENE {(failures.Count == 0 ? "PASS" : "FAIL")} {_checks} assertions; {failures.Count} failed cases");
         return failures.Count == 0 ? 0 : 1;
+    }
+
+    private static void RunningSlideRegressions(List<object> rows)
+    {
+        const int entry = 32, length = 160;
+        Command Run(State s) => new(s.Index < entry, s.Index >= entry);
+        Vector3 seed = new(-42, .5f, -20);
+        Capture slide = CaptureScene(Hunter.Samus, MovementModel.Traversal, "ordinary-straight-run-slide",
+            seed, Vector3.UnitZ, length, Run);
+        Capture standing = CaptureScene(Hunter.Samus, MovementModel.Traversal, "ordinary-straight-run-standing-control",
+            seed, Vector3.UnitZ, length, s => slide.Commands[s.Index] with { Crouch = false });
+        rows.Add(new { scenario = "ordinary-straight-run-slide", slide, standing });
+        Tick start = slide.Ticks[entry];
+        Require(start.StandingBefore && start.CrouchPressed && start.Sliding && start.Crouched,
+            "ordinary straight W run reaches fresh-Ctrl slide entry without an external speed source");
+        Require(start.BeforeSpeed >= TraversalMovementProfileV3.SlideMinimumSpeed
+            && start.BeforeSpeed <= TraversalMovementProfileV3.GroundSpeed + .00001f,
+            "actual ordinary run qualifies at 0.9 times ground speed while staying below the former 1.1 requirement");
+        Require(start.Speed <= start.BeforeSpeed + .00001f && start.EntryTicks == 0,
+            "floor consumes a fresh request once without adding speed");
+        Near(start.BeforeSpeed, standing.Ticks[entry].BeforeSpeed, "identical straight-run controls share earned entry velocity");
+        Require(slide.Ticks[entry + 5].Speed > standing.Ticks[entry + 5].Speed + .01f,
+            "the ordinary-input slide retains more actual speed than standing friction");
+        Require(slide.Ticks.Count(t => t.Sliding) == TraversalMovementProfileV3.SlideTicks,
+            "uninterrupted floor slide lasts exactly 48 native simulation ticks");
+        for (int age = 0; age < TraversalMovementProfileV3.SlideTicks; age++)
+        {
+            Tick tick = slide.Ticks[entry + age];
+            Require(tick.SlideTicks == TraversalMovementProfileV3.SlideTicks - age && tick.EntryTicks == 0,
+                "slide timer decrements once per simulation tick and held Ctrl does not refill either timer");
+        }
+        Require(slide.Ticks.Count(t => t.CrouchPressed) == 1
+            && slide.Ticks.Skip(entry + TraversalMovementProfileV3.SlideTicks).All(t => t.CrouchHeld
+                && !t.Sliding && t.SlideTicks == 0 && t.EntryTicks == 0),
+            "held Ctrl cannot refresh or retrigger an expired 48-tick slide");
+
+        const int jumpTick = entry + 4;
+        Capture jump = CaptureScene(Hunter.Samus, MovementModel.Traversal, "ordinary-slide-fresh-jump",
+            seed, Vector3.UnitZ, length, s => slide.Commands[s.Index] with { Jump = s.Index == jumpTick });
+        Capture control = CaptureScene(Hunter.Samus, MovementModel.Traversal, "ordinary-standing-fresh-jump-control",
+            seed, Vector3.UnitZ, length,
+            s => slide.Commands[s.Index] with { Crouch = false, Jump = s.Index == jumpTick });
+        rows.Add(new { scenario = "ordinary-slide-fresh-jump", jump, control });
+        Tick accepted = jump.Ticks[jumpTick];
+        Require(accepted.JumpPressed && accepted.AcceptedJump && !accepted.Sliding
+            && accepted.SlideTicks == 0 && accepted.EntryTicks == 0,
+            "fresh jump press cancels active slide and clears the consumed landing request");
+        Near(accepted.JumpImpulse!.Value, control.Ticks[jumpTick].JumpImpulse!.Value,
+            "ordinary slide jump preserves the native flat-ground jump impulse");
+    }
+
+    private static void LowSpeedRegressions(List<object> rows)
+    {
+        foreach (int runTicks in new[] { 0, 2 })
+        {
+            const int length = 110;
+            Capture capture = CaptureScene(Hunter.Samus, MovementModel.Traversal,
+                runTicks == 0 ? "stationary-slide-refusal" : "partial-run-slide-refusal",
+                new(-42, .5f, -20), Vector3.UnitZ, length,
+                s => new(runTicks > 0, s.Index >= runTicks));
+            rows.Add(new { scenario = "insufficient-earned-speed-refuses-slide", runTicks, capture });
+            Tick requested = capture.Ticks[runTicks];
+            Require(requested.StandingBefore && requested.CrouchPressed && requested.Crouched
+                && requested.BeforeSpeed < TraversalMovementProfileV3.SlideMinimumSpeed,
+                "genuine stationary or partial-run Ctrl requests crouch below slide-entry speed");
+            if (runTicks > 0) Require(requested.BeforeSpeed > .01f, "partial-run control has actual nonzero earned speed");
+            Require(capture.Ticks.All(t => !t.Sliding && t.SlideTicks == 0)
+                && requested.EntryTicks == 0 && capture.Ticks.Skip(runTicks).All(t => t.EntryTicks == 0),
+                "first physical floor contact consumes a slow request instead of retaining a future trigger");
+        }
+    }
+
+    private static Capture CalibrateLanding(List<object> rows, bool holdJump, out int landing)
+    {
+        Capture calibration = CaptureScene(Hunter.Samus, MovementModel.Traversal,
+            holdJump ? "held-jump-landing-calibration" : "single-jump-landing-calibration",
+            new(-42, .5f, -20), Vector3.UnitZ, 220,
+            s => new(true, false, holdJump ? s.Index >= 32 : s.Index == 32));
+        rows.Add(new { scenario = "native-landing-calibration", holdJump, calibration });
+        Require(calibration.Ticks[32].AcceptedJump, "run-up earns the actual calibration jump");
+        landing = Array.FindIndex(calibration.Ticks, 35, t => t.Standing && t.VelocityY <= .001f);
+        Require(landing > 40 && landing + 70 < calibration.Ticks.Length
+            && !calibration.Ticks[landing - 1].Standing,
+            "calibration observes descending airborne motion followed by native physical floor contact");
+        return calibration;
+    }
+
+    private static void LandingBufferRegressions(List<object> rows)
+    {
+        CalibrateLanding(rows, false, out int landing);
+        int contactInput = landing + 1;
+        int acceptedPress = contactInput - (TraversalMovementProfileV3.SlideEntryTicks - 1);
+        int expiredPress = contactInput - TraversalMovementProfileV3.SlideEntryTicks;
+        Capture Buffer(string name, int press) => CaptureScene(Hunter.Samus, MovementModel.Traversal,
+            name, new(-42, .5f, -20), Vector3.UnitZ, 220,
+            s => new(true, s.Index >= press, s.Index == 32));
+        Capture inside = Buffer("last-eligible-landing-buffer-tick", acceptedPress);
+        Capture expired = Buffer("one-tick-expired-landing-buffer", expiredPress);
+        rows.Add(new { scenario = "one-use-six-tick-landing-buffer", landing, contactInput,
+            acceptedPress, expiredPress, inside, expired });
+        Require(!inside.Ticks[acceptedPress].StandingBefore && inside.Ticks[acceptedPress].CrouchPressed
+            && !inside.Ticks[acceptedPress].Sliding
+            && inside.Ticks[acceptedPress].EntryTicks == TraversalMovementProfileV3.SlideEntryTicks,
+            "fresh airborne Ctrl arms exactly the six-tick request without manufacturing floor contact");
+        for (int index = acceptedPress + 1; index < contactInput; index++)
+            Require(inside.Ticks[index].EntryTicks == TraversalMovementProfileV3.SlideEntryTicks - (index - acceptedPress),
+                "airborne held request ages once per genuine simulation tick");
+        Tick start = inside.Ticks[contactInput];
+        Require(start.StandingBefore && !start.CrouchPressed && start.Sliding && start.EntryTicks == 0,
+            "last eligible buffered tick consumes one request at actual physical landing");
+        Require(start.BeforeSpeed >= TraversalMovementProfileV3.SlideMinimumSpeed,
+            "buffered slide still requires actual earned landing speed");
+        Require(inside.Ticks.Skip(contactInput).All(t => t.EntryTicks == 0)
+            && inside.Ticks.Count(t => t.CrouchPressed) == 1
+            && inside.Ticks.Count(t => t.Sliding) == TraversalMovementProfileV3.SlideTicks,
+            "landing buffer is one-use and a held key cannot refresh the 48-tick slide");
+        Require(!expired.Ticks[expiredPress].StandingBefore && expired.Ticks[expiredPress].CrouchPressed
+            && expired.Ticks.All(t => !t.Sliding) && expired.Ticks[contactInput].EntryTicks == 0,
+            "a request one tick outside the six-frame window cannot wait indefinitely for landing");
+    }
+
+    private static void HeldJumpRegressions(List<object> rows)
+    {
+        Capture control = CalibrateLanding(rows, true, out int landing);
+        int entry = landing + 1;
+        int press = entry - 2;
+        Capture holding = CaptureScene(Hunter.Samus, MovementModel.Traversal, "held-jump-yields-to-buffered-slide",
+            new(-42, .5f, -20), Vector3.UnitZ, 220,
+            s => new(true, s.Index >= press, s.Index >= 32));
+        rows.Add(new { scenario = "held-jump-yields-to-buffered-slide", landing, entry, holding, control });
+        Require(control.Ticks[entry].AcceptedJump && !control.Ticks[entry].JumpPressed,
+            "held-jump control genuinely auto-hops from the same native landing");
+        Require(holding.Ticks[entry].StandingBefore && holding.Ticks[entry].Sliding
+            && !holding.Ticks[entry].AcceptedJump && !holding.Ticks[entry].JumpPressed,
+            "active buffered slide takes priority over an already-held auto-hop request");
+        Require(holding.Ticks.Skip(entry).Take(TraversalMovementProfileV3.SlideTicks)
+            .All(t => t.Sliding && !t.AcceptedJump && !t.JumpPressed),
+            "held Jump cannot cancel or repeatedly hop during the active slide window");
+        int release = entry + 4, fresh = release + 1;
+        Capture repress = CaptureScene(Hunter.Samus, MovementModel.Traversal, "fresh-jump-interrupts-held-slide",
+            new(-42, .5f, -20), Vector3.UnitZ, 220,
+            s => holding.Commands[s.Index] with { Jump = s.Index >= 32 && s.Index != release });
+        rows.Add(new { scenario = "fresh-jump-interrupts-held-slide", release, fresh, repress });
+        Require(repress.Ticks[release].Sliding && !repress.Ticks[release].AcceptedJump,
+            "releasing Jump leaves the real active slide intact");
+        Require(repress.Ticks[fresh].JumpPressed && repress.Ticks[fresh].AcceptedJump
+            && !repress.Ticks[fresh].Sliding && repress.Ticks[fresh].SlideTicks == 0
+            && repress.Ticks[fresh].EntryTicks == 0,
+            "fresh released-and-repressed Jump cancels the slide and accepts one native impulse");
+        Near(repress.Ticks[fresh].JumpImpulse!.Value, control.Ticks[32].JumpImpulse!.Value,
+            "fresh slide interruption does not boost the native jump impulse");
     }
 
     private static Capture CaptureScene(Hunter hunter, MovementModel model, string scenario,
@@ -226,19 +384,21 @@ internal static class TraversalStanceSceneTests
             p.Reposition(seed, facing, NodeRef.None); p.PrevPosition = seed;
             for (int index = 0; index < 12; index++) scene.OnSimulationFrame();
             Require(p.Flags1.TestFlag(PlayerFlags1.Standing), "initial fixture lane settles on real support");
-            var commands = new Command[length]; var ticks = new Tick[length]; bool wasCrouch = false;
+            var commands = new Command[length]; var ticks = new Tick[length]; bool wasCrouch = false, wasJump = false;
             for (int index = 0; index < length; index++)
             {
                 Command c = choose(new(index, p)); commands[index] = c;
                 SetKey(keyboard, Keys.W, c.Forward); SetKey(keyboard, Keys.LeftControl, c.Crouch);
                 SetKey(keyboard, Keys.Space, c.Jump);
                 float beforeSpeed = p.Speed.Xz.Length * 30;
+                bool standingBefore = p.Flags1.TestFlag(PlayerFlags1.Standing);
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
                 scene.OnSimulationFrame();
                 Require(!NetSession.Active && p.ModIsInPlay && p.Health > 0 && !p.IsBot && !p.IsAltForm,
                     "genuine living offline owned biped");
                 Require(p.Controls.Crouch.IsDown == c.Crouch && p.Controls.Crouch.IsPressed == (c.Crouch && !wasCrouch)
-                    && p.Controls.MoveUp.IsDown == c.Forward && p.Controls.Jump.IsDown == c.Jump,
+                    && p.Controls.MoveUp.IsDown == c.Forward && p.Controls.Jump.IsDown == c.Jump
+                    && p.Controls.Jump.IsPressed == (c.Jump && !wasJump),
                     "actual production keyboard levels and fresh crouch edges");
                 Require(float.IsFinite(p.Position.LengthSquared) && float.IsFinite(p.Speed.LengthSquared),
                     "finite real native body and velocity");
@@ -259,8 +419,9 @@ internal static class TraversalStanceSceneTests
                 ticks[index] = new(index + 1, p.Position.X, p.Position.Y, p.Position.Z, p.Speed.Xz.Length * 30,
                     beforeSpeed, p.Speed.Y, p.Flags1.TestFlag(PlayerFlags1.Standing), p.ModCrouched,
                     p.ModCollisionCrouched, p.ModSliding, c.Crouch, p.Controls.Crouch.IsPressed,
-                    p.ModBipedBottom, p.ModBipedTop, p.ModBipedEyeOffset, accepted, jumpImpulse);
-                wasCrouch = c.Crouch;
+                    p.ModBipedBottom, p.ModBipedTop, p.ModBipedEyeOffset, accepted, jumpImpulse,
+                    standingBefore, p.Controls.Jump.IsPressed, (int)SlideTimer.GetValue(p)!, (int)EntryTimer.GetValue(p)!);
+                wasCrouch = c.Crouch; wasJump = c.Jump;
             }
             return new(hunter.ToString(), model.ToString(), scenario, commands, ticks);
         }

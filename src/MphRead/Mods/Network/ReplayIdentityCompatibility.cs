@@ -23,6 +23,9 @@ internal static class ReplayIdentityCompatibility
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
         => NormalizeLegacyStance(ConvertCore(packet, protocol), protocol);
 
+    // Protocol71 selects newer live movement policy through metadata attribution;
+    // protocol70 packets retain the same native bytes and original stance semantics.
+    // The pre69 stance and custom archive admission boundaries stay independent.
     private static ReadOnlySpan<byte> NormalizeLegacyStance(ReadOnlySpan<byte> packet, int protocol)
     {
         if (protocol >= 69 || packet.IsEmpty) return packet;

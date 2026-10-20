@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using MphRead.Mods.Render;
+using MphRead.Mods.Chat;
 using MphRead.Mods.Render.Hud;
 using Vector2 = System.Numerics.Vector2;
 namespace MphRead.Mods.Launcher.Gui;
@@ -58,8 +59,8 @@ internal sealed class HudStudioCanvas : Control
         foreach (var point in _touches.Values) { if (!found) { first = point; found = true; } else return Math.Sqrt(Math.Pow(point.X - first.X, 2) + Math.Pow(point.Y - first.Y, 2)); }
         return 0;
     }
-    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE" };
-    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17) };
+    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE", "SPEED 320.0 U/S\nAIR EFF 85%" };
+    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17),new(750,90) };
     public HudStudioCanvas(HudStudioHistory history)
     {
         History = history; Focusable = true; MinHeight = 260;
@@ -91,9 +92,10 @@ internal sealed class HudStudioCanvas : Control
         var t = Transform;
         var point = t.Resolve(e.Anchor, new Vector2(e.OffsetX, e.OffsetY));
         var size = (index==4 ? HudRadarGeometry.GetBounds(new(p.Radar),p.TextScale) : Sizes[index]) * t.UnitScale * e.Scale * p.GlobalScale;
+        if(index==HudProfileDefaults.MovementTelemetryIndex) size.X*=PreviewWidth/PreviewHeight*.5625f;
         if (index == 4) { size=Vector2.Max(size,new Vector2(16)); point -= size / 2; }
         if (index == 11) point.X -= size.X;
-        if (index is 6 or 8) point.X -= size.X / 2;
+        if (index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex) point.X -= size.X / 2;
         if (index == 0) point = new Vector2((float)Surface.Width / 2, (float)Surface.Height / 2) - size / 2;
         return new Rect(Surface.X + point.X, Surface.Y + point.Y, Math.Max(16, size.X), Math.Max(16, size.Y));
     }
@@ -130,6 +132,29 @@ internal sealed class HudStudioCanvas : Control
                     {
                         double unit=5.625*Transform.UnitScale*element.Scale*History.Draft.GlobalScale*History.Draft.IconScale;
                         _native.Draw(context,MphRead.Hud.HudElements.HunterObjects[PreviewHunter].WeaponIcon,Math.Max(0,Weapon),rect.TopLeft,unit,unit);
+                    }
+                    else if(i==HudProfileDefaults.MovementTelemetryIndex)
+                    {
+                        var tint=Color.Parse(element.Color);
+                        context.FillRectangle(new SolidColorBrush(Color.FromArgb(166,(byte)(5*tint.R/255),(byte)(18*tint.G/255),(byte)(28*tint.B/255))),rect);
+                        var ink=new SolidColorBrush(Color.FromRgb((byte)(220*tint.R/255),(byte)(243*tint.G/255),tint.B));
+                        double unit=5.625*Transform.UnitScale*element.Scale*History.Draft.GlobalScale;
+                        double pixel=.45*unit*History.Draft.TextScale;
+                        double aspect=PreviewWidth/PreviewHeight*.75;
+                        void Text(double y,string text)
+                        {
+                            double x=rect.X+4*unit*aspect;
+                            foreach(char ch in text)
+                            {
+                                int glyph=ChatFont.Index(ch);if(glyph<0)continue;
+                                for(int row=0;row<ChatFont.Cell;row++)for(int column=0;column<ChatFont.Cell;column++)
+                                    if(ChatFont.Pixels[glyph*64+row*8+column]!=0)
+                                        context.FillRectangle(ink,new Rect(x+column*pixel,y+row*pixel,pixel,pixel));
+                                x+=ChatFont.Widths[glyph]*pixel*aspect;
+                            }
+                        }
+                        Text(rect.Y+2*unit,"SPEED 320.0 U/S");
+                        Text(rect.Y+9*unit,"AIR EFF 85%");
                     }
                     else if(i==4) DrawRadar(context,rect);
                     else if (i is 1 or 2 or 12 or 13) DrawMeter(context, rect, i is 1 or 12,i>=12);

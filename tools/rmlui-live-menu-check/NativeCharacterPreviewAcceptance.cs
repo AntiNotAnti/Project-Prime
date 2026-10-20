@@ -34,30 +34,34 @@ internal static class NativeCharacterPreviewAcceptance
             }
             using (var parts = new NativeFullSettingsController(settings))
             {
-                var source = sources.First(source => RetroCharacterPreviewExporter.BundleSpec(source.Id).Version == 2);
+                var source = sources.First(source => RetroCharacterPreviewExporter.BundleSpec(source.Id).Version == 3);
                 while (parts.CharacterPreviewId != source.Id) parts.CycleCharacterPreview();
                 parts.CheckCharacterPreview(); Wait(parts);
-                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v1: Ready", StringComparison.Ordinal)
+                Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("ball v2: Ready", StringComparison.Ordinal)
                     && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
-                    && parts.Status.Contains("are unqualified.", StringComparison.Ordinal),
-                    "complete v2 preview status reports body and ball Ready with authoring-only qualification");
+                    && parts.Status.Contains("full source animation resources are retained for Echoes", StringComparison.Ordinal)
+                    && parts.Status.Contains("playable animation/morph remain unqualified.", StringComparison.Ordinal),
+                    "complete verified synthetic v3 bundle reports part-v2 body and ball Ready with retained-resource and authoring-only qualification");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
-                var installed = LocalImportBundle.Inspect(root, source.Id, spec);
-                string ballGeometry = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + ".obj";
-                File.Delete(installed.Files.Single(file => Path.GetFileName(file) == ballGeometry));
-                parts.CheckCharacterPreview(); Wait(parts);
-                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v1: Incomplete", StringComparison.Ordinal)
-                    && parts.Status.Contains("geometry v1 Incomplete", StringComparison.Ordinal)
-                    && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
-                    && parts.Status.Contains("are unqualified.", StringComparison.Ordinal),
-                    "missing ball geometry leaves body Ready and identifies incomplete ball geometry without runtime qualification");
-                LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
-                parts.CheckCharacterPreview(); Wait(parts);
-                Check(parts.Status.Contains("body v1: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v1: Ready", StringComparison.Ordinal),
-                    "complete republish repairs the v2 fixture before removal and snapshot checks");
+                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources")})
+                {
+                    var installed = LocalImportBundle.Inspect(root, source.Id, spec);
+                    string name = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + component.Item1;
+                    File.Delete(installed.Files.Single(file => Path.GetFileName(file) == name));
+                    parts.CheckCharacterPreview(); Wait(parts);
+                    Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v2: Incomplete", StringComparison.Ordinal)
+                        && parts.Status.Contains(component.Item2+" v1 Incomplete", StringComparison.Ordinal)
+                        && parts.Status.Contains("Authoring only;", StringComparison.Ordinal)
+                        && parts.Status.Contains("playable animation/morph remain unqualified.", StringComparison.Ordinal),
+                        "missing required ball component leaves body Ready and identifies exact incomplete role without runtime qualification: "+component.Item2);
+                    LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
+                    parts.CheckCharacterPreview(); Wait(parts);
+                    Check(parts.Status.Contains("body v2: Ready", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v2: Ready", StringComparison.Ordinal),
+                        "complete republish repairs v3 synthetic component fixture before removal and snapshot checks: "+component.Item2);
+                }
             }
             var all = Snapshot(root);
             using (var remove = new NativeFullSettingsController(settings))

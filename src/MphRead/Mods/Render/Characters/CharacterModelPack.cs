@@ -61,6 +61,10 @@ namespace MphRead.Mods.Render.Characters
         public string? SourceGraphProofSha256 { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? SourceMotionManifest { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? SourceAnimationArchive { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? SourceAnimationArchiveSha256 { get; set; }
         public CharacterPoseSource PoseSource { get; set; } = CharacterPoseSource.Native;
         public CharacterSkinningMode Skinning { get; set; } = CharacterSkinningMode.RigidNodes;
 
@@ -162,12 +166,14 @@ namespace MphRead.Mods.Render.Characters
             internal long Generation { get; }
             internal CharacterSourceCannonRecipe? SourceCannon { get; }
             internal CharacterSourceGraphProof? SourceGraphProof { get; }
+            internal CharacterSourceAnimationArchive? SourceAnimations { get; }
             internal object CacheIdentity => _owner;
-            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256);
+            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256,SourceAnimations?.Sha256);
             private SourcePreviewLease(CharacterModelPack owner,CharacterModelAsset asset,string sha,long generation)
                 { (_owner,Asset,ModelSha256,Generation)=(owner,asset,sha,generation);
                 SourceCannon=owner._sourceCannons.GetValueOrDefault(asset);
-                SourceGraphProof=owner._sourceGraphs.GetValueOrDefault(asset); }
+                SourceGraphProof=owner._sourceGraphs.GetValueOrDefault(asset);
+                SourceAnimations=owner._sourceAnimations.GetValueOrDefault(asset); }
             // No filesystem IO: immutable cached GPU data uses this generation.
             internal void RequireCurrent(CharacterModelAsset asset)
             { if(!ReferenceEquals(asset,Asset))throw new InvalidDataException("Source capability asset changed.");_owner.RequireSourceCurrent(asset,Generation); }
@@ -252,6 +258,7 @@ namespace MphRead.Mods.Render.Characters
                 throw new InvalidDataException("Private source content changed.");
             if(_sourceCannons.TryGetValue(asset,out var cannon))cannon.Revalidate(_sourceRoot,proof.Entry,sha);
             if(_sourceGraphs.TryGetValue(asset,out var graph))graph.Revalidate(_sourceRoot,proof.Entry,sha);
+            if(_sourceAnimations.TryGetValue(asset,out var animations))animations.Revalidate(_sourceRoot,proof.Entry,sha);
             _sourceRootWitness.RequireUnchanged(_sourceRoot);
             _=ContainedPath(_sourceRoot,proof.Entry.Model);_=ContainedPath(_sourceRoot,proof.Entry.Provenance!);
         }
@@ -336,6 +343,7 @@ namespace MphRead.Mods.Render.Characters
             var assets = new Dictionary<(Hunter, CharacterModelPart, int), CharacterModelAsset>();
             var privateAssets = new Dictionary<(PrivateCharacterAppearance, CharacterModelPart, int), CharacterModelAsset>();
             var graphProofs=new List<(CharacterModelAsset Asset,CharacterSourceGraphProof Proof)>();
+            var animationProofs=new List<(CharacterModelAsset Asset,CharacterSourceAnimationArchive Proof)>();
             var cannonProofs=new List<(CharacterModelAsset Asset,CharacterSourceCannonRecipe Recipe)>();
             var proofs = new List<(CharacterModelAsset Asset,CharacterModelManifestEntry Entry,string Source,string Sha)>();
             foreach (CharacterModelManifestEntry entry in manifest.Models)
@@ -357,6 +365,10 @@ namespace MphRead.Mods.Render.Characters
                 bool graphPreview=entry.SourceGraphProof!=null||entry.SourceGraphProofSha256!=null||entry.SourceMotionManifest!=null;
                 if(graphPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceGraphProof==null||entry.SourceGraphProofSha256==null||entry.SourceMotionManifest==null))
                     throw new InvalidDataException("Raw graph binding requires explicit source-only Biped proof/motion references; no graph evaluator.");
+                bool archivePreview=entry.SourceAnimationArchive!=null||entry.SourceAnimationArchiveSha256!=null;
+                if(archivePreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceAnimationArchive==null
+                    ||entry.SourceAnimationArchiveSha256==null||graphPreview))
+                    throw new InvalidDataException("Imported animation archive requires a complete exclusive source-rig Biped binding.");
                 bool cannonPreview=entry.SourceCannonReceipt!=null||entry.SourceCannonSha256!=null;
                 if(cannonPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.ViewModel||entry.SourceCannonReceipt==null||entry.SourceCannonSha256==null))
                     throw new InvalidDataException("Cannon requires an explicit verified source-only ViewModel receipt.");
@@ -424,6 +436,7 @@ namespace MphRead.Mods.Render.Characters
                 {
                     string modelSha=ValidatePrivateProvenance(root,entry,asset,privateAppearance,sourceCharacter,verifiedModelSha);
                     if(graphPreview)graphProofs.Add((asset,CharacterSourceGraphProof.Load(root,entry,asset,modelSha)));
+                    if(archivePreview)animationProofs.Add((asset,CharacterSourceAnimationArchive.Load(root,entry,modelSha)));
                     if(cannonPreview)cannonProofs.Add((asset,CharacterSourceCannonRecipe.Load(root,entry,modelSha)));
                     if(sourcePreview)proofs.Add((asset,entry,sourceCharacter,modelSha));
                     if (!privateAssets.TryAdd((privateAppearance, entry.Part, entry.Lod), asset))
@@ -436,6 +449,7 @@ namespace MphRead.Mods.Render.Characters
             var pack = new CharacterModelPack(assets, privateAssets);
             sourceRootWitness?.RequireUnchanged(root);
             foreach(var graph in graphProofs)pack._sourceGraphs.Add(graph.Asset,graph.Proof);
+            foreach(var animation in animationProofs)pack._sourceAnimations.Add(animation.Asset,animation.Proof);
             foreach(var cannon in cannonProofs)pack._sourceCannons.Add(cannon.Asset,cannon.Recipe);
             pack._sourceRootWitness=sourceRootWitness;
             pack._sourceProofAvailable=proofs.Count>0;

@@ -7,6 +7,38 @@ int assertions = 0;
 void Check(bool condition, string message) { assertions++; if (!condition) throw new Exception(message); }
 void Near(float a, float b, string message) => Check(MathF.Abs(a-b)<.001f, message);
 void Reject(Action action, string message) { try { action(); } catch (Exception e) when (e is FormatException or ArgumentException or System.Text.Json.JsonException) { assertions++; return; } throw new Exception(message); }
+const string movementId=HudProfileDefaults.MovementTelemetryId;
+int movementIndex=HudProfileDefaults.MovementTelemetryIndex;
+Check(HudProfileDefaults.ElementIds[movementIndex]==movementId,"movement element appends without changing legacy element indices");
+var movementDefaults=HudProfileStore.Parse("{}");
+var movement=movementDefaults.Elements[movementId];
+Check(movement.Enabled&&movement.Scale==1&&movement.Opacity==1&&movement.Color=="#FFFFFF"
+    &&movement.Contexts==HudContext.Playing,"older profiles receive original enabled movement appearance");
+var movementPoint=new HudTransform(1920,1080).Resolve(movement.Anchor,new(movement.OffsetX,movement.OffsetY));
+Near(movementPoint.X,128*1920/256f,"movement default anchor matches original overlay center");
+Near(movementPoint.Y,166*1080/192f,"movement default y matches original overlay");
+foreach(var (width,height) in new[] { (1440,1080), (1920,1080), (3440,1440) })
+{
+    var transform=new HudTransform(width,height);
+    var center=transform.Resolve(movement.Anchor,new(movement.OffsetX,movement.OffsetY));
+    float profileScale=transform.UnitScale/(height/1080f);
+    float profileX=center.X*256/width-128*profileScale;
+    var plate=HudSpriteBounds.Resolve(78/256f,166/192f,100,16,false,2,1,width,height,
+        profileScale,profileX,center.Y*192/height-166*profileScale);
+    Near(plate.Left+plate.Width/2,width/2f,"movement runtime plate remains centered across aspect ratios");
+    float editorWidth=750*transform.UnitScale*width/height*.5625f;
+    Near(center.X-editorWidth/2,plate.Left,"movement editor hit bounds match runtime centered plate");
+}
+movement.OffsetX=120;movement.OffsetY=-200;movement.Scale=1.5f;movement.Opacity=.4f;movement.Color="#44AAFF";movement.Enabled=false;
+var movementRoundtrip=HudProfileStore.Parse(HudProfileStore.Serialize(movementDefaults));
+var movementRuntime=new HudRuntimeProfile(movementRoundtrip);
+Check(!movementRuntime[movementIndex].Enabled&&movementRuntime[movementIndex].Offset==new Vector2(120,-200)
+    &&movementRuntime[movementIndex].Scale==1.5f&&movementRuntime[movementIndex].Opacity==.4f,
+    "movement save/load compiles position, scale, opacity and enabled state");
+Near(movementRuntime[movementIndex].Color.Y,170/255f,"movement saved color compiles into runtime tint");
+movementRoundtrip.ResetElement(movementId);
+Check(HudProfileStore.Serialize(movementRoundtrip)==HudProfileStore.Serialize(HudProfileStore.Parse("{}")),
+    "movement element reset restores exact legacy-compatible defaults");
 foreach (var (w,h) in new[] { (1280,720), (1920,1080), (2560,1440), (3440,1440), (3840,2160), (1080,1920), (1920,1200), (1440,1080) })
 foreach (HudAnchor anchor in Enum.GetValues<HudAnchor>())
 {

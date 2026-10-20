@@ -30,9 +30,8 @@ namespace MphRead.Entities
 
         private static readonly bool HunterAnimationBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
-        // Opt-out rollback for a render-only, local third-person owner. Unlike
-        // interpolation of remote network models, this does not touch the
-        // local first-person camera, input, or prediction.
+        // Draw-only rollback for the local third-person body. First-person
+        // input and the 60 Hz authoritative gameplay pose remain immediate.
         private static readonly bool ThirdPersonBodyBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_THIRD_PERSON_BODY_BLEND");
 
@@ -49,14 +48,10 @@ namespace MphRead.Entities
         {
             position = Position;
             facing = _facingVector;
-            // First-person must remain immediate for input latency, but in
-            // third-person the local Hunter itself becomes visible. Before
-            // this branch the owner was pinned to a 60Hz body transform while
-            // the camera was interpolating its translation at 120/240Hz.
-            // Read the already captured authoritative transform at precisely
-            // the camera's presentation alpha, never touching gameplay state.
-            // EntityBase's lifetime guard automatically rebases on respawn,
-            // teleport, network seat/life changes and morph transitions.
+            // Third-person exposes the local biped. Its world draw must
+            // consume the same completed-history fractional clock as the
+            // camera, instead of 60 Hz simulation jumps. Do not modify
+            // the local first-person or authoritative movement paths.
             if (ThirdPersonBodyBlendEnabled && IsMainPlayer
                 && _scene.ModThirdPersonCameraActive && !_scene.Services.IsReplica
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation
@@ -137,14 +132,15 @@ namespace MphRead.Entities
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation;
             bool ordinaryOfflineActor = ordinaryOfflinePresentation
                 && (drawPosition != Position || drawFacing != _facingVector);
-            // The live local Hunter's interpolated mesh is draw-only, just
-            // like an offline remote Hunter. Restore the canonical skeleton
-            // and muzzle anchors after submission so neither combat nor
-            // the next render frame can inherit the visual-only pose.
-            bool localThirdPersonActor = IsMainPlayer && _scene.ModThirdPersonCameraActive
+            // Only a locally visible 3P biped receives this sampled pose;
+            // the model, shadow and emitter must be canonical again after
+            // each draw. Smooth crouch's render-only pose shares this fence.
+            bool localThirdPersonActor = ThirdPersonBodyBlendEnabled
+                && IsMainPlayer && _scene.ModThirdPersonCameraActive
                 && !_scene.Services.IsReplica
                 && FrameTiming.Active && FrameTiming.HighRefreshPresentation
-                && (drawPosition != Position || drawFacing != _facingVector);
+                && (drawPosition != Position || drawFacing != _facingVector
+                    || ModCrouchVisualAmount != (ModCrouched ? 1f : 0f));
             bool isolateLocalOrOfflineActor = ordinaryOfflineActor || localThirdPersonActor;
             bool forceNetworkVisibility = ModForceNetworkVisibility(
                 _scene.Services.IsReplica, Mods.Network.NetSession.Active,
@@ -349,8 +345,10 @@ namespace MphRead.Entities
                     Vector3 fallbackLateral = new(_field70, 0, _field74);
                     Matrix4 transform = ModBuildBipedDrawTransform(drawPosition, drawFacing,
                         fallbackLateral, scale, bottom, out float angle);
+                    float crouchVisual = ModCrouchVisualAmount;
+                    bool crouchInterpolated = crouchVisual != (ModCrouched ? 1 : 0);
                     float canonicalAngle = angle;
-                    Matrix4 canonicalBody = isolateLocalOrOfflineActor
+                    Matrix4 canonicalBody = isolateLocalOrOfflineActor || crouchInterpolated
                         ? ModBuildBipedDrawTransform(Position, _facingVector,
                             fallbackLateral, scale, bottom, out canonicalAngle) : transform;
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
@@ -373,12 +371,12 @@ namespace MphRead.Entities
                     // Node interpolation can remain fractional when float actor
                     // interpolation rounds exactly to the current world pose.
                     // These canonical owners must not inherit either sample.
-                    bool isolateBipedAnchors = isolateLocalOrOfflineActor
+                    bool isolateBipedAnchors = isolateLocalOrOfflineActor || crouchInterpolated
                         || (ordinaryOfflinePresentation && interpolatedPose);
                     try
                     {
-                    UpdateHunterBipedPresentation(model, spineNode, transform, angle,
-                        lowerSample, upperSample);
+                    UpdateHunterBipedVisual(model, spineNode, transform, angle,
+                        lowerSample, upperSample, crouchVisual);
                     if (drawAlive)
                     {
                         if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -406,12 +404,10 @@ namespace MphRead.Entities
                         PaletteOverride = null;
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
-                            // The local third-person cannon moves with the
-                            // interpolated Hunter body, not the 60Hz muzzle.
-                            // Sample its world-space muzzle BEFORE restoring
-                            // canonical nodes, then use this point for effects
-                            // on draw-only frames. All shot/emitter state keeps
-                            // reading the ordinary canonical muzzle afterwards.
+                            // Capture the visible cannon tip before returning
+                            // to the canonical skeleton for combat and effect
+                            // simulation. This is picture-only, never a muzzle
+                            // source for projectile hit registration.
                             Vector3 displayMuzzle = default;
                             if (localThirdPersonActor)
                                 displayMuzzle = Matrix.Vec3MultMtx4(
@@ -457,7 +453,7 @@ namespace MphRead.Entities
                             finally
                             {
                                 if (isolateBipedAnchors)
-                                    UpdateHunterBipedPresentation(model, spineNode, transform, angle, lowerSample, upperSample);
+                                    UpdateHunterBipedVisual(model, spineNode, transform, angle, lowerSample, upperSample, crouchVisual);
                             }
                         }
                         if (_frozenGfxTimer > 0)
@@ -628,6 +624,10 @@ namespace MphRead.Entities
         private void UpdateHunterBipedPresentation(Model model, Node spineNode,
             Matrix4 world, float pitch,
             AnimationSamples.Sample? lower, AnimationSamples.Sample? upper)
+            => UpdateHunterBipedVisual(model, spineNode, world, pitch, lower, upper, ModCrouched ? 1 : 0);
+
+        private void UpdateHunterBipedVisual(Model model, Node spineNode, Matrix4 world, float pitch,
+            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount)
         {
             spineNode.AnimIgnoreChild = true;
             spineNode.AfterTransform = Matrix4.CreateRotationZ(pitch);
@@ -645,7 +645,7 @@ namespace MphRead.Entities
                 _bipedModel2.AnimInfo, upper);
             foreach (Node node in model.Nodes)
                 node.Animation *= world;
-            ModApplyCrouchPose(model, world);
+            ModApplyCrouchVisualPose(model, world, crouchAmount);
             model.UpdateMatrixStack();
         }
 

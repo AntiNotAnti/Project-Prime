@@ -984,6 +984,9 @@ namespace MphRead.Entities
                 && _drawCurrentFovGeneration == Mods.Render.FrameTiming.PresentationGeneration
                 && double.IsFinite(alpha);
 
+        internal bool ModHasLiveDrawHistory(double alpha)
+            => _drawStateValid && ModCanSampleLiveHistory(alpha);
+
         internal Vector3 ModGetDrawPosition(double alpha, bool fenceLiveClock = false)
         {
             if (!_drawStateValid || fenceLiveClock && !ModCanSampleLiveHistory(alpha)) return Position;

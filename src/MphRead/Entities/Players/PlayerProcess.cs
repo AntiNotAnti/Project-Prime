@@ -1417,6 +1417,7 @@ namespace MphRead.Entities
         private void PickUpItems()
         {
             Mods.Network.NetPowerUpLedger.ObserveContact(this);
+            _scene.OfflineWeapons?.ProcessPickupContact(this);
             if (_health == 0 || (IsBot && _scene.GameState.SinglePlayer) || IgnoreItemPickups
                 || IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {

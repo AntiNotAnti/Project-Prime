@@ -85,7 +85,7 @@ internal static class TraversalRulesTests
                 "Classic excludes the horizontal adapter");
             Check(MovementModelRules.FromRules(MovementModelRules.Modifier(model)) == model,
                 "each explicit modifier maps back to its mode");
-            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 2, 2 }[index],
+            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 3, 3 }[index],
                 "existing profile versions remain distinct from live Traversal v2");
             Check(MovementModelRules.DisplayName(model).Length > 0
                 && MovementModelRules.DisplayName(model) != "Unsupported", "all modes have presentation labels");

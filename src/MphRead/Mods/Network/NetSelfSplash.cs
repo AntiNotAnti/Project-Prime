@@ -21,7 +21,8 @@ internal static class NetSelfSplash
     private readonly record struct Explosion(ShotKey Key, uint Component, uint Frame, uint Launch,
         byte Weapon, Vector3 Origin, Vector3 Body, float Radius, float Damage, byte Curve,
         byte DirectionType, float DirectionMagnitude, Vector3 Velocity, float Effectiveness,
-        float DamageLevel, byte Handicap, bool EnhancedJump, bool Quake3Jump, bool Eligible, byte Effects);
+        float DamageLevel, byte Handicap, bool EnhancedJump, bool Quake3Jump, bool Eligible, byte Effects,
+        float BodyBottom, float BodyTop, float BodyRadius);
     private static readonly Explosion?[,] Explosions = new Explosion?[8, Capacity];
     internal static long Observed, Verified, Refused, CapacityRefused, EvidenceOverflow;
     private static readonly List<object> Paid = new(), Receipts = new(), Feedback = new();
@@ -85,7 +86,8 @@ internal static class NetSelfSplash
             beam.ModEnhancedSelfJump, beam.ModCustomShot == null
                 && owner.ModMovementBlastWeaponEligible(beam.Beam),
             owner.ModSelfSplashEligible && owner != excluded,
-            owner.OwningScene.GameState.BalancedMode ? (byte)0 : NetHitClaims.AfflictionClaimFlags(beam.Afflictions));
+            owner.OwningScene.GameState.BalancedMode ? (byte)0 : NetHitClaims.AfflictionClaimFlags(beam.Afflictions),
+            owner.ModBipedBottom, owner.ModBipedTop, Fixed.ToFloat(owner.Values.BipedColRadius));
         Observed++;
     }
     internal static bool Validate(int slot, in HitClaimPacket claim, out SelfSplashOutcome outcome)
@@ -110,9 +112,11 @@ internal static class NetSelfSplash
         // between local and authority movement, never a historical remote body or
         // a client-supplied explosion centre. The body is the server-owned body at impact.
         float tolerance = Math.Min(.75f, hit.Radius * .25f);
-        float distance = Vector3.Distance(hit.Origin, hit.Body);
+        float distance = hit.Quake3Jump
+            ? Quake3MovementProfileV3.BlastDistance(hit.Origin, hit.Body, hit.BodyBottom, hit.BodyTop, hit.BodyRadius)
+            : Vector3.Distance(hit.Origin, hit.Body);
         if ((claim.HitPoint - hit.Body).LengthSquared > tolerance * tolerance
-            || Vector3.Distance(hit.Origin, hit.Body) >= hit.Radius + tolerance || distance >= hit.Radius)
+            || distance >= hit.Radius)
             return Reject();
         CollisionResult collision = default;
         if (CollisionDetection.CheckBetweenPoints(hit.Origin, hit.Body, TestFlags.Beams, owner.OwningScene, ref collision)
@@ -123,7 +127,8 @@ internal static class NetSelfSplash
         damage = Math.Max(1u, (uint)(damage * hit.DamageLevel));
         if (hit.Handicap > 0) damage = PlayerHandicap.ScaleDamage(damage, hit.Handicap);
         Vector3 impulse = hit.Quake3Jump
-            ? Quake3MovementProfileV2.RocketImpulse(damage, hit.Origin, hit.Body, hit.Radius)
+            ? Quake3MovementProfileV3.RocketImpulse((uint)Math.Max(0, hit.Damage), hit.Origin, hit.Body, hit.Radius,
+                hit.BodyBottom, hit.BodyTop, hit.BodyRadius)
             : Impulse(hit, hit.Body);
         if (hit.EnhancedJump) { damage = (uint)Math.Ceiling(damage * .25f); impulse *= 1.35f; }
         outcome = new((ushort)Math.Min(damage, ushort.MaxValue), impulse, hit.Effects);

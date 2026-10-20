@@ -741,6 +741,19 @@ namespace MphRead.Entities
                 renderFacing = ModLateLatchedFacing(baseFacing, x, y);
             }
 
+            float eyeCorrection = ModCrouchDrawEyeCorrection(presentationAlpha);
+            if (MathF.Abs(eyeCorrection) > .000001f)
+            {
+                Vector3 easedEye = cameraPosition.AddY(eyeCorrection);
+                CollisionResult obstruction = default;
+                // Cosmetic easing must not lift the view through a low ceiling.
+                // This read-only query uses its own pooled collision workspace.
+                if (CollisionDetection.CheckBetweenPoints(cameraPosition, easedEye,
+                    TestFlags.Players, _scene, ref obstruction))
+                    easedEye = obstruction.Position + obstruction.Plane.Xyz * .01f;
+                cameraPosition = easedEye;
+            }
+
             if (!ModPresentationBasis(renderFacing, upHint,
                     out Vector3 renderRight, out Vector3 renderUp, out Vector3 renderForward)
                 || !ModInterpolatedFirstPersonLocalPose(

@@ -19,7 +19,7 @@ public partial class Scene
         return OfflineWeapons = new(this,optIn);
     }
     // The launch plan has already frozen and validated availability. Capture
-    // this scene's human now; a later fixed step grants only after spawn.
+    // this scene's human now; each life starts empty and contact funds ownership.
     internal OfflineCustomWeaponRuntime EnableOfflineRifleAvailability(bool optIn)
     {
         if (!optIn) throw new InvalidOperationException("Explicit Riftline M7 availability is required.");

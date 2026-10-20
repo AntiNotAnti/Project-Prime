@@ -104,13 +104,13 @@ internal static class MovementValidationTests
         Check(Count("Invalid") == 3 && Count("HardRejections") == 0,
             "unknown profile/model evidence is diagnostic only and cannot enter grouping keys");
         NetMovementValidationShadow.Reset();
-        var quake = Sample(1) with { MovementModel = MovementModel.Quake3, ProfileVersion = Quake3MovementProfileV2.ProfileVersion };
+        var quake = Sample(1) with { MovementModel = MovementModel.Quake3, ProfileVersion = Quake3MovementProfileV3.ProfileVersion };
         NetMovementValidationShadow.Observe(quake);
         NetMovementValidationShadow.Observe(quake with { Frame = 2, Position = new(1000, 0, 0) });
         NetMovementValidationShadow.Observe(quake with { Frame = 3, Position = new(2000, 0, 0) });
         var uncapped = NetMovementValidationShadow.Capture();
         Check(uncapped.HardRejections == 0 && uncapped.Hunters[28].MovementModel == MovementModel.Quake3
-            && uncapped.Hunters[28].ProfileVersion == 2 && uncapped.Hunters[28].Evaluated == 2
+            && uncapped.Hunters[28].ProfileVersion == 3 && uncapped.Hunters[28].Evaluated == 2
             && uncapped.Hunters[28].WouldRefuse == 0,
             "uncapped Quake III retains independent model/profile measurements without a capped-speed signal");
         NetMovementValidationShadow.Reset();
@@ -120,7 +120,7 @@ internal static class MovementValidationTests
         NetMovementValidationShadow.Observe(traversal with { Frame = 2, Position = new(1000, 0, 0) });
         var traversalReport = NetMovementValidationShadow.Capture();
         Check(traversalReport.Hunters.Length == 56 && traversalReport.Hunters[42].MovementModel == MovementModel.Traversal
-            && traversalReport.Hunters[42].ProfileVersion == 2 && traversalReport.Hunters[42].Evaluated == 1
+            && traversalReport.Hunters[42].ProfileVersion == 3 && traversalReport.Hunters[42].Evaluated == 1
             && traversalReport.Hunters[42].WouldRefuse == 0 && traversalReport.HardRejections == 0,
             "Traversal retains its own bounded observational counters and uncapped horizontal measurement");
     }

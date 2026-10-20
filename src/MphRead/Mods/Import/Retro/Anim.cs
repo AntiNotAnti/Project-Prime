@@ -10,7 +10,7 @@ namespace MphRead.Mods.Import.Retro
     // its LibCommon CBitStreamInWrapper (32-bit big-endian words, bits taken LSB first, sign-extended).
     //   PrimeWorldEditor / LibCommon: https://github.com/AxioDL/PrimeWorldEditor -- MIT License, Copyright (c) AxioDL.
     // All arithmetic is double precision, as the Python's is.
-    public sealed class Anim
+    public sealed partial class Anim
     {
         public double Duration, Tick;
         public int Keys;
@@ -322,12 +322,13 @@ namespace MphRead.Mods.Import.Retro
         {
             t = Math.Min(Math.Max(t, 0.0), Duration);
             if (t >= 1e-7) t -= 1e-7;
-            int lo = (int)(t / Tick);
-            double f = (t % Tick) / Tick;
-            if (lo >= Keys - 1)
+            int lo;
+            double f;
+            if (t / Tick >= Keys - 1)
             {
                 lo = Keys - 2; f = 1.0;
             }
+            else { lo = (int)(t / Tick); f = (t % Tick) / Tick; }
             rot = new Dictionary<uint, double[]>(Rot.Count);
             foreach (KeyValuePair<uint, List<double[]>> kv in Rot)
             {

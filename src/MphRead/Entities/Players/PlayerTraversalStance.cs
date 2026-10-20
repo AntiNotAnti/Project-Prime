@@ -10,7 +10,7 @@ namespace MphRead.Entities;
 public partial class PlayerEntity
 {
     private bool _modCrouched, _modCrouchWasDown;
-    private int _modSlideTicks;
+    private int _modSlideTicks, _modSlideEntryTicks;
     private ulong _modStanceFrame = ulong.MaxValue;
     private bool? _modHistoricalCrouched;
     internal bool ModCrouched => _modCrouched && _scene.GameState.MovementModel == MovementModel.Traversal
@@ -35,7 +35,8 @@ public partial class PlayerEntity
     internal void ModResetTraversalStance()
     {
         _modCrouched = _modCrouchWasDown = false;
-        _modSlideTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
+        _modCrouchPresentation.Reset();
+        _modSlideTicks = _modSlideEntryTicks = 0; _modStanceFrame = ulong.MaxValue; _modHistoricalCrouched = null;
     }
 
     // Native standing clearance, with fixed scratch capacity. Grow only when
@@ -46,12 +47,15 @@ public partial class PlayerEntity
         float radius = Fixed.ToFloat(Values.BipedColRadius);
         float bottom = ModBipedBottom + radius;
         float top = ModBipedTopFor(crouched) - radius;
+        Vector3 start = Position.AddY(bottom), end = Position.AddY(top);
+        using var candidates = CollisionDetection.GetCandidatesForLimits(start, end, radius + .05f,
+            null, Vector3.Zero, includeEntities: true, _scene);
         for (int probe = 0; probe < 3; probe++)
         {
             float y = probe == 0 ? bottom : probe == 1 ? (bottom + top) * .5f : top;
             Array.Clear(_penetrationScratch);
-            int count = CollisionDetection.CheckSpherePenetration(Position.AddY(y), radius,
-                _penetrationScratch.Length, TestFlags.Players, _scene, _penetrationScratch);
+            int count = CollisionDetection.CheckSpherePenetration(candidates, Position.AddY(y), radius,
+                _penetrationScratch.Length, TestFlags.Players, _penetrationScratch);
             if (count >= _penetrationScratch.Length) return false;
             for (int index = 0; index < count; index++)
                 if (_penetrationScratch[index].Field14 > CollisionRecoverySkin) return false;
@@ -59,10 +63,7 @@ public partial class PlayerEntity
         // Cover the continuous capsule between the probes as well, including
         // thin edge obstructions and moving entity collision. Three spheres
         // alone leave gaps near the side of a full-height capsule.
-        Vector3 start = Position.AddY(bottom), end = Position.AddY(top);
         float clearanceRadius = Math.Max(.01f, radius - CollisionRecoverySkin);
-        using var candidates = CollisionDetection.GetCandidatesForLimits(start, end, radius + .05f,
-            null, Vector3.Zero, includeEntities: true, _scene);
         Array.Clear(_movementCollisionScratch);
         int blockers = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, start, end,
             clearanceRadius, _movementCollisionScratch.Length, includeOffset: true,
@@ -74,6 +75,7 @@ public partial class PlayerEntity
         // the newly standing body.
         Vector3 cylinderBottom = Position.AddY(ModBipedBottom + CollisionRecoverySkin);
         float cylinderHeight = ModBipedTopFor(crouched) - ModBipedBottom - 2 * CollisionRecoverySkin;
+        candidates.SeenFaces.Clear();
         for (int index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index];
@@ -81,7 +83,7 @@ public partial class PlayerEntity
             for (int face = 0; face < candidate.Entry.DataCount; face++)
             {
                 var data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + face]];
-                if (data.IgnorePlayers) continue;
+                if (data.IgnorePlayers || candidate.EntityCollision == null && !candidates.SeenFaces.Add(data)) continue;
                 for (int edge = 0; edge < data.PointIndexCount; edge++)
                 {
                     Vector3 a = ModClearanceWorldPoint(candidate, info.Points[info.RuntimePointIndices[data.PointStartIndex + edge]]);
@@ -105,7 +107,11 @@ public partial class PlayerEntity
         // A lost entry packet can leave only a released-but-clearance-blocked
         // stance report. Independently prove both the obstruction and low fit.
         if (ModCrouchBodyAllowed && reported && (!held || !ModMomentumBodyEligible) && !_modCrouched
-            && !ModCanStand() && ModCanOccupyBiped(crouched: true)) _modCrouched = true;
+            && !ModCanStand() && ModCanOccupyBiped(crouched: true))
+        {
+            _modCrouched = true;
+            if (!held) { ModCancelTraversalSlide(); _modCrouchWasDown = false; return; }
+        }
         ModUpdateTraversalStance(held);
     }
 
@@ -115,7 +121,8 @@ public partial class PlayerEntity
     internal void ModUpdateTraversalStance(bool requested, bool jumpAccepted = false)
     {
         if (!ModCrouchBodyAllowed) { ModResetTraversalStance(); return; }
-        if (!ModTraversalActive || _scene.Services.IsReplica || DemoPlayback.IsActive) { _modSlideTicks = 0; return; }
+        if (!ModTraversalActive || _scene.Services.IsReplica || DemoPlayback.IsActive)
+        { _modSlideTicks = _modSlideEntryTicks = 0; return; }
         // Exclusions stop new stance/slide input while native abilities own
         // movement. An existing low body still needs clearance before growing
         // (for example, a Prime pickup or freeze underneath a low ceiling).
@@ -126,16 +133,28 @@ public partial class PlayerEntity
         if (_modStanceFrame != _scene.FrameCount)
         {
             if (_modSlideTicks > 0) _modSlideTicks--;
+            if (_modSlideEntryTicks > 0) _modSlideEntryTicks--;
             _modStanceFrame = _scene.FrameCount;
         }
+        if (fresh) _modSlideEntryTicks = TraversalMovementProfileV3.SlideEntryTicks;
         if (!_modCrouched || !down || !ModMomentumBodyEligible || jumpAccepted
-            || !Flags1.TestFlag(PlayerFlags1.Standing) || Flags1.TestFlag(PlayerFlags1.CollidingLateral))
-            _modSlideTicks = 0;
-        else if (fresh && new Vector2(Speed.X, Speed.Z).Length * NativeVelocityUnitsPerSecond
-            >= TraversalMovementProfileV2.SlideMinimumSpeed)
-            _modSlideTicks = TraversalMovementProfileV2.SlideTicks;
+            || Flags1.TestFlag(PlayerFlags1.CollidingLateral))
+            _modSlideTicks = _modSlideEntryTicks = 0;
+        else if (!Flags1.TestFlag(PlayerFlags1.Standing)) _modSlideTicks = 0;
+        else if (_modSlideEntryTicks > 0)
+        {
+            // Consume a single fresh request at the first physical floor contact.
+            // A held key cannot restart an expired slide or wait for a later boost.
+            _modSlideEntryTicks = 0;
+            float minimum = TraversalMovementProfileV3.SlideMinimumSpeed / NativeVelocityUnitsPerSecond;
+            if (Speed.X * Speed.X + Speed.Z * Speed.Z >= minimum * minimum)
+                _modSlideTicks = TraversalMovementProfileV3.SlideTicks;
+        }
         _modCrouchWasDown = down;
     }
+
+    internal void ModCancelTraversalSlide()
+        => _modSlideTicks = _modSlideEntryTicks = 0;
 
     internal void ModApplyReplicatedCrouch(bool crouched, bool isLocal = false)
     {
@@ -147,6 +166,6 @@ public partial class PlayerEntity
         if (isLocal) return;
         if (crouched) _modCrouched = true;
         else _modCrouched = false;
-        if (!_modCrouched) _modSlideTicks = 0;
+        if (!_modCrouched) ModCancelTraversalSlide();
     }
 }

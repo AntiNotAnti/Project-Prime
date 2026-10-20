@@ -5,6 +5,7 @@ using MphRead.Entities;
 using MphRead.Hud;
 using MphRead.Mods.Chat;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render.Hud;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Movement;
@@ -37,15 +38,34 @@ internal static class MovementTelemetryHud
         if (player == null || player.IsBot || !player.ModMomentumEligible || !player.LoadFlags.TestFlag(LoadFlags.Active)
             || !scene.MomentumOwnsPlayer(player) || NetHooks.IsPuppet(player)) return;
 
-        var lines = Format(sample);
+        using var layout = scene.PushHudElement(HudProfileDefaults.MovementTelemetryIndex, 128, 166,
+            player.HudElementVisible(HudProfileDefaults.MovementTelemetryIndex));
         FontState state = Fonts.GetValue(scene, owner => new FontState(owner));
+        var lines = state.Lines.Get(sample);
         scene.DrawHudFlatBox(78, 166, 178, 182, new Vector4(.02f, .07f, .11f, .65f));
         state.Text(scene, 82, 168, lines.Speed);
         state.Text(scene, 82, 175, lines.Efficiency);
     }
 
+    // Caches only presentation text; render frequency cannot advance telemetry.
+    internal sealed class TextCache
+    {
+        private MovementTelemetrySample? _source;
+        private (string Speed, string Efficiency) _lines;
+        internal (string Speed, string Efficiency) Get(MovementTelemetrySample sample)
+        {
+            if (_source is not { } source || source != sample)
+            {
+                _lines = Format(sample);
+                _source = sample;
+            }
+            return _lines;
+        }
+    }
+
     private sealed class FontState
     {
+        internal TextCache Lines { get; } = new();
         private readonly HudObjectInstance _font = new(ChatFont.Cell, ChatFont.Cell) { Enabled = true };
         internal FontState(Scene scene)
         {
@@ -54,7 +74,7 @@ internal static class MovementTelemetryHud
         }
         internal void Text(Scene scene, float x, float y, string text)
         {
-            const float scale = .45f;
+            float scale = .45f * (HudProfiles.Runtime.Mode == HudMode.Custom ? HudProfiles.Runtime.TextScale : 1);
             _font.Alpha = 1;
             foreach (char ch in text)
             {
@@ -62,8 +82,8 @@ internal static class MovementTelemetryHud
                 if (glyph < 0) continue;
                 _font.PositionX = x / 256;
                 _font.PositionY = y / 192;
-                _font.SetData(glyph, new ColorRgba(220, 243, 255, 255), scene);
-                scene.DrawHudObject(_font, mode: 1, scale: scale);
+                _font.SetData(glyph, scene.HudTextColor(new ColorRgba(220, 243, 255, 255))!.Value, scene);
+                scene.DrawHudObject(_font, mode: 1, scale: scale, isText: true);
                 x += ChatFont.Widths[glyph] * scale;
             }
         }

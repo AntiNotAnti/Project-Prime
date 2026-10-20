@@ -270,8 +270,8 @@ internal static class MomentumReplaySceneTests
         {
             MovementModel.Native => 0,
             MovementModel.Momentum => 1,
-            MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 62 ? 2 : 1,
-            MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 69 ? 2 : 1,
+            MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 62 ? 2 : 1,
+            MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 69 ? 2 : 1,
             _ => throw new InvalidDataException("Unknown expected replay movement model.")
         };
         if (expected == MovementModel.Traversal)

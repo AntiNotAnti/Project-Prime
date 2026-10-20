@@ -14,7 +14,7 @@ retains the saved practice preference for later. Momentum and Quake III require
 Native Hunter abilities and cannot combine with Balanced or Enhanced Hunters.
 
 For a standalone server, use `-server -movement Quake3`. All players and the
-server need the new build: live protocol 68 requires an exact protocol match.
+server need the new build: live protocol 71 requires an exact protocol match.
 Return to Classic before the next match to roll back the movement choice.
 
 ## Technique and fixed profile
@@ -31,7 +31,7 @@ jump abilities, including Space Jump; holding never spends an airborne jump.
 Alternate forms, Hunter abilities, collision, pads and platforms retain their
 native ownership and exclusions.
 
-The immutable Quake III profile v2 is independent of Momentum v1 and of private
+The current Quake III profile v3 is independent of Momentum v1 and of private
 JSON experiments. It runs once per eligible 60 Hz simulation tick:
 
 | Coefficient | Value |
@@ -60,15 +60,21 @@ adds the following techniques through the existing native input/combat seams:
   subsequent legal blasts add further impulse. Self-damage and lethal self-hits
   remain enabled. Spawn protection, blast radius and line of sight still apply.
 
-Rocket impulse uses finalized native splash damage multiplied by 0.025 native
-velocity units per point and linear distance attenuation, bounded to 1.2 per
-explosion. Direction points away from the blast toward the body plus 0.5 world
-units of height. The existing conversion is 30 world units/second per native
-velocity unit. Health damage retains its weapon curve and modifiers; the
-physical attenuation is separate. These are Project Prime tuning values.
-Only admitted Quake III ordinary eligible bipeds use this self-missile policy;
-Classic, Momentum, alternate forms and native special-state impulse paths keep
-their existing behavior. No extra ammo, invulnerability or speed is granted.
+Profile v3 measures self-blast range from the accepted biped collision capsule,
+including its feet. This avoids losing a legitimate near-floor self-hit merely
+because the body's lower sphere centre has risen outside the radius while the
+missile travels. The damage curve, obstruction tests, spawn protection and lethal
+self-damage still apply. Other players' splash handling is unchanged.
+
+Physical impulse uses base weapon splash strength multiplied by 0.025 native
+velocity units per point with linear capsule-distance attenuation, bounded to
+1.2 per explosion. Health handicaps change health cost, not physical push.
+Direction points away from the blast toward the body plus 0.5 world units of
+height. These are Project Prime tuning values; very late or obstructed blasts
+can still miss. The authority captures capsule dimensions at the explosion and
+uses the same geometry and strength for rescue and immutable paid receipts.
+Classic, Momentum, alternate forms and native special-state paths retain their
+existing behavior. No extra ammo or invulnerability is granted.
 
 This targets Quake III / Quake Live-style strafe-jumping while preserving Hunter
 jump timing and the game's native collision/gravity architecture. It is not an
@@ -109,3 +115,11 @@ Profile v2 techniques and verification are tracked in [advanced movement results
 
 Performance optimization remains deferred under the accepted
 [v1 tradeoff](pr09h-results.md); this integration makes no new timing-budget claim.
+
+Protocol 71 selects profile v3 for current rocket reliability policy while retaining
+the horizontal coefficients. Recorded protocols 60–61 remain profile v1 and 62–70
+remain profile v2. The immutable v1/v2 implementations, native packet widths and
+custom replay admission boundary are unchanged. Passive replay restores recorded
+state instead of rerunning current movement physics.
+
+See [rocket, slide and HUD reliability results](reliability-polish-results.md) for the current verification scope.
