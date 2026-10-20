@@ -125,7 +125,7 @@ internal static class LocalImportBundleTests
         {
             Expect<InvalidDataException>(() => LocalImportBundle.Publish(rejectedRoot, spec, parts), "reject root/ancestor alias publication");
             Expect<InvalidDataException>(() => LocalImportBundle.Remove(rejectedRoot, spec.Id), "reject root/ancestor alias removal");
-            Expect<InvalidDataException>(() => LocalImportBundle.HasReceipt(rejectedRoot, spec.Id), "reject root/ancestor alias discovery");
+            Check(LocalImportBundle.HasReceipt(rejectedRoot, spec.Id), "unsafe receipt remains discoverable for fail-closed catalog inspection");
             Check(LocalImportBundle.Inspect(rejectedRoot, spec.Id, spec).State == ImportBundleState.Failed,
                 "root/ancestor alias inspection fails closed");
         }

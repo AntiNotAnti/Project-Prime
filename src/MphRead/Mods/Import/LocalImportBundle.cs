@@ -105,11 +105,15 @@ public static partial class LocalImportBundle
         return result;
     }
 
+    // Discovery checks presence only. Even an unsafe/dangling pointer owns
+    // this inventory so catalog discovery can fail closed via Inspect instead
+    // of throwing or resurrecting unmanaged legacy Echoes definitions.
     public static bool HasReceipt(string root, string id)
     {
-        string pointer = Path.Combine(BundleRoot(root, id), "current.json");
-        CheckPath(pointer, root);
-        return File.Exists(pointer);
+        if (!Id(id)) throw new InvalidDataException("Invalid private bundle ID.");
+        string pointer = Path.Combine(NormalizePath(root), StorageDirectory, id, "current.json");
+        try { return File.Exists(pointer) || new FileInfo(pointer).LinkTarget != null; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return true; }
     }
 
     public static ImportBundleInspection Inspect(string root, string id, ImportBundleSpec? required = null)
