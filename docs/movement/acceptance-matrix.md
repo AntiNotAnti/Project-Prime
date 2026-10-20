@@ -11,7 +11,11 @@ publication main `33cb131a3`, including the concurrent NCX diagnostics merge.
 The additional Windows team fixture retains its `46c101cdb` lease. Current33
 passes 21 focused checks, both production durable packet comparators and both
 two-owner fault proofs; earlier runtime results retain their source leases.
-See [PR-09 results](pr09-results.md).
+The further current5d refresh after NCX receipt changes passes 15 focused cases,
+both production durable packet checks, both two-owner fault proofs and four
+verification-only bot workload/snapshot comparisons. Its exact source and binary
+lease is recorded in [PR-09e](pr09e-results.md); it does not relabel earlier timing,
+team or device results. See [PR-09 results](pr09-results.md).
 
 The plan requires coverage across these areas; it does not require a full
 Hunter × map × mode × device × cadence × fault-profile Cartesian product.

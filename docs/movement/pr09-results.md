@@ -212,6 +212,17 @@ checkpoint/seek and accepted-recording checks.
 
 ## Performance gate — FAIL
 
+The later [PR-09e collision-query slice](pr09e-results.md) preserves exact seeded
+workload and published snapshot bytes while removing duplicate static-face
+hashing. Its fixed 32-arm Windows experiment retains all failures: Proving Ground
+candidate median p95 is 0.25335 ms Native / 0.29720 ms Momentum (+17.31%); Sanctorus
+is 0.31380 / 0.32510 ms (+3.60%). Both models show lower observed p95 than that
+experiment's own baseline, but the original relative 5% proxy still fails on
+Proving Ground. Fixed implementation-block order and wall-time measurement
+limit causal CPU attribution. [Numeric evidence](evidence/pr09-collision-dedup.json)
+retains p99/worst/allocations and all 32 arms. Earlier measurements below retain
+their source/settings and are not overwritten.
+
 The provisional limit remains +5%; no threshold or workload was changed to obtain
 a pass. Each platform/map experiment used two sequential ABBA cycles, four runs
 per model and 60 simulation seconds per run with eight genuine authority bots.

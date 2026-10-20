@@ -126,13 +126,20 @@ namespace MphRead.Formats
                 {
                     // todo: counter
                     CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
-                    if (((ushort)data.Flags & mask) != 0 || workspace.SeenFaces.Contains(data))
+                    if (((ushort)data.Flags & mask) != 0)
                     {
                         continue;
                     }
                     if (candidate.EntityCollision == null)
                     {
-                        workspace.SeenFaces.Add(data);
+                        if (!workspace.SeenFaces.Add(data))
+                        {
+                            continue;
+                        }
+                    }
+                    else if (workspace.SeenFaces.Contains(data))
+                    {
+                        continue;
                     }
                     Vector4 plane = info.Planes[data.PlaneIndex];
                     float dot1 = Vector3.Dot(transPoint1, plane.Xyz) - plane.W;
