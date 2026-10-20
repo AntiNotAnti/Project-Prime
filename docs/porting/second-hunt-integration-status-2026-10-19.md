@@ -35,6 +35,7 @@ Our slices add no wire change.
 | [817](https://github.com/AntiNotAnti/Project-Prime/pull/817) | Bounded source CMPR/RGB5A3 conversion with explicit pixel contract and complete owned texture oracle | `d7141505c8f22cb59f07e5ccba70d21b9eb6fd18` |
 | [818](https://github.com/AntiNotAnti/Project-Prime/pull/818) | Private source texture banks, immutable model material snapshots and shared material upload ownership | `e239340af921695274d3eb208dc2162484654860` |
 | [821](https://github.com/AntiNotAnti/Project-Prime/pull/821) | Bounded material reader and opt-in full-precision source-coordinate reader | `bdf69e2e54306c0e40b4818217016e9a25427b73` |
+| [824](https://github.com/AntiNotAnti/Project-Prime/pull/824) | Private model-bound paired-UV companion, final compiler emission and immutable runtime adoption | `da443dc9e86c7bb51402ce0024797379497f1d10` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -56,6 +57,21 @@ PR815 merged complete body/ball authoring generations and component status. Its 
 
 [PR818](https://github.com/AntiNotAnti/Project-Prime/pull/818) merged private texture-bank infrastructure and immutable model material snapshots. Frozen source `e1bbd3c2043b28170880c1595882d0f87182e0d3` passed all17 serial checks, including desktop/dedicated Release and Android Release/AOT/signedAPK verification. Source-free results include137 bank,128 material-boundary,191 TXTR,486 map-editor and58 material-tool checks. All390 owned texture entries match the independent pixel oracle and round-trip through six in-memory banks. Actual synthetic Mac GL checks verify independent bindings, exact RGBA readback, queued decoding, captured generation, quality/toggle ownership and teardown through the existing Scene. This qualifies infrastructure, with no complete-arena import or rendering claim. Full results and limits are in the [source texture-bank evidence](second-hunt-source-texture-banks-2026-10-19.md).
 
+[PR824](https://github.com/AntiNotAnti/Project-Prime/pull/824) merged the private
+source-coordinate companion. Frozen source `e0bc67d70` passed all 25 serial
+commands, desktop/dedicated Release, signed Android Release/AOT, 2,126 new
+transport checks and existing material-GPU/editor/replay/source-rig checks.
+All six owned sources retain 68,470 triangles and 162,207 candidate UV corners;
+per-material UV bits and native-packed-position/UV multisets match exactly.
+The independent PR821 compiler witness produces identical legacy five outputs,
+manifest and recipe/cache identity. Source hashes remain unchanged and derived
+payloads are deleted. A narrow render-only double-normal calculation retains
+four finite tiny source triangles without relaxing collision/ordinary geometry
+rules. The qualified production/test files match merged main exactly; later
+concurrent CW-05b is outside the frozen whole-binary proof. This implements
+transport, with no source shader/arena/mechanics activation. Details are in the
+[source geometry evidence](second-hunt-source-geometry-companion-2026-10-19.md).
+
 ## Plan coverage and remaining work
 
 | Phase | Implemented coverage | Engineering still required | Acceptance still required |
@@ -64,7 +80,7 @@ PR815 merged complete body/ball authoring generations and component status. Its 
 | SH-01 | Auto/Touch/AimOnly/Off; pad identity/handoff; Direct default; Classic opt-in hold/smoothing/reset | No known missing code in the shipped input slices | Physical Android touch/controller switching, combat and latency/feel |
 | SH-02 | Direct weapon-wheel selection opt-in, shared sprite geometry, canonical weapon checks and input ownership | Device-found defects if any | Actual selectable/highlighted Android game and no combat/menu/replay regression |
 | SH-03 | Immutable local generations; bounded receipts/hashes; atomic publication and retained old assets; cancellation, leases, batch partial-success reporting; existing Check/Update selected/all/Remove flow; complete Dark Samus body/ball v2 with component versions/status and repair reuse | Skin/gun/material inventory and remaining source parts; Android URI lifecycle; coalesced waiter semantics | Physical storage URI, crash/storage failure and full game/Studio import interaction |
-| SH-04 | Six local collision previews and private/source identity fences; actual source geometry audit; bounded TXTR decoder and six private texture banks verified against all390 owned entries; immutable material snapshots and shared upload infrastructure; bounded material parser and opt-in paired source-coordinate reader | Complete-arena import recipe; full-precision dual-UV shared-renderer translation, TEV/base-lightmap semantics and complete material tiers; per-arena turret/kinetic/world mechanics; bots and authoritative multiplayer feasibility | All six actual local playtests/physics; supported GPU/Android fidelity; explicit server-content gate before online support; bank infrastructure does not qualify complete arenas |
+| SH-04 | Six local collision previews and private/source identity fences; actual source geometry audit; bounded TXTR decoder and six private texture banks verified against all390 owned entries; immutable material snapshots and shared upload infrastructure; bounded material parser and paired source-coordinate transport through final emission/cache/model ownership; all six owned arena UV streams verified | Complete-arena import recipe; full-precision dual-UV shared-renderer translation, TEV/base-lightmap semantics and complete material tiers; per-arena turret/kinetic/world mechanics; bots and authoritative multiplayer feasibility | All six actual local playtests/physics; supported GPU/Android fidelity; explicit server-content gate before online support; bank infrastructure does not qualify complete arenas |
 | SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles | HD/cannon/runtime animation parts; qualified Overcharged runtime cosmetic; Trooper wall-cling/drone/blaster; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
 | SH-06 | Fenced create-lobby handoff, cancellation/retry, preference acceptance and serialized local start ownership | Directory-owned grouped search, mode/region/content query, pre-allocation ballot, telemetry and dedicated handoff | Real deployment/HMAC/account/server-child/load/reconnect; existing leader-admitted party reservations are not grouped search |
 | SH-07 | Reproducible binary/hardware/settings/map/workload provenance, strict paired comparator and actual GL functional capture | Controlled experiments and any justified opt-in runtime improvement | Achieved pacing, variance, latency and error tolerances; current draw-CPU evidence is not FPS improvement |

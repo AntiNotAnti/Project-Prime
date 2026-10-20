@@ -109,7 +109,7 @@ namespace MphRead.Formats
         public readonly uint Offset1; // else, this is a ushort index into the MenuStruct2* list (if not 0xFFFF) and another ushort value (flags?)
     }
 
-    // size: 4
+    // size: 8
     public readonly struct MenuStruct1A3
     {
         public readonly uint Field0;
