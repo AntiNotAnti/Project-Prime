@@ -60,8 +60,8 @@ public static partial class RetroCharacterPreviewExporter
     {
         SourceCharacter source = Source(id);
         _ = ExternalSourceRequirements.For(source.Game, edition);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Id == "darksamus-echoes" ? 4
-            : source.Game == ExternalGameKind.Echoes ? 3 : FullPrime(source, edition) ? 2 : 1);
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Id == "darksamus-echoes" ? 5
+            : source.Game == ExternalGameKind.Echoes ? 4 : FullPrime(source, edition) ? 2 : 1);
         return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 3 } } : new[] { body });
     }
 
@@ -95,6 +95,9 @@ public static partial class RetroCharacterPreviewExporter
             new AuthoringComponent("generated-provenance", 1, stem + ".source.json")
         }).Concat(prime ? new[] { new AuthoringComponent("animation-graph", 1, stem + ".ancs-graph.json"),
             new AuthoringComponent("animation-graph-source", 1, stem + ".ancs.bin") } : Array.Empty<AuthoringComponent>())
+        .Concat(Source(id).Game == ExternalGameKind.Echoes && part == "body"
+            ? new[] { new AuthoringComponent("source-materials", 1, stem + ".materials.bin") }
+            : Array.Empty<AuthoringComponent>())
         .Concat(id == "darksamus-echoes" && part == "body"
             ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
                 new AuthoringComponent("source-cannon-recipe", 1, "darksamus-echoes.cannon-source.json") }
@@ -124,11 +127,12 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        int bundleVersion = spec.Id == "darksamus-echoes" ? 5 : 4;
+        int bundleVersion = spec.Id == "darksamus-echoes" ? 6 : 5;
         string recipe = $"retro-character-preview-v{bundleVersion}:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
                 $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
-        if (bundleVersion == 5) recipe += ":normal-fixed-generated-cannon-v1-global-triangle-ids";
+        recipe += ":body-raw-materials-txtr-authoring-v1-all-local-slots";
+        if (spec.Id == "darksamus-echoes") recipe += ":normal-fixed-generated-cannon-v1-global-triangle-ids";
         return new(spec.Id, bundleVersion, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
@@ -225,6 +229,19 @@ public static partial class RetroCharacterPreviewExporter
                 byte[] geometry = echoes ? RetroCharacterSourceGlbWriter.Write(model, skeleton, cancellation)
                     : RetroCharacterSourceGlbWriter.WritePrimeTrooper(model, skeleton, cancellation);
                 File.WriteAllBytes(Path.Combine(staging, geometryName), geometry); Stage(geometryName);
+                if (echoes && part.Id == "body")
+                {
+                    string materialName = stem + ".materials.bin";
+                    var binding = new RetroCharacterMaterialArchive.Source(spec.Id, refs.Cmdl, refs.Cskr, refs.Cinf,
+                        part.Ancs, BundleSpec(spec.Id, edition).SourceFingerprint);
+                    byte[] materials = RetroCharacterMaterialArchive.Encode(binding, cmdlBytes, cskrBytes,
+                        RetroAnimationGraphProof.Sha(geometry), resource, cancellation);
+                    // Verify the complete component before it joins the same
+                    // atomic generation as geometry/rig/animations. This grants
+                    // no source-program renderer or runtime admission.
+                    _ = RetroCharacterMaterialArchive.Read(materials, cancellation);
+                    File.WriteAllBytes(Path.Combine(staging, materialName), materials); Stage(materialName);
+                }
                 byte[] provenance = echoes ? GeneratedSourceProvenance(spec, part, refs, gameId, cmdlBytes, cskrBytes, cinfBytes,
                     ancsBytes, archive, geometry, model, skeleton) : PrimeAuthoringProvenance(spec, refs, gameId, cmdlBytes, cskrBytes,
                     cinfBytes, ancsBytes, graph.Descriptor, archive, geometry, model, skeleton);

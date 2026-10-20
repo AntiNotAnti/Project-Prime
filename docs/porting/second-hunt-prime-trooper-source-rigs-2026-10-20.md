@@ -77,3 +77,7 @@ One temporary capture contained only our Profile/calibration UI, with no native/
 The original and emulator-copy source SHA256 remained `3fc5ece5ca1badecc1e61a3762294bf81a9f3cf0ed6652eab0838aacd74fe844`. Both host APK hashes remained unchanged, and the installed new APK matched the frozen Debug hash above. The isolated UID crash buffer was empty. The unique RVZ, MediaStore entry, test package, internal/external app data, scratch and all derived payloads were deleted and absence verified. No source screenshots were taken; the single own-UI capture was deleted and no PNG remains. Main-app data and emulator configuration were untouched. The 156 primary ADB commands, receipt/component checks, UI observations and cleanup are retained in `artifacts/sh-integration/android-prime-full-source-c66f444a4/summary.json` and adjacent metadata logs.
 
 This qualifies this emulator import/upgrade path. It does not qualify physical devices, cloud/SD providers, broader crash scenarios, source rendering, gameplay or source-animation runtime pose composition.
+
+## Merge identity
+
+[PR878](https://github.com/AntiNotAnti/Project-Prime/pull/878) merged as `2ed2da6862ee63761e4cae84f7320bd0933fc63f` at2026-10-20T18:07:04Z after the scoped local qualification above. CI/review was not awaited, as authorized. This merge records source authoring; source materials, runtime Trooper animation/gameplay and selection/network/replay remain unfinished.
