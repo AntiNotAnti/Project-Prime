@@ -14,4 +14,5 @@ internal interface ICustomCombatDelivery
     bool PublishLaunch(in CustomReplicaLaunch launch);
     void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input);
     void AfterSourcePhase(CustomAuthorityCombatAdapter root);
+    void SourcePhaseSealed(CustomAuthorityCombatAdapter root) { }
 }

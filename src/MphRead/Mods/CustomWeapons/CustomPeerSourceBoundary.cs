@@ -7,6 +7,7 @@ namespace MphRead.Mods.CustomWeapons;
 internal interface ICustomSourceBoundaryReadiness : ICustomSourceReadiness
 {
     bool TryOpen(in CustomSourceInput input,out CustomSourceReadyContext context);
+    bool IsConfirmed(WeaponOwnerContext owner)=>TryGet(owner,out _);
 }
 
 internal sealed class CustomPeerSourceBoundary : ICustomSourceBoundaryReadiness
@@ -54,6 +55,7 @@ internal sealed class CustomPeerSourceBoundary : ICustomSourceBoundaryReadiness
     }
     internal bool TryGetFence(WeaponOwnerContext owner,out ulong serial)
     { serial=0; if (!Current || !SameOccupant(owner)) return false; serial=_serial; return true; }
+    public bool IsConfirmed(WeaponOwnerContext owner)=>Current&&SameOccupant(owner);
     internal bool TryGetSerial(in CustomSourceInput input,out ulong serial)
     {
         serial=0;

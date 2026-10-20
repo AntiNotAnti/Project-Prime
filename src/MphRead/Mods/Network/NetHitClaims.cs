@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -757,6 +758,7 @@ namespace MphRead.Mods.Network
             /// shot is that shooter's round trip. <see cref="GraceFor"/>.
             /// </summary>
             public int Grace;
+            public bool AwaitingNativeSelection;
             public bool Live;
         }
 
@@ -1424,6 +1426,13 @@ namespace MphRead.Mods.Network
                     RefuseReceiptCapacity(shooterSlot, claim);
                     continue;
                 }
+                var nativeSelection=CustomNativeClaimSource.Read(shooterSlot,claim);
+                if(nativeSelection is not (CustomNativeFireDecision.Released or CustomNativeFireDecision.Pending))
+                {
+                    RefusedHere++;
+                    AnswerRequest(shooterSlot,claim,HitVerdictPacket.ResultInvalidLaunch,remember:false,outcome:RequestOutcome(claim));
+                    continue;
+                }
                 // A source explicitly retired before emission cannot be rescued by
                 // optional Shadow proof. Existing immutable paid receipts still ACK.
                 var terminalKey = NetShotProof.Key(shooterSlot, claim);
@@ -1547,6 +1556,15 @@ namespace MphRead.Mods.Network
                 if (NetSession.ServerMatch is { Ending: true })
                 {
                     AnswerEndedMatch(shooterSlot, claim);
+                    continue;
+                }
+                if(nativeSelection==CustomNativeFireDecision.Pending)
+                {
+                    // Preserve arrival-time geometry/life/age eligibility while
+                    // waiting. Source proof and all payments remain deferred.
+                    byte eligibility=Judge(shooterSlot,claim);
+                    if(eligibility!=HitVerdictPacket.ResultApplied)Answer(shooterSlot,claim.ClaimId,eligibility);
+                    else Park(shooterSlot,claim,awaitingNativeSelection:true);
                     continue;
                 }
                 if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
@@ -1899,6 +1917,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void ReconcileImperialistHeadshot(ref Pending entry, int resolved)
         {
+            if(CustomNativeClaimSource.Read(entry.ShooterSlot,ProofClaim(entry))!=CustomNativeFireDecision.Released)return;
             if (entry.Beam != (byte)BeamType.Imperialist
                 || (entry.Flags & HitClaimPacket.FlagHeadshot) == 0
                 || entry.Damage <= resolved)
@@ -2060,7 +2079,7 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        private static void Park(int shooterSlot, in HitClaimPacket claim)
+        private static void Park(int shooterSlot, in HitClaimPacket claim,bool awaitingNativeSelection=false)
         {
             TimedVictimDamageProfile? timedProfile = null;
             TimedImperialistImpact? timedImpact = null;
@@ -2124,6 +2143,7 @@ namespace MphRead.Mods.Network
                 Direction = claim.Direction,
                 Arrived = NetSession.NetFrame,
                 Grace = GraceFor(shooterSlot),
+                AwaitingNativeSelection=awaitingNativeSelection,
             };
             ActivatePending(ref _pending[index]);
             ClaimsPendingHighWater = Math.Max(ClaimsPendingHighWater, ClaimsPendingCurrent);
@@ -2285,6 +2305,27 @@ namespace MphRead.Mods.Network
                         AnswerEndedMatch(entry.ShooterSlot, ProofClaim(entry));
                         DeactivatePending(ref entry);
                         continue;
+                    }
+                    var nativeSelection=CustomNativeClaimSource.Read(entry.ShooterSlot,ProofClaim(entry));
+                    if(nativeSelection!=CustomNativeFireDecision.Released)
+                    {
+                        if(nativeSelection!=CustomNativeFireDecision.Pending||unchecked(now-entry.Arrived)>=2*MaxGraceFrames)
+                        {
+                            RefusedHere++;Answer(entry.ShooterSlot,entry.Id,HitVerdictPacket.ResultInvalidLaunch);
+                            DeactivatePending(ref entry);
+                        }
+                        continue;
+                    }
+                    if(entry.AwaitingNativeSelection)
+                    {
+                        var waitingClaim=ProofClaim(entry);
+                        var proof=NetShotProof.Observe(entry.ShooterSlot,waitingClaim,HitVerdictPacket.ResultApplied,"source-released");
+                        if(NetShotProof.Mode==ShotProofMode.Enforce&&AnswerPhysicalOutcome(entry.ShooterSlot,waitingClaim))
+                        {DeactivatePending(ref entry);continue;}
+                        if(waitingClaim.VictimSlot!=entry.ShooterSlot&&NetShotProof.Mode==ShotProofMode.Enforce
+                            &&proof.Status==ShotProofStatus.Rejected)
+                        {Answer(entry.ShooterSlot,entry.Id,HitVerdictPacket.ResultRefused);DeactivatePending(ref entry);continue;}
+                        entry.AwaitingNativeSelection=false;
                     }
                     if (AnswerPaidPending(ref entry))
                     { DeactivatePending(ref entry); continue; }
@@ -2478,6 +2519,8 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.OldLifeClaims++;
                 return;
             }
+            if(CustomNativeClaimSource.Read(shooterSlot,ProofClaim(entry))!=CustomNativeFireDecision.Released)
+            {RefusedHere++;Answer(shooterSlot,entry.Id,HitVerdictPacket.ResultInvalidLaunch);return;}
             if (AnswerPaidPending(ref entry)) return;
             var terminalKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, shooterSlot,
                 entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);

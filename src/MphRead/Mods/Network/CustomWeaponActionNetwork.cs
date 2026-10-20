@@ -74,6 +74,7 @@ public sealed partial class DedicatedServer
             server._customAudience?.PublishContact(outcome,NetSession.Clock);return true;
         }
         public void AfterSourcePhase(CustomAuthorityCombatAdapter root) => server.ProcessCustomActions(scene,root);
+        public void SourcePhaseSealed(CustomAuthorityCombatAdapter root)=>server.PumpCustomNativeIntents();
         public bool HasControlWitness(in CustomWeaponAction action)
             => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasControlWitness(action)==true;
         public bool TryPrepareAudience(in CustomWeaponAction action)
