@@ -34,7 +34,8 @@ public static partial class NetLobbyTest
                 // single-life result probe. This fixture keys every result by
                 // full independent action identity across actual respawns.
                 if (packet.Type is PacketType.WorldBootstrap or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReadyConfirmed
-                    or PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent)
+                    or PacketType.CustomWeaponReplicaPage or PacketType.CustomWeaponReplicaEvent
+                    or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponState or PacketType.Snapshot or PacketType.SnapshotFast)
                     original?.Invoke(packet);
                 Receive(packet);
             };
@@ -145,7 +146,7 @@ public static partial class NetLobbyTest
         internal CustomControlRequest Request(uint sequence,CustomWeaponActionKind kind,byte optic=0)
         {
             var ready=Engine.FirstReady.Ready!.Value; var owner=Engine.Latest.First.Owner;
-            return new(ready.Bootstrap,ready.Manifest,owner.Slot,owner.Life,new(10),sequence,kind,optic);
+            return new(ready.Bootstrap,ready.Manifest,owner.Slot,owner.Life,new(10),sequence,kind,optic,Engine.Knowledge(Engine.First));
         }
         internal static byte[] Bytes(CustomControlRequest request)
         { var bytes=new byte[CustomControlRequest.Size]; request.Write(bytes); return bytes; }
@@ -166,13 +167,24 @@ public static partial class NetLobbyTest
                 HasState=true,HasFireEvents=true,HasAnalogMove=true,HasContinuousFireTick=true };
             var bytes=new byte[CompactIntentCodec.Size(input)]; CompactIntentCodec.Write(input,bytes); return bytes;
         }
+        private (PacketType Type,byte[] Bytes) Carrier(byte[] native)
+        {
+            var known=Engine.Knowledge(Engine.First);
+            if(!known.IsPresent)return (PacketType.Intent,native);
+            var ready=Engine.FirstReady.Ready!.Value;
+            var bytes=new byte[CustomInputCarrier.EmptyPrefixSize+native.Length];
+            Check(CustomInputCarrier.TryWrite(ready.Bootstrap,ready.Manifest,known,null,native,bytes,out int written),
+                "public control source carrier preserves independently captured private knowledge");
+            Check(written==bytes.Length,"input-only carrier writes exact source/native payload length");
+            return (PacketType.CustomWeaponInput,bytes);
+        }
         internal uint Fresh(Vector3? position=null)
         {
-            uint frame=NextSource(); var bytes=Input(frame,false,position); Engine.First.Send(PacketType.Intent,bytes);
+            uint frame=NextSource(); var carrier=Carrier(Input(frame,false,position)); Engine.First.Send(carrier.Type,carrier.Bytes);
             var time=Stopwatch.StartNew(); long retry=50;
             Engine.Rig.Wait(()=>
             {
-                if (time.ElapsedMilliseconds>=retry) { Engine.First.Send(PacketType.Intent,bytes); retry=time.ElapsedMilliseconds+50; }
+                if (time.ElapsedMilliseconds>=retry) { Engine.First.Send(carrier.Type,carrier.Bytes); retry=time.ElapsedMilliseconds+50; }
                 return Engine.Latest.First.InputFrame==frame;
             },"new released native input actually reaches current movement/control consumption",8000);
             return frame;
@@ -202,7 +214,8 @@ public static partial class NetLobbyTest
             const BindingFlags hidden=BindingFlags.Instance|BindingFlags.NonPublic;
             var transport=(NetTransport)typeof(DedicatedServer).GetField("_transport",hidden)!.GetValue(Engine.Rig.Server)!;
             long before=transport.Wire.Capture().Categories.Single(c=>c.Kind==NetTrafficKind.Intent).RxPackets;
-            Engine.First.Send(PacketType.Intent,Input(down,true)); Engine.First.Send(PacketType.Intent,Input(up,false));
+            var downCarrier=Carrier(Input(down,true));var upCarrier=Carrier(Input(up,false));
+            Engine.First.Send(downCarrier.Type,downCarrier.Bytes); Engine.First.Send(upCarrier.Type,upCarrier.Bytes);
             Engine.Rig.Wait(()=>transport.Wire.Capture().Categories.Single(c=>c.Kind==NetTrafficKind.Intent).RxPackets>=before+2,
                 "actual UDP worker receives BOTH native tap carriers before another engine consumption pass");
             pause.Release.Set();
@@ -298,7 +311,13 @@ public static partial class NetLobbyTest
             && next.Generation==old.Owner.Generation && next.Life!=old.Life && f.Engine.Latest.Contacts==0,
             "pending control cannot borrow a new life or wait through respawn to fire");
         f.Fresh(); f.Engine.Rig.Wait(()=>f.A.State?.State.Owner==next,"actual fresh new-life source automatically publishes canonical inventory");
-        var equip=f.Request(1,CustomWeaponActionKind.Equip); f.Reserve(equip,2); f.Fresh(); var receipt=f.Settle(equip);
+        if(publicAvailability)
+        {
+            Check(f.A.State is {HasWeapon:false},"public respawn has an explicit empty canonical inventory");
+            f.A.Ack(denied.Ack);f.WaitPending(0,"old-life denial is acknowledged before real pickup respawn wait");
+            f.Engine.AcquirePublic(f.Engine.First);
+        }
+        var equip=f.Request(1,CustomWeaponActionKind.Equip); f.Reserve(equip,publicAvailability?1:2); f.Fresh(); var receipt=f.Settle(equip);
         Check(receipt.Receipt.Result==WeaponActionResult.Accepted && receipt.Receipt.Action.Owner==next
             && receipt.Receipt.After is { Magazine:4,Reserve:16 },"new life gets a separate request sequence/mode and fresh inventory without old Fire");
         f.A.Ack(denied.Ack); f.WaitPending(0,"same admitted bootstrap/connection acknowledges exact old-life no-source terminal alongside new-life result");

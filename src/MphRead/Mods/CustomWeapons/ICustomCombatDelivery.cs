@@ -21,4 +21,6 @@ internal interface ICustomCombatDelivery
     void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input);
     void AfterSourcePhase(CustomAuthorityCombatAdapter root);
     void SourcePhaseSealed(CustomAuthorityCombatAdapter root) { }
+    bool CanCollectPickup(CustomAuthorityCombatAdapter root,int index)=>false;
+    bool PublishPickup(CustomAuthorityCombatAdapter root,in CustomPickupOutcome outcome)=>false;
 }
