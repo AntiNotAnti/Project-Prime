@@ -244,6 +244,7 @@ CustomRifleTrackChecks.Run(Check);
 CustomRifleAudioChecks.Run(Check);
 HeadHitTrackChecks.Run(Check);
 HeadHitSceneChecks.Run(Check);
+CorpsePresentationBudgetChecks.Run(Check);
 HeadDeathTrackChecks.Run(Check);
 HeadDeathSceneChecks.Run(Check);
 checks += CustomPaymentChecks.Run();

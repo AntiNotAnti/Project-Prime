@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Linq;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Mods;
@@ -121,6 +122,48 @@ internal static class HeadDeathSceneChecks
             Reset();Clock(105,1001);player.Health=0;Offer(Fact());var first=Track(scene)!.Event;
             for(int n=0;n<100;n++)Offer(Fact((uint)n+2));
             check(Track(scene)!.Event==first&&Active(scene,player),"full-life cause latch survives100 alternate accepted identities without eviction");
+            // Explicitly injected CPU facts exercise only visual admission.
+            Reset();Clock(105,1001);player.Health=0;Offer(Fact());
+            RenderOptions.CosmeticQuality=CosmeticEffectQuality.Low;
+            actor.CameraInfo.Position=new(24,0,0);Tick(105,1002);
+            check(Active(scene,player),"Low corpse distance includes exactly24 world units");
+            actor.CameraInfo.Position=new(24.01f,0,0);Tick(105,1003);
+            check(!Active(scene,player)&&Track(scene) is {HasCause:true},"far-distance retirement retains the consumed accepted cause");
+            actor.CameraInfo.Position=Vector3.Zero;RenderOptions.CosmeticQuality=CosmeticEffectQuality.High;Tick(105,1004);
+            check(!Active(scene,player),"returning camera or raising quality cannot resurrect retired same-life corpse");
+            Reset();Clock(105,1001);player.Health=0;Offer(Fact());
+            RenderOptions.CosmeticQuality=CosmeticEffectQuality.Off;Tick(105,1002);
+            RenderOptions.CosmeticQuality=CosmeticEffectQuality.High;Tick(105,1003);
+            check(!Active(scene,player)&&Track(scene) is {HasCause:true},"quality Off cancels presentation without reopening death authority");
+            Reset();actor.CameraInfo.Position=Vector3.Zero;
+            for(int i=1;i<8;i++)
+            {
+                lifecycle[i]=new();lifecycle[i].SetOccupant(5);for(int n=0;n<7;n++)lifecycle[i].BeginLife();
+                var other=new PlayerEntity(i,scene){Health=100,LoadFlags=LoadFlags.Active|LoadFlags.Spawned,Position=Vector3.Zero};
+                flags1.SetValue(other,(PlayerFlags1)0);flags2.SetValue(other,(PlayerFlags2)0);frozen.SetValue(other,(ushort)0);
+                scene.Players.Values[i]=other;
+            }
+            Tick(100,1000);Clock(105,1001);
+            for(int i=0;i<8;i++)
+            {
+                var victim=scene.Players.Values[i]!;victim.Health=0;
+                Accept.Invoke(scene,new object?[]{victim,Fact((uint)i+1) with{VictimSlot=(byte)i},null});
+            }
+            RenderOptions.CosmeticQuality=CosmeticEffectQuality.Low;Tick(105,1002);
+            for(int i=0;i<8;i++)
+            {
+                var victim=scene.Players.Values[i]!;
+                var track=(HeadDeathTrack)Read(((Array)Slots.GetValue(scene)!).GetValue(i)!,"Track")!;
+                check(track.HasCause&&scene.ModHeadDeathPose(victim,CosmeticCatalog.DeathPresentations[0]).Active==(i<2),
+                    "Low corpse budget admits two with stable slot tie-break while retaining every cause: "+i);
+                check(victim.Health==0,"visual budget cannot alter canonical death HP: "+i);
+            }
+            RenderOptions.CosmeticQuality=CosmeticEffectQuality.High;Tick(105,1003);
+            check(Enumerable.Range(0,8).Count(i=>scene.ModHeadDeathPose(scene.Players.Values[i]!,CosmeticCatalog.DeathPresentations[0]).Active)==2,
+                "quality upgrade does not restart six retired accepted causes");
+            Release.Invoke(scene,null);headless.SetValue(null,true);Tick(105,1004);
+            check(Slots.GetValue(scene)==null,"headless fixed-step dispatch creates no corpse tracks/budget state");
+            headless.SetValue(null,false);
             Release.Invoke(scene,null);check(Slots.GetValue(scene)==null,"scene teardown releases all death tracks and pending causes");
         }
         finally

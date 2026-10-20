@@ -150,6 +150,26 @@ public partial class Scene
                 if(at==frame)break;
             }
         }
+        ApplyHeadDeathBudget();
+    }
+    private void ApplyHeadDeathBudget()
+    {
+        if(_headDeaths==null)return;
+        Span<int> candidates=stackalloc int[8];Span<float> distances=stackalloc float[8];int count=0;
+        var quality=RenderOptions.CosmeticQuality;int capacity=CorpsePresentationBudget.Capacity(quality);
+        Vector3 camera=Players.Main.CameraInfo.Position;
+        for(int i=0;i<Players.Items.Count&&i<8;i++)
+        {
+            if(Players.Items[i] is not {} player||_headDeaths[i] is not {} slot
+                ||!slot.Track.Sample(0,player.ModCorpseDeathDefinition).Active)continue;
+            float distance=((slot.Anchored?slot.Position:player.Position)-camera).LengthSquared;
+            if(!CorpsePresentationBudget.Within(quality,distance)){slot.Track.Cancel();continue;}
+            int at=count++;
+            while(at>0&&(distance<distances[at-1]||distance==distances[at-1]&&i<candidates[at-1]))
+            {candidates[at]=candidates[at-1];distances[at]=distances[at-1];at--;}
+            candidates[at]=i;distances[at]=distance;
+        }
+        for(int i=capacity;i<count;i++)_headDeaths[candidates[i]]!.Track.Cancel();
     }
     private void ReleaseHeadDeathPresentation()=>_headDeaths=null;
 }
