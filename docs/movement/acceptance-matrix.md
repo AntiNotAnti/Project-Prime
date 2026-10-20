@@ -22,6 +22,14 @@ Hunter × map × mode × device × cadence × fault-profile Cartesian product.
 Independent rule/lifecycle tests, real scene traces and actual UDP tests prove
 different boundaries and are identified separately here.
 
+The further [PR-09g air-turn fixture](pr09g-results.md) passes one fixed Windows
+run: 28 mirrored envelope pairs, 14 calibration pairs, 245,829 assertions and
+31,920 body samples. All seven Hunters/two maps traverse the objectives with
+zero collision overflow/recovery. Actual air contribution and native-jump/Y
+preservation are witnessed. No pair reaches the cap; maximum-cap and competitive
+calibration remain unverified. This adds controlled pointer/keyboard evidence,
+not physical-device, achieved-refresh or performance acceptance.
+
 | Required area | Existing evidence | Status and remaining boundary |
 | --- | --- | --- |
 | Pure movement mathematics | [PR-01](pr01-results.md): 104 checks, signed/rotated bases, reversal, zero/invalid input; [PR-03](pr03-results.md): 20,046 profile checks including long air-turn stress. | **PASS, scoped.** Pure/profile determinism and warmed zero-allocation checks do not establish whole-engine cost or cross-CPU bit identity. |

@@ -1,0 +1,293 @@
+{
+  "status": "INCOMPLETE: no qualifying CPU gate result",
+  "scope": "Retained first fixed CPU experiment and decoder failures; no source lease or failure is relabelled",
+  "originalSourceAndBuild": {
+    "baseSha": "b05e74d418ca5a8c8eccb8ad570d99c3ad4f473a",
+    "sourceDirty": true,
+    "files": {
+      "tools/nettest/MomentumServerPerformanceBenchmark.cs": "d4660b824dddcd58be74b8aacc2aa7e22fdd426e0ca1919da0664d135a74097f",
+      ".github/workflows/build.yml": "49cd81385a104861e138f457379e8ee019488487d92731789f88e84b80465d88",
+      "tools/movement-cpu/PrimeStepCpu.wprp": "e1026c446a872c0e4c3f70998e4bdaee03d9d5b79e67b836dc0e25efb12e6d04",
+      "tools/movement-cpu/test_etw_cpu_intervals.py": "a30973b659f59ab8b5182d9bd4abeaf955a2fb266fd934771cebf8c959a26dfe",
+      "tools/movement-cpu/etw_step_cpu.py": "c835049776287f342157fca16440e5d91aad3e0824c2273e4b1b767f91c26935",
+      "tools/movement-cpu/run_cpu_protocol.py": "0d0502b3f7664d0b08eb58f3c7487bb28193adf1496824d5f991f921e0d4280b",
+      "tools/movement-cpu/CPU-PROTOCOL.md": "d1ae1d1e73031448af4c60b5d5a95f1f9a5027955d399253a195dd19819455d6",
+      "tools/movement-cpu/probe-target-numeric.json": "8d501992a78c0bd0821fe5c43d8d790e1718d279d35ceb1636265b74c62776d3",
+      "tools/movement-cpu/etw_cpu_intervals.py": "3c2958940abf1b13dc4e77a4e4aec925d01dedcc2f458cb8bac25ee027f17145",
+      "tools/movement-cpu/README.md": "2a6e28b724805bfec5d4f98a2bd11eb6239def468cf28bff482dee7f2fb35668",
+      "tools/movement-cpu/test_cpu_protocol.py": "1581f84be2840efa69ed313701e3a92255d777791e5b1bc6c3bada91ee99979c",
+      "tools/movement-cpu/test_etw_step_cpu.py": "5876588036e2465afd5c9d808c6713784e535eba5cf0456810ab1089e20ea489"
+    },
+    "productionCoreReused": true,
+    "productionOnlyChangeFrom5d": "CollisionDetection.cs already validated identical",
+    "binaries": {
+      "ProjectPrime.dll": "daec2800742fe0bf4c2bb83ebcbc9796117c12503e0f77197580acfe6171fca9",
+      "nettest.dll": "38d05bd93c4e1b4560b43f4a15483db3666275b3291474da0444a3359d223255",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    },
+    "sourceOverlaySha256": "b1a4466e33171e66416487fd68085a96aed61dd7d99e223f5dd597ac0d48c575"
+  },
+  "verificationArms": [
+    {
+      "id": "verify-0-Momentum",
+      "model": "Momentum",
+      "room": "MP3 PROVING GROUND",
+      "failure": null,
+      "snapshotPayloadsHashed": 3600,
+      "snapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+    },
+    {
+      "id": "verify-0-Native",
+      "model": "Native",
+      "room": "MP3 PROVING GROUND",
+      "failure": null,
+      "snapshotPayloadsHashed": 3600,
+      "snapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+    },
+    {
+      "id": "verify-1-Momentum",
+      "model": "Momentum",
+      "room": "MP1 SANCTORUS",
+      "failure": null,
+      "snapshotPayloadsHashed": 3600,
+      "snapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "workloadSha256": "f6cc0c226973474ed24ab05d27b147640a175816636f7079a4a1a6fc325f05a3"
+    },
+    {
+      "id": "verify-1-Native",
+      "model": "Native",
+      "room": "MP1 SANCTORUS",
+      "failure": null,
+      "snapshotPayloadsHashed": 3600,
+      "snapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "workloadSha256": "a92fa4de603d56a0287e6a61a63c9c15b0b11b9a75985c57015169efc72f0f82"
+    }
+  ],
+  "timingArms": [
+    {
+      "id": "arm-00-control-Native",
+      "model": "Native",
+      "room": "MP3 PROVING GROUND",
+      "failure": null,
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.17868502777777817,
+        "p50": 0.169,
+        "p95": 0.261,
+        "p99": 0.33180000000000004,
+        "p999": 1.4579,
+        "worst": 3.3721,
+        "processCpuMilliseconds": 609.375,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6463508,
+        "simulationStepsPerWallSecond": 5569.730864416041
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      },
+      "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34"
+    },
+    {
+      "id": "arm-01-trace-Native",
+      "model": "Native",
+      "room": "MP3 PROVING GROUND",
+      "failure": null,
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.18631066666666662,
+        "p50": 0.1761,
+        "p95": 0.2721,
+        "p99": 0.3442,
+        "p999": 1.4819,
+        "worst": 3.3884000000000003,
+        "processCpuMilliseconds": 671.875,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.6738026,
+        "simulationStepsPerWallSecond": 5342.811084433334
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12462992,
+        "bytesPerStep": 3461.9422222222224,
+        "bytesPerAlivePlayerStep": 513.387378480804,
+        "bytesPerActivePlayerStep": 432.7427777777778,
+        "aliveSteps": 24276,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12463280,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      },
+      "workloadSha256": "2da1523b81168b14dafe0f6c37a623ac51d7d32d47b29d7588f75189fe6f9e34",
+      "schedulerCpu": {
+        "scope": "ETW scheduled-thread running time minus ISR/DPC union",
+        "unit": "milliseconds from raw QPC, never thread-cycle conversion",
+        "samples": 3600,
+        "p50CpuMs": 0.1748,
+        "p95CpuMs": 0.267,
+        "p99CpuMs": 0.32530000000000003,
+        "decoderAudit": {
+          "decoderScope": "only required scheduler/lifecycle/interrupt providers, independently xperf joined",
+          "tracerptTotalProcessingErrors": 9237,
+          "tracerptRequiredOpaqueSwitches": 36224,
+          "rawNormalEventCount": 78075,
+          "constantFiletimeMinusQpc": 134368471852130419,
+          "switchCount": 36224,
+          "interruptCount": 8906,
+          "timestampUnit": "raw100nsQPC, no cycle-to-time conversion",
+          "quantization": "100ns clock; not a logging-bias bound"
+        }
+      }
+    },
+    {
+      "id": "arm-02-trace-Momentum",
+      "model": "Momentum",
+      "room": "MP3 PROVING GROUND",
+      "failure": null,
+      "timing": {
+        "unit": "milliseconds",
+        "kind": "elapsed wall-clock sim.Step, includes scheduling/GC; not per-step CPU sampling",
+        "scope": "sim.Step only, including matched minimal snapshot/AI-intent counters; post-step occupancy observations excluded",
+        "mean": 0.213462888888889,
+        "p50": 0.2083,
+        "p95": 0.3054,
+        "p99": 0.4495,
+        "p999": 1.4427,
+        "worst": 5.956,
+        "processCpuMilliseconds": 734.375,
+        "processCpuScope": "whole measured loop including matched post-step observations and verification when enabled",
+        "loopSeconds": 0.7723366,
+        "simulationStepsPerWallSecond": 4661.180112401768
+      },
+      "allocation": {
+        "simStepCurrentThreadBytes": 12844424,
+        "bytesPerStep": 3567.8955555555553,
+        "bytesPerAlivePlayerStep": 518.1710505083105,
+        "bytesPerActivePlayerStep": 445.9869444444444,
+        "aliveSteps": 24788,
+        "activeSteps": 28800,
+        "processAllocationBytes": 12844712,
+        "processScope": "whole measured loop; includes observers/verification",
+        "gen0": 0,
+        "gen1": 0,
+        "gen2": 0,
+        "gcPauseMilliseconds": 0
+      },
+      "networkAndCollision": {
+        "stepFailures": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "overruns": 0,
+        "claimsReceived": 0,
+        "claimsApplied": 0,
+        "claimsRefused": 0,
+        "compensatedShots": 0,
+        "rewindFrames": 0,
+        "catchupSteps": 0,
+        "historyQueries": 0,
+        "historyMisses": 0,
+        "contactOverflows": 0,
+        "recoveryFallbacks": 0
+      },
+      "workloadSha256": "4c35f4c3b2cee888ded73444f6a5c92282b3bcd4ff629dbad06c75a230f74d66"
+    }
+  ],
+  "decoderFailures": [
+    {
+      "decoder": "original whole-document/all-export retention",
+      "error": "ElementTree out of memory",
+      "xmlLine": 56244937
+    },
+    {
+      "decoder": "streaming whole-document XML parser",
+      "error": "ElementTree out of memory despite low working set",
+      "xmlLine": 54733048
+    }
+  ],
+  "ambientCpuPercentBeforeProvingGround": 3,
+  "measurementsRepeatedForDecoderRepair": false,
+  "nextProtocol": "Same fixed schedule with unused ReadyThread omitted; capture first, bounded offline decode/archive afterwards; no gate until all 16 traces and controls pass",
+  "decoderRecovery": {
+    "status": "PASS on exact retained Momentum trace; no new simulation measurement",
+    "portableTestsWindows": 48,
+    "elapsedSeconds": 142.85426839999855,
+    "peakWorkingSetBytes": 148815872,
+    "stepSpans": 3600,
+    "failure": null,
+    "method": "Bounded complete-Event XML chunks plus streaming all-event clock/decoder audit; original traces and both earlier failures retained",
+    "amendmentZipSha256": "1f395f33dc79c2b9d4c41de20f246b9ad100b8f1eadc45d79628d363ea93ee1c",
+    "rawExportBytes": 2463002114,
+    "decoderAudit": {
+      "decoderScope": "only required scheduler/lifecycle/interrupt providers, independently xperf joined",
+      "tracerptTotalProcessingErrors": 10225,
+      "tracerptRequiredOpaqueSwitches": 1499701,
+      "rawNormalEventCount": 2613581,
+      "constantFiletimeMinusQpc": 134368471852119992,
+      "switchCount": 1499701,
+      "interruptCount": 13525,
+      "retainedWindowSwitchCount": 329788,
+      "retainedWindowInterruptCount": 2660,
+      "timestampUnit": "raw100nsQPC, no cycle-to-time conversion",
+      "quantization": "100ns clock; not a logging-bias bound"
+    },
+    "individualArmCpu": {
+      "scope": "ETW scheduled-thread running time minus ISR/DPC union",
+      "unit": "milliseconds from raw QPC, never thread-cycle conversion",
+      "samples": 3600,
+      "p50CpuMs": 0.2066,
+      "p95CpuMs": 0.3002,
+      "p99CpuMs": 0.36860000000000004
+    },
+    "maxNumericalErrorBoundMs": 0.0032
+  }
+}
