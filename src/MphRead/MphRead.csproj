@@ -395,6 +395,8 @@
        developer diagnostics. Dedicated servers never include this UI. -->
   <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <DefineConstants>$(DefineConstants);MPHREAD_RMLUI_GL_SMOKE;MPHREAD_RMLUI</DefineConstants>
+    <!-- Only the explicit GL acceptance project enables its failure injector. -->
+    <DefineConstants Condition="'$(MphReadReplayPreviewFailureFixture)' == 'true'">$(DefineConstants);MPHREAD_REPLAY_PREVIEW_FAILURE_FIXTURE</DefineConstants>
   </PropertyGroup>
   <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <None Update="Mods/Launcher/RmlUi/Assets/*.rml;Mods/Launcher/RmlUi/Assets/*.rcss"

@@ -11,6 +11,11 @@ using OpenTK.Mathematics;
 namespace MphRead;
 public partial class Scene
 {
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_REPLAY_PREVIEW_FAILURE_FIXTURE
+    // Only the explicit OpenGL acceptance fixture can inject a render failure.
+    internal static Func<int, Exception?>? NativeReplayMultiViewFailureForTests;
+#endif
+
     private sealed class MultiViewPass
     {
         internal int Index;
@@ -225,6 +230,10 @@ public partial class Scene
                 try
                 {
                     OnDrawFrame();
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_REPLAY_PREVIEW_FAILURE_FIXTURE
+                    if (NativeReplayMultiViewFailureForTests?.Invoke(index) is { } injectedFailure)
+                        throw injectedFailure;
+#endif
                     if (!OnRenderFrame())
                         throw new InvalidOperationException("The scene renderer did not complete the tile.");
                 }
