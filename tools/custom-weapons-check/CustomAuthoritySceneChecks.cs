@@ -234,7 +234,7 @@ internal static partial class CustomAuthoritySceneChecks
         public void Dispose()
         { try { NetUnlagged.AbortShot(); Root.Dispose(); } finally { try { _sim.Stop(); } finally { NetSession.Stop(); } } }
     }
-    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false,bool readinessOnly = false,bool snapshotOnly = false,string? snapshotCase = null)
+    internal static int Run(string data,bool sourceOnly = false,bool admissionOnly = false,bool readinessOnly = false,bool snapshotOnly = false,string? snapshotCase = null,bool nativeSelectionOnly = false)
     {
         _checks = 0;
         string directory = Directory.GetCurrentDirectory();
@@ -251,6 +251,13 @@ internal static partial class CustomAuthoritySceneChecks
             NetShotProof.Mode = ShotProofMode.Off; NetTimedShotProof.Mode = TimedGrantProofMode.Off;
             NetDynamicGeometryHistory.ProductionEnabled = true; NetDynamicGeometryHistory.ShadowEnabled = false;
             Check(ServerSim.Available(out string reason),"real assets/synthetic input available: " + reason);
+            if (nativeSelectionOnly)
+            {
+                NativeSelectionAccepted(); NativeSelectionReleased(); NativeSelectionDenied(); NativeSelectionFire(); NativeSelectionLifecycle();
+                Console.WriteLine($"PASS {_checks} real engine native selection-history checks.");
+                Console.WriteLine("SCOPE: actual asset-backed authority actors, native accepted-input placement/control phases and production engine custom source admission; trusted readiness configuration and manual ordered action ingress are explicit fixtures. Only source-time selection ownership is tested; native event filtering, live input controls, UDP and rendering are not activated.");
+                return 0;
+            }
             if (snapshotOnly)
             {
                 if (snapshotCase=="wall") ReplicaCaptureTerminal();

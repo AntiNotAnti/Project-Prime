@@ -26,6 +26,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         internal required CustomLaunchPayments Payments;
         internal required CustomEngineSourceHistory Sources;
         internal CustomSourceActionJournal? Journal;
+        internal uint? RetiredAt;
     }
     private readonly record struct Death(WeaponOwnerContext Owner,uint World,uint Observed);
     private readonly record struct ContactScope(Life Life, CustomLaunchPayments.ContactLease Lease,
@@ -159,6 +160,14 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     }
     internal bool IsActionLifeActive(WeaponOwnerContext owner)
         => IsCurrentSourceOwner(owner) && _current[owner.Slot] is { Journal.IsRetired:false } life && life.Owner==owner;
+    internal CustomNativeSelection ReadNativeSourceSelection(WeaponOwnerContext owner,uint source)
+    {
+        if (!owner.IsValid||owner.MatchId!=_match||owner.AuthorityEpoch!=_epoch)return CustomNativeSelection.Rejected;
+        if (Find(owner)?.Journal is { } journal)return journal.ReadNativeSelection(owner,source);
+        return IsCurrentSourceOwner(owner)?CustomNativeSelection.Pending:CustomNativeSelection.Rejected;
+    }
+    internal bool TryReleaseNativeSourceSelection(WeaponOwnerContext owner,uint source)
+        =>owner.IsValid&&Find(owner)?.Journal?.TryReleaseNativeSelection(owner,source)==true;
     internal bool TryReceipt(in CustomWeaponAction action,out CustomActionReceipt receipt)
     {
         receipt=default;
@@ -388,14 +397,15 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if (!CurrentOwner(entry.Player,out var owner) || owner.Generation != entry.Generation || Spectating(entry.Player))
             { RetireSlot(slot); continue; }
             if (_current[slot] is { } life && life.Owner != owner)
-            { life.Journal?.Retire(WeaponCancellation.Respawn); life.Journal = null; _current[slot] = null; }
+            { life.Journal?.Retire(WeaponCancellation.Respawn); life.RetiredAt=Now; _current[slot] = null; }
         }
         for (int i=0; i<_lives.Length; i++)
         {
             if (_lives[i] is not { } life) continue;
             life.Payments.Advance(Now);
             if (life.Payments.IsQuarantined) life.Journal?.Retire(WeaponCancellation.RulesChanged);
-            if (life.Journal == null && !life.Payments.HasRetainedEntries)
+            if (life.RetiredAt is { } retired&&unchecked(Now-retired)>AcceptedShotLedger.RetentionFrames
+                &&!life.Payments.HasRetainedEntries)
             { life.Sources.Clear(); life.Payments.Dispose(); _lives[i] = null; }
         }
     }

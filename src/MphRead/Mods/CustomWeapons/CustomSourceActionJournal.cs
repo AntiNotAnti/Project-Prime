@@ -106,6 +106,7 @@ internal sealed class CustomSourceActionJournal
     private readonly CustomUnobservedControl?[] _unobserved = new CustomUnobservedControl?[TerminalCapacity];
     private readonly WeaponRuntimeState?[] _states = new WeaponRuntimeState?[CustomWeaponManifest.MaxEntries];
     private readonly CustomSourceClock _clock;
+    private readonly CustomNativeSelectionHistory _nativeSelection;
     private readonly WeaponDigest _manifest;
     private readonly uint _birth;
     private uint _authority, _sourceFrontier, _committedSource;
@@ -140,6 +141,7 @@ internal sealed class CustomSourceActionJournal
             if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Custom?.Identity != row.Identity)
                 throw new ArgumentException("Manifest does not resolve exactly.", nameof(registry));
         Owner = owner; _clock = clock; _manifest = manifest.Digest;
+        _nativeSelection=new(owner,verifiedBirthSource);
         _birth = _sourceFrontier = _committedSource = verifiedBirthSource; _authority = authorityFrame;
         _latestCanUse = initialCanUseWeapon;
         _permissions[verifiedBirthSource % 128] = new(verifiedBirthSource,initialCanUseWeapon);
@@ -179,9 +181,27 @@ internal sealed class CustomSourceActionJournal
         _permissions[index] = new(verifiedSourceFrame,canUseWeapon);
         if (!canUseWeapon && (!_interruption.HasValue || Before(verifiedSourceFrame,_interruption.Value))) _interruption = verifiedSourceFrame;
         if (Before(_sourceFrontier,verifiedSourceFrame))
-        { _sourceFrontier = verifiedSourceFrame; _latestCanUse = canUseWeapon; }
+        {
+            _sourceFrontier = verifiedSourceFrame; _latestCanUse = canUseWeapon;
+            if (!_nativeSelection.Observe(Owner,verifiedSourceFrame))
+            { Retire(WeaponCancellation.RulesChanged); return false; }
+        }
         return true;
     }
+    // Seal only after the engine's complete source phase has bound primary
+    // controls. Observing a source alone cannot authorize its native emission.
+    internal bool SealNativeSelection()=>_nativeSelection.Seal(Owner,_sourceFrontier);
+    internal CustomNativeSelection ReadNativeSelection(WeaponOwnerContext owner,uint source)
+    {
+        var result=_nativeSelection.Read(owner,source);
+        if (result is CustomNativeSelection.Rejected or CustomNativeSelection.Pending)return result;
+        foreach (var pending in _pending)
+            if (pending is { } value&&(value.Action.Kind is CustomWeaponActionKind.Equip or CustomWeaponActionKind.Unequip)
+                &&!Before(source,value.Action.SourceFrame))return CustomNativeSelection.Pending;
+        return result;
+    }
+    internal bool TryReleaseNativeSelection(WeaponOwnerContext owner,uint source)
+        =>ReadNativeSelection(owner,source)==CustomNativeSelection.Native&&_nativeSelection.TryReleaseNative(owner,source);
     internal CustomQueueResult Offer(in CustomWeaponAction action, uint authorityFrame)
     {
         if (_processing) return CustomQueueResult.Busy;
@@ -295,6 +315,11 @@ internal sealed class CustomSourceActionJournal
                         || unchecked(_authority-source.TargetWorldFrame) > MaxWorldAge
                         || source.TargetWorldFrame == _authority && source.TargetWorldSubFrame != 0))
                     receipt = Denied(action,CustomJournalDisposition.StaleSource,WeaponActionResult.StaleFrame);
+                else if (action.Kind==CustomWeaponActionKind.Equip&&source.CanUseWeapon
+                    &&!_nativeSelection.CanEquip(Owner,action.SourceFrame)
+                    || action.Kind==CustomWeaponActionKind.Unequip&&source.CanUseWeapon
+                    &&!_nativeSelection.CanUnequip(Owner,action.SourceFrame))
+                    receipt=Denied(action,CustomJournalDisposition.SourceDenied,WeaponActionResult.InvalidLife);
                 else receipt = Apply(action,source,state,emitter);
             }
         }
@@ -341,9 +366,15 @@ internal sealed class CustomSourceActionJournal
             {
                 if (Selected.IsValid && Selected != action.Weapon) _states[Selected.Value-10]!.SetEquipped(action.SourceFrame,false);
                 Selected = action.Weapon; result = state.SetEquipped(action.SourceFrame,true);
+                if (result==WeaponActionResult.Accepted&&!_nativeSelection.Commit(Owner,action.SourceFrame,Selected))
+                    throw new InvalidOperationException("Custom selection ownership commit failed.");
             }
             else if (action.Kind == CustomWeaponActionKind.Unequip && (!Selected.IsValid || Selected == action.Weapon))
-            { result = state.SetEquipped(action.SourceFrame,false); Selected = default; }
+            {
+                result = state.SetEquipped(action.SourceFrame,false); Selected = default;
+                if (result==WeaponActionResult.Accepted&&!_nativeSelection.Commit(Owner,action.SourceFrame,default))
+                    throw new InvalidOperationException("Native selection ownership commit failed.");
+            }
             else if (Selected == action.Weapon)
             {
                 if (action.Kind == CustomWeaponActionKind.Optic) result = state.TrySetOptic(action.SourceFrame,action.Sequence,action.Optic);
@@ -363,6 +394,8 @@ internal sealed class CustomSourceActionJournal
                             { state.CancelUnemittedFire(action.Sequence,before); result = WeaponActionResult.CapacityUnavailable; disposition = CustomJournalDisposition.NoSpawn; }
                             else if (emission != CustomEmissionDisposition.Spawned)
                                 throw new InvalidOperationException("Emitter did not return a definite disposition.");
+                            else if (!_nativeSelection.TryReleaseCustom(Owner,action.SourceFrame))
+                                throw new InvalidOperationException("Custom emission ownership commit failed.");
                         }
                     }
                 }
@@ -381,7 +414,7 @@ internal sealed class CustomSourceActionJournal
     }
     internal void Retire(WeaponCancellation reason)
     {
-        IsRetired = true; Selected = default;
+        IsRetired = true; _nativeSelection.Retire(); Selected = default;
         foreach (var state in _states) state?.Invalidate(reason);
         Array.Clear(_pending); PendingCount = 0;
     }
