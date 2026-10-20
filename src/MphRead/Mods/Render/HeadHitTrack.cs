@@ -34,11 +34,15 @@ internal readonly record struct HeadHitVictim(long Scene,object Actor,byte Slot,
 internal readonly record struct HeadHitFact(HeadHitVictim Victim,HeadHitEvent Event,uint ResolveWorld,Vector3 Direction)
 {
     internal static bool TryNative(HeadHitVictim victim,in ReplayShotFact fact,out HeadHitFact result)
+        =>TryNative(victim,fact,false,out result);
+    internal static bool TryNativeDeath(HeadHitVictim victim,in ReplayShotFact fact,out HeadHitFact result)
+        =>TryNative(victim,fact,true,out result);
+    private static bool TryNative(HeadHitVictim victim,in ReplayShotFact fact,bool lethal,out HeadHitFact result)
     {
         result=default;
         if(!victim.IsValid||victim.Match!=fact.MatchId||victim.Epoch!=fact.AuthorityEpoch
             ||victim.Slot!=fact.VictimSlot||victim.Generation!=fact.VictimGeneration||victim.Life!=fact.VictimLifeId
-            ||!fact.Headshot||fact.Lethal||fact.Damage==0||fact.HealthAfter==0
+            ||!fact.Headshot||fact.Lethal!=lethal||fact.Damage==0||(lethal?fact.HealthAfter!=0:fact.HealthAfter==0)
             ||fact.Weapon>(byte)BeamType.OmegaCannon||!float.IsFinite(fact.ImpactPoint.X)
             ||!float.IsFinite(fact.ImpactPoint.Y)||!float.IsFinite(fact.ImpactPoint.Z)
             ||(fact.Flags&ReplayShotFactFlags.HalfturretTarget)!=0)return false;
@@ -49,10 +53,15 @@ internal readonly record struct HeadHitFact(HeadHitVictim Victim,HeadHitEvent Ev
     }
     internal static bool TryCustom(HeadHitVictim victim,WorldBootstrapIdentity bootstrap,in CustomContactOutcome hit,
         Vector3 direction,out HeadHitFact result)
+        =>TryCustom(victim,bootstrap,hit,direction,false,out result);
+    internal static bool TryCustomDeath(HeadHitVictim victim,WorldBootstrapIdentity bootstrap,in CustomContactOutcome hit,
+        Vector3 direction,out HeadHitFact result)=>TryCustom(victim,bootstrap,hit,direction,true,out result);
+    private static bool TryCustom(HeadHitVictim victim,WorldBootstrapIdentity bootstrap,in CustomContactOutcome hit,
+        Vector3 direction,bool lethal,out HeadHitFact result)
     {
         result=default;var key=hit.Contact.Key;
         if(!victim.IsValid||!hit.Contact.IsValid||!hit.Health.IsValid||!hit.Contact.Headshot
-            ||hit.Disposition!=CustomContactDisposition.Canonical||hit.Health.BodyRemoved<=0||hit.Health.BodyAfter<=0
+            ||hit.Disposition!=CustomContactDisposition.Canonical||hit.Health.BodyRemoved<=0||(lethal?hit.Health.BodyAfter!=0:hit.Health.BodyAfter<=0)
             ||key.Channel!=CustomImpactChannel.Body||victim.Match!=key.Action.Owner.MatchId
             ||victim.Epoch!=key.Action.Owner.AuthorityEpoch||victim.Slot!=key.Victim.Slot
             ||victim.Generation!=key.Victim.Generation||victim.Life!=key.Victim.Life)return false;

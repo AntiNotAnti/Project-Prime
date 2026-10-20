@@ -3174,6 +3174,10 @@ namespace MphRead.Entities
                 && _health > 0 && _health < combatHealthBefore
                 && flags.TestFlag(DamageFlags.Headshot) && !flags.TestFlag(DamageFlags.Halfturret))
                 _scene.ModAcceptLocalHeadHit(this, direction ?? Vector3.Zero);
+            if (!Mods.Network.NetSession.Active && !_scene.Services.IsReplica
+                && _health == 0 && combatHealthBefore > 0)
+                _scene.ModAcceptLocalDeath(this, flags.TestFlag(DamageFlags.Headshot)
+                    && !flags.TestFlag(DamageFlags.Halfturret), direction ?? Vector3.Zero, enhancedWasFrozen);
             if (bomb != null)
                 NetBombEvidence.Damage(bomb, this, replayDamageEventId,
                     Math.Max(0, combatHealthBefore - _health),

@@ -106,7 +106,8 @@ public partial class Scene
         var victim=slot.Track.Victim;
         if(victim.Match!=fact.MatchId||victim.Epoch!=fact.AuthorityEpoch||victim.Generation!=fact.VictimGeneration
             ||victim.Life!=fact.VictimLifeId)return;
-        if(fact.Lethal&&fact.Damage>0){CancelHeadHit(slot);slot.Terminated=true;return;}
+        if(fact.Lethal&&fact.Damage>0)
+        {CancelHeadHit(slot);slot.Terminated=true;AcceptNativeHeadDeath(player,fact,recordingWorld);return;}
         if(!HeadHitFact.TryNative(victim,fact,out var hit))return;
         // Only the passive replica may map an accepted authority tick onto its
         // existing recorded clock. Live ingress always uses ResolveTick.
@@ -122,11 +123,12 @@ public partial class Scene
             ||key.Action.Manifest!=NetSession.CustomWeaponPresentationManifest||key.Victim.Slot>=Players.Items.Count
             ||Players.Items[key.Victim.Slot] is not {} player||HeadHitOwner(player) is not {} slot)return;
         if(slot.Track.Victim.Generation!=key.Victim.Generation||slot.Track.Victim.Life!=key.Victim.Life)return;
-        if(hit.Disposition==CustomContactDisposition.Canonical&&hit.Lethal){CancelHeadHit(slot);slot.Terminated=true;return;}
         Vector3 direction=default;
         if(_customPublicFacts!=null)foreach(var recent in _customPublicFacts)
             if(recent.Fact.Kind==CustomReplicaKind.Launch&&recent.Fact.Launch.Source.Action.Bootstrap==message.Bootstrap
                 &&recent.Fact.Launch.Identity==key.Action){direction=recent.Fact.Launch.Direction;break;}
+        if(hit.Disposition==CustomContactDisposition.Canonical&&hit.Lethal)
+        {CancelHeadHit(slot);slot.Terminated=true;AcceptCustomHeadDeath(player,message.Bootstrap,hit,direction);return;}
         if(HeadHitFact.TryCustom(slot.Track.Victim,message.Bootstrap,hit,direction,out var normalized))
             OfferHeadHit(player,slot,normalized);
     }
