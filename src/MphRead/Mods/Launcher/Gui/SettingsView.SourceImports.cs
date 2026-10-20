@@ -85,7 +85,7 @@ internal sealed partial class SettingsView
             try
             {
                 string result = await SourceCharacterImportWork.RunExclusive(() => RetroCharacterPreviewExporter.DescribeInspection(id,
-                    LocalImportBundle.Inspect(root, id, RetroCharacterPreviewExporter.BundleSpec(id))), ticket.Token);
+                    RetroCharacterPreviewExporter.InspectBundle(root, id)), ticket.Token);
                 if (_sourceWork.Current(ticket)) status.Text = result;
             }
             catch (Exception) { if (_sourceWork.Current(ticket)) status.Text = "Unable to check this bundle. Check local storage and try again."; }

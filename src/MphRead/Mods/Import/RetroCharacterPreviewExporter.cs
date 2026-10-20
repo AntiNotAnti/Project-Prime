@@ -93,7 +93,8 @@ public static partial class RetroCharacterPreviewExporter
         var selected = Sources.Where(x => x.Game == disc.Game && (selectedIds == null || selectedIds.Contains(x.Id, StringComparer.Ordinal))).ToArray();
         if (selected.Length == 0 || selectedIds != null && (selectedIds.Count != selected.Length || selectedIds.Distinct(StringComparer.Ordinal).Count() != selectedIds.Count))
             throw new InvalidDataException("Choose supported character previews from this source edition.");
-        var required = ExternalSourceRequirements.For(disc.Game);
+        ExternalSourceEdition edition = ExternalSourceRequirements.EditionFor(disc);
+        var required = ExternalSourceRequirements.For(disc.Game, edition);
         foreach (var archive in required)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -161,7 +162,7 @@ public static partial class RetroCharacterPreviewExporter
                             throw new InvalidDataException("Source character bundle exceeds its private component budget.");
                         parts.Add(Path.GetFileName(file.Temp), File.ReadAllBytes(file.Temp));
                     }
-                    yield return new(BundleSpec(spec.Id),parts);
+                    yield return new(BundleSpec(spec.Id, edition),parts);
                 }
             }
             return LocalImportBundle.PublishSequential(root,PrepareUpdates(),cancellation,progress)

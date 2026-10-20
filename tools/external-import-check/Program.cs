@@ -10,6 +10,13 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 1 && args[0] == "--prime-rev2-check")
+    {
+        PrimeRevision2RecipeChecks.Run();
+        return 0;
+    }
+    if (args.Length == 2 && args[0] == "--probe-prime-rev2")
+        return PrimeRevision2OwnedProbe.Run(args[1]);
     if (args.Length == 1 && args[0] == "--source-document-check")
     {
         OwnedSourceSnapshotChecks.Run();
@@ -52,7 +59,7 @@ try
     if (args.Length == 4 && args[0] == "--probe-resource")
     {
         using var disc = GameCubeDiscReader.Open(args[1]);
-        var requirement = ExternalSourceRequirements.For(disc.Game)
+        var requirement = ExternalSourceRequirements.For(disc)
             .FirstOrDefault(x => x.Path.Equals(args[2], StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrEmpty(requirement.Path) ||
             ExternalSourceRequirements.Verify(disc, requirement).Status != ExternalArchiveStatus.Verified)
@@ -162,6 +169,7 @@ try
         return 2;
     }
     SelfTest();
+    PrimeRevision2RecipeChecks.Run();
     OwnedSourceSnapshotChecks.Run();
     SourceDocumentWorkChecks.Run();
     CharacterImportPathsChecks.Run();

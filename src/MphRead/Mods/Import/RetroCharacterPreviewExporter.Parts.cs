@@ -88,15 +88,22 @@ public static partial class RetroCharacterPreviewExporter
 
     /// <summary>Receipt describes complete authoring parts, never gameplay readiness.</summary>
     public static ImportBundleSpec BundleSpec(string sourceCharacterId)
+        => BundleSpec(sourceCharacterId, ExternalSourceEdition.OriginalRecipe);
+
+    public static ImportBundleSpec BundleSpec(string sourceCharacterId, ExternalSourceEdition edition)
     {
         SourceCharacter spec = Source(sourceCharacterId);
-        string source = string.Join("\n", ExternalSourceRequirements.For(spec.Game)
+        string source = string.Join("\n", ExternalSourceRequirements.For(spec.Game, edition)
             .OrderBy(a => a.Path, StringComparer.Ordinal).Select(a => a.Path + ":" + a.ExpectedSha1));
         string fingerprint = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(source)));
         if (spec.AlternateForm == null)
         {
-            // Preserve the original four Prime body recipes byte-for-byte.
+            // Preserve the original four Prime body recipes byte-for-byte;
+            // Rev 2 has a distinct version, recipe and archive fingerprint.
             string legacy = $"retro-character-preview-v1:{spec.Id}:{spec.Game}:{spec.Ancs:x8}:{spec.NativeName}:obj-skeleton-weights-motions-optional-graph";
+            if (edition == ExternalSourceEdition.PrimeUsaRevision2)
+                return new(spec.Id, 2, HashRecipe("prime-usa-rev2:" + fingerprint + ":" + legacy), fingerprint,
+                    RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
@@ -108,6 +115,20 @@ public static partial class RetroCharacterPreviewExporter
         return new(spec.Id, bundleVersion, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
+    }
+
+    public static ImportBundleInspection InspectBundle(string root, string sourceCharacterId)
+    {
+        SourceCharacter source = Source(sourceCharacterId);
+        var original = BundleSpec(sourceCharacterId);
+        var result = LocalImportBundle.Inspect(root, sourceCharacterId, original);
+        if (source.Game == ExternalGameKind.MetroidPrime && result.State == ImportBundleState.UnsupportedSource)
+        {
+            var revision2 = BundleSpec(sourceCharacterId, ExternalSourceEdition.PrimeUsaRevision2);
+            if (result.Receipt?.SourceFingerprint == revision2.SourceFingerprint)
+                return LocalImportBundle.Inspect(root, sourceCharacterId, revision2);
+        }
+        return result;
     }
 
     private static string HashRecipe(string value) =>

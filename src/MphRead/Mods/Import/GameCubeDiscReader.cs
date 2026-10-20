@@ -270,8 +270,9 @@ public readonly record struct ExternalArchiveRequirement(string Path, string Exp
 public enum ExternalArchiveStatus { Verified, Missing, Incompatible }
 public readonly record struct ExternalArchiveCheck(
     string Path, ExternalArchiveStatus Status, string ExpectedSha1, string? ActualSha1);
+public enum ExternalSourceEdition { OriginalRecipe, PrimeUsaRevision2 }
 
-/// <summary>Pinned Second Hunt archive fingerprints; never a network asset license.</summary>
+/// <summary>Pinned original and independently qualified edition archives; never a network asset license.</summary>
 public static class ExternalSourceRequirements
 {
     private static readonly ExternalArchiveRequirement[] Prime =
@@ -285,6 +286,36 @@ public static class ExternalSourceRequirements
         new("Metroid5.pak", "b3375e83c5290d35d6c83f35b04b7f60f6fb8ea7"),
         new("Metroid6.pak", "b8b92af37dc772ecd8234fb1ce664be0493188f6")
     };
+    // Independently measured from the user's USA revision 2 source. Do not
+    // substitute this archive for the original recipe or accept arbitrary
+    // revisions because one of their resources happens to match.
+    private static readonly ExternalArchiveRequirement[] PrimeUsaRevision2 =
+    {
+        new("Metroid1.pak", "2147a5ea1ff654d6bbce749d5f7c1170f98a601e"),
+        new("AudioGrp.pak", "157e0841155cc7b699176dd7afc746c7048dbc28")
+    };
+
+    public static ExternalSourceEdition EditionFor(GameCubeDiscReader disc)
+    {
+        ArgumentNullException.ThrowIfNull(disc);
+        return disc.GameId == "GM8E01" && disc.Revision == 2 && disc.DiscNumber == 0
+            ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe;
+    }
+
+    public static IReadOnlyList<ExternalArchiveRequirement> For(GameCubeDiscReader disc)
+    {
+        ExternalSourceEdition edition = EditionFor(disc);
+        return For(disc.Game, edition);
+    }
+
+    public static IReadOnlyList<ExternalArchiveRequirement> For(ExternalGameKind game, ExternalSourceEdition edition)
+        => edition switch
+        {
+            ExternalSourceEdition.OriginalRecipe => For(game),
+            ExternalSourceEdition.PrimeUsaRevision2 when game == ExternalGameKind.MetroidPrime
+                => Array.AsReadOnly(PrimeUsaRevision2),
+            _ => throw new NotSupportedException("Unrecognized external source edition.")
+        };
 
     public static IReadOnlyList<ExternalArchiveRequirement> For(ExternalGameKind game) => game switch
     {
@@ -307,5 +338,5 @@ public static class ExternalSourceRequirements
     }
 
     public static IReadOnlyList<ExternalArchiveCheck> VerifyKnown(GameCubeDiscReader disc) =>
-        For(disc.Game).Select(requirement => Verify(disc, requirement)).ToArray();
+        For(disc).Select(requirement => Verify(disc, requirement)).ToArray();
 }
