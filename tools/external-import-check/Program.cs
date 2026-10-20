@@ -59,7 +59,7 @@ try
     if (args.Length == 4 && args[0] == "--probe-resource")
     {
         using var disc = GameCubeDiscReader.Open(args[1]);
-        var requirement = ExternalSourceRequirements.For(disc.Game)
+        var requirement = ExternalSourceRequirements.For(disc)
             .FirstOrDefault(x => x.Path.Equals(args[2], StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrEmpty(requirement.Path) ||
             ExternalSourceRequirements.Verify(disc, requirement).Status != ExternalArchiveStatus.Verified)
