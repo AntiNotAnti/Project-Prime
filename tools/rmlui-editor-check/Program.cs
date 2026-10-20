@@ -28,6 +28,8 @@ finally{DemoPlayback.PresentationScene=readyScene;}
 var context=backend.Capture();
 Check(context.Owner==readyOwner&&context.Transport==readyTransport,"same backend captures successfully after owned presentation becomes ready");
 Check(context.SourceRevision.Contains(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)))),"strong physical source SHA");
+Check(context.Highlights.IsEmpty,"capture does not synchronously generate suggestions");
+context=context with{Highlights=((ITheatreEditorSuggestionBackend)backend).GenerateSuggestions(context,CancellationToken.None).GetAwaiter().GetResult()};
 Check(context.Events.Length==7&&context.Highlights.Length>0&&context.Analytics.Any(e=>e.Id=="player:0"),"actual ReplayStudio events/highlights/analytics capture");
 var analytics=ReplayStudio.Analytics(DemoPlayback.Events,600);Check(analytics.TotalKills==2&&analytics.TotalDamage==70&&analytics.WeaponUsage.Sum(w=>w.Shots)==2,"actual retained analytics explicit-input values");
 var changed=ReplayStudio.Highlights(new[]{new ReplayEvent(500,ReplayEventType.Objective)},600);Check(changed.All(h=>h.Kind==ReplayHighlightKind.Objective),"same-size explicit event snapshot bypasses default cache");
@@ -67,7 +69,7 @@ Check(Reject(()=>backend.Commit(exactEdit))&&ReplayReels.Segments(path).Count==c
 context=backend.Capture();oldTransport.ClipIn=null;oldTransport.ClipOut=2;
 backend.Seek(context,context.Reel[0],true);
 Check(oldTransport.ClipIn==context.Reel[0].Frame&&oldTransport.ClipOut==context.Reel[0].EndFrame,"entry range selection replaces inverted preexisting mark clamps safely");oldTransport.IsSeeking=false;
-context=backend.Capture();backend.Seek(context,context.Highlights[0],false);
+context=backend.Capture();context=context with{Highlights=((ITheatreEditorSuggestionBackend)backend).GenerateSuggestions(context,CancellationToken.None).GetAwaiter().GetResult()};backend.Seek(context,context.Highlights[0],false);
 Check(oldTransport.CurrentFrame==context.Highlights[0].FocusFrame,"automatic highlight seeks retained focus frame rather than preroll");oldTransport.IsSeeking=false;
 string descriptor=Path.Combine(temp,"SYNTHETIC.ppclip"),cached=Path.Combine(temp,"CACHED.ppdemo");File.WriteAllBytes(cached,new byte[]{8,9,10});
 var clip=new ReplayVirtualClipDocument(1,path,10,80,DateTime.UnixEpoch,"CLIP");File.WriteAllText(descriptor,JsonSerializer.Serialize(clip));

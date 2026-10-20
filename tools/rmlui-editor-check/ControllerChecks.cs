@@ -61,7 +61,7 @@ internal bool Current=true,Rendering,Fail,Unverified;internal int Captures,Commi
 internal TheatreEditorContext Context=new(1,new object(),new object(),"SYNTHETIC.ppdemo","SYNTHETIC.ppdemo","SOURCE","ANNOTATION","REEL",10,600,0,10,80,true,
 ImmutableArray.Create(new TheatreEditorPlayer(0,"Hunter"),new TheatreEditorPlayer(1,"Target")),
 ImmutableArray.Create(new TheatreEditorEntry("event:0",10,10,"SHOT","",0,10,Target:1),new TheatreEditorEntry("event:1",200,200,"JOIN","",2,5)),
-ImmutableArray.Create(new TheatreEditorEntry("highlight:0",0,100,"KILL","",0,FocusFrame:30)),
+ImmutableArray.Create(new TheatreEditorEntry("highlight:0",100,150,"KILL","",0,FocusFrame:130),new TheatreEditorEntry("highlight:1",200,250,"SECOND","",1,FocusFrame:230)),
 ImmutableArray.Create(new TheatreEditorEntry(Guid.NewGuid().ToString("N"),0,20,"NAMED","")),ImmutableArray<TheatreEditorEntry>.Empty,
 ImmutableArray.Create(new TheatreEditorEntry("analytics",0,0,"TOTAL","")),new object());
 public TheatreEditorContext Capture(){Captures++;return Context with{PublicationVerified=true,PublicationNotice=""};}

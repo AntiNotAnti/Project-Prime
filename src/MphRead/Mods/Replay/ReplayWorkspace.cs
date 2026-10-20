@@ -66,16 +66,24 @@ namespace MphRead.Mods.Replay
             string source = RequireReplay(replay);
             ReplayReelDocument doc = Load(source);
             int added = 0;
+            var actors = new Dictionary<byte, int>();
             foreach (ReplayHighlight highlight in highlights
-                .OrderByDescending(h => h.Score)
-                .Take(Math.Clamp(limit, 1, 32)))
+                .OrderByDescending(h => h.Score).ThenBy(h => h.FocusFrame)
+                .ThenBy(h => h.ActorSlot).ThenBy(h => h.TargetSlot).ThenBy(h => h.Kind))
             {
+                int appearances = actors.GetValueOrDefault(highlight.ActorSlot);
+                if (highlight.ActorSlot < 8 && appearances >= 2) continue;
                 if (highlight.StartFrame >= highlight.EndFrame)
                     continue;
+                if (added >= Math.Clamp(limit, 1, 32)) break;
+                // Preserve existing manual edits and avoid replaying the same interval twice.
+                if (doc.Segments.Any(s => highlight.StartFrame < s.EndFrame
+                    && s.StartFrame < highlight.EndFrame)) continue;
                 doc.Segments.Add(new ReplayReelSegment(Guid.NewGuid(),
                     highlight.StartFrame, highlight.EndFrame, highlight.Label,
                     ReplaySegmentCamera.Director));
                 added++;
+                actors[highlight.ActorSlot] = appearances + 1;
             }
             if (added > 0)
                 Save(source, doc);

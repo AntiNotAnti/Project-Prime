@@ -303,6 +303,34 @@ namespace MphRead.Mods.Network
                 Require(System.Linq.Enumerable.Any(highlights,
                     h => h.Kind == Replay.ReplayHighlightKind.Objective && h.ActorSlot == 1),
                     "objective highlight");
+                Require(Replay.ReplayStudio.HighlightsJson(events, 300)
+                    == Replay.ReplayStudio.HighlightsJson(events.Reverse().ToArray(), 300),
+                    "highlight JSON depends on annotation input order");
+                Require(highlights.All(h => h.Score is >= 0 and <= 100),
+                    "highlight scores are not normalized");
+                Require(highlights.All(h => h.Kind != Replay.ReplayHighlightKind.CloseFinish),
+                    "match end alone cannot prove a close finish");
+                Require(!Replay.ReplayStudio.Highlights(new[]
+                {
+                    new ReplayEvent(60, ReplayEventType.Kill, 0, 1),
+                    new ReplayEvent(90, ReplayEventType.PlayerDeath, 0, 1),
+                    new ReplayEvent(120, ReplayEventType.Kill, 0, 1),
+                    new ReplayEvent(900, ReplayEventType.Headshot, 0, 1)
+                }, 300).Any(h => h.Kind == Replay.ReplayHighlightKind.MultiKill || h.FocusFrame > 300),
+                    "highlight chain crossed a death or included out-of-range facts");
+                Require(Replay.ReplayStudio.Highlights(new[] { new ReplayEvent(60, ReplayEventType.Headshot, 0, 1) }, 300).Count == 0,
+                    "unverified headshot annotation was promoted to a highlight");
+                Require(Replay.ReplayStudio.Highlights(events, 300,
+                    new Replay.ReplayHighlightWeights(0, 0, 0)).Count == 0,
+                    "zero category weights did not suppress suggestions");
+                using (var cancelledHighlights = new System.Threading.CancellationTokenSource())
+                {
+                    cancelledHighlights.Cancel();
+                    bool cancelled = false;
+                    try { Replay.ReplayStudio.Highlights(events, 300, cancellationToken: cancelledHighlights.Token); }
+                    catch (OperationCanceledException) { cancelled = true; }
+                    Require(cancelled, "highlight analysis ignored cancellation");
+                }
                 Console.WriteLine("[replaycheck] studio: analytics and highlight derivation passed");
 
                 Require(MphRead.Mods.KillCam.IsRecentFinalKill(120, 120),
