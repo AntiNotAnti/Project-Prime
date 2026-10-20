@@ -10,8 +10,9 @@ ProjectPrime -retrocharacterexport "/path/to/owned/Echoes.iso"
 ```
 
 The files are written to
-`<user-data>/source-character-previews/` as OBJ meshes and skeleton
-metadata only. No copyright-protected game assets are bundled, sent to a
+immutable generations under `<user-data>/source-character-previews/.local-imports/<appearance>/<generation>/`. The command prints the selected OBJ paths; use their containing generation directory as `--source-root` for authoring tools. Each receipt binds geometry, skeleton, weights, sparse motion and any optional raw graph proof. Existing loose exports are kept as unmanaged artist files and are never silently reactivated. Interrupted updates retain the prior receipt. Settings → Profile offers the same verified local-source importer with Update selected, Update all from source, Check and Remove actions. Remove withdraws discovery and keeps generations for current consumers; it does not promise disk reclamation.
+
+Outputs remain local authoring data. No copyright-protected game assets are bundled, sent to a
 server, installed into the runtime character packs or uploaded to
 Community. Existing seven playable hunter IDs, hitboxes, network packets,
 replays, and player selection remain unchanged.

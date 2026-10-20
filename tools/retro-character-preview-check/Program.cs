@@ -6,6 +6,11 @@ using MphRead.Mods.Import.Retro;
 
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-bundle")
+    {
+        CharacterBundleAcceptance.ProbeOwnedSource(args[1]);
+        return 0;
+    }
     if (args.Length == 2 && args[0] == "--source")
     {
         var files = RetroCharacterPreviewExporter.ExportFromOwnedGame(args[1]);
@@ -15,9 +20,10 @@ try
     }
     if (args.Length != 0)
     {
-        Console.Error.WriteLine("Usage: retro-character-preview-check [--source /path/to/owned/Prime-or-Echoes.iso]");
+        Console.Error.WriteLine("Usage: retro-character-preview-check [--source /path/to/owned/Prime-or-Echoes.iso | --probe-bundle /path/to/owned-source]");
         return 2;
     }
+    CharacterBundleAcceptance.RunContract();
     var chars = RetroCharacterPreviewExporter.Sources;
     Check(chars.Count == 5 && chars.Select(x=>x.Id).Distinct().Count()==5,
         "five independent local model source identities");

@@ -81,7 +81,7 @@ internal static partial class RmlUiOpenGlSmoke
         try
         {
             if(!NativeFilePicker.Available)throw new InvalidOperationException("The native file picker is unavailable.");
-            _arenaPicker=(settings,NativeFilePicker.OpenFile("Import Echoes arenas","Echoes disc image","iso"));
+            _arenaPicker=(settings,NativeFilePicker.OpenFile("Import from locally owned Prime or Echoes media","GameCube disc image","iso","gcm","rvz"));
         }
         catch(Exception error)when(error is IOException or InvalidOperationException)
         { settings.BeginArenaImport(null);_controller?.ReportStudioLaunch(false,error.Message); }

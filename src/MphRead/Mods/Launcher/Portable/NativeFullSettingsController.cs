@@ -64,11 +64,40 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     internal bool GameFilesRequested { get; private set; }
     internal bool ArenaImportRequested { get; private set; }
     private bool _arenaPicking;
-    internal void RequestArenaImport(){if(Dirty){Status="Apply or discard changes before importing local arenas.";return;}ArenaImportRequested=true;_arenaPicking=true;}
+    private bool _disposed;
+    private string[]? _characterImportIds;
+    private int _characterPreviewIndex;
+    internal string CharacterPreviewId => Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex].Id;
+    internal void CycleCharacterPreview() { if(_disposed||Closed||Busy)return; _characterPreviewIndex = (_characterPreviewIndex + 1) % Import.RetroCharacterPreviewExporter.Sources.Count; }
+    internal void RequestCharacterImport(bool all)
+    {
+        if(_disposed||Closed)return;
+        if (Busy || Dirty) { Status="Apply or discard changes and finish the current operation first."; return; }
+        var selected=Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex];
+        _characterImportIds=all ? Import.RetroCharacterPreviewExporter.Sources.Where(s=>s.Game==selected.Game).Select(s=>s.Id).ToArray() : new[]{selected.Id};
+        ArenaImportRequested=true; _arenaPicking=true;
+    }
+    internal void CheckCharacterPreview()
+    {
+        if(_disposed||Closed||Busy)return;
+        string id=CharacterPreviewId;
+        Start(()=> { var result=Import.LocalImportBundle.Inspect(Import.RetroCharacterPreviewExporter.DefaultRoot,id,Import.RetroCharacterPreviewExporter.BundleSpec(id)); return id+": "+result.State+". "+result.Message+". Authoring preview only."; });
+    }
+    internal void RequestRemoveCharacterPreview()
+    {
+        if(_disposed||Closed||Busy)return;
+        if (Dirty) { Status="Apply or discard changes before removing a preview."; return; }
+        _removeCharacterId=CharacterPreviewId; _confirmationAction=243;
+        Confirmation="Remove "+_removeCharacterId+" from the active local preview inventory? Source media and retained generation files are kept for running consumers.";
+    }
+    private string? _removeCharacterId;
+    internal void RequestArenaImport(){if(_disposed||Closed||Busy)return;if(Dirty){Status="Apply or discard changes before importing local arenas.";return;}_characterImportIds=null;ArenaImportRequested=true;_arenaPicking=true;}
     internal bool TakeArenaImport(){if(!ArenaImportRequested)return false;ArenaImportRequested=false;return true;}
     internal void BeginArenaImport(string? path)
     {
-        _arenaPicking=false;if(string.IsNullOrWhiteSpace(path)){Status="Arena import cancelled.";return;}
+        if(_disposed||Closed)return;
+        var characterIds=_characterImportIds; _characterImportIds=null;
+        _arenaPicking=false;if(string.IsNullOrWhiteSpace(path)){Status="Local import cancelled.";return;}
         if(Dirty){Status="Apply or discard changes before importing local arenas.";return;}
         if (Busy) { Status="Another operation is already running."; return; }
         var cancellation = new System.Threading.CancellationTokenSource();
@@ -81,6 +110,12 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             try
             {
                 cancellation.Token.ThrowIfCancellationRequested();
+                if (characterIds != null)
+                {
+                    var files=Import.RetroCharacterPreviewExporter.ExportFromOwnedGame(path,null,cancellation.Token,
+                        new ArenaProgress(stage=>System.Threading.Volatile.Write(ref _arenaStage,(int)stage)),characterIds);
+                    return files.Count+" private character authoring previews updated. No playable Hunter or online content was installed.";
+                }
                 var definitions = Import.EchoesPrivateMapImport.ReadAllArenas(path);
                 var maps = Import.EchoesPrivateMapImport.InstallLocalDefinitions(definitions,
                     MapGen.CustomRooms.UserMapDirectory, cancellation.Token,
@@ -416,6 +451,6 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             Status="Could not save: "+ex.Message+(errors.Count>1?" // Rollback incomplete; restart before editing again.":" // Previous settings restored; draft retained.");return false;
         }
     }
-    public void Dispose(){if(ImportingArenas)CancelArenaImport();CancelBinding();_calibration=null;RevertVideo();}
+    public void Dispose(){_disposed=true;ArenaImportRequested=false;_arenaPicking=false;_characterImportIds=null;_removeCharacterId=null;Confirmation="";if(ImportingArenas)CancelArenaImport();CancelBinding();_calibration=null;RevertVideo();}
 }
 #endif

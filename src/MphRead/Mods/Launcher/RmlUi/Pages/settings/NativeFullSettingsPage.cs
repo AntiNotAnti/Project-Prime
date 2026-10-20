@@ -78,7 +78,7 @@ internal sealed class NativeFullSettingsPage : IDisposable
         bool known=intent.Kind is RmlUiIntentKind.SettingsApply or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose
             or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo
             ||intent.Kind==RmlUiIntentKind.SettingsCategory&&intent.Argument<NativeFullSettingsController.Categories.Length
-            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <236);
+            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <236 or >=240 and <=244);
         if(!known||!_pages.Accept(intent))return false;
         if(_controller.ConfirmingVideo&&intent.Kind is not (RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo or RmlUiIntentKind.SettingsClose))return true;
         if(_controller.Busy)
@@ -105,6 +105,11 @@ internal sealed class NativeFullSettingsPage : IDisposable
                 else if(intent.Argument is >=232 and <236){_subpages[_controller.Category]=(int)intent.Argument-232;_fieldsDirty=true;_pendingFocus="native_settings_subpage_"+_subpages[_controller.Category];}
                 else if(intent.Argument==216){_advanced=!_advanced;_fieldsDirty=true;}
                 else if(intent.Argument==217){_controller.ResetReplayControls();_fieldsDirty=true;}
+                else if(intent.Argument==240&&_allowGameFiles)_controller.CycleCharacterPreview();
+                else if(intent.Argument==241&&_allowGameFiles)_controller.RequestCharacterImport(false);
+                else if(intent.Argument==242&&_allowGameFiles)_controller.RequestCharacterImport(true);
+                else if(intent.Argument==243&&_allowGameFiles)_controller.RequestRemoveCharacterPreview();
+                else if(intent.Argument==244&&_allowGameFiles)_controller.CheckCharacterPreview();
                 else if(intent.Argument==218&&_allowGameFiles)_controller.RequestArenaImport();
                 else if(intent.Argument==29)
                 {
@@ -222,6 +227,8 @@ internal sealed class NativeFullSettingsPage : IDisposable
         Text("native_settings_summary",_controller.InstallationSummary);
         Bool("visible:native_settings_files",_controller.Category==5);
         Bool("visible:native_settings_import_arenas",_controller.Category==5&&_allowGameFiles);
+        Bool("visible:native_settings_character_previews",_controller.Category==5&&_allowGameFiles);
+        Text("native_settings_character_selected","PREVIEW: "+_controller.CharacterPreviewId);
         Bool("visible:native_settings_cancel_import",_controller.ImportingArenas);
         Bool("disabled:native_settings_files",!_allowGameFiles);
         Bool("visible:native_settings_video",_controller.ConfirmingVideo);

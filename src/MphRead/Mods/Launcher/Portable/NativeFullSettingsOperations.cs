@@ -17,7 +17,7 @@ internal sealed partial class NativeFullSettingsController
     internal void CancelArenaImport()
     {
         try { _arenaCancellation?.Cancel(); } catch (ObjectDisposedException) { }
-        Status = "Cancelling local import; the previous bundle stays active.";
+        Status = "Cancelling local import; completed publications stay active.";
     }
     private sealed class ArenaProgress(Action<Import.ImportPublishStage> report) : IProgress<Import.ImportPublishStage>
     { public void Report(Import.ImportPublishStage stage) => report(stage); }
@@ -29,13 +29,14 @@ internal sealed partial class NativeFullSettingsController
     internal string InstallationSummary=>Maintenance.PerformanceSummary(_settings)+"\n"+Maintenance.StorageSummary();
     internal bool Operation(int action)
     {
-        if(Busy||ConfirmingVideo)return false;
-        if(action==24){CancelBinding();Confirmation="";return true;}
+        if(_disposed||Closed||Busy||ConfirmingVideo)return false;
+        bool confirmed=false;
+        if(action==24){CancelBinding();Confirmation="";_removeCharacterId=null;return true;}
         if(action==134)return CycleControllerDevice();
         if(action==135)return ResolveBinding("Replace");
         if(action==136)return ResolveBinding("Keep Both");
         if(action==137){CycleCaptureModifier();return true;}
-        if(action==23){if(Confirmation.Length==0)return false;if(_confirmationAction==25)return ConfirmBindingSwap();action=_confirmationAction;Confirmation="";}
+        if(action==23){if(Confirmation.Length==0)return false;if(_confirmationAction==25)return ConfirmBindingSwap();action=_confirmationAction;Confirmation="";confirmed=true;}
         else if(action is 7 or 8)
         {
             if(Dirty){Status="Apply or discard changes before replacing saved settings.";return true;}
@@ -74,6 +75,13 @@ internal sealed partial class NativeFullSettingsController
                     if(Input.GamepadManager.ActiveDevice is { } active){Input.GamepadProfiles.Unassign(active);Status="Controller device assignment removed.";}else Status="Connect a controller first.";break;
                 case 22: SettingsArchivePlatform.Restart();break;
                 case 26:case 27:case 28:CalibrationAction(action);break;
+                case 243:
+                    if(!confirmed)return false;
+                    string id=_removeCharacterId ?? throw new InvalidOperationException("Choose a local preview first.");
+                    _removeCharacterId=null;
+                    Start(()=>Import.LocalImportBundle.Remove(Import.RetroCharacterPreviewExporter.DefaultRoot,id)
+                        ? id+" removed from active local previews. Source and retained generations were kept."
+                        : id+" is not installed.");break;
                 case 31: Status=LogArchive.Create(ArchivePath,out string logError)?"Logs exported to "+ArchivePath:"Could not export logs: "+logError;break;
                 default:return false;
             }
@@ -92,7 +100,7 @@ internal sealed partial class NativeFullSettingsController
             return;
         }
         try{Status=_operation.GetAwaiter().GetResult();}
-        catch(OperationCanceledException){Status="Local import cancelled. Previous bundle is unchanged.";}
+        catch(OperationCanceledException ex){Status=ex is Import.ImportBundleBatchCanceledException ? ex.Message : "Local import cancelled. Previous bundle is unchanged.";}
         catch(Exception ex){Status="Operation failed: "+ex.Message;}
         _operation=null;
         _arenaCancellation=null;
