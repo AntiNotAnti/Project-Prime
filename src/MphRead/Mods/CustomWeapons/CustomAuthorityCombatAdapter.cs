@@ -36,6 +36,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     private readonly WeaponRegistry _registry;
     private readonly ICustomSourceAdmission _sourceAdmission;
     private readonly ICustomSourceBoundaryReadiness? _sourceBoundary;
+    private readonly ICustomCombatDelivery? _delivery;
     private readonly Slot?[] _slots = new Slot[8];
     // Pool/flight retirement must not reset an occupant's source clock or the
     // once-per-life loadout grant fence (e.g. spectate/rejoin in the same life).
@@ -64,10 +65,10 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         && !_scene.GameState.BalancedMode && !_scene.GameState.EnhancedHunters;
     private uint Now => NetSession.NetFrame;
     internal CustomAuthorityCombatAdapter(Scene scene, bool developerOptIn, ICustomSourceAdmission sourceAdmission)
-        : this(scene,developerOptIn,sourceAdmission,null) { }
-    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness)
-        : this(scene,developerOptIn,null,readiness) { }
-    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness)
+        : this(scene,developerOptIn,sourceAdmission,null,null) { }
+    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null)
+        : this(scene,developerOptIn,null,readiness,delivery) { }
+    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness,ICustomCombatDelivery? delivery)
     {
         if (sourceAdmission == null && readiness == null) throw new ArgumentNullException(nameof(sourceAdmission));
         _scene = scene; _match = NetSession.CurrentMatchId; _epoch = NetSession.AuthorityEpoch;
@@ -78,6 +79,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         Definition = RiftlineM7.Create(); Manifest = new(new[] { Definition });
         _registry = scene.FreezeCustomWeaponRegistry(new[] { Definition });
         _sourceBoundary = readiness as ICustomSourceBoundaryReadiness;
+        _delivery=delivery;
         _sourceAdmission = sourceAdmission ?? new CustomEngineSourceAdmission(this,readiness!);
     }
     private bool CurrentOwner(PlayerEntity player,out WeaponOwnerContext owner)
@@ -135,13 +137,37 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         if (!IsEligible || !action.IsValid || _current[action.Slot] is not { Journal: not null } life || life.Owner != action.Owner)
             return CustomQueueResult.Foreign;
+        if (_delivery!=null && !_delivery.HasActionReservation(action)) return CustomQueueResult.Backpressure;
         return life.Journal.Offer(action,Now);
     }
     internal bool TryProcess(PlayerEntity player,out CustomActionReceipt receipt)
     {
         receipt = default;
-        return CurrentOwner(player,out var owner) && _current[owner.Slot] is { Journal: not null } life
-            && life.Owner == owner && life.Journal.TryProcessNext(Now,this,this,out receipt);
+        if (!CurrentOwner(player,out var owner) || _current[owner.Slot] is not { Journal: not null } life || life.Owner!=owner) return false;
+        if (_delivery!=null && life.Journal.TryPeek(out var next))
+        {
+            if (!_delivery.HasActionReservation(next)) return false;
+            if (next.Kind==CustomWeaponActionKind.Fire && !_delivery.HasContactReservation(next)) return false;
+            if (life.Sources.TryGet(owner,next.SourceFrame,Now,out var sample)
+                && unchecked((int)(Now-sample.ObservedWorldFrame))<=0) return false;
+        }
+        if (!life.Journal.TryProcessNext(Now,this,this,out receipt)) return false;
+        if (_delivery?.Publish(receipt)==false)
+        { life.Journal.Retire(WeaponCancellation.RulesChanged); throw new InvalidOperationException("Reserved custom receipt publication failed."); }
+        return true;
+    }
+    internal bool IsActionLifeActive(WeaponOwnerContext owner)
+        => IsCurrentSourceOwner(owner) && _current[owner.Slot] is { Journal.IsRetired:false } life && life.Owner==owner;
+    internal bool TryReceipt(in CustomWeaponAction action,out CustomActionReceipt receipt)
+    {
+        receipt=default;
+        return action.IsValid && Find(action.Owner)?.Journal is { } journal && journal.TryGetReceipt(action.Sequence,out receipt) && receipt.Action==action;
+    }
+    internal bool TryStateMetadata(PlayerEntity player,out WeaponRuntimeId selected,out uint settled,out uint committed)
+    {
+        selected=default; settled=committed=0;
+        if (!CurrentOwner(player,out var owner) || _current[owner.Slot] is not { Journal:not null } life || life.Owner!=owner) return false;
+        selected=life.Journal.Selected; settled=life.Journal.SettledSequence; committed=life.Journal.CommittedSourceFrame; return true;
     }
     internal bool TryState(PlayerEntity player,out WeaponStateSnapshot snapshot)
     {
@@ -170,6 +196,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         var owner = launch.Source.Action.Owner;
         if (!IsEligible || _emittingEquip != null || !TradeAllowed(owner,launch.Source.TargetWorldFrame)
+            || _delivery!=null && !_delivery.HasContactReservation(launch.Source.Action)
             || Find(owner) is not { } life || !ReferenceEquals(_current[owner.Slot],life)
             || _slots[owner.Slot] is not { } slot || !CurrentOwner(slot.Player,out var current) || current != owner
             || _sourceAdmission.Inspect(launch.Source.Action,out var checkedSource) != CustomSourceDecision.Verified
@@ -239,7 +266,8 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         return false;
     }
     internal bool OwnsFlight(BeamProjectileEntity beam)
-        => OwnedBeamShape(beam,out var source,out var life) && life.Payments.OwnsFlight(source,Now);
+        => OwnedBeamShape(beam,out var source,out var life) && life.Payments.OwnsFlight(source,Now)
+            && (_delivery==null || _delivery.HasContactReservation(source.Certificate!.Value.Action));
     internal bool TryEnterDamage(PlayerEntity victim,BeamProjectileEntity beam)
     {
         if (_damageEntered || !OwnsReservedContact(victim,beam)) return false;
@@ -276,7 +304,10 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             using (lease)
                 if (life.Payments.CompleteContact(lease,new(before,before,turretBefore,turretBefore,0),
                     out var denied,CustomContactDisposition.TradeDenied))
-                { LastOutcome = denied; TerminalContacts++; }
+                {
+                    LastOutcome = denied; TerminalContacts++;
+                    if (_delivery?.Publish(denied)==false) throw new InvalidOperationException("Reserved custom denied-contact publication failed.");
+                }
             return;
         }
         _contact = new(life,lease,source,beam,victim,victimLife); _damageEntered = false;
@@ -290,6 +321,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             if (!life.Payments.CompleteContact(lease,health,out var outcome))
                 throw new InvalidOperationException("Canonical custom damage did not produce a consistent reserved result.");
             LastOutcome = outcome; TerminalContacts++;
+            if (_delivery?.Publish(outcome)==false) throw new InvalidOperationException("Reserved custom contact publication failed.");
             if (health.BodyRemoved > 0 || health.TurretRemoved > 0) PositivePayments++;
             NoteCanonicalDeath(victim,before,source.Certificate.Value.TargetWorldFrame);
         }

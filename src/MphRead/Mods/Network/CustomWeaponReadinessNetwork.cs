@@ -10,7 +10,7 @@ public sealed partial class DedicatedServer
     internal bool DeveloperCustomWeaponReadiness { get; set; }
     // Separate explicit developer choice: capability alone never activates combat.
     internal bool DeveloperCustomWeaponCombat { get; set; }
-    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary);
+    private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary,CustomActionPeer? Combat);
     private CustomReadyEntry?[]? _customReadyEntries;
     private bool CustomNativeReady(Peer peer)
         => (uint)peer.SlotIndex < 8 && peer.SceneLoaded && peer.MatchReady && peer.AdmissionReady
@@ -21,7 +21,7 @@ public sealed partial class DedicatedServer
         if (!DeveloperCustomWeaponReadiness || _transport == null)
         {
             if (_customReadyEntries != null)
-                for (int slot=0; slot<8; slot++) { _customReadyEntries[slot]?.State.Invalidate(); _customReadyEntries[slot] = null; }
+                for (int slot=0; slot<8; slot++) { InvalidateCustomEntry(_customReadyEntries[slot]); _customReadyEntries[slot] = null; }
             return;
         }
         _customReadyEntries ??= new CustomReadyEntry?[8];
@@ -35,27 +35,28 @@ public sealed partial class DedicatedServer
             var entry = _customReadyEntries[slot];
             if (entry?.Peer != peer || entry.State.ConnectionId != connection || entry.State.Wire.Bootstrap != peer.BootstrapIdentity)
             {
-                entry?.State.Invalidate();
+                InvalidateCustomEntry(entry);
                 var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now);
-                entry = new(peer,state,DeveloperCustomWeaponCombat ? new(state) : null);
+                entry = new(peer,state,DeveloperCustomWeaponCombat ? new(state) : null,
+                    DeveloperCustomWeaponCombat ? new(state.Wire) : null);
                 _customReadyEntries[slot] = entry;
             }
             if (entry.State.Due(now)) _transport.TrySendSemantic(peer.EndPoint,PacketType.CustomWeaponManifest,entry.State.Wire.ManifestBytes);
         }
         for (int slot=0; slot<8; slot++)
             if ((seen & (1 << slot)) == 0)
-            { _customReadyEntries[slot]?.State.Invalidate(); _customReadyEntries[slot] = null; }
+            { InvalidateCustomEntry(_customReadyEntries[slot]); _customReadyEntries[slot] = null; }
     }
     private void ReleaseCustomWeaponReadiness()
     {
         if (_customReadyEntries == null) return;
-        foreach (var entry in _customReadyEntries) entry?.State.Invalidate();
+        foreach (var entry in _customReadyEntries) InvalidateCustomEntry(entry);
         _customReadyEntries = null;
     }
     private void RetireCustomWeaponReadiness(int slot)
     {
         if ((uint)slot >= 8 || _customReadyEntries == null) return;
-        _customReadyEntries[slot]?.State.Invalidate(); _customReadyEntries[slot] = null;
+        InvalidateCustomEntry(_customReadyEntries[slot]); _customReadyEntries[slot] = null;
     }
     private void HandleCustomWeaponReady(ReceivedPacket packet,double now)
     {
@@ -124,7 +125,7 @@ public sealed partial class DedicatedServer
         if (!DeveloperCustomWeaponCombat) return;
         if (!DeveloperCustomWeaponReadiness)
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
-        scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene));
+        scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene));
     }
 }
 

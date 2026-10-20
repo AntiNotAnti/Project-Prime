@@ -7,8 +7,8 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.CustomWeapons;
 
-// Dormant v1 payloads. No PacketType registration, sender, receiver or live
-// capability is enabled until CW-04 authority/result integration is validated.
+// Bounded v1 payloads for the explicit developer lane. Endpoint/bootstrap,
+// readiness, source and resource authority are enforced by their live owners.
 internal static class CustomWeaponProtocol
 {
     internal const byte Version = 1;

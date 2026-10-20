@@ -1,0 +1,140 @@
+using System;
+using MphRead.Mods.CustomWeapons;
+
+namespace MphRead.Mods.Network;
+
+public sealed partial class DedicatedServer
+{
+    private sealed class CustomActionPeer(CustomReadinessWire wire)
+    {
+        internal readonly CustomActionOutbox Outbox=new(wire,wire.Definition);
+        internal readonly byte[] StateBytes=new byte[CustomStateMessage.Size];
+        internal CustomStateMessage? State;
+        internal double StateDue,OfferWindow;
+        internal int Offers;
+        internal bool Admit(double now)
+        {
+            if (now-OfferWindow>=1) { OfferWindow=now; Offers=0; }
+            if (Offers>=64) return false; Offers++; return true;
+        }
+    }
+    private static void InvalidateCustomEntry(CustomReadyEntry? entry)
+    { entry?.State.Invalidate(); entry?.Combat?.Outbox.Close(); }
+    private CustomReadyEntry? CurrentCustomActionEntry(int slot,Scene scene)
+    {
+        if ((uint)slot>=8) return null;
+        ushort generation=NetPlayerLifecycle.Generation(slot),life=NetPlayerLifecycle.Get(slot);
+        if (generation==0 || life==0 || _matchId==0 || _authorityEpoch==0) return null;
+        return CurrentCustomSourceEntry(new(_matchId,_authorityEpoch,(byte)slot,generation,life),scene);
+    }
+    private CustomReadyEntry? CurrentCustomResultEntry(in CustomWeaponAction action,Scene scene)
+        => action.IsValid && CurrentCustomActionEntry(action.Slot,scene) is { Combat:not null } entry
+            && entry.State.Wire.Bootstrap==action.Bootstrap && entry.State.Wire.Manifest.Digest==action.Manifest ? entry:null;
+    private bool CustomRoomReady(Scene scene)
+    {
+        if (_phase!=SessionPhase.InMatch || _bots.Count!=0 || _peers.Count==0) return false;
+        foreach (var peer in _peers)
+            if (peer.Spectating || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { State.Evidence:not null } entry
+                || entry.Peer!=peer || entry.State.Evidence!.Manifest!=scene.CustomCombat?.Manifest.Digest) return false;
+        return true;
+    }
+    private sealed class LiveCustomCombatDelivery(DedicatedServer server,Scene scene) : ICustomCombatDelivery
+    {
+        public bool HasActionReservation(in CustomWeaponAction action)
+            => server.CustomRoomReady(scene) && server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasActionReservation(action)==true;
+        public bool HasContactReservation(in CustomWeaponAction action)
+            => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasContactReservation(action)==true;
+        public bool Publish(in CustomActionReceipt receipt)
+            => server.CurrentCustomResultEntry(receipt.Action,scene)?.Combat?.Outbox.Publish(receipt)==true;
+        public bool Publish(in CustomContactOutcome outcome)
+        {
+            var identity=outcome.Contact.Key.Action;
+            if (!identity.IsValid || server.CurrentCustomActionEntry(identity.Owner.Slot,scene)?.Combat is not { } combat) return false;
+            return combat.Outbox.Publish(outcome);
+        }
+        public void AfterSourcePhase(CustomAuthorityCombatAdapter root) => server.ProcessCustomActions(scene,root);
+    }
+    private void HandleCustomWeaponAction(ReceivedPacket packet,double now)
+    {
+        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { CustomCombat:not null } scene
+            || Find(packet.Sender) is not { } peer || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { Combat:not null } entry
+            || entry.Peer!=peer || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId
+            || !entry.Combat.Admit(now) || !CustomRoomReady(scene)
+            || !CustomWeaponAction.TryRead(packet.Payload,out var action) || action.Slot!=peer.SlotIndex
+            || action.Bootstrap!=peer.BootstrapIdentity || action.Manifest!=entry.State.Wire.Manifest.Digest
+            || action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(action.Slot,action.Owner.Generation,action.Life)) return;
+        var offered=entry.Combat.Outbox.Reserve(action,now);
+        if (offered is not (CustomOutboxOffer.Reserved or CustomOutboxOffer.Duplicate)) return;
+        if (offered==CustomOutboxOffer.Duplicate) return; // Retained verdict retries independently; never execute twice.
+        var root=scene.CustomCombat;
+        var queued=root.Offer(action);
+        if (queued==CustomQueueResult.Queued) return;
+        if (queued==CustomQueueResult.Duplicate && root.TryReceipt(action,out var receipt))
+        { entry.Combat.Outbox.Publish(receipt); return; }
+        if (queued is CustomQueueResult.Retired or CustomQueueResult.WindowExceeded)
+        {
+            entry.Combat.Outbox.Publish(new CustomActionReceipt(action,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
+                WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null)); return;
+        }
+        entry.Combat.Outbox.ReleaseUnprocessed(action); // Backpressure/foreign is nonterminal; retry exact bytes.
+    }
+    private void HandleCustomResultAck(ReceivedPacket packet,double now)
+    {
+        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { } scene || Find(packet.Sender) is not { } peer
+            || CurrentCustomActionEntry(peer.SlotIndex,scene) is not { Combat:not null } entry || entry.Peer!=peer
+            || packet.ConnectionId==0 || packet.ConnectionId!=entry.State.ConnectionId || !entry.Combat.Admit(now)
+            || !CustomResultAck.TryRead(packet.Payload,out var ack) || ack.Slot!=peer.SlotIndex) return;
+        entry.Combat.Outbox.Acknowledge(ack); // Includes old-life obligations, never foreign occupants/connections.
+    }
+    private void ProcessCustomActions(Scene scene,CustomAuthorityCombatAdapter root)
+    {
+        if (!_running || _sim?.EvidenceScene!=scene || scene.CustomCombat!=root) return;
+        for (int slot=0;slot<8;slot++)
+        {
+            if (CurrentCustomActionEntry(slot,scene) is not { Combat:not null } entry) continue;
+            var combat=entry.Combat;
+            if (CustomRoomReady(scene))
+                for (int n=0;n<CustomSourceActionJournal.MaxDrainPerTick;n++)
+                    if (!root.TryProcess(scene.Players.Items[slot],out _)) break;
+            for (int n=0;n<CustomActionOutbox.Capacity;n++)
+                if (combat.Outbox.TryPending(n,out var pending) && !root.IsActionLifeActive(pending.Owner))
+                    combat.Outbox.Publish(new CustomActionReceipt(pending,NetSession.NetFrame,CustomJournalDisposition.SourceDenied,
+                        WeaponActionResult.InvalidLife,CustomEmissionDisposition.NotAttempted,null,null,null));
+            combat.Outbox.AdvanceFlights(NetSession.NetFrame);
+            var player=scene.Players.Items[slot];
+            if (!root.TryState(player,out var snapshot) || !root.TryStateMetadata(player,out var selected,out var settled,out var committed)) continue;
+            if (combat.State is { } old && old.State==snapshot && old.Selected==selected
+                && old.SettledSequence==settled && old.CommittedSource==committed) continue;
+            uint revision=combat.State?.Revision ?? 0;
+            if (revision==uint.MaxValue) { InvalidateCustomEntry(entry); continue; }
+            var state=new CustomStateMessage(entry.State.Wire.Bootstrap,root.Manifest.Digest,new(10),NetSession.NetFrame,
+                revision+1,settled,selected,committed,snapshot);
+            CustomCombatResults.Write(state,combat.StateBytes,entry.State.Wire.Manifest,entry.State.Wire.Definition); combat.State=state;
+        }
+    }
+    private void PumpCustomActionResults(double now)
+    {
+        if (!DeveloperCustomWeaponCombat || _transport==null || _customReadyEntries==null) return;
+        for (int slot=0;slot<8;slot++)
+        {
+            if (_customReadyEntries[slot] is not { Combat:not null } entry) continue;
+            var combat=entry.Combat;
+            if (combat.Outbox.HasExpired(now)) { Remove(entry.Peer,"custom action result acknowledgement timed out"); continue; }
+            for (int n=0;n<4 && combat.Outbox.TryNext(now,out var type,out var bytes,out var token);n++)
+            {
+                if (!_transport.TrySendSemantic(entry.Peer.EndPoint,type,bytes.Span)) break;
+                combat.Outbox.MarkSent(token,now);
+            }
+            if (combat.State.HasValue && now>=combat.StateDue
+                && _transport.TrySendSemantic(entry.Peer.EndPoint,PacketType.CustomWeaponState,combat.StateBytes)) combat.StateDue=now+.25;
+        }
+    }
+    // Diagnostics only. Neither this count nor a cross-thread state query grants
+    // capacity, opens readiness or authorizes an action.
+    internal bool TryGetCustomActionPending(int slot,out int count)
+    {
+        count=0;
+        if (!_running || (uint)slot>=8 || _customReadyEntries?[slot]?.Combat is not { } combat) return false;
+        count=combat.Outbox.Count; return true;
+    }
+}

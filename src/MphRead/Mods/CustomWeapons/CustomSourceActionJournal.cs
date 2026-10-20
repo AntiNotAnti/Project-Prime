@@ -119,6 +119,12 @@ internal sealed class CustomSourceActionJournal
     internal uint SettledSequence => _settled;
     internal uint ObservedSourceFrame => _sourceFrontier;
     internal uint CommittedSourceFrame => _committedSource;
+    internal bool TryPeek(out CustomWeaponAction action)
+    {
+        action=default;
+        if (IsRetired || _settled==uint.MaxValue || _pending[(_settled+1)%PendingCapacity] is not { } next) return false;
+        action=next.Action; return true;
+    }
 
     internal CustomSourceActionJournal(WeaponOwnerContext owner, CustomSourceClock clock,
         CustomWeaponManifest manifest, WeaponRegistry registry, IEnumerable<WeaponRuntimeId> initialLoadout,

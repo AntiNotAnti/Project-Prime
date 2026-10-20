@@ -86,6 +86,7 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         else if (result == CustomObservationResult.Conflict)
                             life.Journal.Retire(WeaponCancellation.RulesChanged);
                     }
+            if (capture && IsEligible && _inputWorld==Now) _delivery?.AfterSourcePhase(this);
         }
         finally
         {

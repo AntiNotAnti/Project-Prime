@@ -511,6 +511,7 @@ namespace MphRead.Mods.Network
                     PumpTurretDelivery();
                     PumpPickupDelivery();
                     PumpCustomWeaponReadiness(now);
+                    PumpCustomActionResults(now);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     PumpSocialMembership(now);
@@ -1247,6 +1248,8 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.WorldReady: HandleWorldReady(packet, now); break;
                 case PacketType.CustomWeaponReady: HandleCustomWeaponReady(packet,now); break;
+                case PacketType.CustomWeaponAction: HandleCustomWeaponAction(packet,now); break;
+                case PacketType.CustomWeaponResultAck: HandleCustomResultAck(packet,now); break;
                 case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
                 case PacketType.MatchLoadFailed: HandleMatchLoadFailed(packet); break;
