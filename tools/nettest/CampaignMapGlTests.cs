@@ -170,8 +170,13 @@ internal static class CampaignMapGlTests
             Check(hidden==Expected()&&hidden==on-hiddenPolygons,"native visibility gate rechecks cached detail after fixture visited bit clears");
             TogglePause();TogglePause();var reopened=(CampaignMapDetailLoad)Get(player,"_navMapDetail");WaitLoad(reopened);
             Check(!reopened.Completion.Result.ContainsKey(selected),"new pause opening does not request a hidden room");
-            Draw("hidden-reopened");
-            Check(lastDoorDraws==0,"reopened hidden retained selection cannot submit native door annotations");
+            Check(((Node)Get(player,"_navMapDrawNode")).Name.Equals(Metadata.GetRoomById(scene.RoomId)!.Name,StringComparison.OrdinalIgnoreCase),
+                "native reopening selects the current visited room");
+            Draw(null);int reopenedVisitedDoors=lastDoorDraws;
+            Check(reopenedVisitedDoors>0,"reopened current visited room retains native door annotations");
+            // Re-select the hidden diagnostic node explicitly before testing its annotation gate.
+            Select(selected);Draw("hidden-reopened");
+            Check(lastDoorDraws==0,"reopened explicitly hidden selection cannot submit native door annotations");
             var fan=new List<object>();
             foreach(int id in new[]{49,51})
             {
@@ -184,7 +189,7 @@ internal static class CampaignMapGlTests
             cases.Add(new{requestedWidth=requested.X,requestedHeight=requested.Y,framebufferWidth=scene.Size.X,framebufferHeight=scene.Size.Y,
                 roomId=scene.RoomId,fixtureHash,exploredRoomIds=ExploredRooms,connectorArea=scene.AreaId,connectorBits=connectors,
                 selectedRoomId=48,offDetailDraws=off,onDetailDraws=on,hiddenCachedDraws=hidden,hiddenRoomId=hiddenId,
-                beforeHiddenDoorDraws=beforeHiddenDoors,hiddenCachedDoorDraws=hiddenDoors,
+                beforeHiddenDoorDraws=beforeHiddenDoors,hiddenCachedDoorDraws=hiddenDoors,reopenedVisitedDoorDraws=reopenedVisitedDoors,
                 results=load.Completion.Result.Select(p=>new{room=p.Key,p.Value.Ready,p.Value.Reason,polygons=p.Value.Polygons.Count}),pan,fan});
             TogglePause();Check(!scene.GameState.MenuPause,"native Pause binding exits map");
             Check(Get(player,"_navMapDetail")==null,"native Pause exit retires detail owner");
