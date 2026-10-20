@@ -28,6 +28,11 @@ namespace MphRead.Mods.MapGen
         /// It must never enter a shareable Community map package.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public bool LocalSourceOnly { get; set; }
+        /// <summary>Local source receipt identity; never an asset download location.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? LocalSourceFingerprint { get; set; }
+        [JsonIgnore]
+        public bool RequiresPrivateSource => LocalSourceOnly || LocalSourceFingerprint != null;
         public string? Author { get; set; }
         public string? Version { get; set; }
         public string? Description { get; set; }

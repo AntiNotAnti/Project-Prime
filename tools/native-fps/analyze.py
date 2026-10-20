@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict offline diagnostics from chronological application frame intervals."""
 import argparse
+import gzip
 import json
 import math
 from pathlib import Path
@@ -35,7 +36,10 @@ def analyze(document):
         if not isinstance(rows, list):
             raise ValueError("frames must be an array")
         intervals, caps = [], []
-        previous = None
+        frequency = document.get("timestampFrequency")
+        if frequency is not None:
+            integer(frequency, "timestampFrequency", 1)
+        previous = previous_segment = None
         for i, row in enumerate(rows):
             if not isinstance(row, dict):
                 raise ValueError(f"frames[{i}] must be an object")
@@ -43,8 +47,14 @@ def analyze(document):
             timestamp = integer(row.get("PresentTimestamp"), f"frames[{i}].PresentTimestamp")
             if previous is not None and timestamp <= previous:
                 raise ValueError("frame timestamps must be strictly chronological")
-            previous = timestamp
             segment = integer(row.get("Segment"), f"frames[{i}].Segment")
+            if previous is not None and frequency is not None and segment == previous_segment:
+                # Match production ElapsedMs double conversion, including large clock values.
+                expected_interval = (float(timestamp) - float(previous)) * 1000 / frequency
+                if not math.isclose(intervals[-1], expected_interval, rel_tol=1e-9, abs_tol=max(1e-6, 2000 / frequency)):
+                    raise ValueError("frame interval disagrees with chronological timestamp gap")
+            previous = timestamp
+            previous_segment = segment
             cap = integer(row.get("Cap"), f"frames[{i}].Cap", -1)
             vsync = row.get("Vsync")
             if not isinstance(vsync, str) or not vsync:
@@ -58,6 +68,11 @@ def analyze(document):
             raise ValueError("summary must contain samples")
         expected = summary.get("samples")
         identity = document.get("context")
+        active_cap = caps[0] if caps else None
+        active_vsync = rows[0].get("Vsync") if rows else None
+        profiling = True
+        reported_simulation_hz = None
+        fixed_step_count = sum(integer(row["SimulationSteps"], "SimulationSteps") for row in rows) if rows and all("SimulationSteps" in row for row in rows) else None
     else:
         source = "legacy-native-harness"
         result = document.get("result", document)
@@ -77,6 +92,13 @@ def analyze(document):
         identity = {"observedWorkload": result.get("observedWorkload"),
                     "assemblyMvid": result.get("assemblyMvid"),
                     "vendor": result.get("vendor"), "renderer": result.get("renderer")}
+        active_cap = cap
+        active_vsync = result.get("vsync", "UNVERIFIED")
+        workload = result.get("observedWorkload") or {}
+        profiling = False if workload.get("eligibleNormalTiming") is True else "UNVERIFIED"
+        reported_simulation_hz = result.get("simulationHz")
+        fixed_step_count = None
+        frequency = None
         if "droppedRecords" in result and integer(result["droppedRecords"], "droppedRecords") != 0:
             raise ValueError("droppedRecords must be zero")
     integer(expected, "samples")
@@ -105,6 +127,11 @@ def analyze(document):
                             else "Harness frame callback returns, including post-Present bookkeeping")
                            + "; not physical scanout or GPU time",
         "loadedBinaryIdentity": identity,
+        "fixedSimulationHz": 60, "reportedSimulationHz": reported_simulation_hz,
+        "capturedSimulationHz": 1000 * fixed_step_count / total if fixed_step_count is not None else None,
+        "activeCap": active_cap, "activeVsync": active_vsync, "profilingActive": profiling,
+        "explicitGraphicsOverrides": identity.get("flags", "UNVERIFIED") if isinstance(identity, dict) else "UNVERIFIED",
+        "timestampIntervalConsistency": "CHECKED: adjacent stored frames" if frequency is not None else "UNVERIFIED: no timestamp frequency",
         "samples": count, "chronologicalIntervalsMs": intervals,
         "captureGroup": list(next(iter(groups))) if groups else None,
         "meanCompletedFrameFps": 1000 * count / total,
@@ -127,13 +154,18 @@ def main():
     parser.add_argument("-output", "--output", "-o", type=Path)
     args = parser.parse_args()
     try:
-        report = analyze(json.loads(args.input.read_text()))
+        if args.output and (args.input.resolve() == args.output.resolve()
+                            or (args.output.exists() and args.input.samefile(args.output))):
+            raise ValueError("output must not overwrite the raw input receipt")
+        opener = gzip.open if args.input.suffix == ".gz" else open
+        with opener(args.input, "rt", encoding="utf-8-sig") as source:
+            report = analyze(json.load(source))
         payload = json.dumps(report, indent=2, allow_nan=False) + "\n"
         if args.output:
             args.output.write_text(payload)
         else:
             sys.stdout.write(payload)
-    except (ValueError, OSError, OverflowError) as error:
+    except (ValueError, OSError, OverflowError, EOFError) as error:
         print(f"frame analysis failed: {error}", file=sys.stderr)
         return 1
     return 0

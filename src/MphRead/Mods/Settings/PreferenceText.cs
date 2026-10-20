@@ -76,7 +76,9 @@ internal static class PreferenceText
             return value.Equals("none", StringComparison.OrdinalIgnoreCase) || Defined<Keys>(value);
         if (key == "stylus_zone_rect") return Vector(value);
         if (key == TouchSettings.InstancesSettingKey) return TouchSettings.TryParseInstances(value, out _);
-        if (key == "touch_buttons") return bool.TryParse(value, out _);
+        if (key is "touch_buttons" or "touch_direct_weapon_selection") return bool.TryParse(value, out _);
+        if (key == "touch_mode") return Defined<TouchMode>(value, true);
+        if (key == "touch_stylus_response") return Defined<TouchStylusResponse>(value, true);
         if (key is "touch_button_scale" or "touch_stick_scale" or "touch_overlay_opacity") return Number(value);
         foreach ((TouchControl control, _) in TouchSettings.Order)
         {

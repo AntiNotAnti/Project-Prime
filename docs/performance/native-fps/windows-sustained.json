@@ -1,0 +1,916 @@
+{
+  "schema": 1,
+  "sourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+  "rawReceiptIndex": "evidence/windows-sustained/index.json",
+  "processStatus": "PASS: exit0, complete bounded data, no interval record loss",
+  "stabilityGate": "FAIL: 26 dropped simulation steps",
+  "performanceQualification": "NOT_RUN: external dotnet-build/MSBuild began near end; do not qualify an uncontended performance comparison",
+  "rolloutDecision": "NO_ROLLOUT",
+  "runReceipt": {
+    "passed": true,
+    "sourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+    "clientSha256": "3FD4F2EF9D0CC7BAE4DD1E5A2F3848E8007F4B1EF4C96AC041A87446CFFAB9F9",
+    "session": 1,
+    "checks": [
+      {
+        "name": "cap-trace-120",
+        "exitCode": 0
+      },
+      {
+        "name": "cap-trace-144",
+        "exitCode": 0
+      },
+      {
+        "name": "pose-60",
+        "exitCode": 0
+      },
+      {
+        "name": "pose-144",
+        "exitCode": 0
+      }
+    ],
+    "exitCode": 0,
+    "started": "2026-10-19T21:34:14.8295038-05:00",
+    "finished": "2026-10-19T22:04:26.0131172-05:00",
+    "before": [],
+    "after": [
+      {
+        "Id": 11472,
+        "ProcessName": "dotnet",
+        "CPU": null,
+        "SessionId": 0
+      },
+      {
+        "Id": 11784,
+        "ProcessName": "dotnet",
+        "CPU": null,
+        "SessionId": 0
+      },
+      {
+        "Id": 22948,
+        "ProcessName": "dotnet",
+        "CPU": null,
+        "SessionId": 0
+      }
+    ],
+    "resultFile": "C:/Users/Jarrett/Documents/ProjectPrime-Native-FPS-20261019/sustained-v2/soak-240/result.json",
+    "assetsStable": true,
+    "physicalLatency": "NOT_RUN",
+    "driverOverrides": "UNVERIFIED",
+    "actualRefreshHz": "239 reported by Windows; no photon measurement"
+  },
+  "metrics": {
+    "schema": 1,
+    "source": "legacy-native-harness",
+    "qualification": "NOT_RUN",
+    "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
+    "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
+    "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
+    "intervalMeaning": "Harness frame callback returns, including post-Present bookkeeping; not physical scanout or GPU time",
+    "loadedBinaryIdentity": {
+      "observedWorkload": {
+        "schemaVersion": 1,
+        "scope": "Observed existing offline bot workload; no replay/input trace was executed; no build/source attestation.",
+        "eligibleNormalTiming": true,
+        "binaryIdentityPhase": "before-warmup",
+        "failure": null,
+        "mode": "offline",
+        "phase": "entry",
+        "inputExecution": "frozen-device-snapshots-with-bot-ai",
+        "replayExecuted": false,
+        "seedAssignmentReadback": {
+          "rng1": 12345,
+          "rng2": 98765
+        },
+        "measurementStartRng": {
+          "rng1": 1694456009,
+          "rng2": 3498967168
+        },
+        "measurementEndRng": {
+          "rng1": 1836699782,
+          "rng2": 3349737190
+        },
+        "measurementStartTick": 240,
+        "measurementEndTick": 108240,
+        "startRoster": [
+          {
+            "slot": 0,
+            "hunter": "Samus",
+            "bot": true
+          },
+          {
+            "slot": 1,
+            "hunter": "Kanden",
+            "bot": true
+          },
+          {
+            "slot": 2,
+            "hunter": "Trace",
+            "bot": true
+          },
+          {
+            "slot": 3,
+            "hunter": "Sylux",
+            "bot": true
+          },
+          {
+            "slot": 4,
+            "hunter": "Noxus",
+            "bot": true
+          },
+          {
+            "slot": 5,
+            "hunter": "Spire",
+            "bot": true
+          },
+          {
+            "slot": 6,
+            "hunter": "Weavel",
+            "bot": true
+          },
+          {
+            "slot": 7,
+            "hunter": "Samus",
+            "bot": true
+          }
+        ],
+        "endRoster": [
+          {
+            "slot": 0,
+            "hunter": "Samus",
+            "bot": true
+          },
+          {
+            "slot": 1,
+            "hunter": "Kanden",
+            "bot": true
+          },
+          {
+            "slot": 2,
+            "hunter": "Trace",
+            "bot": true
+          },
+          {
+            "slot": 3,
+            "hunter": "Sylux",
+            "bot": true
+          },
+          {
+            "slot": 4,
+            "hunter": "Noxus",
+            "bot": true
+          },
+          {
+            "slot": 5,
+            "hunter": "Spire",
+            "bot": true
+          },
+          {
+            "slot": 6,
+            "hunter": "Weavel",
+            "bot": true
+          },
+          {
+            "slot": 7,
+            "hunter": "Samus",
+            "bot": true
+          }
+        ],
+        "clientBinary": {
+          "name": "ProjectPrime",
+          "sha256": "3fd4f2ef9d0cc7bae4dd1e5a2f3848e8007f4b1ef4c96ac041a87446cffab9f9",
+          "mvid": "dda389b6-b993-448d-bf17-169b3a334917"
+        },
+        "harnessBinary": {
+          "name": "native-render-check",
+          "sha256": "721f225d1d9a07bf6e95ce8eb2eb4692d34a438ee88d64dc47b850262f4dbd12",
+          "mvid": "d041f135-b192-424f-a261-1bc916f39b6f"
+        }
+      },
+      "assemblyMvid": "dda389b6-b993-448d-bf17-169b3a334917",
+      "vendor": "NVIDIA Corporation",
+      "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2"
+    },
+    "fixedSimulationHz": 60,
+    "reportedSimulationHz": 59.9958602856403,
+    "capturedSimulationHz": null,
+    "activeCap": 240,
+    "activeVsync": "Off",
+    "profilingActive": false,
+    "explicitGraphicsOverrides": "UNVERIFIED",
+    "timestampIntervalConsistency": "UNVERIFIED: no timestamp frequency",
+    "samples": 429116,
+    "captureGroup": null,
+    "meanCompletedFrameFps": 238.2969731803635,
+    "frameIntervalP50Ms": 4.1634,
+    "frameIntervalP95Ms": 4.6045,
+    "frameIntervalP99Ms": 4.7792,
+    "frameIntervalP999Ms": 10.7553,
+    "onePercentLowEstimateFps": 209.2400401740877,
+    "trueOnePercentLowFps": 135.90635216378854,
+    "trueOnePercentLowMethod": "1000 / mean(slowest ceil(samples * 0.01) intervals in ms)",
+    "tailSamples": 4292,
+    "numericBudgetSamples": 429116,
+    "lateOver1Point5Budget": 1277,
+    "lateOver2Budget": 880,
+    "lateOver1Point5Fraction": 0.0029758853084014577,
+    "lateOver2Fraction": 0.0020507275422030407
+  },
+  "trend": {
+    "scope": "Whole unprofiled native callback run; descriptive only, no rollout. All chronological samples retained. Fixed five-minute trend blocks are not separate A/B qualifications.",
+    "totalIntervalSeconds": 1800.7614375999856,
+    "fiveMinuteBlocks": [
+      {
+        "startSeconds": 0,
+        "endSeconds": 300,
+        "samples": 71928,
+        "meanCompletedFrameFps": 239.7580162421736,
+        "frameIntervalP50Ms": 4.1618,
+        "frameIntervalP95Ms": 4.5977,
+        "frameIntervalP99Ms": 4.749,
+        "frameIntervalP999Ms": 5.3532,
+        "trueOnePercentLowFps": 200.44557380677463,
+        "lateOver1Point5Budget": 11,
+        "lateOver2Budget": 3
+      },
+      {
+        "startSeconds": 300,
+        "endSeconds": 600,
+        "samples": 71932,
+        "meanCompletedFrameFps": 239.77320129822382,
+        "frameIntervalP50Ms": 4.1626,
+        "frameIntervalP95Ms": 4.588,
+        "frameIntervalP99Ms": 4.7403,
+        "frameIntervalP999Ms": 5.0593,
+        "trueOnePercentLowFps": 204.02164057541583,
+        "lateOver1Point5Budget": 3,
+        "lateOver2Budget": 0
+      },
+      {
+        "startSeconds": 600,
+        "endSeconds": 900,
+        "samples": 71929,
+        "meanCompletedFrameFps": 239.76471038198662,
+        "frameIntervalP50Ms": 4.1635,
+        "frameIntervalP95Ms": 4.5953,
+        "frameIntervalP99Ms": 4.7294,
+        "frameIntervalP999Ms": 5.0571,
+        "trueOnePercentLowFps": 203.42984412442482,
+        "lateOver1Point5Budget": 12,
+        "lateOver2Budget": 4
+      },
+      {
+        "startSeconds": 900,
+        "endSeconds": 1200,
+        "samples": 71925,
+        "meanCompletedFrameFps": 239.75044289898486,
+        "frameIntervalP50Ms": 4.1641,
+        "frameIntervalP95Ms": 4.6087,
+        "frameIntervalP99Ms": 4.7227,
+        "frameIntervalP999Ms": 4.9721,
+        "trueOnePercentLowFps": 206.049705198677,
+        "lateOver1Point5Budget": 4,
+        "lateOver2Budget": 2
+      },
+      {
+        "startSeconds": 1200,
+        "endSeconds": 1500,
+        "samples": 71930,
+        "meanCompletedFrameFps": 239.7648469314001,
+        "frameIntervalP50Ms": 4.1622,
+        "frameIntervalP95Ms": 4.601,
+        "frameIntervalP99Ms": 4.7097,
+        "frameIntervalP999Ms": 4.9533,
+        "trueOnePercentLowFps": 207.37901781725634,
+        "lateOver1Point5Budget": 3,
+        "lateOver2Budget": 2
+      },
+      {
+        "startSeconds": 1500,
+        "endSeconds": 1800,
+        "samples": 69378,
+        "meanCompletedFrameFps": 231.259167389911,
+        "frameIntervalP50Ms": 4.1656,
+        "frameIntervalP95Ms": 4.6429,
+        "frameIntervalP99Ms": 8.9271,
+        "frameIntervalP999Ms": 25.9876,
+        "trueOnePercentLowFps": 58.65799731894072,
+        "lateOver1Point5Budget": 1188,
+        "lateOver2Budget": 831
+      },
+      {
+        "startSeconds": 1800,
+        "endSeconds": 1800.7614375999856,
+        "samples": 94,
+        "meanCompletedFrameFps": 124.05795142840853,
+        "frameIntervalP50Ms": 7.5964,
+        "frameIntervalP95Ms": 13.0418,
+        "frameIntervalP99Ms": 39.2988,
+        "frameIntervalP999Ms": null,
+        "trueOnePercentLowFps": 25.44606960008957,
+        "lateOver1Point5Budget": 56,
+        "lateOver2Budget": 38
+      }
+    ],
+    "intervalsOver100Ms": [
+      {
+        "index": 427109,
+        "elapsedSeconds": 1782.1184840999854,
+        "intervalMs": 103.958
+      },
+      {
+        "index": 427112,
+        "elapsedSeconds": 1782.2417156999854,
+        "intervalMs": 165.729
+      },
+      {
+        "index": 427151,
+        "elapsedSeconds": 1782.9051513999855,
+        "intervalMs": 311.7731
+      },
+      {
+        "index": 427167,
+        "elapsedSeconds": 1783.3592717999861,
+        "intervalMs": 191.6524
+      },
+      {
+        "index": 427236,
+        "elapsedSeconds": 1784.2293388999867,
+        "intervalMs": 160.9747
+      },
+      {
+        "index": 427369,
+        "elapsedSeconds": 1785.4470761999864,
+        "intervalMs": 139.2909
+      },
+      {
+        "index": 427443,
+        "elapsedSeconds": 1786.1066870999866,
+        "intervalMs": 147.8386
+      },
+      {
+        "index": 427599,
+        "elapsedSeconds": 1787.538983599986,
+        "intervalMs": 123.9518
+      },
+      {
+        "index": 427647,
+        "elapsedSeconds": 1788.198048999986,
+        "intervalMs": 123.6893
+      }
+    ],
+    "acceptance": "FAIL_STABILITY_GATE: 26 simulation drops; external dotnet build began near final 30 seconds; exact causal attribution unavailable",
+    "externalBuildStartUtc": "2026-10-20T03:03:57.856Z",
+    "processEndCentral": "2026-10-19T22:04:26.0131172-05:00"
+  },
+  "telemetry": {
+    "measurementSeconds": 1800.7614376,
+    "samples": 429116,
+    "simulationFrames": 108240,
+    "simulationHz": 59.9958602856403,
+    "droppedSimulationSteps": 26,
+    "droppedIntervalRecords": 0,
+    "intervalCapacity": 7372800,
+    "timingEvidenceComplete": true,
+    "focusTransitions": 0,
+    "visibilityTransitions": 1,
+    "windowStateTransitions": 0,
+    "allocatedBytes": 14522184768,
+    "gcCollections": [
+      291,
+      28,
+      2
+    ],
+    "managedBytes": 246205192,
+    "workingSetBytes": 186028032,
+    "stalls": 1,
+    "cleanup": {
+      "detailedRetirement": {
+        "legacyListNamesBefore": 450,
+        "legacyListsRecognizedBefore": 450,
+        "legacyListsRecognizedAfter": 0,
+        "meshListFieldsAfter": 0,
+        "sceneModelLeasesAfter": 0,
+        "bufferNamesBefore": 338,
+        "buffersRecognizedBefore": 338,
+        "bufferNamesRecognizedAfter": 0,
+        "vertexArrayNamesBefore": 169,
+        "vertexArraysRecognizedBefore": 169,
+        "vertexArraysRecognizedAfter": 0,
+        "programNamesBefore": 7,
+        "programsRecognizedBefore": 7,
+        "programsRecognizedAfter": 0,
+        "deletionPendingProgramsAfter": 0,
+        "attachedShaderNamesBefore": 0,
+        "shadersRecognizedAfter": 0,
+        "deletionPendingShadersAfter": 0,
+        "textureNamesBefore": 891,
+        "texturesRecognizedAfter": 0,
+        "framebufferNamesBefore": 1,
+        "framebuffersRecognizedAfter": 0,
+        "renderbufferNamesBefore": 1,
+        "renderbuffersRecognizedAfter": 0,
+        "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+      },
+      "ownedTexturesBefore": 889,
+      "ownedTexturesAfter": 0,
+      "framebufferBefore": 1,
+      "framebufferAfter": 0,
+      "programCountBefore": 4,
+      "programOwnerFieldsReleased": true,
+      "ownedProgramsAfter": 0,
+      "recognizedProgramNamesAfter": 0,
+      "pendingDeletedProgramCountAfter": 0,
+      "currentProgramAfter": 0,
+      "depthSnapshotBytesBefore": 8294400,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 89,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 1385352,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1803168,
+      "retainedBytesAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 163,
+      "glyphBytesBefore": 41728,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 75,
+      "spriteBytesBefore": 19200,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    }
+  },
+  "pilotAnalysis": {
+    "schema": 1,
+    "status": "PASS_BOUNDED_MAC_DRAW_QUALIFICATION",
+    "hunters": [
+      "Samus"
+    ],
+    "outputScheduleHz": [
+      60,
+      144
+    ],
+    "scenarioId": "native-pose-charge-retreat-v2",
+    "errors": [],
+    "comparisons": [
+      {
+        "hunter": "Samus",
+        "referenceHz": 60,
+        "candidateHz": 144,
+        "exactCanonicalAndInputMatch": true,
+        "commonPrefixSteps": 1440,
+        "commonPrefixCanonicalAndInputExact": true,
+        "firstDifference": null
+      }
+    ],
+    "drawAnchorObservations": [
+      {
+        "hunter": "Samus",
+        "outputScheduleHz": 60,
+        "sameDisplayTimeAnchorSamples": 39,
+        "observedAnchorDifferences": [],
+        "scope": "diagnostic observations only; outside frozen canonical contract"
+      },
+      {
+        "hunter": "Samus",
+        "outputScheduleHz": 144,
+        "sameDisplayTimeAnchorSamples": 39,
+        "observedAnchorDifferences": [],
+        "scope": "diagnostic observations only; outside frozen canonical contract"
+      }
+    ],
+    "performanceAcceptance": "NOT_CLAIMED_READBACK_FIXTURE",
+    "panelScanoutAcceptance": "NOT_CLAIMED",
+    "effectDisplayAcceptance": "ISOLATED_NATIVE_CHARGE_PIXELS_REQUIRED",
+    "cameraControlAcceptance": "STRICT_ENTRY_EXIT_CANONICAL_REQUIRED",
+    "firstPersonGunAcceptance": "ISOLATED_NATIVE_GUN_PIXELS_REQUIRED",
+    "isolatedPixelControlsRequired": true,
+    "nativeParticleSamplingRequired": true,
+    "replayPlaybackAcceptance": "NOT_RUN_EXISTING_CANONICAL_PROJECTIONS_ONLY",
+    "artifacts": [
+      {
+        "file": "result.json",
+        "sha256": "bbbae1d3743c4a993b5dc2fbe4f0b46c6c8b0bb9ede43e48e86b5d023aba9abf"
+      },
+      {
+        "file": "result.json",
+        "sha256": "9219533c819c058ba29be4e63a78365f42af2f42f7348f8c5e58f6d2ec24eb49"
+      }
+    ]
+  },
+  "capTraces": [
+    {
+      "requestedCap": 120,
+      "simulationDrops": 22,
+      "focusTransitions": 0,
+      "callbackAnalysis": {
+        "schema": 1,
+        "source": "legacy-native-harness",
+        "qualification": "NOT_RUN",
+        "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
+        "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
+        "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
+        "intervalMeaning": "Harness frame callback returns, including post-Present bookkeeping; not physical scanout or GPU time",
+        "loadedBinaryIdentity": {
+          "observedWorkload": {
+            "schemaVersion": 1,
+            "scope": "Observed existing offline bot workload; no replay/input trace was executed; no build/source attestation.",
+            "eligibleNormalTiming": false,
+            "binaryIdentityPhase": "before-warmup",
+            "failure": null,
+            "mode": "offline",
+            "phase": "entry",
+            "inputExecution": "frozen-device-snapshots-with-bot-ai",
+            "replayExecuted": false,
+            "seedAssignmentReadback": {
+              "rng1": 12345,
+              "rng2": 98765
+            },
+            "measurementStartRng": {
+              "rng1": 1694456009,
+              "rng2": 3498967168
+            },
+            "measurementEndRng": {
+              "rng1": 1957155150,
+              "rng2": 1888730967
+            },
+            "measurementStartTick": 240,
+            "measurementEndTick": 1440,
+            "startRoster": [
+              {
+                "slot": 0,
+                "hunter": "Samus",
+                "bot": true
+              },
+              {
+                "slot": 1,
+                "hunter": "Kanden",
+                "bot": true
+              },
+              {
+                "slot": 2,
+                "hunter": "Trace",
+                "bot": true
+              },
+              {
+                "slot": 3,
+                "hunter": "Sylux",
+                "bot": true
+              },
+              {
+                "slot": 4,
+                "hunter": "Noxus",
+                "bot": true
+              },
+              {
+                "slot": 5,
+                "hunter": "Spire",
+                "bot": true
+              },
+              {
+                "slot": 6,
+                "hunter": "Weavel",
+                "bot": true
+              },
+              {
+                "slot": 7,
+                "hunter": "Samus",
+                "bot": true
+              }
+            ],
+            "endRoster": [
+              {
+                "slot": 0,
+                "hunter": "Samus",
+                "bot": true
+              },
+              {
+                "slot": 1,
+                "hunter": "Kanden",
+                "bot": true
+              },
+              {
+                "slot": 2,
+                "hunter": "Trace",
+                "bot": true
+              },
+              {
+                "slot": 3,
+                "hunter": "Sylux",
+                "bot": true
+              },
+              {
+                "slot": 4,
+                "hunter": "Noxus",
+                "bot": true
+              },
+              {
+                "slot": 5,
+                "hunter": "Spire",
+                "bot": true
+              },
+              {
+                "slot": 6,
+                "hunter": "Weavel",
+                "bot": true
+              },
+              {
+                "slot": 7,
+                "hunter": "Samus",
+                "bot": true
+              }
+            ],
+            "clientBinary": {
+              "name": "ProjectPrime",
+              "sha256": "3fd4f2ef9d0cc7bae4dd1e5a2f3848e8007f4b1ef4c96ac041a87446cffab9f9",
+              "mvid": "dda389b6-b993-448d-bf17-169b3a334917"
+            },
+            "harnessBinary": {
+              "name": "native-render-check",
+              "sha256": "721f225d1d9a07bf6e95ce8eb2eb4692d34a438ee88d64dc47b850262f4dbd12",
+              "mvid": "d041f135-b192-424f-a261-1bc916f39b6f"
+            }
+          },
+          "assemblyMvid": "dda389b6-b993-448d-bf17-169b3a334917",
+          "vendor": "NVIDIA Corporation",
+          "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2"
+        },
+        "fixedSimulationHz": 60,
+        "reportedSimulationHz": 59.95355697708771,
+        "capturedSimulationHz": null,
+        "activeCap": 120,
+        "activeVsync": "Off",
+        "profilingActive": "UNVERIFIED",
+        "explicitGraphicsOverrides": "UNVERIFIED",
+        "timestampIntervalConsistency": "UNVERIFIED: no timestamp frequency",
+        "samples": 2004,
+        "captureGroup": null,
+        "meanCompletedFrameFps": 98.39947557204049,
+        "frameIntervalP50Ms": 8.4527,
+        "frameIntervalP95Ms": 19.0785,
+        "frameIntervalP99Ms": 55.3877,
+        "frameIntervalP999Ms": 141.6493,
+        "onePercentLowEstimateFps": 18.05455001742264,
+        "trueOnePercentLowFps": 9.990152563901297,
+        "trueOnePercentLowMethod": "1000 / mean(slowest ceil(samples * 0.01) intervals in ms)",
+        "tailSamples": 21,
+        "numericBudgetSamples": 2004,
+        "lateOver1Point5Budget": 196,
+        "lateOver2Budget": 133,
+        "lateOver1Point5Fraction": 0.09780439121756487,
+        "lateOver2Fraction": 0.06636726546906188
+      },
+      "presentAnalysisStatus": "REJECTED: mixed segments/caps/vsync; analyze separate raw captures",
+      "storedSegments": [
+        464,
+        465,
+        466,
+        467,
+        468,
+        469,
+        470,
+        471,
+        472,
+        473
+      ],
+      "presentAnalysis": null,
+      "capAccuracyGate": "FAIL: mean outside \u00b12%; no isolated cause proved"
+    },
+    {
+      "requestedCap": 144,
+      "simulationDrops": 0,
+      "focusTransitions": 0,
+      "callbackAnalysis": {
+        "schema": 1,
+        "source": "legacy-native-harness",
+        "qualification": "NOT_RUN",
+        "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
+        "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
+        "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
+        "intervalMeaning": "Harness frame callback returns, including post-Present bookkeeping; not physical scanout or GPU time",
+        "loadedBinaryIdentity": {
+          "observedWorkload": {
+            "schemaVersion": 1,
+            "scope": "Observed existing offline bot workload; no replay/input trace was executed; no build/source attestation.",
+            "eligibleNormalTiming": false,
+            "binaryIdentityPhase": "before-warmup",
+            "failure": null,
+            "mode": "offline",
+            "phase": "entry",
+            "inputExecution": "frozen-device-snapshots-with-bot-ai",
+            "replayExecuted": false,
+            "seedAssignmentReadback": {
+              "rng1": 12345,
+              "rng2": 98765
+            },
+            "measurementStartRng": {
+              "rng1": 283360264,
+              "rng2": 3498967168
+            },
+            "measurementEndRng": {
+              "rng1": 866866114,
+              "rng2": 1888730967
+            },
+            "measurementStartTick": 240,
+            "measurementEndTick": 1440,
+            "startRoster": [
+              {
+                "slot": 0,
+                "hunter": "Samus",
+                "bot": true
+              },
+              {
+                "slot": 1,
+                "hunter": "Kanden",
+                "bot": true
+              },
+              {
+                "slot": 2,
+                "hunter": "Trace",
+                "bot": true
+              },
+              {
+                "slot": 3,
+                "hunter": "Sylux",
+                "bot": true
+              },
+              {
+                "slot": 4,
+                "hunter": "Noxus",
+                "bot": true
+              },
+              {
+                "slot": 5,
+                "hunter": "Spire",
+                "bot": true
+              },
+              {
+                "slot": 6,
+                "hunter": "Weavel",
+                "bot": true
+              },
+              {
+                "slot": 7,
+                "hunter": "Samus",
+                "bot": true
+              }
+            ],
+            "endRoster": [
+              {
+                "slot": 0,
+                "hunter": "Samus",
+                "bot": true
+              },
+              {
+                "slot": 1,
+                "hunter": "Kanden",
+                "bot": true
+              },
+              {
+                "slot": 2,
+                "hunter": "Trace",
+                "bot": true
+              },
+              {
+                "slot": 3,
+                "hunter": "Sylux",
+                "bot": true
+              },
+              {
+                "slot": 4,
+                "hunter": "Noxus",
+                "bot": true
+              },
+              {
+                "slot": 5,
+                "hunter": "Spire",
+                "bot": true
+              },
+              {
+                "slot": 6,
+                "hunter": "Weavel",
+                "bot": true
+              },
+              {
+                "slot": 7,
+                "hunter": "Samus",
+                "bot": true
+              }
+            ],
+            "clientBinary": {
+              "name": "ProjectPrime",
+              "sha256": "3fd4f2ef9d0cc7bae4dd1e5a2f3848e8007f4b1ef4c96ac041a87446cffab9f9",
+              "mvid": "dda389b6-b993-448d-bf17-169b3a334917"
+            },
+            "harnessBinary": {
+              "name": "native-render-check",
+              "sha256": "721f225d1d9a07bf6e95ce8eb2eb4692d34a438ee88d64dc47b850262f4dbd12",
+              "mvid": "d041f135-b192-424f-a261-1bc916f39b6f"
+            }
+          },
+          "assemblyMvid": "dda389b6-b993-448d-bf17-169b3a334917",
+          "vendor": "NVIDIA Corporation",
+          "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2"
+        },
+        "fixedSimulationHz": 60,
+        "reportedSimulationHz": 60.32232060465896,
+        "capturedSimulationHz": null,
+        "activeCap": 144,
+        "activeVsync": "Off",
+        "profilingActive": "UNVERIFIED",
+        "explicitGraphicsOverrides": "UNVERIFIED",
+        "timestampIntervalConsistency": "UNVERIFIED: no timestamp frequency",
+        "samples": 2491,
+        "captureGroup": null,
+        "meanCompletedFrameFps": 124.52392655763774,
+        "frameIntervalP50Ms": 7.0061,
+        "frameIntervalP95Ms": 17.9122,
+        "frameIntervalP99Ms": 27.7579,
+        "frameIntervalP999Ms": 39.9792,
+        "onePercentLowEstimateFps": 36.02578004820249,
+        "trueOnePercentLowFps": 29.49371907657289,
+        "trueOnePercentLowMethod": "1000 / mean(slowest ceil(samples * 0.01) intervals in ms)",
+        "tailSamples": 25,
+        "numericBudgetSamples": 2491,
+        "lateOver1Point5Budget": 310,
+        "lateOver2Budget": 199,
+        "lateOver1Point5Fraction": 0.12444801284624649,
+        "lateOver2Fraction": 0.07988759534323565
+      },
+      "presentAnalysisStatus": "ACCEPTED_FOR_OFFLINE_ARITHMETIC_ONLY",
+      "storedSegments": [
+        510
+      ],
+      "presentAnalysis": {
+        "schema": 1,
+        "source": "glframe-capture-schema2",
+        "qualification": "NOT_RUN",
+        "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
+        "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
+        "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
+        "intervalMeaning": "Application Present returns; not physical scanout or GPU time",
+        "loadedBinaryIdentity": {
+          "assemblyMvid": "dda389b6-b993-448d-bf17-169b3a334917",
+          "assemblySha256": "3fd4f2ef9d0cc7bae4dd1e5a2f3848e8007f4b1ef4c96ac041a87446cffab9f9",
+          "imageKind": "assembly",
+          "os": "Microsoft Windows 10.0.26200",
+          "machine": "DESKTOP-94724L4",
+          "vendor": "NVIDIA Corporation",
+          "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+          "glVersion": "4.6.0 NVIDIA 617.42",
+          "room": "MP3 PROVING GROUND",
+          "width": 1920,
+          "height": 1080,
+          "cap": 144,
+          "vsync": "Off",
+          "renderScale": 100,
+          "shadows": "Off",
+          "gpuTiming": "UNVERIFIED",
+          "lowLatencyProvider": "none; null provider",
+          "warmupSimulationTicks": 240,
+          "profiling": false,
+          "flags": {
+            "PROJECT_PRIME_GL_FRAME_CAPACITY": "16384",
+            "PROJECT_PRIME_GL_FRAME_CAPTURE": "C:/Users/Jarrett/Documents/ProjectPrime-Native-FPS-20261019/sustained-v2/cap-trace-144/frames.json"
+          }
+        },
+        "fixedSimulationHz": 60,
+        "reportedSimulationHz": null,
+        "capturedSimulationHz": 59.984190566734235,
+        "activeCap": 144,
+        "activeVsync": "Off",
+        "profilingActive": true,
+        "explicitGraphicsOverrides": {
+          "PROJECT_PRIME_GL_FRAME_CAPACITY": "16384",
+          "PROJECT_PRIME_GL_FRAME_CAPTURE": "C:/Users/Jarrett/Documents/ProjectPrime-Native-FPS-20261019/sustained-v2/cap-trace-144/frames.json"
+        },
+        "timestampIntervalConsistency": "CHECKED: adjacent stored frames",
+        "samples": 2491,
+        "captureGroup": [
+          510,
+          144,
+          "Off"
+        ],
+        "meanCompletedFrameFps": 124.51718225144582,
+        "frameIntervalP50Ms": 7.0062,
+        "frameIntervalP95Ms": 17.9115,
+        "frameIntervalP99Ms": 27.756,
+        "frameIntervalP999Ms": 39.9765,
+        "onePercentLowEstimateFps": 36.028246144977665,
+        "trueOnePercentLowFps": 29.495674695271337,
+        "trueOnePercentLowMethod": "1000 / mean(slowest ceil(samples * 0.01) intervals in ms)",
+        "tailSamples": 25,
+        "numericBudgetSamples": 2491,
+        "lateOver1Point5Budget": 309,
+        "lateOver2Budget": 199,
+        "lateOver1Point5Fraction": 0.12404656764351665,
+        "lateOver2Fraction": 0.07988759534323565
+      },
+      "capAccuracyGate": "FAIL: mean outside \u00b12%; no isolated cause proved"
+    }
+  ]
+}

@@ -10,13 +10,13 @@ technical scope; the user's request explicitly overrides waiting for PR review/C
 
 [baseline.json](baseline.json) and [macos-manifest.json](macos-manifest.json)
 retain machine, source, workload, exclusions and missing measurements. Native
-assets are present. A separate chat is actively running a seven-Hunter native
+assets are present. At the initial audit, a separate chat was running a seven-Hunter native
 presentation matrix on this Mac. Concurrent native captures/builds invalidate
-performance comparisons. Consequently no uncontended A/A, ABBA, 10–15 minute
-qualification or 30-minute soak has been accepted. Metrics remain null, not zero.
-Windows/Linux/Android native devices and physical input-to-photon instruments
-are not attached to this execution. Prior CPP-03/04 evidence is preserved but
-cannot substitute for measurements of this binary or prove physical scanout.
+those performance comparisons; the original Mac metrics remain null. The user
+then requested testing on Windows, and its separate frozen RTX 5080 receipts
+are linked below. Linux/Android physical devices and input-to-photon instruments
+remain unavailable. Prior CPP-03/04 evidence cannot substitute for measurements
+of this binary or prove physical scanout.
 
 ## Source audit
 
@@ -39,15 +39,18 @@ cannot substitute for measurements of this binary or prove physical scanout.
   It is neither an actual final hardware-sample timestamp nor Reflex evidence.
 - Confirmed pacing-source defect: ApplyFrameRateSettings can classify the prior
   cap/monitor's MeasuredFrameHz as evidence that newly selected Display ignores
-  VSync. FPS-02 must test measurement ownership rather than replace the pacer.
+  VSync. FPS-02 fixes measurement ownership and retains the existing pacer.
 
 ## Bottleneck selection
 
-No measured >5% owner is established. FPS-03/04/05 are evidence-gated and remain
-NOT_RUN; no renderer candidate or new default is justified. The confirmed
-pacing-source correctness defect and missing bounded diagnostics are actionable
-without asserting a speedup. Unavailable devices remain NOT_RUN, GPU timing
-UNVERIFIED. See the final [decision](decision.md) for each program slice.
+The initial Mac baseline above remains excluded. The subsequent user-requested
+Windows RTX 5080 campaign establishes inclusive World, Preparation, DrawItems,
+ItemSetup and HUD owners above 5% of median interval. These scopes overlap; this
+is a selection heuristic, not predicted savings. See [Windows evidence](windows.md)
+and [raw summary](windows-short.json). A repeated ~40 ms gap was proven to be
+diagnostic DLL hashing and removed in FPS-03. Other simulation spikes remain
+unknown/mixed. No renderer/upload candidate clears the evidence gate; FPS-04/05
+are NO_ROLLOUT. See the final [decision](decision.md) for every slice.
 
 ## Repeatable measurement
 

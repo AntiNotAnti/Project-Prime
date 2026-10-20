@@ -28,7 +28,7 @@ internal static class RmlUiMapPickerCatalog
                 {
                     token.ThrowIfCancellationRequested();
                     var category = RmlUiMapPickerModel.Group(map.Name, map.InGameName, map.Description, map.Import != null);
-                    if (map.LocalSourceOnly)
+                    if (map.RequiresPrivateSource)
                     {
                         if (category == RmlUiArenaCategory.Echoes
                             && Import.EchoesOfflinePlaytestCatalog.IsQualifiedInstalled(map, root))

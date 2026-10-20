@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "initialFrozenSourceSha": "db2cea08e5aa73ab83a1dc210ece33a9df5974b6",
+  "initialRawReceiptIndex": "evidence/windows-functional-initial/index.json",
+  "mapSweeps": [
+    {
+      "drawRate": 1,
+      "exitCode": 0,
+      "mapSummary": "MAPTEST MP3 PROVING GROUND | players 8 | frames 2377 | spawned 8/8 | moved 7/8 (furthest 57 units) | alt form 3/8 | fired 7/8 | deaths 9 | afflicted freeze 0 burn 0 disrupt 1 (probe freeze FAIL burn FAIL disrupt FAIL) | spawnpoints 6 | jumppads 1 (1/1 launched) teleporters 0 (0/0 moved) doors 0 forcefields 0 platforms 0 itemspawns 11 items 11 morphcams 2 flagbases 0 nodes 0 artifacts 0 triggers 0 areas 0 | lowest Y -0.3 | node lookup 19016/19016 agreed (0 none, 0 wrong part, 0 would hide the player, 0 would reveal one; 18069 samples drawable) | remote node 19008/19008 agreed (0 none, 0 wrong part, 0 would hide the player) | effect particles 2106 | lit first 96.5% min 95.5% max 100.0% mean 98.7% (40 samples)",
+      "frameTimingWitness": null,
+      "observedSimulationSteps": 2377,
+      "drawsAdvancingSimulation": null,
+      "lockjawNativeTrailChecks": "NOT_EXERCISED:0",
+      "statusAfflictionProbes": "NOT_EXERCISED:fixture summary reports false probe coverage; no full combat claim"
+    },
+    {
+      "drawRate": 3,
+      "exitCode": 0,
+      "mapSummary": "MAPTEST MP3 PROVING GROUND | players 8 | frames 2377 | spawned 8/8 | moved 7/8 (furthest 57 units) | alt form 3/8 | fired 7/8 | deaths 9 | afflicted freeze 0 burn 0 disrupt 1 (probe freeze FAIL burn FAIL disrupt FAIL) | spawnpoints 6 | jumppads 1 (1/1 launched) teleporters 0 (0/0 moved) doors 0 forcefields 0 platforms 0 itemspawns 11 items 11 morphcams 2 flagbases 0 nodes 0 artifacts 0 triggers 0 areas 0 | lowest Y -0.3 | node lookup 19016/19016 agreed (0 none, 0 wrong part, 0 would hide the player, 0 would reveal one; 18069 samples drawable) | remote node 19008/19008 agreed (0 none, 0 wrong part, 0 would hide the player) | effect particles 2106 | lit first 96.5% min 95.5% max 100.0% mean 98.7% (40 samples)",
+      "frameTimingWitness": "FRAMETIMING MP3 PROVING GROUND | 3 draws per step | 2377 steps, 2377 counted | draws advancing the game: 0 | active Lockjaw trail checks: 0 | trail mismatches: 0 | Lockjaw GetDrawInfo RNG changes: 0",
+      "observedSimulationSteps": 2377,
+      "drawsAdvancingSimulation": 0,
+      "lockjawNativeTrailChecks": "NOT_EXERCISED:0",
+      "statusAfflictionProbes": "NOT_EXERCISED:fixture summary reports false probe coverage; no full combat claim"
+    },
+    {
+      "drawRate": 4,
+      "exitCode": 0,
+      "mapSummary": "MAPTEST MP3 PROVING GROUND | players 8 | frames 2377 | spawned 8/8 | moved 7/8 (furthest 57 units) | alt form 3/8 | fired 7/8 | deaths 9 | afflicted freeze 0 burn 0 disrupt 1 (probe freeze FAIL burn FAIL disrupt FAIL) | spawnpoints 6 | jumppads 1 (1/1 launched) teleporters 0 (0/0 moved) doors 0 forcefields 0 platforms 0 itemspawns 11 items 11 morphcams 2 flagbases 0 nodes 0 artifacts 0 triggers 0 areas 0 | lowest Y -0.3 | node lookup 19016/19016 agreed (0 none, 0 wrong part, 0 would hide the player, 0 would reveal one; 18069 samples drawable) | remote node 19008/19008 agreed (0 none, 0 wrong part, 0 would hide the player) | effect particles 2106 | lit first 96.5% min 95.5% max 100.0% mean 98.7% (40 samples)",
+      "frameTimingWitness": "FRAMETIMING MP3 PROVING GROUND | 4 draws per step | 2377 steps, 2377 counted | draws advancing the game: 0 | active Lockjaw trail checks: 0 | trail mismatches: 0 | Lockjaw GetDrawInfo RNG changes: 0",
+      "observedSimulationSteps": 2377,
+      "drawsAdvancingSimulation": 0,
+      "lockjawNativeTrailChecks": "NOT_EXERCISED:0",
+      "statusAfflictionProbes": "NOT_EXERCISED:fixture summary reports false probe coverage; no full combat claim"
+    }
+  ],
+  "mapSummaryCountersEqualAcrossDrawRates": true,
+  "scope": "Native GL fixture smoke and draw-isolation witnesses; counters are not full authoritative event/replay/network parity",
+  "initialPoseMatrix": {
+    "status": "FAIL_OR_INCOMPLETE",
+    "passed": 4,
+    "failed": "Kanden60 input suppression beginning245, no main charge effect",
+    "notRun": 23,
+    "renderingDefect": "NOT_ESTABLISHED:scripted input not delivered"
+  },
+  "focusFixSourceSha": "9c1aabc1b59fba5b34451304093503f28dba5c24",
+  "focusControlReceiptIndex": "evidence/focus-controls/index.json",
+  "focusControlSummary": "focus-control-summary.json",
+  "fullMatrixStatus": "PASS:28/28 bounded Windows native scheduled draw correctness",
+  "physicalLatency": "NOT_RUN",
+  "osFocusAcceptance": "NOT_CLAIMED",
+  "performanceAcceptance": "NOT_CLAIMED_READBACK_FIXTURE",
+  "fullMatrix": {
+    "sourceSha": "9c1aabc1b59fba5b34451304093503f28dba5c24",
+    "assemblyMvid": "dc8876fa-2eea-4f83-81f7-1b9575cb0e8e",
+    "requested": 28,
+    "passed": 28,
+    "notRun": 0,
+    "scenarioId": "native-pose-charge-retreat-v2",
+    "hunters": [
+      "Samus",
+      "Kanden",
+      "Trace",
+      "Sylux",
+      "Noxus",
+      "Spire",
+      "Weavel"
+    ],
+    "outputScheduleHz": [
+      60,
+      120,
+      144,
+      240
+    ],
+    "exactCanonicalAndInputComparisons": 21,
+    "canonicalStepsPerComparison": 1440,
+    "analysis": "windows-pose-analysis.json",
+    "rawReceiptIndexes": [
+      "evidence/windows-pose-interrupted/index.json",
+      "evidence/windows-pose-recovery/index.json"
+    ],
+    "runtimeUnchanged": true,
+    "assetsUnchanged": true,
+    "interruptedAttemptsRetained": 1,
+    "interruptedReason": "Disk full saving Noxus60 screenshot/result; no result, nonzero exit, not counted as PASS",
+    "selection": "16 original PASS cells +12 fresh recovery PASS cells, identical frozen runtime/asset hashes; original failed17 remains retained"
+  }
+}

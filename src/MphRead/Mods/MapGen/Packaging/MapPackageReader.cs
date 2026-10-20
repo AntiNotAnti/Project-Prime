@@ -233,7 +233,7 @@ namespace MphRead.Mods.MapGen
             MapDefinition parsed = JsonSerializer.Deserialize<MapDefinition>(bytes, options)
                 ?? throw new InvalidDataException(legacy
                     ? "Invalid legacy recipe." : "Invalid package project.");
-            if (parsed.LocalSourceOnly)
+            if (parsed.RequiresPrivateSource)
                 throw new InvalidDataException("Packages cannot contain locally imported commercial game assets.");
             return parsed;
         }

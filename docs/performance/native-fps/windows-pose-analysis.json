@@ -1,0 +1,941 @@
+{
+  "schema": 1,
+  "status": "PASS_BOUNDED_MAC_DRAW_QUALIFICATION",
+  "hunters": [
+    "Samus",
+    "Kanden",
+    "Trace",
+    "Sylux",
+    "Noxus",
+    "Spire",
+    "Weavel"
+  ],
+  "outputScheduleHz": [
+    60,
+    120,
+    144,
+    240
+  ],
+  "scenarioId": "native-pose-charge-retreat-v2",
+  "errors": [],
+  "comparisons": [
+    {
+      "hunter": "Samus",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Samus",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Samus",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Kanden",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Kanden",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Kanden",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Trace",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Trace",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Trace",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Sylux",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Sylux",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Sylux",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Noxus",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Noxus",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Noxus",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Spire",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Spire",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Spire",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Weavel",
+      "referenceHz": 60,
+      "candidateHz": 120,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Weavel",
+      "referenceHz": 60,
+      "candidateHz": 144,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    },
+    {
+      "hunter": "Weavel",
+      "referenceHz": 60,
+      "candidateHz": 240,
+      "exactCanonicalAndInputMatch": true,
+      "commonPrefixSteps": 1440,
+      "commonPrefixCanonicalAndInputExact": true,
+      "firstDifference": null
+    }
+  ],
+  "drawAnchorObservations": [
+    {
+      "hunter": "Samus",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Samus",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Samus",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Samus",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Kanden",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Kanden",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Kanden",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Kanden",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Trace",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Trace",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Trace",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Trace",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Sylux",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Sylux",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Sylux",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Sylux",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Noxus",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Noxus",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Noxus",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Noxus",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Spire",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Spire",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Spire",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Spire",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Weavel",
+      "outputScheduleHz": 60,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Weavel",
+      "outputScheduleHz": 120,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Weavel",
+      "outputScheduleHz": 144,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    },
+    {
+      "hunter": "Weavel",
+      "outputScheduleHz": 240,
+      "sameDisplayTimeAnchorSamples": 39,
+      "observedAnchorDifferences": [],
+      "scope": "diagnostic observations only; outside frozen canonical contract"
+    }
+  ],
+  "performanceAcceptance": "NOT_CLAIMED_READBACK_FIXTURE",
+  "panelScanoutAcceptance": "NOT_CLAIMED",
+  "effectDisplayAcceptance": "ISOLATED_NATIVE_CHARGE_PIXELS_REQUIRED",
+  "cameraControlAcceptance": "STRICT_ENTRY_EXIT_CANONICAL_REQUIRED",
+  "firstPersonGunAcceptance": "ISOLATED_NATIVE_GUN_PIXELS_REQUIRED",
+  "isolatedPixelControlsRequired": true,
+  "nativeParticleSamplingRequired": true,
+  "replayPlaybackAcceptance": "NOT_RUN_EXISTING_CANONICAL_PROJECTIONS_ONLY",
+  "aggregation": {
+    "originalPlanSha256": "991f4e5c534e3190e8e8b72def0d8831e2f4f62990e1088580cb5b97c3bcdf5b",
+    "recoveryPlanSha256": "ccca08acced273ee161b386241d8eaf0d4a047ea386c3ee5c5ff3d23709f3c05",
+    "attempts": [
+      {
+        "hunter": "Samus",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "f6d922c7d4d59cf97c7808fd3219cfe99dc70d555b6cc00d7bb34a006f0e25f2",
+        "resultSha256": "52cb065cec72b2b2fd41fcaf0cf75b08b5283886ef7b283aada2c452a30d6515",
+        "consoleSha256": "dc5941a9ee7c977e12148a1fc417d7f3be0cf426904c316c62a2fa320af8b190",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/01-samus-60"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "0b70621977d64bd445ce60019c313824e35862ba6c886a48f68fb1340c601c0f",
+        "resultSha256": "ecb54ec994b46293672536042644859024f595077ab7b356bb85116e549864d6",
+        "consoleSha256": "04d7cd67e02211e3c86b20c2884ae980e1ec2e14a36a35e8d8d77a701abea1e3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/02-samus-144"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "561ac9d487e493fc6a756d0909619122fe651f3bde0e74222c9527455bdeef2d",
+        "resultSha256": "7164e54f3082df08d5757df61a5e7bf201634fd8561b0fbbde1a59c221223e94",
+        "consoleSha256": "e6deb0c78598ccf74eba7def805eb148ff4956324f83b52127b18b47b7cc6500",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/03-samus-120"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "d7705d3ce01f25207c9741845800afd1b350e963e72619568b20f0a020962f3a",
+        "resultSha256": "962d6657c076412fe470d6cc6b06f867cd437fbfdb72c0833b8aaeb9cfc92321",
+        "consoleSha256": "ae9b32e7a924312998e9c5c15e932cbd62269c94867261ae81c8794a556ee8cd",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/04-samus-240"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "c8610ebdd35638b8663c966457ba7e952bdd2f2a1df5d5ec1087ffff71a2f607",
+        "resultSha256": "5d0a5bf1cf7655760579bde1dbea69ed18167e10e9e35824438223499263f351",
+        "consoleSha256": "eca394de3e1170950d755661337a1aa8eb2f38fadeb58605bb053f3696ce02ee",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/05-kanden-60"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "35aa87802d44849a88cef963806898a899be442c188e4b32dee9baaae4e586f5",
+        "resultSha256": "02a5f2a1cf790739669b7a8bd1083a7fea57fe859b2fac56c1469e0fc660dd77",
+        "consoleSha256": "17eb78cd5a9c40eebb519818c9ec85407b28d023cec3ecb2362bcd53aa744cc3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/06-kanden-120"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "072211549772b022e3cc3540a151470c72758943edf40866c5e6f66f4310a51e",
+        "resultSha256": "8a0e9d52d5f575e5239552b7ea74e729072e442f61e72afa62cdaf927b1b165e",
+        "consoleSha256": "a9fcae330894d907d53a4a8976a6dd58700fdd72e35fe736b3ae68f759480255",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/07-kanden-144"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "c993300b37207cc97ec4b113f91907db885fc404e25c64725b9f3f7c8f50b389",
+        "resultSha256": "a1cd94ac1a895943c2bbfcf328593d58660ddf2fc59c8054137b7070b421d624",
+        "consoleSha256": "69cd96126591b27cf556d3d3c0bcadbc27b43a69e066c4915b303ccc293b81ab",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/08-kanden-240"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "ed28060bf27e2a8c61a6e41d12079584efcde4beb167e8d76f936d514451c78a",
+        "resultSha256": "e2469d601bc79e17e9fcaad6cf8dd596e867bca7d14659274f5b0a212fdd2e7a",
+        "consoleSha256": "2fee4f2f7a77ff157a44308773cc69cc9c39936404add3cd685e74b344f3ec4f",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/09-trace-60"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "7edb8ef3ff285630a97a68372b838cf1d4fa0e9bcaedd2193b37109f07dfc79b",
+        "resultSha256": "8b31241b8f7091366002b0d582bd4e717e2a699a7232dfde5b89306cc84378be",
+        "consoleSha256": "885faf2e10d1273c045d32e2963385da472f9e313e50005d164e660d51c83293",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/10-trace-120"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "02bf9dd8011d6e9366dec2730d86e82172556c10f0a9b3436d26617aa0ed25a0",
+        "resultSha256": "cfc4dc1a0cdf039b2b184c5249f7279147bc9387dac9a341d2640a37d3b71a37",
+        "consoleSha256": "c3d3b3691b91e776c87c580ce954e8025249d2321faeb970470e08acba8a6f84",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/11-trace-144"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "ea71017431d7810218c1cfee66f2aa0bd85b4db1bd021c252a226cbbd6dea930",
+        "resultSha256": "f3caa4ec719d035c25317fc8e2f79ba2eed1541c17d1b3fd30bee3ea53dd55a6",
+        "consoleSha256": "51f865b0efb93dbba0a60a770a973262e3bc610284aad92330da9c17d0e5bdbe",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/12-trace-240"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "6f457011626681b5e8fadf120a45156319c5e18f6e8367a2f649bfafba537584",
+        "resultSha256": "e7b2ef72412e7842a62909ded3460e369e3591f612d6ce70d08a3c6b32355116",
+        "consoleSha256": "f14e04cc74706988fc392a27528be8a8344055bc1d205c171349be5de5547ac3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/13-sylux-60"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "61b39541021886685d01eaa925c369ab9164a7e90c35de3997a8ea564eb42cb0",
+        "resultSha256": "bf26720ee6902a9917a87dc00708e9fccfec747577fa79ff6091e867c792b936",
+        "consoleSha256": "4dd1303033549588a50bd0ecef5b31d28371247971944f3190a17b693487c201",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/14-sylux-120"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "bfa49d53ad726800be1c285deb3399f612d827fdc75adfa0af0f70d7faa2730d",
+        "resultSha256": "f9c8799db906609cc65ccc73fdfaaccdbb6f6bdf1541e7cdb9ee1b0deb739dfb",
+        "consoleSha256": "c785ee258154892cf48b2fea5289137013fbfb08377beb7aa66e31d9ee2161af",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/15-sylux-144"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "0770f533f7d3188b6f6ed18c97ca18ef77d875dafe9633af9b575fc9d8f82a1b",
+        "resultSha256": "b21d6acb32874f241bc1e70f4996c206cdf7e7030ed25b46858e1de722fc30b4",
+        "consoleSha256": "ba871ee9e952fc5626f6f52794db59863818097c46205c7a0d56dcebd26decda",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/16-sylux-240"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 60,
+        "status": "FAIL",
+        "receiptSha256": "d16b70a84cf5f2e9c3c3a1dc9d695b106ecc600f003055a3a8f0390f45129e84",
+        "resultSha256": null,
+        "consoleSha256": "255a4f0d85a9d9366705d413f2d05d842efb2f1fb5a97141aa74ae4e74dd61fc",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/17-noxus-60"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "0fa90f0a459e365232f9a04d1fa31bba72e449d0d7a5168a80d3f4668e6fa1ba",
+        "resultSha256": "72ed307cb36acb494076d73b539005a5ab31940684151c85460dc3706fe84ef3",
+        "consoleSha256": "ff5cd84ae4c7d4406910b5c8dc0b42f0653dd00044fb16fbba2104b30460ab3b",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/01-noxus-60"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "7d01238f3ca162ebffa84ca8084b2dcc9bf5a0d0083bb68a73c1922871ffabf7",
+        "resultSha256": "2b1aaad8c618ca33c03a81f0cd6ed9ce0163c8e5c2a863d468f5335681f6d469",
+        "consoleSha256": "0be8ff97349828038ffe11158fde5d24cdf6ca6eece522d0b318b33ce0166843",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/02-noxus-120"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "f236070bed5b8362a214cb35cfb3ad8cbbb1223e361e783f70eee926d66586ef",
+        "resultSha256": "f64e3e062a0997c2b3aa0c9528713dfd9d507da0241f056778a6f88398b805ec",
+        "consoleSha256": "f16570c3d23e5ca4cb17e72f1b250ef50bb0bc147c794fa96f493c6064cbe362",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/03-noxus-144"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "e56a6e6704dce91f72b01cd2706068f4e8219c67df300e26aee7c6ce7517da66",
+        "resultSha256": "f099d0766f34e1bb1664144bb384e5ed86e5426c9cee6198cd981eaf3d9505c3",
+        "consoleSha256": "953a2be8ee6ba712349a6a2e218e77be46ffe5da12e580c549fa42b0b9fdcb53",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/04-noxus-240"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "fcacf07436a131574726a3b6963adb62d68a51b61bc8fe999577891bc7b10070",
+        "resultSha256": "2beac823c921cd103dc5309cc6dfd9f289f528e965b7a34a8c5014c53992795d",
+        "consoleSha256": "717cb7935da54b852c5c5870d9141d68f9a017d93a92c9339113004b0731fef9",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/05-spire-60"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "d34f8219e7b0da951752a8148221e474c6c6230f81cce55a3d8143b2c1fe6a7a",
+        "resultSha256": "b11e7cbd368f2a45b144826a9e5c1c3c92644925b627273e9b31f72d81c135f3",
+        "consoleSha256": "62c41ec65f2dc60c7a451720f5f30c5198c34eb86f68646a245df04447f6408c",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/06-spire-120"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "b2af8d1353e6d6615ae338c96ec291f62e0e9d670e9ee8f98cc33e1e5c1415b2",
+        "resultSha256": "1690147b3c22fd9b0513c8aad240b8b40d40f4117fc6a377a0624fef127a6e9c",
+        "consoleSha256": "76889eb7cf958d7080e41f6d0cc698b6b0712f53535380e12142a39e01316ddd",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/07-spire-144"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "104010d675e041f2900a796c847888ddf493b7e07cc2726149e3b9df11b88056",
+        "resultSha256": "e90261d4c7abf57510b229a7121c5fb336032c1f002549bac6192047f754ff57",
+        "consoleSha256": "0aa153826b633c3bbe33fe25d7b54d360671e751f9945910752468bfbf185f07",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/08-spire-240"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "0c15020879a263488ba6c48f4bc2a8511e02d529ddf2af0842aba78a3a8704b5",
+        "resultSha256": "8e98359b07ab70e1f6ab41cc7b70e271dd86c9c1c74cce4c17b42837ec88d61f",
+        "consoleSha256": "03585000abb4163f68ce216b08c2d5960b522132c46b2a199d4bcab866dd07fa",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/09-weavel-60"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "bf2b2a5be20b3e6f2da55549637d889476df13f58fd854822f7e083c9000478e",
+        "resultSha256": "049a1141262a4a6ffd9db7885288c2818bf5b0aa75e79dbdb46b3f5f74f8bebc",
+        "consoleSha256": "dfbd7da5ec41f441365c23c3fabb9be384ffbd167e7f83ec5f4aced250ecfdc5",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/10-weavel-120"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "50e18035093dcd5afe34c916e87228b9504b5eabca8a84716902ffe219232db9",
+        "resultSha256": "4d3a0249ad2cd2ef372e86f906c6520e2f0e56f683fc81a4928e72bb786b63e3",
+        "consoleSha256": "5143abb0e3a7334b8fe5bced7e644f8803aa0b800f46a6fd8e3e2ea7d495cbde",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/11-weavel-144"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "e44a5cc38db4b239d81d755450631ec6e3b48a46837388a9754466b747905610",
+        "resultSha256": "6068c694d51c6255156801a4d16b2e087b8acc78ef086b5c181e15ef5e4948ba",
+        "consoleSha256": "8f6d33a008231d7746d9ecae44e36cc00cca0c2c339ede2ceb12bd7edff556a5",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/12-weavel-240"
+      }
+    ],
+    "selectedCells": [
+      {
+        "hunter": "Samus",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "f6d922c7d4d59cf97c7808fd3219cfe99dc70d555b6cc00d7bb34a006f0e25f2",
+        "resultSha256": "52cb065cec72b2b2fd41fcaf0cf75b08b5283886ef7b283aada2c452a30d6515",
+        "consoleSha256": "dc5941a9ee7c977e12148a1fc417d7f3be0cf426904c316c62a2fa320af8b190",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/01-samus-60"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "561ac9d487e493fc6a756d0909619122fe651f3bde0e74222c9527455bdeef2d",
+        "resultSha256": "7164e54f3082df08d5757df61a5e7bf201634fd8561b0fbbde1a59c221223e94",
+        "consoleSha256": "e6deb0c78598ccf74eba7def805eb148ff4956324f83b52127b18b47b7cc6500",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/03-samus-120"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "0b70621977d64bd445ce60019c313824e35862ba6c886a48f68fb1340c601c0f",
+        "resultSha256": "ecb54ec994b46293672536042644859024f595077ab7b356bb85116e549864d6",
+        "consoleSha256": "04d7cd67e02211e3c86b20c2884ae980e1ec2e14a36a35e8d8d77a701abea1e3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/02-samus-144"
+      },
+      {
+        "hunter": "Samus",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "d7705d3ce01f25207c9741845800afd1b350e963e72619568b20f0a020962f3a",
+        "resultSha256": "962d6657c076412fe470d6cc6b06f867cd437fbfdb72c0833b8aaeb9cfc92321",
+        "consoleSha256": "ae9b32e7a924312998e9c5c15e932cbd62269c94867261ae81c8794a556ee8cd",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/04-samus-240"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "c8610ebdd35638b8663c966457ba7e952bdd2f2a1df5d5ec1087ffff71a2f607",
+        "resultSha256": "5d0a5bf1cf7655760579bde1dbea69ed18167e10e9e35824438223499263f351",
+        "consoleSha256": "eca394de3e1170950d755661337a1aa8eb2f38fadeb58605bb053f3696ce02ee",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/05-kanden-60"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "35aa87802d44849a88cef963806898a899be442c188e4b32dee9baaae4e586f5",
+        "resultSha256": "02a5f2a1cf790739669b7a8bd1083a7fea57fe859b2fac56c1469e0fc660dd77",
+        "consoleSha256": "17eb78cd5a9c40eebb519818c9ec85407b28d023cec3ecb2362bcd53aa744cc3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/06-kanden-120"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "072211549772b022e3cc3540a151470c72758943edf40866c5e6f66f4310a51e",
+        "resultSha256": "8a0e9d52d5f575e5239552b7ea74e729072e442f61e72afa62cdaf927b1b165e",
+        "consoleSha256": "a9fcae330894d907d53a4a8976a6dd58700fdd72e35fe736b3ae68f759480255",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/07-kanden-144"
+      },
+      {
+        "hunter": "Kanden",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "c993300b37207cc97ec4b113f91907db885fc404e25c64725b9f3f7c8f50b389",
+        "resultSha256": "a1cd94ac1a895943c2bbfcf328593d58660ddf2fc59c8054137b7070b421d624",
+        "consoleSha256": "69cd96126591b27cf556d3d3c0bcadbc27b43a69e066c4915b303ccc293b81ab",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/08-kanden-240"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "ed28060bf27e2a8c61a6e41d12079584efcde4beb167e8d76f936d514451c78a",
+        "resultSha256": "e2469d601bc79e17e9fcaad6cf8dd596e867bca7d14659274f5b0a212fdd2e7a",
+        "consoleSha256": "2fee4f2f7a77ff157a44308773cc69cc9c39936404add3cd685e74b344f3ec4f",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/09-trace-60"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "7edb8ef3ff285630a97a68372b838cf1d4fa0e9bcaedd2193b37109f07dfc79b",
+        "resultSha256": "8b31241b8f7091366002b0d582bd4e717e2a699a7232dfde5b89306cc84378be",
+        "consoleSha256": "885faf2e10d1273c045d32e2963385da472f9e313e50005d164e660d51c83293",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/10-trace-120"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "02bf9dd8011d6e9366dec2730d86e82172556c10f0a9b3436d26617aa0ed25a0",
+        "resultSha256": "cfc4dc1a0cdf039b2b184c5249f7279147bc9387dac9a341d2640a37d3b71a37",
+        "consoleSha256": "c3d3b3691b91e776c87c580ce954e8025249d2321faeb970470e08acba8a6f84",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/11-trace-144"
+      },
+      {
+        "hunter": "Trace",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "ea71017431d7810218c1cfee66f2aa0bd85b4db1bd021c252a226cbbd6dea930",
+        "resultSha256": "f3caa4ec719d035c25317fc8e2f79ba2eed1541c17d1b3fd30bee3ea53dd55a6",
+        "consoleSha256": "51f865b0efb93dbba0a60a770a973262e3bc610284aad92330da9c17d0e5bdbe",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/12-trace-240"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "6f457011626681b5e8fadf120a45156319c5e18f6e8367a2f649bfafba537584",
+        "resultSha256": "e7b2ef72412e7842a62909ded3460e369e3591f612d6ce70d08a3c6b32355116",
+        "consoleSha256": "f14e04cc74706988fc392a27528be8a8344055bc1d205c171349be5de5547ac3",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/13-sylux-60"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "61b39541021886685d01eaa925c369ab9164a7e90c35de3997a8ea564eb42cb0",
+        "resultSha256": "bf26720ee6902a9917a87dc00708e9fccfec747577fa79ff6091e867c792b936",
+        "consoleSha256": "4dd1303033549588a50bd0ecef5b31d28371247971944f3190a17b693487c201",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/14-sylux-120"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "bfa49d53ad726800be1c285deb3399f612d827fdc75adfa0af0f70d7faa2730d",
+        "resultSha256": "f9c8799db906609cc65ccc73fdfaaccdbb6f6bdf1541e7cdb9ee1b0deb739dfb",
+        "consoleSha256": "c785ee258154892cf48b2fea5289137013fbfb08377beb7aa66e31d9ee2161af",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/15-sylux-144"
+      },
+      {
+        "hunter": "Sylux",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "0770f533f7d3188b6f6ed18c97ca18ef77d875dafe9633af9b575fc9d8f82a1b",
+        "resultSha256": "b21d6acb32874f241bc1e70f4996c206cdf7e7030ed25b46858e1de722fc30b4",
+        "consoleSha256": "ba871ee9e952fc5626f6f52794db59863818097c46205c7a0d56dcebd26decda",
+        "rawReceiptDirectory": "evidence/windows-pose-interrupted/16-sylux-240"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "0fa90f0a459e365232f9a04d1fa31bba72e449d0d7a5168a80d3f4668e6fa1ba",
+        "resultSha256": "72ed307cb36acb494076d73b539005a5ab31940684151c85460dc3706fe84ef3",
+        "consoleSha256": "ff5cd84ae4c7d4406910b5c8dc0b42f0653dd00044fb16fbba2104b30460ab3b",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/01-noxus-60"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "7d01238f3ca162ebffa84ca8084b2dcc9bf5a0d0083bb68a73c1922871ffabf7",
+        "resultSha256": "2b1aaad8c618ca33c03a81f0cd6ed9ce0163c8e5c2a863d468f5335681f6d469",
+        "consoleSha256": "0be8ff97349828038ffe11158fde5d24cdf6ca6eece522d0b318b33ce0166843",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/02-noxus-120"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "f236070bed5b8362a214cb35cfb3ad8cbbb1223e361e783f70eee926d66586ef",
+        "resultSha256": "f64e3e062a0997c2b3aa0c9528713dfd9d507da0241f056778a6f88398b805ec",
+        "consoleSha256": "f16570c3d23e5ca4cb17e72f1b250ef50bb0bc147c794fa96f493c6064cbe362",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/03-noxus-144"
+      },
+      {
+        "hunter": "Noxus",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "e56a6e6704dce91f72b01cd2706068f4e8219c67df300e26aee7c6ce7517da66",
+        "resultSha256": "f099d0766f34e1bb1664144bb384e5ed86e5426c9cee6198cd981eaf3d9505c3",
+        "consoleSha256": "953a2be8ee6ba712349a6a2e218e77be46ffe5da12e580c549fa42b0b9fdcb53",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/04-noxus-240"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "fcacf07436a131574726a3b6963adb62d68a51b61bc8fe999577891bc7b10070",
+        "resultSha256": "2beac823c921cd103dc5309cc6dfd9f289f528e965b7a34a8c5014c53992795d",
+        "consoleSha256": "717cb7935da54b852c5c5870d9141d68f9a017d93a92c9339113004b0731fef9",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/05-spire-60"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "d34f8219e7b0da951752a8148221e474c6c6230f81cce55a3d8143b2c1fe6a7a",
+        "resultSha256": "b11e7cbd368f2a45b144826a9e5c1c3c92644925b627273e9b31f72d81c135f3",
+        "consoleSha256": "62c41ec65f2dc60c7a451720f5f30c5198c34eb86f68646a245df04447f6408c",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/06-spire-120"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "b2af8d1353e6d6615ae338c96ec291f62e0e9d670e9ee8f98cc33e1e5c1415b2",
+        "resultSha256": "1690147b3c22fd9b0513c8aad240b8b40d40f4117fc6a377a0624fef127a6e9c",
+        "consoleSha256": "76889eb7cf958d7080e41f6d0cc698b6b0712f53535380e12142a39e01316ddd",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/07-spire-144"
+      },
+      {
+        "hunter": "Spire",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "104010d675e041f2900a796c847888ddf493b7e07cc2726149e3b9df11b88056",
+        "resultSha256": "e90261d4c7abf57510b229a7121c5fb336032c1f002549bac6192047f754ff57",
+        "consoleSha256": "0aa153826b633c3bbe33fe25d7b54d360671e751f9945910752468bfbf185f07",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/08-spire-240"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 60,
+        "status": "PASS",
+        "receiptSha256": "0c15020879a263488ba6c48f4bc2a8511e02d529ddf2af0842aba78a3a8704b5",
+        "resultSha256": "8e98359b07ab70e1f6ab41cc7b70e271dd86c9c1c74cce4c17b42837ec88d61f",
+        "consoleSha256": "03585000abb4163f68ce216b08c2d5960b522132c46b2a199d4bcab866dd07fa",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/09-weavel-60"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 120,
+        "status": "PASS",
+        "receiptSha256": "bf2b2a5be20b3e6f2da55549637d889476df13f58fd854822f7e083c9000478e",
+        "resultSha256": "049a1141262a4a6ffd9db7885288c2818bf5b0aa75e79dbdb46b3f5f74f8bebc",
+        "consoleSha256": "dfbd7da5ec41f441365c23c3fabb9be384ffbd167e7f83ec5f4aced250ecfdc5",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/10-weavel-120"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 144,
+        "status": "PASS",
+        "receiptSha256": "50e18035093dcd5afe34c916e87228b9504b5eabca8a84716902ffe219232db9",
+        "resultSha256": "4d3a0249ad2cd2ef372e86f906c6520e2f0e56f683fc81a4928e72bb786b63e3",
+        "consoleSha256": "5143abb0e3a7334b8fe5bced7e644f8803aa0b800f46a6fd8e3e2ea7d495cbde",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/11-weavel-144"
+      },
+      {
+        "hunter": "Weavel",
+        "rate": 240,
+        "status": "PASS",
+        "receiptSha256": "e44a5cc38db4b239d81d755450631ec6e3b48a46837388a9754466b747905610",
+        "resultSha256": "6068c694d51c6255156801a4d16b2e087b8acc78ef086b5c181e15ef5e4948ba",
+        "consoleSha256": "8f6d33a008231d7746d9ecae44e36cc00cca0c2c339ede2ceb12bd7edff556a5",
+        "rawReceiptDirectory": "evidence/windows-pose-recovery/12-weavel-240"
+      }
+    ],
+    "failedAttemptsRetained": 1,
+    "scope": "Full existing correctness gates; no scanout/performance qualification. Failed attempts remain preserved."
+  }
+}

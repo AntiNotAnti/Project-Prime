@@ -1,9 +1,7 @@
 {
   "schema": 1,
-  "sourceSha": "c0e7e01de6f2125543018470be852d9ec593f9cd",
+  "sourceSha": "ff76552e811710989bca332598053be9012a7b52",
   "reviewDate": "2026-10-19",
-  "status": "NOT_RUN",
-  "reason": "Concurrent native display-pose campaign from another chat prevents uncontended native timing. Assets exist; do not classify this as missing assets.",
   "workload": {
     "room": "MP3 PROVING GROUND",
     "players": 8,
@@ -50,20 +48,87 @@
     "PROCEDURAL_STREAM"
   ],
   "metrics": {
-    "trueOnePercentLowFps": null,
-    "frameIntervalP99Ms": null,
-    "presentWaitP99Ms": null,
-    "aaNoisePercent": null,
-    "gpuTimeMs": null
+    "trueOnePercentLowFps": 576.9122994405599,
+    "frameIntervalP99Ms": 1.4168,
+    "aaNoisePercent": 18.838226990400894,
+    "scope": "median of five short unprofiled Unlimited controls; diagnostic only",
+    "presentWaitP99Ms": {
+      "Off": 0.0463,
+      "High": 0.0449,
+      "scope": "separate profiled attribution windows"
+    },
+    "gpuTimeMs": {
+      "WorldP99Off": 0.562064,
+      "WorldP99High": 0.547552,
+      "scope": "median of separate supported asynchronous GPU pass windows; no Present substitution"
+    }
   },
-  "rankedMeasuredCandidates": [],
-  "candidateSelection": "No source owner can be ranked >5% of total interval without valid native measurements. Inclusive pass scopes must not be added together.",
+  "rankedMeasuredCandidates": [
+    {
+      "owner": "World",
+      "inclusiveMedianMs": 0.26045,
+      "percentOfMedianInterval": 34.4,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "Preparation",
+      "inclusiveMedianMs": 0.18395,
+      "percentOfMedianInterval": 24.3,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "Opaque",
+      "inclusiveMedianMs": 0.14765,
+      "percentOfMedianInterval": 19.5,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "DrawItems",
+      "inclusiveMedianMs": 0.1421,
+      "percentOfMedianInterval": 18.8,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "ItemSetup",
+      "inclusiveMedianMs": 0.09085,
+      "percentOfMedianInterval": 12,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "Hud",
+      "inclusiveMedianMs": 0.0576,
+      "percentOfMedianInterval": 7.6,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    },
+    {
+      "owner": "TranslucentBehind",
+      "inclusiveMedianMs": 0.04485,
+      "percentOfMedianInterval": 5.9,
+      "condition": "Off",
+      "candidateStatus": "NO_ROLLOUT: work removal not isolated; inclusive scopes overlap"
+    }
+  ],
+  "candidateSelection": "Inclusive scopes cannot be summed. 18.84% A/A p99 range, unproven startup simulation tails and existing cache hits do not establish a safe renderer win.",
   "platforms": {
     "macOS": "NOT_RUN: concurrent workload; native smoke may run but cannot qualify performance",
-    "Windows": "NOT_RUN: no controlled native device attached to this execution",
+    "Windows": "Native NVIDIA RTX5080 diagnostic short controls, CPU/GPU attribution; see separately identified sustained receipt",
     "Linux": "NOT_RUN: no controlled native device attached to this execution",
     "Android": "NOT_RUN: no physical GLES device attached to this execution"
   },
-  "gpu": "UNVERIFIED: Apple compatibility GL timer queries require live capability evidence; swap wall time is not GPU time",
-  "defaultChanges": []
+  "gpu": "SUPPORTED on measured Windows NVIDIA; Apple compatibility GL remains UNVERIFIED",
+  "defaultChanges": [],
+  "initialMacBaselineStatus": "NOT_RUN",
+  "initialMacBaselineReason": "Concurrent native display-pose campaign from another chat prevents uncontended native timing. Assets exist; do not classify this as missing assets.",
+  "status": "WINDOWS_DIAGNOSTIC_BASELINE",
+  "windowsSupplement": "windows-short.json",
+  "windowsManifest": "windows-manifest.json",
+  "metricsSource": "windows-short.json; distinct frozen source/binary; do not pool with initial Mac source",
+  "initialAuditSourceSha": "c0e7e01de6f2125543018470be852d9ec593f9cd",
+  "sourceIdentityScope": "Measured Windows short diagnostic metrics only; initial Mac source audit and its exclusion are separately identified"
 }

@@ -1,4 +1,6 @@
 import json
+import gzip
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -25,6 +27,10 @@ class AnalyzeTests(unittest.TestCase):
         self.assertAlmostEqual(report["trueOnePercentLowFps"], 1000 / 995.5)
         self.assertAlmostEqual(report["onePercentLowEstimateFps"], 1000 / 990)
         self.assertEqual(report["tailSamples"], 10)
+        self.assertEqual(report["fixedSimulationHz"], 60)
+        self.assertEqual(report["activeCap"], 100)
+        self.assertEqual(report["activeVsync"], "Off")
+        self.assertIs(report["profilingActive"], True)
         self.assertEqual(report["qualification"], "NOT_RUN")
         self.assertEqual(report["loadedBinaryIdentity"]["assemblyMvid"], "test-loaded-binary")
 
@@ -89,6 +95,52 @@ class AnalyzeTests(unittest.TestCase):
                 analyze({"samples": 2, "frameIntervalsMs": [10, 20], **extra})
         self.assertEqual(analyze({"samples": 2, "frameIntervalsMs": [10, 20],
                                  "timingEvidenceComplete": True, "droppedIntervalRecords": 0})["samples"], 2)
+
+    def test_timestamp_gap_consistency(self):
+        document = capture([10, 20])
+        document["timestampFrequency"] = 1000
+        document["frames"][1]["PresentTimestamp"] = 21
+        self.assertEqual(analyze(document)["timestampIntervalConsistency"], "CHECKED: adjacent stored frames")
+        document["frames"][1]["PresentTimestamp"] = 800
+        with self.assertRaisesRegex(ValueError, "timestamp gap"):
+            analyze(document)
+        document["frames"][1]["Segment"] = 1
+        with self.assertRaisesRegex(ValueError, "mixed segments"):
+            analyze(document)
+        for value in (0, -1, True, 0.5):
+            document["timestampFrequency"] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                analyze(document)
+
+    def test_cli_compressed_receipt_and_truncation(self):
+        script = str(Path(__file__).with_name("analyze.py"))
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "raw.json.gz"
+            with gzip.open(source, "wt", encoding="utf-8-sig") as stream:
+                json.dump(capture([10, 20]), stream)
+            result = subprocess.run([sys.executable, script, str(source)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["samples"], 2)
+            source.write_bytes(source.read_bytes()[:-5])
+            result = subprocess.run([sys.executable, script, str(source)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("frame analysis failed:", result.stderr)
+
+    def test_cli_preserves_raw_input(self):
+        script = str(Path(__file__).with_name("analyze.py"))
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "raw.json"
+            original = json.dumps(capture([10, 20])).encode()
+            source.write_bytes(original)
+            result = subprocess.run([sys.executable, script, str(source), "-o", str(source)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(source.read_bytes(), original)
+            alias = Path(directory) / "alias.json"
+            os.link(source, alias)
+            result = subprocess.run([sys.executable, script, str(source), "-o", str(alias)], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(source.read_bytes(), original)
 
     def test_cli_stdout_file_and_failure(self):
         script = str(Path(__file__).with_name("analyze.py"))

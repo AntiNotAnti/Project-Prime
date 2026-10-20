@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "status": "EXCLUDED_FROM_PERFORMANCE_QUALIFICATION",
+  "protocolAttempt": "source-long, before diagnostic hashing correction and explicit V2 pose scenario",
+  "findings": [
+    "Original pose144 process failed with native beam drawings did not exercise requested presentation policy. It is a real failed native fixture run, not a PASS or merely a stopped process.",
+    "Protocol attempt was then closed before sustained qualification due diagnostic DLL-hashing contamination.",
+    "Corrected V2 scenario and newly frozen binary are separate evidence; no numeric comparison across these identities."
+  ],
+  "files": [
+    {
+      "path": "build-long-result.json.gz",
+      "rawSha256": "8dc5d18bd95a1ed1716bc4d16492f2d00bdd86ead9954f9e4b2839c286a3a536",
+      "gzipSha256": "c340913a43326dc4311816a195a4d9737ed8721dd5f78161ab8209d0f7c60d76",
+      "rawBytes": 703,
+      "gzipBytes": 276,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "cap-trace-120/frames.json.gz",
+      "rawSha256": "608944e65ef1201dea2fbcdba0b29d7c7521b5a5aa19c3c61e4ece05500a6ae4",
+      "gzipSha256": "d009db840514620fa1b7d186840810c381b8d35c665560312e8407d44aa75da2",
+      "rawBytes": 1534884,
+      "gzipBytes": 129847,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "cap-trace-120/result.json.gz",
+      "rawSha256": "e3e11cdf53610146f567748b5d331090aed634c4b5c389da7272639fcb3054bd",
+      "gzipSha256": "19516c6c7274e2a7cb55e7ccfed8bd10d610e518e9dd1e47a3d383071b68ddfb",
+      "rawBytes": 37844,
+      "gzipBytes": 8882,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "cap-trace-120/run.log.gz",
+      "rawSha256": "787b486ae40b5df6c2577675d5240f55684bc1b0f983a98fec726025b382238d",
+      "gzipSha256": "47753a4fe1640ce1f9d8517dcebe10e5cd781b7a34632863664005f489f4570d",
+      "rawBytes": 3324,
+      "gzipBytes": 1068,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "cap-trace-144/frames.json.gz",
+      "rawSha256": "d7af9e5425cd0c133874eaef8ac001a9a05822a948ea561577a9ff189345a853",
+      "gzipSha256": "dd16dc8f6a8b0b0cb8b21c7e9c3c36dfa25d407cefe00b44bb491fcab81320d3",
+      "rawBytes": 1836391,
+      "gzipBytes": 154703,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "cap-trace-144/result.json.gz",
+      "rawSha256": "7aad316e31ef7484a25503c5f06265d19c77944afb3a6738cf7fd0bc301d1a9f",
+      "gzipSha256": "22d3b105bab599f98f81349efc6f556f0dd159e048ed91420e9ef4c3399f28f8",
+      "rawBytes": 44007,
+      "gzipBytes": 10412,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "cap-trace-144/run.log.gz",
+      "rawSha256": "39817a67e82457f176d1202f86223336e0588c6c29d174b74a76a4f267e9734f",
+      "gzipSha256": "a4abb9c7f5ad1f9809bc2797791b2c6b4caa40bc0c27b41092eed42545a55713",
+      "rawBytes": 3324,
+      "gzipBytes": 1069,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "pose-144/result.json.gz",
+      "rawSha256": "d3e51eeb4c549f1803aeed8d25fac3494ae9b05545d62d013a0ad9b43230f0ac",
+      "gzipSha256": "8a68e612f657a96ec9d972eabdadf88d037136766938b0f507408f3f23d60b21",
+      "rawBytes": 4411143,
+      "gzipBytes": 255781,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-144/run.log.gz",
+      "rawSha256": "8eb4825b68b55718f94745a4e1441725f203421d8fece7420464a7b87e414eb7",
+      "gzipSha256": "7cbbc1be175052cbabb53ae617e58e13f84ef1190a7321d0f19af7d8484dd914",
+      "rawBytes": 4752,
+      "gzipBytes": 1284,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "pose-60/result.json.gz",
+      "rawSha256": "7e954165fc460fdaafcd8485350449c32b6729881d808297f15c33715ac3b9f6",
+      "gzipSha256": "2b0f8d5b06cd80e66ead0bdf15e85a8a6e64cf88c666008344516b12215ab3ff",
+      "rawBytes": 3644795,
+      "gzipBytes": 220115,
+      "encoding": "utf-8-sig"
+    },
+    {
+      "path": "pose-60/run.log.gz",
+      "rawSha256": "7f15166b89561d74fcff54e76fc4d67e8d6834bff5e17c62a0c91a779747841c",
+      "gzipSha256": "b606c97d9ef8df5430c7539c179ba78653b764049ba0c7b50e6a102e68d8f2f5",
+      "rawBytes": 3166,
+      "gzipBytes": 1017,
+      "encoding": "utf-16"
+    },
+    {
+      "path": "sustained-protocol-exclusion.json.gz",
+      "rawSha256": "716cd5696ce859199b883faf96d3bc8debef488506f61b93bb29f5c826df62ca",
+      "gzipSha256": "910135c904e3420e1f4729e9f1742395d171e2636cd9ece461dce363148d62ec",
+      "rawBytes": 447,
+      "gzipBytes": 277,
+      "encoding": "utf-8-sig"
+    }
+  ]
+}

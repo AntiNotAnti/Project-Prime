@@ -62,8 +62,17 @@ internal static class EchoesPrivateMapFixtureTests
             Check(visual.MapId != map.MapId &&
                 MapDefinition.Load(installed).MapId == map.MapId,
                 "existing Spires map and historical local identities remain unchanged");
+            // Catalog reads the one selected generation and never discovers
+            // inactive/staged files. Historical IDs remain unchanged.
+            var entries = new MapCatalog(temp).Refresh();
+            Check(entries.Count(e => e.Definition?.MapId == map.MapId) == 1
+                && entries.Any(e => e.Definition?.MapId == visual.MapId), "catalog exposes one complete active generation: " + string.Join("; ", entries.Select(e =>
+                    e.Definition?.Name + ":" + e.Definition?.MapId + ":" + string.Join(",",e.Validation.Diagnostics.Select(d=>d.Message)))));
             var notLocal = MapProjectSerializer.Clone(map);
             notLocal.LocalSourceOnly = false;
+            Check(notLocal.RequiresPrivateSource, "receipt provenance retains private source fence");
+            Expect<InvalidDataException>(() => MapPackageBuilder.Build(notLocal, Path.Combine(temp,"forbidden.ppmap")),
+                "clearing preview flag cannot publish source-derived geometry");
             Expect<InvalidDataException>(() =>
                 EchoesPrivateMapImport.InstallLocalDefinition(notLocal, temp),
                 "reject ordinary/sharable map in private import endpoint");

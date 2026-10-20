@@ -1,0 +1,24 @@
+# SH-03: private Echoes bundle publication
+
+Implemented: immutable local generations, a bounded canonical recipe/source/component receipt, required-component integrity states, deterministic identical-generation reuse, one permanent cross-process writer lease, cancellation before publication and one atomic current-receipt replacement. Existing Echoes parsing, compilation, stable map IDs and Settings import worker are reused. Adding a visual/cannon/routed variant retains previous valid components. Damaged content reports Failed/Incomplete and a complete reimport repairs into a new generation. Old generations remain available to running consumers; no automatic collection can delete an active scene's files.
+
+The catalog reads only the selected verified generation; hidden staging/orphan generations cannot become maps. Existing loose local-echoes recipes remain readable until replaced, with only replaced names suppressed. Unsupported/outdated/corrupt active receipts fail closed. Optional local source provenance is omitted for ordinary/historical maps and keeps packaging/Community/online fences active even if the separate preview flag is cleared. Seven native Hunters, protocol61, replay readers1–6 and60Hz simulation are unchanged.
+
+The existing native Settings owner provides stage text and CANCEL LOCAL IMPORT. Retiring it cancels its pending worker. Archive verification/decoding is bounded by existing parsers but currently finishes its current source-read phase before observing cancellation; cancellation still prevents later publication. Cross-process contention returns busy rather than starting an overlapping writer. Identical completed imports reuse one generation; there is no new global transfer service or Community registration.
+
+## Proven
+
+Mac arm64 fallback was used because Windows SSH authentication failed. SDK10.0.401. The ordinary baseline Release build passed before changes.
+
+- Asset-free external-import fixtures exercise required parts, missing/tampered files, recipe/source mismatch, malformed names/duplicate inventory, every cancellation/fault boundary, old-good preservation, repair, idempotence and writer contention. Existing parser/compiler/node graph fixtures remain in the same suite. Historical project goldens are still checked without the optional provenance field; new imports separately prove exact bytes plus provenance.
+- Independent publisher regressions exercise trailing separators, symlink refusal without catalog failure, incremental retention, orphan reuse, coalesced cleanup failure and corruption status. Nine checks pass.
+- Existing native menu/settings contracts and18 source-linked file-import checks pass. Five direct controller ownership checks cover cancel, cancellation completion, disposal and completed publication. A rendered action219 click is unproven.
+- Actual documented user-owned Echoes USA RVZ (1,287,435,724 bytes; SHA256 ba8996256d005749dd6b7ff29ea30e5998451a3741ec87494a6217b01b703529): --probe-bundle verified pinned source, parsed/compiled all six collision previews, published/catalogued all six and canceled reimport before commit while keeping the old Ready receipt. Source hash matched before/after; all temporary derived map/cache/user-data outputs were deleted. No protected payload is committed or uploaded.
+
+Commands/source hashes/receipts remain locally under artifacts/sh-integration. Final committed-source reruns are recorded in the integrated status. Source reference remains41452f2d053fcfa679e33c00a73d120a53f59e61; historical recipe provenance remainsc16a907b3658c2fd4079e394a73711596a85caee. This changes publication, not the qualified source recipe or collision mechanics.
+
+## Limits and rollback
+
+This is the Echoes JSON preview importer vertical slice, not complete SH-03A/B for body/skin/ball/gun/rig/material/animation packs. Unified character cards, Update selected/all/Remove, coalesced cancellable waiters and Android storage-URI acceptance remain unfinished. JSON generation receipts have no authority over playable character readiness. No scene/GPU/gameplay qualification, online Echoes support or power-loss durability is claimed. Components flush to disk; the existing atomic receipt writer does not fsync directory metadata. Old immutable generations can consume disk space; automatic garbage collection is intentionally deferred until reader leases can prove safety.
+
+Activation remains private/local and existing maps remain offline-only. On failure/cancel before commit, the old receipt stays selected. Roll back code before using a newer receipt, or restore a retained prior current receipt; old generation bytes are preserved. Reverting code restores the old loose-recipe reader, so newly generated hidden bundles require reimport with that older importer. Per user instruction this slice is merged after local verification without waiting for review/CI; CI is not claimed green.

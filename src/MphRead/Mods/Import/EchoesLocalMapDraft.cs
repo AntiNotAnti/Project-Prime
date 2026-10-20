@@ -56,6 +56,7 @@ public static class EchoesLocalMapDraft
             Description = "Local, nonredistributable visual/collision blockout derived from a user-provided Echoes GameCube image.",
             TextureSource = "MP3 PROVING GROUND",
             LocalSourceOnly = true,
+            LocalSourceFingerprint = verifiedArchiveSha1.ToLowerInvariant(),
             Capabilities = new MapCapabilities { SupportedModes = new List<string> { "Battle" }, MinPlayers = 1, MaxPlayers = 1 },
             Partitioning = new MapPartitionSettings { Enabled = true, PortalCulling = false },
             Materials = new List<MapMaterial>

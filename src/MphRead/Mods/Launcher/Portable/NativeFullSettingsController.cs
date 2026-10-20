@@ -70,7 +70,25 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     {
         _arenaPicking=false;if(string.IsNullOrWhiteSpace(path)){Status="Arena import cancelled.";return;}
         if(Dirty){Status="Apply or discard changes before importing local arenas.";return;}
-        Start(()=>{var maps=Import.EchoesPrivateMapImport.InstallAllArenas(path,MapGen.CustomRooms.UserMapDirectory);return maps.Count+" local Echoes collision previews installed. Restart Project Prime to load them. No game assets were shared.";});
+        if (Busy) { Status="Another operation is already running."; return; }
+        var cancellation = new System.Threading.CancellationTokenSource();
+        _arenaCancellation = cancellation;
+        _arenaStage = (int)Import.ImportPublishStage.Checking;
+        // Only detached source/map values cross to this existing worker. The
+        // catalog activates the committed generation on the next restart.
+        Start(()=>
+        {
+            try
+            {
+                cancellation.Token.ThrowIfCancellationRequested();
+                var definitions = Import.EchoesPrivateMapImport.ReadAllArenas(path);
+                var maps = Import.EchoesPrivateMapImport.InstallLocalDefinitions(definitions,
+                    MapGen.CustomRooms.UserMapDirectory, cancellation.Token,
+                    new ArenaProgress(stage=>System.Threading.Volatile.Write(ref _arenaStage,(int)stage)));
+                return maps.Count+" local Echoes collision previews installed. Restart Project Prime to load them. No game assets were shared.";
+            }
+            finally { cancellation.Dispose(); }
+        });
     }
     internal HudProfile CopyHud()
     {
@@ -210,7 +228,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             value=>ValidTuple(value,new[]{0d,0,.1},new[]{.9,.9,1d})?null:"Enter left,top,width (normalized screen coordinates)."));
         Rows.Add(new("Controls","Stylus guide","Enabled",()=>StylusZone.Wanted.ToString(),v=>StylusZone.Enabled=bool.Parse(v),v=>bool.TryParse(v,out _)?null:"Choose On or Off.",new[]{"false","true"}));
         AddPrimitive(typeof(StylusZone),"Controls","Stylus guide",new[]{"NativeUi","NativeUiOpacity","CursorOpacity","OutlineOpacity","ButtonOpacity","GuideColor"});
-        AddPrimitive(typeof(TouchSettings),"Controls","Touch overlay",new[]{"Mode","DirectWeaponSelection","ButtonsVisible","ButtonScale","StickScale","OverlayOpacity"});
+        AddPrimitive(typeof(TouchSettings),"Controls","Touch overlay",new[]{"Mode","StylusResponse","DirectWeaponSelection","ButtonsVisible","ButtonScale","StickScale","OverlayOpacity"});
         Add(typeof(Network.DemoClip),null,"Replays","Clips","Seconds","PostRollSeconds");
         Add(typeof(LauncherPrefs),null,"Replays","Storage","ReplayStorageLimitGb","ReplayAutoPrune","ReplayDeleteClips");
         Add(typeof(LauncherPrefs),null,"Replays","Playback","SpectatorNameTags","KillCamEnabled","KillCamCamera","FinalKillCamEnabled");
@@ -398,6 +416,6 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             Status="Could not save: "+ex.Message+(errors.Count>1?" // Rollback incomplete; restart before editing again.":" // Previous settings restored; draft retained.");return false;
         }
     }
-    public void Dispose(){CancelBinding();_calibration=null;RevertVideo();}
+    public void Dispose(){if(ImportingArenas)CancelArenaImport();CancelBinding();_calibration=null;RevertVideo();}
 }
 #endif
