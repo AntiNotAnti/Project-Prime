@@ -257,7 +257,7 @@ namespace MphRead.Mods.MapGen
                         {
                             sourceCoverage[face.Material] = sourceCoverage.GetValueOrDefault(face.Material)
                                 | (face.SourceUv == null ? 1 : 2);
-                            if (face.SourceUv != null && face.Material >= 0 && face.Material < d.Materials.Count
+                            if (geometry is MapMesh { SourceUvFaces: not null } && face.Material >= 0 && face.Material < d.Materials.Count
                                 && d.Materials[face.Material] is { } material
                                 && (!material.ProceduralWhite || material.Texture != null || material.AlbedoBank != null
                                     || material.Albedo != null || material.Normal != null || material.SpecularRoughness != null

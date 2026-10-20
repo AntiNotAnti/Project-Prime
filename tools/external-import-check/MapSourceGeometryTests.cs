@@ -224,6 +224,10 @@ internal static class MapSourceGeometryTests
         }
         var valid = Fixture();
         Check(MapValidator.Validate(valid).IsValid, "nullable ordinary face on a separate material is valid source coverage");
+        var neutralOnly = Fixture(); neutralOnly.Materials[1].Animation = new();
+        Check(MapValidator.Validate(neutralOnly, checkSources: false).Diagnostics.Any(d => d.Code == "FP-MAP-SOURCE-UV"
+            && d.Severity == MapDiagnosticSeverity.Error),
+            "declared source-profile null-pair faces also require a neutral fallback; no active channel can bind placeholder UVs");
         valid.LocalSourceOnly = false; valid.LocalSourceFingerprint = null;
         Check(valid.RequiresPrivateSource, "source UV declaration itself retains private-source fence after flags stripped");
     }
