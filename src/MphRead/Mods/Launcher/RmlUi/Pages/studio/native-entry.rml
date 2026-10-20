@@ -10,23 +10,22 @@
     <div id="native_studio_chooser">
       <div class="eyebrow">PROJECT PRIME // CREATION</div>
       <h1>PRIME STUDIO</h1>
-      <p>Choose a workspace. Replay editing is available now.</p>
+      <p>Review recordings, direct cameras, and export from Replay Studio.</p>
       <div class="studio-destinations">
-        <div class="studio-destination studio-forge">
-          <div class="studio-card-art forge-art"><div class="forge-grid"></div><div class="forge-platform"></div><div class="forge-block forge-block-a"></div><div class="forge-block forge-block-b"></div></div>
-          <div class="studio-card-copy"><div class="eyebrow">FUTURE WORKSPACE</div><h2>MAP STUDIO</h2>
-          <p>COMING SOON — Open the separate Prime Studio app to view this future workspace.</p>
-          <button id="native_studio_map" data-action="studio:launch">OPEN MAP STUDIO</button></div>
-        </div>
         <div class="studio-destination studio-technical">
           <div class="studio-card-art replay-art"><div class="replay-frame"></div><div class="replay-play"></div><div class="replay-track replay-track-a"></div><div class="replay-track replay-track-b"></div><div class="replay-playhead"></div></div>
           <div class="studio-card-copy"><div class="eyebrow">REVIEW // EDIT // EXPORT</div><h2>REPLAY STUDIO</h2>
           <p>Browse recordings and clips, edit the timeline, and direct your camera.</p>
           <button id="native_studio_theatre" data-action="studio:pick-map">OPEN REPLAY STUDIO</button><button id="native_studio_replay_open" style="display:none" data-action="route:theatre">OPEN REPLAY STUDIO</button></div>
         </div>
+        <div class="studio-destination studio-forge">
+          <div class="studio-card-art forge-art"><div class="forge-grid"></div><div class="forge-platform"></div><div class="forge-block forge-block-a"></div><div class="forge-block forge-block-b"></div></div>
+          <div class="studio-card-copy"><div class="eyebrow">FUTURE WORKSPACE</div><h2>MAP STUDIO</h2>
+          <p>Coming soon. Map authoring is not available yet; this opens the separate app’s workspace placeholder.</p>
+          <button id="native_studio_map" data-action="studio:launch">OPEN MAP STUDIO</button></div>
+        </div>
       </div>
-      <button id="native_studio_chooser_back" data-action="studio:cancel">BACK TO HOME</button>
     </div>
-    <p id="native_studio_status" role="status"/>
+    <div class="studio-entry-footer"><p id="native_studio_status" role="status"/><button id="native_studio_chooser_back" data-action="studio:cancel">BACK TO HOME</button></div>
   </div>
 </body></rml>

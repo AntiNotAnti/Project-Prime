@@ -1,79 +1,162 @@
-#theatre_page { position: absolute; top: 2%; bottom: 2%; left: 3%; right: 3%; padding: 12dp 16dp; overflow-y: auto; background-color: rgba(2,9,16,94%); }
-.theatre_heading h1 { margin: 2dp 0 6dp; color: #ffffff; font-size: 28dp; line-height: 32dp; }
-.theatre_heading { margin-bottom: 10dp; }
-.theatre_heading h1, .theatre_selected h2, .theatre_hint, #theatre_confirmation h2, #theatre_confirmation p { display: block; }
-.theatre_heading h1, #theatre_summary { display: block; width: 88vw; }
-.theatre_selected h2, .theatre_selected .theatre_hint, #theatre_metadata { width: 48vw; }
-.theatre_library .theatre_hint { width: 34vw; }
-#theatre_confirmation h2, #theatre_confirmation p { width: 500dp; }
-.theatre_search_bar, .theatre_toolbar, .theatre_actions, .theatre_pagination, .theatre_thumbnails { display: flex; flex-wrap: wrap; align-items: center; }
-.theatre_search_bar .play_input { flex: 1; margin-right: 8dp; }
-.theatre_toolbar { margin: 8dp 0; }
-.theatre_columns { display: flex; align-items: stretch; }
-.theatre_library { width: 40%; padding-right: 16dp; }
-.theatre_selected { flex: 1; padding: 14dp; border: 1dp #21445e; background-color: rgba(4,19,33,95%); }
-.theatre_selected h2 { color: #ffffff; font-size: 21dp; line-height: 25dp; margin: 0 0 6dp; }
-.theatre_selected .play_input { display: block; width: 100%; margin-bottom: 8dp; }
-.theatre_entry { display: block; width: 100%; text-align: left; padding: 9dp 12dp; margin-bottom: 6dp; background-color: #0b2338; border: 1dp #21445e; color: #d5eaff; }
-.theatre_entry b { display: block; font-size: 15dp; line-height: 19dp; }
-.theatre_entry span { display: block; font-size: 12dp; line-height: 17dp; color: #b2cadc; }
+/* Replay archive: collection and supporting file tools have separate bounded
+   scrolls. Watch, Prime Studio and Home never depend on collection length. */
+#theatre_page {
+    position: absolute; top: 12dp; bottom: 12dp; left: 2%; right: 2%;
+    display: flex; flex-direction: column; box-sizing: border-box; padding: 14dp;
+    background-color: rgba(2,9,16,94%);
+}
+.theatre_heading { flex-shrink: 0; margin-bottom: 8dp; }
+.theatre_heading h1 { display: block; margin: 2dp 0 4dp; color: #fff; font-size: 28dp; line-height: 32dp; }
+#theatre_summary { display: block; color: #9fbed4; font-size: 12dp; line-height: 17dp; }
+.theatre_search_bar, .theatre_toolbar, .theatre_actions, .theatre_pagination,
+.theatre_primary, .theatre_navigation, .theatre_thumbnails { display: flex; flex-wrap: wrap; align-items: center; }
+#theatre_page .play_action, #replay_page .play_action {
+    min-height: 48dp; box-sizing: border-box; padding: 8dp 10dp; font-size: 14dp; line-height: 18dp;
+    letter-spacing: 0; margin-right: 6dp; margin-bottom: 4dp; white-space: normal;
+}
+.theatre_discovery_tools { flex-shrink: 0; }
+.theatre_search_bar { flex-shrink: 0; flex-wrap: nowrap; }
+.theatre_search_bar .play_input { flex: 1; min-width: 0; margin-right: 6dp; height: 48dp; box-sizing: border-box; font-size: 14dp; }
+.theatre_toolbar { flex-shrink: 0; margin: 4dp 0; }
+.theatre_columns { display: flex; flex: 1; min-height: 0; align-items: stretch; }
+.theatre_library { display: flex; flex-direction: column; width: 53%; min-width: 0; min-height: 0; padding-right: 12dp; box-sizing: border-box; }
+.theatre_results { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.theatre_entry { display: block; width: 100%; min-height: 66dp; box-sizing: border-box; text-align: left; padding: 10dp 12dp; margin-bottom: 6dp; background-color: #0b2338; border: 1dp #21445e; color: #d5eaff; white-space: normal; word-break: break-word; }
+.theatre_entry b { display: block; font-size: 17dp; line-height: 21dp; pointer-events: none; }
+.theatre_entry span { display: block; font-size: 12dp; line-height: 17dp; color: #a9c5d9; pointer-events: none; }
 .theatre_entry.selected { border-left: 4dp #55e18c; background-color: #0d3a3e; }
 .theatre_entry:hover, .theatre_entry:focus { border-color: #72c7ff; }
-.theatre_pagination { justify-content: space-between; margin-top: 8dp; }
-.theatre_pagination span { margin: 0 8dp; }
-.theatre_actions .play_action { min-height: 34dp; padding: 7dp 10dp; font-size: 12dp; margin-bottom: 6dp; }
-.theatre_hint { font-size: 12dp; color: #b2cadc; line-height: 18dp; white-space: pre-wrap; margin: 6dp 0; }
-#theatre_metadata { font-size: 13dp; line-height: 19dp; white-space: pre-wrap; margin: 10dp 0; }
-.theatre_preview_panel { position: relative; height: 190dp; margin: 10dp 0; background-color: #03101b; border: 1dp #21445e; }
-#theatre_preview { width: 100%; height: 100%; }
-#theatre_no_preview { position: absolute; top: 45%; width: 100%; text-align: center; color: #b2cadc; }
-.theatre_thumbnail { width: 30%; margin: 0 3% 6dp 0; padding: 3dp; border: 1dp #21445e; background-color: #03101b; color: #b2cadc; }
-.theatre_thumbnail img { width: 100%; height: 55dp; display: block; }
-.theatre_thumbnail span { display: block; text-align: center; font-size: 11dp; }
-.theatre_thumbnail.selected { border-color: #55e18c; }
-.theatre_notice { padding: 10dp; border: 1dp #21445e; color: #b2cadc; white-space: pre-wrap; margin: 8dp 0; }
+.theatre_pagination { flex-shrink: 0; flex-wrap: nowrap; justify-content: space-between; padding-top: 0; margin-right: 12dp; }
+.theatre_pagination span { margin: 0 8dp; color: #a9c5d9; font-size: 12dp; }
+.theatre_pagination .play_action { min-width: 0; margin-right: 0; }
+.theatre_selected { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; padding: 12dp; box-sizing: border-box; border: 1dp #21445e; background-color: rgba(4,19,33,95%); }
+.theatre_selected h2 { display: block; color: #fff; font-size: 22dp; line-height: 26dp; margin: 0 0 8dp; word-break: break-word; }
+#theatre_selected_title { margin-bottom: 10dp; }
+.theatre_selected_scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.theatre_primary { flex: 1; min-width: 0; flex-wrap: nowrap; align-items: stretch; margin-right: 10dp; max-width: 600dp; }
+.theatre_primary .play_action { flex: 1; min-width: 0; margin-bottom: 0; }
+.theatre_primary .play_action:last-child { margin-right: 0; }
+#theatre_studio { color: #d8efff; border-color: #4f98c4; background-color: #10334b; }
+.theatre_navigation { flex-shrink: 0; flex-wrap: nowrap; justify-content: space-between; padding-top: 8dp; border-top: 1dp #21445e; margin-top: 8dp; }
+.theatre_navigation .play_action { margin-bottom: 0; }
+.theatre_navigation .play_action:last-child { margin-right: 0; }
+.theatre_hint { display: block; font-size: 12dp; color: #a9c5d9; line-height: 17dp; white-space: pre-wrap; margin: 6dp 0; }
+#theatre_page > .theatre_hint { flex-shrink: 0; margin: 0 0 6dp; }
+#theatre_metadata { display: block; font-size: 12dp; line-height: 18dp; white-space: pre-wrap; word-break: break-word; margin: 10dp 0; }
+/* The library uses authored metadata; it does not fabricate replay imagery. */
+#theatre_no_preview { position: relative; width: 100%; color: #a9c5d9; }
+.theatre_notice { padding: 8dp; border: 1dp #21445e; color: #b2cadc; white-space: pre-wrap; word-break: break-word; margin: 6dp 0; font-size: 12dp; line-height: 17dp; }
 .theatre_error { border-color: #ff788a; color: #ffb7bf; }
-.danger { border-color: #ff788a; background-color: #701c2a; }
+.danger, #theatre_delete, #theatre_confirm_delete { border-color: #ff788a; color: #ffd0d5; background-color: #541b2a; }
+.theatre_file_tools { margin-top: 16dp; padding-top: 12dp; border-top: 1dp #21445e; }
+.theatre_file_tools label, .theatre_file_tools input, .theatre_file_tools p { display: block; margin: 6dp 0; }
+.theatre_file_tools label { color: #98b9d1; font-size: 12dp; line-height: 17dp; }
+.theatre_file_tools input { width: 100%; box-sizing: border-box; padding: 10dp; min-height: 48dp; font-size: 14dp; color: #edf7ff; background-color: #14283a; border: 1dp #41667f; }
+#theatre_delete_confirmation { padding: 10dp; border: 1dp #c57373; background-color: #241925; }
 .theatre_import_row { display: flex; flex-wrap: wrap; align-items: center; margin: 10dp 0; }
 .theatre_import_row .play_input { flex: 1; margin: 0 8dp; }
+.theatre_thumbnail { width: 30%; margin: 0 3% 6dp 0; padding: 3dp; border: 1dp #21445e; background-color: #03101b; color: #b2cadc; }
+.theatre_thumbnail img { width: 100%; height: 55dp; display: block; }
+.theatre_thumbnail span { display: block; text-align: center; font-size: 12dp; }
+.theatre_thumbnail.selected { border-color: #55e18c; }
+.theatre_preview_panel { position: relative; height: 190dp; margin: 10dp 0; background-color: #03101b; border: 1dp #21445e; }
+#theatre_preview { width: 100%; height: 100%; }
+
+/* Playback keeps primary navigation and transport outside utility scrolling.
+   The engine reads this exact transparent viewport rectangle. */
+#replay_page { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.replay_heading { position: absolute; left: 12dp; right: 12dp; top: 8dp; height: 48dp; display: flex; align-items: center; background-color: rgba(2,9,16,94%); padding: 0 8dp; }
+.replay_heading > span { margin-left: 14dp; color: #d5eaff; font-size: 12dp; line-height: 17dp; }
+.replay_heading .eyebrow { margin-bottom: 0; }
+.replay_navigation { display: flex; flex-wrap: nowrap; margin-left: auto; align-items: center; }
+#replay_page .replay_navigation .play_action { margin-bottom: 0; min-width: 0; }
+#replay_page #replay_back { margin-right: 0; }
+#replay_page #replay_viewport { position: absolute; top: 64dp; left: 12dp; right: 12dp; bottom: 208dp; border: 1dp #21445e; background-color: transparent; }
+#replay_page #replay_viewport:focus { border-color: #55e18c; }
+#replay_inactive { position: absolute; top: 45%; width: 100%; text-align: center; color: #b2cadc; font-size: 14dp; }
+#replay_controls { position: absolute; left: 12dp; right: 12dp; bottom: 8dp; height: 192dp; box-sizing: border-box; display: flex; flex-direction: column; background-color: rgba(2,9,16,96%); padding: 8dp; }
+#replay_page #replay_position { flex-shrink: 0; width: 100%; height: 48dp; margin-bottom: 6dp; }
+#replay_controls > .theatre_actions { flex-shrink: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+#replay_controls > .theatre_actions .play_action { flex-shrink: 0; }
+#replay_secondary_controls { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-top: 4dp; border-top: 1dp #21445e; }
+#replay_controls .theatre_hint { margin: 4dp 0; }
+.large-text #replay_page button, .large-text #replay_page input { font-size:16dp; line-height:20dp; }
+#replay_view_labels { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.view_label { position: absolute; padding: 4dp; background-color: #081523; color: #b9d5e5; font-size: 12dp; }
+.view_tl { left: 0; top: 0; }
+.view_tr { left: 50%; top: 0; }
+.view_bl { left: 0; top: 50%; }
+.view_br { left: 50%; top: 50%; }
+
+/* Existing replay dialogs share readable controls and retain their own bounds. */
 #theatre_confirmation { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 560dp; max-width: 92%; }
-#theatre_confirmation h2 { margin: 0 0 12dp; color: #ffffff; font-size: 25dp; line-height: 29dp; }
+#theatre_confirmation h2 { display: block; margin: 0 0 12dp; color: #fff; font-size: 25dp; line-height: 29dp; }
+#theatre_confirmation p { display: block; font-size: 12dp; line-height: 17dp; word-break: break-word; }
 #theatre_delete_path { word-break: break-all; }
-#replay_page { position: absolute; inset: 0; padding: 8dp 14dp; }
-.replay_heading { display: flex; align-items: center; height: 34dp; background-color: rgba(2,9,16,92%); padding: 0 10dp; }
-.replay_heading span { margin-left: 18dp; color: #d5eaff; }
-#replay_viewport { position: absolute; top: 46dp; left: 14dp; right: 14dp; bottom: 198dp; border: 1dp #21445e; background-color: transparent; }
-#replay_viewport:focus { border-color: #55e18c; }
-#replay_inactive { position: absolute; top: 45%; width: 100%; text-align: center; color: #b2cadc; }
-#replay_controls { position: absolute; left: 14dp; right: 14dp; bottom: 8dp; height: 174dp; background-color: rgba(2,9,16,96%); padding: 8dp 12dp; overflow-y: auto; }
-#replay_position { width: 100%; height: 20dp; margin-bottom: 6dp; }
-#replay_bookmark_panel, #replay_bookmark_remove_panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 620dp; max-width: 92%; max-height: 92%; overflow-y: auto; }
-#replay_bookmark_panel h2, #replay_bookmark_panel p, #replay_bookmark_panel label, #replay_bookmark_remove_panel h2, #replay_bookmark_remove_panel p { display: block; white-space: pre-wrap; margin: 8dp 0; }
-#replay_bookmark_name { display: block; width: 100%; margin-bottom: 8dp; }
-.bookmark_error { color: #ffb7bf; }
-#replay_range_panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 620dp; max-width: 92%; max-height: 92%; overflow-y: auto; }
-#replay_range_panel h2, #replay_range_panel p, #replay_range_panel label { display: block; white-space: pre-wrap; margin: 8dp 0; }
-#replay_range_name { display: block; width: 100%; margin-bottom: 8dp; }
-#replay_bookmark_panel, #replay_bookmark_remove_panel, #replay_range_panel {
-    box-sizing: border-box; padding: 12dp; background-color: #081523;
-    border: 1dp #41667f;
+#replay_bookmark_panel, #replay_bookmark_remove_panel, #replay_range_panel,
+#replay_export_panel, #replay_export_confirm_panel, #replay_camera_panel, #replay_camera_confirm_panel {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 620dp; max-width: 92%; max-height: 92%; overflow-y: auto; overflow-x: hidden;
+    box-sizing: border-box; padding: 12dp; background-color: #081523; border: 1dp #41667f;
 }
-@media (max-width: 780dp) { .theatre_columns { display: block; } .theatre_library { width: 100%; padding-right: 0; } .theatre_selected { margin-top: 12dp; } #theatre_page { left: 1%; right: 1%; } #replay_viewport { bottom: 212dp; } #replay_controls { height: 188dp; } }
-@media (max-width: 780dp) { .theatre_selected h2, .theatre_selected .theatre_hint, #theatre_metadata, .theatre_library .theatre_hint, #theatre_confirmation h2, #theatre_confirmation p { width: 84vw; } }
-@media (max-height: 620dp) { .theatre_heading h1 { font-size: 23dp; line-height: 27dp; } .theatre_entry { padding: 6dp 9dp; } #replay_viewport { bottom: 170dp; } #replay_controls { height: 148dp; } }
+#replay_export_panel, #replay_export_confirm_panel { width: 740dp; }
+#replay_camera_panel, #replay_camera_confirm_panel { width: 660dp; }
+#replay_bookmark_panel h2, #replay_bookmark_panel p, #replay_bookmark_panel label,
+#replay_bookmark_remove_panel h2, #replay_bookmark_remove_panel p,
+#replay_range_panel h2, #replay_range_panel p, #replay_range_panel label,
+#replay_export_panel h2, #replay_export_panel p, #replay_export_confirm_panel h2, #replay_export_confirm_panel p,
+#replay_camera_panel h2, #replay_camera_panel p, #replay_camera_confirm_panel h2, #replay_camera_confirm_panel p {
+    display: block; white-space: pre-wrap; margin: 8dp 0;
+}
+#replay_bookmark_name, #replay_range_name { display: block; width: 100%; margin-bottom: 8dp; }
+.bookmark_error { color: #ffb7bf; }
+@media (max-width: 850dp) {
+    #theatre_page { left: 8dp; right: 8dp; top: 8dp; bottom: 8dp; padding: 8dp; }
+    .theatre_library { width: 45%; padding-right: 8dp; }
+    .theatre_selected { padding: 8dp; }
+    .theatre_heading h1 { font-size: 24dp; line-height: 28dp; }
 
-.theatre_file_tools { margin-top:14dp; }
-#replay_export_panel, #replay_export_confirm_panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:740dp; max-width:92%; max-height:92%; overflow-y:auto; box-sizing:border-box; padding:12dp; background-color:#081523; border:1dp #41667f; }
-#replay_export_panel h2, #replay_export_panel p, #replay_export_confirm_panel h2, #replay_export_confirm_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
-#replay_camera_panel, #replay_camera_confirm_panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:660dp; max-width:92%; max-height:92%; overflow-y:auto; box-sizing:border-box; padding:12dp; background-color:#081523; border:1dp #41667f; }
-#replay_camera_panel h2, #replay_camera_panel p, #replay_camera_confirm_panel h2, #replay_camera_confirm_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
-.theatre_file_tools label,.theatre_file_tools input,.theatre_file_tools p { display:block; margin:6dp 0; }
-.theatre_file_tools input { width:95%; padding:10dp; min-height:40dp; color:#edf7ff; background-color:#14283a; border:1dp #29485e; }
-#theatre_delete_confirmation { padding:12dp; border:1dp #c57373; background-color:#241925; }
+    .theatre_pagination .play_action { padding: 6dp; font-size: 14dp; }
+    .replay_heading .eyebrow { display: none; }
+    .replay_heading > span { margin-left: 0; margin-right: 10dp; }
+    #replay_page #replay_studio { max-width: 160dp; }
+}
+@media (max-height: 620dp) {
+    #theatre_page { top: 6dp; bottom: 6dp; padding: 8dp; }
+    .theatre_heading { margin-bottom: 4dp; }
+    .theatre_heading .eyebrow { display: none; }
+    .theatre_heading h1 { font-size: 21dp; line-height: 24dp; margin: 0; }
+    .theatre_toolbar { margin: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+    .theatre_toolbar .play_action { flex-shrink: 0; }
+    #theatre_page > .theatre_hint { display: none; }
+    .theatre_selected h2 { font-size: 18dp; line-height: 22dp; }
+    #theatre_selected_title { margin-bottom: 4dp; }
+    .theatre_primary { flex-wrap: nowrap; margin-top: 0; padding-top: 0; }
+    .theatre_primary .play_action { width: auto; flex: 1; margin-bottom: 0; }
+    .theatre_navigation { padding-top: 4dp; margin-top: 4dp; }
+    .theatre_discovery_tools { display: flex; flex-wrap: nowrap; margin-bottom: 4dp; }
+    .theatre_search_bar { width: 52%; }
+    .theatre_toolbar { width: 48%; margin-left: 6dp; }
+    .theatre_search_bar .play_action { min-width: 0; }
+    .replay_heading { top: 4dp; }
+    #replay_page #replay_viewport { top: 60dp; bottom: 208dp; }
+    #replay_controls { height: 192dp; }
+}
+@media (max-width: 520dp) {
+    #theatre_page .play_action { padding-left: 6dp; padding-right: 6dp; }
+    .theatre_search_bar .play_action { min-width: 0; }
+    .theatre_pagination { flex-wrap: wrap; }
+    .theatre_pagination span { width: 100%; text-align: center; margin: 0; }
+    .theatre_selected h2 { font-size: 18dp; line-height: 22dp; }
+    .replay_heading { left: 6dp; right: 6dp; padding: 0 4dp; }
+    #replay_page #replay_state { display: none; }
+    #replay_page #replay_studio { max-width: 128dp; }
+    #replay_controls, #replay_page #replay_viewport { left: 6dp; right: 6dp; }
+}
 
-#replay_view_labels { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
-.view_label { position:absolute; padding:4dp; background-color:#081523; color:#b9d5e5; font-size:11dp; }
-.view_tl { left:0; top:0; }
-.view_tr { left:50%; top:0; }
-.view_bl { left:0; top:50%; }
-.view_br { left:50%; top:50%; }
+@media (max-height: 440dp) {
+    .theatre_heading { display: none; }
+    .theatre_entry { min-height: 58dp; padding: 7dp 9dp; }
+    .theatre_pagination span { width: auto; margin: 0 4dp; }
+    .theatre_pagination { flex-wrap: nowrap; }
+}

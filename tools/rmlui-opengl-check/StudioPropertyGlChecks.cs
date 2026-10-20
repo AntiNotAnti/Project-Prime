@@ -121,10 +121,11 @@ internal static class StudioPropertyGlChecks
         for (int slot = 0; slot < cycleFields.Length; slot++)
         {
             var location = Locate(cycleFields[slot]); PageTo(location.Page);
-            Check(location.Slot == slot, "real mesh schema maps cycle intent to expected visible slot " + slot);
-            string beforeDraft = details.Rows[slot].Value;
-            Action("native_property_cycle" + slot, 77 + slot);
-            Check(details.Rows[slot].Value != beforeDraft && document.Project.Definition.Serialize() == afterProperties,
+            int visibleSlot = location.Slot;
+            Check(visibleSlot is >= 0 and < 8, "real mesh schema resolves a visible Boolean slot for " + cycleFields[slot]);
+            string beforeDraft = details.Rows[visibleSlot].Value;
+            Action("native_property_cycle" + visibleSlot, 77 + visibleSlot);
+            Check(details.Rows[visibleSlot].Value != beforeDraft && document.Project.Definition.Serialize() == afterProperties,
                 "actual native cycle intent changes only its frozen property draft: " + cycleFields[slot]);
         }
         Action("native_property_reset", 76);

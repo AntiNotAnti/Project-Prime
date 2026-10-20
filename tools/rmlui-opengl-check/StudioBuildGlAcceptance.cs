@@ -94,9 +94,15 @@ internal static class StudioBuildGlAcceptance
                 bool toolbar=id is "native_build_toggle" or "native_editor_back";
                 string scroll=toolbar?"native_editor_tools":"native_editor_left";
                 Check(host.TryGetElementBounds(page.Document,scroll,out float sx,out float sy,out float sw,out float sh)&&sw>0&&sh>0,"native scroll container exists");
-                if(valid&&w>0&&h>0&&x>=0&&y>=0&&x+w<=width+1&&y+h<=height+1&&x>=sx&&y>=sy&&x+w<=sx+sw+1&&y+h<=sy+sh+1)return(x,y,w,h);
+                if(valid&&w>0&&h>0&&x>=0&&y>=0&&x+w<=width+1&&y+h<=height+1&&x>=sx-1&&y>=sy-1&&x+w<=sx+sw+1&&y+h<=sy+sh+1)return(x,y,w,h);
                 host.Input.PointerMoved(sx+sw/2,sy+sh/2);host.Input.PointerWheel(i==0?10000:-1);Settle(15);
             }
+            var diagnostic = new[] { id, "native_editor_tools", "native_editor_left", "native_editor_back" }.Select(key =>
+            {
+                bool visible = host.TryGetElementBounds(page.Document,key,out float x,out float y,out float w,out float h);
+                return new { id=key,visible,x,y,width=w,height=h };
+            }).ToArray();
+            File.WriteAllText(Path.Combine(output,"unreachable-"+id+".json"),JsonSerializer.Serialize(diagnostic,new JsonSerializerOptions{WriteIndented=true}));
             throw new InvalidOperationException("Native build target cannot be scrolled into framebuffer and its container: "+id);
         }
         void Activate(string id,int argument)

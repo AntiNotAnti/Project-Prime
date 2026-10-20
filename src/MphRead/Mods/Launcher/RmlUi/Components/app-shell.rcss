@@ -93,6 +93,18 @@
 }
 .studio-application #primary_nav .nav { width:120dp; }
 @media (max-width:640dp) { .studio-application #primary_nav .nav { flex:1; width:auto; } }
+/* Studio has two destinations, leaving room to retain its application identity
+   in windows where the full game navigation needs the entire header. */
+@media (max-width:1000dp) {
+    .studio-application #brand { display:flex; flex:0 1 190dp; margin-right:8dp; }
+    .studio-application #brand_mark { display:none; }
+    .studio-application .brand_title { font-size:14dp; line-height:18dp; white-space:normal; }
+    .studio-application #primary_nav .nav { flex:1; width:auto; }
+}
+@media (max-width:640dp) {
+    .studio-application #brand { flex-basis:155dp; }
+    .studio-application .brand_subtitle { font-size:10dp; letter-spacing:0; }
+}
 /* Increased touch targets are accounted for by their containing chrome. */
 body.touch-targets #footerbar { height:56dp; }
 body.touch-targets #stage { bottom:56dp; }
