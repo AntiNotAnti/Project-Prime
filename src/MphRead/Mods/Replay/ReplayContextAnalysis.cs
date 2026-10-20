@@ -196,7 +196,6 @@ internal static class ReplayContextAnalysis
         private void Scores(uint frame, ReplayReplicaState state)
         {
             if (_scoreTick == state.ServerTick || state.Match is not { } match) return;
-            _scoreTick = state.ServerTick;
             var mode = state.Configuration?.Match.Mode ?? (GameMode)match.Mode;
             if (mode is not (GameMode.Battle or GameMode.BattleTeams)) return;
             var players = new List<(byte Slot, ushort Generation, ushort Life, short Points, byte Team)>();
@@ -213,6 +212,9 @@ internal static class ReplayContextAnalysis
                     ? players.Where(p => p.Team < world.TeamPoints.Length).Select(p => ((int)p.Team, world.TeamPoints[p.Team])).Distinct().ToArray()
                     : Array.Empty<(int, int)>();
             if (scores.Length < 2) return;
+            // A world-score packet may arrive after its same-tick snapshot.
+            // Do not cache a missing/partial score sample as if it was analyzed.
+            _scoreTick = state.ServerTick;
             if (_scoreRoster != roster) _maximumDeficits.Clear();
             int maximum = scores.Max(p => p.Item2); var leaders = scores.Where(p => p.Item2 == maximum).ToArray();
             int? leader = leaders.Length == 1 ? leaders[0].Item1 : null;

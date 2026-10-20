@@ -65,9 +65,9 @@ internal static class ReplayContextAnalysisTests
         }
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(tail + NetMatchTimeSync.Size), 7); state.Accept(bytes, tick);
     }
-    private static void World(ReplayReplicaState state, uint tick, float time, MatchState phase = MatchState.InProgress)
+    private static void World(ReplayReplicaState state, uint tick, float time, MatchState phase = MatchState.InProgress, int[]? teamPoints = null)
     {
-        var world = new ReplayAuthorityWorld { MatchId = 7, Epoch = 99, Tick = tick, Phase = phase, MatchTime = time };
+        var world = new ReplayAuthorityWorld { MatchId = 7, Epoch = 99, Tick = tick, Phase = phase, MatchTime = time, TeamPoints = teamPoints ?? new int[8] };
         foreach (byte[] packet in ReplayAuthorityWire.Packets(world)) state.Accept(packet, tick);
     }
     private static void SnapshotContexts()
@@ -105,6 +105,30 @@ internal static class ReplayContextAnalysisTests
             && scoreIndex.Events.All(e => e.Actor == 1 && e.Frame == 1002), "stable roster retains prior leader through tie and proves comeback from four-point deficit");
         Roster(scores, 2, 7); Snapshot(scores, 105, [9, 6, 0, 0], secondGeneration: 7); scoreIndex.Observe(1003, scores);
         Check(scoreIndex.Events.Count == 2, "occupant roster change resets lead and comeback baseline");
+        var teams = State(mode: GameMode.BattleTeams, world: false); var teamIndex = new ReplayContextAnalysis.Index();
+        World(teams, 101, 20, teamPoints: [5, 1, 0, 0, 0, 0, 0, 0]);
+        Check(teams.Match?.Mode == (byte)GameMode.BattleTeams && teams.ServerTick == 101
+            && teams.AuthorityWorld is { Tick: 101 } baselineWorld && baselineWorld.TeamPoints[0] == 5
+            && baselineWorld.TeamPoints[1] == 1 && teams.TryGetPlayer(1, out var teamPlayer) && teamPlayer.Team == 1,
+            "production decoder preserves team mode, team identity, and authoritative baseline scores");
+        teamIndex.Observe(1100, teams);
+        Snapshot(teams, 102, [99, 0, 0, 0]); teamIndex.Observe(1101, teams);
+        Check(teamIndex.Events.Count == 0, "team score snapshot arriving before exact world omits pending scores");
+        World(teams, 102, 19, teamPoints: [5, 6, 0, 0, 0, 0, 0, 0]);
+        Check(teams.ServerTick == 102 && teams.AuthorityWorld is { Tick: 102 } delayedWorld
+            && delayedWorld.TeamPoints[0] == 5 && delayedWorld.TeamPoints[1] == 6,
+            "production decoder accepts delayed exact-tick team score world");
+        teamIndex.Observe(1102, teams);
+        Check(teamIndex.Events.Count(e => e.Kind == "LeadChange" && e.Actor == 1 && e.Frame == 1102) == 1,
+            "delayed same-tick team world retries score observation and proves team lead using authoritative team points");
+        Snapshot(teams, 103, [99, 0, 0, 0]); World(teams, 103, 18, teamPoints: [6, 6, 0, 0, 0, 0, 0, 0]);
+        teamIndex.Observe(1103, teams);
+        Check(teamIndex.Events.Count(e => e.Kind == "LeadChange") == 1, "team tie emits no lead change");
+        Snapshot(teams, 104, [99, 0, 0, 0]); World(teams, 104, 17, teamPoints: [7, 6, 0, 0, 0, 0, 0, 0]);
+        teamIndex.Observe(1104, teams);
+        Check(teamIndex.Events.Count(e => e.Kind == "LeadChange") == 2
+            && teamIndex.Events.Any(e => e.Kind == "LeadChange" && e.Actor == 0 && e.Frame == 1104),
+            "team leader retained across tie permits subsequent verified lead change");
         var incomplete = State(world: false, complete: false); var incompleteIndex = new ReplayContextAnalysis.Index();
         incompleteIndex.Observe(1, incomplete); Snapshot(incomplete, 102, [0, 6, 0, 0], count: 3); incompleteIndex.Observe(2, incomplete);
         Check(incompleteIndex.Events.Count == 0, "incomplete occupied roster cannot prove score lead changes");
