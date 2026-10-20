@@ -8,6 +8,8 @@ using MphRead.Mods;
 using MphRead.Mods.Import;
 using MphRead.Mods.Platform;
 using MphRead.Mods.Render;
+using MphRead.Mods.Cosmetics;
+using MphRead.Mods.Render.Characters;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using MphRead.Mods.Launcher.RmlUi.Render;
@@ -59,6 +61,8 @@ internal static class CharacterSourceGlAcceptance
                 while (page.Request == null && wait.Elapsed < TimeSpan.FromSeconds(60))
                 { page.Tick(); host.Update(); host.Render(width, height); Thread.Sleep(10); }
                 Check(page.Request != null && page.OwnsForeground, "Actual asynchronous page loader publishes a foreground source selection.");
+                Check(page.Request!.Part == CharacterModelPart.Biped && page.Preview.Mode == SkinContext.Biped,
+                    "Native source page opens in body mode with no cannon selection by default.");
                 Draw(); Layout();
                 var first = page.Request!;
                 Click("source_pause", RmlUiIntentKind.SettingsAction, 248);
@@ -75,14 +79,39 @@ internal static class CharacterSourceGlAcceptance
                 Draw();
                 Click("source_zoom_in", RmlUiIntentKind.HunterZoom, 1);
                 Check(page.Preview.Zoom > 1, "Translated Zoom changes the existing preview controller.");
-                Draw(); Check(host.FocusDocument(page.Document, "source_prev"), "Native focus restores the scrollable clip controls."); host.Update(); Layout();
+                Draw();
+                Click("source_pause", RmlUiIntentKind.SettingsAction, 248);
+                Thread.Sleep(20); page.Tick();
+                var body = page.Request!;
+                Check(body.Part == CharacterModelPart.Biped && body.Seconds > 0, "Body animation runs before changing presentation part.");
+                Click("source_cannon", RmlUiIntentKind.HunterPreviewMode, 1);
+                Check(page.Request is { Part: CharacterModelPart.ViewModel, ClipOrdinal: 32, Seconds: 0 } cannon
+                    && page.Preview.Mode == SkinContext.ViewModel && ReferenceEquals(cannon.Owner, body.Owner)
+                    && ReferenceEquals(cannon.Pack, body.Pack), "Native Cannon selects the fixed root32/framezero in the same captured pack/owner.");
+                foreach (string id in new[] { "source_prev", "source_next", "source_pause", "source_restart" })
+                    Check(!host.FocusDocument(page.Document, id), "Cannon disables native clip controls: " + id);
+                Thread.Sleep(20); page.Tick();
+                Check(page.Request is { Part: CharacterModelPart.ViewModel, ClipOrdinal: 32, Seconds: 0 }, "Cannon has no advancing animation clock.");
+                Draw();
+                Click("source_rotate_right", RmlUiIntentKind.HunterRotate, 1);
+                Check(page.Preview.Yaw != 0 && page.Preview.Mode == SkinContext.ViewModel, "Native Cannon keeps the existing rotation control.");
+                Draw();
+                Click("source_body", RmlUiIntentKind.HunterPreviewMode, 0);
+                Check(page.Request is { Part: CharacterModelPart.Biped } returned
+                    && returned.ClipOrdinal == body.ClipOrdinal && ReferenceEquals(returned.Owner, body.Owner)
+                    && ReferenceEquals(returned.Pack, body.Pack) && page.Preview.Mode == SkinContext.Biped,
+                    "Native Body restores the selected clip in the same captured generation.");
+                double resumed = page.Request!.Seconds;
+                Thread.Sleep(20); page.Tick();
+                Check(page.Request!.Seconds > resumed, "Body clock resumes after returning from fixed cannon.");
+                Draw(); Check(host.FocusDocument(page.Document, "source_prev"), "Native focus restores enabled body clip controls."); host.Update(); Layout();
                 Click("source_back", RmlUiIntentKind.HunterCancel, 0);
                 Check(page.Closed && page.Request == null, "Translated Back closes source ownership.");
                 Console.WriteLine(JsonSerializer.Serialize(new { Scope = "Actual native source RML page, async selection, translated controls and DrawSourcePicker; diagnostic materials only",
                     RequestedFramebufferWidth = requestedWidth, RequestedFramebufferHeight = requestedHeight,
                     ActualFramebufferWidth = width, ActualFramebufferHeight = height,
                     Checks = checks, TranslatedIntents = intents, PixelSha256 = stageHashes.ToArray(),
-                    GlobalReplacementsDisabled = !RenderOptions.CharacterModelReplacements }));
+                    BodyCannonBody = true, FixedCannonClipOrdinal = 32, GlobalReplacementsDisabled = !RenderOptions.CharacterModelReplacements }));
 
                 void Draw()
                 {

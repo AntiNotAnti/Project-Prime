@@ -169,14 +169,22 @@ namespace MphRead.Mods.Render.Characters
             DiagnosticPreviewFit = Matrix4.Identity;
             if (sourceGeometry?.SourceRig != null)
             {
-                var positions = sourceGeometry.Primitives.SelectMany(p => p.Vertices).Select(v => v.Position).ToArray();
+                // A cannon cut preserves complete source vertex arrays. Its
+                // diagnostic bounds must use only retained referenced corners,
+                // after the fixed skin and the single source-to-cannon basis.
+                var positions = sourceGeometry.SourceCannon == null
+                    ? sourceGeometry.Primitives.SelectMany(p => p.Vertices).Select(v => v.Position).ToArray()
+                    : CannonReferencedPositions(sourceGeometry).ToArray();
                 var min = positions.Aggregate(System.Numerics.Vector3.Min); var max = positions.Aggregate(System.Numerics.Vector3.Max);
-                float height = max.Y - min.Y;
+                float height = sourceGeometry.SourceCannon == null ? max.Y - min.Y : (max - min).Length();
                 if (float.IsFinite(height) && height >= .0001f)
                 {
                     var center = (min + max) * .5f;
-                    DiagnosticPreviewFit = Matrix4.CreateTranslation(-center.X, -min.Y, -center.Z)
-                        * Matrix4.CreateScale(Math.Clamp(2.2f / height, .001f, 1000f));
+                    float scale = Math.Clamp(2.2f / height, .001f, 1000f);
+                    DiagnosticPreviewFit = sourceGeometry.SourceCannon == null
+                        ? Matrix4.CreateTranslation(-center.X, -min.Y, -center.Z) * Matrix4.CreateScale(scale)
+                        : Matrix4.CreateTranslation(-center.X, -center.Y, -center.Z) * Matrix4.CreateScale(scale)
+                            * Matrix4.CreateTranslation(0, 1.05f, 0);
                 }
             }
             Asset = asset;
@@ -185,6 +193,24 @@ namespace MphRead.Mods.Render.Characters
             MatrixPalette = new float[16 * joints.Count];
             VertexCount = vertexCount;
             IndexCount = indexCount;
+        }
+
+        private static IEnumerable<System.Numerics.Vector3> CannonReferencedPositions(CharacterWeightedModelData source)
+        {
+            var skin = source.SourceRig!.Evaluate(source.SourceAuthoringPose, source.Joints);
+            foreach (var p in source.Primitives)
+                foreach (uint index in p.Indices)
+                {
+                    var vertex = p.Vertices[index]; var result = Vector3.Zero;
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        float weight = vertex.Weights[slot]; if (weight == 0) continue;
+                        int joint = p.JointPalette![vertex.PackedJoints >> (slot * 5) & 31];
+                        var position = new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                        result += Vector3.TransformPosition(position, skin[joint] * source.SourceCannon!.ToCannon) * weight;
+                    }
+                    yield return new System.Numerics.Vector3(result.X, result.Y, result.Z);
+                }
         }
 
         public void UpdatePalette(Model nativeModel)

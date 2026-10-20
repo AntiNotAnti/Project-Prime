@@ -68,9 +68,11 @@ internal sealed class CharacterSourceClip
  internal static CharacterSourceClip LoadImported(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,
   CharacterSourceRig rig,CharacterSourceAnimationArchive imported,int ordinal)
  {
-  Require(asset.Part==CharacterModelPart.Biped&&ReferenceEquals(lease.SourceAnimations,imported)
+  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==32)&&ReferenceEquals(lease.SourceAnimations,imported)
    &&String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact source-rig imported animation owner required");
-  var clip=imported.Open(ordinal);var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
+  var clip=imported.Open(ordinal);
+  if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==0xd12fdfa3&&clip.RigidScale,"Exact fixed original cannon primitive required");
+  var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
   Require(source.Count==39&&rig.Nodes.Count==40,"Complete imported skeleton and source rig required");
   var bindings=new List<(uint,int,double[])>();
   foreach(var bone in source.Values.OrderBy(b=>b.Id))
@@ -109,10 +111,16 @@ internal sealed class CharacterSourceClip
   _anim.Sample(seconds,out var rotations,out var translations);M[] pose=Enumerable.Repeat(M.Identity,_rig.Nodes.Count).ToArray();
   foreach(var bone in _bones)
   {
-   M rotation=M.Identity;if(rotations.TryGetValue(bone.Id,out var q))rotation=Basis*M.CreateFromQuaternion(new Q((float)q[0],(float)q[1],(float)q[2],(float)q[3]))*Basis;
-   double[] p=translations.TryGetValue(bone.Id,out var t)?t:bone.Bind;M local=rotation*M.CreateTranslation((float)-p[0],(float)p[2],(float)p[1]);CharacterSourceRig.RequireRigid(local);pose[bone.Node]=local;
+   pose[bone.Node]=ComposeSourceLocal(bone.Bind,rotations.GetValueOrDefault(bone.Id),translations.GetValueOrDefault(bone.Id));
   }
   return Array.AsReadOnly(pose);
+ }
+ // Shared source-basis composition for deterministic importer authoring and
+ // the runtime's captured full-key sampler. No second animation decoder.
+ internal static M ComposeSourceLocal(double[] bind,double[]? quaternion,double[]? translation)
+ {
+  M rotation=quaternion==null?M.Identity:Basis*M.CreateFromQuaternion(new Q((float)quaternion[0],(float)quaternion[1],(float)quaternion[2],(float)quaternion[3]))*Basis;
+  double[] p=translation??bind;M local=rotation*M.CreateTranslation((float)-p[0],(float)p[2],(float)p[1]);CharacterSourceRig.RequireRigid(local);return local;
  }
  internal static float MatrixDistance(M a,M b)
  {

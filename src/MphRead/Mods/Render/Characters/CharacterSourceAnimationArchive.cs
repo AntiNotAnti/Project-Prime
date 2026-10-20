@@ -32,7 +32,7 @@ internal sealed class CharacterSourceAnimationArchive
         => (_root, _modelSha, Sha256, Data, Skeleton, _inputs) = (root, modelSha, sha, data, skeleton, inputs);
     internal static CharacterSourceAnimationArchive Load(string root, CharacterModelManifestEntry entry, string modelSha)
     {
-        Require(entry.Part == CharacterModelPart.Biped && entry.PoseSource == CharacterPoseSource.SourceRigPreview
+        Require((entry.Part == CharacterModelPart.Biped || CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
             && entry.SourceAnimationArchive == Stem + ".animations.bin" && entry.SourceAnimationArchiveSha256 == QualifiedArchiveSha256
             && modelSha.Length == 64 && entry.CharacterId == "darksamus" && entry.SkinSource == "MP2DarkSamus", "Only the original verified source-rig body accepts imported full animation resources.");
         var inputs = new Dictionary<string, (string, int)>(StringComparer.Ordinal);

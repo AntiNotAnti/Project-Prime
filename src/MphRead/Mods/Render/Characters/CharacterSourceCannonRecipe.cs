@@ -17,21 +17,23 @@ internal sealed partial class CharacterModelPack
 
 // Fixed private Echoes authoring recipe. The same pack/lease owns source proof;
 // this is not a user constructible proof token or generic first-person capability.
-internal sealed class CharacterSourceCannonRecipe
+internal sealed partial class CharacterSourceCannonRecipe
 {
  internal const string QualifiedReceiptSha256="6db484fe85113f767acb633490d87b7a439d5585f82d35166418d0e5247851cf";
  internal const string QualifiedBodySha256="702a73d06d71d285d3e0a08de5fc175d07ac6b446cd0ee8cf13aaf814f4ba7c6";
  internal string ReceiptSha256 {get;}
  internal Matrix4 ToCannon {get;}
+ internal bool IsGenerated {get;}
  private readonly ReadOnlyDictionary<string,string> _inputs;
  private readonly ReadOnlyCollection<ReadOnlyCollection<int>> _triangles;
- private CharacterSourceCannonRecipe(string sha,Matrix4 basis,Dictionary<string,string> inputs,int[][] triangles)
-  =>(ReceiptSha256,ToCannon,_inputs,_triangles)=(sha,basis,new(inputs),Array.AsReadOnly(triangles.Select(a=>Array.AsReadOnly(a.ToArray())).ToArray()));
+ private CharacterSourceCannonRecipe(string sha,Matrix4 basis,Dictionary<string,string> inputs,int[][] triangles,bool generated=false)
+  =>(ReceiptSha256,ToCannon,_inputs,_triangles,IsGenerated)=(sha,basis,new(inputs),Array.AsReadOnly(triangles.Select(a=>Array.AsReadOnly(a.ToArray())).ToArray()),generated);
  private static void Require(bool c,string why){if(!c)throw new InvalidDataException(why);}
  private static string Sha(byte[] bytes)=>Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
  private static int Budget(string name)=>name switch{"body.glb"=>128*1024*1024,"mesh.json"=>32*1024*1024,"clip-d12fdfa3.json"=>16*1024*1024,_=>1024*1024};
  internal static CharacterSourceCannonRecipe Load(string root,CharacterModelManifestEntry entry,string modelSha)
  {
+  if(entry.SourceCannonReceipt==GeneratedReceiptFile)return LoadGenerated(root,entry,modelSha);
   Require(entry.Part==CharacterModelPart.ViewModel&&entry.Lod==0&&entry.PoseSource==CharacterPoseSource.SourceRigPreview
    &&entry.SourceCannonReceipt=="source-cannon-receipt.json"&&entry.SourceCannonSha256==QualifiedReceiptSha256
    &&modelSha==QualifiedBodySha256,"Only the explicit fixed source-cannon ViewModel authoring receipt is qualified");
@@ -56,6 +58,7 @@ internal sealed class CharacterSourceCannonRecipe
  }
  internal void Revalidate(string root,CharacterModelManifestEntry entry,string modelSha)
  {
+  if(IsGenerated){RevalidateGenerated(root,entry,modelSha);return;}
   Require(entry.Part==CharacterModelPart.ViewModel&&entry.SourceCannonSha256==ReceiptSha256&&modelSha==QualifiedBodySha256
    &&entry.SourceCannonReceipt=="source-cannon-receipt.json"&&Sha(CharacterModelPack.ReadCannonInput(root,entry.SourceCannonReceipt,1024*1024))==ReceiptSha256,"Exact cannon receipt/part/hash owner");
   foreach(var input in _inputs)
@@ -66,6 +69,7 @@ internal sealed class CharacterSourceCannonRecipe
  }
  internal CharacterWeightedModelData Derive(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterWeightedModelData source)
  {
+  if(IsGenerated)return DeriveGenerated(lease,asset,source);
   lease.Require(asset);Require(ReferenceEquals(lease.SourceCannon,this)&&asset.Part==CharacterModelPart.ViewModel&&source.SourceCannon==null,"Exact issued cannon lease/part");
   var rig=source.SourceRig;Require(rig!=null&&source.Joints.Count==39&&rig.Nodes.Count==40&&source.Primitives.Count==7
    &&source.Primitives.Select(p=>p.MaterialName).SequenceEqual(Enumerable.Range(0,7).Select(i=>"retro_material_"+i)),"Complete original source rig/material identity");

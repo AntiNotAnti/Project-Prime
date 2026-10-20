@@ -10,6 +10,8 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-character-generated-cannon")
+        return CharacterGeneratedCannonOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-preview")

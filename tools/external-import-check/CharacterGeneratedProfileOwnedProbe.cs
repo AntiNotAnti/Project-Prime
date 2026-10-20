@@ -61,7 +61,7 @@ internal static class CharacterGeneratedProfileOwnedProbe
             string modelFile = originalEntry["model"]!.GetValue<string>(); byte[] originalProof = File.ReadAllBytes(Path.Combine(folder, provenanceFile)); provenanceSha = Sha(originalProof);
             byte[] originalModel = File.ReadAllBytes(Path.Combine(folder, modelFile));
             string mutable = Path.Combine(temporary, "mutable-pack"); Directory.CreateDirectory(mutable);
-            string[] needed = { "characters.json", provenanceFile, modelFile, Id + ".ancs-graph.json", Id + ".ancs.bin", Id + ".cinf.bin", Id + ".animations.bin" };
+            string[] needed = { "characters.json", provenanceFile, modelFile, Id + ".ancs-graph.json", Id + ".ancs.bin", Id + ".cinf.bin", Id + ".animations.bin", Id + ".cannon-source.json" };
             foreach (string name in needed)
             {
                 string source = Path.Combine(folder, name); LocalImportBundle.CheckPath(source, imports);
@@ -126,7 +126,10 @@ internal static class CharacterGeneratedProfileOwnedProbe
             // provenance is allowed by the generic owner, never this product selector.
             var legacy = JsonNode.Parse(originalProof)!.AsObject(); legacy["format"] = 1;
             foreach (string field in new[] { "sourceNativeKitSha256", "sourceMappingSha256", "sourceSkeletonSha256", "sourceWeightsSha256" }) legacy[field] = invented;
-            byte[] legacyBytes = Encoding.UTF8.GetBytes(legacy.ToJsonString()); var downgraded = JsonNode.Parse(originalManifest)!.AsObject(); downgraded["models"]![0]!["provenanceSha256"] = Sha(legacyBytes);
+            byte[] legacyBytes = Encoding.UTF8.GetBytes(legacy.ToJsonString()); var downgraded = JsonNode.Parse(originalManifest)!.AsObject();
+            var legacyModels=downgraded["models"]!.AsArray();
+            for(int i=legacyModels.Count-1;i>=0;i--)if(legacyModels[i]!["part"]!.GetValue<string>().Equals("ViewModel",StringComparison.OrdinalIgnoreCase))legacyModels.RemoveAt(i);
+            downgraded["models"]![0]!["provenanceSha256"] = Sha(legacyBytes);
             var components = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             foreach (string source in state.Files) { LocalImportBundle.CheckPath(source, imports); components.Add(Path.GetFileName(source), File.ReadAllBytes(source)); }
             components[provenanceFile] = legacyBytes; components["characters.json"] = Encoding.UTF8.GetBytes(downgraded.ToJsonString());

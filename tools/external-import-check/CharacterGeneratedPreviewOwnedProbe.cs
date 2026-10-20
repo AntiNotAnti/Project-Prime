@@ -19,7 +19,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
     private const string Id = "darksamus-echoes";
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly FieldInfo SideScene = typeof(LauncherHunter).GetField("_scene", BindingFlags.Static | BindingFlags.NonPublic)!;
-    private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int Segments, int Joints, bool Visible);
+    private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int Segments, int Joints, bool Visible, CharacterWeightedRenderModel Model);
 
     internal static int Run(string rvz)
     {
@@ -35,6 +35,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
         var checkpoints = new List<object>();
         var candidateFrames = new List<object>();
         var angleFrames = new List<object>();
+        var cannonFrames = new List<object>();
         void Check(bool value, string why) { if (!value) { failedCheck = why; throw new InvalidDataException(why); } checks++; }
         try
         {
@@ -115,16 +116,59 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         Check(frame.Lists.SequenceEqual(a.Lists) && frame.Textures.SequenceEqual(a.Textures), "View angles do not replace model resources.");
                     }
                     Check(angles.Distinct().Count() == 4, "All four real GPU view angles differ.");
+                    // Same page/pack changes presentation part. The cannon is
+                    // the complete source-pose cut, not a second imported mesh.
+                    var cannonA = Draw(32, 0, 0, CharacterModelPart.ViewModel);
+                    var cannonB = Draw(32, 0, 90, CharacterModelPart.ViewModel);
+                    var cannonAgain = Draw(32, 0, 0, CharacterModelPart.ViewModel);
+                    var fit = cannonA.Model.DiagnosticPreviewFit;
+                    bool fitFinite = Enumerable.Range(0, 4).All(row => Enumerable.Range(0, 4).All(column => float.IsFinite(fit[row, column])));
+                    var native = ((ModelInstance)Get(Preview(CurrentScene()), "_model")!).Model;
+                    cannonFrames.Add(new { Context = context, Stage = "fixed-cannon-before-visibility-check", AVisible = cannonA.Visible,
+                        BVisible = cannonB.Visible, AgainVisible = cannonAgain.Visible, APixelSha256 = cannonA.Pixels,
+                        BPixelSha256 = cannonB.Pixels, AgainPixelSha256 = cannonAgain.Pixels, APaletteSha256 = cannonA.Palette,
+                        BPaletteSha256 = cannonB.Palette, AgainPaletteSha256 = cannonAgain.Palette,
+                        cannonA.Segments, cannonA.Joints, DisplayLists = cannonA.Lists.Length, Textures = cannonA.Textures.Length,
+                        FitFinite = fitFinite, FitPositiveScale = fitFinite && fit.Row0.Xyz.LengthSquared > 0 && fit.Determinant > 0,
+                        ReferencedPresentation = PresentationBounds(cannonA.Model),
+                        NativeMaterials = native.Materials.Select((m, index) => new { Index = index, m.Name, m.Alpha, m.CurrentAlpha,
+                            RenderMode = m.RenderMode.ToString(), PolygonMode = m.PolygonMode.ToString(), m.Lighting, Culling = m.Culling.ToString() }).ToArray(),
+                        Anchors = cannonA.Model.Segments.Select(s => new { s.NativeMaterialIndex, s.SourcePrimitiveOrdinal }).ToArray() });
+                    Check(cannonA.Visible && cannonB.Visible && cannonAgain.Visible, "Every fixed source cannon view must produce visible pixels.");
+                    Check(cannonA.Pixels != cannonB.Pixels, "Rotating the fixed source cannon must change GPU pixels.");
+                    Check(cannonA.Palette == cannonB.Palette && cannonA.Palette == cannonAgain.Palette
+                        && cannonA.Pixels == cannonAgain.Pixels && cannonA.Lists.SequenceEqual(cannonB.Lists)
+                        && cannonA.Lists.SequenceEqual(cannonAgain.Lists) && cannonA.Textures.SequenceEqual(cannonB.Textures)
+                        && cannonA.Textures.SequenceEqual(cannonAgain.Textures), "Cannon A/B/A keeps its fixed raw pose and GPU resources.");
+                    Check(!ReferenceEquals(a.Model, cannonA.Model), "Changing presentation part replaces the bound body model.");
+                    var bodyAgain = Draw(chosen, 0, 0);
+                    Check(bodyAgain.Visible && bodyAgain.Palette == a.Palette && bodyAgain.Pixels == a.Pixels,
+                        "Returning to body reproduces its original source pose and visible frame.");
+                    Check(!ReferenceEquals(cannonA.Model, bodyAgain.Model), "Returning to body replaces the bound cannon model.");
+                    cannonFrames.Add(new { Context = context, Triangles = 392, Indices = 1176, Material2Triangles = 66,
+                        Material5Triangles = 326, ClipOrdinal = 32, Seconds = 0, FixedPaletteSha256 = cannonA.Palette,
+                        PixelSha256 = cannonA.Pixels, RotatedPixelSha256 = cannonB.Pixels, ReturnedBody = true });
+                    // Also retire a currently active cannon without waiting
+                    // for the native preview's next simulation step.
+                    var closingCannon = Draw(32, 0, 0, CharacterModelPart.ViewModel);
                     var scene = CurrentScene(); var entity = Preview(scene);
                     // Force the same already-selected native Hunter to skip its
                     // next60Hz step: request synchronization must still clear.
+                    double scheduled = (double)Get(scene, "_launcherPreviewNextStep")!;
                     Set(scene, "_launcherPreviewNextStep", double.MaxValue);
                     long beforeStep = (long)Get(entity, "_previewSteps")!;
-                    LauncherHunter.SourcePreviewRequest = null;
-                    Clear(width, height); LauncherHunter.Draw(window, width, height); GL.Finish(); frames++;
-                    Check(LauncherHunter.Drawn && GL.GetError() == ErrorCode.NoError && !entity.TryGetSourceRigPreview(out _)
-                        && (long)Get(entity, "_previewSteps")! == beforeStep, "Immediate native frame clears source without a60Hz step.");
-                    Check(a.Lists.All(id => !GL.IsList(id)), "Retired source display lists are deleted.");
+                    try
+                    {
+                        LauncherHunter.SourcePreviewRequest = null;
+                        Clear(width, height); LauncherHunter.Draw(window, width, height); GL.Finish(); frames++;
+                        Check(LauncherHunter.Drawn && GL.GetError() == ErrorCode.NoError && !entity.TryGetSourceRigPreview(out _)
+                            && (long)Get(entity, "_previewSteps")! == beforeStep, "Immediate native frame clears source without a60Hz step.");
+                        Check(closingCannon.Lists.All(id => !GL.IsList(id)), "Retired cannon display lists are deleted.");
+                    }
+                    finally { Set(scene, "_launcherPreviewNextStep", scheduled); }
+                    // A subsequent change of native preview part uses its
+                    // normal60Hz cadence, independently of the clear proof.
+                    Thread.Sleep(20);
                     // Reattach then close explicitly; a wrong owner must not
                     // be able to release another active source presentation.
                     Draw(chosen, 0, 0);
@@ -136,11 +180,12 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         PixelSha256 = a.Pixels, HalfPixelSha256 = b.Pixels, PaletteSha256 = a.Palette,
                         HalfPaletteSha256 = b.Palette, ViewPixelSha256 = angles.ToArray(), ImmediateNativeClear = true, ExplicitOwnerClose = true });
 
-                    Frame Draw(int ordinal, double seconds, int angle)
+                    Frame Draw(int ordinal, double seconds, int angle, CharacterModelPart part = CharacterModelPart.Biped)
                     {
                         GlCheckpoint("before-clear");
+                        CosmeticPreview.Mode = part == CharacterModelPart.ViewModel ? SkinContext.ViewModel : SkinContext.Biped;
                         CosmeticPreview.Yaw = angle * MathF.PI / 180;
-                        LauncherHunter.SourcePreviewRequest = new(owner, selection.Pack, CharacterSourcePreviewSelection.Appearance, ordinal, seconds);
+                        LauncherHunter.SourcePreviewRequest = new(owner, selection.Pack, CharacterSourcePreviewSelection.Appearance, ordinal, seconds, part);
                         Clear(width, height); GlCheckpoint("after-clear");
                         LauncherHunter.Draw(window, width, height); GL.Finish(); frames++;
                         Check(LauncherHunter.Drawn, "Actual launcher-sideScene GPU draw succeeds without native fallback or swallowed render failure.");
@@ -149,8 +194,34 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         var current = CurrentScene(); var preview = Preview(current);
                         bool sourceReady = preview.TryGetSourceRigPreview(out var model);
                         Check(current.SideScene && !window.HasScene && sourceReady, "Actual generated source binding is active; native fallback does not count.");
+                        Check(ReferenceEquals(LauncherHunter.SourcePreviewRequest.Owner, owner)
+                            && ReferenceEquals(LauncherHunter.SourcePreviewRequest.Pack, selection.Pack)
+                            && LauncherHunter.SourcePreviewRequest.Part == part && preview.Mode == CosmeticPreview.Mode,
+                            "Part changes retain the captured source owner/pack and matching preview mode.");
                         Check(ReferenceEquals(model!.Asset, selection.Pack.TryResolvePrivate(Hunter.Samus, CharacterSourcePreviewSelection.Appearance,
-                            CharacterModelPart.Biped, 0, out var asset) ? asset : null), "GPU model belongs to the captured generated pack.");
+                            part, 0, out var asset) ? asset : null), "GPU model belongs to the captured generated pack and part.");
+                        if (part == CharacterModelPart.ViewModel)
+                        {
+                            var nativeMaterials = ((ModelInstance)Get(preview, "_model")!).Model.Materials;
+                            Check(model.Segments.All(s => (uint)s.NativeMaterialIndex < nativeMaterials.Count
+                                && nativeMaterials[s.NativeMaterialIndex].Alpha == 31
+                                && float.IsFinite(nativeMaterials[s.NativeMaterialIndex].CurrentAlpha)
+                                && nativeMaterials[s.NativeMaterialIndex].CurrentAlpha >= .99999f
+                                && nativeMaterials[s.NativeMaterialIndex].RenderMode == RenderMode.Normal
+                                && nativeMaterials[s.NativeMaterialIndex].PolygonMode == MphRead.PolygonMode.Modulate),
+                                "Every cannon segment uses an opaque native anchor rather than an invisible animated glow.");
+                            var source = Get(model, "_sourceGeometry") as CharacterWeightedModelData;
+                            Check(ordinal == 32 && seconds == 0 && model.SourceCannon?.IsGenerated == true && source != null
+                                && source.SourceAuthoringPose is { Count: 40 } && source.SourceRig?.Nodes.Count == 40,
+                                "Cannon uses the complete generated fixed source pose at root32/framezero.");
+                            Check(source != null && source.Primitives.Sum(p => p.Indices.Length) == 1176
+                                && source.Primitives.All(p => p.SourceMaterialOrdinal is 2 or 5)
+                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 2).Sum(p => p.Indices.Length / 3) == 66
+                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 5).Sum(p => p.Indices.Length / 3) == 326
+                                && source.Primitives.SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Distinct().Count() == 392,
+                                "GPU cannon retains exactly392 whole source triangles in material2/5 only.");
+                        }
+                        else Check(model.SourceCannon == null, "Returning to body cannot retain the cannon cut.");
                         int[] lists = model.Segments.Select(s => s.ListId).ToArray(), textures = model.Segments.Select(s => s.AlbedoBinding ?? 0).ToArray();
                         Check(model.IsSourcePreview && model.Joints.Count == 39 && lists.All(GL.IsList)
                             && textures.All(t => t != 0 && GL.IsTexture(t)), "Complete source rig and live diagnostic GPU resources required.");
@@ -169,7 +240,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         try
                         {
                             bool visible = pixels.Where((_, i) => i % 4 != 3).Any(x => x != 0);
-                            return new(Sha(pixels), palette, lists, textures, model.Segments.Count, model.Joints.Count, visible);
+                            return new(Sha(pixels), palette, lists, textures, model.Segments.Count, model.Joints.Count, visible, model);
                         }
                         finally { Array.Clear(pixels); }
 
@@ -209,7 +280,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                 Pass = error == null, Checks = checks, Frames = frames, Generation = generation, ChosenClipOrdinal = chosen,
                 SourceSha256Before = rvzBefore, SourceSha256After = rvzAfter, NativeInventorySha256Before = nativeBefore,
                 NativeInventorySha256After = nativeAfter, CoreSha256 = coreBefore, ToolSha256 = toolBefore,
-                Contexts = observations, CandidateFrames = candidateFrames, AngleFrames = angleFrames, GlCheckpoints = checkpoints, TemporaryPayloadsDeleted = cleaned, FailedCheck = failedCheck, ErrorType = error, ErrorMessageSha256 = errorSha }));
+                Contexts = observations, CandidateFrames = candidateFrames, AngleFrames = angleFrames, CannonFrames = cannonFrames, GlCheckpoints = checkpoints, TemporaryPayloadsDeleted = cleaned, FailedCheck = failedCheck, ErrorType = error, ErrorMessageSha256 = errorSha }));
         }
         return error == null ? 0 : 1;
     }
@@ -226,6 +297,36 @@ internal static class CharacterGeneratedPreviewOwnedProbe
             foreach (float value in segment.SourceMatrixPalette ?? throw new InvalidDataException("Source palette absent."))
             { if (!float.IsFinite(value)) throw new InvalidDataException("Nonfinite source palette."); hash.AppendData(BitConverter.GetBytes(value)); }
         return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+    private static object PresentationBounds(CharacterWeightedRenderModel model)
+    {
+        var geometry = Get(model, "_sourceGeometry") as CharacterWeightedModelData
+            ?? throw new InvalidDataException("Cannon diagnostic requires captured source geometry.");
+        bool finite = true, allInside = true, anyInside = false; int corners = 0;
+        for (int p = 0; p < geometry.Primitives.Count; p++)
+        {
+            var primitive = geometry.Primitives[p];
+            var palette = model.Segments[p].SourcePresentationPalette
+                ?? throw new InvalidDataException("Cannon diagnostic requires submitted source palettes.");
+            foreach (uint index in primitive.Indices)
+            {
+                var vertex = primitive.Vertices[index]; var result = OpenTK.Mathematics.Vector3.Zero;
+                for (int component = 0; component < 4; component++)
+                {
+                    float weight = vertex.Weights[component]; if (weight == 0) continue;
+                    int offset = ((vertex.PackedJoints >> (5 * component)) & 31) * 16;
+                    if (offset + 16 > palette.Length) throw new InvalidDataException("Submitted source palette bounds differ.");
+                    var matrix = new OpenTK.Mathematics.Matrix4(palette[offset], palette[offset+1], palette[offset+2], palette[offset+3],
+                        palette[offset+4], palette[offset+5], palette[offset+6], palette[offset+7], palette[offset+8], palette[offset+9],
+                        palette[offset+10], palette[offset+11], palette[offset+12], palette[offset+13], palette[offset+14], palette[offset+15]);
+                    result += OpenTK.Mathematics.Vector3.TransformPosition(new(vertex.Position.X, vertex.Position.Y, vertex.Position.Z), matrix) * weight;
+                }
+                bool valid = float.IsFinite(result.X) && float.IsFinite(result.Y) && float.IsFinite(result.Z);
+                bool inside = valid && result.X >= -2 && result.X <= 2 && result.Y >= -.5f && result.Y <= 2.8f && result.Z >= -2 && result.Z <= 2;
+                finite &= valid; allInside &= inside; anyInside |= inside; corners++;
+            }
+        }
+        return new { ReferencedCorners = corners, AllFinite = finite, AllInsideExpectedPreviewWorldBox = allInside, AnyInsideExpectedPreviewWorldBox = anyInside };
     }
     private static string NativeInventory(string root)
     {

@@ -125,12 +125,21 @@ namespace MphRead.Mods.Render
                     pack,appearance,nativeMaterialAnchor,out var binding,stageOwner))return false;
             ClearSourceRigPreview();_sourceRigPreview=binding;return true;
         }
+        internal bool TrySetSourceCannonPreview(CharacterModelPack pack,
+            PrivateCharacterAppearance appearance,string nativeMaterialAnchor,object? stageOwner=null)
+        {
+            if(_model==null||Mode!=Mods.Cosmetics.SkinContext.ViewModel
+                ||!CharacterSourcePreviewBinding.TryCreateSourceCannon(_scene,_hunter,_model.Model,
+                    pack,appearance,nativeMaterialAnchor,out var binding,stageOwner))return false;
+            ClearSourceRigPreview();_sourceRigPreview=binding;return true;
+        }
         internal bool TrySelectSourceRigClip(int ordinal) => _sourceRigPreview?.TrySelectSourceClip(ordinal)==true;
         internal bool TrySetSourceRigTime(double seconds) => _sourceRigPreview?.TrySetSourceTime(seconds)==true;
         internal CharacterSourceClip? SelectedSourceRigClip => _sourceRigPreview?.SelectedSourceClip;
 
         private object? _sourceStageOwner;
         private CharacterModelPack? _sourceStagePack;
+        private CharacterModelPart _sourceStagePart, _sourceStageAttemptPart;
         private object? _sourceStageAttemptOwner;
         private CharacterModelPack? _sourceStageAttemptPack;
         private Matrix4 _sourceStageFit = Matrix4.Identity;
@@ -143,21 +152,37 @@ namespace MphRead.Mods.Render
             { if (_sourceStageOwner != null || _sourceStageAttemptOwner != null) ClearSourceRigPreview(); return true; }
             if (!double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
                 || request.Appearance != CharacterSourcePreviewSelection.Appearance
-                || _hunter != Hunter.Samus || Mode != Mods.Cosmetics.SkinContext.Biped) return false;
-            if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack))
+                || _hunter != Hunter.Samus || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
+                || Mode != (request.Part == CharacterModelPart.Biped ? Mods.Cosmetics.SkinContext.Biped : Mods.Cosmetics.SkinContext.ViewModel)
+                || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != 32 || request.Seconds != 0)) return false;
+            if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part)
             {
                 // A refused publication must not rehash/recompile the same
                 // generation every frame. Reopening creates a fresh owner.
-                if (ReferenceEquals(_sourceStageAttemptOwner, request.Owner) && ReferenceEquals(_sourceStageAttemptPack, request.Pack)) return false;
+                if (ReferenceEquals(_sourceStageAttemptOwner, request.Owner) && ReferenceEquals(_sourceStageAttemptPack, request.Pack) && _sourceStageAttemptPart == request.Part) return false;
                 ClearSourceRigPreview();
-                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack;
-                string? anchor = _model.Model.Materials.GroupBy(m => m.Name).FirstOrDefault(g => g.Count() == 1)?.Key;
-                if (anchor == null || !TrySetSourceMaterialRigPreview(request.Pack, request.Appearance, anchor, request.Owner)) return false;
-                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack;
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part;
+                var uniqueMaterials = _model.Model.Materials.GroupBy(m => m.Name).Where(g => g.Count() == 1).Select(g => g.Single());
+                // The native gun starts with invisible flash/glow materials.
+                // Use a solid existing sampler/draw anchor for the diagnostic
+                // cannon; never inherit an inactive muzzle effect's alpha.
+                string? anchor = request.Part == CharacterModelPart.ViewModel
+                    ? uniqueMaterials.Where(m => m.Alpha == 31 && m.CurrentAlpha >= .99999f
+                        && m.RenderMode == RenderMode.Normal && m.PolygonMode == PolygonMode.Modulate)
+                        .OrderByDescending(m => m.Lighting != 0).FirstOrDefault()?.Name
+                    : uniqueMaterials.FirstOrDefault()?.Name;
+                if (anchor == null) return false;
+                bool attached = request.Part == CharacterModelPart.Biped
+                    ? TrySetSourceMaterialRigPreview(request.Pack, request.Appearance, anchor, request.Owner)
+                    : TrySetSourceCannonPreview(request.Pack, request.Appearance, anchor, request.Owner);
+                if (!attached) return false;
+                _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part;
                 if (!TryGetSourceRigPreview(out var source)) return false;
-                _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack;
+                _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack; _sourceStagePart = request.Part;
                 _sourceStageRestFit = source.DiagnosticPreviewFit;
             }
+            if (request.Part == CharacterModelPart.ViewModel)
+            { _sourceStageFit = _sourceStageRestFit; return true; }
             if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return false;
             if (!TrySetSourceRigTime(request.Seconds)) return false;
             // The diagnostic camera follows the source root. Raw source keys,
@@ -173,7 +198,7 @@ namespace MphRead.Mods.Render
         {
             model = null!;
             return _model != null && _sourceRigPreview != null
-                && _sourceRigPreview.TryGet(_scene, _hunter, CharacterModelPart.Biped,
+                && _sourceRigPreview.TryGet(_scene, _hunter, Mode == Mods.Cosmetics.SkinContext.ViewModel ? CharacterModelPart.ViewModel : CharacterModelPart.Biped,
                     _model.Model, out model);
         }
         private Vector3 _displayCenter;
@@ -526,7 +551,10 @@ namespace MphRead.Mods.Render
             // whichever side happens to be towards you.
             Matrix4 pose = Matrix4.CreateScale(Mods.Cosmetics.CosmeticPreview.Zoom)
                 * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw) * _facing;
-            if (Mode != Mods.Cosmetics.SkinContext.Biped)
+            if (_sourceStageOwner != null && Mode == Mods.Cosmetics.SkinContext.ViewModel)
+                pose = Matrix4.CreateScale(Mods.Cosmetics.CosmeticPreview.Zoom)
+                    * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw - .7f);
+            else if (Mode != Mods.Cosmetics.SkinContext.Biped)
                 pose = Matrix4.CreateTranslation(-_displayCenter)
                     * Matrix4.CreateScale(_displayScale * Mods.Cosmetics.CosmeticPreview.Zoom)
                     * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw

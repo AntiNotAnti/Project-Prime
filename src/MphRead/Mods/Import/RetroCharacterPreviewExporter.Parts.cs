@@ -53,7 +53,7 @@ public static partial class RetroCharacterPreviewExporter
     public static IReadOnlyList<SourcePart> PartsFor(string id)
     {
         SourceCharacter source = Source(id);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 3 : 1);
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Id == "darksamus-echoes" ? 4 : source.Game == ExternalGameKind.Echoes ? 3 : 1);
         return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 3 } } : new[] { body });
     }
 
@@ -81,7 +81,8 @@ public static partial class RetroCharacterPreviewExporter
             new AuthoringComponent("source-rig-geometry", 1, stem + ".source.glb"),
             new AuthoringComponent("generated-provenance", 1, stem + ".source.json")
         }).Concat(id == "darksamus-echoes" && part == "body"
-            ? new[] { new AuthoringComponent("source-preview-manifest", 1, "characters.json") }
+            ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
+                new AuthoringComponent("source-cannon-recipe", 1, "darksamus-echoes.cannon-source.json") }
             : Array.Empty<AuthoringComponent>()).ToArray() : legacy;
     }
 
@@ -99,10 +100,12 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        string recipe = $"retro-character-preview-v4:{spec.Id}:{spec.Game}:parts-index-v1:"
+        int bundleVersion = spec.Id == "darksamus-echoes" ? 5 : 4;
+        string recipe = $"retro-character-preview-v{bundleVersion}:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
                 $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
-        return new(spec.Id, 4, HashRecipe(recipe), fingerprint,
+        if (bundleVersion == 5) recipe += ":normal-fixed-generated-cannon-v1-global-triangle-ids";
+        return new(spec.Id, bundleVersion, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
     }
@@ -186,16 +189,31 @@ public static partial class RetroCharacterPreviewExporter
                 File.WriteAllBytes(Path.Combine(staging, provenanceName), provenance); Stage(provenanceName);
                 if (spec.Id == "darksamus-echoes" && part.Id == "body")
                 {
+                    string cannonName = "darksamus-echoes.cannon-source.json";
+                    var inputs = new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [geometryName] = RetroAnimationGraphProof.Sha(geometry),
+                        [provenanceName] = RetroAnimationGraphProof.Sha(provenance),
+                        [graphName] = RetroAnimationGraphProof.Sha(graph.Descriptor),
+                        [rawName] = RetroAnimationGraphProof.Sha(ancsBytes),
+                        [cinfName] = RetroAnimationGraphProof.Sha(cinfBytes),
+                        [animationName] = RetroAnimationGraphProof.Sha(archive)
+                    };
+                    var capturedBank = RetroCharacterAnimationArchive.Read(archive, graph, cinfBytes, echoes: true);
+                    byte[] cannon = RetroCharacterCannonSource.Author(model, skeleton, capturedBank, inputs);
+                    File.WriteAllBytes(Path.Combine(staging, cannonName), cannon); Stage(cannonName);
+                    object Entry(string presentationPart, bool cut) => new
+                    {
+                        hunter = "Samus", part = presentationPart, lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
+                        model = geometryName, characterId = "darksamus", skinSource = "MP2DarkSamus",
+                        provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
+                        sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
+                        sourceCannonReceipt = cut ? cannonName : null, sourceCannonSha256 = cut ? RetroAnimationGraphProof.Sha(cannon) : null,
+                        boneMap = new Dictionary<string, string>()
+                    };
                     File.WriteAllBytes(Path.Combine(staging, "characters.json"), JsonSerializer.SerializeToUtf8Bytes(new
                     {
-                        format = 1, id = "generated-darksamus-echoes-diagnostic-v1", models = new[] { new
-                        {
-                            hunter = "Samus", part = "Biped", lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
-                            model = geometryName, characterId = "darksamus", skinSource = "MP2DarkSamus",
-                            provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
-                            sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
-                            boneMap = new Dictionary<string, string>()
-                        } }
+                        format = 1, id = "generated-darksamus-echoes-diagnostic-v2", models = new[] { Entry("Biped", false), Entry("ViewModel", true) }
                     }));
                     Stage("characters.json");
                 }

@@ -20,7 +20,7 @@ internal sealed partial class CharacterModelPack
             && p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out long n) && n == value;
         bool Flag(string name, bool value) => receipt.TryGetProperty(name, out var p)
             && p.ValueKind == (value ? JsonValueKind.True : JsonValueKind.False);
-        if (asset.Hunter != Hunter.Samus || asset.Part != CharacterModelPart.Biped || asset.Lod != 0
+        if (asset.Hunter != Hunter.Samus || !(asset.Part == CharacterModelPart.Biped || CharacterSourceCannonRecipe.IsGeneratedEntry(entry, verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath, MaximumModelBytes))) || asset.Lod != 0
             || asset.Skinning != CharacterSkinningMode.Weighted4 || asset.PoseSource != CharacterPoseSource.SourceRigPreview
             || appearance != new PrivateCharacterAppearance("darksamus", "MP2DarkSamus") || sourceCharacter != "darksamus-echoes"
             || entry.MobileModel != null || entry.BoneMap.Count != 0 || entry.SourceAnimationArchive == null
