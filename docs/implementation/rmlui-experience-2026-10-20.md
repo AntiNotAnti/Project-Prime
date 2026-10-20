@@ -8,8 +8,10 @@ Lobby now presents compact match facts on the left, all eight initial roster row
 
 The shared shell uses a compact single navigation row at 640 pixels, with a separate utility row for large text. The Studio label shortens without changing its accessible name.
 
-![Windows Home](rmlui-experience-2026-10-20/home-windows.png)
-![Windows eight-pad Lobby fixture](rmlui-experience-2026-10-20/lobby-windows.png)
+
+
+
+**Asset boundary:** The Windows Home, eight-pad Lobby and Hunter actual-model screenshots used locally configured game data. Their private capture evidence is retained outside the tracked repository; these three game-image derivatives are not distributed as documentation PNGs. Source hashes and fixture validation results below remain available. The source-free Community texture test image remains linked.
 
 ## Validation
 
@@ -36,7 +38,7 @@ Community now presents preview cards beside a selected-package pane with fixed I
 
 Validation includes the complete native layout matrix, real mesh rendering, direct pointer/keyboard catalog selection, combined equip persistence, gesture containment and cancellation, Community library/import/history/report flows, and bounded preview download/decode/disposal fixtures. A native framebuffer test samples pixels from an explicitly generated synthetic PNG to prove that a card paints the downloaded/decoded texture. That test pattern is not map artwork.
 
-![Windows Hunter with local fixture loadout](rmlui-experience-2026-10-20/hunter-windows.png)
+
 
 ### Native focus correction
 
