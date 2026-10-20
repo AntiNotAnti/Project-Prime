@@ -193,6 +193,7 @@ RuntimeStateChecks.Run(Check);
 NetworkContractChecks.Run(Check);
 SourceJournalChecks.Run(Check);
 PickupFundingChecks.Run(Check);
+PickupWorldChecks.Run(Check);
 EngineSourceHistoryChecks.Run(Check);
 SourceModifierChecks.Run(Check);
 ReadinessChecks.Run(Check);
