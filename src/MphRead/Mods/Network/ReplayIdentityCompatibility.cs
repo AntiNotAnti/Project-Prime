@@ -232,6 +232,18 @@ internal static class ReplayIdentityCompatibility
             Require(converted.Length == 1 + SessionStatePacket.Size);
             Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 65536u) == 0);
         }
+        // Traversal's rule bit was reserved through protocol 67. Historical
+        // bytes cannot opt an archived session into a later movement contract.
+        if (protocol < 68 && type == PacketType.MatchState)
+        {
+            Require(converted.Length == 1 + MatchStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 131072u) == 0);
+        }
+        if (protocol < 68 && type == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 131072u) == 0);
+        }
         return converted;
     }
 

@@ -3637,6 +3637,7 @@ namespace MphRead
             if (!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this))
             {
                 if (drawGameHud) AimTrainer?.DrawHud();
+                if (drawGameHud) Mods.Movement.MovementTelemetryHud.Draw(this);
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
                 if (!Mods.Launcher.Gui.Shell.StudioWindow || Mods.Replay.ReplayVideoExporter.Active || NativeStudioPreviewOverlay)
 #endif

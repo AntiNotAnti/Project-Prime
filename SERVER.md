@@ -25,11 +25,11 @@ ProjectPrimeServer.exe -server -port 27888 -players 8 -servername "My server"
 
 Classic (the `Native` configuration value) remains the default. An operator can
 opt in a standalone game server with `-server -movement Momentum` or
-`-server -movement Quake3`; use
+`-server -movement Quake3` or `-server -movement Traversal`; use
 `-movement Native`, or omit the option, for original Hunter movement. Unknown
 values are refused. This option does not change master/allocator policy.
 
-In an editable lobby, its owner can choose **Movement: Classic / Momentum / Quake III** in
+In an editable lobby, its owner can choose **Movement: Classic / Momentum / Quake III / Traversal** in
 Match Rules and apply the draft. The server validates the change before start;
 guests see the effective choice and cannot apply it. The choice freezes when
 the match starts and is retained in session/replay facts. Roll back by selecting
@@ -37,11 +37,13 @@ Classic before the next start, or restarting a standalone server with Native.
 
 Momentum changes ordinary biped acceleration, air-strafing and manual bunny-hop
 momentum. Native jumps, alternate forms and abilities remain native. Balanced
-and Enhanced Hunter variants cannot be combined with Momentum or Quake III.
+and Enhanced Hunter variants cannot be combined with optional movement profiles.
 Quake III enables full-speed air projection and strafe-jump speed building with
 no artificial total-speed cap. Its profile v2 also chains held jumps on legal
 landings and supports additive self-missile rocket jumps with normal self-damage.
-All live peers must use protocol 62; protocol 61 and older clients are refused
+Traversal adds stronger air control, ramp jumps, Magmaul jumps and tagged training-map
+surfing; see the [Traversal guide](docs/movement/traversal-movement.md).
+All live peers must use protocol 68; older clients are refused
 rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is

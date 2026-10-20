@@ -230,6 +230,8 @@ namespace MphRead.Mods.MapGen
             {
                 if (geometry == null) { r.Error("FP-MAP-013", "Null geometry object."); continue; }
                 Id(geometry.Id);
+                if (geometry.SurfSurface && !d.TraversalTraining)
+                    r.Error("FP-MAP-013", "Surf surfaces require traversal-training opt-in.", geometry.Id);
                 if (geometry is MapMesh editable)
                     foreach (var problem in MphRead.Mods.MapEditor.MapMeshValidator.Validate(editable))
                         r.Diagnostics.Add(new("FP-MESH-001",problem.Severity,problem.Message,geometry.Id));

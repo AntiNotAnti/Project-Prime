@@ -16,6 +16,7 @@ namespace MphRead.Utility
 
         public bool Damaging { get => Check(CollisionFlags.Damaging); set => Update(CollisionFlags.Damaging, value); }
         public bool Reflect { get => Check(CollisionFlags.ReflectBeams); set => Update(CollisionFlags.ReflectBeams, value); }
+        public bool SurfSurface { get => Check(CollisionFlags.TraversalSurfSurface); set => Update(CollisionFlags.TraversalSurfSurface, value); }
         public bool Players { get => Check(CollisionFlags.IgnorePlayers); set => Update(CollisionFlags.IgnorePlayers, !value); }
         public bool Beams { get => Check(CollisionFlags.IgnoreBeams); set => Update(CollisionFlags.IgnoreBeams, !value); }
         public bool Scan { get => Check(CollisionFlags.IgnoreScan); set => Update(CollisionFlags.IgnoreScan, !value); }

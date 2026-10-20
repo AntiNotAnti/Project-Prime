@@ -187,6 +187,8 @@ internal static class LobbyInteractionsGlAcceptance
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "QUAKE III", "focused native Enter selects Quake III");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
+            Check(controller.Tick().Bindings["rules_toggle17"].Text == "TRAVERSAL", "focused native Enter selects Traversal");
+            RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "CLASSIC", "focused native Enter selects Classic");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle);
             RuleAction("rules_toggle16", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
@@ -207,6 +209,8 @@ internal static class LobbyInteractionsGlAcceptance
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "MOMENTUM", "reopen adopts confirmed Momentum state");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "QUAKE III", "confirmed Momentum advances to Quake III");
+            RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
+            Check(controller.Tick().Bindings["rules_toggle17"].Text == "TRAVERSAL", "confirmed Quake III advances to Traversal");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             RuleAction("rules_apply", RmlUiIntentKind.LobbyRulesApply);
             authority.ConfirmRules(); Settle();

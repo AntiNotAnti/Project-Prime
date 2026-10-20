@@ -45,6 +45,10 @@ namespace MphRead.Mods.MapGen
         public string Name { get; set; } = "CUSTOM";
         public string? InGameName { get; set; }
 
+        /// <summary>Allows explicitly tagged traversal practice surfaces in this authored map.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool TraversalTraining { get; set; }
+
         /// <summary>Room whose textures and palettes are copied into this map.</summary>
         public string TextureSource { get; set; } = "MP3 PROVING GROUND";
 

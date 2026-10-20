@@ -37,7 +37,7 @@ public static class ModelCollisionImport
                 var points = face.Points.Select(p => p * settings.Scale).ToArray();
                 if (settings.FlipWinding) Array.Reverse(points);
                 Vector3 normal = settings.FlipWinding ? -face.Normal : face.Normal;
-                faces.Add(new BuiltFace(points, new Vector2[points.Length], normal, 0, 1) { Terrain = face.Terrain, Damaging = face.Damaging, Slipperiness = face.Slipperiness, ReflectBeams = face.ReflectBeams,
+                faces.Add(new BuiltFace(points, new Vector2[points.Length], normal, 0, 1) { Terrain = face.Terrain, Damaging = face.Damaging, SurfSurface = face.SurfSurface, Slipperiness = face.Slipperiness, ReflectBeams = face.ReflectBeams,
                     IgnorePlayers = face.IgnorePlayers, IgnoreBeams = face.IgnoreBeams, IgnoreScan = face.IgnoreScan });
             }
             groups.Add(("Companion collision", faces));
@@ -68,6 +68,7 @@ public static class ModelCollisionImport
                 var mesh = new MapMesh { Label = group.Name + " " + behavior.Key.Terrain + " " + (ushort)behavior.Key.Flags,
                     CollisionOnly = true, Solid = true, Layer = "Collision", Terrain = behavior.Key.Terrain.ToString(), Damaging = behavior.Key.Damaging,
                     Slipperiness = behavior.Key.Slipperiness, ReflectBeams = behavior.Key.Flags.HasFlag(CollisionFlags.ReflectBeams),
+                    SurfSurface = behavior.Key.Flags.HasFlag(CollisionFlags.TraversalSurfSurface),
                     IgnorePlayers = behavior.Key.Flags.HasFlag(CollisionFlags.IgnorePlayers), IgnoreBeams = behavior.Key.Flags.HasFlag(CollisionFlags.IgnoreBeams),
                     IgnoreScan = behavior.Key.Flags.HasFlag(CollisionFlags.IgnoreScan) };
                 foreach (var editor in behavior)

@@ -61,6 +61,12 @@ internal static class MomentumReplayMetadataTests
                     "cache serialization retains movement without bootstrap " + model);
             }
         }
+        Check(Metadata(68, Match(MovementModel.Traversal), Session(MovementModel.Traversal)).RecordedMovementModel == MovementModel.Traversal
+            && Metadata(68, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 1,
+            "protocol68 Traversal metadata retains its model and immutable profile version");
+        Check(Metadata(67, Match(MovementModel.Traversal)).RecordedMovementModel == null
+            && Metadata(67, Session(MovementModel.Traversal)).RecordedMovementModel == null,
+            "historical reserved Traversal bits cannot label replay metadata");
         Check(Metadata(58).RecordedMovementModel == MovementModel.Native, "supported pre-movement absence is Classic");
         Check(Metadata(59).RecordedMovementModel == null, "current missing facts unknown");
         Check(Metadata((byte)(NetConfig.ProtocolVersion + 1), Match(MovementModel.Momentum)).RecordedMovementModel == null, "future protocol unknown");
@@ -137,6 +143,9 @@ internal static class MomentumReplayMetadataTests
             Check(!ReplayLibraryIndex.TryGet(path, out _), "invalid cache enum forces rescan");
             File.WriteAllText(index, valid.Replace("\"ProtocolVersion\": 60", "\"ProtocolVersion\": 59")); document.SetValue(null, null);
             Check(!ReplayLibraryIndex.TryGet(path, out _), "historical cache Momentum forces rescan");
+            File.WriteAllText(index, valid.Replace("\"RecordedMovementModel\": 2", "\"RecordedMovementModel\": 3")
+                .Replace("\"ProtocolVersion\": 60", "\"ProtocolVersion\": 67")); document.SetValue(null, null);
+            Check(!ReplayLibraryIndex.TryGet(path, out _), "historical cache Traversal forces rescan");
             File.WriteAllText(index, valid.Replace("\"Version\": 6", "\"Version\": 5")); document.SetValue(null, null);
             Check(!ReplayLibraryIndex.TryGet(path, out _), "old index version forces rescan");
         }

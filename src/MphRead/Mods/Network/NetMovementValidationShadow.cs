@@ -52,7 +52,7 @@ internal static class NetMovementValidationShadow
     private static long _overflow, _invalid;
     private static Counts[] Create()
     {
-        var result = new Counts[42]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
+        var result = new Counts[56]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
     }
     private static bool Alt(in MovementValidationSample value) => (value.Buttons & IntentButtons.AltFormState) != 0;
     private static bool Context(in MovementValidationSample a, in MovementValidationSample b) =>
@@ -120,7 +120,7 @@ internal static class NetMovementValidationShadow
             accelerationLimit = Math.Max(accelerationLimit,
                 MomentumProfileV1.Tuning.GroundAcceleration * MomentumProfileV1.GroundSpeed / 900 + .2f);
         }
-        if (sample.MovementModel == MovementModel.Quake3)
+        if (sample.MovementModel is MovementModel.Quake3 or MovementModel.Traversal)
         {
             // This profile has no finite total-speed cap. Retain measurements
             // without treating ordinary strafe gain as a capped-speed violation.

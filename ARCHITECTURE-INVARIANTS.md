@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **67** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **68** (`NetConfig.ProtocolVersion`).
 - Protocol 62 selects Quake3 movement profile v2, including advanced movement and
   damage-derived additive rocket impulses. Match bits and packet widths remain unchanged;
   historical Quake3 recordings retain profile v1 through their recorded protocol.
@@ -24,6 +24,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Protocol 66 adds typed recipient replica pages, events and application acknowledgements
   at packet IDs 94–96, using ordinary reliable background delivery. Prior native and custom
   packet identities and historical replay bodies remain unchanged.
+- Protocol 68 adds optional Traversal movement and accepted crouch collision state;
+  Classic, Momentum and Quake III retain their existing profiles.
 - Protocol 67 activates the opt-in recipient replica lane with application-acknowledged
   baselines. Packet IDs 94–96, native payload widths and protocol-66 archive shapes remain unchanged.
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
@@ -74,7 +76,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
 - The protocol-16 byte-equivalence and protocol-17 migration notes describe the
-  historical Netcode P0 train; current internal refactors preserve protocol 67
+  historical Netcode P0 train; current internal refactors preserve protocol 68
   packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
@@ -230,7 +232,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 67).
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 68).
 - Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
 - Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The

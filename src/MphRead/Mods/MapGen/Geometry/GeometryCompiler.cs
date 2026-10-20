@@ -181,7 +181,8 @@ namespace MphRead.Mods.MapGen
                     && faceIndex < mesh.FaceMaterials.Count)
                     material = mesh.FaceMaterials[faceIndex];
                 result.Add(new BuiltFace(points,coords,normal,material + materialOffset,geometry.Shade * (.7f+.3f*Math.Max(0,normal.Y)))
-                { SourceUv = sourceUv, Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
+                { SourceUv = sourceUv, SurfSurface = geometry.SurfSurface,
+                    Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
                     ReflectBeams = (geometry as MapMesh)?.ReflectBeams ?? false,
                     IgnorePlayers = (geometry as MapMesh)?.IgnorePlayers ?? false,
                     IgnoreBeams = (geometry as MapMesh)?.IgnoreBeams ?? false,

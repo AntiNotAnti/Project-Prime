@@ -186,7 +186,9 @@ Check(movement.MovementVisible && movement.MovementLabel == "Classic" && movemen
     && movement.Draft.MovementModel == "Momentum" && movement.MovementLabel == "Momentum"
     && movement.Toggle(13) && movement.Draft.MovementModel == "Quake3" && movement.MovementLabel == "Quake III"
     && movement.Validate("7", "7:00", "1:30")
-    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles all three models");
+    && movement.Toggle(13) && movement.Draft.MovementModel == "Traversal" && movement.MovementLabel == "Traversal"
+    && movement.Validate("7", "7:00", "1:30")
+    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles all four models");
 movement.Toggle(13);
 Check(movement.Toggle(12) && movement.NextDamage() && movement.Validate("31", "8:10", "2:00")
     && movement.Draft.MovementModel == "Momentum" && movement.Draft.Enabled(12),
@@ -210,6 +212,15 @@ Check(RmlUiOfflineRules.TryCommit(quakeSettings, RmlUiOfflineRules.Capture(quake
     && RmlUiOfflineRules.Capture(quakeSettings) == quakeRules
     && new RmlUiOfflineRuleEditor(GameMode.Battle, RmlUiOfflineRules.Capture(quakeSettings)).MovementLabel == "Quake III",
     "Quake III apply and reopen preserve the exact saved model");
+var traversalRules = Rules() with { MovementModel = "Traversal" };
+var traversalSettings = new MenuSettings();
+Check(RmlUiOfflineRules.TryCommit(traversalSettings, RmlUiOfflineRules.Capture(traversalSettings), traversalRules, _ => { }, out _)
+    && RmlUiOfflineRules.Capture(traversalSettings) == traversalRules
+    && new RmlUiOfflineRuleEditor(GameMode.Battle, RmlUiOfflineRules.Capture(traversalSettings)).MovementLabel == "Traversal",
+    "Traversal apply and reopen preserve the exact saved model");
+var balancedTraversal = new RmlUiOfflineRuleEditor(GameMode.Battle, traversalRules with { Flags = 1 << 10 });
+Check(!balancedTraversal.Validate("7", "7:00", "1:30") && balancedTraversal.Draft.MovementModel == "Traversal",
+    "Balanced refuses Traversal without reinterpreting the selection");
 var campaignRules = Rules() with { MovementModel = "Momentum" };
 var campaign = new RmlUiOfflineRuleEditor(GameMode.SinglePlayer, campaignRules);
 Check(!campaign.MovementVisible && !campaign.Toggle(13) && campaign.Draft == campaignRules

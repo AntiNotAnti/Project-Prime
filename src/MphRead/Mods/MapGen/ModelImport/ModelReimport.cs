@@ -39,7 +39,7 @@ public static class ModelReimport
         : Hash(new { material.Name, material.Texture, material.Albedo, material.Normal, material.SpecularRoughness, material.Emissive, material.SourceMaterial, material.TexScale, material.ProceduralWhite, material.AlbedoBank });
     public static string NormalizedHash(ImportedModel model) => Hash(new
     {
-        Meshes = model.Meshes.Select(m => new { m.Label, m.Vertices, m.Faces, m.FaceMaterials, m.FaceTexcoords, m.Material, m.Solid, m.CollisionOnly, m.Terrain, m.Damaging, m.Slipperiness, m.ReflectBeams, m.IgnorePlayers, m.IgnoreBeams, m.IgnoreScan }),
+        Meshes = model.Meshes.Select(m => new { m.Label, m.Vertices, m.Faces, m.FaceMaterials, m.FaceTexcoords, m.Material, m.Solid, m.SurfSurface, m.CollisionOnly, m.Terrain, m.Damaging, m.Slipperiness, m.ReflectBeams, m.IgnorePlayers, m.IgnoreBeams, m.IgnoreScan }),
         Materials = model.Materials.Select(MaterialHash),
         Assets = model.Assets.OrderBy(a => a.Key).Select(a => new { a.Key, Hash = Convert.ToHexString(SHA256.HashData(a.Value)) })
     });
@@ -122,6 +122,7 @@ public static class ModelReimport
                 mesh.Id = old.Id; mesh.Label = old.Label; mesh.Transform = old.Transform;
                 mesh.Hidden = old.Hidden; mesh.Locked = old.Locked; mesh.Layer = old.Layer;
                 mesh.Uv = old.Uv; mesh.Damaging = old.Damaging; mesh.Terrain = old.Terrain; mesh.Shade = old.Shade;
+                mesh.SurfSurface = old.SurfSurface;
                 if (old.Material != oldRecord!.BaseMaterial) mesh.Material = old.Material;
                 // An explicit change to the collision import option takes precedence over an editor override.
                 if (previous!.Settings.VisualCollision == settings.VisualCollision && previous.Settings.Collision == settings.Collision) mesh.Solid = old.Solid;
