@@ -49,6 +49,31 @@ retains every command, exact source/binary/runtime hashes, both model reports,
 the unchanged 22-field replay comparisons and failed controls. Hosted CI for
 this patch has not yet run; local passes do not establish full green CI.
 
+## Refresh after concurrent main merges
+
+The unchanged fix is rebased onto main `42bac699ee31d74f3d9476026f47b68df86efafc`
+and freshly built at actual commit `9c13d4409517410c995282645873c6a9a0c42112`.
+The normal Windows build passes with zero warnings/errors. All 20 focused
+cases pass, including the new combat fast-path damage/decision checks,
+positive Off/Shadow scene parity and instagib animation checks. Both production
+durable packet comparators, the Core frame-timing check, Hunter controller
+contracts and the native beam source contract also pass.
+
+Four verification-only eight-bot processes (both maps and both movement
+models) match the frozen CPU experiment's actual capture-02 workload and all
+3,600 published snapshot payloads exactly. No new timing is collected.
+NCX03's observer remains Off in normal children; Shadow parity is exercised
+only by its focused fixture. Receipt sources and authority rules remain
+unchanged by those concurrent merges. The earlier impaired owner sessions
+retain their original `017` build lease; the camera/cosmetic/observer refresh
+does not relabel them. Actual third-person visual behavior and physical-input
+coverage are outside these headless results.
+
+[Current42 compatibility evidence](../movement/evidence/pr09-current42-compatibility.json)
+records the fresh build, all commands, Off/Shadow parity, exact frozen-baseline
+comparison and binary hashes. Subsequent documentation-only commits do not
+change the tested production or fixture source.
+
 This repair changes claim-receipt processing, not the movement solver, rule
 serialization or replay format. Classic remains the default. The preserved
 eight-bot CPU experiment records zero received/applied/refused human claims in
