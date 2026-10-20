@@ -4,68 +4,46 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Movement;
 
-// Completed-position travel drives a cosmetic gait. Neither sampling nor extra
-// pictures advance it; native animation clocks and source facts stay untouched.
+// Read-only completed-travel classification and exact captured native bob.
+// Dedicated walking and slide presenters own their separate visual targets.
 internal struct TraversalGaitPresentation
 {
-    internal const float StrideScale = .65f;
-    internal const float SwingLiftScale = .4f;
     internal const float WalkingBobScale = .3f;
-    private bool _ready, _walking;
+    private bool _ready;
     private ulong _frame;
     private Vector3 _position;
-    private double _previousPhase, _phase;
     private float _previousBob, _bob, _previousGunBob, _gunBob;
     internal bool Ready => _ready;
     internal bool Moving { get; private set; }
     internal bool Gliding { get; private set; }
     internal void Reset() => this = default;
 
-    internal void Capture(ulong frame, Vector3 position, bool walking, bool sliding,
-        int nativeFrame, int frameCount, float bob, float gunBob)
+    internal void Capture(ulong frame, Vector3 position, bool walking, bool sliding, float bob, float gunBob, float? acceptedSpeed = null)
     {
         if (_ready && frame == _frame) return;
-        float distance = _ready ? (position - _position).Xz.Length : 0;
-        bool continuous = _ready && frame == _frame + 1 && float.IsFinite(distance) && distance <= 4;
-        if (!continuous)
-        {
-            _phase = frameCount > 0 ? (double)nativeFrame / frameCount : 0;
-            _previousPhase = _phase;
-            _previousBob = bob; _previousGunBob = gunBob;
-        }
-        else
-        {
-            _previousPhase = _phase;
-            _previousBob = _bob; _previousGunBob = _gunBob;
-            if (walking && !_walking && frameCount > 0)
-                _previousPhase = _phase = (double)nativeFrame / frameCount;
-        }
+        Vector3 delta = position - _position;
+        bool continuous = _ready && _frame != ulong.MaxValue && frame == _frame + 1
+            && float.IsFinite(delta.LengthSquared) && delta.LengthSquared < 16;
+        float distance = continuous ? delta.Xz.Length : 0;
+        _previousBob = continuous ? _bob : bob;
+        _previousGunBob = continuous ? _gunBob : gunBob;
         Moving = continuous && distance > .00001f;
-        // Remote/replay bodies do not carry a slide timer. This read-only
-        // classification also gives other fast, low grounded motion a glide;
-        // it grants no physical slide, jump, or input entitlement.
-        Gliding = sliding || walking && Moving
-            && distance * FrameTiming.SimulationHz > TraversalMovementProfileV4.CrouchSpeed * 1.05f;
-        if (continuous && walking && Moving && !Gliding && frameCount > 1)
-        {
-            double cycleDistance = TraversalMovementProfileV4.GroundSpeed
-                * StrideScale * frameCount / (FrameTiming.SimulationHz / 2f);
-            _phase += distance / cycleDistance;
-            double whole = Math.Floor(_phase);
-            _phase -= whole; _previousPhase -= whole;
-        }
-        _ready = true; _frame = frame; _position = position; _walking = walking;
+        // Remote/replay bodies have no slide timer. This classification grants
+        // no physical slide, jump or input entitlement and never queries a world.
+        // Snapshot velocity is already expressed in units/second by the
+        // caller. Held or batched snapshot positions must not pulse this level.
+        float speed = acceptedSpeed ?? distance * FrameTiming.SimulationHz;
+        bool validSpeed = float.IsFinite(speed) && speed >= 0;
+        Gliding = sliding || continuous && walking && validSpeed
+            && speed > TraversalMovementProfileV4.CrouchSpeed * 1.05f;
+        _ready = true; _frame = frame; _position = position;
         _bob = bob; _gunBob = gunBob;
     }
 
-    internal readonly float SampleFrame(float alpha, int frameCount)
-    {
-        double phase = _previousPhase + (_phase - _previousPhase) * Alpha(alpha);
-        phase -= Math.Floor(phase);
-        return (float)(phase * Math.Max(0, frameCount));
-    }
     internal readonly float SampleBob(float alpha, bool gun = false)
-        => gun ? _previousGunBob + (_gunBob - _previousGunBob) * Alpha(alpha)
-            : _previousBob + (_bob - _previousBob) * Alpha(alpha);
-    private static float Alpha(float value) => float.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1;
+    {
+        float t = float.IsFinite(alpha) ? Math.Clamp(alpha, 0, 1) : 1;
+        return gun ? _previousGunBob + (_gunBob - _previousGunBob) * t
+            : _previousBob + (_bob - _previousBob) * t;
+    }
 }

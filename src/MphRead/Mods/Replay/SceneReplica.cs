@@ -64,6 +64,7 @@ namespace MphRead
             {
                 player.CameraInfo.ModCaptureDrawState();
                 player.ModCaptureFirstPersonDrawState();
+                player.ModCaptureTraversalVisual();
             }
             ProcessEffects(_effectFrame);
             _pendingEffectSteps = _pendingFadeSteps = 0;

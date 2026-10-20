@@ -1,0 +1,2624 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "slice": "planted crouch footwork",
+  "baseSha": "33a0de54083bfa4d04927adddc35baa99816a20a",
+  "protocol": 76,
+  "quake3ProfileVersion": 4,
+  "traversalProfileVersion": 5,
+  "versionChange": false,
+  "source": {
+    "finalManifestSha256": "6b1b1ccff3980586b93255ec4d1d2c607f03af8ce0ed4811d9a29458189fcfa1",
+    "overlaySha256": "0240caee39e414e5a05f7eeb716a9497c54d5f2506b6f13a47ded40d70d221d4",
+    "fileCount": 6235,
+    "changedFiles": {
+      "docs/movement/traversal-movement.md": {
+        "sha256": "834e160b084496be141d9f70424074d3e3f4456bb411faf599b7264d54491f87",
+        "bytes": 9854
+      },
+      "src/MphRead/Entities/Players/PlayerDraw.cs": {
+        "sha256": "2b363e17bbf67dea34a1a98ad45693ec90206e1cb781979eccecfd93dcb2f9a9",
+        "bytes": 67229
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalGait.cs": {
+        "sha256": "aa55d8f4773bd132a7970d0934f2e6e66e61fece85e0d814cc0943a5dcc19433",
+        "bytes": 2485
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": {
+        "sha256": "1ab5cfb11f6cc83d47f426aa78da5789815ecf4de494328c193753c78775ca60",
+        "bytes": 15912
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": {
+        "sha256": "ef33db2ebcd7cc6b76d1eca86ef2ee5a91a26a5309b217cc97ef0e48b813e583",
+        "bytes": 6454
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": {
+        "sha256": "c09da80de3f1513a5ed1b8f589a56889ada8ffe141f9d450fd1658bfcf5e7f64",
+        "bytes": 9736
+      },
+      "src/MphRead/Mods/Movement/TraversalGaitPresentation.cs": {
+        "sha256": "a64583e5b7825c68309f5a041aa821cbaaa3d664e201190420a6c9600ae8b62c",
+        "bytes": 2265
+      },
+      "src/MphRead/Mods/Movement/TraversalWalkPresentation.cs": {
+        "sha256": "ddd326a9f0523c3086e67edd5451485aba43bff946c008e375b2ead121946d64",
+        "bytes": 4366
+      },
+      "src/MphRead/Mods/Network/NetSmoothing.cs": {
+        "sha256": "4c579fb637cf47da73669bb672bda0ca5139210594b3fe79a5319e6d5fd67974",
+        "bytes": 29282
+      },
+      "src/MphRead/Mods/Replay/SceneReplica.cs": {
+        "sha256": "9b6bf5d98e21699d8fd386815183cd4105030663f0964755e15b82e249d6dca6",
+        "bytes": 4500
+      },
+      "tools/native-render-check/TraversalGaitRenderCheck.cs": {
+        "sha256": "6f720e45c611f9f5f0fdf9d254fef4ca62f8464e10aec32cc8a29de7f1eafc4e",
+        "bytes": 8777
+      },
+      "tools/nettest/LifecycleTests.cs": {
+        "sha256": "0de1b538d6523c2162b63cca0df6dce259a702992f1d1c27a21f49a1063d28ed",
+        "bytes": 67149
+      },
+      "tools/nettest/MomentumOnlineSceneTests.cs": {
+        "sha256": "72557309fdc6a50758ab87f121f6928b9d3a072aaf266ca5d46442894db5a42e",
+        "bytes": 45019
+      },
+      "tools/nettest/MomentumReplaySceneTests.cs": {
+        "sha256": "3aafc5a4e4e3ed3f8a41a882f523f2d77e9558197057278675d503db1ff28f22",
+        "bytes": 22076
+      },
+      "tools/nettest/Program.cs": {
+        "sha256": "a854c69784dc2fe01f9e1556c7d6ba6cdf54f0746a557155155b675c32563c55",
+        "bytes": 111638
+      },
+      "tools/nettest/TraversalCrouchGaitTests.cs": {
+        "sha256": "68c9f8583892a3a57df6eec7acb410860919312ae456ba3542cd101191851000",
+        "bytes": 12264
+      },
+      "tools/nettest/TraversalCrouchPoseTests.cs": {
+        "sha256": "8e4059f6b7067d946a1c4b1cf8c35f1e8d2d86260ee217dad413e1af7d446462",
+        "bytes": 40019
+      },
+      "tools/nettest/TraversalReplayPresentationTests.cs": {
+        "sha256": "4eefa5f3029e19c6e28057ce549cc410cd235ab4a40f9797a707a5597c582f35",
+        "bytes": 17326
+      },
+      "tools/nettest/TraversalSlidePoseTests.cs": {
+        "sha256": "3fd89a4aed0dcea41b94b4ef5bcadf2a72cf2d65357a26cc54a378e5291cf412",
+        "bytes": 23376
+      },
+      "tools/nettest/TraversalWalkPoseTests.cs": {
+        "sha256": "567a675021fe10c843c138af8b27102a955c86d72ae69114666eb9497ddf39a4",
+        "bytes": 27951
+      },
+      "tools/nettest/TraversalWalkPresentationTests.cs": {
+        "sha256": "e252efcc7d4a11008fefbc9a9d80dd2ebcd72add5fe721a89a42d0aea5c09cfe",
+        "bytes": 26766
+      }
+    },
+    "rootRuntimeTestCheck": {
+      "status": "PASS",
+      "runtimeTestMismatches": 0,
+      "frozenFileCount": 6235,
+      "documentationDeltas": []
+    },
+    "allProductionAndNativeRenderToolSourcesIdenticalTo04": true,
+    "cpuHarnessDeltasFrom05": [
+      "tools/nettest/MomentumOnlineSceneTests.cs",
+      "tools/nettest/Program.cs",
+      "tools/nettest/TraversalReplayPresentationTests.cs"
+    ]
+  },
+  "build": {
+    "production": "candidate04 full normal Windows Release; independent exact production/ref copies retained through09",
+    "productionManifestSha256": "7e6c7bede0fc5aa930959dffeccffe0fecfad7b8adf593ad65d53149101549a4",
+    "productionWarnings": 1,
+    "productionErrors": 0,
+    "productionWarning": "existing CS0649 NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks",
+    "finalTestTool": "candidate09 nettest-only Release with BuildProjectReferences=false; no production rebuild",
+    "finalTestToolWarnings": 0,
+    "finalTestToolErrors": 0,
+    "finalBinaries": {
+      "ProjectPrime.dll": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb",
+      "nettest.dll": "32557d36f9c342de765a94af6d50a1818665db06116047b66f01a54b2feff696"
+    },
+    "retainedCoreAndReferenceHashes": {
+      "src/MphRead/bin/Release/net10.0/ProjectPrime.dll": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb"
+    },
+    "focused05ManifestSha256": "273575d0e65222b3ab5ae9e80c162415182e65b34692b9fed8b151b9fcb1f8fc",
+    "focused05Binaries": {
+      "ProjectPrime.dll": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb",
+      "nettest.dll": "72866191431febd0932c68e6d107e7407c0bb8dfaa327cabddfb09587d5cbbc6"
+    },
+    "gl07ManifestSha256": "a157724d64ed0eed9b5ba4beb0cf3b2c5e4a57f974ff56e5d74a2742fd4c3c19",
+    "gl07Binaries": {
+      "ProjectPrime.dll": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb",
+      "nettest.dll": "7ee4272f6ae2419f89a4ac05d6cfc500ecead79825bd7db87323b24a735272e2"
+    },
+    "nativeRenderTool07Sha256": "77da0845a6453c0e52b322efe92242dfbc3bd7cdce0e7e31e24ca40c12621a24"
+  },
+  "focusedGates": {
+    "producer": "candidate05 all13 focused gates; exact same production and unchanged CPU fixture sources; preserved evidence despite later independent replay-coverage failure",
+    "count": 13,
+    "results": [
+      {
+        "name": "lifecycle",
+        "status": "PASS",
+        "result": "PASS: 3793 lifecycle assertions (production code, deterministic seed 8128)"
+      },
+      {
+        "name": "stance-rules",
+        "status": "PASS",
+        "result": "TRAVERSAL STANCE RULES PASS 21656 assertions; asset-free shape and profile contracts"
+      },
+      {
+        "name": "traversal-stance",
+        "status": "PASS",
+        "result": "TRAVERSAL STANCE SCENE PASS 89569 assertions; 0 failed cases",
+        "outerAssertions": 89569
+      },
+      {
+        "name": "replay-owner-track",
+        "status": "PASS",
+        "result": "PASS: 86 owner presentation track assertions; synthetic codec/file/pose validation; asset animation rendering not exercised"
+      },
+      {
+        "name": "replay-director-shots",
+        "status": "PASS",
+        "result": "Replay director shots: PASS 17"
+      },
+      {
+        "name": "replay-context-analysis",
+        "status": "PASS",
+        "result": "PASS: 62 context proof assertions; synthetic semantics/certificates/accepted facts only"
+      },
+      {
+        "name": "replay-owner-scene",
+        "status": "PASS",
+        "result": "PASS: 18 ROM-backed owner draw restoration assertions; headless actual replica, no GL image claim"
+      },
+      {
+        "name": "ground-slope-rules",
+        "status": "PASS",
+        "result": "GROUND SLOPE PASS 335 assertions; asset-free math only"
+      },
+      {
+        "name": "ground-slope-scene",
+        "status": "PASS",
+        "result": "GROUND SLOPE SCENE PASS 413037 assertions, 0 failed cases",
+        "outerAssertions": 413037
+      },
+      {
+        "name": "native-baseline",
+        "status": "PASS",
+        "result": "NATIVE BASELINE PASS 56 native trajectories; golden source=dc7f097067d755ec76d145fc7cc333068566863d, current=33a0de54083bfa4d04927adddc35baa99816a20a, tolerance=1E-05"
+      },
+      {
+        "name": "metadata",
+        "status": "PASS",
+        "result": "Momentum replay metadata: 165 assertions passed."
+      },
+      {
+        "name": "replay-compatibility",
+        "status": "PASS",
+        "result": "Quake 3 replay compatibility: 659 assertions passed."
+      },
+      {
+        "name": "protocol58",
+        "status": "PASS",
+        "result": "PROTOCOL58 REPLAY PASS 932 byte/archive checks; no gameplay or visual acceptance claim."
+      }
+    ]
+  },
+  "perHunter": [
+    {
+      "hunter": "Samus",
+      "canonicalChecks": 1113,
+      "walkChecks": 74914,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 21,
+          "nativeFrameCount": 21,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 9.537907e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 64,
+      "maximumThighLengthError": 1.5079975e-05,
+      "maximumShinLengthError": 1.66893e-05,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.4305115e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Kanden",
+      "canonicalChecks": 1113,
+      "walkChecks": 74908,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 22,
+          "nativeFrameCount": 22,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.062579915,
+                0.06261875
+              ],
+              "MaxThighError": 2.3543835e-06,
+              "MaxShinError": 1.847744e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.062579915,
+                0.06261875
+              ],
+              "MaxThighError": 2.3543835e-06,
+              "MaxShinError": 1.847744e-06
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 21,
+          "nativeFrameCount": 21,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.9802322e-08,
+                9.541399e-07
+              ],
+              "maxLowSwingLift": [
+                0.062579915,
+                0.06261875
+              ],
+              "MaxThighError": 1.5497208e-06,
+              "MaxShinError": 1.013279e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.9802322e-08,
+                9.541399e-07
+              ],
+              "maxLowSwingLift": [
+                0.062579915,
+                0.06261875
+              ],
+              "MaxThighError": 1.5497208e-06,
+              "MaxShinError": 1.013279e-06
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.3841858e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.0625799,
+                0.06261876
+              ],
+              "MaxThighError": 1.6391277e-06,
+              "MaxShinError": 3.993511e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.3841858e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.0625799,
+                0.06261876
+              ],
+              "MaxThighError": 1.6391277e-06,
+              "MaxShinError": 3.993511e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.3841858e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.0625799,
+                0.06261876
+              ],
+              "MaxThighError": 1.6987324e-06,
+              "MaxShinError": 2.2649765e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                65
+              ],
+              "maxWorldSupportDrift": [
+                2.3841858e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.0625799,
+                0.06261876
+              ],
+              "MaxThighError": 1.6987324e-06,
+              "MaxShinError": 2.2649765e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 22,
+          "nativeFrameCount": 22,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                2.6656008e-07
+              ],
+              "maxLowSwingLift": [
+                0.060748413,
+                0.060787335
+              ],
+              "MaxThighError": 1.66893e-06,
+              "MaxShinError": 1.1920929e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                2.6656008e-07
+              ],
+              "maxLowSwingLift": [
+                0.060748413,
+                0.060787335
+              ],
+              "MaxThighError": 1.66893e-06,
+              "MaxShinError": 1.1920929e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 9.541399e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 64,
+      "maximumThighLengthError": 2.3543835e-06,
+      "maximumShinLengthError": 3.993511e-06,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.4603138e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Spire",
+      "canonicalChecks": 1113,
+      "walkChecks": 74932,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 24,
+          "nativeFrameCount": 24,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                9.536743e-07,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 1.7285347e-06,
+              "MaxShinError": 2.026558e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                9.536743e-07,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 1.7285347e-06,
+              "MaxShinError": 2.026558e-06
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 21,
+          "nativeFrameCount": 21,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                9.536743e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 8.34465e-07,
+              "MaxShinError": 8.940697e-07
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                9.536743e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 8.34465e-07,
+              "MaxShinError": 8.940697e-07
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 6.1392784e-06,
+              "MaxShinError": 4.2915344e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 6.1392784e-06,
+              "MaxShinError": 4.2915344e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                8.940697e-08,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 2.4437904e-06,
+              "MaxShinError": 2.9802322e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                72,
+                61
+              ],
+              "maxWorldSupportDrift": [
+                8.940697e-08,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.06734361,
+                0.067375615
+              ],
+              "MaxThighError": 2.4437904e-06,
+              "MaxShinError": 2.9802322e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 24,
+          "nativeFrameCount": 24,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                73,
+                63
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.06537873,
+                0.06538051
+              ],
+              "MaxThighError": 1.1861324e-05,
+              "MaxShinError": 1.3887882e-05
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                73,
+                63
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.06537873,
+                0.06538051
+              ],
+              "MaxThighError": 1.1861324e-05,
+              "MaxShinError": 1.3887882e-05
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 9.536743e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 61,
+      "maximumThighLengthError": 1.1861324e-05,
+      "maximumShinLengthError": 1.3887882e-05,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.0728836e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Noxus",
+      "canonicalChecks": 1113,
+      "walkChecks": 74934,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 1.7881393e-06,
+              "MaxShinError": 1.847744e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 1.7881393e-06,
+              "MaxShinError": 1.847744e-06
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7776757e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 8.940697e-07,
+              "MaxShinError": 9.536743e-07
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7776757e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 8.940697e-07,
+              "MaxShinError": 9.536743e-07
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 17,
+          "nativeFrameCount": 17,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 5.2452087e-06,
+              "MaxShinError": 6.6161156e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 5.2452087e-06,
+              "MaxShinError": 6.6161156e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 17,
+          "nativeFrameCount": 17,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 4.4107437e-06,
+              "MaxShinError": 3.516674e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 4.4107437e-06,
+              "MaxShinError": 3.516674e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                67
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                5.3312016e-07
+              ],
+              "maxLowSwingLift": [
+                0.07341646,
+                0.073385686
+              ],
+              "MaxThighError": 1.6093254e-06,
+              "MaxShinError": 1.7285347e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                67
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                5.3312016e-07
+              ],
+              "maxLowSwingLift": [
+                0.07341646,
+                0.073385686
+              ],
+              "MaxThighError": 1.6093254e-06,
+              "MaxShinError": 1.7285347e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 5.3312016e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 66,
+      "maximumThighLengthError": 5.2452087e-06,
+      "maximumShinLengthError": 6.6161156e-06,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.3113022e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Trace",
+      "canonicalChecks": 1113,
+      "walkChecks": 74934,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 1.7881393e-06,
+              "MaxShinError": 1.847744e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                0
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 1.7881393e-06,
+              "MaxShinError": 1.847744e-06
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7776757e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 8.940697e-07,
+              "MaxShinError": 9.536743e-07
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7776757e-07,
+                4.7776757e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 8.940697e-07,
+              "MaxShinError": 9.536743e-07
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 17,
+          "nativeFrameCount": 17,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 5.2452087e-06,
+              "MaxShinError": 6.6161156e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 5.2452087e-06,
+              "MaxShinError": 6.6161156e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 17,
+          "nativeFrameCount": 17,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 4.4107437e-06,
+              "MaxShinError": 3.516674e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                4.7683716e-07,
+                4.7683716e-07
+              ],
+              "maxLowSwingLift": [
+                0.07567006,
+                0.07567695
+              ],
+              "MaxThighError": 4.4107437e-06,
+              "MaxShinError": 3.516674e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 4,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                67
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                5.3312016e-07
+              ],
+              "maxLowSwingLift": [
+                0.07341646,
+                0.073385686
+              ],
+              "MaxThighError": 1.6093254e-06,
+              "MaxShinError": 1.7285347e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                66,
+                67
+              ],
+              "maxWorldSupportDrift": [
+                2.6656008e-07,
+                5.3312016e-07
+              ],
+              "maxLowSwingLift": [
+                0.07341646,
+                0.073385686
+              ],
+              "MaxThighError": 1.6093254e-06,
+              "MaxShinError": 1.7285347e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 5.3312016e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 66,
+      "maximumThighLengthError": 5.2452087e-06,
+      "maximumShinLengthError": 6.6161156e-06,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.3113022e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Sylux",
+      "canonicalChecks": 1113,
+      "walkChecks": 74914,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 21,
+          "nativeFrameCount": 21,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 9.537907e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 64,
+      "maximumThighLengthError": 1.5079975e-05,
+      "maximumShinLengthError": 1.66893e-05,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.4305115e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    },
+    {
+      "hunter": "Weavel",
+      "canonicalChecks": 1113,
+      "walkChecks": 74914,
+      "dedicatedSlideChecks": 1485,
+      "walkLanes": [
+        {
+          "direction": "W",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                0,
+                9.536743e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.5079975e-05,
+              "MaxShinError": 1.66893e-05
+            }
+          ]
+        },
+        {
+          "direction": "S",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 21,
+          "nativeFrameCount": 21,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                4.7706993e-07,
+                9.537907e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.2516975e-06,
+              "MaxShinError": 1.0728836e-06
+            }
+          ]
+        },
+        {
+          "direction": "A",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 1.847744e-06,
+              "MaxShinError": 3.5762787e-06
+            }
+          ]
+        },
+        {
+          "direction": "D",
+          "lane": "flat",
+          "samples": 121,
+          "nonflatSamples": 0,
+          "nativeFrames": 18,
+          "nativeFrameCount": 18,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                68,
+                64
+              ],
+              "maxWorldSupportDrift": [
+                1.1920929e-07,
+                2.3841858e-07
+              ],
+              "maxLowSwingLift": [
+                0.05911304,
+                0.05911404
+              ],
+              "MaxThighError": 2.026558e-06,
+              "MaxShinError": 3.33786e-06
+            }
+          ]
+        },
+        {
+          "direction": "W",
+          "lane": "walkable-uphill",
+          "samples": 121,
+          "nonflatSamples": 121,
+          "nativeFrames": 20,
+          "nativeFrameCount": 20,
+          "proceduralWraps": 5,
+          "stopFadePictures": 5,
+          "lods": [
+            {
+              "lod": 0,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            },
+            {
+              "lod": 1,
+              "phaseBins": [
+                20,
+                20
+              ],
+              "plantedPairs": [
+                65,
+                66
+              ],
+              "maxWorldSupportDrift": [
+                3.3717478e-07,
+                3.3717478e-07
+              ],
+              "maxLowSwingLift": [
+                0.05734967,
+                0.05732739
+              ],
+              "MaxThighError": 2.0861626e-06,
+              "MaxShinError": 1.4901161e-06
+            }
+          ]
+        }
+      ],
+      "maximumWorldSupportDrift": 9.537907e-07,
+      "supportDriftTolerance": 0.0006,
+      "minimumConsecutiveSupportPairs": 64,
+      "maximumThighLengthError": 1.5079975e-05,
+      "maximumShinLengthError": 1.66893e-05,
+      "segmentLengthTolerance": 0.0005,
+      "slideMaximumSegmentLengthError": 1.4305115e-06,
+      "scope": "Dedicated low footwork on an authored flat floor and walkable uphill ramp; real Ctrl+W/S/A/D; complete procedural phases independent of native clip frames; both loaded native LODs; straight fully blended support-foot drift only; CPU pictures, no GPU/network/remote-smoothed claim"
+    }
+  ],
+  "retainedLegacyTraversalReplay": {
+    "status": "PASS",
+    "producer": "actual ramp candidate06 recording; original bytes retained without relabeling its movements",
+    "archiveSha256": "56dd07f40d1a64d0ee87ab30080d0eea0d0227a937860fa32e07890bc2e69ae4",
+    "originalArchiveUnchanged": true,
+    "checks": 118816,
+    "frames": 2399,
+    "recordedProtocol": 76,
+    "recordedProfileVersion": 5,
+    "gameplayPresentationDigest": "169ED54359D2ACF93BD04E8F6912E70B12E8CD60A225EAD7472C57E8593C039B",
+    "snapshotPoseChecks": 7018,
+    "snapshotStanceChecks": 7018,
+    "crouchedFrames": 402,
+    "standingFrames": 1997,
+    "minimumRecordedPlayers": 2,
+    "maximumRecordedPlayers": 3,
+    "observations": {
+      "crouched": 663,
+      "walking": 0,
+      "sliding": 0,
+      "sampled": 1,
+      "supported": 318,
+      "moving": 585,
+      "walkingClip": 139,
+      "eligible": 663,
+      "inferredGlide": 2,
+      "qualifying": 0,
+      "requireActiveTravel": false
+    },
+    "presentationAssertions": 2986,
+    "scope": "capture, source/clock immutability, published-restore rejection, two cold restores/continuation, seeks; zero qualifying low-walk intersection means no active-footwork claim for this legacy recording"
+  },
+  "historical68": {
+    "status": "PASS",
+    "archiveSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+    "archiveUnchanged": true,
+    "checks": 87551,
+    "frames": 2400,
+    "recordedProtocol": 68,
+    "recordedProfileVersion": 1,
+    "gameplayPresentationDigest": "F71C2E6DFFDAAA8AE7A2C2C5421F0B359DD569EDAEF49820BA08C823F0916B54",
+    "snapshotPoseChecks": 7200,
+    "snapshotStanceChecks": 0,
+    "crouchedFrames": 0,
+    "standingFrames": 0,
+    "minimumRecordedPlayers": 3,
+    "maximumRecordedPlayers": 3,
+    "stanceArchive": false,
+    "scope": "actual protocol68 Traversal archive; stance-specific presentation test correctly skipped"
+  },
+  "freshTraversal": {
+    "status": "PASS",
+    "producer": "candidate09 real 40-second Windows authority, two independent human owner processes and native authority AI bot",
+    "processResults": {
+      "server": 0,
+      "owner0": 0,
+      "owner1": 0
+    },
+    "finalProcessResults": {
+      "server": 0,
+      "owner0": 0,
+      "owner1": 0
+    },
+    "owners": [
+      {
+        "worker": "owner0",
+        "checks": 29872,
+        "ticks": 2400,
+        "profileVersion": 5,
+        "requireLowTravelActivation": true,
+        "ownerVisualWalkTicks": 190,
+        "ownerVisualSlideTicks": 38,
+        "ownerPhysicalSlideTicks": 33,
+        "remoteVisualWalkTicks": 154,
+        "remoteVisualSlideTicks": 457,
+        "ownerCrouchHeldTicks": 940,
+        "ownerCrouchedTicks": 580,
+        "ownerStandingTicks": 1392,
+        "ownerStanceChanges": 12,
+        "ownerCanonicalCrouchedSnapshots": 542,
+        "remoteCanonicalCrouchedSnapshots": 762,
+        "remoteCrouchedPoseChecks": 818,
+        "recordedFrames": 2399,
+        "peakHumans": 2,
+        "peakBots": 1,
+        "botPuppetSamples": 2400,
+        "humanPuppetSamples": 2400
+      },
+      {
+        "worker": "owner1",
+        "checks": 31205,
+        "ticks": 2400,
+        "profileVersion": 5,
+        "requireLowTravelActivation": true,
+        "ownerVisualWalkTicks": 402,
+        "ownerVisualSlideTicks": 135,
+        "ownerPhysicalSlideTicks": 125,
+        "remoteVisualWalkTicks": 432,
+        "remoteVisualSlideTicks": 177,
+        "ownerCrouchHeldTicks": 939,
+        "ownerCrouchedTicks": 819,
+        "ownerStandingTicks": 1581,
+        "ownerStanceChanges": 18,
+        "ownerCanonicalCrouchedSnapshots": 766,
+        "remoteCanonicalCrouchedSnapshots": 543,
+        "remoteCrouchedPoseChecks": 580,
+        "recordedFrames": null,
+        "peakHumans": 2,
+        "peakBots": 1,
+        "botPuppetSamples": 2400,
+        "humanPuppetSamples": 2400
+      }
+    ],
+    "archiveSha256": "547e29e3a10066254b6698a975558b1ad953b3ecb05929b61c679a58c1480229",
+    "archiveUnchangedByReplays": true,
+    "generalReplay": {
+      "checks": 121068,
+      "frames": 2399,
+      "recordedProtocol": 76,
+      "recordedProfileVersion": 5,
+      "gameplayPresentationDigest": "35AC9E0562E59D0AD42DC9D9C72E5C42C9127400BEDCCE3801D5B2FA7C0ECC3E",
+      "snapshotPoseChecks": 6837,
+      "snapshotStanceChecks": 6837,
+      "crouchedFrames": 864,
+      "standingFrames": 1535,
+      "minimumRecordedPlayers": 2,
+      "maximumRecordedPlayers": 3,
+      "observations": {
+        "crouched": 1397,
+        "walking": 596,
+        "sliding": 646,
+        "sampled": 3,
+        "supported": 1259,
+        "moving": 1368,
+        "walkingClip": 1224,
+        "eligible": 1397,
+        "inferredGlide": 626,
+        "qualifying": 1164,
+        "requireActiveTravel": false
+      },
+      "presentationAssertions": 6287
+    },
+    "strictReplay": {
+      "status": "PASS",
+      "observations": {
+        "crouched": 1397,
+        "walking": 596,
+        "sliding": 646,
+        "sampled": 3,
+        "supported": 1259,
+        "moving": 1368,
+        "walkingClip": 1224,
+        "eligible": 1397,
+        "inferredGlide": 626,
+        "qualifying": 1164,
+        "requireActiveTravel": true
+      },
+      "presentationAssertions": 6288
+    }
+  },
+  "nativeGL": {
+    "status": "PASS",
+    "producer": "independent candidate07 render-tool execution on exact candidate04 production; retained unchanged",
+    "launchContext": "existing active console session through limited Interactive scheduled task; no display guard bypass",
+    "sessionId": 1,
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "version": "4.6.0 NVIDIA 617.42",
+    "clientMvid": "fc325c32-934f-4b56-b0c0-1ff2815ddba0",
+    "room": "MP3 PROVING GROUND",
+    "hunter": "Samus",
+    "scope": "Windows native continuous 60 Hz renderer; actual Ctrl+W/S/A/D full walk cycles and running held-W+Ctrl slide; external camera follows actual body; frozen body-hidden negative controls and exact RGB repeats; no actor state writes; straight support-foot planting is measured separately by CPU; turning and remote smoothing are not a world-foot-lock claim",
+    "scheduler": "production FrameTiming.Advance; presentation generation fence preserved",
+    "captureGroups": 28,
+    "pngs": 84,
+    "heldForwardSlideGroups": 7,
+    "exactRgbRepeatGroups": 28,
+    "positiveBodyHiddenGroups": 28,
+    "unstablePixels": 0,
+    "minimumBodySilhouettePixels": 7219,
+    "segments": [
+      {
+        "name": "forward",
+        "durationSeconds": 1.5,
+        "distance": 1.5703988745808601,
+        "completedCycles": 1.0649749487638474,
+        "pictures": 5
+      },
+      {
+        "name": "backward",
+        "durationSeconds": 1.5,
+        "distance": 1.9416340589523315,
+        "completedCycles": 1.06497498229146,
+        "pictures": 5
+      },
+      {
+        "name": "left",
+        "durationSeconds": 1.5,
+        "distance": 1.9416324058547616,
+        "completedCycles": 1.064973622560501,
+        "pictures": 5
+      },
+      {
+        "name": "right",
+        "durationSeconds": 1.5,
+        "distance": 1.8378803157247603,
+        "completedCycles": 1.064973622560501,
+        "pictures": 5
+      },
+      {
+        "name": "held-forward-slide",
+        "durationSeconds": 1.5,
+        "distance": 5.271860978216864,
+        "completedCycles": 0,
+        "pictures": 7
+      }
+    ],
+    "pngArchiveSha256": "4ea20897677d4f9393473bdfa4d6ebbb6240cb32c294d86e87784b14fa0946f0",
+    "rootInspectedNativeUpperWalkingAndSlideRepresentatives": true,
+    "cleanup": {
+      "detailedRetirement": {
+        "legacyListNamesBefore": 224,
+        "legacyListsRecognizedBefore": 224,
+        "legacyListsRecognizedAfter": 0,
+        "meshListFieldsAfter": 0,
+        "sceneModelLeasesAfter": 0,
+        "bufferNamesBefore": 244,
+        "buffersRecognizedBefore": 244,
+        "bufferNamesRecognizedAfter": 0,
+        "vertexArrayNamesBefore": 122,
+        "vertexArraysRecognizedBefore": 122,
+        "vertexArraysRecognizedAfter": 0,
+        "programNamesBefore": 7,
+        "programsRecognizedBefore": 7,
+        "programsRecognizedAfter": 0,
+        "deletionPendingProgramsAfter": 0,
+        "attachedShaderNamesBefore": 0,
+        "shadersRecognizedAfter": 0,
+        "deletionPendingShadersAfter": 0,
+        "textureNamesBefore": 278,
+        "texturesRecognizedAfter": 0,
+        "framebufferNamesBefore": 1,
+        "framebuffersRecognizedAfter": 0,
+        "renderbufferNamesBefore": 1,
+        "renderbuffersRecognizedAfter": 0,
+        "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+      },
+      "ownedTexturesBefore": 276,
+      "ownedTexturesAfter": 0,
+      "framebufferBefore": 1,
+      "framebufferAfter": 0,
+      "programCountBefore": 4,
+      "programOwnerFieldsReleased": true,
+      "ownedProgramsAfter": 0,
+      "recognizedProgramNamesAfter": 0,
+      "pendingDeletedProgramCountAfter": 0,
+      "currentProgramAfter": 0,
+      "depthSnapshotBytesBefore": 2073600,
+      "depthSnapshotBytesAfter": 0,
+      "proceduralBytesBefore": 0,
+      "proceduralBytesAfter": 0,
+      "shadowReleased": true,
+      "retainedListsBefore": 89,
+      "retainedListsAfter": 0,
+      "combinedBytesBefore": 588432,
+      "combinedBytesAfter": 0,
+      "retainedBytesBefore": 1006248,
+      "retainedBytesAfter": 0,
+      "shadowColorBytesBefore": 0,
+      "glyphCountBefore": 28,
+      "glyphBytesBefore": 7168,
+      "glyphCountAfter": 0,
+      "glyphBytesAfter": 0,
+      "spriteCountBefore": 6,
+      "spriteBytesBefore": 1536,
+      "spriteCountAfter": 0,
+      "spriteBytesAfter": 0
+    }
+  },
+  "candidateHistory": {
+    "01": "preserved failure: seven stop-fade bob assertions; production and fixture corrected in02",
+    "02": "preparation/freeze only; no build or runtime before latest-main integration",
+    "03": "intermediate normal-build/12-gate/replay/GL pass; subsequent image/static review identified native upper-channel and remote/passive capture issues",
+    "04": "normal production build retained; Noxus/Trace zero-gait weapon reference fixture failed; exact canonical retirement reference corrected in05",
+    "05": "all13 focused gates pass; legacy archive active-travel coverage requirement failed before its qualifying intersection was measured",
+    "06": "diagnostic test compile failed on two private Biped1Anim accesses; no runtime",
+    "07": "diagnostic reproduction measured legacy qualifying context; independent nativeGL pass; exact evidence preserved",
+    "08": "legacy qualifying intersection proved0; cold-restore fixture tried published world and correctly hit production guard; no fresh cohort",
+    "09": "published guard explicitly asserted unchanged; cold comparisons use two new unpublished replicas; legacy/68/fresh live/general+strict replay all pass"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTaskCount": 0,
+    "frozenSourceBinaryLeaseUnchanged": true,
+    "freeBytes": 5226434560
+  },
+  "reproducibleOutputCleanup": {
+    "scope": "standing root authorization; only completed05/06 bin/obj after source/evidence/hash/process guards",
+    "directories": [
+      {
+        "path": "candidate05/source/src/MphRead/bin",
+        "bytes": 694555518,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/src/MphRead/obj",
+        "bytes": 51723163,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/src/NcsfPlay/bin",
+        "bytes": 171411,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/src/NcsfPlay/obj",
+        "bytes": 337948,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/src/MphRead.Protocol.Generator/bin",
+        "bytes": 52677,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/src/MphRead.Protocol.Generator/obj",
+        "bytes": 236756,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/tools/nettest/bin",
+        "bytes": 698968610,
+        "removed": true
+      },
+      {
+        "path": "candidate05/source/tools/nettest/obj",
+        "bytes": 5213430,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/MphRead/bin",
+        "bytes": 694555518,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/MphRead/obj",
+        "bytes": 51723163,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/NcsfPlay/bin",
+        "bytes": 171411,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/NcsfPlay/obj",
+        "bytes": 337948,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/MphRead.Protocol.Generator/bin",
+        "bytes": 52677,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/src/MphRead.Protocol.Generator/obj",
+        "bytes": 236756,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/tools/nettest/bin",
+        "bytes": 698968598,
+        "removed": true
+      },
+      {
+        "path": "candidate06/source/tools/nettest/obj",
+        "bytes": 5149802,
+        "removed": true
+      }
+    ],
+    "removedBytes": 2902455386,
+    "freeBytesAfter": 4092239872,
+    "producer04AndGl07BinariesUnchanged": true
+  },
+  "sourceBinaryLeaseUnchanged": true,
+  "evidence": {
+    "evidenceSha256": "8e6eff70b5635bf9c702ba1c9b34f633ac1b47e21890a5fb6fcd180ba7e8230f",
+    "bytes": 4507044,
+    "fileCount": 60,
+    "sourceManifestSha256": "6b1b1ccff3980586b93255ec4d1d2c607f03af8ce0ed4811d9a29458189fcfa1",
+    "binaries": {
+      "ProjectPrime.dll": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb",
+      "nettest.dll": "32557d36f9c342de765a94af6d50a1818665db06116047b66f01a54b2feff696"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "retainedFocused05EvidenceSha256": "934714c2188b4cabf4c713c80f2f4affac5e011a2c2d758e31e170a3de6659a6",
+    "retainedGl07EvidenceSha256": "31c19aacee2fbd7ee9a0db1ceaceb7c461855ef5a789e27cb627c6813c2ff388",
+    "retainedGl07PngArchiveSha256": "4ea20897677d4f9393473bdfa4d6ebbb6240cb32c294d86e87784b14fa0946f0"
+  },
+  "limits": [
+    "Straight fully blended support-foot drift measured on flat four-direction and real uphill lanes for all7 Hunters/both native LODs; turns and remote smoothing are not world-foot-lock claims",
+    "Native GL Samus only; no physical-device, acoustic or performance acceptance",
+    "Fresh Traversal authority proven here; final feedback slice still needs its own fresh Quake3 and Traversal cohorts",
+    "Raw images, asset paths and network endpoints excluded from this summary"
+  ]
+}
