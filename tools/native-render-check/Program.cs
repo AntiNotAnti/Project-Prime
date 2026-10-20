@@ -37,6 +37,10 @@ int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
 Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
 bool poseCheck = args.Contains("-posecheck");
+bool lateProvenanceControl = args.Contains("-late-provenance-control");
+if (lateProvenanceControl && (shots != null || poseCheck || args.Contains("-resourcestress")
+    || args.Contains("-resource-context-cycles") || args.Contains("-transition-gc") || args.Contains("-transition-rebind")))
+    throw new ArgumentException("-late-provenance-control is a timing-only diagnostic; separate from capture, pose and resource modes.");
 bool posePixels = args.Contains("-pose-pixels");
 string poseScenario = DisplayPosePlan.ResolveScenario(args.Contains("-pose-scenario")
     ? Value("-pose-scenario", "") : null, poseCheck);
@@ -88,7 +92,7 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "m
     ResourceAttribution.DisableMusic();
 CheckWindow CreateWindow(string[] options)
 {
-    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario);
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl);
     try
     {
         value.ConfigureResourceStress(options);
@@ -98,7 +102,7 @@ CheckWindow CreateWindow(string[] options)
     catch { value.Dispose(); throw; }
 }
 if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl);
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
@@ -197,8 +201,9 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false)
     {
+        _lateProvenanceControl = lateProvenanceControl;
         _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
         // Allocate all raw interval storage before loading/warmup and timed work.
         _intervalBuffer = new NativeTimingIntervals(NativeTimingIntervals.CapacityFor(seconds));
@@ -261,6 +266,9 @@ sealed partial class CheckWindow : RenderWindow
         Console.WriteLine($"NATIVERENDER pid={Environment.ProcessId} context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
             + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
             + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
+        // Disk hashing belongs before warmup, outside both native frame profiler
+        // and harness timing. The explicit control reproduces the old boundary.
+        if (!_lateProvenanceControl) ObserveWorkloadBinaryIdentities();
         _wall.Start();
         if (ResourceStressEnabled)
         {
