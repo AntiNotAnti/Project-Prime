@@ -295,7 +295,11 @@ internal static class NetCombatFastPath
         for (int slot = 0; slot < 8; slot++) for (int i = 0; i < Counts[slot]; i++) values[next++] = Rows[slot, i];
         return values;
     }
-    private static object Vector(in Vector3 value) => new { value.X, value.Y, value.Z };
+    private static object Vector(in Vector3 value) => new {
+        X = float.IsFinite(value.X) ? (float?)value.X : null,
+        Y = float.IsFinite(value.Y) ? (float?)value.Y : null,
+        Z = float.IsFinite(value.Z) ? (float?)value.Z : null
+    };
     private static object ExportNative(in FastNativeEvidence value) => new {
         value.SourceVerified, value.GeometryVerified, value.PriorPayment, value.TransientEmission,
         value.SourceGates, value.VictimGates, value.Profile,
@@ -355,8 +359,7 @@ internal static class NetCombatFastPath
             ActualOutcome = ExportOutcome(row.ActualOutcome),
             Request = new { row.Request.Id, row.Request.Weapon, row.Request.Flags, row.Request.Damage,
                 row.Request.Frame, row.Request.AckFrame, row.Request.LaunchFrame,
-                Point = new { row.Request.Point.X, row.Request.Point.Y, row.Request.Point.Z },
-                Direction = new { row.Request.Direction.X, row.Request.Direction.Y, row.Request.Direction.Z } }
+                Point = Vector(row.Request.Point), Direction = Vector(row.Request.Direction) }
         });
         return new { Schema=1, Mode, PerShooter, Rows=export, Overflow, Invalid, UnjoinedTerminal,
             fastEligible=eligible, fastWouldPay=pay, fastWouldReject=reject, missingSource=missing,

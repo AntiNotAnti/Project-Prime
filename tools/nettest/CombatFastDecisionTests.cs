@@ -159,6 +159,21 @@ internal static class CombatFastDecisionTests
             "terminal ready comparison cannot fabricate arrival parity");
         NetCombatPayments.Reset(); NetCombatFastPath.ResetEvidenceForTests();
     }
+    private static void NonfiniteExport()
+    {
+        NetCombatFastPath.ResetEvidenceForTests();
+        var claim = Claim(); claim.HitPoint.X = float.NaN; claim.Direction.Z = float.PositiveInfinity;
+        using (NetCombatFastPath.Request(0, claim)) { }
+        // Report-time non-finite facts are explicit nulls; they cannot erase
+        // the process report or silently become finite source/geometry proof.
+        string encoded = System.Text.Json.JsonSerializer.Serialize(NetCombatFastPath.Capture());
+        Check(encoded.Contains("\"X\":null") && encoded.Contains("\"Z\":null")
+            && !encoded.Contains("NaN") && !encoded.Contains("Infinity"),
+            "non-finite untrusted diagnostic vectors export as unavailable without losing the report");
+        Check(NetCombatFastPath.CaptureRows().All(row => !row.Decision.WouldPay && !row.Decision.Eligible),
+            "non-finite requests cannot become new damage or paid-receipt certificates");
+        NetCombatFastPath.ResetEvidenceForTests();
+    }
     private static void EvidenceLifecycle()
     {
         NetSession.StartServerAuthority(_ => { }, () => { });
@@ -169,6 +184,7 @@ internal static class CombatFastDecisionTests
         roster.Slots[1] = 1; roster.Generations[1] = 4; NetSession.ApplyRoster(roster);
         NetCombatFastPath.Mode = CombatFastMode.Shadow;
         PaidReadyLifecycle();
+        NonfiniteExport();
         var outer = Claim(); var key = NetShotProof.PaymentKey(0, outer);
         NetCombatFastPath.Mode = CombatFastMode.Off;
         using (NetCombatFastPath.Request(0, outer))
