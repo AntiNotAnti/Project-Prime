@@ -209,6 +209,47 @@ struct PrimeDrawTexture {
     const uint8_t* pixels = nullptr;
 };
 
+// Optional independent canvas ABI1. Input pixels/vertex colors are straight RGBA8;
+// the bridge premultiplies once before entering RmlUi. No engine/GPU IDs cross in.
+struct PrimeCanvasLease {
+    uint32_t size = sizeof(PrimeCanvasLease), version = 1;
+    uint64_t generation = 0, document_id = 0, epoch = 0;
+};
+struct PrimeCanvasTexture {
+    uint32_t size = sizeof(PrimeCanvasTexture), version = 1;
+    uint32_t width = 0, height = 0, offset = 0, length = 0;
+    uint32_t filter = 0, wrap_s = 0, wrap_t = 0, reserved = 0; // nearest/linear, clamp/repeat
+};
+struct PrimeCanvasVertex { float x = 0, y = 0; uint8_t r = 0, g = 0, b = 0, a = 0; float u = 0, v = 0; };
+struct PrimeCanvasBatch { uint32_t texture = UINT32_MAX, first = 0, count = 0, reserved = 0; };
+struct PrimeCanvasFrame {
+    uint32_t size = sizeof(PrimeCanvasFrame), version = 1;
+    uint64_t revision = 0;
+    float virtual_width = 0, virtual_height = 0;
+    uint32_t vertex_count = 0, index_count = 0, batch_count = 0, reserved = 0;
+};
+struct PrimeCanvasState {
+    uint32_t size = sizeof(PrimeCanvasState), version = 1;
+    uint64_t revision = 0;
+    uint32_t texture_count = 0, batch_count = 0, flags = 0, reserved = 0; // Failed=1, TableSet=2
+};
+struct PrimeTextureSampling {
+    uint32_t size = sizeof(PrimeTextureSampling), version = 1;
+    uint32_t filter = 0, wrap_s = 0, wrap_t = 0, flags = 0; // ExplicitCanvas=1; legacy=0
+};
+static_assert(sizeof(PrimeCanvasLease) == 32 && sizeof(PrimeCanvasTexture) == 40 && sizeof(PrimeCanvasVertex) == 20
+    && sizeof(PrimeCanvasBatch) == 16 && sizeof(PrimeCanvasFrame) == 40 && sizeof(PrimeCanvasState) == 32
+    && sizeof(PrimeTextureSampling) == 24, "Canvas ABI layout changed");
+PP_EXPORT uint32_t pp_rmlui_canvas_version();
+PP_EXPORT int pp_rmlui_canvas_acquire(uint64_t generation, uint64_t document_id, const char* element_id, PrimeCanvasLease* lease);
+PP_EXPORT int pp_rmlui_canvas_textures(const PrimeCanvasLease* lease, const PrimeCanvasTexture* textures,
+    uint32_t count, const uint8_t* pixels, uint32_t length);
+PP_EXPORT int pp_rmlui_canvas_frame(const PrimeCanvasLease* lease, const PrimeCanvasFrame* frame,
+    const PrimeCanvasVertex* vertices, const int32_t* indices, const PrimeCanvasBatch* batches);
+PP_EXPORT int pp_rmlui_canvas_state(const PrimeCanvasLease* lease, PrimeCanvasState* state);
+PP_EXPORT int pp_rmlui_canvas_release(const PrimeCanvasLease* lease);
+PP_EXPORT int pp_rmlui_draw_texture_sampling(uint64_t generation, uint64_t handle, PrimeTextureSampling* sampling);
+
 PP_EXPORT uint32_t pp_rmlui_protocol_version();
 PP_EXPORT uint64_t pp_rmlui_generation();
 PP_EXPORT uint64_t pp_rmlui_home_document();

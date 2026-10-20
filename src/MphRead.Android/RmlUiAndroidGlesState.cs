@@ -37,10 +37,13 @@ internal sealed class RmlUiAndroidGlesState
     private const int BlendEquationRgb = 0x8009;
     private const int BlendEquationAlpha = 0x883D;
     private const int UnpackAlignment = 0x0CF5;
+    private const int UnpackRowLength = 0x0CF2, UnpackSkipRows = 0x0CF3, UnpackSkipPixels = 0x0CF4;
+    private const int PixelUnpackBufferBinding = 0x88EF, SamplerBinding = 0x8919;
 
     internal int DrawFramebuffer { get; }
     private readonly int _readFramebuffer, _renderbuffer, _vao, _program, _activeTexture;
-    private readonly int _texture0, _arrayBuffer, _elementBuffer;
+    private readonly int _texture0, _arrayBuffer, _elementBuffer, _sampler0, _pixelUnpackBuffer;
+    private readonly int _unpackRowLength, _unpackSkipRows, _unpackSkipPixels;
     private readonly int _clearStencil, _writeStencil, _stencilFunc, _stencilRef, _stencilMask;
     private readonly int _stencilFail, _stencilZFail, _stencilZPass, _unpackAlignment;
     private readonly int _srcRgb, _dstRgb, _srcAlpha, _dstAlpha, _equationRgb, _equationAlpha;
@@ -70,6 +73,7 @@ internal sealed class RmlUiAndroidGlesState
         _elementBuffer = Read(ElementArrayBufferBinding);
         GLES30.GlActiveTexture(GLES30.GlTexture0);
         _texture0 = Read(TextureBinding2d);
+        _sampler0 = Read(SamplerBinding);
         GLES30.GlActiveTexture(_activeTexture);
         _clearStencil = Read(StencilClearValue);
         _writeStencil = Read(StencilWriteMask);
@@ -80,6 +84,8 @@ internal sealed class RmlUiAndroidGlesState
         _stencilZFail = Read(StencilPassDepthFail);
         _stencilZPass = Read(StencilPassDepthPass);
         _unpackAlignment = Read(UnpackAlignment);
+        _pixelUnpackBuffer = Read(PixelUnpackBufferBinding);
+        _unpackRowLength = Read(UnpackRowLength); _unpackSkipRows = Read(UnpackSkipRows); _unpackSkipPixels = Read(UnpackSkipPixels);
         _srcRgb = Read(BlendSrcRgb); _dstRgb = Read(BlendDstRgb);
         _srcAlpha = Read(BlendSrcAlpha); _dstAlpha = Read(BlendDstAlpha);
         _equationRgb = Read(BlendEquationRgb); _equationAlpha = Read(BlendEquationAlpha);
@@ -112,6 +118,7 @@ internal sealed class RmlUiAndroidGlesState
         GLES30.GlBindBuffer(GLES30.GlElementArrayBuffer, _elementBuffer);
         GLES30.GlActiveTexture(GLES30.GlTexture0);
         GLES30.GlBindTexture(GLES30.GlTexture2d, _texture0);
+        GLES30.GlBindSampler(0, _sampler0);
         GLES30.GlActiveTexture(_activeTexture);
         GLES30.GlViewport(_viewport[0], _viewport[1], _viewport[2], _viewport[3]);
         GLES30.GlScissor(_scissorRect[0], _scissorRect[1], _scissorRect[2], _scissorRect[3]);
@@ -126,6 +133,10 @@ internal sealed class RmlUiAndroidGlesState
         GLES30.GlBlendFuncSeparate(_srcRgb, _dstRgb, _srcAlpha, _dstAlpha);
         GLES30.GlBlendEquationSeparate(_equationRgb, _equationAlpha);
         GLES30.GlPixelStorei(GLES30.GlUnpackAlignment, _unpackAlignment);
+        GLES30.GlBindBuffer(GLES30.GlPixelUnpackBuffer, _pixelUnpackBuffer);
+        GLES30.GlPixelStorei(GLES30.GlUnpackRowLength, _unpackRowLength);
+        GLES30.GlPixelStorei(GLES30.GlUnpackSkipRows, _unpackSkipRows);
+        GLES30.GlPixelStorei(GLES30.GlUnpackSkipPixels, _unpackSkipPixels);
         Toggle(GLES30.GlDepthTest, _depth);
         Toggle(GLES30.GlStencilTest, _stencil);
         Toggle(GLES30.GlBlend, _blend);

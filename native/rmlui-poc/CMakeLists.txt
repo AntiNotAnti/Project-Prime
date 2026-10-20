@@ -44,7 +44,7 @@ if(PROJECT_PRIME_RMLUI_GL2)
     )
     target_compile_definitions(ProjectPrimeRmlUiNative PRIVATE PP_RMLUI_GL2=1)
     target_include_directories(ProjectPrimeRmlUiNative PRIVATE "${RMLUI_SOURCE_DIR}/Backends")
-    target_link_libraries(ProjectPrimeRmlUiNative PRIVATE OpenGL::GL)
+    target_link_libraries(ProjectPrimeRmlUiNative PRIVATE OpenGL::GL ${CMAKE_DL_LIBS})
 endif()
 
 target_link_libraries(ProjectPrimeRmlUiNative PRIVATE

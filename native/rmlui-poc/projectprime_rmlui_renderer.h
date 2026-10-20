@@ -20,6 +20,8 @@ public:
     virtual bool ReadTexture(int, PrimeDrawTexture&) const { return false; }
     virtual uint32_t UnsupportedFeatures() const { return 0; }
     virtual uint64_t ResourceRevision() const { return 0; }
+    virtual Rml::TextureHandle CreateCanvasTexture(const uint8_t*, int, int, const PrimeTextureSampling&) { return 0; }
+    virtual bool ReadTextureSampling(uint64_t, PrimeTextureSampling&) const { return false; }
 };
 std::unique_ptr<PrimeRenderer> CreatePrimeDrawListRenderer();
 #if defined(PP_RMLUI_GL2)

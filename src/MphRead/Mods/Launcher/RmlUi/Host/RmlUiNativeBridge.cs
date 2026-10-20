@@ -17,6 +17,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void Resize(int width, int height, float density);
         void Update();
         int UpdateState(ref RmlUiNativeUpdateState state) => 0;
+        uint CanvasVersion() => 0;
+        int CanvasAcquire(ulong generation, ulong document, string element, ref RmlUiCanvasNativeLease lease) => 0;
+        int CanvasTextures(ref RmlUiCanvasNativeLease lease, RmlUiCanvasNativeTexture[] textures, uint count, byte[] pixels, uint length) => 0;
+        int CanvasFrame(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeFrame frame, RmlUiCanvasVertex[] vertices, int[] indices, RmlUiCanvasBatch[] batches) => 0;
+        int CanvasState(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeState state) => 0;
+        int CanvasRelease(ref RmlUiCanvasNativeLease lease) => 0;
         void Render(int width, int height);
         int TakeIntent(ref RmlUiNativeIntent packet);
         int TakeAction(byte[] buffer, int capacity);
@@ -71,6 +77,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void IRmlUiNativeBridge.Resize(int width, int height, float density) => NativeResize(width, height, density);
         void IRmlUiNativeBridge.Update() => NativeUpdate();
         int IRmlUiNativeBridge.UpdateState(ref RmlUiNativeUpdateState state) => NativeUpdateState(ref state);
+        uint IRmlUiNativeBridge.CanvasVersion() => NativeCanvasVersion();
+        int IRmlUiNativeBridge.CanvasAcquire(ulong generation, ulong document, string element, ref RmlUiCanvasNativeLease lease)
+            => NativeCanvasAcquire(generation, document, element, ref lease);
+        int IRmlUiNativeBridge.CanvasTextures(ref RmlUiCanvasNativeLease lease, RmlUiCanvasNativeTexture[] textures, uint count, byte[] pixels, uint length)
+            => NativeCanvasTextures(ref lease, textures, count, pixels, length);
+        int IRmlUiNativeBridge.CanvasFrame(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeFrame frame, RmlUiCanvasVertex[] vertices, int[] indices, RmlUiCanvasBatch[] batches)
+            => NativeCanvasFrame(ref lease, ref frame, vertices, indices, batches);
+        int IRmlUiNativeBridge.CanvasState(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeState state) => NativeCanvasState(ref lease, ref state);
+        int IRmlUiNativeBridge.CanvasRelease(ref RmlUiCanvasNativeLease lease) => NativeCanvasRelease(ref lease);
         void IRmlUiNativeBridge.Render(int width, int height) => NativeRender(width, height);
         int IRmlUiNativeBridge.TakeIntent(ref RmlUiNativeIntent packet) => NativeTakeIntent(ref packet);
         int IRmlUiNativeBridge.TakeAction(byte[] buffer, int capacity) => NativeTakeAction(buffer, capacity);
@@ -118,6 +133,22 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         int IRmlUiNativeBridge.HoveredAction(byte[] buffer, int capacity) => NativeHoveredAction(buffer, capacity);
         int IRmlUiNativeBridge.DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
             => NativeDocumentElementBounds(document, element, out x, out y, out width, out height);
+
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_version")]
+        private static extern uint NativeCanvasVersion();
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_acquire")]
+        private static extern int NativeCanvasAcquire(ulong generation, ulong document,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string element, ref RmlUiCanvasNativeLease lease);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_textures")]
+        private static extern int NativeCanvasTextures(ref RmlUiCanvasNativeLease lease, [In] RmlUiCanvasNativeTexture[] textures,
+            uint count, [In] byte[] pixels, uint length);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_frame")]
+        private static extern int NativeCanvasFrame(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeFrame frame,
+            [In] RmlUiCanvasVertex[] vertices, [In] int[] indices, [In] RmlUiCanvasBatch[] batches);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_state")]
+        private static extern int NativeCanvasState(ref RmlUiCanvasNativeLease lease, ref RmlUiCanvasNativeState state);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_canvas_release")]
+        private static extern int NativeCanvasRelease(ref RmlUiCanvasNativeLease lease);
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_protocol_version")]
         private static extern uint NativeProtocolVersion();

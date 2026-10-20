@@ -209,6 +209,29 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         public bool IsVisible(RmlUiDocumentToken document) => IsAlive(document) && _documents[document.DocumentId].Visible;
 
+        internal bool CanvasAllowed(RmlUiDocumentToken document, bool foreground)
+        {
+            VerifyNativeCallAllowed();
+            return _protocol == 1 && IsAlive(document) && (!foreground || (IsVisible(document) && CurrentInputDocument == document));
+        }
+        internal RmlUiCanvas? AcquireCanvas(RmlUiDocumentToken document, string element)
+        {
+            if (string.IsNullOrEmpty(element) || Encoding.UTF8.GetByteCount(element) > 256 || element.Contains('\0'))
+                throw new ArgumentException("Canvas element ID is invalid.", nameof(element));
+            if (!CanvasAllowed(document, true)) return null;
+            try
+            {
+                if (_native.CanvasVersion() != 1) return null;
+                var lease = RmlUiCanvasNativeLease.Request();
+                if (_native.CanvasAcquire(document.Generation, document.DocumentId, element, ref lease) == 0) return null;
+                if (lease.Size != 32 || lease.Version != 1 || lease.Generation != document.Generation
+                    || lease.Document != document.DocumentId || lease.Epoch == 0)
+                    throw new InvalidOperationException("Native canvas returned an invalid lease.");
+                return new(this, _native, document, lease);
+            }
+            catch (EntryPointNotFoundException) { return null; }
+        }
+
         public CancellationToken DocumentCancellation(RmlUiDocumentToken document)
         {
             VerifyOwnerThread();

@@ -8,6 +8,10 @@
 #include "projectprime_rmlui_text_input.h"
 #include "projectprime_rmlui_accessibility.h"
 #include <RmlUi/Core/EventListener.h>
+#include <RmlUi/Core/ElementInstancer.h>
+#include <RmlUi/Core/RenderManager.h>
+#include <RmlUi/Core/Geometry.h>
+#include <RmlUi/Core/CallbackTexture.h>
 
 #include <algorithm>
 #include <array>
@@ -197,6 +201,7 @@ bool ForegroundDocument(Rml::ElementDocument* document)
     }
     return page == document;
 }
+#include "projectprime_rmlui_canvas.h"
 bool TranslateAction(const std::string& action, PrimeIntent& intent)
 {
     struct Mapping { const char* text; PrimeIntentKind kind; int argument; };
@@ -801,6 +806,7 @@ PP_EXPORT int pp_rmlui_initialize_backend(int width, int height, float density, 
     }
     g_initialized = true;
     ++g_generation;
+    Rml::Factory::RegisterElementInstancer("prime-canvas", &g_canvas_instancer);
     std::error_code error;
     g_asset_root = std::filesystem::weakly_canonical(asset_root, error);
     if (error) { pp_rmlui_shutdown(); return 0; }
@@ -837,6 +843,7 @@ PP_EXPORT void pp_rmlui_shutdown()
     // Documents and their model listeners are released while both the RmlUi core
     // and render adapter still exist. RemoveContext flushes deferred Close().
     for (auto& entry : g_documents) {
+        CanvasRetireDocument(entry.first);
         entry.second.element->RemoveEventListener("click", &g_action_listener);
         entry.second.element->RemoveEventListener("input", &g_text_revision_listener, true);
         entry.second.element->RemoveEventListener("focus", &g_text_revision_listener, true);
@@ -1054,6 +1061,64 @@ PP_EXPORT int pp_rmlui_studio_bounds(float* x, float* y, float* width, float* he
 }
 
 PP_EXPORT uint32_t pp_rmlui_protocol_version() { return PP_RMLUI_PROTOCOL_VERSION; }
+PP_EXPORT uint32_t pp_rmlui_canvas_version() { return 1; }
+PP_EXPORT int pp_rmlui_canvas_acquire(uint64_t generation, uint64_t document_id, const char* element_id, PrimeCanvasLease* lease)
+{
+    if (!OwnerThread() || generation != g_generation || !lease || lease->size != sizeof(*lease) || lease->version != 1
+        || !element_id || !*element_id || g_next_canvas_epoch == UINT64_MAX) return 0;
+    size_t length = 0; while (length <= 256 && element_id[length]) ++length;
+    if (length > 256) return 0;
+    auto* document = GetDocument(document_id);
+    if (!document || !document->element->IsVisible() || !ForegroundDocument(document->element)) return 0;
+    EnsureUpdated();
+    auto* element = dynamic_cast<PrimeCanvasElement*>(document->element->GetElementById(element_id));
+    if (!element || !element->IsVisible(true) || element->GetOwnerDocument() != document->element
+        || (!element->epoch && g_canvases.size() >= 8)) return 0;
+    try {
+        element->Retire();
+        const uint64_t epoch = ++g_next_canvas_epoch;
+        g_canvases.emplace(epoch, CanvasRegistration{element, document_id, std::string(element_id, length)});
+        element->epoch = epoch;
+        *lease = {}; lease->generation = generation; lease->document_id = document_id; lease->epoch = epoch;
+        DirtyVisual(); return 1;
+    } catch (...) { return 0; }
+}
+PP_EXPORT int pp_rmlui_canvas_textures(const PrimeCanvasLease* lease, const PrimeCanvasTexture* textures,
+    uint32_t count, const uint8_t* pixels, uint32_t length)
+{
+    auto* element = CanvasGet(lease, true);
+    if (!element) return 0;
+    try { return element->SetTextures(textures, count, pixels, length) ? 1 : 0; } catch (...) { return 0; }
+}
+PP_EXPORT int pp_rmlui_canvas_frame(const PrimeCanvasLease* lease, const PrimeCanvasFrame* frame,
+    const PrimeCanvasVertex* vertices, const int32_t* indices, const PrimeCanvasBatch* batches)
+{
+    auto* element = CanvasGet(lease, true);
+    if (!element || !frame) return 0;
+    try { return element->SetFrame(*frame, vertices, indices, batches) ? 1 : 0; } catch (...) { return 0; }
+}
+PP_EXPORT int pp_rmlui_canvas_state(const PrimeCanvasLease* lease, PrimeCanvasState* state)
+{
+    auto* element = CanvasGet(lease, false);
+    if (!element || !state || state->size != sizeof(*state) || state->version != 1) return 0;
+    *state = {}; state->revision = element->revision; state->texture_count = element->TextureCount();
+    state->batch_count = element->BatchCount(); state->flags = (element->failed ? 1u : 0u) | (element->table_set ? 2u : 0u);
+    return 1;
+}
+PP_EXPORT int pp_rmlui_canvas_release(const PrimeCanvasLease* lease)
+{
+    if (!OwnerThread() || !lease || lease->size != sizeof(*lease) || lease->version != 1
+        || lease->generation != g_generation || !lease->epoch || !lease->document_id) return 0;
+    auto found = g_canvases.find(lease->epoch);
+    if (found == g_canvases.end()) return 1; // Idempotent, including an already-replaced/closed element.
+    if (found->second.document != lease->document_id) return 0;
+    found->second.element->Retire(); return 1;
+}
+PP_EXPORT int pp_rmlui_draw_texture_sampling(uint64_t generation, uint64_t handle, PrimeTextureSampling* sampling)
+{
+    return OwnerThread() && generation == g_generation && g_renderer && sampling && sampling->size == sizeof(*sampling)
+        && sampling->version == 1 && g_renderer->ReadTextureSampling(handle, *sampling) ? 1 : 0;
+}
 PP_EXPORT uint64_t pp_rmlui_generation() { return g_generation; }
 PP_EXPORT uint64_t pp_rmlui_home_document() { return OwnerThread() ? g_home_id : 0; }
 PP_EXPORT int pp_rmlui_take_intent(PrimeIntent* intent)
@@ -1091,6 +1156,7 @@ PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
     if (!document || document_id == g_home_id) return 0;
     const uint64_t restore_document = document->restore_document;
     const std::string restore_element = document->restore_element;
+    CanvasRetireDocument(document_id);
     document->element->RemoveEventListener("click", &g_action_listener);
     document->element->RemoveEventListener("input", &g_text_revision_listener, true);
     document->element->RemoveEventListener("focus", &g_text_revision_listener, true);
@@ -1192,6 +1258,7 @@ PP_EXPORT int pp_rmlui_document_set_text(uint64_t document_id, const char* name,
     else {
         auto* element = document->element->GetElementById(name);
         if (!element) return 0;
+        CanvasRetireSubtree(element);
         element->SetInnerRML(Rml::StringUtilities::EncodeRml(text));
     }
     document->texts[name] = text;

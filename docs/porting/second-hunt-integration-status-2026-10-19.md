@@ -14,7 +14,7 @@ The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
 Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
-current main advanced to 69 through concurrent custom-weapon and Traversal work.
+current main advanced to 70 through concurrent custom-weapon and Traversal work.
 Our slices add no wire change.
 
 ## Completed and merged slices
@@ -42,6 +42,7 @@ Our slices add no wire change.
 | [832](https://github.com/AntiNotAnti/Project-Prime/pull/832) | Bounded credits models, exact animation binding and CPU decoder ownership | `e24be8ae318627fa1c86f8fc2a96704ddd563759` |
 | [833](https://github.com/AntiNotAnti/Project-Prime/pull/833) | Detached original backgrounds/font metrics and bounded CPU glyph/color layout | `3dd5a0b833e67e43d840997c6a30b475fad5e017` |
 | [835](https://github.com/AntiNotAnti/Project-Prime/pull/835) | Private CPU widget animation and detached flat geometry | `32977c43e3de5cffa28532beb78fd029ac32259d` |
+| [837](https://github.com/AntiNotAnti/Project-Prime/pull/837) | Bounded aggregate credits catalog, immutable result binding and CPU frame ownership | `2a1ce057936d086d33cb2318966bbc52615bec78` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -90,7 +91,7 @@ transport, with no source shader/arena/mechanics activation. Details are in the
 | SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles | HD/cannon/runtime animation parts; qualified Overcharged runtime cosmetic; Trooper wall-cling/drone/blaster; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
 | SH-06 | Fenced create-lobby handoff, cancellation/retry, preference acceptance and serialized local start ownership | Directory-owned grouped search, mode/region/content query, pre-allocation ballot, telemetry and dedicated handoff | Real deployment/HMAC/account/server-child/load/reconnect; existing leader-admitted party reservations are not grouped search |
 | SH-07 | Reproducible binary/hardware/settings/map/workload provenance, strict paired comparator and actual GL functional capture | Controlled experiments and any justified opt-in runtime improvement | Achieved pacing, variance, latency and error tolerances; current draw-CPU evidence is not FPS improvement |
-| SH-08 | Existing campaign travel/endings/movie lifetime retained; optional merged native room detail; bounded original credits/results source and animation durations; pure 30 Hz ending timeline; bounded model/animation admission and exact-byte CPU decoding; detached native backgrounds/font metrics and bounded glyph layout/color and private CPU widget sampling; aggregate asset admission, immutable captured-result binding and bounded CPU frame composition; optional cumulative 60 Hz campaign time records and captured result facts | Original cockpit/ship presentation; original animated credits/results and required records; any unimplemented map behavior | Full story/travel/save paths, physical touch/controller, upper-door/connector marker travel and platform captures |
+| SH-08 | Existing campaign travel/endings/movie lifetime retained; optional merged native room detail; bounded original credits/results source and animation durations; pure 30 Hz ending timeline; bounded model/animation admission and exact-byte CPU decoding; detached native backgrounds/font metrics and bounded glyph layout/color and private CPU widget sampling; aggregate asset admission, immutable captured-result binding and bounded CPU frame composition; optional bounded native canvas geometry/texture transport, sampler policy and GPU/lease retirement; optional cumulative 60 Hz campaign time records and captured result facts | Original cockpit/ship presentation; original animated credits/results and required records; any unimplemented map behavior | Full story/travel/save paths, physical touch/controller, upper-door/connector marker travel and platform captures |
 | SH-09 | Source/performance/material/provenance feasibility memo | Future research only; not a dependency of other phases | No Prime4 importer or playable-support claim |
 | SH-10 | Repeated frozen Mac source-free/import/UDP/replay checks, Android compile/AOT builds, owned-media probes and scoped actual GL checks | Finish engineering above before full final qualification | Windows access, Linux, physical Android/controller/touch, story/soak/deployment and controlled performance signoff |
 
@@ -121,3 +122,10 @@ protected payloads. The material gap memo records347 actual materials,
 correct implementation scope, not a rendered-material completion result.
 
 PR817 qualified the exact protocol66 source at `32dffe174` with Desktop/dedicated Release, Android Release/AOT/signedAPK,191 synthetic TXTR checks and all390 owned textures against an independent per-pixel oracle. PR818's merged bank/material infrastructure preserves this explicit pixel contract; neither decoder nor bank evidence activates complete Echoes source-world rendering.
+
+The optional [native canvas transport](second-hunt-native-canvas-2026-10-20.md)
+passes39 frozen serial commands at `e7526ef32`, including776 actual GL checks,
+173 native/managed draw-list transport checks, both Android native libraries
+and default/optional signed Release/AOT packages. This enables the existing
+renderer to carry flat source presentation; original credits activation and
+lifecycle remain implementation work.
