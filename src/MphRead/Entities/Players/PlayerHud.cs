@@ -1564,6 +1564,15 @@ namespace MphRead.Entities
             {
                 DrawFps();
             }
+            // The ending phase is the scoreboard's own frame. Do not let
+            // radar, chat, kill feed, map votes, or pause-era HUD fragments
+            // obscure the authoritative final stats. The winner cinematic and
+            // final replay run earlier, before this branch becomes active.
+            if (_scene.GameState.Multiplayer && _scene.GameState.MatchState == MatchState.Ending)
+            {
+                ModDrawPostMatchReport();
+                return;
+            }
             DrawRadar();
             // Before the pause and spectator checks, like the counter above
             // it and for the same reason: somebody watching a match is in the
@@ -1580,15 +1589,8 @@ namespace MphRead.Entities
             // comment below gives about that one: a vote is asked during a
             // running match and answered from wherever the player is looking.
             ModDrawVote();
-            // With the chat and before every early return below it, for the
-            // same reason: the results screen is drawn during MatchState
-            // GameOver *and* Ending, and the block further down handles those
-            // two in separate branches. This is one panel across both.
-            ModDrawEndScreen();
-            // The final camera stays cinematic; the full authoritative table
-            // belongs to the ten-second results phase and is drawn before the
-            // spectator/menu early-outs so every viewer gets it.
-            ModDrawPostMatchReport();
+            // The legacy results picker is retired. The native scoreboard
+            // was already drawn on its own dedicated path above.
             if (Mods.SpectatorMode.FreeCamera)
             {
                 ModDrawSpectatorNameTags();
@@ -1622,7 +1624,8 @@ namespace MphRead.Entities
             }
             else if (_scene.GameState.MatchState == MatchState.Ending)
             {
-                // ModDrawPostMatchReport already drew the report above.
+                // Non-multiplayer ending fallback. Multiplayer has already
+                // returned after drawing the standalone native scoreboard.
             }
             else if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true)
             {

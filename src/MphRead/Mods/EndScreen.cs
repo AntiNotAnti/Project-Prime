@@ -18,11 +18,12 @@ namespace MphRead.Mods
         public const bool CharacterChangeEnabled = false;
 
         /// <summary>
-        /// Whether the themed results side panel has something to show.
-        /// Persistent lobbies use the panel for a compact return-to-lobby state
-        /// even though map selection remains authoritative in the lobby itself.
+        /// The post-match popup is retired: the engine draws an unobscured
+        /// scoreboard, then returns players to their lobby. Keep Available
+        /// separate for match lifecycle consumers; no UI head may reopen the
+        /// former ballot/picker while the scoreboard is visible.
         /// </summary>
-        public static bool PanelAvailable => Available;
+        public static bool PanelAvailable => false;
         /// <summary>
         /// Whether the results screen is up and this machine has a player who
         /// could pick something.
@@ -213,7 +214,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Tick(string roomKey, double time)
         {
-            bool up = Available;
+            bool up = PanelAvailable;
             if (up == _wasUp)
             {
                 if (up && time - _resentAt >= 1)
@@ -275,7 +276,7 @@ namespace MphRead.Mods
         /// </summary>
         public static bool HandleClick()
         {
-            if (!Available)
+            if (!PanelAvailable)
             {
                 return false;
             }
@@ -295,7 +296,7 @@ namespace MphRead.Mods
         /// </summary>
         public static bool HandleKeyDown(Keys key)
         {
-            if (!Available)
+            if (!PanelAvailable)
             {
                 return false;
             }
@@ -350,7 +351,7 @@ namespace MphRead.Mods
         }
         public static void PollGamepad()
         {
-            ResultPad.Update(Input.GamepadManager.Snapshot, Available && Input.GamepadContexts.Focused
+            ResultPad.Update(Input.GamepadManager.Snapshot, PanelAvailable && Input.GamepadContexts.Focused
                 && Input.GamepadContexts.Current == Input.GamepadContext.Results
                 ? Input.GamepadContext.Results : Input.GamepadContext.Gameplay,
                 Environment.TickCount64);

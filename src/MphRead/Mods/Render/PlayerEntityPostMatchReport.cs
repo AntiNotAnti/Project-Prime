@@ -27,16 +27,11 @@ namespace MphRead.Entities
                 ? NetSession.PostMatchReportCount
                 : Math.Clamp(_scene.GameState.ActivePlayers, 0, PlayerEntity.SlotCapacity);
 
+            // The modal results/map panel no longer occupies the right side.
+            // Keep the authoritative table fully visible at every HUD aspect.
             float aspect = HudAspectFix;
-            float left = 4f;
-            float right = EndScreen.PanelAvailable
-                ? 254f - EndPanelWidth * aspect - 3f * aspect
-                : 252f;
-            float minimumRight = left + 142f * aspect;
-            if (right < minimumRight)
-            {
-                right = Math.Min(252f, minimumRight);
-            }
+            const float left = 4f;
+            const float right = 252f;
             float width = right - left;
 
             const float titleY = 20f;
