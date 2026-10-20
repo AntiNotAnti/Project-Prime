@@ -1,5 +1,30 @@
 # Multiplayer — match end, rotation and the double-counted kill
 
+## Current endgame presentation (2026-10-20)
+
+Normal multiplayer finishes in this order:
+
+1. **5 seconds**, collision-safe native winner camera with a subtle orbit, dolly and FOV ease.
+2. **Up to 5 seconds**, eligible final replay with a 0.5x impact beat around the
+   accepted kill frame, weapon-specific HUD accents and a dark camera handoff.
+   Ineligible, missing, skipped, or disabled replay falls through without
+   extending the native camera. Replay effects cannot change live combat.
+3. **6 seconds**, the full-width authoritative scoreboard, without results
+   popups, map ballot input, or gameplay HUD fragments. A brief dark shutter
+   clears as the scoreboard appears.
+4. **Lobby return** in persistent sessions and offline bot sessions; continuous
+   servers retain their explicit rotation policy.
+
+`SceneGameState.MatchEndingSeconds = 6`; `DedicatedServer.EndSequenceSeconds = 17`
+(five native + five replay + six scoreboard + one transition second).
+`NetMatchEnd.StrandedFrames` derives from the same constants plus four seconds.
+The personal death killcam remains 210 pre-roll + 90 post-roll at 1x;
+the final replay uses 205 + 85 source frames with nine frames at 0.5x
+so the five-second playback budget is preserved. Reduced Motion disables
+the orbit, FOV movement, impact flash and replay half-speed beat.
+
+## Historical background
+
 A match that somebody won used to end the session for that client alone:
 `GameState.ProcessFrame` ran the winner's camera, then the scoreboard, then
 faded to black -- correct offline, and on a server it meant every client
@@ -9,7 +34,7 @@ heard anybody won, kept counting down a map nobody was still playing.
 | Piece | What |
 |---|---|
 | `NetMatchEnd` | on the authority, sends `PacketType.MatchEnd` when `GameState.MatchState` leaves `InProgress`, repeating until the server's own state answers `FlagEnding`. Any client that sees `FlagEnding` while it still thinks the match is running sets `MatchTime = 0`, so results play out normally rather than cutting away |
-| `DedicatedServer` intermission | Clock and score endings use `GameState.MatchFinalCameraSeconds + GameState.MatchEndingSeconds + 1`: 5 seconds of final/winner camera, 10 seconds of results and 1 second of safety, totaling 16 seconds. The constants are shared with the client. |
+| `DedicatedServer` intermission | Current policy uses `MatchFinalCameraSeconds + MatchKillcamSeconds + MatchEndingSeconds + 1`: five seconds of winner shot, up to five of replay, six of results and one rotation margin, totaling 17 seconds. |
 | `CameraSequence.Intro` reloaded per rotation | it is a **static**, loaded in one place -- `SceneSetup.LoadNewRoom`, which a rotation does not go through. So after the first map of a session, every results screen flew the sequence belonging to the map the session *started* on, whose keyframes hand the camera a `NodeRef` resolved against a level no longer in memory. Out of range that is an `ArgumentOutOfRangeException` in `RoomEntity.DrawRoomParts` killing every client at once; in range it is a black room. `NetRoomChange.ReloadIntroCamSeq` does what SceneSetup does, with the same room-id arithmetic, and calls `Initialize()` so every keyframe is re-resolved |
 | `RoomEntity.ModCanPlace` | the backstop: a `NodeRef` is three indices into one particular room's arrays and nothing about it says which room, so before anything is indexed with it the indices must address something this room has and `NodeRef.RoomName` must be this room or one of its connectors. Refusing leaves `_partVisInfoHead` null, which `GetDrawInfo` already reads as "draw every part" -- the correct picture, merely uncalled. It fires nowhere in the rotation harness now that the cause above is fixed, which is the point of a backstop |
 | no culling once the match is over | the end-of-match camera is the one camera in the game that is not out of somebody's eyes: an authored orbit of the winner, free to sit outside every room part in the level. That is a portal walk reaching nothing and a results screen that is black with stray polygons in the corners -- reported on MP2 HARVESTER, and *not* a stale reference. `UpdateRoomParts` returns early whenever `MatchState != InProgress` in a multiplayer match. It costs nothing worth having: nobody is playing |
