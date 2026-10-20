@@ -15,8 +15,8 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | NCX-01 | Matched measurement, shot timelines, independent hit and rendered visual rig | Complete scoped measurement; 31 routes, positive keyed pixels, three Prime controls, seven requested cadence observations and 18 A/A cases; native failures/unsupported comparisons retained |
 | NCX-02 | Canonical causal payment identity and definitive terminal results | Complete; pinned causal receipts, typed retirement, native parity and 315 exact UDP deliveries |
 | NCX-03 | Bounded shadow fast-decision layer | Complete scoped shadow; 30 routes, 95 Python checks, 10 native controls and 131 final-source UDP paid comparisons; retained shutdown failure |
-| NCX-04 | Certified narrow-family fast settlement | Ready for exact already-paid receipts only; fresh claims remain legacy |
-| NCX-05 | Independently certified family extensions and explicit fallbacks | Pending NCX-04 |
+| NCX-04 | Certified narrow-family fast settlement | Complete exact paid receipts; 51 routes, 109 Python checks, six native controls, matched UDP189/172 samples with p95 zero ticks; no fresh fast damage |
+| NCX-05 | Independently certified family extensions and explicit fallbacks | Ready after NCX-04 merge |
 | NCX-06 | Prediction retirement and confirmation presentation | Pending NCX-05 |
 | NCX-07 | Same-shot victim and observer confirmed-impact fidelity | Pending NCX-06 |
 | NCX-08 | Continuous fire, multi-entity and death boundaries | Pending NCX-07 |
@@ -48,3 +48,12 @@ NCX-03 qualification is recorded in [ncx-shadow.md](ncx-shadow.md) and
 [the exact-source manifest](../../tools/nettest/baselines/ncx-shadow.json).
 The source08 impaired post-drain graceful-close failure remains FAIL and is
 tracked for NCX-09; it does not become a passing resilience or release gate.
+
+NCX-03 merged as [PR #764](https://github.com/AntiNotAnti/Project-Prime/pull/764),
+`5b1d9c1c57006869a022c3048e4c01f1422dd3c1`. All 36 checks were queued at merge;
+those checks are not reported as PASS.
+
+NCX-04 evidence is in [ncx-paid-receipts.md](ncx-paid-receipts.md) and
+[the source manifest](../../tools/nettest/baselines/ncx-paid-receipts.json).
+Already-paid duplicates were already decided in the same Receive call; the
+shortcut removes redundant validation without a measured latency gain claim.

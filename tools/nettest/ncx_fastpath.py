@@ -356,11 +356,12 @@ def audit(reports):
         try:
             captured = report['CombatFastPath']
             if integer(captured['Schema'], 1, 1) != 1: raise ValueError('unsupported schema')
-            mode = enum(captured['Mode'], ('Off', 'Shadow'))
+            mode = enum(captured['Mode'], ('Off', 'Shadow', 'Paid'))
             if integer(captured['PerShooter'], 1, 1024) != 1024: raise ValueError('unsupported capacity')
             for field in ('Overflow', 'Invalid', 'UnjoinedTerminal'):
                 if integer(captured[field], 0, (1 << 63) - 1): incomplete.append(label + ': ' + field + ' evidence is incomplete')
-            if mode != 'Shadow': incomplete.append(label + ': shadow observation disabled')
+            if mode == 'Off': incomplete.append(label + ': shadow observation disabled')
+            bypasses = 0
             rows = captured['Rows']
             if not isinstance(rows, list): raise ValueError('missing rows')
             for raw in rows:
@@ -371,6 +372,12 @@ def audit(reports):
                 capture_complete = False
                 failures.extend(label + ': ' + error for error in errors)
                 state = row['state']; damage = row['damage']; eligible = state in ('VerifiedPaid', 'VerifiedNative')
+                bypass = boolean(raw['PaidBypass'] if mode == 'Paid' else raw.get('PaidBypass', False))
+                bypasses += int(bypass)
+                if bypass and (mode != 'Paid' or state != 'VerifiedPaid' or row['stage'] != 'ClaimReady'):
+                    failures.append(label + ': paid bypass outside verified paid ready seam')
+                if mode == 'Paid' and state == 'VerifiedPaid' and not row['corrected'] and not bypass:
+                    failures.append(label + ': eligible paid receipt omitted actual bypass')
                 pay = state == 'VerifiedNative' and damage['status'] == 'Available'; reject = state == 'Reject'
                 if row['corrected']:
                     computed['CorrectedExcluded'] += 1
@@ -399,14 +406,17 @@ def audit(reports):
                     if row['terminal_disagreements']: failures.append(label + ': retained terminal disagreement')
                 summaries.append(dict(token=row_token, stage=row['stage'], state=state, reason=row['reason'],
                     excludedCorrection=row['corrected'], compared=row['compared'], independentlyAgrees=agreement,
-                    attempts=row['attempts'], payments=row['payments'], terminals=row['terminals']))
+                    attempts=row['attempts'], payments=row['payments'], terminals=row['terminals'], paidBypass=bypass))
             if any(count > 1024 for count in per_slot.values()): failures.append(label + ': per-shooter row capacity exceeded')
             for field in COUNTERS:
                 if integer(captured[field], 0, (1 << 63) - 1) != computed[field]: failures.append(label + ': structured counter mismatch: ' + field)
             if computed['CorrectedExcluded']: incomplete.append(label + ': corrected rows excluded from certification')
             if not positives: incomplete.append(label + ': no positive eligible independently compared row')
+            if integer(captured['PaidReceipts'] if mode == 'Paid' else captured.get('PaidReceipts', 0), 0, (1 << 63) - 1) != bypasses:
+                failures.append(label + ': paid receipt bypass count mismatch')
             processes.append(dict(process=label, mode=mode, rows=len(rows), positiveEligibleComparisons=positives,
-                                  positiveRejectComparisons=rejects, counters=dict(computed), observations=summaries))
+                                  positiveRejectComparisons=rejects, paidReceiptBypasses=bypasses,
+                                  counters=dict(computed), observations=summaries))
         except (KeyError, TypeError, ValueError, OverflowError, struct.error):
             incomplete.append(label + ': shadow report unavailable or malformed')
     if not authority_count: incomplete.append('no authority shadow report')

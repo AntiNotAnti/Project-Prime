@@ -41,6 +41,8 @@ namespace MphRead.NetTest
                     + "  --combat-fast-damage              Test frozen pre-native damage gates and arithmetic.\n"
                     + "  --combat-fast-decisions           Test bounded read-only shadow decision and receipt joins.\n"
                     + "  --combat-fast-scene <assets> [room] Test positive native Shadow candidates and exact Off/Shadow parity.\n"
+                    + "  --combat-fast-receipts            Test admitted exact paid receipt gates and unchanged fallbacks.\n"
+                    + "  --combat-paid-scene <assets> [room] Compare actual native paid receipt ACKs and gameplay.\n"
                     + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
                     + "  --outline-colors                  Test exact team/player palette persistence and style.\n"
@@ -285,6 +287,12 @@ namespace MphRead.NetTest
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return TimedNativeEffectTests.RunScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--combat-paid-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return TimedImperialistImpactTests.RunPaidReceiptScene(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 1 && args[0] == "--combat-fast-scene")
             {
@@ -805,6 +813,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--protocol18") return Protocol18Tests.Run();
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
             if (args.Length > 0 && args[0] == "--combat-fast-decisions") return CombatFastDecisionTests.Run();
+            if (args.Length > 0 && args[0] == "--combat-fast-receipts") return CombatFastReceiptTests.Run();
             if (args.Length > 0 && args[0] == "--combat-fast-damage") return CombatFastDamageTests.Run();
             if (args.Length > 0 && args[0] == "--claim-receipts") return ClaimReceiptAccountingTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();

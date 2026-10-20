@@ -1521,7 +1521,17 @@ namespace MphRead.Mods.Network
                 }
                 if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
                 { DuplicateHere++; Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: continuousPaid); continue; }
-                NetCombatFastPath.ClaimReady(shooterSlot, claim);
+                var fastReceipt = NetCombatFastPath.ClaimReady(shooterSlot, claim);
+                if (NetCombatFastPath.PaidEnabled && fastReceipt.State == FastDecisionState.VerifiedPaid)
+                {
+                    // Every admission/lifecycle/receipt gate above still owns
+                    // this request. The immutable native payment already exists;
+                    // omit only redundant Judge/proof diagnostics, never pay again.
+                    NetCombatFastPath.PaidReceipt(shooterSlot, claim);
+                    DuplicateHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: fastReceipt.Paid);
+                    continue;
+                }
                 byte immediate = Judge(shooterSlot, claim);
                 var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
                 if (TryPaidOutcome(shooterSlot, claim, out var paid)

@@ -1,9 +1,10 @@
 # NCX-03 bounded shadow decisions
 
 `PRIME_COMBAT_FASTPATH=shadow` enables authority-only observations in the existing
-combat pipeline. The default and unknown values select `off`; there is no
-settlement-enforcement mode. `run-net2.py --combat-fastpath shadow` explicitly
+combat pipeline. The default and unknown values select `off`; Shadow performs no
+settlement enforcement. `run-net2.py --combat-fastpath shadow` explicitly
 selects the authority observation. Clients retain their existing behavior.
+NCX-04 adds the separate [exact paid-receipt shortcut](ncx-paid-receipts.md).
 
 The decision function returns `LegacyRequired`, `PendingDependencies`,
 `VerifiedPaid`, `VerifiedNative`, or `Reject`. It never reserves or applies damage,
