@@ -1,5 +1,9 @@
 # SH-03: transactional character authoring previews
 
+This frozen body-only slice is followed by the separately qualified
+[Dark Samus body/ball recipe v2](second-hunt-darksamus-parts-evidence-2026-10-19.md).
+Its later recipe does not rewrite the historical evidence below.
+
 The existing Retro exporter now publishes one private immutable bundle per supported appearance, reusing its verified source readers and model/rig/motion conversion. Each bounded schema-1 receipt records the canonical appearance ID, exact verified archive-inventory fingerprint, common recipe version/hash, and each output's size/SHA256. Required geometry, skeleton, weights and motion sidecars must all exist; optional raw ANCS graph proofs join the same generation. Ready means complete authoring input, never a playable character. Materials, ball, cannon and full playable animations are not fabricated.
 
 The existing native Settings controller, file picker, background-operation owner, stage/cancel control and confirmation dialog now provide appearance selection, Check, Update selected, Update all from the selected source game, and Remove. Update all parses selected appearances first and commits one complete independent appearance at a time; cancellation can leave previously completed appearances updated. A recipe update rebuilds the complete selected appearance. Read-only Check runs off the UI thread. Retired controllers reject late picker completions. No renderer, global skin replacement, source download, Community package or online identity is introduced.
