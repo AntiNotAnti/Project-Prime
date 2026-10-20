@@ -8,7 +8,7 @@ public enum MovementModel : byte { Native = 0, Momentum = 1, Quake3 = 2, Travers
 
 public static class MovementModelRules
 {
-    public const uint KnownModifierMask = 262143;
+    public const uint KnownModifierMask = 524287;
     public static bool IsDefined(MovementModel model) => model is MovementModel.Native or MovementModel.Momentum or MovementModel.Quake3 or MovementModel.Traversal;
     public static bool UsesMomentumSolver(MovementModel model) => model is MovementModel.Momentum or MovementModel.Quake3 or MovementModel.Traversal;
     public static int ProfileVersion(MovementModel model) => model switch

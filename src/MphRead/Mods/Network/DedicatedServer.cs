@@ -352,6 +352,8 @@ namespace MphRead.Mods.Network
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
         public bool BalancedMode { get; set; }
+        /// <summary>Initial match availability; an active round uses its frozen definition.</summary>
+        public bool RiftlineM7Available { get; set; }
         public Movement.MovementModel MovementModel { get; init; }
 
         /// <summary>
@@ -451,6 +453,10 @@ namespace MphRead.Mods.Network
             _lobbyMatch = DefinitionFor(_rotation.Current);
             if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
                 throw new InvalidOperationException(ruleError);
+            if (RiftlineM7Available)
+                foreach (var rotationEntry in _rotation.Entries)
+                    if (LobbyRules.ValidateDefinition(DefinitionFor(rotationEntry), out ruleError) != LobbyResultCode.Ok)
+                        throw new InvalidOperationException(ruleError);
             if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
             _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
             if (_phase == SessionPhase.InMatch && !_controlPlaneOnlyForTests)

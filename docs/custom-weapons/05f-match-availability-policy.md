@@ -26,3 +26,6 @@ Existing runtime lifecycle, replay, replica, trainer and ownership guards remain
 in force. Native-only admission never invokes the custom-only policy. Neither
 availability nor a successful policy check constitutes readiness, a grant, a
 source certificate or resource authority.
+
+This records the CW-05f boundary. [CW-05g](05g-frozen-public-activation.md)
+subsequently activates live protocol70 availability; custom replay remains refused.

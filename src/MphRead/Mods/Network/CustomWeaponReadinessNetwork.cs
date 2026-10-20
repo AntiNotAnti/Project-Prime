@@ -5,11 +5,13 @@ namespace MphRead.Mods.Network;
 
 public sealed partial class DedicatedServer
 {
-    // Configure on the server owner before Run. No lobby/CLI/public mode enables
-    // this developer capability. Combat requires a separate explicit developer flag.
+    // Fixture overrides remain independent of the frozen public match option.
     internal bool DeveloperCustomWeaponReadiness { get; set; }
+    private bool PublicCustomWeaponMatch => _phase != SessionPhase.Lobby && _frozenMatch.RiftlineM7Available;
+    private bool CustomWeaponReadinessEnabled => DeveloperCustomWeaponReadiness || PublicCustomWeaponMatch;
     // Separate explicit developer choice: capability alone never activates combat.
     internal bool DeveloperCustomWeaponCombat { get; set; }
+    private bool CustomWeaponCombatEnabled => DeveloperCustomWeaponCombat || PublicCustomWeaponMatch;
     private sealed record CustomReadyEntry(Peer Peer,CustomReadinessPeer State,CustomPeerSourceBoundary? Boundary,CustomActionPeer? Combat,CustomReplicaMailbox? Replica);
     private CustomReadyEntry?[]? _customReadyEntries;
     private CustomReplicaAudience? _customAudience;
@@ -21,31 +23,39 @@ public sealed partial class DedicatedServer
     private bool CustomNativeReady(Peer peer)=>!peer.Spectating&&CustomNativeRecipientReady(peer);
     private void PumpCustomWeaponReadiness(double now)
     {
-        if (!DeveloperCustomWeaponReadiness || _transport == null)
+        if (!CustomWeaponReadinessEnabled || _transport == null)
         {
             ReleaseCustomWeaponReadiness();
             return;
         }
         _customReadyEntries ??= new CustomReadyEntry?[8];
         byte seen = 0;
-        foreach (var peer in _peers)
+        for (int peerIndex = _peers.Count - 1; peerIndex >= 0; peerIndex--)
         {
+            var peer = _peers[peerIndex];
             if (!CustomNativeRecipientReady(peer)) continue;
             ulong connection = _transport.ConnectionStats(peer.EndPoint)?.ConnectionId ?? 0;
             if (connection == 0) continue;
             int slot = peer.SlotIndex; seen |= (byte)(1 << slot);
             var entry = _customReadyEntries[slot];
-            bool source=DeveloperCustomWeaponCombat&&!peer.Spectating;
+            bool source=CustomWeaponCombatEnabled&&!peer.Spectating;
             if (entry?.Peer != peer || entry.State.ConnectionId != connection || entry.State.Wire.Bootstrap != peer.BootstrapIdentity
-                || (entry.Boundary!=null)!=source || (entry.Replica!=null)!=DeveloperCustomWeaponCombat)
+                || (entry.Boundary!=null)!=source || (entry.Replica!=null)!=CustomWeaponCombatEnabled)
             {
                 InvalidateCustomEntry(entry);
                 var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now);
                 entry = new(peer,state,source ? new(state) : null,source ? new(state.Wire) : null,
-                    DeveloperCustomWeaponCombat ? new(state.Wire,connection,NetSession.Clock) : null);
+                    CustomWeaponCombatEnabled ? new(state.Wire,connection,NetSession.Clock) : null);
                 _customReadyEntries[slot] = entry;
             }
             if (entry.State.Due(now)) _transport.TrySendSemantic(peer.EndPoint,PacketType.CustomWeaponManifest,entry.State.Wire.ManifestBytes);
+            if (PublicCustomWeaponMatch && entry.State.Invalidated)
+            {
+                SendRefusal(peer.EndPoint, RefusedPacket.ReasonCustomWeaponReadiness);
+                Remove(peer, "Riftline M7 readiness failed or timed out");
+                // Removing the last participant may unwind this match.
+                if (!CustomWeaponReadinessEnabled || _customReadyEntries == null) return;
+            }
         }
         for (int slot=0; slot<8; slot++)
             if ((seen & (1 << slot)) == 0)
@@ -66,7 +76,7 @@ public sealed partial class DedicatedServer
     }
     private void HandleCustomWeaponReady(ReceivedPacket packet,double now)
     {
-        if (!DeveloperCustomWeaponReadiness || _transport == null || _customReadyEntries == null) return;
+        if (!CustomWeaponReadinessEnabled || _transport == null || _customReadyEntries == null) return;
         var peer = Find(packet.Sender);
         if (peer == null || !CustomNativeRecipientReady(peer) || _customReadyEntries[peer.SlotIndex] is not { } entry
             || entry.Peer != peer || entry.State.Wire.Bootstrap != peer.BootstrapIdentity
@@ -87,14 +97,14 @@ public sealed partial class DedicatedServer
     internal bool TryGetCustomWeaponReady(int slot,out CustomPeerReadyEvidence evidence)
     {
         evidence = null!;
-        if (!_running || !DeveloperCustomWeaponReadiness || (uint)slot >= 8 || _customReadyEntries?[slot] is not { } entry
+        if (!_running || !CustomWeaponReadinessEnabled || (uint)slot >= 8 || _customReadyEntries?[slot] is not { } entry
             || entry.State.Evidence is not { } ready) return false;
         evidence = ready; return true;
     }
 
     private CustomReadyEntry? CurrentCustomSourceEntry(WeaponOwnerContext owner,Scene scene)
     {
-        if (!DeveloperCustomWeaponCombat || !DeveloperCustomWeaponReadiness || !_running || !Simulating
+        if (!CustomWeaponCombatEnabled || !CustomWeaponReadinessEnabled || !_running || !Simulating
             || _sim?.EvidenceScene != scene || !owner.IsValid || owner.Slot >= 8
             || owner.MatchId != _matchId || owner.AuthorityEpoch != _authorityEpoch
             || !NetPlayerLifecycle.Matches(owner.Slot,owner.Generation,owner.Life)
@@ -106,7 +116,7 @@ public sealed partial class DedicatedServer
     }
     private CustomReadyEntry? CurrentCustomRecipientEntry(Peer peer,Scene scene)
     {
-        if(!DeveloperCustomWeaponCombat||!DeveloperCustomWeaponReadiness||!_running||!Simulating
+        if(!CustomWeaponCombatEnabled||!CustomWeaponReadinessEnabled||!_running||!Simulating
             ||_sim?.EvidenceScene!=scene||scene.CustomCombat?.IsEligible!=true||!CustomNativeRecipientReady(peer)
             ||_customReadyEntries?[peer.SlotIndex] is not {Replica:not null} entry||entry.Peer!=peer
             ||Find(peer.EndPoint)!=peer||entry.State.Evidence is not {} evidence
@@ -131,7 +141,7 @@ public sealed partial class DedicatedServer
     }
     private void NoteCustomCurrentInput(ReceivedPacket packet,Peer peer,in IntentPacket intent)
     {
-        if (!DeveloperCustomWeaponCombat || _sim?.EvidenceScene is not { } scene ||peer.Spectating
+        if (!CustomWeaponCombatEnabled || _sim?.EvidenceScene is not { } scene ||peer.Spectating
             ||intent.MatchId==0||intent.AuthorityEpoch==0||intent.SlotGeneration==0||intent.LifeId==0) return;
         var owner = new WeaponOwnerContext(intent.MatchId,intent.AuthorityEpoch,(byte)peer.SlotIndex,intent.SlotGeneration,intent.LifeId);
         if (CurrentCustomSourceEntry(owner,scene) is not { } entry || entry.Peer != peer
@@ -141,8 +151,8 @@ public sealed partial class DedicatedServer
     }
     private void ConfigureCustomSourceCombat(Scene scene)
     {
-        if (!DeveloperCustomWeaponCombat) return;
-        if (!DeveloperCustomWeaponReadiness)
+        if (!CustomWeaponCombatEnabled) return;
+        if (!CustomWeaponReadinessEnabled)
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
         var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene));
         _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
@@ -152,9 +162,14 @@ public sealed partial class DedicatedServer
 public static partial class NetSession
 {
     internal static bool DeveloperCustomWeaponReadiness { get; set; }
+    internal static bool PublicCustomWeaponAvailability => Role == NetRole.Client && !_playback
+        && ServerSession is { Phase: not SessionPhase.Lobby, Match.RiftlineM7Available: true } session
+        && ServerMatch is { } match && match.MatchId == session.MatchId && match.AuthorityEpoch == session.AuthorityEpoch
+        && ((MatchModifierFlags)match.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0;
+    private static bool CustomWeaponReadinessEnabled => DeveloperCustomWeaponReadiness || PublicCustomWeaponAvailability;
     private static CustomReadinessClient? _customReadiness;
     private static ulong _customReadinessConnection;
-    internal static bool CustomWeaponReadinessConfirmed => DeveloperCustomWeaponReadiness
+    internal static bool CustomWeaponReadinessConfirmed => CustomWeaponReadinessEnabled
         && Role == NetRole.Client && !_playback && WorldAdmissionConfirmed
         && _customReadiness is { Confirmed: true,Invalidated: false } state
         && state.Wire.Slot == LocalSlot
@@ -162,7 +177,7 @@ public static partial class NetSession
         && _hostEndPoint != null && _transport?.ConnectionStats(_hostEndPoint)?.ConnectionId == _customReadinessConnection;
     private static CustomReadinessClient? CurrentCustomReadiness(double now)
     {
-        if (!DeveloperCustomWeaponReadiness || Role != NetRole.Client || _playback || IsAuthority
+        if (!CustomWeaponReadinessEnabled || Role != NetRole.Client || _playback || IsAuthority
             || LocalSlot is < 0 or >= 8 || !WorldAdmissionConfirmed || ConfirmedWorldBootstrap is not { } bootstrap
             || bootstrap.SlotGeneration != NetPlayerLifecycle.Generation(LocalSlot))
         { _customReadiness = null; ResetCustomReplica(); return null; }

@@ -13,6 +13,9 @@ internal static class CustomReplayBoundary
 
     internal static bool IsBlocked(Scene? scene = null)
     {
+        // Frozen availability already makes this a custom match, including
+        // the interval before its first replica page is received.
+        if (NetSession.PublicCustomWeaponAvailability) return true;
         var owner = scene ?? GameState.Current.Owner;
         if (owner == null) return _ownerlessSelected;
         if (_ownerlessSelected)

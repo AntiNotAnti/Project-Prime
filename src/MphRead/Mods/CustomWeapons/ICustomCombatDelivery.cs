@@ -5,6 +5,9 @@ namespace MphRead.Mods.CustomWeapons;
 internal interface ICustomCombatDelivery
 {
     bool HasActionReservation(in CustomWeaponAction action);
+    // A reserved action still needs a current audience. A closed execution
+    // barrier produces a terminal source denial, without advancing resources.
+    bool MayExecute(in CustomWeaponAction action) => true;
     bool HasContactReservation(in CustomWeaponAction action);
     bool Publish(in CustomActionReceipt receipt);
     bool Publish(in CustomContactOutcome outcome);

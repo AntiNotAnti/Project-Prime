@@ -178,12 +178,15 @@ namespace MphRead.Mods.Network
             // Match control can arrive before its session packet. Check that
             // stream too, before a stale lobby packet resets the running world.
             if (state.MatchId == 0 || state.AuthorityEpoch == 0) return;
-            if (ServerSession == null && state.Phase != SessionPhase.Lobby
+            if (state.Phase != SessionPhase.Lobby
+                && (ServerSession is not { Phase: SessionPhase.Lobby } provisional
+                    || provisional.MatchId != state.MatchId || provisional.AuthorityEpoch != state.AuthorityEpoch)
                 && ServerMatch is { } frozenControl && frozenControl.MatchId == state.MatchId
                 && frozenControl.AuthorityEpoch == state.AuthorityEpoch
-                && Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits) != state.Match.MovementModel)
+                && (Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits) != state.Match.MovementModel
+                    || (((MatchModifierFlags)frozenControl.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0) != state.Match.RiftlineM7Available))
             {
-                LastError = "The movement model is frozen for this match.";
+                LastError = "The movement model and custom loadout availability are frozen for this match.";
                 return;
             }
             if (ServerMatch is { } match
@@ -198,9 +201,10 @@ namespace MphRead.Mods.Network
                     && !SessionStatePacket.IsNewer(state.Revision, old.Revision)) return;
                 if (state.AuthorityEpoch == old.AuthorityEpoch && state.MatchId == old.MatchId
                     && old.Phase != SessionPhase.Lobby && state.Phase != SessionPhase.Lobby
-                    && state.Match.MovementModel != old.Match.MovementModel)
+                    && (state.Match.MovementModel != old.Match.MovementModel
+                        || state.Match.RiftlineM7Available != old.Match.RiftlineM7Available))
                 {
-                    LastError = "The movement model is frozen for this match.";
+                    LastError = "The movement model and custom loadout availability are frozen for this match.";
                     return;
                 }
             }

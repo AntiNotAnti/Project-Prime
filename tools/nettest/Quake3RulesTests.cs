@@ -52,7 +52,7 @@ internal static class Quake3RulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1 && (byte)MovementModel.Quake3 == 2 && (byte)MovementModel.Traversal == 3, "stable movement enum values");
-        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 69, "protocol69 retains bit16 contract");
+        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 70, "protocol70 retains bit16 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Quake3", "quake3", "QUAKE3", "Quake III" })
@@ -158,7 +158,7 @@ internal static class Quake3RulesTests
             "all independent defined modifier bits structurally survive uint decoding");
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(SessionStatePacket.Protocol28Size), 98304);
         Check(!SessionStatePacket.TryRead(bytes, out _, validateDefinition: false), "mutually exclusive V1 and Q3 movement bits rejected structurally");
-        foreach (uint unknown in new[] { 1u << 18, 1u << 31, 98303u | (1u << 18) })
+        foreach (uint unknown in new[] { 1u << 19, 1u << 31, 98303u | (1u << 19) })
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(SessionStatePacket.Protocol28Size), unknown);
             Check(!SessionStatePacket.TryRead(bytes, out _, validateDefinition: false), "unknown modifier bits rejected before definition validation");
@@ -174,8 +174,8 @@ internal static class Quake3RulesTests
             Configuration = State(Definition(MovementModel.Quake3) with { ThirdPersonCamera = true }) };
         byte[] commandBytes = new byte[LobbyCommandPacket.Size]; command.Write(commandBytes);
         Check(LobbyCommandPacket.TryRead(commandBytes, out var parsed) && parsed.Configuration.Match == command.Configuration.Match, "UpdateMatch command codec carries both high rule bits");
-        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 18);
-        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit18");
+        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 19);
+        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit19");
     }
 
     private static void OldProtocolRefusal()
