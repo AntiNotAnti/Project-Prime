@@ -1,4 +1,4 @@
-#native_quick_settings { width: 88vw; max-width: 820dp; margin: 26dp auto; padding: 26dp;
+#native_quick_settings { position: absolute; left: 6%; right: 6%; top: 16dp; bottom: 16dp; max-width: 820dp; margin: 0 auto; padding: 26dp; overflow-y: auto; overflow-x: hidden; box-sizing: border-box;
     border: 1dp #48768f; background-color: #071626; }
 #native_quick_settings h1 { font-size: 32dp; color: #ebf7ff; margin: 8dp 0 14dp; }
 #native_quick_settings p { color: #a8c5d8; font-size: 15dp; line-height: 21dp; }
@@ -10,5 +10,14 @@
 .native_quick_toolbar { display: flex; flex-wrap: wrap; gap: 8dp; }
 .native_quick_toolbar button { margin-right: 6dp; min-height: 44dp; }
 @media (max-width: 800dp) {
-    #native_quick_settings { width: 96vw; margin: 10dp auto; padding: 12dp; }
+    #native_quick_settings { left: 2%; right: 2%; top: 10dp; bottom: 10dp; padding: 12dp; }
+}
+
+@media (max-height: 600dp) {
+    #native_quick_settings { top: 6dp; bottom: 6dp; padding: 10dp 12dp; }
+    #native_quick_settings h1 { font-size: 24dp; line-height: 27dp; margin: 4dp 0 8dp; }
+    #native_quick_settings p { font-size: 13dp; line-height: 17dp; margin: 6dp 0; }
+    .native_quick_grid { margin-top: 10dp; }
+    .native_quick_grid .play_action { padding: 9dp; margin-bottom: 6dp; }
+    #quick_setting_status { margin: 8dp 0; min-height: 18dp; }
 }

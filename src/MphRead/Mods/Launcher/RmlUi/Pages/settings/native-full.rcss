@@ -158,3 +158,32 @@
 #native_settings_hud, #native_settings_reset_replay { margin:0 0 8dp; padding:8dp 12dp; font-size:12dp; }
 
 #native_settings_form_start { display:block; height:1dp; min-height:1dp; margin:0; padding:0; }
+
+/* Touch controls need a complete hit area inside compact category strips. */
+body.touch-targets #screen .native_settings_sidebar button,
+body.touch-targets #screen .native_settings_subpages button { min-height:48dp; height:auto; }
+@media (max-width:760dp) {
+ body.touch-targets #screen .native_settings_sidebar { height:58dp; min-height:58dp; }
+ body.touch-targets #screen .native_settings_subpages { max-height:58dp; }
+}
+@media (max-height:500dp) {
+ body.touch-targets #screen .native_settings_sidebar { height:58dp; min-height:58dp; }
+ body.touch-targets #screen .native_settings_subpages { max-height:58dp; }
+}
+
+/* Short touch layouts keep categories in a scrollable side rail, leaving the
+   form enough height for an entire 48dp field and the fixed Apply footer. */
+@media (max-height:500dp) {
+    body.touch-targets #screen .native_settings_layout { flex-direction:row; }
+    body.touch-targets #screen .native_settings_sidebar { flex-direction:column; width:128dp; height:auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+    body.touch-targets #screen .native_settings_sidebar button { width:100%; flex-shrink:0; white-space:normal; font-size:11dp; }
+    body.touch-targets #screen .native_settings_panel { display:block; width:auto; padding:8dp; overflow-y:auto; overflow-x:hidden; }
+    body.touch-targets #screen .native_settings_scroller { overflow-y:visible; height:auto; padding-right:0; }
+    body.touch-targets #screen .native_settings_heading { margin-bottom:4dp; }
+    body.touch-targets #screen .native_settings_heading h2 { font-size:18dp; line-height:20dp; }
+    body.touch-targets #screen .native_settings_search { flex-wrap:wrap; }
+    body.touch-targets #screen .native_settings_search input { flex:1; width:60%; }
+    body.touch-targets #screen .native_settings_search button { min-width:0; font-size:10dp; padding:4dp; }
+    body.touch-targets #screen .native_settings_footer { flex-wrap:wrap; }
+    body.touch-targets #screen .native_settings_footer button { flex:1; min-width:0; margin-right:4dp; padding:4dp; white-space:normal; }
+}

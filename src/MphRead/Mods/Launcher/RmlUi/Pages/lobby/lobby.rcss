@@ -621,3 +621,26 @@ min-width: 62dp; font-size: 7dp;
    scrollable rules rail remain clickable through that unused space. */
 #lobby_actions { pointer-events: none; }
 #lobby_actions > button { pointer-events: auto; }
+
+/* Roster rows keep readable content height. Only a genuinely short roster
+   scrolls; flex shrinking must never crush the eight player/team controls. */
+#lobby_roster_panel { overflow-y:auto; overflow-x:hidden; }
+.lobby_roster_row { flex:0 0 auto; min-height:36dp; }
+.lobby_roster_copy b { font-size:12dp; line-height:14dp; max-height:none; white-space:normal; word-break:break-word; }
+.lobby_roster_hunter { font-size:10dp; line-height:12dp; }
+.lobby_roster_state { font-size:9dp; }
+.lobby_team { font-size:10dp; padding:3dp 4dp; margin-top:2dp; }
+#lobby_left_panels .lobby_side_panel { padding:8dp; }
+#lobby_left_panels .lobby_data_row { padding:4dp 0; min-height:24dp; }
+#lobby_left_panels #lobby_map_preview { margin-top:8dp; }
+.lobby_action { min-height:36dp; line-height:32dp; }
+@media (max-width:900dp) {
+    #lobby_actions { left:26%; width:48%; margin-left:0; height:auto; flex-wrap:wrap; }
+    #lobby_actions .lobby_action { flex:1; min-width:40%; margin:2dp; padding:4dp; font-size:11dp; line-height:16dp; }
+    #lobby_left_panels { bottom:80dp; }
+    #lobby_roster_panel { bottom:192dp; }
+    #lobby_chat_panel { bottom:80dp; }
+}
+body.touch-targets .lobby_roster_row { min-height:52dp; }
+body.touch-targets .lobby_chat_compose { height:auto; min-height:48dp; }
+body.touch-targets #lobby_chat_send, body.touch-targets #lobby_chat_input { height:48dp; }
