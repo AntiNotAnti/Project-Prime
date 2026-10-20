@@ -185,3 +185,22 @@ Local ignored receipts live under `artifacts/sh-integration/` in
 `android-character-source-materials-fd82d3137`; predecessor/failure logs are
 retained under their exact source/attempt identities. These contain metadata,
 commands and logs, not source payloads or source-model screenshots.
+
+## Merge identity and integration
+
+[PR884](https://github.com/AntiNotAnti/Project-Prime/pull/884) merged as
+`8f3cd64bb7f2f3d6bc5463417606482f4a19f62b` at2026-10-20T19:02:27Z after the
+scoped qualification above, without waiting for review/CI as authorized.
+The three touched production files and both complete preview/import tool trees
+match frozen fd82 byte-for-byte in this merged tree. Concurrent SRV, UI,
+replay and movement changes advanced main to protocol76; our slice adds no wire
+change. The fd82 Android/Mac whole-binary proof does not qualify those later
+changes. The exact merged tree passed a separate Windows desktop/dedicated Release,
+both tool builds/full source-free suites and character-model check:7/7 commands.
+Both6,231-file source manifests stayed unchanged. Desktop/server each retain
+one inherited CS0649 warning; tool builds have zero warnings. Desktop core
+SHA256 is `afc33ac8` (full hash in the receipt); dedicated core starts `29811b20`.
+The private macOS-arm64 loader checks explicitly skip Windows. This run uses
+no owned media or GL. Metadata, complete hashes, commands, logs and skips are
+in ignored `artifacts/sh-integration/windows-character-material-merged-8f3cd64bb/summary.json`.
+Full source rendering and playable-character work remain unfinished.
