@@ -1570,7 +1570,10 @@ namespace MphRead.Entities
             // final replay run earlier, before this branch becomes active.
             if (_scene.GameState.Multiplayer && _scene.GameState.MatchState == MatchState.Ending)
             {
-                ModDrawPostMatchReport();
+                if (_scene.GameState.MatchTime >= 0)
+                    ModDrawPostMatchReport();
+                else
+                    ModDrawPostMatchHandoff();
                 return;
             }
             DrawRadar();
