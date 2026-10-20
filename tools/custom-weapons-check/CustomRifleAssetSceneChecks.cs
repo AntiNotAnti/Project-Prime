@@ -24,7 +24,6 @@ internal static class CustomRifleAssetSceneChecks
     private static readonly Action<KeyboardState,Keys,bool> Key=typeof(KeyboardState)
         .GetMethod("SetKeyState",Hidden|BindingFlags.Public)!.CreateDelegate<Action<KeyboardState,Keys,bool>>();
     private static readonly FieldInfo Attempted=typeof(Scene).GetField("_customRifleModelAttempted",Hidden)!;
-    private static readonly FieldInfo Used=typeof(Scene).GetField("_usedRenderItems",Hidden)!;
     private static readonly FieldInfo Muzzle=typeof(PlayerEntity).GetField("_muzzlePos",Hidden)!;
     private static readonly FieldInfo Gun=typeof(PlayerEntity).GetField("_gunVec1",Hidden)!;
     private static readonly FieldInfo Aim=typeof(PlayerEntity).GetField("_aimVec",Hidden)!;
@@ -69,22 +68,10 @@ internal static class CustomRifleAssetSceneChecks
             Key(keyboard,Keys.Enter,false);scene.CameraSequences.Current?.End();Step(180);scene.CameraSequences.Current?.End();
             Check(player.Health>0&&player.ModIsInPlay&&scene.CameraMode==CameraMode.Player,"native player spawns without a custom runtime");
             Check(scene.OfflineWeapons==null&&scene.CustomRifleModel==null&&!Tried(scene),"native-only load and fixed steps never attempt original rifle asset loading");
-            int Boxes(CustomRifleModel? model,bool fallback=false)
-            {
-                int count=0;
-                foreach(var item in (Queue<RenderItem>)Used.GetValue(scene)!)
-                {
-                    if(item.Type!=RenderItemType.Box||item.ItemCount!=8)continue;
-                    if(fallback)
-                    {
-                        if(item.OverrideColor==new Vector4(.12f,.8f,.95f,1)||item.OverrideColor==new Vector4(.45f,.65f,.75f,1)
-                            ||item.OverrideColor==new Vector4(.4f,1,.9f,1))count++;
-                    }
-                    else if(model!=null)for(byte material=0;material<6;material++)
-                        if(item.OverrideColor==model.Color(material)){count++;break;}
-                }
-                return count;
-            }
+            var countedCenter=player.Position+Vector3.UnitY;
+            int Boxes(CustomRifleModel? cached,bool fallback=false)=>fallback
+                ?CustomPickupRenderChecks.CountFallback(scene,countedCenter)
+                :cached==null?0:CustomPickupRenderChecks.CountModel(scene,cached,countedCenter,.75f,0);
             // Declared direct presentation seam: a missing cache submits original
             // fallback only; drawing cannot turn into an implicit resource load.
             scene.OnDrawFrame();int fallbackBefore=Boxes(null,true);
@@ -96,6 +83,7 @@ internal static class CustomRifleAssetSceneChecks
             Check(scene.CustomRifleModel==null&&!Tried(scene),"render completion also cannot prewarm a native-only scene");
 
             var runtime=scene.EnableOfflineRifleAvailability(true);var ledger=runtime.Pickups!;
+            countedCenter=ledger.Layout.Placements[0].Position;
             Check(scene.CustomRifleModel==null&&!Tried(scene),"public runtime construction does not hide an asset load inside activation");
             Step();var model=scene.CustomRifleModel;
             Check(model!=null&&Tried(scene)&&model.Lod(0).Length==16,"actual fixed step prewarms the verified16-box LOD0 model before its first draw");
@@ -131,7 +119,7 @@ internal static class CustomRifleAssetSceneChecks
                 var rng=(scene.Random.Rng1,scene.Random.Rng2);var match=(scene.GameState.MatchState,scene.GameState.MatchTime);
                 var muzzle=Muzzle.GetValue(player);var gun=Gun.GetValue(player);var aim=Aim.GetValue(player);
                 var hud=scene.CustomWeaponHud(player);bool owned=runtime.TryPeek(player,out var state,out bool selected);ledger.TryState(0,out var item);
-                scene.OnDrawFrame();Check(Boxes(model)==expected&&Boxes(null,true)==0,"shared pickup submits exactly"+expected+" original LOD0 boxes and no fallback");
+                scene.OnDrawFrame();Check(Boxes(model)==expected&&Boxes(null,true)==0,"shared station submits exactly"+expected+" matching-position LOD0 boxes and no fallback, excluding held rifles");
                 Check(scene.OnRenderFrame(),"original pickup picture renders through actual native GL");
                 if(name!=null)
                 {
@@ -153,9 +141,9 @@ internal static class CustomRifleAssetSceneChecks
                 Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"original asset draw/capture/present has no GL error");
             }
             Draw("original-m7-before-contact",16);for(int i=0;i<12;i++)Draw(null,16);
-            scene.OnDrawFrame();int beforeLod=Boxes(model);
+            scene.OnDrawFrame();int beforeLod=CustomPickupRenderChecks.CountModel(scene,model!,center+Vector3.UnitY,1,1);
             CustomRiflePresentation.Draw(scene,model!,Matrix4.CreateTranslation(center+Vector3.UnitY),1,1);
-            Check(model!.Lod(1).Length==6&&Boxes(model)-beforeLod==6,
+            Check(model!.Lod(1).Length==6&&CustomPickupRenderChecks.CountModel(scene,model,center+Vector3.UnitY,1,1)-beforeLod==6,
                 "declared direct LOD1 presentation seam submits exactly6 original boxes through the same renderer");
             Check(scene.OnRenderFrame(),"native GL renders the original six-box LOD1 submission");
             DesktopGraphicsSession.Present(window);scene.AfterRenderFrame();

@@ -21,3 +21,13 @@ Universal; see LICENSE.txt. This dedication applies only to the original assets
 in this directory, not to Nintendo game files or the repository's program code.
 CW-06a delivers the bounded model resource and pickup use. Viewmodel/rig/audio/
 VFX/animation qualification follows in CW-06; this file does not claim those pass.
+
+`Mods/CustomWeapons/CustomRifleCues.cs` is editable source for four original
+procedural shot, bolt, reload and empty signal designs. Integer triangle-wave
+chirps, shaped transients and fixed sample-index hash noise generate 22050 Hz,
+16-bit mono PCM WAVs of 0.20, 0.12, 0.40 and 0.08 seconds respectively. They use
+no extracted samples, third-party audio, gameplay RNG or simulation clock.
+The original signal designs and their generated audio are also dedicated to
+CC0 1.0 Universal; this does not relicense unrelated program code. Generating
+these assets does not by itself establish playback, scene lifetime, animation,
+mixing or full CW-06 acceptance.

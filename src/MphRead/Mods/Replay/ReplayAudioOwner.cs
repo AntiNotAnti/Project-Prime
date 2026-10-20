@@ -13,6 +13,7 @@ internal static class ReplayAudioOwner
         ? scene.Services.AllowsPresentationSideEffects : ReferenceEquals(_owner, scene);
     internal static ulong Acquire(Scene scene, Scene live)
     {
+        live.StopCustomRifleAudio();_owner?.StopCustomRifleAudio();
         _version++; _owner = scene; _live = live; _backend = Sfx.Instance;
         Mods.Sound.InstagibBeamAudio.StopPlaying();
         _backend?.StopAllSound(); _backend?.SetListenerScene(scene);
@@ -28,5 +29,5 @@ internal static class ReplayAudioOwner
         }
         Reset();
     }
-    internal static void Reset() { _version++; _owner = _live = null; _backend = null; }
+    internal static void Reset() { _owner?.StopCustomRifleAudio();_live?.StopCustomRifleAudio();_version++; _owner = _live = null; _backend = null; }
 }

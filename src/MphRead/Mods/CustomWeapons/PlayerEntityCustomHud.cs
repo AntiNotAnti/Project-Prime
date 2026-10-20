@@ -10,7 +10,7 @@ namespace MphRead.Entities;
 
 public partial class PlayerEntity
 {
-    internal void ModPlayCustomEmptyCue()=>_soundSource.PlayFreeSfx(SfxId.MENU_CANCEL);
+    internal void ModPlayCustomEmptyCue()=>_scene.PlayCustomRifleCue(this,CustomRifleCue.Empty);
     private bool ModDrawCustomAmmo(bool classic)
     {
         var hud=_scene.CustomWeaponHud(this);
@@ -35,7 +35,16 @@ public partial class PlayerEntity
         var feedback=_scene.CustomFeedback(this);
         ReadOnlySpan<char> status=!hud.Ready?"M7 PENDING":feedback.Denied>0?"M7 REFUSED":feedback.Empty>0?"M7 EMPTY":hud.State.Phase==CustomWeaponPhase.Reloading?"M7 RELOADING"
             :hud.State.Magazine==0?"M7 EMPTY":hud.Optic==1?"M7 2.5X":hud.Optic==2?"M7 4X":"M7";
-        if(!profile||style.Icon)DrawText2D(left+2*aspect,top+10,Align.Left,0,status,ink,alpha:Features.HudOpacity,scale:.4f);
+        if(!profile||style.Icon)
+        {
+            // Original flat vector silhouette; no native weapon sprite alias.
+            float ix=left+2*aspect,iy=top+11;var icon=new Vector4(.24f,.9f,1,Features.HudOpacity);
+            _scene.DrawHudFlatBox(ix,iy,ix+5*aspect,iy+2,icon);
+            _scene.DrawHudFlatBox(ix+5*aspect,iy+.5f,ix+9*aspect,iy+1,icon);
+            _scene.DrawHudFlatBox(ix+1*aspect,iy-1,ix+4*aspect,iy-.2f,icon);
+            _scene.DrawHudFlatBox(ix+1*aspect,iy+2,ix+2.5f*aspect,iy+3,icon);
+            DrawText2D(left+13*aspect,top+10,Align.Left,0,status,ink,alpha:Features.HudOpacity,scale:.4f);
+        }
         if((!profile||style.Gauge)&&hud.Ready)
         {
             using var gauge=UseHudLayout(profile&&HudProfiles.Runtime.IndependentGauges?13:-1,left+2*aspect,top+17);
@@ -54,7 +63,7 @@ public partial class PlayerEntity
             _scene.DrawCustomCrosshair(GetCrosshairColor(),x,y,-1,false);
             if(pulse<=0||!HudProfiles.Runtime.Crosshair.Enabled)return;
         }
-        // Generic typed fallback/prediction pulse: no native weapon override.
+        // Original precision reticle: open center, range ticks and cosmetic pulse.
         float cx=x*256,cy=y*192,aspect=HudAspectFix;
         using var layout=UseHudLayout(0,128,96);
         var color=new Vector4(.8f,.95f,1,Features.ReticleOpacity*(customCrosshair?HudProfiles.Runtime.Crosshair.Opacity:1));
@@ -62,5 +71,11 @@ public partial class PlayerEntity
         _scene.DrawHudFlatBox(cx+(2+pulse)*aspect,cy-.5f,cx+(6+pulse)*aspect,cy+.5f,color);
         _scene.DrawHudFlatBox(cx-.5f*aspect,cy-6-pulse,cx+.5f*aspect,cy-2-pulse,color);
         _scene.DrawHudFlatBox(cx-.5f*aspect,cy+2+pulse,cx+.5f*aspect,cy+6+pulse,color);
+        if(!customCrosshair)
+        {
+            _scene.DrawHudFlatBox(cx-.35f*aspect,cy-.35f,cx+.35f*aspect,cy+.35f,color);
+            _scene.DrawHudFlatBox(cx-2*aspect,cy+8,cx+2*aspect,cy+8.5f,color);
+            _scene.DrawHudFlatBox(cx-1*aspect,cy+11,cx+1*aspect,cy+11.5f,color);
+        }
     }
 }
