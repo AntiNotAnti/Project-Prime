@@ -52,16 +52,31 @@ internal static class ViewModelAcceptanceCheck
             try
             {
                 Features.ProHud = false; Features.FixedCrosshair = true; Features.FixedWeapon = true;
+                // These scenarios draw exactly once per simulation step. A saved
+                // unlimited cap otherwise samples the previous scope FOV at alpha
+                // zero despite this fixture never advancing the frame accumulator.
+                FrameTiming.FrameRateCap = FrameTiming.SimulationHz; FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
                 RenderOptions.BrightSkins = false; RenderOptions.AdvancedMaterials = false; RenderOptions.ShowFps = false;
                 var keyboard = SyntheticInput.CreateKeyboard();
                 var setKey = typeof(KeyboardState).GetMethod("SetKeyState", Private | BindingFlags.Public)!
                     .CreateDelegate<Action<KeyboardState, Keys, bool>>();
                 scene = new Scene(window.FramebufferSize, keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { });
+                void ConfigureBattle()
+                {
+                    // Room loading reapplies persisted match rules. Configure
+                    // both resource setup and the actual spawn with native rules.
+                    scene.GameState.Fiesta = scene.GameState.OneInTheChamber = scene.GameState.InstaGib = false;
+                    scene.GameState.LowTier = scene.GameState.NoImperialist = scene.GameState.BalancedMode = false;
+                    scene.GameState.AffinityWeapons = scene.GameState.ThirdPersonCamera = scene.GameState.Teams = false;
+                    scene.GameState.MovementModel = Mods.Movement.MovementModel.Native;
+                    scene.GameState.PointGoal = 0; scene.GameState.MatchTime = -1; scene.GameState.SpawnProtection = false;
+                    scene.GameState.EnhancedHunters = false; scene.GameState.ShadowFreeze = false;
+                }
+                ConfigureBattle();
                 scene.Random.SetRng1(123456); scene.AddPlayer(hunter); scene.AddPlayer(hunter == Hunter.Kanden ? Hunter.Samus : Hunter.Kanden);
                 scene.Players.Items[0].IsBot = false; scene.Players.Items[1].IsBot = true; scene.Players.Items[1].BotLevel = 1;
-                scene.AddRoom(room, GameMode.Battle, playerCount: 2); scene.OnLoad(); scene.OnResize();
-                scene.GameState.PointGoal = 0; scene.GameState.MatchTime = -1; scene.GameState.SpawnProtection = false;
-                scene.GameState.EnhancedHunters = false; scene.GameState.ShadowFreeze = false;
+                scene.AddRoom(room, GameMode.Battle, playerCount: 2);
+                ConfigureBattle(); scene.OnLoad(); scene.OnResize();
                 var target = scene.Players.Main;
                 var oldBindings = target.Controls.All.Select(c => (Control:c, c.Type, c.Key, c.MouseButton)).ToArray();
                 bool oldMouseAim=target.Controls.MouseAim;
@@ -110,20 +125,59 @@ internal static class ViewModelAcceptanceCheck
                 Require(replacement.Segments.Where(s => s.AlbedoBinding.HasValue).Select(s => s.MaterialMaps.Normal).Distinct().Count() >= 1
                     && replacement.Segments.Where(s => s.AlbedoBinding.HasValue).All(s => s.MaterialMaps.Normal != 0), "Normal atlas must upload once for every section.");
                 var equip = typeof(PlayerEntity).GetMethod("TryEquipWeapon", Private)!;
-                void Equip(BeamType beam) { target.EquipInfo.InfiniteAmmo = true; target.AvailableWeapons[beam]=true;
+                void Equip(BeamType beam) {
+                    // Normal weapon switching rejects a lowered idle cannon.
+                    // Raise it through gameplay input before requesting a switch,
+                    // including pose-only runs that skip the animated stages.
+                    for (int i=0;target.GunAnimation == GunAnimation.UpDown && i<60;i++)
+                    {
+                        Input(); Press(target.Controls.MoveRight); scene.OnSimulationFrame(); Present();
+                    }
+                    target.EquipInfo.InfiniteAmmo = true; target.AvailableWeapons[beam]=true;
                     Array.Fill((int[])typeof(PlayerEntity).GetField("_ammo",Private)!.GetValue(target)!,999);
-                    ((AvailableArray)typeof(PlayerEntity).GetField("_availableCharges",Private)!.GetValue(target)!)[beam]=true; Require((bool)equip.Invoke(target, new object[] {beam, false, false})!, "Weapon equip failed."); }
+                    ((AvailableArray)typeof(PlayerEntity).GetField("_availableCharges",Private)!.GetValue(target)!)[beam]=true; Require((bool)equip.Invoke(target, new object[] {beam, false, false})!, $"Weapon equip failed: requested={beam}, current={target.CurrentWeapon}, animation={target.GunAnimation}, health={target.Health}."); }
+                var sampleNativeGun = typeof(PlayerEntity).GetMethod("TryHunterNodeSample", Private)!;
+                var applyNativeGun = typeof(PlayerEntity).GetMethod("ApplyHunterNodePose", Private)!;
+                int[] GunAnimationState() => gun.AnimInfo.Index.Concat(gun.AnimInfo.PrevIndex)
+                    .Concat(gun.AnimInfo.Frame).Concat(gun.AnimInfo.FrameCount).Concat(gun.AnimInfo.Step)
+                    .Concat(gun.AnimInfo.Flags.Select(f => (int)f))
+                    .Concat(new[] { gun.AnimInfo.Node.Slot, gun.AnimInfo.Material.Slot,
+                        gun.AnimInfo.Texture.Slot, gun.AnimInfo.Texcoord.Slot, (int)target.GunAnimation }).ToArray();
                 void Inspect(string label, bool expectedVisible)
                 {
                     var packets = Items(scene,"_nonDecalItems").Concat(Items(scene,"_translucentItems"))
                         .Distinct().Where(p => p.ViewModel && replacement.Segments.Any(s => s.AlbedoBinding.HasValue && s.ListId == p.ListId)).ToArray();
                     int expected = expectedVisible ? replacement.Segments.Count(s => s.AlbedoBinding.HasValue && gun.Model.Nodes[s.NativeNodeIndex].Enabled
                         && gun.Model.NodeParentsEnabled(gun.Model.Nodes[s.NativeNodeIndex])) : 0;
-                    Require(packets.Length == expected, $"{label}: {packets.Length}/{expected} replacement sections submitted.");
+                    Require(packets.Length == expected, $"{label}: {packets.Length}/{expected} replacement sections submitted; health={target.Health}, position={target.Position}, camera={target.CameraType}, animation={target.GunAnimation}, flags2={target.Flags2}, alpha={typeof(PlayerEntity).GetField("_curAlpha",Private)!.GetValue(target)}.");
+                    // Draw restores simulation-owned nodes after submitting a
+                    // fractional pose. Compare against the same native animation
+                    // owner at this picture's time, then prove reference sampling
+                    // restored the canonical matrices and animation state.
+                    var canonicalNodes = gun.Model.Nodes.Select(n => n.Animation).ToArray();
+                    var expectedNodes = canonicalNodes;
+                    var canonicalAnimation = GunAnimationState();
+                    object[] sampleArguments = { gun, default(AnimationSamples.Sample) };
+                    if ((bool)sampleNativeGun.Invoke(target, sampleArguments)!)
+                    {
+                        Require(target.ModGetFirstPersonGunTransform(out var gunTransform), "Native reference gun pose unavailable.");
+                        try
+                        {
+                            applyNativeGun.Invoke(target, new object?[] { gun, gunTransform, sampleArguments[1] });
+                            expectedNodes = gun.Model.Nodes.Select(n => n.Animation).ToArray();
+                        }
+                        finally
+                        {
+                            applyNativeGun.Invoke(target, new object?[] { gun, gunTransform, null });
+                        }
+                        Require(canonicalNodes.SequenceEqual(gun.Model.Nodes.Select(n => n.Animation))
+                            && canonicalAnimation.SequenceEqual(GunAnimationState()),
+                            $"{label}: native reference sampling changed canonical gun state.");
+                    }
                     foreach (var segment in replacement.Segments)
                     {
                         var packet = packets.SingleOrDefault(p => p.ListId == segment.ListId); if (packet == null) continue;
-                        Require(!packet.WeightedSkinning && packet.Transform == gun.Model.Nodes[segment.NativeNodeIndex].Animation,
+                        Require(!packet.WeightedSkinning && packet.Transform == expectedNodes[segment.NativeNodeIndex],
                             $"{label}: stale native rigid transform for {segment.NativeNodeIndex}.");
                         if (segment.DoubleSided) Require(packet.CullingMode == CullingMode.Neither, "Source double-sided weapon surface was culled.");
                         Require(packet.HasTexture && packet.TextureBindingId == segment.GetAlbedo(scene,target.Recolor) && packet.TexcoordMatrix == Matrix4.Identity,
