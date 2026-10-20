@@ -259,6 +259,18 @@ internal sealed class CustomLaunchPayments : IDisposable
             if (ReferenceEquals(entry.Source,source) && entry.Phase is Phase.Emitting or Phase.Flying) return true;
         return false;
     }
+    // Observation only: unlike OwnsFlight this must never advance, expire or
+    // quarantine a payment domain while a viewer baseline is being captured.
+    internal bool TryReadCommittedFlight(CustomShotSource source,uint authorityFrame,out uint began,out uint deadline)
+    {
+        began=deadline=0;
+        if (IsRetired || source==null || Before(authorityFrame,_frame)) return false;
+        foreach (var entry in _entries)
+            if (ReferenceEquals(entry.Source,source) && entry.Phase==Phase.Flying && !entry.EmitterPending
+                && unchecked(authorityFrame-entry.Began)<=entry.FlightDuration)
+            { began=entry.Began; deadline=unchecked(entry.Began+entry.FlightDuration); return true; }
+        return false;
+    }
     internal bool OwnsContact(in ContactLease lease) => Valid(lease);
     internal void RetireOccupant()
     { IsRetired = true; Array.Clear(_entries); }
