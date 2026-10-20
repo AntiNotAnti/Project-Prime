@@ -49,7 +49,7 @@ def summarize(values):
 
 def arm(args, count, root):
     folder = root / f"{count}-servers"
-    folder.mkdir(parents=True, exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier arm.
     rotation = folder / "rotation.txt"
     rotation.write_text(f"{args.room} | Battle | 0 | 999\n")
     env = dict(os.environ)
@@ -244,10 +244,13 @@ def main():
     counts = sorted({int(v) for v in args.instances.split(",") if v.strip()})
     if not counts or counts[0] < 1 or args.seconds < 1 or args.sample_interval <= 0 or args.max_p99_ms <= 0:
         parser.error("instances/seconds/sample-interval must be positive")
-    args.output.mkdir(parents=True, exist_ok=True)
+    args.output.mkdir(parents=True, exist_ok=False)
     args.server_binary_hash = sha256(args.binary)
     args.client_binary_hash = sha256(args.client_binary or args.binary) if args.mode == "active" else None
     results = [arm(args, count, args.output) for count in counts]
+    if sha256(args.binary) != args.server_binary_hash or (args.mode == "active"
+            and sha256(args.client_binary or args.binary) != args.client_binary_hash):
+        raise RuntimeError("server/client published binary changed during the capacity campaign")
     (args.output / "capacity-summary.json").write_text(json.dumps(
         dict(room=args.room, mode=args.mode, arms=results), indent=2) + "\n")
 
