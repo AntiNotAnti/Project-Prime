@@ -81,7 +81,7 @@ public static partial class NetLobbyTest
                 "older state cannot roll back current magazine/equip projection");
             native.LifeId=2;
             Check(NetPlayerLifecycle.AcceptState(native,bootstrap.AuthorityFrame+3),"synthetic genuine next native life precedes control publisher reset");
-            var nextOwner=owner with { Life=2 };
+            var nextOwner=new WeaponOwnerContext(owner.MatchId,owner.AuthorityEpoch,owner.Slot,owner.Generation,2);
             var nextSnapshot=snapshot with { Owner=nextOwner,Tick=101 };
             var nextState=initial with { AuthorityFrame=bootstrap.AuthorityFrame+3,Revision=3,State=nextSnapshot,CommittedSource=101 };
             CustomCombatResults.Write(nextState,state,manifest,definition);
