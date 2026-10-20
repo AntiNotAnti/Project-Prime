@@ -1,0 +1,254 @@
+{
+  "status": "PASS",
+  "intendedDocumentation": "docs/movement/evidence/pr09-current42-compatibility.json",
+  "scope": "Fresh genuine published claim fix on42 main; default Off NCX03 and presentation/Hunter compatibility refresh. Correctness and four verify-only bot parity arms, no new timing, GL/focus or real human UDP cohorts. Original017 live pair and frozenF timing keep their own source leases.",
+  "sourceAndBuild": {
+    "genuineCommitSha": "9c13d4409517410c995282645873c6a9a0c42112",
+    "mainParentSha": "42bac699ee31d74f3d9476026f47b68df86efafc",
+    "fixSourceSha256": {
+      "src/MphRead/Mods/Network/NetHitClaims.Receipts.cs": "6711cbea262f15f94026262773a629ee2d69c82a5458889ae35b311bdf46acd7",
+      "tools/nettest/LifecycleTests.cs": "5017fc76e6f7becc5c20a0ed855f9ea5492be84c98a2e693726c943dbdae3fa6"
+    },
+    "sourceClean": true,
+    "buildExitCode": 0,
+    "buildSeconds": 53.24659059999976,
+    "normalBuildProperties": {
+      "MphReadRmlUiGlSmoke": "ordinary desktop default true",
+      "MphReadReplayPreviewFailureFixture": false
+    },
+    "binarySha256": {
+      "ProjectPrime.dll": "e9a1c554bef375b19c206e93c2acd9035e4534792e01ec797e2fd9c77133bea7",
+      "nettest.dll": "9985c69dfd8abdb53889af82b3bf51b5ff338809b7b3267ceb2c08d55779a995",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    }
+  },
+  "runtimeAndLease": {
+    "binaryAndRuntimeSha256": {
+      "ProjectPrime.dll": "e9a1c554bef375b19c206e93c2acd9035e4534792e01ec797e2fd9c77133bea7",
+      "nettest.dll": "9985c69dfd8abdb53889af82b3bf51b5ff338809b7b3267ceb2c08d55779a995",
+      "ProjectPrime.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097",
+      "nettest.runtimeconfig.json": "c230a317a54dd960bcbeb5f347f52e18dc665a26f7efda2159fced9a5ac7e097"
+    },
+    "sourceFilesStillExact": true,
+    "recordingInputShaVerified": true,
+    "frozenFReferenceShaVerified": true
+  },
+  "normalEnvironment": {
+    "PRIME_COMBAT_FASTPATH": "explicitly unset/Off in normal children",
+    "PRIME_NCX_*": "unset",
+    "PRIME_PRESENTATION_HZ": "unset",
+    "PRIME_BENCHMARK_STEP_SPANS": "unset; no trace spans/captures",
+    "timedProof": "same ordinary default settings; no new timing or authority policy override",
+    "shadowSceneException": "--combat-fast-scene explicitly exercises controlled Off and Shadow internally; no early fast settlement or live UDP acceptance claim"
+  },
+  "focusedCaseCount": 20,
+  "focusedCases": [
+    {
+      "name": "combat-fast-damage",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-fast-decisions",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-fast-scene",
+      "exitCode": 0
+    },
+    {
+      "name": "instagib-ion-fracture",
+      "exitCode": 0
+    },
+    {
+      "name": "lifecycle",
+      "exitCode": 0
+    },
+    {
+      "name": "claim-receipts",
+      "exitCode": 0
+    },
+    {
+      "name": "claim-stress",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-arbitration",
+      "exitCode": 0
+    },
+    {
+      "name": "gold",
+      "exitCode": 0
+    },
+    {
+      "name": "rewind",
+      "exitCode": 0
+    },
+    {
+      "name": "replay-rules",
+      "exitCode": 0
+    },
+    {
+      "name": "combat-evidence",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-combat",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-targets",
+      "exitCode": 0
+    },
+    {
+      "name": "continuous-healing-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "self-prediction",
+      "exitCode": 0
+    },
+    {
+      "name": "timed-campaign-joins",
+      "exitCode": 0
+    },
+    {
+      "name": "protocol58-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "native-replay",
+      "exitCode": 0
+    },
+    {
+      "name": "momentum-replay",
+      "exitCode": 0
+    }
+  ],
+  "observedCounts": {
+    "lifecycleAssertions": 3738,
+    "receiptConstructedChecks": 698,
+    "fastDamageConstructedAssertions": 64,
+    "fastDecisionConstructedChecks": 52,
+    "controlledFastOffShadowAssetAssertions": 313,
+    "instagibAssetFreePolicyAssertions": 415,
+    "nativeGoldTrajectories": 56,
+    "rewindSceneAssertions": 18489,
+    "replayRuleAssertions": 82,
+    "protocolArchiveChecks": 204,
+    "combatArbitrationAssetAssertions": 1157,
+    "continuousCombatAssetAssertions": 667,
+    "continuousHealingPredictionAssertions": 44,
+    "selfPredictionAssertions": 55,
+    "timedCampaignConstructedChecks": 22
+  },
+  "auxiliaryCases": [
+    {
+      "name": "frame-timing",
+      "exitCode": 0
+    },
+    {
+      "name": "hunter-controller-source",
+      "exitCode": 0
+    }
+  ],
+  "hunterSourceControllerObservedPassLines": 119,
+  "frameTimingObservedPassLines": 201,
+  "productionCoreDurablePacketComparators": [
+    {
+      "mode": "native",
+      "exitCode": 0
+    },
+    {
+      "mode": "momentum",
+      "exitCode": 0
+    }
+  ],
+  "fourVerifyOnlyFrozenFParity": [
+    {
+      "map": "PG",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "8067f389ad87ee09dd50e1049e37339e3c9db6b835776482df0cc6d615bd83a9",
+      "priorWorkloadAndStableCounterSha256": "8067f389ad87ee09dd50e1049e37339e3c9db6b835776482df0cc6d615bd83a9",
+      "snapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "priorSnapshotPayloadSha256": "E9F1975B4D18F8382671865453FC564771EC3707CC0E6085670C43A9EE9BBACF",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "PG",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "51200484020027d577dfa64ea735c272ff99c0b0a35093419ed9498b0bb5fe41",
+      "priorWorkloadAndStableCounterSha256": "51200484020027d577dfa64ea735c272ff99c0b0a35093419ed9498b0bb5fe41",
+      "snapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "priorSnapshotPayloadSha256": "CA48950D56C8AEB3DBDEE81AFFA830A45DA691392DCB2575F8615EF3F84180BB",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Native",
+      "workloadAndStableCounterSha256": "615b527438a181add2ff374f45bc4af96ce0242376fafbc83fcfbdf8e33c1996",
+      "priorWorkloadAndStableCounterSha256": "615b527438a181add2ff374f45bc4af96ce0242376fafbc83fcfbdf8e33c1996",
+      "snapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "priorSnapshotPayloadSha256": "0A7D7AD591393A6BC67CA0995164A3EBC7BCB380F21FB3A08ECD9E0E504C14B8",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    },
+    {
+      "map": "SAN",
+      "model": "Momentum",
+      "workloadAndStableCounterSha256": "3033a97a465064faf0dcb6cbfb36752225bd349bd5b03a5c1d4c4f00a1424c3b",
+      "priorWorkloadAndStableCounterSha256": "3033a97a465064faf0dcb6cbfb36752225bd349bd5b03a5c1d4c4f00a1424c3b",
+      "snapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "priorSnapshotPayloadSha256": "C1D1219FA4F972C1A1534AEC95904D35367041DE3BACBD5D0C210795A4AE8AE7",
+      "snapshotPayloadsHashed": 3600,
+      "priorSnapshotPayloadsHashed": 3600
+    }
+  ],
+  "frozenFInputSha256": {
+    "verify-0-Native.json": "a7e1f2a90029747a489ec23d6810b72e87eabf4571e1649d639b841855fd5d8b",
+    "verify-0-Momentum.json": "00f025cd8a85acfb58144ad18fcc21985ed6385935aedbb753ea08c256446ae4",
+    "verify-1-Native.json": "630282f721b52379a18fa772cf5710ad653760649467a898181a045ad51d3117",
+    "verify-1-Momentum.json": "5a5b1b608a911ac084db2fe2cc596dc0dce31105de97ec9f4611c9b874c72303"
+  },
+  "replayInputSha256": {
+    "native-full-01.ppdemo": "b3727f3f340a3eb5435853323e68ae62c7442f7b45327026c4c5c4ad13101258",
+    "momentum-full-01.ppdemo": "7ef6e59192b53487e8882dc5705abe1b3cd4ccfa80c123069a1d76606af5ad0c",
+    "native-full-durable-02/durable.ppdemo": "c1738aa496b503c724eed8d0dbe6d48d96b21aad8bcc24dd8c6b9cd08d136a00",
+    "momentum-full-durable-02/durable.ppdemo": "26f335eafa8bab018844841f72af6ddcdf304be3b0275c9f053e629f7e9e04f8"
+  },
+  "replayScenes": {
+    "Native": {
+      "checks": 85673,
+      "frames": 2982,
+      "digest": "BAE5662C01088E7195A093652563122EAB1B2F6C1E9169D5410BC54FA87618B6",
+      "checkpointCount": 10,
+      "continuedFrames": 2762,
+      "durableFileSeekCount": 6,
+      "comparedReportFieldCount": 22,
+      "allFieldsEqualPreservedWindowsCurrent33": true,
+      "differentFields": []
+    },
+    "Momentum": {
+      "checks": 85586,
+      "frames": 2979,
+      "digest": "C866B47544BB8ADB6775B624237EE7D319C4796719A00E24C7A22B9016EA3A5B",
+      "checkpointCount": 10,
+      "continuedFrames": 2759,
+      "durableFileSeekCount": 6,
+      "comparedReportFieldCount": 22,
+      "allFieldsEqualPreservedWindowsCurrent33": true,
+      "differentFields": []
+    }
+  },
+  "preserved017LivePair": {
+    "artifact": "artifacts/momentum-pr09/claim-life-ordering-evidence-01/sanitized-summary.json",
+    "artifactSha256": "2502da27a08c10bdbb503428d569c8ca4085677cc51cfcdc1583929fd05b3ebb",
+    "sourceBaseSha": "017373d45fd7adbf59c7703b373e65cc25ce464d",
+    "newLiveCohortsRun": 0,
+    "scope": "Existing successful Native/Momentum actual fault pair remains qualified under original017+same two-file fix; not relabeled as current42 capture"
+  },
+  "hostedCiStatus": "NOT_OBSERVED in this task; no hosted CI pass claimed",
+  "ownedWindowsFunctionalLease": "Released after final collection; no owned workers remained; next adaptive fixture may copy current normal Core only into a fresh checkout",
+  "verifyOnlyScope": "All four actual eight-bot3600-step diagnostic arms with1200 warm steps match full published snapshot SHA/count and canonical workload/stable counters against frozenF. claimsReceived0 each; no timing phase, scheduling trace or performance inference."
+}
