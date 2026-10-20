@@ -1,0 +1,1106 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "stage": "final slide-state feedback03, latest main integrated",
+  "baseSha": "f1eabd493bb4a74849f661fa3b40822fce83a66d",
+  "protocol": 76,
+  "quake3ProfileVersion": 4,
+  "traversalProfileVersion": 5,
+  "protocolProfileDefaultChanged": false,
+  "source": {
+    "manifestSha256": "368380a113f9762446c4b65d570e8b98b6d0543349cbf14b575246d58223b9a7",
+    "overlaySha256": "acd0988182dc1a47dd488ee93df350d1b3fd5ad47fab52aeca5b82277f88e05e",
+    "fileCount": 6277,
+    "changedFiles": {
+      "docs/movement/traversal-movement.md": {
+        "sha256": "a5db764d7ce9a6e7f36a626039406c856dc72095887b9b3fbf9f9ad94b68d1ef",
+        "bytes": 10418
+      },
+      "src/MphRead/Entities/Players/PlayerInput.cs": {
+        "sha256": "8c8c3f2b673f0dea47618f0ab454dd2e2262df273ff315e0af2bae1e4d08d049",
+        "bytes": 177577
+      },
+      "src/MphRead/Entities/Players/PlayerSound.cs": {
+        "sha256": "5eca85112f3a89bad11e524f50bbe9ab85f50d07e7a365e0d8f809a3e1055ae6",
+        "bytes": 28130
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalStance.cs": {
+        "sha256": "26b69d3bb7a26e34b0fc01a7ff94706e08f8586af49930f4d41fc14df6388e5f",
+        "bytes": 9772
+      },
+      "src/MphRead/Mods/Launcher/Core/HudEditorController.cs": {
+        "sha256": "52b8e2fbc0a8360996c5f73454c6dd891bc2d739dfda4675d06479c354d86d73",
+        "bytes": 35280
+      },
+      "src/MphRead/Mods/Launcher/Gui/HudStudio/HudStudioCanvas.cs": {
+        "sha256": "3ff4bdc56915fdea3fc5dd128581b1d46d3eae5b8c83030032db6ec08a85eef5",
+        "bytes": 29154
+      },
+      "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs": {
+        "sha256": "218a0dfe94e22716e2cf563073fa1584bc2c29a905d39414273435a6e242833d",
+        "bytes": 19032
+      },
+      "src/MphRead/Mods/Movement/MovementTelemetryHud.cs": {
+        "sha256": "7142d5b1b8dfd0e41bd3e22635b469ec8fdbd88e8891e20082e8ea3f6cbe0ccd",
+        "bytes": 5057
+      },
+      "src/MphRead/Mods/Movement/TraversalSlideFeedback.cs": {
+        "sha256": "23a1a25d33bff067117d52bcde2e5d54bfb3a9b1b79ef6e2dc99be7aea57beb2",
+        "bytes": 623
+      },
+      "src/MphRead/Mods/Render/Hud/HudProfileDefaults.cs": {
+        "sha256": "133d97262d5213728044ff3b91383fb6a6552250c0fcbd2fc8d76914f6943287",
+        "bytes": 3927
+      },
+      "src/MphRead/SceneMomentumMovement.cs": {
+        "sha256": "f860959a65c37e53375bd056406cd0bc6b4421057786f2638a7321a63ce6d316",
+        "bytes": 9804
+      },
+      "tools/hud-check/Program.cs": {
+        "sha256": "7baf366200932e89723f9318d8e403d1b1e8997acd497b9592991f21198c7fdc",
+        "bytes": 16925
+      },
+      "tools/nettest/MovementTelemetryHudTests.cs": {
+        "sha256": "9c74d9ef9af31a7db53976607d8019b1668d8bef01cbfc316d561a57f5e7ff8e",
+        "bytes": 7558
+      },
+      "tools/nettest/TraversalCrouchPoseTests.cs": {
+        "sha256": "b8f2014d436ebc48aef0a7bcd9ce69fbc4d6061bf1706af4646ea686b580a1ae",
+        "bytes": 40093
+      },
+      "tools/nettest/TraversalSceneTests.cs": {
+        "sha256": "8b37dbe0d2d68f4fa07e515a4e54aad3a917276fca4cdf602faaac2178efaac8",
+        "bytes": 26491
+      },
+      "tools/nettest/TraversalSlideFeedbackSceneTests.cs": {
+        "sha256": "a4c7554879eb84db69020f168a833d01f9e752ff5c4748dcadb949a1de2c3783",
+        "bytes": 16270
+      }
+    },
+    "rootRuntimeTestReadback": {
+      "status": "PASS",
+      "runtimeTestMismatches": 0,
+      "otherDeltas": []
+    }
+  },
+  "build": {
+    "production": "fresh full normal Windows Release from frozen feedback03 source; no production/reference reuse",
+    "elapsedSeconds": 58.47,
+    "warnings": 1,
+    "errors": 0,
+    "warning": "unchanged CS0649 NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks",
+    "binaries": {
+      "ProjectPrime.dll": "daa18283111da9d64dcf3ded8d50f4bca8dfa77fa14872b492fc35dff842358b",
+      "nettest.dll": "6f223e54b7ab05a99c58f710d726da4f6fdae28dc55f04b7c39f5b76086eb769"
+    },
+    "sourceBinaryLeaseUnchanged": true
+  },
+  "focusedGates": {
+    "count": 15,
+    "results": [
+      {
+        "name": "lifecycle",
+        "status": "PASS",
+        "result": "PASS: 3793 lifecycle assertions (production code, deterministic seed 8128)"
+      },
+      {
+        "name": "movement-telemetry-hud",
+        "status": "PASS",
+        "result": "Movement telemetry HUD formatting/cache and slide amount PASS (36)"
+      },
+      {
+        "name": "stance-rules",
+        "status": "PASS",
+        "result": "TRAVERSAL STANCE RULES PASS 21656 assertions; asset-free shape and profile contracts"
+      },
+      {
+        "name": "traversal-stance",
+        "status": "PASS",
+        "result": "TRAVERSAL STANCE SCENE PASS 89569 assertions; 0 failed cases",
+        "outerAssertions": 89569
+      },
+      {
+        "name": "replay-owner-track",
+        "status": "PASS",
+        "result": "PASS: 86 owner presentation track assertions; synthetic codec/file/pose validation; asset animation rendering not exercised"
+      },
+      {
+        "name": "replay-director-shots",
+        "status": "PASS",
+        "result": "Replay director shots: PASS 17"
+      },
+      {
+        "name": "replay-context-analysis",
+        "status": "PASS",
+        "result": "PASS: 62 context proof assertions; synthetic semantics/certificates/accepted facts only"
+      },
+      {
+        "name": "replay-owner-scene",
+        "status": "PASS",
+        "result": "PASS: 18 ROM-backed owner draw restoration assertions; headless actual replica, no GL image claim"
+      },
+      {
+        "name": "traversal-scene",
+        "status": "PASS",
+        "result": "TRAVERSAL SCENE PASS 82331 assertions; 0 failed cases",
+        "outerAssertions": 82331
+      },
+      {
+        "name": "ground-slope-rules",
+        "status": "PASS",
+        "result": "GROUND SLOPE PASS 335 assertions; asset-free math only"
+      },
+      {
+        "name": "ground-slope-scene",
+        "status": "PASS",
+        "result": "GROUND SLOPE SCENE PASS 413037 assertions, 0 failed cases",
+        "outerAssertions": 413037
+      },
+      {
+        "name": "native-baseline",
+        "status": "PASS",
+        "result": "NATIVE BASELINE PASS 56 native trajectories; golden source=dc7f097067d755ec76d145fc7cc333068566863d, current=f1eabd493bb4a74849f661fa3b40822fce83a66d, tolerance=1E-05"
+      },
+      {
+        "name": "metadata",
+        "status": "PASS",
+        "result": "Momentum replay metadata: 165 assertions passed."
+      },
+      {
+        "name": "replay-compatibility",
+        "status": "PASS",
+        "result": "Quake 3 replay compatibility: 659 assertions passed."
+      },
+      {
+        "name": "protocol58",
+        "status": "PASS",
+        "result": "PROTOCOL58 REPLAY PASS 932 byte/archive checks; no gameplay or visual acceptance claim."
+      }
+    ]
+  },
+  "feedback": {
+    "status": "PASS",
+    "candidate": "feedback03",
+    "sourceManifestSha256": "368380a113f9762446c4b65d570e8b98b6d0543349cbf14b575246d58223b9a7",
+    "outerStanceChecks": 89569,
+    "outerFailures": [],
+    "feedbackChecks": 8932,
+    "perHunter": [
+      {
+        "hunter": "Samus",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 3540.1343,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Kanden",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 3,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 0,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Spire",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 2,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 6110.425,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Noxus",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 2654.4092,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Trace",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 0,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Sylux",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 2122.8792,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      },
+      {
+        "hunter": "Weavel",
+        "checks": 1276,
+        "scenarios": [
+          {
+            "scenario": "release",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": true,
+            "airborneTicks": 0,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "jump-noncontact",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 60,
+            "nativeOwnershipTicks": 0,
+            "finalAmount": 0,
+            "finalAltForm": false,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          },
+          {
+            "scenario": "native-form",
+            "selectedId": 32768,
+            "fallback": true,
+            "walkingRequests": 1,
+            "positiveSlideTicks": 24,
+            "maximumAmount": 10837.488,
+            "clockRngProbe": false,
+            "airborneTicks": 57,
+            "nativeOwnershipTicks": 120,
+            "finalAmount": 0,
+            "finalAltForm": true,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true,
+            "finalAmountOwner": "native alternate form; Traversal fallback ownership cleared"
+          },
+          {
+            "scenario": "stance-reset",
+            "selectedId": 32768,
+            "fallback": true,
+            "maximumAmount": 10837.488,
+            "actualSupportedSlideTicks": 24,
+            "selectedFallbackStoppedOnOriginalSource": true,
+            "trackedFallbackCleared": true
+          }
+        ]
+      }
+    ],
+    "rawStanceSha256": "ecdf79a85e6d04a6c2413225256d2505fa4c05188851d6575e964d958fc96185",
+    "scope": "Windows actual W32 then fresh Ctrl24 input/collision/native audio request routing with counting silent backend. Strict source-targeted stop and RNG/timer probes; no acoustic/device claim."
+  },
+  "hudAndAudioTools": {
+    "scope": "neutral HUD/editor/headless Avalonia UI and device-free audio ownership/lifetime contracts; no native RmlUi ABI or acoustic acceptance",
+    "status": "PASS",
+    "tests": [
+      {
+        "name": "hud-check",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "toolSha256": "f4897508a3a1fd29e8f41ec9113be4cc651ea19f75cbadc6e544d8046262b3cb"
+      },
+      {
+        "name": "hud-controller-check",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "toolSha256": "b84062bc5d354adc3e954547574044c662f30ecaabd1d29ac83aa069a255fe7e"
+      },
+      {
+        "name": "hud-ui-check",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "toolSha256": "fd15607a608c4db0f6d77d18f6f8d775ef7b8533a2f3b5f2a29b57ecd0525d06"
+      },
+      {
+        "name": "audio-check",
+        "buildExitCode": 0,
+        "exitCode": 0,
+        "toolSha256": "4a6a4b29d819427d6bf9100df87812765ec2dc35389ed49aac8fa551b0345bda"
+      }
+    ],
+    "hudAssertions": 997,
+    "hudTraversalAllocatedBytes": 0,
+    "controllerChecks": 44,
+    "headlessUiChecks": 100,
+    "timelineScrubViewportChecks": "PASS",
+    "audioLifecycleAssertions": 752,
+    "audioMixerCycles": 120,
+    "audioWorkerCloseCycles": 120,
+    "audioHeadlessCycles": 120,
+    "audioFailureCloseProbes": 7,
+    "audioFailedAllocationRecycleCases": 10000,
+    "audioScope": "device-free native request routing and lifetime/ownership/failure-close quarantine contracts; no physical-device or acoustic acceptance",
+    "headlessUiPngSha256": {
+      "hud-1280x720.png": "f5556af7e368c275bc393c23caf3f1ad980b8c2026f6105b7678ae3067b02b42",
+      "hud-420x900.png": "19ab2293fd545e3af240b50e7a464b0dec24580e3c770f8379372da2bf002d95",
+      "hud-960x600.png": "d1a29413a67e274430629eee1bc3d85d5b077ff54d065ad49b338cc2b5a01518"
+    },
+    "headlessUiPngArchiveSha256": "ed85b499245fb91e1fe078db33c018ff6a9f9caa0741149aa36d090aab1b0f81",
+    "rootVisualReadback": "Windows headless Avalonia960x600 and420x900 originals inspected; all3 HORIZ/TOTAL/AIR EFF lines withinplate, no clipping",
+    "sharedTelemetryEditorHeight": 24
+  },
+  "freshCohorts": [
+    {
+      "model": "Quake3",
+      "status": "PASS",
+      "scope": "fresh40-second Windows authority plus two independent human owner processes and one native authority AI bot; actual recorded-world replay",
+      "processResults": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "finalProcessResults": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "worker": "owner0",
+          "checks": 23844,
+          "ticks": 2401,
+          "profileVersion": 4,
+          "model": "Quake3",
+          "requireLowTravelActivation": false,
+          "ownerVisualWalkTicks": 0,
+          "ownerVisualSlideTicks": 0,
+          "ownerPhysicalSlideTicks": 0,
+          "remoteVisualWalkTicks": 0,
+          "remoteVisualSlideTicks": 0,
+          "ownerCrouchHeldTicks": 0,
+          "ownerCrouchedTicks": 0,
+          "ownerStandingTicks": 0,
+          "ownerStanceChanges": 0,
+          "ownerCanonicalCrouchedSnapshots": 0,
+          "remoteCanonicalCrouchedSnapshots": 0,
+          "remoteCrouchedPoseChecks": 0,
+          "recordedFrames": 2400,
+          "peakHumans": 2,
+          "peakBots": 1,
+          "botPuppetSamples": 2401,
+          "humanPuppetSamples": 2401
+        },
+        {
+          "worker": "owner1",
+          "checks": 25896,
+          "ticks": 2401,
+          "profileVersion": 4,
+          "model": "Quake3",
+          "requireLowTravelActivation": false,
+          "ownerVisualWalkTicks": 0,
+          "ownerVisualSlideTicks": 0,
+          "ownerPhysicalSlideTicks": 0,
+          "remoteVisualWalkTicks": 0,
+          "remoteVisualSlideTicks": 0,
+          "ownerCrouchHeldTicks": 0,
+          "ownerCrouchedTicks": 0,
+          "ownerStandingTicks": 0,
+          "ownerStanceChanges": 0,
+          "ownerCanonicalCrouchedSnapshots": 0,
+          "remoteCanonicalCrouchedSnapshots": 0,
+          "remoteCrouchedPoseChecks": 0,
+          "recordedFrames": null,
+          "peakHumans": 2,
+          "peakBots": 1,
+          "botPuppetSamples": 2401,
+          "humanPuppetSamples": 2401
+        }
+      ],
+      "archiveSha256": "1c8d38c16c46d607c09d7123ca22273ceba6d91093f77afc13d9e404ba70b285",
+      "archiveUnchangedByReplay": true,
+      "generalReplay": {
+        "checks": 79790,
+        "frames": 2400,
+        "recordedProtocol": 76,
+        "recordedProfileVersion": 4,
+        "firstFrame": 0,
+        "lastFrame": 2400,
+        "gameplayPresentationDigest": "1745ACCCC2B6A3D7B95855EEF1768C154EC789001DA75EBF7C5B0388E159C7D6",
+        "snapshotPoseChecks": 6842,
+        "snapshotStanceChecks": 0,
+        "crouchedFrames": 0,
+        "standingFrames": 0,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 3,
+        "stanceArchive": false
+      }
+    },
+    {
+      "model": "Traversal",
+      "status": "PASS",
+      "scope": "fresh40-second Windows authority plus two independent human owner processes and one native authority AI bot; actual recorded-world replay",
+      "processResults": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "finalProcessResults": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "owners": [
+        {
+          "worker": "owner0",
+          "checks": 29834,
+          "ticks": 2401,
+          "profileVersion": 5,
+          "model": "Traversal",
+          "requireLowTravelActivation": true,
+          "ownerVisualWalkTicks": 19,
+          "ownerVisualSlideTicks": 23,
+          "ownerPhysicalSlideTicks": 21,
+          "remoteVisualWalkTicks": 210,
+          "remoteVisualSlideTicks": 420,
+          "ownerCrouchHeldTicks": 941,
+          "ownerCrouchedTicks": 598,
+          "ownerStandingTicks": 1374,
+          "ownerStanceChanges": 12,
+          "ownerCanonicalCrouchedSnapshots": 573,
+          "remoteCanonicalCrouchedSnapshots": 805,
+          "remoteCrouchedPoseChecks": 840,
+          "recordedFrames": 2400,
+          "peakHumans": 2,
+          "peakBots": 1,
+          "botPuppetSamples": 2401,
+          "humanPuppetSamples": 2401
+        },
+        {
+          "worker": "owner1",
+          "checks": 31253,
+          "ticks": 2401,
+          "profileVersion": 5,
+          "model": "Traversal",
+          "requireLowTravelActivation": true,
+          "ownerVisualWalkTicks": 474,
+          "ownerVisualSlideTicks": 118,
+          "ownerPhysicalSlideTicks": 108,
+          "remoteVisualWalkTicks": 564,
+          "remoteVisualSlideTicks": 35,
+          "ownerCrouchHeldTicks": 941,
+          "ownerCrouchedTicks": 841,
+          "ownerStandingTicks": 1560,
+          "ownerStanceChanges": 19,
+          "ownerCanonicalCrouchedSnapshots": 827,
+          "remoteCanonicalCrouchedSnapshots": 586,
+          "remoteCrouchedPoseChecks": 596,
+          "recordedFrames": null,
+          "peakHumans": 2,
+          "peakBots": 1,
+          "botPuppetSamples": 2401,
+          "humanPuppetSamples": 2401
+        }
+      ],
+      "archiveSha256": "defdaaceeff1f43fecdb8ef67a5da04fd55b7f731c4981f8b0adfea72234ff32",
+      "archiveUnchangedByReplay": true,
+      "generalReplay": {
+        "checks": 121298,
+        "frames": 2400,
+        "recordedProtocol": 76,
+        "recordedProfileVersion": 5,
+        "firstFrame": 0,
+        "lastFrame": 2400,
+        "gameplayPresentationDigest": "1E57C5FA72C2B813D7634E2069DE4014198FFCC6703A41965232DF001B729546",
+        "snapshotPoseChecks": 6841,
+        "snapshotStanceChecks": 6841,
+        "crouchedFrames": 940,
+        "standingFrames": 1460,
+        "minimumRecordedPlayers": 2,
+        "maximumRecordedPlayers": 3,
+        "stanceArchive": true,
+        "presentationObservations": {
+          "crouched": 1436,
+          "walking": 780,
+          "sliding": 455,
+          "sampled": 3,
+          "supported": 1322,
+          "moving": 1405,
+          "walkingClip": 1238,
+          "eligible": 1436,
+          "inferredGlide": 423,
+          "qualifying": 1172,
+          "requireActiveTravel": false
+        },
+        "presentationAssertions": 6443
+      },
+      "strictReplay": {
+        "status": "PASS",
+        "presentationObservations": {
+          "crouched": 1436,
+          "walking": 780,
+          "sliding": 455,
+          "sampled": 3,
+          "supported": 1322,
+          "moving": 1405,
+          "walkingClip": 1238,
+          "eligible": 1436,
+          "inferredGlide": 423,
+          "qualifying": 1172,
+          "requireActiveTravel": true
+        },
+        "presentationAssertions": 6444
+      }
+    }
+  ],
+  "historicalArchives": [
+    {
+      "status": "PASS",
+      "archiveSha256": "9562096bafcce58babcad9e376568526984585ce152a8594218998464782ed26",
+      "archiveByteHashUnchanged": true,
+      "checks": 80101,
+      "frames": 2399,
+      "recordedProtocol": 61,
+      "recordedProfileVersion": 1,
+      "gameplayPresentationDigest": "F7857D0527E01CB5E84E5DE1A00E4891D54C867857C6FA50A4CBA4556FED9CA7",
+      "snapshotPoseChecks": 7017,
+      "snapshotStanceChecks": 0,
+      "crouchedFrames": 0,
+      "standingFrames": 0,
+      "stanceArchive": false
+    },
+    {
+      "status": "PASS",
+      "archiveSha256": "83403812a6d4b6917761d7988d3d919da3f4ede7736bd15092602c8091556071",
+      "archiveByteHashUnchanged": true,
+      "checks": 80101,
+      "frames": 2399,
+      "recordedProtocol": 62,
+      "recordedProfileVersion": 2,
+      "gameplayPresentationDigest": "46F7E4DC02A6ADC624E9F9CC822AF31BDE4C9C9C9BA3E17823EF50867B687DDB",
+      "snapshotPoseChecks": 7017,
+      "snapshotStanceChecks": 0,
+      "crouchedFrames": 0,
+      "standingFrames": 0,
+      "stanceArchive": false
+    },
+    {
+      "status": "PASS",
+      "archiveSha256": "0c81189d5793974af3a736fed70c2f2a5ff620fa08653ede9a905d2f00bfc968",
+      "archiveByteHashUnchanged": true,
+      "checks": 87551,
+      "frames": 2400,
+      "recordedProtocol": 68,
+      "recordedProfileVersion": 1,
+      "gameplayPresentationDigest": "F71C2E6DFFDAAA8AE7A2C2C5421F0B359DD569EDAEF49820BA08C823F0916B54",
+      "snapshotPoseChecks": 7200,
+      "snapshotStanceChecks": 0,
+      "crouchedFrames": 0,
+      "standingFrames": 0,
+      "stanceArchive": false
+    },
+    {
+      "status": "PASS",
+      "archiveSha256": "e5c68d47c4aed0d9edc209952b80968642b83f9cadcbf29f2e1f533e3dee97c6",
+      "archiveByteHashUnchanged": true,
+      "checks": 120156,
+      "frames": 2400,
+      "recordedProtocol": 69,
+      "recordedProfileVersion": 2,
+      "gameplayPresentationDigest": "AAAD7F6E82F13082DD7C63759D89A07027F8C9764A76160EFFAD6811F62E202C",
+      "snapshotPoseChecks": 7200,
+      "snapshotStanceChecks": 7200,
+      "crouchedFrames": 405,
+      "standingFrames": 1995,
+      "stanceArchive": true
+    },
+    {
+      "status": "PASS",
+      "archiveSha256": "fd6d21c75f3fade0b1b0f568401d52b0b8072dc3192354882777e13231cf12fb",
+      "archiveByteHashUnchanged": true,
+      "checks": 119933,
+      "frames": 2400,
+      "recordedProtocol": 71,
+      "recordedProfileVersion": 3,
+      "gameplayPresentationDigest": "B858586471FC6BC405AB4FD7A01D097B241B6544249B7A66A47A5D11EDE9F0A7",
+      "snapshotPoseChecks": 7200,
+      "snapshotStanceChecks": 7200,
+      "crouchedFrames": 400,
+      "standingFrames": 2000,
+      "stanceArchive": true
+    },
+    {
+      "status": "PASS",
+      "archiveSha256": "d038adf03fd285d297e84eeb8288ee8fa0e9fb127b7a96e5d34afccf87292a35",
+      "archiveByteHashUnchanged": true,
+      "checks": 120105,
+      "frames": 2400,
+      "recordedProtocol": 74,
+      "recordedProfileVersion": 4,
+      "gameplayPresentationDigest": "56CFCC0DC67045EC6960EE14A5438A13BEDC1C9D18695FBD66A8C25F158198DD",
+      "snapshotPoseChecks": 7200,
+      "snapshotStanceChecks": 7200,
+      "crouchedFrames": 401,
+      "standingFrames": 1999,
+      "stanceArchive": true
+    }
+  ],
+  "protocol58": {
+    "status": "PASS",
+    "checks": 932,
+    "scope": "actual byte/archive compatibility harness"
+  },
+  "retainedBodyNativeGL": {
+    "producer": "PR3 crouch-footwork candidate07 native renderer on candidate04 production; prior acceptance only",
+    "scope": "selected procedural pose/gait generator and native render helper source byte equality; no current-feedback-binary GL execution claim",
+    "selectedUnchangedSourceFiles": {
+      "src/MphRead/Entities/Players/PlayerTraversalGait.cs": {
+        "sha256": "aa55d8f4773bd132a7970d0934f2e6e66e61fece85e0d814cc0943a5dcc19433",
+        "bytes": 2485
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPose.cs": {
+        "sha256": "1ab5cfb11f6cc83d47f426aa78da5789815ecf4de494328c193753c78775ca60",
+        "bytes": 15912
+      },
+      "src/MphRead/Entities/Players/PlayerTraversalPresentation.cs": {
+        "sha256": "ef33db2ebcd7cc6b76d1eca86ef2ee5a91a26a5309b217cc97ef0e48b813e583",
+        "bytes": 6454
+      },
+      "src/MphRead/Mods/Movement/TraversalWalkPresentation.cs": {
+        "sha256": "ddd326a9f0523c3086e67edd5451485aba43bff946c008e375b2ead121946d64",
+        "bytes": 4366
+      },
+      "src/MphRead/Mods/Movement/TraversalSlidePresentation.cs": {
+        "sha256": "11f7d4337f4e5a384e102d5c8ad7837172fa5cf6ef767408d9b9ef860768def4",
+        "bytes": 4986
+      },
+      "tools/native-render-check/TraversalGaitRenderCheck.cs": {
+        "sha256": "6f720e45c611f9f5f0fdf9d254fef4ca62f8464e10aec32cc8a29de7f1eafc4e",
+        "bytes": 8777
+      }
+    },
+    "sourceManifestSha256": "a157724d64ed0eed9b5ba4beb0cf3b2c5e4a57f974ff56e5d74a2742fd4c3c19",
+    "productionCoreSha256": "e51953526563ae049e64314e4d8b621b18fb72908ec5e4d860462dd7c2d5f5bb",
+    "nativeRenderToolSha256": "77da0845a6453c0e52b322efe92242dfbc3bd7cdce0e7e31e24ca40c12621a24",
+    "pngZipSha256": "4ea20897677d4f9393473bdfa4d6ebbb6240cb32c294d86e87784b14fa0946f0",
+    "evidenceSha256": "31c19aacee2fbd7ee9a0db1ceaceb7c461855ef5a789e27cb627c6813c2ff388",
+    "captureGroups": 28,
+    "pngs": 84,
+    "exactRgbRepeatGroups": 28,
+    "positiveBodyHiddenGroups": 28,
+    "unstablePixels": 0,
+    "priorEvidenceInspected": true
+  },
+  "candidateHistory": {
+    "feedback01": "normal build/pure gates passed; all7 native backend cue assertions failed because MetalSlide=-1",
+    "feedback02": "test-only diagnostic on exact01production; same cue assertion failed; native MetalRoll32768 available; requests empty; full logs/source/evidence retained",
+    "feedback03": "fresh full normal build after native Roll fallback plus targeted stop/reset cleanup and latest-mainf1eabd integration; all planned checks passed"
+  },
+  "preservedFailedEvidence": [
+    {
+      "candidate": "01",
+      "evidenceSha256": "80c9b0ed8897a518a5669bf55bb2ede5d0d70bdf98d3c23adec22b8dd06bbfb9"
+    },
+    {
+      "candidate": "02",
+      "evidenceSha256": "03cdbd1473d53c0df088b39525b33546c3657a1a055f8fbe3487fe23a46c0469"
+    }
+  ],
+  "cleanup": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTaskCount": 0,
+    "frozenSourceBinaryLeaseUnchanged": true,
+    "freeBytes": 4127621120,
+    "currentNativeRmlUiBridgePresent": false,
+    "nativeGameHudGlRun": false,
+    "headlessHudUiPngsPreserved": true,
+    "freeBytesAtArchiveClose": 3363983360
+  },
+  "reproducibleOutputCleanupReceipts": [
+    {
+      "name": "cleanup-reproducible-outputs01.json",
+      "sha256": "ad8e6cdc58899431b83914a5e84e5f0f332abfb3eef15e7d67ec70a1c33193e5",
+      "removedDirectoryCount": 16,
+      "removedBytes": 2902455386,
+      "freeBytesAfter": 4092239872,
+      "scope": "owned completed reproducible bin/obj only; source/assets/raw logs/PNGs/archives/evidence preserved",
+      "retainedBinariesUnchanged": true
+    },
+    {
+      "name": "slide-state-feedback-cleanup02.json",
+      "sha256": "941a0ddf986417981f750d2462f1ed266ad8a0e3b3d50980b2a812cd8f7090b8",
+      "removedDirectoryCount": 16,
+      "removedBytes": 2903453150,
+      "freeBytesAfter": 4563976192,
+      "scope": "owned completed reproducible bin/obj only; source/assets/raw logs/PNGs/archives/evidence preserved",
+      "retainedBinariesUnchanged": true
+    },
+    {
+      "name": "slide-state-feedback-cleanup03.json",
+      "sha256": "a60a7f0adf22ee719b89c3e5ed42fdc54896451af3c4d1947b94012bb1fedc12",
+      "removedDirectoryCount": 16,
+      "removedBytes": 2902690876,
+      "freeBytesAfter": 5581279232,
+      "scope": "owned completed reproducible bin/obj only; source/assets/raw logs/PNGs/archives/evidence preserved",
+      "retainedBinariesUnchanged": true
+    }
+  ],
+  "sourceBinaryLeaseUnchanged": true,
+  "evidence": {
+    "evidenceSha256": "cf846b85f4d8166d6b88273cf272733eda2c49efbda54b24d14c356e6bb2f6d1",
+    "bytes": 4148808,
+    "fileCount": 78,
+    "sourceManifestSha256": "368380a113f9762446c4b65d570e8b98b6d0543349cbf14b575246d58223b9a7",
+    "binaries": {
+      "ProjectPrime.dll": "daa18283111da9d64dcf3ded8d50f4bca8dfa77fa14872b492fc35dff842358b",
+      "nettest.dll": "6f223e54b7ab05a99c58f710d726da4f6fdae28dc55f04b7c39f5b76086eb769"
+    },
+    "sourceBinaryLeaseUnchanged": true,
+    "freeBytes": 3363983360
+  },
+  "limits": [
+    "Windows CPU/native request and real UDP/replay acceptance; no physical-device, acoustic or performance acceptance",
+    "HUD images are shared Windows Avalonia headless editor; current native RmlUi bridge unavailable and no native game HUD GL run",
+    "Retained nativeGL body evidence belongs to prior PR3 candidate07/production04; selected body generator/helper source bytes are identical; current feedback binary was not relabeled as GL-tested",
+    "Raw assets, network endpoints, raw PNGs and absolute internal paths excluded from this selection"
+  ]
+}

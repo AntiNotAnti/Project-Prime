@@ -12,19 +12,29 @@ namespace MphRead.Mods.Movement;
 
 // Presentation-only values from the local solver. Negative efficiency means
 // no air wish input (or no applicable acceleration measurement) this tick.
-internal readonly record struct MovementTelemetrySample(float Speed, float StrafeEfficiency, bool Airborne);
+internal readonly record struct MovementTelemetrySample(float Speed, float StrafeEfficiency, bool Airborne,
+    float TotalSpeed = float.NaN, bool Grounded = false, bool Crouched = false, bool Sliding = false)
+{
+    // Completed physical contact replaces the incoming solver contact phase.
+    internal static MovementTelemetrySample Completed(float speed, float totalSpeed, float strafeEfficiency,
+        bool grounded, bool crouched, bool sliding)
+        => new(speed, grounded ? -1 : strafeEfficiency, !grounded, totalSpeed, grounded, crouched, sliding);
+}
 
 internal static class MovementTelemetryHud
 {
     private static readonly ConditionalWeakTable<Scene, FontState> Fonts = new();
 
-    internal static (string Speed, string Efficiency) Format(MovementTelemetrySample sample)
+    internal static (string Speed, string Efficiency, string Details) Format(MovementTelemetrySample sample)
     {
         string speed = float.IsFinite(sample.Speed) && sample.Speed >= 0
             ? sample.Speed.ToString("0.0", CultureInfo.InvariantCulture) : "--";
         string efficiency = sample.Airborne && float.IsFinite(sample.StrafeEfficiency) && sample.StrafeEfficiency >= 0
             ? (Math.Clamp(sample.StrafeEfficiency, 0, 1) * 100).ToString("0", CultureInfo.InvariantCulture) + "%" : "--";
-        return ("SPEED " + speed + " U/S", "AIR EFF " + efficiency);
+        string total = float.IsFinite(sample.TotalSpeed) && sample.TotalSpeed >= 0
+            ? sample.TotalSpeed.ToString("0.0", CultureInfo.InvariantCulture) : "--";
+        string state = !sample.Grounded ? "AIR" : sample.Sliding ? "SLIDING" : sample.Crouched ? "CROUCH" : "GROUND";
+        return ("HORIZ " + speed + " U/S", "AIR EFF " + efficiency, "TOTAL " + total + " U/S | " + state);
     }
 
     internal static void Draw(Scene scene)
@@ -42,17 +52,18 @@ internal static class MovementTelemetryHud
             player.HudElementVisible(HudProfileDefaults.MovementTelemetryIndex));
         FontState state = Fonts.GetValue(scene, owner => new FontState(owner));
         var lines = state.Lines.Get(sample);
-        scene.DrawHudFlatBox(78, 166, 178, 182, new Vector4(.02f, .07f, .11f, .65f));
+        scene.DrawHudFlatBox(78, 166, 178, 166 + HudProfileDefaults.MovementTelemetryHeight, new Vector4(.02f, .07f, .11f, .65f));
         state.Text(scene, 82, 168, lines.Speed);
-        state.Text(scene, 82, 175, lines.Efficiency);
+        state.Text(scene, 82, 175, lines.Details);
+        state.Text(scene, 82, 182, lines.Efficiency);
     }
 
     // Caches only presentation text; render frequency cannot advance telemetry.
     internal sealed class TextCache
     {
         private MovementTelemetrySample? _source;
-        private (string Speed, string Efficiency) _lines;
-        internal (string Speed, string Efficiency) Get(MovementTelemetrySample sample)
+        private (string Speed, string Efficiency, string Details) _lines;
+        internal (string Speed, string Efficiency, string Details) Get(MovementTelemetrySample sample)
         {
             if (_source is not { } source || source != sample)
             {
