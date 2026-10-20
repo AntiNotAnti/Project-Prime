@@ -166,8 +166,7 @@ namespace MphRead.Mods.Render
             TextureAssetClass assetClass, TextureAssetChannel channel,
             int width, int height, GpuTextureCompressionFormat format)
         {
-            int maxLevels = 1;
-            for (int dim = Math.Max(width, height); dim > 1; dim >>= 1) maxLevels++;
+            int maxLevels = GpuCompressedTextureMath.MipLevelCount(width, height);
             if (texture->NumLevels == 0 || texture->NumLevels > maxLevels)
                 throw new InvalidDataException("KTX2 has an invalid compressed mip count.");
             var mips = new List<CompressedTextureMip>((int)texture->NumLevels);
@@ -175,7 +174,7 @@ namespace MphRead.Mods.Render
             {
                 int w = Math.Max(1, width >> (int)level);
                 int h = Math.Max(1, height >> (int)level);
-                int size = checked(((w + 3) / 4) * ((h + 3) / 4) * 16);
+                int size = GpuCompressedTextureMath.LevelBytes(w, h);
                 Ktx2.ErrorCode error = Ktx2.GetImageOffset(texture, level, 0, 0, out nuint offset);
                 nuint available = Ktx2.GetImageSize(texture, level);
                 if (error != Ktx2.ErrorCode.Success || available < (nuint)size

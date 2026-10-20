@@ -21,7 +21,7 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
         for (int i = 0; i < mips.Length; i++)
         {
             int expectedW = Math.Max(1, Width >> i), expectedH = Math.Max(1, Height >> i);
-            int expectedSize = checked(((expectedW + 3) / 4) * ((expectedH + 3) / 4) * 16);
+            int expectedSize = GpuCompressedTextureMath.LevelBytes(expectedW, expectedH);
             if (mips[i].Width != expectedW || mips[i].Height != expectedH
                 || mips[i].Data == null || mips[i].Data.Length != expectedSize)
                 throw new ArgumentException("Compressed texture mip chain is malformed.", nameof(mips));

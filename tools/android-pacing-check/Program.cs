@@ -153,4 +153,18 @@ Check(AndroidAudioRatePolicy.Select(32728, 0, true) == 32728
 Check(AndroidAudioRatePolicy.BufferPeriodMs(192, 48000) == 4,
     "192-frame device burst at 48 kHz is 4ms");
 
+Check(MphRead.Mods.Render.GpuCompressedTextureMath.LevelBytes(1, 1) == 16
+    && MphRead.Mods.Render.GpuCompressedTextureMath.LevelBytes(4, 4) == 16
+    && MphRead.Mods.Render.GpuCompressedTextureMath.LevelBytes(5, 4) == 32
+    && MphRead.Mods.Render.GpuCompressedTextureMath.LevelBytes(7, 9) == 96,
+    "ETC2/ASTC 4x4 compressed block sizes are byte-exact");
+Check(MphRead.Mods.Render.GpuCompressedTextureMath.MipLevelCount(1, 1) == 1
+    && MphRead.Mods.Render.GpuCompressedTextureMath.MipLevelCount(8, 4) == 4
+    && MphRead.Mods.Render.GpuCompressedTextureMath.MipLevelCount(8192, 8192) == 14,
+    "compressed texture mip bounds follow the largest axis");
+bool invalidCompressedDimension = false;
+try { MphRead.Mods.Render.GpuCompressedTextureMath.LevelBytes(0, 8); }
+catch (ArgumentOutOfRangeException) { invalidCompressedDimension = true; }
+Check(invalidCompressedDimension, "compressed GPU texture rejects zero dimensions");
+
 return failures == 0 ? 0 : 1;
