@@ -2600,6 +2600,7 @@ namespace MphRead
                     // real player aim. Any movement arriving after this point is
                     // presentation-only until the following simulation step.
                     ModCommitLateAim();
+                    if(!Mods.Network.NetSession.Active)SampleCustomWeaponInput(!noPlayerInput);
                     Mods.Network.NetHooks.AfterInput(this);
                     sourceControlsCompleted = true;
                 }

@@ -69,7 +69,12 @@ namespace MphRead.Mods.Input
         /// </summary>
         SaveClip,
         /// <summary>Optional dedicated crouch and slide input.</summary>
-        Crouch
+        Crouch,
+
+        // Gameplay-only opt-in controls. Keep every saved native/replay ID.
+        CustomWeapon,
+        CustomReload,
+        CustomOptic
     }
 
 }

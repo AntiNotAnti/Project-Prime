@@ -589,6 +589,9 @@ namespace MphRead.Mods.Network
                 // players that was losing enough of them to leave visible
                 // gaps in everyone's position stream.
                 Mods.KillCam.FilterInput(scene);
+                // Native lifecycle/slot adoption and killcam input filtering
+                // precede custom requests; input capture follows them.
+                scene.SampleCustomWeaponInput(scene.HardwareInputReady&&!Mods.PauseMenu.Open&&!Mods.Chat.ChatBox.Composing);
                 NetPlayerBridge.RecordPresses(player);
                 player.ModContinuousNetworkTarget = NetTargetIdentity.None;
                 player.ModContinuousFireTick = 0;

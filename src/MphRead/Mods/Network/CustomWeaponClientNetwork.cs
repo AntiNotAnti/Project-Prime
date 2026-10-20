@@ -12,6 +12,10 @@ public static partial class NetSession
     internal static CustomReceiptMessage? LastCustomWeaponReceipt => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastReceipt:null;
     internal static CustomContactMessage? LastCustomWeaponContact => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastContact:null;
     internal static CustomControlDenied? LastCustomControlDenied => CustomWeaponReadinessConfirmed ? _customCombatClient?.LastControlDenied:null;
+    internal static CustomInputProjection? CustomWeaponInputProjection=>CustomWeaponReplicaReady
+        &&CurrentCustomCombat() is {} client&&client.InputProjection is {} projection
+        &&projection.Owner.Slot==LocalSlot&&NetPlayerLifecycle.Matches(LocalSlot,projection.Owner.Generation,projection.Owner.Life)
+        ?projection:null;
     private static CustomClientCombat? CurrentCustomCombat()
     {
         if (!CustomWeaponReadinessConfirmed || _customReadiness is not { } ready)

@@ -5,8 +5,21 @@ using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 if (args.Length == 2 && args[0] == "--scene") return OfflineSceneChecks.Run(args[1]);
+if (args.Length == 2 && args[0] == "--local-input-scene") return CustomLocalInputSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--rewind-scene") return CustomRewindSceneChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--client-projection-scene") return CustomAuthoritySceneChecks.RunClientProjection(args[1]);
+if (args.Length == 2 && args[0] == "--public-input-client-scene") return CustomPublicInputClientSceneChecks.Run(args[1]);
+if (args.Length == 1 && args[0] == "--gamepad-enhancements")
+{
+    try
+    {
+        var counter=typeof(GamepadChecks).GetField("_checks",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
+        int before=(int)counter.GetValue(null)!;GamepadEnhancementChecks.Run();
+        Console.WriteLine($"PASS {(int)counter.GetValue(null)!-before} controller enhancement checks (synthetic input, no physical device or GL).");
+        return 0;
+    }
+    catch (Exception error) {Console.Error.WriteLine("GAMEPAD ENHANCEMENTS FAIL "+error);return 1;}
+}
 if (args.Length == 2 && args[0] == "--native-selection-scene") return CustomAuthoritySceneChecks.Run(args[1],nativeSelectionOnly:true);
 if (args.Length is 2 or 3 && args[0] is "--authority-replica-scene" or "--replica-capture-scene") return CustomAuthoritySceneChecks.Run(args[1],snapshotOnly:true,snapshotCase:args.Length==3 ? args[2]:null);
 if (args.Length == 2 && args[0] == "--authority-scene") return CustomAuthoritySceneChecks.Run(args[1]);
@@ -182,6 +195,8 @@ SourceBoundaryChecks.Run(Check);
 ResultTransportChecks.Run(Check);
 ControlRequestChecks.Run(Check);
 ClientControlSubmissionChecks.Run(Check);
+CustomInputControllerChecks.Run(Check);
+CustomInputProjectionChecks.Run(Check);
 NativeSelectionHistoryChecks.Run(Check);
 NativeFireGateChecks.Run(Check);
 InputCarrierChecks.Run(Check);
