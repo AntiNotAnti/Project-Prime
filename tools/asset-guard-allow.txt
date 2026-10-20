@@ -77,3 +77,18 @@ docs/implementation/rmlui-theatre-studio-2026-10-20/theatre-combined-640.png
 docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-after.png
 docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-before.png
 docs/implementation/rmlui-theatre-studio-2026-10-20/workspace-combined-640.png
+
+# Exact synthetic Refinement 2 native UI captures. Blank engine viewports,
+# authored UI and invented service facts only; no game assets or player data.
+docs/implementation/rmlui-refinement-2-2026-10-20/browser-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/browser-after.png
+docs/implementation/rmlui-refinement-2-2026-10-20/community-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/community-after.png
+docs/implementation/rmlui-refinement-2-2026-10-20/training-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/training-after.png
+docs/implementation/rmlui-refinement-2-2026-10-20/home-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/home-after.png
+docs/implementation/rmlui-refinement-2-2026-10-20/license-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/license-after.png
+docs/implementation/rmlui-refinement-2-2026-10-20/hunters-before.png
+docs/implementation/rmlui-refinement-2-2026-10-20/hunters-after.png

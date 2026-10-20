@@ -89,8 +89,8 @@
 .view_br { left: 50%; top: 50%; }
 
 /* Existing replay dialogs share readable controls and retain their own bounds. */
-#theatre_confirmation { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 560dp; max-width: 92%; }
-#theatre_confirmation h2 { display: block; margin: 0 0 12dp; color: #fff; font-size: 25dp; line-height: 29dp; }
+#theatre_confirmation { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 560dp; max-width: 92%; max-height: 92vh; overflow-y: auto; overflow-x: hidden; }
+#theatre_confirmation h2 { display: block; margin: 0 0 12dp; color: #fff; font-size: 25dp; line-height: 29dp; word-break: break-word; }
 #theatre_confirmation p { display: block; font-size: 12dp; line-height: 17dp; word-break: break-word; }
 #theatre_delete_path { word-break: break-all; }
 #replay_bookmark_panel, #replay_bookmark_remove_panel, #replay_range_panel,

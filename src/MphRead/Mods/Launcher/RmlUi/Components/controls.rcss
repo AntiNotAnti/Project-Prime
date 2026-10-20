@@ -8,13 +8,14 @@ display: flex;
 
 .play_action {
 min-width: 95dp;
+    min-height: 36dp;
     margin-right: 6dp;
     padding: 8dp 13dp;
     color: #b2cadc;
     background-color: rgba(4,16,29,86%);
     border: 1dp rgba(114,199,255,23%);
-    font-size: 11dp;
-    line-height: 15dp;
+    font-size: 12dp;
+    line-height: 18dp;
     font-weight: bold;
     letter-spacing: 0.6dp;
 }
@@ -57,6 +58,7 @@ width: 100%;
     border: 1dp rgba(114,199,255,33%);
     font-family: "JetBrains Mono";
     font-size: 12dp;
+    line-height: 20dp;
 }
 
 .play_input:focus {
@@ -124,15 +126,15 @@ min-width: 68dp; font-size: 9dp; padding-left: 7dp; padding-right: 7dp;
 
 /* RmlUi has no built-in widget stylesheet. Explicit generated scrollbar sizes
    preserve a scroll container's content width and keep its hit target narrow. */
-scrollbarvertical { width: 16dp; background-color: #07131e; }
-scrollbarvertical slidertrack { width: 16dp; background-color: #07131e; }
-scrollbarvertical sliderbar { width: 16dp; min-height: 32dp; background-color: #426983; border: 1dp #72c7ff; }
+scrollbarvertical { width: 12dp; background-color: #07131e; }
+scrollbarvertical slidertrack { width: 12dp; background-color: #07131e; }
+scrollbarvertical sliderbar { width: 12dp; min-height: 32dp; background-color: #426983; border: 1dp #72c7ff; }
 scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { width: 0dp; height: 0dp; }
-scrollbarhorizontal { height: 16dp; background-color: #07131e; }
-scrollbarhorizontal slidertrack { height: 16dp; background-color: #07131e; }
-scrollbarhorizontal sliderbar { height: 16dp; min-width: 32dp; background-color: #426983; border: 1dp #72c7ff; }
+scrollbarhorizontal { height: 12dp; background-color: #07131e; }
+scrollbarhorizontal slidertrack { height: 12dp; background-color: #07131e; }
+scrollbarhorizontal sliderbar { height: 12dp; min-width: 32dp; background-color: #426983; border: 1dp #72c7ff; }
 scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 0dp; height: 0dp; }
-scrollbarcorner { width: 16dp; height: 16dp; background-color: #07131e; }
+scrollbarcorner { width: 12dp; height: 12dp; background-color: #07131e; }
 scrollbarvertical sliderbar:hover, scrollbarvertical sliderbar:active,
 scrollbarhorizontal sliderbar:hover, scrollbarhorizontal sliderbar:active { background-color: #72c7ff; }
 
@@ -143,7 +145,3 @@ scrollbarhorizontal sliderbar:hover, scrollbarhorizontal sliderbar:active { back
 .collection_list > button { min-width:0; white-space:normal; word-break:break-word; }
 .action_bar { display:flex; flex-wrap:wrap; flex-shrink:0; padding-top:8dp; }
 .action_bar > button { margin:0 8dp 4dp 0; }
-/* Scrollbar tracks reserve a stable width; the thumb alone changes on hover. */
-scrollbarvertical, scrollbarvertical slidertrack, scrollbarvertical sliderbar { width:12dp; }
-scrollbarhorizontal, scrollbarhorizontal slidertrack, scrollbarhorizontal sliderbar { height:12dp; }
-scrollbarcorner { width:12dp; height:12dp; }

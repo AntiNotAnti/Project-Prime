@@ -1,0 +1,154 @@
+{
+  "before": {
+    "open_ms": {
+      "median_sum_ms_per_35_pages": 34.163831,
+      "p95_sum_ms_per_35_pages": 36.385249
+    },
+    "publication_ms": {
+      "median_sum_ms_per_35_pages": 2.2664405000000003,
+      "p95_sum_ms_per_35_pages": 2.4451270000000003
+    },
+    "update_render_ms": {
+      "median_sum_ms_per_35_pages": 20.841021,
+      "p95_sum_ms_per_35_pages": 21.811875000000004
+    },
+    "close_ms": {
+      "median_sum_ms_per_35_pages": 4.863085999999999,
+      "p95_sum_ms_per_35_pages": 6.067247
+    },
+    "idle_update_render_ms": {
+      "median_sum_ms_per_35_pages": 0.014543500000000004,
+      "p95_sum_ms_per_35_pages": 0.015416000000000001
+    }
+  },
+  "after": {
+    "open_ms": {
+      "median_sum_ms_per_35_pages": 35.04002,
+      "p95_sum_ms_per_35_pages": 37.053454
+    },
+    "publication_ms": {
+      "median_sum_ms_per_35_pages": 2.3088940000000004,
+      "p95_sum_ms_per_35_pages": 2.4683739999999994
+    },
+    "update_render_ms": {
+      "median_sum_ms_per_35_pages": 21.213476500000002,
+      "p95_sum_ms_per_35_pages": 22.789290000000005
+    },
+    "close_ms": {
+      "median_sum_ms_per_35_pages": 4.974100999999999,
+      "p95_sum_ms_per_35_pages": 5.96996
+    },
+    "idle_update_render_ms": {
+      "median_sum_ms_per_35_pages": 0.014708500000000001,
+      "p95_sum_ms_per_35_pages": 0.016043000000000005
+    }
+  },
+  "percent_change": {
+    "open_ms": 2.5646684647280926,
+    "publication_ms": 1.8731354297631064,
+    "update_render_ms": 1.7871269358636477,
+    "close_ms": 2.282809722057144,
+    "idle_update_render_ms": 1.134527452126366
+  },
+  "largest_first_update_regressions": [
+    [
+      "pages/offline/training.rml",
+      0.0811665,
+      0.1189585,
+      46.561081234253045
+    ],
+    [
+      "pages/offline/rules.rml",
+      0.2063335,
+      0.25247949999999997,
+      22.364763841063116
+    ],
+    [
+      "pages/play/browser.rml",
+      0.381604,
+      0.40870850000000003,
+      7.1027819414891
+    ],
+    [
+      "pages/lobby/rules.rml",
+      0.49143749999999997,
+      0.5230625,
+      6.4352028487854485
+    ],
+    [
+      "pages/play/queue.rml",
+      0.070938,
+      0.075271,
+      6.108150779553978
+    ],
+    [
+      "pages/theatre/confirm-delete.rml",
+      0.069625,
+      0.072604,
+      4.278635547576304
+    ],
+    [
+      "pages/community/native-discover.rml",
+      0.6485415,
+      0.6748540000000001,
+      4.057180612189049
+    ],
+    [
+      "pages/theatre/library.rml",
+      0.6125415000000001,
+      0.6371875,
+      4.02356411769651
+    ]
+  ],
+  "largest_idle_regressions": [
+    [
+      "pages/updates/available.rml",
+      0.000375,
+      0.000416,
+      10.933333333333328
+    ],
+    [
+      "pages/common/quit.rml",
+      0.000375,
+      0.000416,
+      10.933333333333328
+    ],
+    [
+      "pages/ingame/journal.rml",
+      0.000375,
+      0.000416,
+      10.933333333333328
+    ],
+    [
+      "pages/setup/native-game-files.rml",
+      0.000375,
+      0.000416,
+      10.933333333333328
+    ],
+    [
+      "pages/community/native-discover.rml",
+      0.000417,
+      0.000458,
+      9.832134292565954
+    ],
+    [
+      "pages/theatre/confirm-delete.rml",
+      0.000416,
+      0.0004165,
+      0.12019230769231282
+    ],
+    [
+      "pages/play/queue.rml",
+      0.0005415,
+      0.000542,
+      0.09233610341643494
+    ],
+    [
+      "pages/home/home.rml",
+      0.000417,
+      0.000417,
+      0.0
+    ]
+  ],
+  "scope": "Sum of individually measured native calls for the same35 pages per cycle;40 cycles per variant. Idle uses each page's median of3 immediate calls. These are CPU costs, not a simultaneous game frame, GPU, FPS or hardware/device claim."
+}

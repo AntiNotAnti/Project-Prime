@@ -1,0 +1,48 @@
+{
+  "before": {
+    "summary": {
+      "documents": 87,
+      "fixtures": 35,
+      "alternate_states": 9,
+      "cases": 14,
+      "checks": 20602,
+      "failures": 108,
+      "initialization_failures": 0,
+      "page_errors": 0,
+      "document_leaks": 0,
+      "open_failures": 0,
+      "close_failures": 0
+    },
+    "library_sha256": "f87c927f8799083fc5ccaccce1aaaca537d5fbc063de0b2c7fbe99b3ea810953",
+    "harness_sha256": "17d0433f2f559b12d5773ce7e6fc7b40db17e6a9ab7a64077474fead20bcbfed",
+    "markup_manifest_sha256": "eec103ae3571a112b9273db8695446a3bcbf60639871f9227cc7fc7f05f8af61"
+  },
+  "candidate": {
+    "summary": {
+      "documents": 87,
+      "fixtures": 35,
+      "alternate_states": 9,
+      "cases": 14,
+      "checks": 20602,
+      "failures": 0,
+      "initialization_failures": 0,
+      "page_errors": 0,
+      "document_leaks": 0,
+      "open_failures": 0,
+      "close_failures": 0
+    },
+    "library_sha256": "f87c927f8799083fc5ccaccce1aaaca537d5fbc063de0b2c7fbe99b3ea810953",
+    "harness_sha256": "17d0433f2f559b12d5773ce7e6fc7b40db17e6a9ab7a64077474fead20bcbfed",
+    "markup_manifest_sha256": "f9c3e65efefd47a317b2485d2c799a86035410f3db4dad23a5fe6a96423f379f"
+  },
+  "before_gl": {
+    "captures": 528,
+    "errors": [],
+    "harness_sha256": "17d0433f2f559b12d5773ce7e6fc7b40db17e6a9ab7a64077474fead20bcbfed"
+  },
+  "after_gl": {
+    "captures": 528,
+    "errors": [],
+    "harness_sha256": "17d0433f2f559b12d5773ce7e6fc7b40db17e6a9ab7a64077474fead20bcbfed"
+  }
+}

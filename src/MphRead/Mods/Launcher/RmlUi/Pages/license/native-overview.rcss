@@ -158,3 +158,40 @@ body { margin:0; background-color:rgba(0,7,12,78%); }
     #native_license .card_tabs button { min-width:18%; }
     #native_license #native_license_status { flex:0 0 100%; margin:0 0 4dp; }
 }
+
+/* Account and privacy results can span several lines. Keep the footer bounded
+   while allowing its complete message to be read. */
+#native_license #native_license_status { max-height:52dp; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; word-break:break-word; font-size:12dp; line-height:17dp; tab-index:auto; }
+#native_license #native_license_status:focus { background-color:#15333e; }
+
+/* This document is standalone: shell/dialog accessibility selectors do not
+   reach it, and generic theme rules lose to the page's ID selectors. */
+body.touch-targets #native_license button, body.touch-targets #native_license input { min-height:48dp; }
+body.large-text #native_license button, body.large-text #native_license input,
+body.large-text #native_license label, body.large-text #native_license p,
+body.large-text #native_license span,
+body.large-text #native_license .card_visibility { font-size:16dp; line-height:21dp; }
+body.large-text #native_license .card_stat b { font-size:18dp; line-height:22dp; }
+body.large-text #native_license #native_license_status { font-size:16dp; line-height:21dp; max-height:63dp; }
+body.high-contrast #native_license,
+body.high-contrast #native_license #native_license_card,
+body.high-contrast #native_license .card_header,
+body.high-contrast #native_license .card_points,
+body.high-contrast #native_license .card_records,
+body.high-contrast #native_license .native_license_stats > div,
+body.high-contrast #native_license .native_license_match,
+body.high-contrast #native_license .native_license_privacy { background-color:#000; border-color:#fff; }
+body.high-contrast #native_license div, body.high-contrast #native_license span,
+body.high-contrast #native_license p, body.high-contrast #native_license label,
+body.high-contrast #native_license h1, body.high-contrast #native_license h2,
+body.high-contrast #native_license h3, body.high-contrast #native_license b,
+body.high-contrast #native_license strong,
+body.high-contrast #native_license #native_license_name,
+body.high-contrast #native_license #native_license_rank,
+body.high-contrast #native_license #native_license_status,
+body.high-contrast #native_license #native_license_rank_progress { color:#fff; }
+body.high-contrast #native_license button, body.high-contrast #native_license input { color:#fff; background-color:#000; border:1dp #fff; }
+body.high-contrast #native_license button:disabled, body.high-contrast #native_license input:disabled { opacity:0.7; }
+body.high-contrast #native_license button:hover, body.high-contrast #native_license button:focus,
+body.high-contrast #native_license button.selected { color:#000; background-color:#fff; border-color:#ffd866; }
+body.high-contrast #native_license #native_license_status:focus { color:#000; background-color:#fff; }

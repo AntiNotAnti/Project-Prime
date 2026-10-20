@@ -85,3 +85,21 @@
     .offline_rule_columns, .offline_dialog > .offline_actions, .offline_arena_list { width:86vw; }
     .offline_dialog h1, .offline_dialog p { word-break:break-word; }
 }
+
+/* Rules and training keep their commit/return row outside the reading area.
+   Long rules remain scrollable without scrolling away their draft actions. */
+.offline_dialog_config { display:flex; flex-direction:column; height:auto; max-height:80vh; overflow:hidden; }
+.offline_dialog_config > h1, .offline_dialog_config > .offline_actions,
+.offline_dialog_config > #offline_training_done { flex-shrink:0; }
+.offline_dialog_body { flex:0 1 auto; min-height:0; width:76vw; overflow-y:auto; overflow-x:hidden; }
+.offline_training_grid { width:76vw; }
+#offline_training_done { width:76vw; margin:12dp 0 0; }
+.offline_dialog_body > .offline_error { width:100%; }
+@media (min-width:900dp) {
+    .offline_training_grid { display:flex; flex-wrap:wrap; align-content:flex-start; }
+    .offline_training_grid > button { width:48%; min-width:0; margin-right:2%; }
+}
+@media (max-width:800dp) {
+    .offline_dialog_config { max-height:90vh; }
+    .offline_dialog_body, .offline_training_grid, #offline_training_done { width:86vw; }
+}

@@ -91,11 +91,11 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="rules_movement_help">Momentum: air-strafing and bunny-hop momentum. Alternate-form abilities stay native.</div>
+                        <div class="rules_movement_help">Riftline M7: Battle (free-for-all), human players only. Native weapon selected at spawn. Replay recording and killcams unavailable.</div>
                     </div>
                 </div>
                 <div id="rules_status" data-prime-text="{{rules_status}}" />
-                <div class="rules_movement_help">Momentum: air-strafing and bunny-hop momentum. Alternate-form abilities stay native.</div>
-                <div class="rules_movement_help">Riftline M7: Battle (free-for-all), human players only. Native weapon selected at spawn. Replay recording and killcams unavailable.</div>
                 <div class="rules_footer">
                     <div class="rules_owner_message" data-prime-visible="rules_owner" id="visible_rules_owner_1">CHANGES ARE SUBMITTED TO THE SERVER ONLY WHEN YOU APPLY.</div>
                     <div class="rules_owner_message" data-prime-visible="!rules_owner" id="visible__rules_owner_1">VIEW ONLY // THE LOBBY OWNER CONTROLS THESE SETTINGS.</div>

@@ -13,7 +13,10 @@
     border: 1dp #416c86; margin-right: 6dp; white-space: normal;
 }
 .native_community_tools input { flex: 1; min-width: 0; height: 48dp; box-sizing: border-box; padding: 10dp; margin-right: 6dp; font-size: 14dp; color: #e9f5ff; background-color: #091b2b; border: 1dp #416c86; }
-.native_community_tabs { overflow-x: auto; overflow-y: hidden; }
+/* Search, ordering and paging remain reachable when text or utility labels grow. */
+.native_community_tools { overflow-x: auto; overflow-y: hidden; }
+.native_community_tools > button { flex-shrink: 0; }
+#native_community_search { min-width: 160dp; }
 .native_community_tabs button { flex-shrink: 0; white-space: nowrap; }
 #native_community_status, #native_community_notice { flex-shrink: 0; margin: 0 0 4dp; }
 #native_community_status { color: #80d7ff; }
@@ -111,4 +114,10 @@
     #native_community .native_community_detail { padding:4dp; }
     #native_community .native_community_primary { padding-top:4dp; margin-top:4dp; }
     #native_community_title { font-size:20dp; line-height:24dp; max-height:none; }
+}
+
+/* Eight results use three rows on spacious displays rather than four
+   panoramic card rows. Standard and compact layouts retain their columns. */
+@media (min-width: 1600dp) and (min-height: 780dp) {
+    .native_community_list > button { width: 31%; }
 }

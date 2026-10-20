@@ -288,3 +288,27 @@ min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
     #play_header { top:8dp; }
     #play_browser, #play_connect, #play_create { top:64dp; bottom:8dp; }
 }
+
+/* The connection panel is capped, so a percentage-width list leaves a growing
+   empty column on wide displays. Size the directory from its actual neighbour. */
+#play_browser { width:auto; right:368dp; }
+#play_connect { width:320dp; }
+.play_server { display:flex; align-items:center; justify-content:space-between; }
+.play_server b { width:60%; min-width:0; padding-right:12dp; }
+.play_server span { width:40%; min-width:0; margin-top:0; font-size:11dp; line-height:15dp; text-align:right; }
+/* Creation actions belong to the sheet, independently of its scrollable form. */
+#play_create { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+#play_create > .eyebrow, #play_create > .play_section_title { flex-shrink:0; }
+.play_create_fields { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+#play_create .play_create_actions { flex-shrink:0; flex-wrap:wrap; }
+@media (max-width:1200dp) {
+    #play_browser { right:308dp; }
+    #play_connect { width:260dp; }
+}
+@media (max-width:800dp) {
+    #play_browser { width:60%; right:auto; }
+    #play_connect { width:33%; }
+    .play_server { display:block; }
+    .play_server b, .play_server span { width:100%; padding-right:0; text-align:left; }
+    .play_server span { margin-top:3dp; }
+}

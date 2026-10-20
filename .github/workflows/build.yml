@@ -224,6 +224,10 @@ jobs:
           python3 tools/rmlui/check-pages.py --published-root tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           cp artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
              tools/rmlui-opengl-check/bin/Release/net10.0/
+          python3 tools/rmlui-layout-check/check.py \
+            --library artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+            --assets tools/rmlui-opengl-check/bin/Release/net10.0/rmlui \
+            --output artifacts/rmlui-layout-ci.json
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --hunter-presenter-contract \
             tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --replay-files
