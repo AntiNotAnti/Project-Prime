@@ -16,8 +16,10 @@ import subprocess
 import tempfile
 import time
 
-STEP_RE = re.compile(r"(\d+) step\(s\), ([\d.]+) ms mean, ([\d.]+) ms worst, "
-                     r"(\d+) overrun, (\d+) dropped, (\d+) stall\(s\)")
+STEP_RE = re.compile(r"(\d+) step\(s\), ([\d.]+) ms mean, ([\d.]+) ms p95, "
+                     r"([\d.]+) ms p99, ([\d.]+) ms worst, (\d+) allocated bytes, "
+                     r"(\d+) overrun, (\d+) dropped, (\d+) stall\(s\)"
+                     r"(?:, (\d+) FAILED)?")
 
 
 def read_proc(pid):
@@ -127,8 +129,11 @@ def arm(args, count, root):
             per_process.append(dict(index=i, pid=p.pid, cpuPercent=summarize(samples[i]),
                 rssMiB=summarize(rss[i]), lastServerStep=(dict(
                     steps=int(steps[-1][0]), meanMilliseconds=float(steps[-1][1]),
-                    worstMilliseconds=float(steps[-1][2]), overruns=int(steps[-1][3]),
-                    droppedTicks=int(steps[-1][4]), stalls=int(steps[-1][5])) if steps else None)))
+                    p95Milliseconds=float(steps[-1][2]), p99Milliseconds=float(steps[-1][3]),
+                    worstMilliseconds=float(steps[-1][4]), allocatedBytes=int(steps[-1][5]),
+                    overruns=int(steps[-1][6]), droppedTicks=int(steps[-1][7]),
+                    stalls=int(steps[-1][8]),
+                    stepFailures=int(steps[-1][9] or 0)) if steps else None)))
         aggregate_cpu = [sum(row) for row in zip(*samples)] if samples and all(samples) else []
         aggregate_rss = [sum(row) for row in zip(*rss)] if rss and all(rss) else []
         # A successful client handshake is not proof of simulation. Each
