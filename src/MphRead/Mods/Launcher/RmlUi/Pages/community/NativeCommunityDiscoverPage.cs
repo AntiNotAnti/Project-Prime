@@ -124,10 +124,6 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
                     || report.Catalog == NativeCommunityCatalog.Installed || report.SelectedEntry is not { } reported) return false;
                 return _report.Open(reported, report.Witness);
             case RmlUiIntentKind.CommunityTab:
-                if (intent.Argument == 7)
-                {
-                    _technical = !_technical; _shownRevision = -1; Refresh(); return true;
-                }
                 if (intent.Argument == 2)
                 {
                     _install.Cancel();
@@ -183,6 +179,10 @@ internal sealed class NativeCommunityDiscoverPage : IDisposable
                 else _controller.Select(intent.Argument);
                 break;
             case RmlUiIntentKind.CommunityDetailAction:
+                if (intent.Argument == 7)
+                {
+                    _technical = !_technical; _shownRevision = -1; Refresh(); return true;
+                }
                 var catalog = _controller.Tick();
                 _notice = "";
                 if (intent.Argument == 2)

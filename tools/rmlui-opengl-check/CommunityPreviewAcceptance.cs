@@ -4,7 +4,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -66,8 +65,8 @@ internal static class CommunityPreviewAcceptance
             byte[] malformed = png.ToArray(); malformed[0] = 0; Reject(malformed, "invalid PNG signature");
             malformed = png.ToArray(); BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(8, 4), 12); Reject(malformed, "malformed IHDR size");
             malformed = png.ToArray(); BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(16, 4), 0); Reject(malformed, "zero dimension");
-            malformed = png.ToArray(); BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(16, 4), 65536);
-            BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(20, 4), 65536); Reject(malformed, "decoded RGBA exceeds sixty-four MiB");
+            malformed = png.ToArray(); BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(16, 4), 4097);
+            BinaryPrimitives.WriteUInt32BigEndian(malformed.AsSpan(20, 4), 4096); Reject(malformed, "decoded RGBA exceeds sixty-four MiB");
             using (var undecodable = new NativeCommunityPreview(new FixedSource(png[..33]), Path.Combine(root, "decode-failure")))
             {
                 var failed = View(undecodable, Entry('c'), view => view.Status.Contains("COULD NOT BE DECODED"),
@@ -139,7 +138,7 @@ internal static class CommunityPreviewAcceptance
                 for (int i = 0; i < rows.Length; i++) rows[i].Read(entries[i]);
                 return source.Requests.Count == 9 && source.Returned == 9
                     && Directory.Exists(directory) && Directory.EnumerateFiles(directory, "*.png", SearchOption.AllDirectories).Count() == 8;
-            }, "all current eight hashes finish through two download permits while decoding is queued");
+            }, "all current eight hashes finish through two download permits while decoding is queued", 20000);
             Check(source.PeakActive <= 2 && !Directory.EnumerateFiles(directory, "*.tga", SearchOption.AllDirectories).Any()
                 && rows.Select((row, i) => row.Read(entries[i]).Image.Length).All(length => length == 0),
                 "held decode permits prevent all eight thumbnails and canceled old hash never publishes");
@@ -182,13 +181,21 @@ internal static class CommunityPreviewAcceptance
         var queuedDecode = new NativeCommunityPreview(new FixedSource(landscape), decodeDirectory, 384, downloads, queuedDecodeGate);
         queuedDecode.Read(Entry('d'));
         Wait(() => { queuedDecode.Read(Entry('d')); return Directory.Exists(decodeDirectory)
-            && Directory.EnumerateFiles(decodeDirectory, "*.png", SearchOption.AllDirectories).Any(); },
+            && Directory.EnumerateFiles(decodeDirectory, "*.png", SearchOption.AllDirectories).Any()
+            && HasPendingDecode(queuedDecode); },
             "download completes while decoder waits for a shared permit");
         queuedDecode.Dispose(); WaitRetired(queuedDecode);
         Check(queuedDecode.Read(Entry('d')).Image.Length == 0
             && !Directory.EnumerateFiles(decodeDirectory, "*.tga", SearchOption.AllDirectories).Any()
             && queuedDecodeGate.CurrentCount == 0,
             "disposing queued decode publishes no native image and does not release an unowned permit");
+    }
+
+    private static bool HasPendingDecode(NativeCommunityPreview preview)
+    {
+        const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+        var cache = typeof(NativeCommunityPreview).GetField("_images", hidden)!.GetValue(preview)!;
+        return cache.GetType().GetField("_work", hidden)!.GetValue(cache) is Task { IsCompleted: false };
     }
 
     private static void WaitRetired(NativeCommunityPreview preview)

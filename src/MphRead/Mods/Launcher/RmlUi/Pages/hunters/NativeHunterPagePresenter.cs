@@ -29,6 +29,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     private readonly RmlUiHost? _host;
     private bool _previewDrag;
     private float _dragX;
+    private string? _restoreFocus;
 
     public bool Closed { get; private set; }
     public bool OpenFullLicenseRequested { get; private set; }
@@ -114,6 +115,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
     {
         var result = LauncherLoadoutApply.Apply(_controller, _cosmetics);
         _saveMessage = result.Status;
+        if (result.Accepted) _restoreFocus = "hunter_category" + _category;
         // An authorized command is consumed even when persistence fails, so the
         // explicit failure/partial-save status is presented and the draft survives.
         return true;
@@ -184,6 +186,14 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             Refresh();
         }
         else if (_cosmeticVisibility != CosmeticVisibility()) Refresh();
+    }
+
+    public void AfterUpdate()
+    {
+        if (_restoreFocus == null) return;
+        if (PreviewForeground && String.IsNullOrEmpty(_host!.FocusedElement()))
+            _host.FocusDocument(_page, _restoreFocus);
+        _restoreFocus = null;
     }
 
     private static string CosmeticVisibility()
@@ -329,7 +339,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             var item = CosmeticCatalog.BeamEffects[i];
             Option("beam", i, item.DisplayName, cosmetic.Draft.BeamEffectKey == item.Key, Hex(item.PrimaryColor));
             Option("beam_color", i, BeamPalette.Names[i], cosmetic.Draft.BeamColor == i,
-                Hex(BeamPalette.Resolve((byte)i, item.PrimaryColor)));
+                Hex(BeamPalette.Resolve((byte)i, CosmeticCatalog.ResolveBeam(cosmetic.Draft.BeamEffectKey).PrimaryColor)));
         }
         _pages.Present(_page, ++_revision, data);
     }

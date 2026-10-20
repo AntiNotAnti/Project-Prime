@@ -519,6 +519,9 @@ internal static partial class NativeHunterStageGlAcceptance
                     "direct catalog index1 chooses Lightning rather than fixture Phase index8");
                 Check(PickerAction("hunter_apply", RmlUiIntentKind.HunterApply, pointer: true),
                     "one actual Equip Loadout pointer action reaches unified persistence");
+                presenter.AfterUpdate(); host.Update();
+                Check(host.FocusedElement() == "hunter_category1",
+                    "Equip immediately restores enabled catalog focus while persistence is in flight");
                 for (int step = 0; step < 100 && !presenter.CanNavigateAway; step++)
                 { Thread.Sleep(10); presenter.Pump(); host.Update(); }
                 Check(presenter.CanNavigateAway && localChoice.Writes == 1 && localCosmetics.Writes == 1

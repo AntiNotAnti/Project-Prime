@@ -36,7 +36,7 @@ body { background-color:transparent; }
 #hunter_preview_state { flex-shrink:0; margin:0 0 4dp; }
 .native-hunter-preview-controls { flex-shrink:0; }
 .native-hunter-preview-controls > button { flex:1; min-width:29%; }
-@media (max-width:900dp) {
+@media (max-width: 900dp) {
   .native-hunter-panel { padding:10dp; }
   .hunter-grid { left:10dp; right:10dp; }
   .hunter-picker { width:56%; }
@@ -48,7 +48,7 @@ body { background-color:transparent; }
   .native-hunter-preview-controls > button { min-width:45%; }
   .hunter-preview > .hint { display:none; }
 }
-@media (max-height:500dp) {
+@media (max-height: 500dp) {
   .native-hunter-panel { top:6dp; bottom:6dp; padding:8dp; }
   .native-hunter-panel > .eyebrow { display:none; }
   .native-hunter-panel h1 { font-size:22dp; line-height:24dp; }
@@ -60,7 +60,7 @@ body { background-color:transparent; }
 body.touch-targets .native-hunter-panel button { min-height:48dp; }
 body.large-text .native-hunter-panel button { font-size:17dp; line-height:22dp; }
 body.large-text .hint { font-size:15dp; line-height:20dp; }
-@media (max-height:440dp) {
+@media (max-height: 440dp) {
   body.touch-targets .hunter-picker,body.large-text .hunter-picker { overflow-y:auto; display:block; }
   body.touch-targets .hunter-options,body.large-text .hunter-options { overflow:visible; }
 }

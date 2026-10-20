@@ -85,3 +85,30 @@
     #native_community_cancel_install { min-width: 100%; }
     #native_community_title { max-height: 24dp; }
 }
+
+/* Short windows show compact text cards. Full selected metadata remains in
+   the detail scroller while the two primary actions retain one fixed row. */
+@media (max-height: 440dp) {
+    #native_community .native_community_card_art { display:none; height:0dp; }
+    #native_community .native_community_list > button { min-height:0dp; padding-bottom:4dp; }
+    #native_community .native_community_list button b { font-size:14dp; line-height:16dp; max-height:32dp; overflow:hidden; margin:4dp 6dp 2dp; }
+    #native_community .native_community_list button > span:last-child { font-size:12dp; line-height:16dp; max-height:16dp; overflow:hidden; white-space:nowrap; margin:0 6dp; }
+    #native_community .native_community_primary button { min-width:0dp; width:48%; min-height:36dp; padding:4dp; }
+    #native_community #native_community_cancel_install { min-width:100%; }
+    body.touch-targets #native_community .native_community_primary button { min-height:48dp; }
+    body.large-text #native_community .native_community_primary button { font-size:14dp; line-height:16dp; }
+}
+
+.native_community_header { flex-shrink:0; }
+.native_community_tools > .native_community_paging { margin:0; padding:0; flex-shrink:0; }
+.native_community_tools > .native_community_paging button { min-width:80dp; margin-right:6dp; }
+#native_community_title { max-height:none; overflow:visible; }
+@media (max-height: 440dp) {
+    #native_community .native_community_header { display:flex; flex-shrink:0; overflow-x:auto; overflow-y:hidden; margin-bottom:4dp; }
+    #native_community .native_community_header .native_community_tools { flex-shrink:0; flex-wrap:nowrap; overflow:visible; margin:0 8dp 0 0; }
+    #native_community .native_community_tools button { min-height:48dp; }
+    #native_community .native_community_tools input { flex:none; width:160dp; }
+    #native_community .native_community_detail { padding:4dp; }
+    #native_community .native_community_primary { padding-top:4dp; margin-top:4dp; }
+    #native_community_title { font-size:20dp; line-height:24dp; max-height:none; }
+}

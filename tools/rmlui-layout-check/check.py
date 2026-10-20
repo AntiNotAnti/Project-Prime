@@ -168,6 +168,7 @@ def seed(bridge, doc, path, touch=False, large_text=False):
             bridge.boolean(doc, 'visible:' + element, False)
         for i in range(8):
             bridge.boolean(doc, f'visible:native_community_row{i}', True)
+            bridge.boolean(doc, f'visible:native_community_thumbnail{i}', False)
             bridge.text(doc, f'native_community_name{i}', f'{i+1}. Alimbic Citadel — Extended Community Arena')
             bridge.text(doc, f'native_community_meta{i}', f'Creator: {LONG_NAME} // Revision {i+1} // 4 players // Verified package')
         bridge.text(doc, 'native_community_title', 'ALIMBIC CITADEL — EXTENDED COMMUNITY ARENA')

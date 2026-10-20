@@ -9,6 +9,7 @@
 <body template="prime-shell">
 <div id="native_community" class="native_community">
   <h1>COMMUNITY MAPS</h1>
+  <div class="native_community_header">
   <div class="native_community_tools native_community_tabs">
     <button id="native_community_public" data-action="community:tab:0">DISCOVER</button>
     <button id="native_community_installed" data-action="community:tab:4">INSTALLED</button>
@@ -24,13 +25,15 @@
     <button id="native_community_name_sort" data-action="community:sort:0">NAME</button>
     <button id="native_community_new_sort" data-action="community:sort:1">UPDATED</button>
     <button id="native_community_popular_sort" data-action="community:sort:2">POPULAR</button>
-  </div>
-  <div class="native_community_columns collection_columns">
-    <div class="native_community_collection">
   <div class="native_community_paging">
     <button id="native_community_previous" data-action="community:page:previous">PREVIOUS</button>
     <button id="native_community_next" data-action="community:page:next">NEXT</button>
   </div>
+  </div>
+  </div>
+  <div class="native_community_columns collection_columns">
+    <div class="native_community_collection">
+
     <div class="native_community_list">
       <button id="native_community_row0" data-action="community:select:0"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail0"/></span><b id="native_community_name0"/><span id="native_community_meta0"/></button>
       <button id="native_community_row1" data-action="community:select:1"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail1"/></span><b id="native_community_name1"/><span id="native_community_meta1"/></button>
@@ -43,8 +46,8 @@
     </div>
     </div>
     <div class="native_community_detail">
-      <h2 id="native_community_title">SELECT A MAP</h2>
       <div class="native_community_detail_scroll">
+      <h2 id="native_community_title">SELECT A MAP</h2>
   <p id="native_community_status" class="native_community_status" role="status" aria-live="polite"></p>
   <p id="native_community_notice" role="status" aria-live="polite"/>
 
@@ -68,7 +71,7 @@
       <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
       </div>
       <div class="native_community_primary action_bar">
-        <button id="native_community_install" data-action="community:detail:0">INSTALL VERIFIED MAP</button>
+        <button id="native_community_install" data-action="community:detail:0" aria-label="Install verified map">INSTALL MAP</button>
         <button id="native_community_install_host" data-action="community:detail:1">INSTALL &amp; HOST</button>
         <button id="native_community_cancel_install" data-action="community:cancel-work">CANCEL HANDOFF</button>
       </div>

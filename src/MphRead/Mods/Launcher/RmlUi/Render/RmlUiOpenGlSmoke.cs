@@ -514,6 +514,7 @@ internal static partial class RmlUiOpenGlSmoke
             RefreshNativeCandidate();
             launcher?.AfterUpdate();
             _gameFiles?.AfterUpdate();
+            _hunterChoice?.AfterUpdate();
             // Preserve the original composition order: one procedural chamber,
             // real engine Hunter meshes and atmosphere, then RmlUi UI. Never
             // invent remote Hunter poses or launch another simulation.
@@ -718,7 +719,7 @@ internal static partial class RmlUiOpenGlSmoke
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter picker is not packaged.", path);
         _launcherPages?.Suspend();
-        var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore(), host: host);
+        var next = new NativeHunterPagePresenter(_pages, new LauncherHunterChoiceStore(), host: _host);
         try
         {
             next.Open();
@@ -892,6 +893,13 @@ internal static partial class RmlUiOpenGlSmoke
         return Single.IsFinite(value) && value > 0 ? value : 1;
     }
 
+    private static bool HunterPreviewInputBasis(RenderWindow window)
+    {
+        if (_width == window.FramebufferSize.X && _height == window.FramebufferSize.Y) return true;
+        _hunterChoice?.CancelPreviewGesture();
+        return false;
+    }
+
     internal static bool PointerMoved(double x, double y)
         => Forward(host =>
         {
@@ -902,7 +910,7 @@ internal static partial class RmlUiOpenGlSmoke
                     (float)(y*visualWindow.FramebufferSize.Y/Math.Max(1,visualWindow.ClientSize.Y)));
                 host.Input.PointerMoved(x,y);return;
             }
-            if (_inputWindow is { } hunterWindow && _hunterChoice?.PreviewPointerMove(
+            if (_inputWindow is { IsFocused: true } hunterWindow && HunterPreviewInputBasis(hunterWindow) && _hunterChoice?.PreviewPointerMove(
                 (float)(x * hunterWindow.FramebufferSize.X / Math.Max(1, hunterWindow.ClientSize.X)),
                 (float)(y * hunterWindow.FramebufferSize.Y / Math.Max(1, hunterWindow.ClientSize.Y))) == true) return;
             HudPointerMove(x, y);
@@ -938,7 +946,7 @@ internal static partial class RmlUiOpenGlSmoke
                 if (code==0) { if(down)_fullSettings.VisualPointerDown(px,py);else _fullSettings.VisualPointerUp(); }
                 if(code>=0)host.Input.PointerButton(code,x,y,down);return;
             }
-            if (code == 0 && _inputWindow is { } hunterWindow && _hunterChoice?.PreviewPointerButton(
+            if (code == 0 && _inputWindow is { IsFocused: true } hunterWindow && HunterPreviewInputBasis(hunterWindow) && _hunterChoice?.PreviewPointerButton(
                 (float)(x * hunterWindow.FramebufferSize.X / Math.Max(1, hunterWindow.ClientSize.X)),
                 (float)(y * hunterWindow.FramebufferSize.Y / Math.Max(1, hunterWindow.ClientSize.Y)), down) == true) return;
             if (down && _fullSettings?.MouseDown(button) == true) return;
@@ -971,7 +979,7 @@ internal static partial class RmlUiOpenGlSmoke
         => Forward(host =>
         {
             if (!NativeStudioInputReady(host)) return;
-            if (_inputWindow is { } hunterWindow && _hunterChoice?.PreviewWheel(
+            if (_inputWindow is { IsFocused: true } hunterWindow && HunterPreviewInputBasis(hunterWindow) && _hunterChoice?.PreviewWheel(
                 (float)(hunterWindow.MousePosition.X * hunterWindow.FramebufferSize.X / Math.Max(1, hunterWindow.ClientSize.X)),
                 (float)(hunterWindow.MousePosition.Y * hunterWindow.FramebufferSize.Y / Math.Max(1, hunterWindow.ClientSize.Y)), delta) == true) return;
             if (_inputWindow is { } window && _studioEditor?.Wheel(window.MousePosition.X, window.MousePosition.Y, delta) == true) return;

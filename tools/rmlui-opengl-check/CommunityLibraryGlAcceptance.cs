@@ -191,6 +191,11 @@ internal static class CommunityLibraryGlAcceptance
             }
             Check(emitted == 1, "one native activation emits exactly one action: " + id); Settle();
         }
+        float FirstRowTop()
+        {
+            Check(host.TryGetElementBounds(parent, "native_community_row0", out _, out var y, out _, out _), "first collection row resolves");
+            return y;
+        }
         void CheckListPaging(int visibleRows)
         {
             Frame(); float lastBottom = float.NegativeInfinity;
@@ -204,8 +209,8 @@ internal static class CommunityLibraryGlAcceptance
             }
             foreach (string id in new[] { "native_community_previous", "native_community_next" })
                 Check(host.TryGetElementBounds(parent, id, out float x, out float y, out float w, out float h)
-                    && w > 0 && h > 0 && lastBottom <= y + 1,
-                    "visible catalog rows end before paging control: " + id);
+                    && w > 0 && h > 0 && y + h <= FirstRowTop() + 1,
+                    "header paging controls remain separate from collection rows: " + id);
         }
         void Capture(string name)
         {
