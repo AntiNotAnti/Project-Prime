@@ -347,6 +347,8 @@ namespace MphRead.Entities
                             PaletteOverride = Metadata.RedPalette;
                         }
                         float alpha = _curAlpha;
+                        if (IsMainPlayer && _scene.ModThirdPersonCameraActive)
+                            alpha *= _scene.ModThirdPersonLocalBodyOpacity;
                         if (IsMainPlayer && _scene.CameraSequences.Current == null
                             && _bipedModel1.AnimInfo.Index[0] == (int)PlayerAnimation.Unmorph)
                         {
@@ -376,7 +378,8 @@ namespace MphRead.Entities
                             // a live offline main player's repeated picture uses
                             // a world-projected, one-picture attachment instead.
                             bool presentationOnlyMainEffect = ReferenceEquals(this, _scene.Players.Main)
-                                && !_scene.Services.IsReplica && !Mods.Network.NetSession.Active
+                                && !_scene.Services.IsReplica
+                                && (!Mods.Network.NetSession.Active || _scene.ModThirdPersonCameraActive)
                                 && !Mods.Network.DemoPlayback.IsActive && !Mods.KillCam.Active
                                 && !Mods.SpectatorMode.IsSpectating && FrameTiming.Active
                                 && !_scene.HasPendingEffectSimulation;
