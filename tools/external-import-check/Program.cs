@@ -10,6 +10,11 @@ using MphRead.Mods.Import;
 // image and emits only identifiers and compatibility statuses, never game bytes.
 try
 {
+    if (args.Length == 2 && args[0] == "--probe-bundle")
+    {
+        LocalImportBundleTests.VerifyRealEchoesSource(args[1]);
+        return 0;
+    }
     if (args.Length == 2 && args[0] == "--probe")
     {
         using var image = GameCubeDiscReader.Open(args[1]);
@@ -128,7 +133,7 @@ try
     }
     if (args.Length != 0)
     {
-        Console.Error.WriteLine("Usage: external-import-check [--probe <local.iso|local.gcm|local.rvz>] (GameCube RVZ: None or Zstandard)");
+        Console.Error.WriteLine("Usage: external-import-check [--probe|--probe-bundle <local.iso|local.gcm|local.rvz>] (GameCube RVZ: None or Zstandard)");
         return 2;
     }
     SelfTest();
@@ -138,6 +143,7 @@ try
     EchoesSurfaceFixtureTests.Run();
     EchoesLocalMapFixtureTests.Run();
     EchoesPrivateMapFixtureTests.Run();
+    LocalImportBundleTests.Run();
     DarkSamusSourceFixtureTests.Run();
     EchoesWorldSourceFixtureTests.Run();
     EchoesVisualLayerFixtureTests.Run();

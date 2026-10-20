@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Threading;
 using System.Linq;
 using System.Text;
 using MphRead.Mods.MapGen;
@@ -132,14 +134,11 @@ public static class EchoesPrivateMapImport
     public static string InstallLocalDefinition(MapDefinition definition, string userMapDirectory) =>
         InstallLocalDefinitions(new[] { definition }, userMapDirectory)[0];
 
-    /// <summary>
-    /// Validate/compile/serialize every requested map before creating or
-    /// replacing ANY local recipe. Individual file commits are atomic; a
-    /// filesystem outage during publication may still leave a partial set
-    /// of fully valid private maps, never half-written JSON or shared assets.
-    /// </summary>
+    /// <summary>Validate every map, then publish one immutable local generation
+    /// through a single receipt commit. Previous generations remain readable.</summary>
     public static IReadOnlyList<string> InstallLocalDefinitions(
-        IEnumerable<MapDefinition> definitions, string userMapDirectory)
+        IEnumerable<MapDefinition> definitions, string userMapDirectory,
+        CancellationToken cancellation = default, IProgress<ImportPublishStage>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(definitions);
         ArgumentException.ThrowIfNullOrWhiteSpace(userMapDirectory);
@@ -157,6 +156,7 @@ public static class EchoesPrivateMapImport
         var filenames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (MapDefinition map in requests)
         {
+            cancellation.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(map);
             bool staticPreview = map.Name == "STATIC ECHOES SPIRES";
             bool routed = staticPreview || map.Name.StartsWith("ROUTED ECHOES ", StringComparison.Ordinal);
@@ -228,14 +228,23 @@ public static class EchoesPrivateMapImport
                 throw new InvalidDataException("Local map file cannot be a symbolic link.");
             prepared.Add((target, bytes));
         }
-        var installed = new List<string>(prepared.Count);
-        foreach ((string path, byte[] bytes) in prepared)
-        {
-            AtomicFile.Write(path, bytes);
-            installed.Add(path);
-        }
-        return installed;
+        string? source = requests[0].LocalSourceFingerprint;
+        if (source is not { Length: 40 } || !source.All(Uri.IsHexDigit)
+            || requests.Any(map => map.LocalSourceFingerprint != source))
+            throw new InvalidDataException("All bundle components require the same verified local source edition.");
+        var parts = prepared.ToDictionary(p => Path.GetFileName(p.File), p => p.Bytes, StringComparer.Ordinal);
+        return LocalImportBundle.Publish(root, BundleSpec(source, parts.Keys.ToArray()), parts, cancellation, progress);
     }
+
+    public static ImportBundleSpec CurrentBundleSpec => BundleSpec(
+        ExternalSourceRequirements.For(ExternalGameKind.Echoes).Single(x => x.Path == "Metroid6.pak").ExpectedSha1,
+        Array.Empty<string>());
+
+    public static ImportBundleSpec BundleSpec(string sourceFingerprint, string[] requiredComponents) =>
+        new("echoes", 1, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            "project-prime/echoes-local-generation-v1/c16a907b3658c2fd4079e394a73711596a85caee"))),
+            sourceFingerprint, requiredComponents);
+
 
     public static int RunSpiresCommand(string? isoPath) =>
         RunCommand(isoPath, single: true);

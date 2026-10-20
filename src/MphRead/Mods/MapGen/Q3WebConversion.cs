@@ -71,7 +71,7 @@ public static class Q3WebConversion
 
             cancellation.ThrowIfCancellationRequested();
             var definition = MapDefinition.Load(imported.ProjectPath);
-            if (definition.LocalSourceOnly)
+            if (definition.RequiresPrivateSource)
                 throw new InvalidDataException("Local-only source cannot be published.");
             progress?.Invoke("Building portable .ppmap package");
             MapPackageBuilder.Build(definition, fullOutput);

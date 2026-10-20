@@ -119,10 +119,12 @@ internal static class EchoesTopologyNavigationFixtureTests
         var temp=Path.Combine(Path.GetTempPath(),"cpp09-private-installer-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temp);
         try
         {
-         var routed=Floor();routed.Name="ROUTED ECHOES SPIDER COMPLEX";routed.LocalSourceOnly=true;routed.Capabilities=new(){SupportedModes=new(){"Battle"},MinPlayers=1,MaxPlayers=1};routed.NavigationLinks=new(){Link(start,finish,201),Link(finish,start,202)};
+         var routed=Floor();routed.Name="ROUTED ECHOES SPIDER COMPLEX";routed.LocalSourceOnly=true;routed.LocalSourceFingerprint="b8b92af37dc772ecd8234fb1ce664be0493188f6";routed.Capabilities=new(){SupportedModes=new(){"Battle"},MinPlayers=1,MaxPlayers=1};routed.NavigationLinks=new(){Link(start,finish,201),Link(finish,start,202)};
          Check(MapValidator.Validate(routed,checkSources:false).IsValid,"actual strict routed fixture satisfies existing authoring validator");
          var bytesBefore=routed.Serialize();var file=EchoesPrivateMapImport.InstallLocalDefinition(routed,Path.Combine(temp,"candidate"));
-         Check(File.ReadAllBytes(file).SequenceEqual(Encoding.UTF8.GetBytes(bytesBefore))&&Historical(File.ReadAllBytes(file),"strict-project")&&routed.Serialize()==bytesBefore,"successful strict install persists exact unchanged baseline project/mapID without mutating input");
+         var historicalProject=MapProjectSerializer.Clone(routed);historicalProject.LocalSourceFingerprint=null;
+         Check(Historical(Encoding.UTF8.GetBytes(historicalProject.Serialize()),"strict-project"),"historical project bytes remain unchanged without optional local provenance");
+         Check(File.ReadAllBytes(file).SequenceEqual(Encoding.UTF8.GetBytes(bytesBefore))&&routed.Serialize()==bytesBefore,"successful strict install persists exact project/mapID plus explicit source provenance without mutating input");
          Check(MapDefinition.Load(file).MapId==routed.MapId&&!Directory.EnumerateFiles(temp,"*.ppmap",SearchOption.AllDirectories).Any(),"private routed install preserves mapID and cannot create shareable package");
          var bad=MapProjectSerializer.Clone(routed);bad.NavigationLinks[0]=collapsed;var sentinel=File.ReadAllBytes(file);
          Reject<InvalidDataException>(()=>EchoesPrivateMapImport.InstallLocalDefinition(bad,Path.Combine(temp,"candidate")),"strict actual installer refuses every collapsed route");
