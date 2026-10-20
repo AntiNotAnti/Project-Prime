@@ -46,7 +46,7 @@ internal static class GpuCheck
                 // Failure happens after allocation, proving the uploader releases it.
                 var bad = new MaterialImage(Path.Combine(packRoot, "missing.png"), 1, 1);
                 var material = new ResolvedMaterial(key, null, image, image, cycle % 2 == 0 ? image : bad);
-                object maps = upload.Invoke(null, new object[] { material, allocate, release })!;
+                object maps = upload.Invoke(null, new object[] { material, allocate, release, Type.Missing })!;
                 foreach (string property in new[] { "Normal", "Specular", "Emissive" })
                 {
                     int id = (int)maps.GetType().GetProperty(property)!.GetValue(maps)!;
@@ -61,7 +61,7 @@ internal static class GpuCheck
             int attempts = 0;
             Func<int> faultingAllocate = () => ++attempts == 3 ? throw new InvalidOperationException("synthetic allocation failure") : allocate();
             bool rejected = false;
-            try { upload.Invoke(null, new object[] { new ResolvedMaterial(key, null, image, image, image), faultingAllocate, release }); }
+            try { upload.Invoke(null, new object[] { new ResolvedMaterial(key, null, image, image, image), faultingAllocate, release, Type.Missing }); }
             catch (TargetInvocationException ex) when (ex.InnerException is InvalidOperationException) { rejected = true; }
             if (!rejected || live.Count != 0 || allocated != released) throw new Exception("Partial multi-map allocation leaked");
             Console.WriteLine($"Material GPU checks PASS: 12 cycles + allocation fault, {allocated} allocations / {released} releases, success and failed uploads");
