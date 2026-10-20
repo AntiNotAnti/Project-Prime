@@ -51,7 +51,7 @@ internal static class CombatFastDecisionFunction
     {
         if (claim.ClaimId == 0 || claim.ShotId == 0 || claim.ComponentId == 0 || claim.VictimSlot >= 8)
             return new(FastDecisionState.LegacyRequired, FastDecisionReason.InvalidIdentity);
-        if (claim.Beam is not ((byte)BeamType.PowerBeam) and not ((byte)BeamType.Imperialist)
+        if (!CombatFamilyPolicies.PaidReceiptFamily(claim.Beam)
             || claim.ComponentId != 1 || NetShotProof.Kind(claim.Flags) != 1
             || (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0)
             return new(FastDecisionState.LegacyRequired, FastDecisionReason.FamilyUnsupported);
@@ -202,7 +202,7 @@ internal static class NetCombatFastPath
         CombatFastDecision decision;
         FastNativeEvidence evidence = default;
         uint geometryFrame = 0;
-        if (!witness.OrdinaryDirect || witness.Weapon != (byte)BeamType.Imperialist
+        if (!witness.OrdinaryDirect || !CombatFamilyPolicies.NativeContactShadowFamily(witness.Weapon)
             || beam.Owner is not PlayerEntity owner)
             decision = new(FastDecisionState.LegacyRequired, FastDecisionReason.FamilyUnsupported);
         else

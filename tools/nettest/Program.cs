@@ -42,6 +42,7 @@ namespace MphRead.NetTest
                     + "  --combat-fast-decisions           Test bounded read-only shadow decision and receipt joins.\n"
                     + "  --combat-fast-scene <assets> [room] Test positive native Shadow candidates and exact Off/Shadow parity.\n"
                     + "  --combat-fast-receipts            Test admitted exact paid receipt gates and unchanged fallbacks.\n"
+                    + "  --combat-family-policies          Test native mechanics proof requirements and explicit family fallbacks.\n"
                     + "  --combat-paid-scene <assets> [room] Compare actual native paid receipt ACKs and gameplay.\n"
                     + "  --claim-receipts                  Test constructed keyed receipt retirement accounting.\n"
                     + "  --instagib-ion-fracture           Test presentation-only rail palette, fade and ownership.\n"
@@ -814,6 +815,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
             if (args.Length > 0 && args[0] == "--combat-fast-decisions") return CombatFastDecisionTests.Run();
             if (args.Length > 0 && args[0] == "--combat-fast-receipts") return CombatFastReceiptTests.Run();
+            if (args.Length > 0 && args[0] == "--combat-family-policies") return CombatFamilyPolicyTests.Run();
             if (args.Length > 0 && args[0] == "--combat-fast-damage") return CombatFastDamageTests.Run();
             if (args.Length > 0 && args[0] == "--claim-receipts") return ClaimReceiptAccountingTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
