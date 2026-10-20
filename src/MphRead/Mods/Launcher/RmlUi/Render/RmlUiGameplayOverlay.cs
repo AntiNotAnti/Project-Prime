@@ -44,7 +44,7 @@ internal static partial class RmlUiOpenGlSmoke
             CloseNativeCommunity(); CloseNativeHunter(); CloseNativeQuickSettings(); CloseNativeNews();
             _launcherPages?.Suspend();
             RmlUiHunterStageRenderer.Hide();
-            var controller = new InGameController();
+            var controller = new InGameController(InGameController.CreateEngineBackend(window.Scene));
             _pauseController = controller;
             CampaignJournal? journal = null;
             if (CampaignJournalView.Available(window.Scene.Players))

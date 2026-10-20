@@ -7,6 +7,7 @@ namespace MphRead
     /// <summary>Players and allocation cursors belonging to one simulation world.</summary>
     public sealed class ScenePlayerRegistry
     {
+        internal Scene? OwningScene { get; private set; }
         internal PlayerEntity[] Values { get; } = new PlayerEntity[PlayerEntity.SlotCapacity];
         public IReadOnlyList<PlayerEntity> Items => Values;
         public int MainPlayerIndex { get; set; }
@@ -16,6 +17,7 @@ namespace MphRead
         public PlayerEntity Main => Values[MainPlayerIndex];
         internal void Construct(Scene scene)
         {
+            OwningScene = scene;
             for (int i = 0; i < Values.Length; i++) Values[i] ??= new PlayerEntity(i, scene);
         }
         public void Reset()

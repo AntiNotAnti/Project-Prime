@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using MphRead.Mods.CustomWeapons;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -52,17 +53,21 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? VoteMapRequested;
         public event EventHandler? ReplayControlsRequested;
         public event EventHandler? CampaignJournalRequested;
+        public event EventHandler? CustomEquipRequested;
+        public event EventHandler? CustomReturnNativeRequested;
 
         private readonly HubNavButton _resume;
         private readonly HubNavButton _voteYes;
         private readonly HubNavButton _voteNo;
         private readonly StackPanel _menu;
+        private readonly TextBlock? _customStatus;
 
         /// <param name="offerWindowMode">
         /// Show the fullscreen/windowed entry. False on a phone, which has one
         /// window, it is already the whole screen, and there is no F11.
         /// </param>
-        public PauseMenuView(bool offerWindowMode, bool campaignAvailable = false)
+        public PauseMenuView(bool offerWindowMode, bool campaignAvailable = false,
+            CustomWeaponSelectionSnapshot? customSelection = null)
         {
             Background = Brushes.Transparent;
             Focusable = true;
@@ -128,6 +133,24 @@ namespace MphRead.Mods.Launcher.Gui
                     () => CampaignJournalRequested?.Invoke(this, EventArgs.Empty),
                     HubTheme.Accent);
                 ControllerNav.Identify(journal, "pause.campaign.journal");
+            }
+
+            if (!DemoPlayback.IsActive && customSelection?.Available == true)
+            {
+                var equip = Add(menu, "EQUIP RIFTLINE M7",
+                    () => CustomEquipRequested?.Invoke(this, EventArgs.Empty), HubTheme.Accent);
+                equip.IsEnabled = customSelection.CanEquip;
+                ControllerNav.Identify(equip, "pause.custom.equip");
+                var native = Add(menu, "RETURN TO NATIVE",
+                    () => CustomReturnNativeRequested?.Invoke(this, EventArgs.Empty));
+                native.IsEnabled = customSelection.CanReturnNative;
+                ControllerNav.Identify(native, "pause.custom.native");
+                _customStatus = PrimeChrome.Text("", PrimeTypography.BodySmall, PrimeTheme.DangerBrush);
+                menu.Children.Add(_customStatus);
+                menu.Children.Add(PrimeChrome.Text(
+                    (customSelection.NativePending ? "Return to native pending. " : "")
+                        + Core.InGameController.CustomWeaponBindingHelp(),
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
             }
 
             if (offerWindowMode)
@@ -244,6 +267,12 @@ namespace MphRead.Mods.Launcher.Gui
             Content = UiLayout.Page(overGame: true, UiLayout.WellPlay, "",
                 strip: null, body: _scaler, centreBody: true);
             SizeChanged += (_, e) => FitToHost(e.NewSize.Height);
+        }
+
+        internal void ReportCustomSelectionRefused()
+        {
+            if (_customStatus != null)
+                _customStatus.Text = "The loadout changed. Reopen the match menu and try again.";
         }
 
         private readonly LayoutTransformControl _scaler;

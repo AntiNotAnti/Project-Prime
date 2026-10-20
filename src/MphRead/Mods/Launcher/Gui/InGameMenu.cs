@@ -103,8 +103,17 @@ namespace MphRead.Mods.Launcher.Gui
         {
             // The window mode is offered here and not on Android for the
             // reason it always was: there is a window to change.
+            Scene? owner = _players?.OwningScene;
+            var customSelection = owner?.CustomWeaponMenuSelection;
             var view = new PauseMenuView(offerWindowMode: true,
-                campaignAvailable: CampaignJournalView.Available(_players));
+                campaignAvailable: CampaignJournalView.Available(_players), customSelection: customSelection);
+            void SelectCustom(bool custom)
+            {
+                if (owner?.RequestCustomWeaponMenuSelection(customSelection, custom) == true) Pop();
+                else view.ReportCustomSelectionRefused();
+            }
+            view.CustomEquipRequested += (_, _) => SelectCustom(true);
+            view.CustomReturnNativeRequested += (_, _) => SelectCustom(false);
             view.Resumed += (_, _) => Pop();
             view.FullscreenRequested += (_, _) =>
             {
